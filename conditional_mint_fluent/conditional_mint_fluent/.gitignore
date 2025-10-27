@@ -1,0 +1,21 @@
+# ── foundry build artifacts
+lib/
+cache/
+out/
+
+# ── broadcast logs
+# keep by default out of git; you can selectively unignore a chain folder if you want
+broadcast/
+# but do keep README-like notes or address maps
+!broadcast/README.md
+
+# ── dotenv (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# ── mac / editors / misc
+.DS_Store
+.vscode/
+.idea/
+*.swp
