@@ -1,0 +1,41 @@
+# === Node / package managers ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+
+# === Next.js / build artifacts ===
+.next/
+.next/cache/
+out/
+dist/
+coverage/
+
+# === Env files (keep examples) ===
+.env
+.env.*
+!.env.example
+!.env.local.example
+.env.local
+
+# === OS / editor junk ===
+.DS_Store
+Thumbs.db
+
+# VS Code (ignore local workspace data)
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# JetBrains
+.idea/
+
+# Vim/Swap
+*.swp
+*.swo
+
+# === Deploy platforms ===
+.vercel/
+.netlify/
