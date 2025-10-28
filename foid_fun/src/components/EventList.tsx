@@ -3,7 +3,11 @@ import { useEffect, useState } from "react";
 import type { Abi, Address } from "viem";
 import { formatUnits, zeroAddress } from "viem"; // 👈 added (values only)
 import { usePublicClient } from "wagmi";
-import { WrappedFoid, BridgeRouter } from "@/lib/contracts";
+import {
+  BLOCK_EXPLORER_URL,
+  BridgeRouter,
+  WrappedFoid,
+} from "@/lib/contracts";
 
 type EventEntry = {
   id: string;
@@ -29,6 +33,8 @@ const BRIDGE_EVENT_SET = new Set<string>(BRIDGE_EVENT_NAMES);
 const DECIMALS = 18; // wFOID decimals
 const short = (a?: string, n = 4) => (a ? `${a.slice(0, 2 + n)}…${a.slice(-n)}` : "");
 const isZero = (a?: string) => (a ?? "").toLowerCase() === zeroAddress.toLowerCase();
+const addrLink = (a?: string) =>
+  a ? `${BLOCK_EXPLORER_URL}/address/${a}` : undefined;
 
 export function EventList() {
   const publicClient = usePublicClient();
@@ -105,22 +111,80 @@ export function EventList() {
       const amt = `${formatUnits(value, DECIMALS)} wFOID`;
 
       let label = "Transfer";
-      let detail = `${short(from)} → ${short(to)} · ${amt}`;
+      let content: React.ReactNode = (
+        <>
+          <a
+            href={addrLink(from)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-dotted"
+          >
+            {short(from)}
+          </a>{" "}
+          →{" "}
+          <a
+            href={addrLink(to)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-dotted"
+          >
+            {short(to)}
+          </a>{" "}
+          · {amt}
+        </>
+      );
 
       if (isZero(from)) {
         label = "Mint";
-        detail = `to ${short(to)} · ${amt}`;
+        content = (
+          <>
+            to{" "}
+            <a
+              href={addrLink(to)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dotted"
+            >
+              {short(to)}
+            </a>{" "}
+            · {amt}
+          </>
+        );
       } else if (isZero(to)) {
         label = "Burn";
-        detail = `from ${short(from)} · ${amt}`;
+        content = (
+          <>
+            from{" "}
+            <a
+              href={addrLink(from)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dotted"
+            >
+              {short(from)}
+            </a>{" "}
+            · {amt}
+          </>
+        );
       }
 
       return (
         <div key={e.id} className="flex items-start justify-between gap-3 text-sm">
           <div>
             <span className="font-mono text-fluent-pink">{label}</span>
-            <span className="ml-2 text-neutral-300">{detail}</span>
-            <div className="text-neutral-500 text-xs">blk {e.blockNumber.toString()} · idx {e.logIndex}</div>
+            <span className="ml-2 text-neutral-300">{content}</span>
+            <div className="text-neutral-500 text-xs">
+              blk{" "}
+              <a
+                href={`${BLOCK_EXPLORER_URL}/block/${e.blockNumber.toString()}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-dotted"
+              >
+                {e.blockNumber.toString()}
+              </a>{" "}
+              · idx {e.logIndex}
+            </div>
           </div>
         </div>
       );
@@ -133,9 +197,28 @@ export function EventList() {
         <div key={e.id} className="text-sm">
           <span className="font-mono text-fluent-pink">{n}</span>
           <span className="ml-2 text-neutral-300">
-            {short(role, 6)} · {short(account)}
+            {short(role, 6)} ·{" "}
+            <a
+              href={addrLink(account)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dotted"
+            >
+              {short(account)}
+            </a>
           </span>
-          <div className="text-neutral-500 text-xs">blk {e.blockNumber.toString()} · idx {e.logIndex}</div>
+          <div className="text-neutral-500 text-xs">
+            blk{" "}
+            <a
+              href={`${BLOCK_EXPLORER_URL}/block/${e.blockNumber.toString()}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dotted"
+            >
+              {e.blockNumber.toString()}
+            </a>{" "}
+            · idx {e.logIndex}
+          </div>
         </div>
       );
     }
@@ -145,8 +228,29 @@ export function EventList() {
       return (
         <div key={e.id} className="text-sm">
           <span className="font-mono text-fluent-pink">{n}</span>
-          <span className="ml-2 text-neutral-300">by {short(account)}</span>
-          <div className="text-neutral-500 text-xs">blk {e.blockNumber.toString()} · idx {e.logIndex}</div>
+          <span className="ml-2 text-neutral-300">
+            by{" "}
+            <a
+              href={addrLink(account)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dotted"
+            >
+              {short(account)}
+            </a>
+          </span>
+          <div className="text-neutral-500 text-xs">
+            blk{" "}
+            <a
+              href={`${BLOCK_EXPLORER_URL}/block/${e.blockNumber.toString()}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dotted"
+            >
+              {e.blockNumber.toString()}
+            </a>{" "}
+            · idx {e.logIndex}
+          </div>
         </div>
       );
     }
@@ -159,9 +263,29 @@ export function EventList() {
         <div key={e.id} className="text-sm">
           <span className="font-mono text-fluent-pink">Bridge Minted</span>
           <span className="ml-2 text-neutral-300">
-            to {short(to)} · {formatUnits(amount, DECIMALS)} wFOID
+            to{" "}
+            <a
+              href={addrLink(to)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dotted"
+            >
+              {short(to)}
+            </a>{" "}
+            · {formatUnits(amount, DECIMALS)} wFOID
           </span>
-          <div className="text-neutral-500 text-xs">blk {e.blockNumber.toString()} · idx {e.logIndex}</div>
+          <div className="text-neutral-500 text-xs">
+            blk{" "}
+            <a
+              href={`${BLOCK_EXPLORER_URL}/block/${e.blockNumber.toString()}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dotted"
+            >
+              {e.blockNumber.toString()}
+            </a>{" "}
+            · idx {e.logIndex}
+          </div>
         </div>
       );
     }
@@ -173,9 +297,29 @@ export function EventList() {
         <div key={e.id} className="text-sm">
           <span className="font-mono text-fluent-pink">Burn for Redeem</span>
           <span className="ml-2 text-neutral-300">
-            by {short(from)} · {formatUnits(amount, DECIMALS)} wFOID
+            by{" "}
+            <a
+              href={addrLink(from)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dotted"
+            >
+              {short(from)}
+            </a>{" "}
+            · {formatUnits(amount, DECIMALS)} wFOID
           </span>
-          <div className="text-neutral-500 text-xs">blk {e.blockNumber.toString()} · idx {e.logIndex}</div>
+          <div className="text-neutral-500 text-xs">
+            blk{" "}
+            <a
+              href={`${BLOCK_EXPLORER_URL}/block/${e.blockNumber.toString()}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dotted"
+            >
+              {e.blockNumber.toString()}
+            </a>{" "}
+            · idx {e.logIndex}
+          </div>
         </div>
       );
     }
@@ -185,7 +329,18 @@ export function EventList() {
       <div key={e.id} className="text-sm">
         <span className="font-mono text-fluent-pink">{n || "Event"}</span>{" "}
         <span className="text-neutral-400">{JSON.stringify(e.args)}</span>
-        <div className="text-neutral-500 text-xs">blk {e.blockNumber.toString()} · idx {e.logIndex}</div>
+        <div className="text-neutral-500 text-xs">
+          blk{" "}
+          <a
+            href={`${BLOCK_EXPLORER_URL}/block/${e.blockNumber.toString()}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-dotted"
+          >
+            {e.blockNumber.toString()}
+          </a>{" "}
+          · idx {e.logIndex}
+        </div>
       </div>
     );
   };

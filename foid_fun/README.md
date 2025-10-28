@@ -11,6 +11,7 @@ Built with **Next.js (App Router)**, **Typescript**, **wagmi** v2, **viem**, **R
 - 🌉 **Bridge page**: burn wFOID to redeem on Monero by providing a Monero destination; mint on Fluent with a signed attestation. A local helper computes the exact message hash that needs to be signed offline. Displays router chain ID and whether the connected wallet is an attestor.
 - 📜 **Registry page**: view the current registry owner and check if any address is an attestor. If the connected wallet is the owner, it can add or remove attestors.
 - 🔐 **Role‑aware UI**: buttons for mint/burn/pause/unpause and registry management only appear if your account has the appropriate role on chain. No secrets are ever requested; signing is handled by your wallet.
+- 🔄 **FoidSwap router**: connect the newly deployed pair, execute swaps, and manage liquidity directly against the Router contract with automatic allowance handling and Fluent Testnet onboarding.
 - 🎨 **Fluent meets Bebop**: dark first UI with a neon purple→pink→blue gradient inspired by Fluent’s brand, subtle noise overlays and rounded card components. The layout gently animates on hover.
 
 ## Getting Started
@@ -26,10 +27,17 @@ npm install
 Copy `.env.local.example` to `.env.local` and adjust the addresses or RPC URLs if necessary.
 
 ```env
-NEXT_PUBLIC_RPC_URL=https://rpc.testnet.fluent.xyz
+NEXT_PUBLIC_RPC=https://rpc.testnet.fluent.xyz
 NEXT_PUBLIC_CHAIN_ID=20994
+NEXT_PUBLIC_FACTORY=0xe97639fd6Ff7231ed270Ea16BD9Ba2c79f4cD2cc
+NEXT_PUBLIC_ROUTER=0xd71330e54eAA2e4248E75067F8f23bB2a6568613
+NEXT_PUBLIC_TOKEN_A=0x403ECF8ba28E58CE4d1847C1C95ac54651fAB151
+NEXT_PUBLIC_TOKEN_B=0xC08c0a41725F2329A9a315C643FE9b1a012D6213
+NEXT_PUBLIC_BLOCK_EXPLORER=https://testnet.fluentscan.xyz
+
+# legacy variables for existing dashboards (optional)
+NEXT_PUBLIC_RPC_URL=https://rpc.testnet.fluent.xyz
 NEXT_PUBLIC_WFOID=0x403ECF8ba28E58CE4d1847C1C95ac54651fAB151
-NEXT_PUBLIC_ROUTER=0xf98Ec3dd6BfFBf79528918dc6fD153ca2ba8d3Da
 NEXT_PUBLIC_REGISTRY=0xd0AD34C087b59292Fb9eBbA17ED2C0B941C7010D
 ```
 
@@ -76,6 +84,7 @@ npm start
   - `token/page.tsx` – token management page
   - `bridge/page.tsx` – bridge interactions page
   - `registry/page.tsx` – attestor registry page
+  - `foidswap/page.tsx` – router swaps and liquidity management
 - `src/components` – reusable UI components (ConnectBar, NetworkGate, StatCard, RoleBadge, TxButton, AmountInput, EventList)
 - `src/lib/contracts.ts` – addresses and typed ABIs
 - `src/abis` – contract ABI definitions used by wagmi/viem

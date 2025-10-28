@@ -1,6 +1,11 @@
 [profile.default]
 src = "src"
-out = "out"
 libs = ["lib"]
+solc_version = "0.8.20"        # use the version you compiled with in Remix
+optimizer = true               # match Remix
+optimizer_runs = 200           # match Remix (default 200 unless you changed it)
+evm_version = "london"         # match Remix if you set one
+via_ir = true
 
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+[fmt]
+line_length = 100

@@ -1,0 +1,114 @@
+[
+  {
+    "type": "function",
+    "name": "token0",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [{ "type": "address" }]
+  },
+  {
+    "type": "function",
+    "name": "token1",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [{ "type": "address" }]
+  },
+  {
+    "type": "function",
+    "name": "getReserves",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      { "type": "uint112", "name": "reserve0" },
+      { "type": "uint112", "name": "reserve1" },
+      { "type": "uint32", "name": "ts" }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "deposit",
+    "stateMutability": "nonpayable",
+    "inputs": [],
+    "outputs": [{ "type": "uint256", "name": "shares" }]
+  },
+  {
+    "type": "function",
+    "name": "withdraw",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "type": "uint256", "name": "shares" },
+      { "type": "address", "name": "to" }
+    ],
+    "outputs": [
+      { "type": "uint256", "name": "amount0" },
+      { "type": "uint256", "name": "amount1" }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "swap",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "type": "uint256", "name": "amountIn" },
+      { "type": "bool", "name": "zeroForOne" },
+      { "type": "address", "name": "to" }
+    ],
+    "outputs": [{ "type": "uint256", "name": "amountOut" }]
+  },
+  {
+    "type": "function",
+    "name": "totalSupply",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [{ "type": "uint256" }]
+  },
+  {
+    "type": "function",
+    "name": "balanceOf",
+    "stateMutability": "view",
+    "inputs": [{ "type": "address" }],
+    "outputs": [{ "type": "uint256" }]
+  },
+  {
+    "type": "event",
+    "name": "Sync",
+    "anonymous": false,
+    "inputs": [
+      { "indexed": false, "type": "uint112" },
+      { "indexed": false, "type": "uint112" }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "Mint",
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "type": "address" },
+      { "indexed": false, "type": "uint256" },
+      { "indexed": false, "type": "uint256" }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "Burn",
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "type": "address" },
+      { "indexed": false, "type": "uint256" },
+      { "indexed": false, "type": "uint256" },
+      { "indexed": true, "type": "address" }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "Swap",
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "type": "address" },
+      { "indexed": false, "type": "uint256" },
+      { "indexed": false, "type": "uint256" },
+      { "indexed": false, "type": "bool" },
+      { "indexed": true, "type": "address" }
+    ]
+  }
+]

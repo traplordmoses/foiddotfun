@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation";
 const links = [
   { href: "/", label: "Dashboard" },
   { href: "/token", label: "Token" },
-  { href: "/bridge", label: "Bridge" },
   { href: "/registry", label: "Registry" },
+  { href: "/foidswap", label: "FoidSwap" },
+  { href: "/launchpad", label: "FoidFactory" },
 ];
 
 export default function Nav() {
