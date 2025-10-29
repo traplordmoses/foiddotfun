@@ -709,10 +709,11 @@ export default function FoidSwapPage() {
             .catch(() => 0n),
         ]);
 
-        const decimalsNumber =
-          typeof rawDecimals === "number"
-            ? rawDecimals
-            : Number((rawDecimals as any)?.toString?.() ?? 18);
+        const decimalsNumber = (() => {
+          if (typeof rawDecimals === "number" && Number.isFinite(rawDecimals)) return rawDecimals;
+          const parsed = Number((rawDecimals as any)?.toString?.() ?? "18");
+          return Number.isFinite(parsed) ? parsed : 18;
+        })();
         const symbol =
           typeof rawSymbol === "string" && rawSymbol.trim().length > 0
             ? rawSymbol.trim()
@@ -721,7 +722,7 @@ export default function FoidSwapPage() {
         return {
           address: tokenAddress,
           symbol,
-          decimals: Number.isFinite(decimalsNumber) ? decimalsNumber : 18,
+          decimals: decimalsNumber,
           balance: (balance as bigint) ?? 0n,
         };
       } catch (error) {
@@ -823,53 +824,69 @@ export default function FoidSwapPage() {
 
       try {
         const latestBlock = await publicClient.getBlockNumber();
-        const transfersLookback = 1_000_000n;
-        const transferFromBlock =
-          latestBlock > transfersLookback ? latestBlock - transfersLookback : 0n;
+        const batchSize = 200_000n;
         const accountLower = account.toLowerCase();
 
-        const [logsIn, logsOut] = await Promise.all([
-          publicClient.getLogs({
-            event: transferEvent,
-            args: { to: account as Address },
-            fromBlock: transferFromBlock,
-            toBlock: latestBlock,
-          }),
-          publicClient.getLogs({
-            event: transferEvent,
-            args: { from: account as Address },
-            fromBlock: transferFromBlock,
-            toBlock: latestBlock,
-          }),
-        ]);
+        const fetchLogsChunked = async ({
+          event,
+          args,
+          address,
+        }: {
+          event: typeof transferEvent | typeof tokenDeployedEvent;
+          args?: Record<string, unknown>;
+          address?: Address;
+        }) => {
+          const logs: any[] = [];
+          let cursor = 0n;
+          while (cursor <= latestBlock) {
+            const chunkEnd = cursor + batchSize > latestBlock ? latestBlock : cursor + batchSize;
+            try {
+              const chunk = await publicClient.getLogs({
+                address,
+                event,
+                args: args as any,
+                fromBlock: cursor,
+                toBlock: chunkEnd,
+              });
+              logs.push(...chunk);
+            } catch (err) {
+              console.debug("log chunk fetch failed", err);
+            }
+            cursor = chunkEnd + 1n;
+          }
+          return logs;
+        };
+
+        const logsIn = await fetchLogsChunked({
+          event: transferEvent,
+          args: { to: account as Address },
+        });
+        const logsOut = await fetchLogsChunked({
+          event: transferEvent,
+          args: { from: account as Address },
+        });
 
         [...logsIn, ...logsOut].forEach((log) => addAddress(log.address as Address));
 
-        if (factoryAddress && tokenDeployedEvent) {
-          try {
-            const creationLogs = await publicClient.getLogs({
-              address: factoryAddress,
-              event: tokenDeployedEvent,
-              fromBlock: 0n,
-              toBlock: latestBlock,
-            });
-            creationLogs.forEach((log) => {
-              const tokenAddress = (log.args?.token as Address) ?? (log.address as Address);
-              const creator = log.args?.creator as Address | undefined;
-              const initialMintTo = log.args?.initialMintTo as Address | undefined;
-              if (
-                tokenAddress &&
-                (creator?.toLowerCase() === accountLower || initialMintTo?.toLowerCase() === accountLower)
-              ) {
-                addAddress(tokenAddress);
-              }
-            });
-          } catch (factoryError) {
-            console.debug("factory token scan failed", factoryError);
-          }
+        if (factoryAddress) {
+          const creationLogs = await fetchLogsChunked({
+            address: factoryAddress,
+            event: tokenDeployedEvent,
+          });
+          creationLogs.forEach((log) => {
+            const tokenAddress = (log.args?.token as Address) ?? (log.address as Address);
+            const creator = log.args?.creator as Address | undefined;
+            const initialMintTo = log.args?.initialMintTo as Address | undefined;
+            if (
+              tokenAddress &&
+              (creator?.toLowerCase() === accountLower || initialMintTo?.toLowerCase() === accountLower)
+            ) {
+              addAddress(tokenAddress);
+            }
+          });
         }
       } catch (error) {
-        console.debug("wallet transfer scan failed", error);
+        console.debug("wallet token discovery failed", error);
       }
 
       const pairsToInspect = new Set<Address>();
