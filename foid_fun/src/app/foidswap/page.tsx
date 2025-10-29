@@ -790,6 +790,30 @@ export default function FoidSwapPage() {
         if (toastId) toast.dismiss(toastId);
         const message = unwrapErrorMessage(err) ?? "Pair creation failed";
         const normalized = message.toLowerCase();
+        const resolveExistingPair = async () => {
+          try {
+            const existing = (await publicClient.readContract({
+              address: factoryAddress,
+              abi: factoryAbi,
+              functionName: "getPair",
+              args: [queryToken0, queryToken1],
+            })) as Address;
+            if (existing && existing !== zeroAddress) {
+              setPairRefreshNonce((n) => n + 1);
+              if (selectedKey && selectedKey === targetKey) {
+                setPairToken0(undefined);
+                setPairReserves(undefined);
+                setPairAllowance(undefined);
+                setPairBalance(undefined);
+                setPairAddress(existing);
+              }
+              return existing;
+            }
+          } catch (lookupErr) {
+            console.debug("existing pair lookup failed", lookupErr);
+          }
+          return undefined;
+        };
         if (
           normalized.includes("user rejected") ||
           normalized.includes("user denied") ||
@@ -798,26 +822,22 @@ export default function FoidSwapPage() {
           toast.error("Transaction signature was rejected in the wallet.");
           return undefined;
         }
-        if (normalized.includes("pair already")) {
-          const existingPair = (await publicClient.readContract({
-            address: factoryAddress,
-            abi: factoryAbi,
-            functionName: "getPair",
-            args: [queryToken0, queryToken1],
-          })) as Address;
-          if (existingPair && existingPair !== zeroAddress) {
-            toast.success("Pair already exists");
-            setPairRefreshNonce((n) => n + 1);
-            if (selectedKey && selectedKey === targetKey) {
-              setPairToken0(undefined);
-              setPairReserves(undefined);
-              setPairAllowance(undefined);
-              setPairBalance(undefined);
-              setPairAddress(existingPair);
-            }
-            setCreatingPair(false);
-            return existingPair;
-          }
+        let resolvedPair: Address | undefined;
+        if (
+          normalized.includes("pair already") ||
+          normalized.includes("pair_exists") ||
+          normalized.includes("pair exists") ||
+          normalized.includes("already exists")
+        ) {
+          resolvedPair = await resolveExistingPair();
+        }
+        if (normalized.includes("pair") && normalized.includes("exist")) {
+          resolvedPair = resolvedPair ?? (await resolveExistingPair());
+        }
+        if (resolvedPair) {
+          toast.success("Pair already exists");
+          setCreatingPair(false);
+          return resolvedPair;
         }
         if (normalized.includes("forbidden")) {
           toast.error("Factory rejected the pair (FORBIDDEN). Check roles/permissions.");
@@ -826,6 +846,12 @@ export default function FoidSwapPage() {
         if (normalized.includes("identical")) {
           toast.error("Provide two distinct token addresses.");
           return undefined;
+        }
+        const fallbackPair = await resolveExistingPair();
+        if (fallbackPair) {
+          toast.success("Pair already exists");
+          setCreatingPair(false);
+          return fallbackPair;
         }
         toast.error(message);
         return undefined;
