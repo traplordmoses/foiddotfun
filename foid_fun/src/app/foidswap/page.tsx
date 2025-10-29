@@ -221,8 +221,15 @@ const DEFAULT_FACTORY = "0xe97639fd6Ff7231ed270Ea16BD9Ba2c79f4cD2cc" as const;
 const DEFAULT_ROUTER = "0xd71330e54eAA2e4248E75067F8f23bB2a6568613" as const;
 const DEFAULT_TOKEN_A = "0x403ECF8ba28E58CE4d1847C1C95ac54651fAB151" as const;
 const DEFAULT_TOKEN_B = "0xC08c0a41725F2329A9a315C643FE9b1a012D6213" as const;
-const TRANSFER_TOPIC =
-  "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const transferEvent = {
+  type: "event",
+  name: "Transfer",
+  inputs: [
+    { indexed: true, name: "from", type: "address" },
+    { indexed: true, name: "to", type: "address" },
+    { indexed: false, name: "value", type: "uint256" },
+  ],
+} as const;
 
 const resolveAddress = (...candidates: (string | undefined)[]): Address | undefined => {
   for (const candidate of candidates) {
@@ -741,18 +748,19 @@ export default function FoidSwapPage() {
         const latestBlock = await publicClient.getBlockNumber();
         const lookback = 120_000n;
         const fromBlock = latestBlock > lookback ? latestBlock - lookback : 0n;
-        const accountTopic = `0x${account.toLowerCase().slice(2).padStart(64, "0")}`;
 
         const [logsIn, logsOut] = await Promise.all([
           publicClient.getLogs({
+            event: transferEvent,
+            args: { to: account as Address },
             fromBlock,
             toBlock: latestBlock,
-            topics: [TRANSFER_TOPIC, null, accountTopic],
           }),
           publicClient.getLogs({
+            event: transferEvent,
+            args: { from: account as Address },
             fromBlock,
             toBlock: latestBlock,
-            topics: [TRANSFER_TOPIC, accountTopic, null],
           }),
         ]);
 
