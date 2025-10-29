@@ -250,6 +250,22 @@ const unwrapErrorMessage = (error: unknown): string | undefined => {
     if (typeof maybeMessage === "string" && maybeMessage.trim().length > 0) {
       return maybeMessage;
     }
+    const dataField = (error as { data?: unknown }).data;
+    if (typeof dataField === "string" && dataField.trim().length > 0) {
+      return dataField;
+    }
+    if (typeof dataField === "object" && dataField !== null) {
+      const nestedMessage =
+        (dataField as { message?: unknown }).message ??
+        (dataField as { shortMessage?: unknown }).shortMessage ??
+        (dataField as { details?: unknown }).details;
+      if (typeof nestedMessage === "string" && nestedMessage.trim().length > 0) {
+        return nestedMessage;
+      }
+      const nestedCause = (dataField as { cause?: unknown }).cause;
+      const viaNested = unwrapErrorMessage(nestedCause);
+      if (viaNested) return viaNested;
+    }
     return unwrapErrorMessage((error as { cause?: unknown }).cause);
   }
   return undefined;
