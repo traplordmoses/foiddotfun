@@ -403,12 +403,24 @@ const unwrapErrorMessage = (error: unknown): string | undefined => {
     return error.message || unwrapErrorMessage((error as any).cause);
   }
   if (typeof error === "object") {
-    const maybeMessage =
-      (error as { shortMessage?: unknown }).shortMessage ??
-      (error as { details?: unknown }).details ??
-      (error as { message?: unknown }).message;
-    if (typeof maybeMessage === "string" && maybeMessage.trim().length > 0) {
-      return maybeMessage;
+    const candidates: string[] = [];
+    const pushCandidate = (value: unknown) => {
+      if (typeof value === "string" && value.trim().length > 0) {
+        candidates.push(value.trim());
+      }
+    };
+    pushCandidate((error as { details?: unknown }).details);
+    pushCandidate((error as { shortMessage?: unknown }).shortMessage);
+    pushCandidate((error as { message?: unknown }).message);
+
+    const prioritized =
+      candidates.find((candidate) =>
+        candidate.toLowerCase().includes("execution reverted") ||
+        candidate.toLowerCase().includes("revert") ||
+        candidate.toLowerCase().includes("error"),
+      ) ?? candidates[0];
+    if (prioritized) {
+      return prioritized;
     }
     const dataField = (error as { data?: unknown }).data;
     if (typeof dataField === "string" && dataField.trim().length > 0) {
@@ -823,16 +835,16 @@ export default function FoidSwapPage() {
           return undefined;
         }
         let resolvedPair: Address | undefined;
-        if (
+        const indicatesExists =
+          normalized.includes("exists") ||
           normalized.includes("pair already") ||
           normalized.includes("pair_exists") ||
           normalized.includes("pair exists") ||
-          normalized.includes("already exists")
-        ) {
+          normalized.includes("already exists");
+        if (indicatesExists) {
           resolvedPair = await resolveExistingPair();
-        }
-        if (normalized.includes("pair") && normalized.includes("exist")) {
-          resolvedPair = resolvedPair ?? (await resolveExistingPair());
+        } else if (normalized.includes("pair") && normalized.includes("exist")) {
+          resolvedPair = await resolveExistingPair();
         }
         if (resolvedPair) {
           toast.success("Pair already exists");
@@ -841,6 +853,10 @@ export default function FoidSwapPage() {
         }
         if (normalized.includes("forbidden")) {
           toast.error("Factory rejected the pair (FORBIDDEN). Check roles/permissions.");
+          return undefined;
+        }
+        if (normalized.includes("zero")) {
+          toast.error("One of the provided token addresses is zero. Please verify both tokens.");
           return undefined;
         }
         if (normalized.includes("identical")) {
