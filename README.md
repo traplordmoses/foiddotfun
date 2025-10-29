@@ -20,7 +20,7 @@ A MetaMask Snap that enforces fresh-wallet hygiene and routes users to a privacy
 
 ---
 
-## User Flow (visual)  
+## User Flow
 ```mermaid
 sequenceDiagram
   participant U as User
