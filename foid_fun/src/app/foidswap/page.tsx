@@ -959,6 +959,15 @@ export default function FoidSwapPage() {
     tokenBAddress,
   ]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as any).__foid = {
+        ...(window as any).__foid,
+        walletTokens,
+      };
+    }
+  }, [walletTokens]);
+
   // fetch pair address when tokens ready
   useEffect(() => {
     const shouldFallback =
