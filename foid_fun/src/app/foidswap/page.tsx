@@ -230,6 +230,22 @@ const transferEvent = {
     { indexed: false, name: "value", type: "uint256" },
   ],
 } as const;
+const tokenDeployedEvent = {
+  type: "event",
+  name: "TokenDeployed",
+  inputs: [
+    { indexed: true, name: "token", type: "address" },
+    { indexed: true, name: "creator", type: "address" },
+    { indexed: false, name: "name", type: "string" },
+    { indexed: false, name: "symbol", type: "string" },
+    { indexed: false, name: "decimals", type: "uint8" },
+    { indexed: false, name: "cap", type: "uint256" },
+    { indexed: false, name: "initialMint", type: "uint256" },
+    { indexed: false, name: "initialMintTo", type: "address" },
+    { indexed: false, name: "userSalt", type: "bytes32" },
+    { indexed: false, name: "namespacedSalt", type: "bytes32" },
+  ],
+} as const;
 
 const resolveAddress = (...candidates: (string | undefined)[]): Address | undefined => {
   for (const candidate of candidates) {
@@ -807,8 +823,9 @@ export default function FoidSwapPage() {
 
       try {
         const latestBlock = await publicClient.getBlockNumber();
-        const lookback = 120_000n;
+        const lookback = 500_000n;
         const fromBlock = latestBlock > lookback ? latestBlock - lookback : 0n;
+        const accountLower = account.toLowerCase();
 
         const [logsIn, logsOut] = await Promise.all([
           publicClient.getLogs({
@@ -826,6 +843,30 @@ export default function FoidSwapPage() {
         ]);
 
         [...logsIn, ...logsOut].forEach((log) => addAddress(log.address as Address));
+
+        if (factoryAddress && tokenDeployedEvent) {
+          try {
+            const creationLogs = await publicClient.getLogs({
+              address: factoryAddress,
+              event: tokenDeployedEvent,
+              fromBlock,
+              toBlock: latestBlock,
+            });
+            creationLogs.forEach((log) => {
+              const tokenAddress = (log.args?.token as Address) ?? (log.address as Address);
+              const creator = log.args?.creator as Address | undefined;
+              const initialMintTo = log.args?.initialMintTo as Address | undefined;
+              if (
+                tokenAddress &&
+                (creator?.toLowerCase() === accountLower || initialMintTo?.toLowerCase() === accountLower)
+              ) {
+                addAddress(tokenAddress);
+              }
+            });
+          } catch (factoryError) {
+            console.debug("factory token scan failed", factoryError);
+          }
+        }
       } catch (error) {
         console.debug("wallet transfer scan failed", error);
       }
