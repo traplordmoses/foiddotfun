@@ -313,6 +313,11 @@ export default function FoidSwapPage() {
     DEFAULT_TOKEN_B,
   );
 
+  const fallbackPairAddress = resolveAddress(
+    process.env.NEXT_PUBLIC_PAIR as string | undefined,
+    process.env.NEXT_PUBLIC_AMM as string | undefined,
+  );
+
   const [activeView, setActiveView] = useState<ViewKey>("swap");
   const [liquidityMode, setLiquidityMode] = useState<LiquidityMode>("add");
   const [tokenIn, setTokenIn] = useState<Address | undefined>(tokenAAddress);
@@ -349,7 +354,7 @@ export default function FoidSwapPage() {
   const [tokenAState, setTokenAState] = useState<TokenState>({});
   const [tokenBState, setTokenBState] = useState<TokenState>({});
 
-  const [pairAddress, setPairAddress] = useState<Address | undefined>();
+  const [pairAddress, setPairAddress] = useState<Address | undefined>(fallbackPairAddress);
   const [pairToken0, setPairToken0] = useState<Address | undefined>();
   const [pairReserves, setPairReserves] = useState<[bigint, bigint, number] | undefined>();
   const [pairAllowance, setPairAllowance] = useState<bigint | undefined>();
@@ -357,7 +362,9 @@ export default function FoidSwapPage() {
   const [creatingPair, setCreatingPair] = useState(false);
   const [manualToken0, setManualToken0] = useState("");
   const [manualToken1, setManualToken1] = useState("");
-  const [factoryPairs, setFactoryPairs] = useState<Address[]>([]);
+  const [factoryPairs, setFactoryPairs] = useState<Address[]>(
+    fallbackPairAddress ? [fallbackPairAddress] : [],
+  );
   const [factoryPairsLoading, setFactoryPairsLoading] = useState(false);
   const [factoryPairsError, setFactoryPairsError] = useState<string | null>(null);
   const [pairRefreshNonce, setPairRefreshNonce] = useState(0);
@@ -383,8 +390,7 @@ export default function FoidSwapPage() {
     [tokenAAddress, tokenBAddress],
   );
 
-  const envOk =
-    routerAddress && factoryAddress && tokenAddresses.length === 2;
+  const envOk = routerAddress && tokenAddresses.length === 2;
 
   const handleCreatePair = useCallback(
     async (
@@ -406,6 +412,13 @@ export default function FoidSwapPage() {
       if (targetToken0.toLowerCase() === targetToken1.toLowerCase()) {
         toast.error("Token addresses must differ");
         return undefined;
+      }
+      if (fallbackPairAddress && fallbackPairAddress !== zeroAddress) {
+        if (!options?.silent) {
+          toast.success("Pair already exists");
+        }
+        setPairAddress(fallbackPairAddress);
+        return fallbackPairAddress;
       }
       const [queryToken0, queryToken1] = sortPairAddresses(targetToken0, targetToken1);
 
@@ -627,8 +640,12 @@ export default function FoidSwapPage() {
 
   // fetch pair address when tokens ready
   useEffect(() => {
-    if (!publicClient || !factoryAddress || tokenAddresses.length !== 2) {
-      setPairAddress(undefined);
+    if (!publicClient || tokenAddresses.length !== 2) {
+      setPairAddress(fallbackPairAddress);
+      return;
+    }
+    if (!factoryAddress) {
+      setPairAddress(fallbackPairAddress);
       return;
     }
     const [raw0, raw1] = tokenAddresses;
@@ -645,20 +662,20 @@ export default function FoidSwapPage() {
         if (!cancelled && addr && addr !== zeroAddress) {
           setPairAddress(addr);
         } else if (!cancelled) {
-          setPairAddress(undefined);
+          setPairAddress(fallbackPairAddress);
         }
       } catch (err) {
         if (!isContractRevertError(err)) {
           console.debug("getPair failed", err);
         }
-        if (!cancelled) setPairAddress(undefined);
+        if (!cancelled) setPairAddress(fallbackPairAddress);
       }
     };
     void loadPair();
     return () => {
       cancelled = true;
     };
-  }, [factoryAddress, publicClient, tokenAddresses]);
+  }, [factoryAddress, fallbackPairAddress, publicClient, tokenAddresses]);
 
   // pair metadata
   useEffect(() => {
@@ -806,7 +823,7 @@ export default function FoidSwapPage() {
     return () => {
       cancelled = true;
     };
-  }, [factoryAddress, pairAddress, pairRefreshNonce, publicClient]);
+  }, [factoryAddress, fallbackPairAddress, pairAddress, pairRefreshNonce, publicClient]);
 
   // swap quote
   useEffect(() => {
