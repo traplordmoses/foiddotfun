@@ -248,6 +248,140 @@ const tokenDeployedEvent = {
   ],
 } as const;
 
+type WalletTokenHint = {
+  address: Address;
+  symbol?: string;
+  decimals?: number;
+  balance?: bigint;
+};
+
+const parseMaybeBigInt = (value: unknown): bigint | undefined => {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    try {
+      return BigInt(Math.trunc(value));
+    } catch {
+      return undefined;
+    }
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    try {
+      return BigInt(value);
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+};
+
+const fetchBlockscoutWalletTokens = async (wallet: Address): Promise<WalletTokenHint[]> => {
+  if (!BLOCKSCOUT_API_BASE) return [];
+
+  const base = BLOCKSCOUT_API_BASE.replace(/\/$/, "");
+  const collected = new Map<string, WalletTokenHint>();
+
+  const upsert = (candidate: any) => {
+    if (!candidate) return;
+    const tokenData = candidate.token ?? candidate.tokenData ?? candidate.token_metadata ?? candidate;
+    const addressCandidate =
+      tokenData?.address ??
+      candidate.token_address ??
+      candidate.contract_address ??
+      candidate.contractAddress ??
+      candidate.address;
+    if (typeof addressCandidate !== "string") return;
+    const normalized = addressCandidate.trim();
+    if (!isAddress(normalized)) return;
+    const decimalsRaw =
+      tokenData?.decimals ??
+      candidate.token_decimals ??
+      candidate.tokenDecimal ??
+      candidate.decimals;
+    const symbolRaw =
+      tokenData?.symbol ??
+      candidate.token_symbol ??
+      candidate.tokenSymbol ??
+      candidate.symbol;
+    const balanceRaw =
+      candidate.balance ??
+      candidate.token_balance ??
+      candidate.tokenBalance ??
+      candidate.value ??
+      candidate.value_rounded ??
+      candidate.quantity;
+
+    const decimals =
+      typeof decimalsRaw === "number" && Number.isFinite(decimalsRaw)
+        ? decimalsRaw
+        : Number.parseInt(
+            typeof decimalsRaw === "string" && decimalsRaw.trim().length > 0
+              ? decimalsRaw
+              : "",
+            10,
+          );
+    const balance = parseMaybeBigInt(balanceRaw);
+
+    const lower = normalized.toLowerCase();
+    const existing = collected.get(lower);
+    collected.set(lower, {
+      address: normalized as Address,
+      symbol:
+        typeof symbolRaw === "string" && symbolRaw.trim().length > 0
+          ? symbolRaw.trim()
+          : existing?.symbol,
+      decimals: Number.isFinite(decimals) ? decimals : existing?.decimals,
+      balance: balance ?? existing?.balance,
+    });
+  };
+
+  const tryJson = async (url: string) => {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) return false;
+      const data = await res.json();
+      const candidates =
+        (Array.isArray(data?.items) && data.items) ||
+        (Array.isArray(data?.result) && data.result) ||
+        (Array.isArray(data?.data) && data.data) ||
+        (Array.isArray(data?.tokens) && data.tokens) ||
+        (Array.isArray(data) && data) ||
+        [];
+      candidates.forEach(upsert);
+      return candidates.length > 0;
+    } catch (error) {
+      console.debug("blockscout fetch failed", { url, error });
+      return false;
+    }
+  };
+
+  const attempts = [
+    `${base}/v2/addresses/${wallet}/token-balances?type=ERC-20&include=token&page=1&per_page=200`,
+    `${base}/v2/addresses/${wallet}/token-holdings?page=1&per_page=200`,
+    `${base}/v2/addresses/${wallet}/tokens?type=ERC-20&page=1&per_page=200`,
+  ];
+
+  for (const url of attempts) {
+    const ok = await tryJson(url);
+    if (ok && collected.size > 0) break;
+  }
+
+  if (collected.size === 0) {
+    const qs = new URLSearchParams({
+      module: "account",
+      action: "addresstokenbalance",
+      address: wallet,
+      page: "1",
+      offset: "500",
+      sort: "desc",
+    });
+    await tryJson(`${base}?${qs.toString()}`);
+  }
+
+  return Array.from(collected.values()).filter(
+    (item) => typeof item.balance === "bigint" && item.balance > 0n,
+  );
+};
+
 const resolveAddress = (...candidates: (string | undefined)[]): Address | undefined => {
   for (const candidate of candidates) {
     const trimmed = candidate?.trim();
@@ -355,6 +489,8 @@ export default function FoidSwapPage() {
   const [liquidityMode, setLiquidityMode] = useState<LiquidityMode>("add");
   const [tokenIn, setTokenIn] = useState<Address | undefined>(tokenAAddress);
   const [tokenOut, setTokenOut] = useState<Address | undefined>(tokenBAddress);
+  const [tokenInEntry, setTokenInEntry] = useState(tokenIn ?? "");
+  const [tokenOutEntry, setTokenOutEntry] = useState(tokenOut ?? "");
   const [amountIn, setAmountIn] = useState("");
   const [swapSlippage, setSwapSlippage] = useState("0.5");
   const [swapDeadline, setSwapDeadline] = useState("10");
@@ -386,6 +522,14 @@ export default function FoidSwapPage() {
   const [tokenOutState, setTokenOutState] = useState<TokenState>({});
   const [tokenAState, setTokenAState] = useState<TokenState>({});
   const [tokenBState, setTokenBState] = useState<TokenState>({});
+
+  useEffect(() => {
+    setTokenInEntry(tokenIn ?? "");
+  }, [tokenIn]);
+
+  useEffect(() => {
+    setTokenOutEntry(tokenOut ?? "");
+  }, [tokenOut]);
 
   const [pairAddress, setPairAddress] = useState<Address | undefined>(fallbackPairAddress);
   const [pairToken0, setPairToken0] = useState<Address | undefined>();
@@ -438,6 +582,8 @@ export default function FoidSwapPage() {
     tokenOutState.symbol,
     walletTokens,
   ]);
+  const tokenInEntryValid = tokenInEntry.length === 0 || isAddress(tokenInEntry);
+  const tokenOutEntryValid = tokenOutEntry.length === 0 || isAddress(tokenOutEntry);
   const manualToken0IsValid = manualToken0 ? isAddress(manualToken0) : false;
   const manualToken1IsValid = manualToken1 ? isAddress(manualToken1) : false;
 
@@ -834,52 +980,23 @@ export default function FoidSwapPage() {
       };
 
       try {
-        const latestBlock = await publicClient.getBlockNumber();
-        const batchSize = 200_000n;
         const accountLower = account.toLowerCase();
 
-        if (BLOCKSCOUT_API_BASE) {
-          try {
-            const qs = new URLSearchParams({
-              module: "account",
-              action: "addresstokenbalance",
-              address: account,
-              page: "1",
-              offset: "500",
-              sort: "desc",
-            });
-            const res = await fetch(`${BLOCKSCOUT_API_BASE}?${qs.toString()}`, {
-              cache: "no-store",
-            });
-            if (res.ok) {
-              const json = await res.json();
-              const list = json?.result;
-              if (Array.isArray(list)) {
-                list.forEach((item: any) => {
-                  const addr = (item?.contractAddress || item?.contract)?.toString()?.toLowerCase();
-                  const balanceRaw = item?.tokenBalance ?? item?.balance;
-                  const decimalsRaw = item?.tokenDecimal ?? item?.tokenDecimals ?? item?.decimals;
-                  const symbolRaw = item?.tokenSymbol ?? item?.symbol;
-                  try {
-                    const balance = BigInt(balanceRaw ?? 0);
-                    if (addr && balance > 0n) {
-                      addAddress(addr as Address, {
-                        address: addr as Address,
-                        balance,
-                        decimals: Number(decimalsRaw ?? 18),
-                        symbol: typeof symbolRaw === "string" ? symbolRaw : undefined,
-                      });
-                    }
-                  } catch {
-                    /* ignore parse errors */
-                  }
-                });
-              }
-            }
-          } catch (apiErr) {
-            console.debug("blockscout scan failed", apiErr);
-          }
+        try {
+          const hints = await fetchBlockscoutWalletTokens(account as Address);
+          hints.forEach((hint) =>
+            addAddress(hint.address, {
+              symbol: hint.symbol,
+              decimals: hint.decimals,
+              balance: hint.balance,
+            }),
+          );
+        } catch (apiErr) {
+          console.debug("blockscout scan failed", apiErr);
         }
+
+        const latestBlock = await publicClient.getBlockNumber();
+        const batchSize = 200_000n;
 
         const fetchLogsChunked = async ({
           event,
@@ -1903,8 +2020,22 @@ export default function FoidSwapPage() {
       creatingPair ||
       !manualToken0IsValid ||
       !manualToken1IsValid ||
-      manualToken0.toLowerCase() === manualToken1.toLowerCase() ||
-      secondaryOptions.length === 0;
+      manualToken0.toLowerCase() === manualToken1.toLowerCase();
+    const handleManualToken0Change = (nextRaw: string) => {
+      const next = nextRaw.trim();
+      setManualToken0(next);
+      if (!next || !manualToken1) return;
+      if (!isAddress(next) || !isAddress(manualToken1)) return;
+      if (next.toLowerCase() === manualToken1.toLowerCase()) {
+        const alternative = walletTokens.find(
+          (token) => token.address.toLowerCase() !== next.toLowerCase(),
+        );
+        setManualToken1(alternative?.address ?? "");
+      }
+    };
+    const handleManualToken1Change = (nextRaw: string) => {
+      setManualToken1(nextRaw.trim());
+    };
 
     return (
       <div className="space-y-6">
@@ -1970,73 +2101,104 @@ export default function FoidSwapPage() {
             </p>
           ) : (
             <>
-            <label className="text-xs uppercase tracking-wide text-neutral-400">
-              Token A
-              <select
-                value={manualToken0}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setManualToken0(next);
-                  if (next.toLowerCase() === manualToken1.toLowerCase()) {
-                    const alternative = walletTokens.find(
-                      (token) => token.address.toLowerCase() !== next.toLowerCase(),
-                    );
-                    setManualToken1(alternative?.address ?? "");
-                  }
-                }}
-                className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white outline-none focus:border-fluent-purple"
-              >
-                {walletTokens.map((token) => {
-                  const formattedBalance = (() => {
-                    try {
-                      return Number.parseFloat(
-                        formatUnits(token.balance, token.decimals),
-                      ).toFixed(4);
-                    } catch {
-                      return "0";
-                    }
-                  })();
-                  return (
-                    <option key={token.address} value={token.address}>
-                      {token.symbol || "Token"} · {formattedBalance} ({token.address.slice(0, 6)}…
-                      {token.address.slice(-4)})
-                    </option>
-                  );
-                })}
-              </select>
-            </label>
-            <label className="text-xs uppercase tracking-wide text-neutral-400">
-              Token B
-              {secondaryOptions.length > 0 ? (
-                <select
-                  value={manualToken1}
-                  onChange={(event) => setManualToken1(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white outline-none focus:border-fluent-purple"
-                >
-                  {secondaryOptions.map((token) => {
-                    const formattedBalance = (() => {
-                      try {
-                        return Number.parseFloat(
-                          formatUnits(token.balance, token.decimals),
-                        ).toFixed(4);
-                      } catch {
-                        return "0";
-                      }
-                    })();
-                    return (
-                      <option key={token.address} value={token.address}>
-                        {token.symbol || "Token"} · {formattedBalance} ({token.address.slice(0, 6)}…
-                        {token.address.slice(-4)})
-                      </option>
-                    );
-                  })}
-                </select>
-              ) : (
-                <p className="mt-2 rounded-lg border border-dashed border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-neutral-400">
-                  Hold another ERC-20 (different from {token0Preview}) to create a fresh pair.
-                </p>
-              )}
-            </label>
+              <label className="text-xs uppercase tracking-wide text-neutral-400">
+                Token A
+                <div className="mt-1 space-y-2">
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="0x…"
+                    value={manualToken0}
+                    onChange={(event) => handleManualToken0Change(event.target.value)}
+                    className={`w-full rounded-lg bg-neutral-950 px-3 py-2 text-sm text-white outline-none ${
+                      manualToken0.length === 0 || manualToken0IsValid
+                        ? "border border-neutral-700 focus:border-fluent-purple"
+                        : "border border-red-500 focus:border-red-400"
+                    }`}
+                  />
+                  {manualToken0.length > 0 && !manualToken0IsValid && (
+                    <span className="block text-[11px] text-red-400">
+                      Paste a valid ERC-20 token address or pick one below.
+                    </span>
+                  )}
+                  <select
+                    value={manualToken0}
+                    onChange={(event) => handleManualToken0Change(event.target.value)}
+                    className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white outline-none focus:border-fluent-purple"
+                  >
+                    {walletTokens.map((token) => {
+                      const formattedBalance = (() => {
+                        try {
+                          return Number.parseFloat(
+                            formatUnits(token.balance, token.decimals),
+                          ).toFixed(4);
+                        } catch {
+                          return "0";
+                        }
+                      })();
+                      return (
+                        <option key={token.address} value={token.address}>
+                          {token.symbol || "Token"} · {formattedBalance} ({token.address.slice(0, 6)}…
+                          {token.address.slice(-4)})
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </label>
+              <label className="text-xs uppercase tracking-wide text-neutral-400">
+                Token B
+                <div className="mt-1 space-y-2">
+                  <input
+                    type="text"
+                    autoComplete="off"
+                    spellCheck={false}
+                    placeholder="0x…"
+                    value={manualToken1}
+                    onChange={(event) => handleManualToken1Change(event.target.value)}
+                    className={`w-full rounded-lg bg-neutral-950 px-3 py-2 text-sm text-white outline-none ${
+                      manualToken1.length === 0 || manualToken1IsValid
+                        ? "border border-neutral-700 focus:border-fluent-purple"
+                        : "border border-red-500 focus:border-red-400"
+                    }`}
+                  />
+                  {manualToken1.length > 0 && !manualToken1IsValid && (
+                    <span className="block text-[11px] text-red-400">
+                      Paste a valid ERC-20 token address or pick one below.
+                    </span>
+                  )}
+                  {secondaryOptions.length > 0 ? (
+                    <select
+                      value={manualToken1}
+                      onChange={(event) => handleManualToken1Change(event.target.value)}
+                      className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white outline-none focus:border-fluent-purple"
+                    >
+                      {secondaryOptions.map((token) => {
+                        const formattedBalance = (() => {
+                          try {
+                            return Number.parseFloat(
+                              formatUnits(token.balance, token.decimals),
+                            ).toFixed(4);
+                          } catch {
+                            return "0";
+                          }
+                        })();
+                        return (
+                          <option key={token.address} value={token.address}>
+                            {token.symbol || "Token"} · {formattedBalance} (
+                            {token.address.slice(0, 6)}…{token.address.slice(-4)})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  ) : (
+                    <p className="rounded-lg border border-dashed border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-neutral-400">
+                      Hold another ERC-20 (different from {token0Preview}) or paste an address above.
+                    </p>
+                  )}
+                </div>
+              </label>
             <button
               className="w-full rounded-full bg-fluent-blue px-4 py-2 text-sm text-white hover:bg-fluent-purple disabled:opacity-40"
               disabled={manualPairDisabled}
@@ -2397,40 +2559,108 @@ export default function FoidSwapPage() {
     <div className="grid gap-4 md:grid-cols-2">
       <label className="text-sm text-neutral-300">
         From Token A
-        <select
-          className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
-          value={tokenIn ?? ""}
-          onChange={(e) => setTokenIn(e.target.value as Address)}
-        >
-          <option value="" disabled>
-            Select Token A
-          </option>
-          {tokenOptions.map((option) => (
-            <option key={option.address} value={option.address}>
-              {option.label}
+        <div className="mt-1 space-y-2">
+          <input
+            type="text"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="0x…"
+            value={tokenInEntry}
+            onChange={(event) => {
+              const next = event.target.value.trim();
+              setTokenInEntry(next);
+              if (next.length === 0) {
+                setTokenIn(undefined);
+                return;
+              }
+              if (isAddress(next)) {
+                setTokenIn(next as Address);
+              }
+            }}
+            className={`w-full rounded-lg bg-neutral-950 px-3 py-2 text-white outline-none ${
+              tokenInEntryValid
+                ? "border border-neutral-700 focus:border-fluent-purple"
+                : "border border-red-500 focus:border-red-400"
+            }`}
+          />
+          {!tokenInEntryValid && (
+            <span className="block text-xs text-red-400">
+              Enter a valid 0x token address or pick from the list.
+            </span>
+          )}
+          <select
+            className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
+            value={tokenIn ?? ""}
+            onChange={(event) => {
+              const next = event.target.value;
+              setTokenInEntry(next);
+              setTokenIn(next ? (next as Address) : undefined);
+            }}
+          >
+            <option value="" disabled>
+              Select Token A
             </option>
-          ))}
-        </select>
+            {tokenOptions.map((option) => (
+              <option key={option.address} value={option.address}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
         <span className="mt-1 block text-xs text-neutral-500">
           Allowance: {formatBigNumber(tokenInState.allowance, tokenInState.decimals ?? 18)}
         </span>
       </label>
       <label className="text-sm text-neutral-300">
         To Token B
-        <select
-          className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
-          value={tokenOut ?? ""}
-          onChange={(e) => setTokenOut(e.target.value as Address)}
-        >
-          <option value="" disabled>
-            Select Token B
-          </option>
-          {tokenOptions.map((option) => (
-            <option key={option.address} value={option.address}>
-              {option.label}
+        <div className="mt-1 space-y-2">
+          <input
+            type="text"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="0x…"
+            value={tokenOutEntry}
+            onChange={(event) => {
+              const next = event.target.value.trim();
+              setTokenOutEntry(next);
+              if (next.length === 0) {
+                setTokenOut(undefined);
+                return;
+              }
+              if (isAddress(next)) {
+                setTokenOut(next as Address);
+              }
+            }}
+            className={`w-full rounded-lg bg-neutral-950 px-3 py-2 text-white outline-none ${
+              tokenOutEntryValid
+                ? "border border-neutral-700 focus:border-fluent-purple"
+                : "border border-red-500 focus:border-red-400"
+            }`}
+          />
+          {!tokenOutEntryValid && (
+            <span className="block text-xs text-red-400">
+              Enter a valid 0x token address or pick from the list.
+            </span>
+          )}
+          <select
+            className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
+            value={tokenOut ?? ""}
+            onChange={(event) => {
+              const next = event.target.value;
+              setTokenOutEntry(next);
+              setTokenOut(next ? (next as Address) : undefined);
+            }}
+          >
+            <option value="" disabled>
+              Select Token B
             </option>
-          ))}
-        </select>
+            {tokenOptions.map((option) => (
+              <option key={option.address} value={option.address}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
         <span className="mt-1 block text-xs text-neutral-500">
           Allowance: {formatBigNumber(tokenOutState.allowance, tokenOutState.decimals ?? 18)}
         </span>
