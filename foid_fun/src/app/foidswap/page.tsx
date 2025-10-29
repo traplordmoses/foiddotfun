@@ -221,6 +221,8 @@ const DEFAULT_FACTORY = "0xe97639fd6Ff7231ed270Ea16BD9Ba2c79f4cD2cc" as const;
 const DEFAULT_ROUTER = "0xd71330e54eAA2e4248E75067F8f23bB2a6568613" as const;
 const DEFAULT_TOKEN_A = "0x403ECF8ba28E58CE4d1847C1C95ac54651fAB151" as const;
 const DEFAULT_TOKEN_B = "0xC08c0a41725F2329A9a315C643FE9b1a012D6213" as const;
+const TRANSFER_TOPIC =
+  "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
 const resolveAddress = (...candidates: (string | undefined)[]): Address | undefined => {
   for (const candidate of candidates) {
@@ -735,9 +737,29 @@ export default function FoidSwapPage() {
         }
       };
 
-      addAddress(tokenAAddress as Address | undefined);
-      addAddress(tokenBAddress as Address | undefined);
-      addAddress(pairToken0 as Address | undefined);
+      try {
+        const latestBlock = await publicClient.getBlockNumber();
+        const lookback = 120_000n;
+        const fromBlock = latestBlock > lookback ? latestBlock - lookback : 0n;
+        const accountTopic = `0x${account.toLowerCase().slice(2).padStart(64, "0")}`;
+
+        const [logsIn, logsOut] = await Promise.all([
+          publicClient.getLogs({
+            fromBlock,
+            toBlock: latestBlock,
+            topics: [TRANSFER_TOPIC, null, accountTopic],
+          }),
+          publicClient.getLogs({
+            fromBlock,
+            toBlock: latestBlock,
+            topics: [TRANSFER_TOPIC, accountTopic, null],
+          }),
+        ]);
+
+        [...logsIn, ...logsOut].forEach((log) => addAddress(log.address as Address));
+      } catch (error) {
+        console.debug("wallet transfer scan failed", error);
+      }
 
       const pairsToInspect = new Set<Address>();
       [fallbackPairAddress, pairAddress, ...factoryPairs].forEach((maybePair) => {
@@ -1630,7 +1652,7 @@ export default function FoidSwapPage() {
     const token0Preview =
       manualToken0 && manualToken0.length >= 10
         ? `${manualToken0.slice(0, 6)}…${manualToken0.slice(-4)}`
-        : "your first token";
+        : "Token A";
     const manualPairDisabled =
       !isConnected ||
       creatingPair ||
@@ -1696,15 +1718,15 @@ export default function FoidSwapPage() {
         </div>
 
         <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
-        <h2 className="text-sm font-semibold text-neutral-200">Create a New Pair</h2>
-        {walletTokens.length === 0 ? (
-          <p className="text-xs text-neutral-400">
-            Hold tokens in this wallet to unlock quick pair creation.
-          </p>
-        ) : (
-          <>
+          <h2 className="text-sm font-semibold text-neutral-200">Create a New Pair</h2>
+          {walletTokens.length === 0 ? (
+            <p className="text-xs text-neutral-400">
+              Hold tokens in this wallet to unlock quick pair creation.
+            </p>
+          ) : (
+            <>
             <label className="text-xs uppercase tracking-wide text-neutral-400">
-              Token 0
+              Token A
               <select
                 value={manualToken0}
                 onChange={(event) => {
@@ -1731,7 +1753,7 @@ export default function FoidSwapPage() {
                   })();
                   return (
                     <option key={token.address} value={token.address}>
-                      {token.symbol} · {formattedBalance} ({token.address.slice(0, 6)}…
+                      {token.symbol || "Token"} · {formattedBalance} ({token.address.slice(0, 6)}…
                       {token.address.slice(-4)})
                     </option>
                   );
@@ -1739,7 +1761,7 @@ export default function FoidSwapPage() {
               </select>
             </label>
             <label className="text-xs uppercase tracking-wide text-neutral-400">
-              Token 1
+              Token B
               {secondaryOptions.length > 0 ? (
                 <select
                   value={manualToken1}
@@ -1758,7 +1780,7 @@ export default function FoidSwapPage() {
                     })();
                     return (
                       <option key={token.address} value={token.address}>
-                        {token.symbol} · {formattedBalance} ({token.address.slice(0, 6)}…
+                        {token.symbol || "Token"} · {formattedBalance} ({token.address.slice(0, 6)}…
                         {token.address.slice(-4)})
                       </option>
                     );
@@ -1766,7 +1788,7 @@ export default function FoidSwapPage() {
                 </select>
               ) : (
                 <p className="mt-2 rounded-lg border border-dashed border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-neutral-400">
-                  Hold another token (different from {token0Preview}) to create a fresh pair.
+                  Hold another ERC-20 (different from {token0Preview}) to create a fresh pair.
                 </p>
               )}
             </label>
