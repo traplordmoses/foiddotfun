@@ -731,12 +731,12 @@ export default function AMMPage() {
 
           <section className="card p-4 space-y-4">
             <h2 className="font-mono uppercase text-fluent-pink text-sm">Swap</h2>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-neutral-400">Direction</span>
               <button
                 type="button"
                 onClick={() => setSwapZeroForOne((prev) => !prev)}
-                className="px-3 py-1 rounded-full bg-neutral-800 hover:bg-neutral-700 transition"
+                className="w-full rounded-full bg-neutral-800 px-3 py-1 text-center transition hover:bg-neutral-700 sm:w-auto"
               >
                 {swapZeroForOne ? `${token0Symbol} → ${token1Symbol}` : `${token1Symbol} → ${token0Symbol}`}
               </button>

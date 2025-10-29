@@ -169,22 +169,22 @@ export function EventList() {
       }
 
       return (
-        <div key={e.id} className="flex items-start justify-between gap-3 text-sm">
+        <div key={e.id} className="space-y-1 text-sm">
           <div>
             <span className="font-mono text-fluent-pink">{label}</span>
             <span className="ml-2 text-neutral-300">{content}</span>
-            <div className="text-neutral-500 text-xs">
-              blk{" "}
-              <a
-                href={`${BLOCK_EXPLORER_URL}/block/${e.blockNumber.toString()}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline decoration-dotted"
-              >
-                {e.blockNumber.toString()}
-              </a>{" "}
-              · idx {e.logIndex}
-            </div>
+          </div>
+          <div className="text-xs text-neutral-500">
+            blk{" "}
+            <a
+              href={`${BLOCK_EXPLORER_URL}/block/${e.blockNumber.toString()}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-dotted"
+            >
+              {e.blockNumber.toString()}
+            </a>{" "}
+            · idx {e.logIndex}
           </div>
         </div>
       );

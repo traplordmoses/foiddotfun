@@ -237,16 +237,16 @@ export default function BridgePage() {
               onChange={(event) => setSignature(event.target.value)}
             />
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <button
-                className="px-4 py-2 rounded-full bg-fluent-purple hover:bg-fluent-pink"
+                className="w-full rounded-full bg-fluent-purple px-4 py-2 hover:bg-fluent-pink sm:w-auto"
                 type="button"
                 onClick={computeHash}
               >
                 Build Hash
               </button>
               {computedHash && (
-                <div className="text-xs break-all text-neutral-400">
+                <div className="text-xs break-all text-neutral-400 sm:flex-1">
                   Hash to sign: <span className="text-fluent-blue">{computedHash}</span>
                 </div>
               )}

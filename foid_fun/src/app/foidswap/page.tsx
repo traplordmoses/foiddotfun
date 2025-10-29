@@ -480,18 +480,6 @@ export default function FoidSwapPage() {
     process.env.NEXT_PUBLIC_BRIDGE as string | undefined,
     DEFAULT_ROUTER,
   );
-  const tokenAAddress = resolveAddress(
-    process.env.NEXT_PUBLIC_TOKEN_A as string | undefined,
-    process.env.NEXT_PUBLIC_TOKEN0 as string | undefined,
-    process.env.NEXT_PUBLIC_WFOID as string | undefined,
-    DEFAULT_TOKEN_A,
-  );
-  const tokenBAddress = resolveAddress(
-    process.env.NEXT_PUBLIC_TOKEN_B as string | undefined,
-    process.env.NEXT_PUBLIC_TOKEN1 as string | undefined,
-    DEFAULT_TOKEN_B,
-  );
-
   const fallbackPairAddress = resolveAddress(
     process.env.NEXT_PUBLIC_PAIR as string | undefined,
     process.env.NEXT_PUBLIC_AMM as string | undefined,
@@ -499,8 +487,22 @@ export default function FoidSwapPage() {
 
   const [activeView, setActiveView] = useState<ViewKey>("swap");
   const [liquidityMode, setLiquidityMode] = useState<LiquidityMode>("add");
-  const [tokenIn, setTokenIn] = useState<Address | undefined>(tokenAAddress);
-  const [tokenOut, setTokenOut] = useState<Address | undefined>(tokenBAddress);
+  const defaultTokenA = resolveAddress(
+    process.env.NEXT_PUBLIC_TOKEN_A as string | undefined,
+    process.env.NEXT_PUBLIC_TOKEN0 as string | undefined,
+    process.env.NEXT_PUBLIC_WFOID as string | undefined,
+    DEFAULT_TOKEN_A,
+  );
+  const defaultTokenB = resolveAddress(
+    process.env.NEXT_PUBLIC_TOKEN_B as string | undefined,
+    process.env.NEXT_PUBLIC_TOKEN1 as string | undefined,
+    DEFAULT_TOKEN_B,
+  );
+
+  const [tokenAAddress, setTokenAAddress] = useState<Address | undefined>(defaultTokenA);
+  const [tokenBAddress, setTokenBAddress] = useState<Address | undefined>(defaultTokenB);
+  const [tokenIn, setTokenIn] = useState<Address | undefined>(defaultTokenA);
+  const [tokenOut, setTokenOut] = useState<Address | undefined>(defaultTokenB);
   const [tokenInEntry, setTokenInEntry] = useState(tokenIn ?? "");
   const [tokenOutEntry, setTokenOutEntry] = useState(tokenOut ?? "");
   const [amountIn, setAmountIn] = useState("");
@@ -542,6 +544,17 @@ export default function FoidSwapPage() {
   useEffect(() => {
     setTokenOutEntry(tokenOut ?? "");
   }, [tokenOut]);
+
+  useEffect(() => {
+    if (!tokenIn || !tokenOut) return;
+    const [sorted0, sorted1] = sortPairAddresses(tokenIn, tokenOut);
+    if (!tokenAAddress || tokenAAddress.toLowerCase() !== sorted0.toLowerCase()) {
+      setTokenAAddress(sorted0);
+    }
+    if (!tokenBAddress || tokenBAddress.toLowerCase() !== sorted1.toLowerCase()) {
+      setTokenBAddress(sorted1);
+    }
+  }, [tokenAAddress, tokenBAddress, tokenIn, tokenOut]);
 
   const [pairAddress, setPairAddress] = useState<Address | undefined>(fallbackPairAddress);
   const [pairToken0, setPairToken0] = useState<Address | undefined>();
@@ -660,10 +673,10 @@ export default function FoidSwapPage() {
   );
 
   const defaultPairKey = useMemo(() => {
-    if (!tokenAAddress || !tokenBAddress) return null;
-    const [a, b] = sortPairAddresses(tokenAAddress as Address, tokenBAddress as Address);
+    if (!defaultTokenA || !defaultTokenB) return null;
+    const [a, b] = sortPairAddresses(defaultTokenA, defaultTokenB);
     return `${a.toLowerCase()}:${b.toLowerCase()}`;
-  }, [tokenAAddress, tokenBAddress]);
+  }, [defaultTokenA, defaultTokenB]);
 
   const selectedPairKey = useMemo(() => {
     if (tokenAddresses.length !== 2) return null;
@@ -2016,7 +2029,7 @@ export default function FoidSwapPage() {
             return (
               <div
                 key={token.address}
-                className="flex items-center justify-between rounded-lg border border-neutral-800 bg-neutral-950/60 px-3 py-2"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-950/60 px-3 py-2"
               >
                 <div className="flex flex-col">
                   <span className="font-medium">
@@ -2024,13 +2037,13 @@ export default function FoidSwapPage() {
                     <span className="text-xs text-neutral-500"> · {token.address.slice(0, 6)}…{token.address.slice(-4)}</span>
                   </span>
                 </div>
-                <span>{balanceFormatted}</span>
+                <span className="text-sm">{balanceFormatted}</span>
               </div>
             );
           })}
         </div>
       )}
-      <div className="mt-3 flex justify-between text-xs text-neutral-500">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
         <span>Router</span>
         <a
           className="text-fluent-blue underline"
@@ -2049,7 +2062,7 @@ export default function FoidSwapPage() {
       <h2 className="text-sm font-semibold text-neutral-200 mb-2">Pool stats</h2>
       {pairAddress ? (
         <div className="space-y-3 text-sm text-neutral-300">
-          <div className="flex justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span>Pair</span>
             <a
               className="text-fluent-blue underline"
@@ -2060,14 +2073,14 @@ export default function FoidSwapPage() {
               {pairAddress.slice(0, 10)}… ↗
             </a>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span>Reserves</span>
             <span>
               {formatBigNumber(pairReserves?.[0], tokenAState.decimals ?? 18)} /{" "}
               {formatBigNumber(pairReserves?.[1], tokenBState.decimals ?? 18)}
             </span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <span>
               Price ({tokenAState.symbol ?? "Token A"} → {tokenBState.symbol ?? "Token B"})
             </span>
@@ -2077,7 +2090,7 @@ export default function FoidSwapPage() {
                 : "—"}
             </span>
           </div>
-          <div className="flex justify-between text-xs text-neutral-500">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
             <span>24h est.</span>
             <span>
               {dailyEstimate
@@ -2162,12 +2175,12 @@ export default function FoidSwapPage() {
                 return (
                   <li
                     key={address}
-                    className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
-                    isSelected
-                      ? "border-fluent-purple/80 bg-fluent-purple/10"
-                      : "border-neutral-800 bg-neutral-950/60"
-                  }`}
-                >
+                    className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 ${
+                      isSelected
+                        ? "border-fluent-purple/80 bg-fluent-purple/10"
+                        : "border-neutral-800 bg-neutral-950/60"
+                    }`}
+                  >
                   <div className="flex flex-col">
                     <a
                       className="text-fluent-blue underline"
@@ -2369,7 +2382,7 @@ export default function FoidSwapPage() {
           className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
         />
       </label>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="text-sm text-neutral-300">
           Slippage (%)
           <input
@@ -2394,7 +2407,7 @@ export default function FoidSwapPage() {
         </label>
       </div>
       <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-3 text-sm text-neutral-200">
-        <div className="flex justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span>Estimated out</span>
           <span>
             {quoteOut && tokenOutState.decimals
@@ -2402,7 +2415,7 @@ export default function FoidSwapPage() {
               : "—"}
           </span>
         </div>
-        <div className="flex justify-between text-xs text-neutral-500 mt-1">
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
           <span>Price impact</span>
           <span>{quoteImpact !== undefined ? `${quoteImpact.toFixed(2)}%` : "n/a"}</span>
         </div>
@@ -2464,7 +2477,7 @@ export default function FoidSwapPage() {
           />
         </label>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="text-sm text-neutral-300">
           Slippage (%)
           <input
@@ -2489,13 +2502,13 @@ export default function FoidSwapPage() {
         </label>
       </div>
       <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-3 text-sm text-neutral-200">
-        <div className="flex justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span>Expected shares</span>
           <span>
             {expectedAddResult ? formatUnits(expectedAddResult.shares, 18) : "—"}
           </span>
         </div>
-        <div className="flex justify-between text-xs text-neutral-500 mt-1">
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
           <span>Deposits</span>
           <span>
             {expectedAddResult && tokenAState.decimals
@@ -2563,7 +2576,7 @@ export default function FoidSwapPage() {
   const renderRemoveLiquidityForm = () => (
     <div className="space-y-4">
       <label className="text-sm text-neutral-300">
-        <span className="flex items-center justify-between">
+        <span className="flex flex-wrap items-center justify-between gap-2">
           Shares to burn
           <button
             type="button"
@@ -2584,7 +2597,7 @@ export default function FoidSwapPage() {
           className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
         />
       </label>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="text-sm text-neutral-300">
           Slippage (%)
           <input
@@ -2609,7 +2622,7 @@ export default function FoidSwapPage() {
         </label>
       </div>
       <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-3 text-sm text-neutral-200">
-        <div className="flex justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span>Expected return</span>
           <span>
             {expectedRemoveResult && tokenAState.decimals
@@ -2621,7 +2634,7 @@ export default function FoidSwapPage() {
               : "—"}
           </span>
         </div>
-        <div className="flex justify-between text-xs text-neutral-500 mt-1">
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
           <span>Slippage floor</span>
           <span>
             {expectedRemoveResult && tokenAState.decimals
@@ -2812,7 +2825,7 @@ export default function FoidSwapPage() {
                 Tools for swapping, managing pairs, and providing liquidity on Fluent Testnet.
               </p>
             </div>
-            <div className="flex gap-2 bg-neutral-900/80 p-1 rounded-full">
+            <div className="flex flex-wrap justify-center gap-2 rounded-full bg-neutral-900/80 p-1 md:justify-start">
               {(["swap", "pairs", "liquidity"] as ViewKey[]).map((view) => (
                 <button
                   key={view}
@@ -2840,7 +2853,7 @@ export default function FoidSwapPage() {
 
               {activeView === "liquidity" && (
                 <>
-                  <div className="flex gap-2 bg-neutral-900/80 p-1 rounded-full">
+                  <div className="flex flex-wrap justify-center gap-2 rounded-full bg-neutral-900/80 p-1 md:justify-start">
                     {(["add", "remove"] as LiquidityMode[]).map((mode) => (
                       <button
                         key={mode}

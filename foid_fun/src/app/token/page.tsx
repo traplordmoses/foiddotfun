@@ -213,7 +213,7 @@ export default function TokenPage() {
 
           {/* Roles (badges) */}
           <section className="p-1">
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <RoleBadge role="MINTER" hasRole={hasMinterRole} />
               <RoleBadge role="PAUSER" hasRole={hasPauserRole} />
             </div>

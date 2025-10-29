@@ -70,7 +70,7 @@ export default function DashboardPage() {
 
         <div className="p-4 flex flex-col space-y-2">
           <h2 className="font-mono uppercase text-fluent-pink text-sm">Roles</h2>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <RoleBadge role="MINTER" hasRole={Boolean(hasMinter)} />
             <RoleBadge role="PAUSER" hasRole={Boolean(hasPauser)} />
           </div>
