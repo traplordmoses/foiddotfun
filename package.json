@@ -1,0 +1,13 @@
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start -p $PORT"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "encoding": "^0.1.13"
+  }
+}
