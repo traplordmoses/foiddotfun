@@ -287,6 +287,13 @@ interface TokenState {
   allowance?: bigint;
 }
 
+interface WalletToken {
+  address: Address;
+  symbol: string;
+  decimals: number;
+  balance: bigint;
+}
+
 export default function FoidSwapPage() {
   const chainId = Number.isFinite(configuredChainId)
     ? configuredChainId
@@ -368,6 +375,7 @@ export default function FoidSwapPage() {
   const [factoryPairsLoading, setFactoryPairsLoading] = useState(false);
   const [factoryPairsError, setFactoryPairsError] = useState<string | null>(null);
   const [pairRefreshNonce, setPairRefreshNonce] = useState(0);
+  const [walletTokens, setWalletTokens] = useState<WalletToken[]>([]);
 
   const tokenOptions = [
     {
@@ -381,6 +389,34 @@ export default function FoidSwapPage() {
   ].filter((opt): opt is { address: Address; label: string } => Boolean(opt.address));
   const manualToken0IsValid = manualToken0 ? isAddress(manualToken0) : false;
   const manualToken1IsValid = manualToken1 ? isAddress(manualToken1) : false;
+
+  useEffect(() => {
+    if (!walletTokens.length) {
+      setManualToken0("");
+      setManualToken1("");
+      return;
+    }
+
+    const primary = manualToken0 && isAddress(manualToken0)
+      ? manualToken0
+      : walletTokens[0].address;
+
+    if (primary !== manualToken0) {
+      setManualToken0(primary);
+    }
+
+    const fallback = walletTokens.find(
+      (token) => token.address.toLowerCase() !== primary.toLowerCase(),
+    );
+    const desiredSecondary =
+      manualToken1 && isAddress(manualToken1) && manualToken1.toLowerCase() !== primary.toLowerCase()
+        ? manualToken1
+        : fallback?.address ?? "";
+
+    if (desiredSecondary !== manualToken1) {
+      setManualToken1(desiredSecondary);
+    }
+  }, [manualToken0, manualToken1, walletTokens]);
 
   const tokenAddresses = useMemo(
     () =>
@@ -412,13 +448,6 @@ export default function FoidSwapPage() {
       if (targetToken0.toLowerCase() === targetToken1.toLowerCase()) {
         toast.error("Token addresses must differ");
         return undefined;
-      }
-      if (fallbackPairAddress && fallbackPairAddress !== zeroAddress) {
-        if (!options?.silent) {
-          toast.success("Pair already exists");
-        }
-        setPairAddress(fallbackPairAddress);
-        return fallbackPairAddress;
       }
       const [queryToken0, queryToken1] = sortPairAddresses(targetToken0, targetToken1);
 
@@ -561,8 +590,60 @@ export default function FoidSwapPage() {
       } finally {
         setCreatingPair(false);
       }
+  },
+  [explorerBase, factoryAddress, publicClient, tokenAAddress, tokenBAddress, walletClient],
+);
+
+  const loadTokenSummary = useCallback(
+    async (tokenAddress: Address): Promise<WalletToken | null> => {
+      if (!publicClient || !account || tokenAddress === zeroAddress) {
+        return null;
+      }
+      try {
+        const [rawSymbol, rawDecimals, balance] = await Promise.all([
+          publicClient
+            .readContract({
+              address: tokenAddress,
+              abi: erc20Abi,
+              functionName: "symbol",
+            })
+            .catch(() => ""),
+          publicClient.readContract({
+            address: tokenAddress,
+            abi: erc20Abi,
+            functionName: "decimals",
+          }),
+          publicClient
+            .readContract({
+              address: tokenAddress,
+              abi: erc20Abi,
+              functionName: "balanceOf",
+              args: [account],
+            })
+            .catch(() => 0n),
+        ]);
+
+        const decimalsNumber =
+          typeof rawDecimals === "number"
+            ? rawDecimals
+            : Number((rawDecimals as any)?.toString?.() ?? 18);
+        const symbol =
+          typeof rawSymbol === "string" && rawSymbol.trim().length > 0
+            ? rawSymbol.trim()
+            : "Token";
+
+        return {
+          address: tokenAddress,
+          symbol,
+          decimals: Number.isFinite(decimalsNumber) ? decimalsNumber : 18,
+          balance: (balance as bigint) ?? 0n,
+        };
+      } catch (error) {
+        console.debug("wallet token summary failed", error);
+        return null;
+      }
     },
-    [explorerBase, factoryAddress, publicClient, tokenAAddress, tokenBAddress, walletClient],
+    [account, publicClient],
   );
 
   const fetchTokenData = useCallback(
@@ -637,6 +718,88 @@ export default function FoidSwapPage() {
     void fetchTokenData(tokenAAddress, setTokenAState);
     void fetchTokenData(tokenBAddress, setTokenBState);
   }, [envOk, fetchTokenData, tokenAAddress, tokenBAddress]);
+
+  useEffect(() => {
+    if (!publicClient || !account) {
+      setWalletTokens([]);
+      return;
+    }
+    let cancelled = false;
+    const gather = async () => {
+      const lowerToAddress = new Map<string, Address>();
+      const addAddress = (addr?: Address) => {
+        if (!addr || addr === zeroAddress) return;
+        const lower = addr.toLowerCase() as Address;
+        if (!lowerToAddress.has(lower)) {
+          lowerToAddress.set(lower, addr);
+        }
+      };
+
+      addAddress(tokenAAddress as Address | undefined);
+      addAddress(tokenBAddress as Address | undefined);
+      addAddress(pairToken0 as Address | undefined);
+
+      const pairsToInspect = new Set<Address>();
+      [fallbackPairAddress, pairAddress, ...factoryPairs].forEach((maybePair) => {
+        if (maybePair && maybePair !== zeroAddress) {
+          pairsToInspect.add(maybePair);
+        }
+      });
+
+      const pairTokens = await Promise.all(
+        Array.from(pairsToInspect).map(async (pair) => {
+          try {
+            const [token0, token1] = await Promise.all([
+              publicClient.readContract({
+                address: pair,
+                abi: pairAbi,
+                functionName: "token0",
+              }),
+              publicClient.readContract({
+                address: pair,
+                abi: pairAbi,
+                functionName: "token1",
+              }),
+            ]);
+            return [token0 as Address, token1 as Address];
+          } catch (error) {
+            console.debug("pair token fetch failed", error);
+            return [] as Address[];
+          }
+        }),
+      );
+
+      pairTokens.forEach(([maybeToken0, maybeToken1]) => {
+        addAddress(maybeToken0 as Address | undefined);
+        addAddress(maybeToken1 as Address | undefined);
+      });
+
+      const addressList = Array.from(lowerToAddress.values());
+      const summaries = await Promise.all(addressList.map((addr) => loadTokenSummary(addr)));
+      const filtered = summaries
+        .filter((token): token is WalletToken => Boolean(token) && (token as WalletToken).balance > 0n)
+        .sort((a, b) => a.symbol.localeCompare(b.symbol));
+
+      if (!cancelled) {
+        setWalletTokens(filtered);
+      }
+    };
+
+    void gather();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    account,
+    factoryPairs,
+    fallbackPairAddress,
+    loadTokenSummary,
+    pairAddress,
+    pairToken0,
+    publicClient,
+    tokenAAddress,
+    tokenBAddress,
+  ]);
 
   // fetch pair address when tokens ready
   useEffect(() => {
@@ -792,27 +955,39 @@ export default function FoidSwapPage() {
             }),
           ),
         )) as string[];
-        const filtered = Array.from(
-          new Set(
-            addresses
-              .map((addr) => addr as Address)
-              .filter((addr) => addr !== zeroAddress),
-          ),
+        const filtered = addresses
+          .map((addr) => addr as Address)
+          .filter((addr) => addr !== zeroAddress);
+        const combined = Array.from(
+          new Set([
+            ...(fallbackPairAddress && fallbackPairAddress !== zeroAddress
+              ? [fallbackPairAddress]
+              : []),
+            ...(pairAddress && pairAddress !== zeroAddress ? [pairAddress] : []),
+            ...filtered,
+          ]),
         );
-        if (pairAddress && pairAddress !== zeroAddress && !filtered.includes(pairAddress)) {
-          filtered.unshift(pairAddress);
-        }
         if (!cancelled) {
-          setFactoryPairs(filtered);
+          setFactoryPairs(combined);
+          setFactoryPairsError(null);
         }
       } catch (err: any) {
         if (!cancelled) {
-          const message = unwrapErrorMessage(err) ?? "Unable to load pairs";
-          setFactoryPairsError(message);
-          if (pairAddress && pairAddress !== zeroAddress) {
-            setFactoryPairs([pairAddress]);
+          const fallback = Array.from(
+            new Set([
+              ...(fallbackPairAddress && fallbackPairAddress !== zeroAddress
+                ? [fallbackPairAddress]
+                : []),
+              ...(pairAddress && pairAddress !== zeroAddress ? [pairAddress] : []),
+            ]),
+          );
+          if (fallback.length > 0) {
+            setFactoryPairs(fallback);
+            setFactoryPairsError(null);
           } else {
+            const message = unwrapErrorMessage(err) ?? "Unable to load pairs";
             setFactoryPairs([]);
+            setFactoryPairsError(message);
           }
         }
       } finally {
@@ -1448,24 +1623,40 @@ export default function FoidSwapPage() {
     </div>
   );
 
-  const renderPairsManager = () => (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
-        <h2 className="text-sm font-semibold text-neutral-200 mb-3">Factory pairs</h2>
-        {factoryPairsLoading ? (
-          <p className="text-neutral-400 text-sm">Loading pairs…</p>
-        ) : factoryPairsError ? (
-          <p className="text-sm text-red-400">{factoryPairsError}</p>
-        ) : factoryPairs.length === 0 ? (
-          <p className="text-sm text-neutral-400">No pairs deployed yet.</p>
-        ) : (
-          <ul className="space-y-2 text-sm text-neutral-300">
-            {factoryPairs.map((address) => {
-              const isSelected = pairAddress && address.toLowerCase() === pairAddress.toLowerCase();
-              return (
-                <li
-                  key={address}
-                  className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
+  const renderPairsManager = () => {
+    const secondaryOptions = walletTokens.filter((token) =>
+      manualToken0 ? token.address.toLowerCase() !== manualToken0.toLowerCase() : true,
+    );
+    const token0Preview =
+      manualToken0 && manualToken0.length >= 10
+        ? `${manualToken0.slice(0, 6)}…${manualToken0.slice(-4)}`
+        : "your first token";
+    const manualPairDisabled =
+      !isConnected ||
+      creatingPair ||
+      !manualToken0IsValid ||
+      !manualToken1IsValid ||
+      manualToken0.toLowerCase() === manualToken1.toLowerCase() ||
+      secondaryOptions.length === 0;
+
+    return (
+      <div className="space-y-6">
+        <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
+          <h2 className="text-sm font-semibold text-neutral-200 mb-3">Active pairs</h2>
+          {factoryPairsLoading ? (
+            <p className="text-neutral-400 text-sm">Loading pairs…</p>
+          ) : factoryPairs.length === 0 ? (
+            <p className="text-sm text-neutral-400">
+              {factoryPairsError ?? "No pools detected for this factory yet."}
+            </p>
+          ) : (
+            <ul className="space-y-2 text-sm text-neutral-300">
+              {factoryPairs.map((address) => {
+                const isSelected = pairAddress && address.toLowerCase() === pairAddress.toLowerCase();
+                return (
+                  <li
+                    key={address}
+                    className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
                     isSelected
                       ? "border-fluent-purple/80 bg-fluent-purple/10"
                       : "border-neutral-800 bg-neutral-950/60"
@@ -1497,113 +1688,137 @@ export default function FoidSwapPage() {
                   >
                     Inspect
                   </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
-        <h2 className="text-sm font-semibold text-neutral-200">Manual pair creation</h2>
-        <label className="text-xs uppercase tracking-wide text-neutral-400">
-          Token 0 address
-          <input
-            type="text"
-            value={manualToken0}
-            onChange={(event) => setManualToken0(event.target.value.trim())}
-            placeholder="0x..."
-            className={`mt-1 w-full rounded-lg border px-3 py-2 text-white outline-none bg-neutral-950 ${
-              manualToken0.length > 0 && !manualToken0IsValid
-                ? "border-red-500 focus:border-red-500"
-                : "border-neutral-700 focus:border-fluent-purple"
-            }`}
-          />
-          {manualToken0.length > 0 && !manualToken0IsValid && (
-            <span className="mt-1 block text-xs text-red-400">Enter a valid address.</span>
-          )}
-        </label>
-        <label className="text-xs uppercase tracking-wide text-neutral-400">
-          Token 1 address
-          <input
-            type="text"
-            value={manualToken1}
-            onChange={(event) => setManualToken1(event.target.value.trim())}
-            placeholder="0x..."
-            className={`mt-1 w-full rounded-lg border px-3 py-2 text-white outline-none bg-neutral-950 ${
-              manualToken1.length > 0 && !manualToken1IsValid
-                ? "border-red-500 focus:border-red-500"
-                : "border-neutral-700 focus:border-fluent-purple"
-            }`}
-          />
-          {manualToken1.length > 0 && !manualToken1IsValid && (
-            <span className="mt-1 block text-xs text-red-400">Enter a valid address.</span>
-          )}
-        </label>
-        <button
-          className="w-full rounded-full bg-fluent-blue px-4 py-2 text-sm text-white hover:bg-fluent-purple disabled:opacity-40"
-          disabled={
-            !isConnected ||
-            creatingPair ||
-            !manualToken0IsValid ||
-            !manualToken1IsValid ||
-            manualToken0.toLowerCase() === manualToken1.toLowerCase()
-          }
-          onClick={() => {
-            if (!manualToken0IsValid || !manualToken1IsValid) {
-              toast.error("Enter valid token addresses");
-              return;
-            }
-            if (manualToken0.toLowerCase() === manualToken1.toLowerCase()) {
-              toast.error("Token addresses must differ");
-              return;
-            }
-            void (async () => {
-              const pair = await handleCreatePair(
-                manualToken0 as Address,
-                manualToken1 as Address,
-                { silent: true },
-              );
-              if (pair && pair !== zeroAddress) {
-                const manualKey = [manualToken0, manualToken1]
-                  .map((addr) => addr.toLowerCase())
-                  .sort()
-                  .join(":");
-                const defaultKey =
-                  tokenAAddress && tokenBAddress
-                    ? [tokenAAddress, tokenBAddress]
-                        .map((addr) => addr.toLowerCase())
-                        .sort()
-                        .join(":")
-                    : undefined;
-                if (defaultKey && manualKey === defaultKey) {
-                  setTokenIn(manualToken0 as Address);
-                  setTokenOut(manualToken1 as Address);
-                }
-                toast.success(
-                  () => (
-                    <span>
-                      Pair ready at{" "}
-                      <a
-                        className="underline text-fluent-blue"
-                        href={`${explorerBase}/address/${pair}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {pair.slice(0, 10)}… ↗
-                      </a>
-                    </span>
-                  ),
+                  </li>
                 );
-              }
-            })();
-          }}
-        >
-          {creatingPair ? "Creating pair…" : "Create Pair"}
-        </button>
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
+        <h2 className="text-sm font-semibold text-neutral-200">Create a New Pair</h2>
+        {walletTokens.length === 0 ? (
+          <p className="text-xs text-neutral-400">
+            Hold tokens in this wallet to unlock quick pair creation.
+          </p>
+        ) : (
+          <>
+            <label className="text-xs uppercase tracking-wide text-neutral-400">
+              Token 0
+              <select
+                value={manualToken0}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setManualToken0(next);
+                  if (next.toLowerCase() === manualToken1.toLowerCase()) {
+                    const alternative = walletTokens.find(
+                      (token) => token.address.toLowerCase() !== next.toLowerCase(),
+                    );
+                    setManualToken1(alternative?.address ?? "");
+                  }
+                }}
+                className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white outline-none focus:border-fluent-purple"
+              >
+                {walletTokens.map((token) => {
+                  const formattedBalance = (() => {
+                    try {
+                      return Number.parseFloat(
+                        formatUnits(token.balance, token.decimals),
+                      ).toFixed(4);
+                    } catch {
+                      return "0";
+                    }
+                  })();
+                  return (
+                    <option key={token.address} value={token.address}>
+                      {token.symbol} · {formattedBalance} ({token.address.slice(0, 6)}…
+                      {token.address.slice(-4)})
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+            <label className="text-xs uppercase tracking-wide text-neutral-400">
+              Token 1
+              {secondaryOptions.length > 0 ? (
+                <select
+                  value={manualToken1}
+                  onChange={(event) => setManualToken1(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white outline-none focus:border-fluent-purple"
+                >
+                  {secondaryOptions.map((token) => {
+                    const formattedBalance = (() => {
+                      try {
+                        return Number.parseFloat(
+                          formatUnits(token.balance, token.decimals),
+                        ).toFixed(4);
+                      } catch {
+                        return "0";
+                      }
+                    })();
+                    return (
+                      <option key={token.address} value={token.address}>
+                        {token.symbol} · {formattedBalance} ({token.address.slice(0, 6)}…
+                        {token.address.slice(-4)})
+                      </option>
+                    );
+                  })}
+                </select>
+              ) : (
+                <p className="mt-2 rounded-lg border border-dashed border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-neutral-400">
+                  Hold another token (different from {token0Preview}) to create a fresh pair.
+                </p>
+              )}
+            </label>
+            <button
+              className="w-full rounded-full bg-fluent-blue px-4 py-2 text-sm text-white hover:bg-fluent-purple disabled:opacity-40"
+              disabled={manualPairDisabled}
+              onClick={() => {
+                if (!manualToken0IsValid || !manualToken1IsValid) {
+                  toast.error("Pick two tokens to continue");
+                  return;
+                }
+                if (manualToken0.toLowerCase() === manualToken1.toLowerCase()) {
+                  toast.error("Token addresses must differ");
+                  return;
+                }
+                void (async () => {
+                  const token0 = manualToken0 as Address;
+                  const token1 = manualToken1 as Address;
+                  const pair = await handleCreatePair(token0, token1, { silent: true });
+                  if (pair && pair !== zeroAddress) {
+                    setTokenIn(token0);
+                    setTokenOut(token1);
+                    setPairAddress(pair);
+                    setActiveView("liquidity");
+                    setLiquidityMode("add");
+                    toast.success(
+                      () => (
+                        <span>
+                          Pair ready at{" "}
+                          <a
+                            className="underline text-fluent-blue"
+                            href={`${explorerBase}/address/${pair}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {pair.slice(0, 10)}… ↗
+                          </a>
+                        </span>
+                      ),
+                    );
+                  }
+                })();
+              }}
+            >
+              {creatingPair ? "Creating pair…" : "Create Pair"}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
+};
 
   const renderSwapForm = () => (
     <div className="space-y-4">

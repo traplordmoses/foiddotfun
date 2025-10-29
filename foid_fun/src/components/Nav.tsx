@@ -7,7 +7,7 @@ const links = [
   { href: "/token", label: "Token" },
   { href: "/registry", label: "Registry" },
   { href: "/foidswap", label: "FoidSwap" },
-  { href: "/launchpad", label: "FoidFactory" },
+  { href: "/foidfactory", label: "FoidFactory" },
 ];
 
 export default function Nav() {
