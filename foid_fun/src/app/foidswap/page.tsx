@@ -536,6 +536,7 @@ export default function FoidSwapPage() {
   const [pairReserves, setPairReserves] = useState<[bigint, bigint, number] | undefined>();
   const [pairAllowance, setPairAllowance] = useState<bigint | undefined>();
   const [pairBalance, setPairBalance] = useState<bigint | undefined>();
+  const [pairDecimals, setPairDecimals] = useState<number>(18);
   const [creatingPair, setCreatingPair] = useState(false);
   const [manualToken0, setManualToken0] = useState("");
   const [manualToken1, setManualToken1] = useState("");
@@ -789,6 +790,14 @@ export default function FoidSwapPage() {
         if (toastId) toast.dismiss(toastId);
         const message = unwrapErrorMessage(err) ?? "Pair creation failed";
         const normalized = message.toLowerCase();
+        if (
+          normalized.includes("user rejected") ||
+          normalized.includes("user denied") ||
+          normalized.includes("rejected the request")
+        ) {
+          toast.error("Transaction signature was rejected in the wallet.");
+          return undefined;
+        }
         if (normalized.includes("pair already")) {
           const existingPair = (await publicClient.readContract({
             address: factoryAddress,
@@ -1238,6 +1247,36 @@ export default function FoidSwapPage() {
       }
     };
     void loadPairMeta();
+    return () => {
+      cancelled = true;
+    };
+  }, [pairAddress, publicClient]);
+
+  useEffect(() => {
+    if (!publicClient || !pairAddress || pairAddress === zeroAddress) {
+      setPairDecimals(18);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const decimals = await publicClient
+          .readContract({
+            address: pairAddress,
+            abi: erc20Abi,
+            functionName: "decimals",
+          })
+          .catch(() => 18);
+        if (!cancelled) {
+          const parsed = Number((decimals as number | string | bigint) ?? 18);
+          setPairDecimals(Number.isFinite(parsed) ? parsed : 18);
+        }
+      } catch (err) {
+        console.debug("pair decimals fetch failed", err);
+        if (!cancelled) setPairDecimals(18);
+      }
+    };
+    void load();
     return () => {
       cancelled = true;
     };
@@ -1718,7 +1757,7 @@ export default function FoidSwapPage() {
       return;
     }
     try {
-      const decimals = 18; // LP tokens typically 18 decimals
+      const decimals = Number.isFinite(pairDecimals) ? pairDecimals : 18;
       const sharesParsed = parseUnits(removeShares, decimals);
       if (pairBalance !== undefined && sharesParsed > pairBalance) {
         toast.error("Insufficient LP balance");
@@ -1794,6 +1833,7 @@ export default function FoidSwapPage() {
     fetchTokenData,
     pairAddress,
     pairBalance,
+    pairDecimals,
     publicClient,
     removeDeadline,
     removeShares,
@@ -1841,12 +1881,13 @@ export default function FoidSwapPage() {
     if (!pairAllowance) return true;
     if (!removeShares || Number(removeShares) <= 0) return false;
     try {
-      const parsed = parseUnits(removeShares, 18);
+      const decimals = Number.isFinite(pairDecimals) ? pairDecimals : 18;
+      const parsed = parseUnits(removeShares, decimals);
       return pairAllowance < parsed;
     } catch {
       return true;
     }
-  }, [pairAllowance, removeShares]);
+  }, [pairAllowance, pairDecimals, removeShares]);
 
   const poolPrice = useMemo(() => {
     if (!pairReserves || !pairToken0 || !tokenAState.decimals || !tokenBState.decimals) {
