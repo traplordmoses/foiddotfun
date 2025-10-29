@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: wfoid-control-panel
+    env: node
+    rootDir: foid_fun
+    plan: free
+    buildCommand: "npm ci || npm install && npm run build"
+    startCommand: "npm run start"
+    autoDeploy: true
