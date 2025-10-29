@@ -221,6 +221,7 @@ const DEFAULT_FACTORY = "0xe97639fd6Ff7231ed270Ea16BD9Ba2c79f4cD2cc" as const;
 const DEFAULT_ROUTER = "0xd71330e54eAA2e4248E75067F8f23bB2a6568613" as const;
 const DEFAULT_TOKEN_A = "0x403ECF8ba28E58CE4d1847C1C95ac54651fAB151" as const;
 const DEFAULT_TOKEN_B = "0xC08c0a41725F2329A9a315C643FE9b1a012D6213" as const;
+const BLOCKSCOUT_API_BASE = (process.env.NEXT_PUBLIC_BLOCKSCOUT_API ?? process.env.BLOCKSCOUT_API ?? "https://testnet.fluentscan.xyz/api/").replace(/\/?$/, "");
 const transferEvent = {
   type: "event",
   name: "Transfer",
@@ -814,11 +815,21 @@ export default function FoidSwapPage() {
     let cancelled = false;
     const gather = async () => {
       const lowerToAddress = new Map<string, Address>();
-      const addAddress = (addr?: Address) => {
+      const blockscoutMeta = new Map<string, WalletToken>();
+
+      const addAddress = (addr?: Address, meta?: Partial<WalletToken>) => {
         if (!addr || addr === zeroAddress) return;
         const lower = addr.toLowerCase() as Address;
         if (!lowerToAddress.has(lower)) {
           lowerToAddress.set(lower, addr);
+        }
+        if (meta) {
+          blockscoutMeta.set(lower, {
+            address: addr,
+            symbol: meta.symbol ?? "Token",
+            decimals: meta.decimals ?? 18,
+            balance: meta.balance ?? 0n,
+          });
         }
       };
 
@@ -826,6 +837,49 @@ export default function FoidSwapPage() {
         const latestBlock = await publicClient.getBlockNumber();
         const batchSize = 200_000n;
         const accountLower = account.toLowerCase();
+
+        if (BLOCKSCOUT_API_BASE) {
+          try {
+            const qs = new URLSearchParams({
+              module: "account",
+              action: "addresstokenbalance",
+              address: account,
+              page: "1",
+              offset: "500",
+              sort: "desc",
+            });
+            const res = await fetch(`${BLOCKSCOUT_API_BASE}?${qs.toString()}`, {
+              cache: "no-store",
+            });
+            if (res.ok) {
+              const json = await res.json();
+              const list = json?.result;
+              if (Array.isArray(list)) {
+                list.forEach((item: any) => {
+                  const addr = (item?.contractAddress || item?.contract)?.toString()?.toLowerCase();
+                  const balanceRaw = item?.tokenBalance ?? item?.balance;
+                  const decimalsRaw = item?.tokenDecimal ?? item?.tokenDecimals ?? item?.decimals;
+                  const symbolRaw = item?.tokenSymbol ?? item?.symbol;
+                  try {
+                    const balance = BigInt(balanceRaw ?? 0);
+                    if (addr && balance > 0n) {
+                      addAddress(addr as Address, {
+                        address: addr as Address,
+                        balance,
+                        decimals: Number(decimalsRaw ?? 18),
+                        symbol: typeof symbolRaw === "string" ? symbolRaw : undefined,
+                      });
+                    }
+                  } catch {
+                    /* ignore parse errors */
+                  }
+                });
+              }
+            }
+          } catch (apiErr) {
+            console.debug("blockscout scan failed", apiErr);
+          }
+        }
 
         const fetchLogsChunked = async ({
           event,
@@ -881,7 +935,10 @@ export default function FoidSwapPage() {
               tokenAddress &&
               (creator?.toLowerCase() === accountLower || initialMintTo?.toLowerCase() === accountLower)
             ) {
-              addAddress(tokenAddress);
+              addAddress(tokenAddress, {
+                symbol: (log.args?.symbol as string) ?? "Token",
+                decimals: Number(log.args?.decimals ?? 18),
+              });
             }
           });
         }
@@ -932,7 +989,13 @@ export default function FoidSwapPage() {
       }
 
       const addressList = Array.from(lowerToAddress.values());
-      const summaries = await Promise.all(addressList.map((addr) => loadTokenSummary(addr)));
+      const summaries = await Promise.all(
+        addressList.map((addr) => {
+          const cached = blockscoutMeta.get(addr.toLowerCase());
+          if (cached) return cached;
+          return loadTokenSummary(addr);
+        }),
+      );
       const filtered = summaries
         .filter((token): token is WalletToken => Boolean(token) && (token as WalletToken).balance > 0n)
         .sort((a, b) => a.symbol.localeCompare(b.symbol));
@@ -957,6 +1020,7 @@ export default function FoidSwapPage() {
     publicClient,
     tokenAAddress,
     tokenBAddress,
+    factoryAddress,
   ]);
 
   useEffect(() => {
