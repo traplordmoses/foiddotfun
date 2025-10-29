@@ -823,21 +823,22 @@ export default function FoidSwapPage() {
 
       try {
         const latestBlock = await publicClient.getBlockNumber();
-        const lookback = 500_000n;
-        const fromBlock = latestBlock > lookback ? latestBlock - lookback : 0n;
+        const transfersLookback = 1_000_000n;
+        const transferFromBlock =
+          latestBlock > transfersLookback ? latestBlock - transfersLookback : 0n;
         const accountLower = account.toLowerCase();
 
         const [logsIn, logsOut] = await Promise.all([
           publicClient.getLogs({
             event: transferEvent,
             args: { to: account as Address },
-            fromBlock,
+            fromBlock: transferFromBlock,
             toBlock: latestBlock,
           }),
           publicClient.getLogs({
             event: transferEvent,
             args: { from: account as Address },
-            fromBlock,
+            fromBlock: transferFromBlock,
             toBlock: latestBlock,
           }),
         ]);
@@ -849,7 +850,7 @@ export default function FoidSwapPage() {
             const creationLogs = await publicClient.getLogs({
               address: factoryAddress,
               event: tokenDeployedEvent,
-              fromBlock,
+              fromBlock: 0n,
               toBlock: latestBlock,
             });
             creationLogs.forEach((log) => {
