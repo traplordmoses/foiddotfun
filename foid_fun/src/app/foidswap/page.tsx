@@ -512,8 +512,37 @@ export default function FoidSwapPage() {
         return undefined;
       } catch (err: any) {
         if (toastId) toast.dismiss(toastId);
-        const message =
-          unwrapErrorMessage(err) ?? "Pair creation failed";
+        const message = unwrapErrorMessage(err) ?? "Pair creation failed";
+        const normalized = message.toLowerCase();
+        if (normalized.includes("pair already")) {
+          const existingPair = (await publicClient.readContract({
+            address: factoryAddress,
+            abi: factoryAbi,
+            functionName: "getPair",
+            args: [queryToken0, queryToken1],
+          })) as Address;
+          if (existingPair && existingPair !== zeroAddress) {
+            toast.success("Pair already exists");
+            setPairRefreshNonce((n) => n + 1);
+            if (selectedKey && selectedKey === targetKey) {
+              setPairToken0(undefined);
+              setPairReserves(undefined);
+              setPairAllowance(undefined);
+              setPairBalance(undefined);
+              setPairAddress(existingPair);
+            }
+            setCreatingPair(false);
+            return existingPair;
+          }
+        }
+        if (normalized.includes("forbidden")) {
+          toast.error("Factory rejected the pair (FORBIDDEN). Check roles/permissions.");
+          return undefined;
+        }
+        if (normalized.includes("identical")) {
+          toast.error("Provide two distinct token addresses.");
+          return undefined;
+        }
         toast.error(message);
         return undefined;
       } finally {
@@ -746,15 +775,28 @@ export default function FoidSwapPage() {
             }),
           ),
         )) as string[];
-        const filtered = addresses
-          .map((addr) => addr as Address)
-          .filter((addr) => addr !== zeroAddress);
+        const filtered = Array.from(
+          new Set(
+            addresses
+              .map((addr) => addr as Address)
+              .filter((addr) => addr !== zeroAddress),
+          ),
+        );
+        if (pairAddress && pairAddress !== zeroAddress && !filtered.includes(pairAddress)) {
+          filtered.unshift(pairAddress);
+        }
         if (!cancelled) {
           setFactoryPairs(filtered);
         }
       } catch (err: any) {
         if (!cancelled) {
-          setFactoryPairsError(err?.message || "Unable to load pairs");
+          const message = unwrapErrorMessage(err) ?? "Unable to load pairs";
+          setFactoryPairsError(message);
+          if (pairAddress && pairAddress !== zeroAddress) {
+            setFactoryPairs([pairAddress]);
+          } else {
+            setFactoryPairs([]);
+          }
         }
       } finally {
         if (!cancelled) setFactoryPairsLoading(false);
@@ -764,7 +806,7 @@ export default function FoidSwapPage() {
     return () => {
       cancelled = true;
     };
-  }, [factoryAddress, pairRefreshNonce, publicClient]);
+  }, [factoryAddress, pairAddress, pairRefreshNonce, publicClient]);
 
   // swap quote
   useEffect(() => {
