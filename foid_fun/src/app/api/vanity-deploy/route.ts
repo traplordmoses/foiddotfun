@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { NextRequest } from "next/server";
 import { concatHex, encodeAbiParameters, keccak256, parseAbiParameters, toHex } from "viem";
@@ -28,20 +28,44 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ ok: false, error: "FACTORY not configured" }), { status: 500 });
   }
 
-  const repoRoot = path.join(process.cwd(), "..");
-  const artifactPath = path.join(repoRoot, "conditional_mint_fluent/out/FOID20.sol/FOID20.json");
+  const artifactCandidates = [
+    path.join(process.cwd(), "src/abis/FOID20.json"),
+    path.join(process.cwd(), "conditional_mint_fluent/out/FOID20.sol/FOID20.json"),
+    path.join(process.cwd(), "..", "conditional_mint_fluent/out/FOID20.sol/FOID20.json"),
+  ];
 
-  let artifact: any;
-  try {
-    artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to read artifact";
-    return new Response(JSON.stringify({ ok: false, error: message }), { status: 500 });
+  let creation: string | undefined;
+
+  for (const candidate of artifactCandidates) {
+    if (!existsSync(candidate)) continue;
+    try {
+      const artifact = JSON.parse(readFileSync(candidate, "utf8"));
+      const bytecode = artifact?.bytecode?.object;
+      if (typeof bytecode === "string" && bytecode.startsWith("0x")) {
+        creation = bytecode;
+        break;
+      }
+    } catch (error) {
+      console.warn("Failed to read FOID20 artifact", error);
+    }
   }
 
-  const creation = artifact?.bytecode?.object as string | undefined;
   if (!creation) {
-    return new Response(JSON.stringify({ ok: false, error: "Missing FOID20 bytecode" }), { status: 500 });
+    const envBytecode = process.env.FOID20_BYTECODE?.trim();
+    if (envBytecode && envBytecode.startsWith("0x")) {
+      creation = envBytecode;
+    }
+  }
+
+  if (!creation) {
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error:
+          "FOID20 bytecode unavailable. Ensure conditional_mint_fluent/out/FOID20.sol/FOID20.json is bundled or set FOID20_BYTECODE.",
+      }),
+      { status: 500 },
+    );
   }
 
   const decimals = Number(b.decimals ?? 18);

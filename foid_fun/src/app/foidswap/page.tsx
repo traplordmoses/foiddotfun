@@ -424,7 +424,7 @@ export default function FoidSwapPage() {
         }
       } catch (err) {
         if (!isContractRevertError(err)) {
-          console.warn("getPair lookup failed", err);
+          console.debug("getPair lookup failed", err);
         }
       }
 
@@ -604,7 +604,7 @@ export default function FoidSwapPage() {
         }
       } catch (err) {
         if (!isContractRevertError(err)) {
-          console.warn("getPair failed", err);
+          console.debug("getPair failed", err);
         }
         if (!cancelled) setPairAddress(undefined);
       }
