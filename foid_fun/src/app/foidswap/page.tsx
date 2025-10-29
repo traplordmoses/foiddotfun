@@ -718,11 +718,18 @@ export default function FoidSwapPage() {
       setQuoteImpact(undefined);
       return;
     }
-    if (!tokenInState.decimals || !tokenOutState.decimals || !pairReserves || !pairToken0) {
+    if (
+      tokenInState.decimals === undefined ||
+      tokenOutState.decimals === undefined ||
+      !pairReserves ||
+      !pairToken0
+    ) {
       setQuoteOut(undefined);
       setQuoteImpact(undefined);
       return;
     }
+    const tokenInDecimals = tokenInState.decimals;
+    const tokenOutDecimals = tokenOutState.decimals;
     let cancelled = false;
     const run = async () => {
       try {
@@ -731,7 +738,7 @@ export default function FoidSwapPage() {
           setQuoteImpact(undefined);
           return;
         }
-        const parsed = parseUnits(amountIn, tokenInState.decimals);
+        const parsed = parseUnits(amountIn, tokenInDecimals);
         if (parsed <= 0n) {
           setQuoteOut(undefined);
           setQuoteImpact(undefined);
@@ -759,11 +766,11 @@ export default function FoidSwapPage() {
         }
 
         const executionPrice =
-          Number(formatUnits(out, tokenOutState.decimals)) /
-          Number(formatUnits(parsed, tokenInState.decimals));
+          Number(formatUnits(out, tokenOutDecimals)) /
+          Number(formatUnits(parsed, tokenInDecimals));
         const spotPrice =
-          Number(formatUnits(reserveOut, tokenOutState.decimals)) /
-          Number(formatUnits(reserveIn, tokenInState.decimals));
+          Number(formatUnits(reserveOut, tokenOutDecimals)) /
+          Number(formatUnits(reserveIn, tokenInDecimals));
 
         const impact =
           executionPrice > 0 && spotPrice > 0
