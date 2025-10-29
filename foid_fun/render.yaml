@@ -1,29 +1,9 @@
-# foiddotfun/render.yaml
 services:
   - type: web
     name: wfoid-control-panel
     env: node
     rootDir: foid_fun
     plan: free
-    buildCommand: |
-      if command -v pnpm >/dev/null 2>&1; then pnpm install --frozen-lockfile && pnpm build;
-      elif command -v yarn >/dev/null 2>&1; then yarn install --frozen-lockfile && yarn build;
-      else npm ci && npm run build; fi
-    startCommand: |
-      if command -v pnpm >/dev/null 2>&1; then pnpm start;
-      elif command -v yarn >/dev/null 2>&1; then yarn start;
-      else npm run start; fi
+    buildCommand: "npm ci || npm install && npm run build"
+    startCommand: "npm run start"
     autoDeploy: true
-    envVars:
-      - key: NEXT_PUBLIC_CHAIN_ID
-        sync: false
-      - key: NEXT_PUBLIC_RPC_URL
-        sync: false
-      - key: NEXT_PUBLIC_EXPLORER_URL
-        sync: false
-      - key: NEXT_PUBLIC_WFOID
-        sync: false
-      - key: NEXT_PUBLIC_BRIDGE_ROUTER
-        sync: false
-      - key: NEXT_PUBLIC_ATTESTOR_REGISTRY
-        sync: false
