@@ -5,10 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p $PORT",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
+  "engines": { "node": ">=18" },
   "dependencies": {
     "@rainbow-me/rainbowkit": "2.1.6",
     "@tanstack/react-query": "5.51.1",
