@@ -232,6 +232,34 @@ const resolveAddress = (...candidates: (string | undefined)[]): Address | undefi
   return undefined;
 };
 
+const sortPairAddresses = (a: Address, b: Address): [Address, Address] => {
+  return a.toLowerCase() < b.toLowerCase() ? [a, b] : [b, a];
+};
+
+const unwrapErrorMessage = (error: unknown): string | undefined => {
+  if (!error) return undefined;
+  if (typeof error === "string") return error;
+  if (error instanceof Error) {
+    return error.message || unwrapErrorMessage((error as any).cause);
+  }
+  if (typeof error === "object") {
+    const maybeMessage =
+      (error as { shortMessage?: unknown }).shortMessage ??
+      (error as { details?: unknown }).details ??
+      (error as { message?: unknown }).message;
+    if (typeof maybeMessage === "string" && maybeMessage.trim().length > 0) {
+      return maybeMessage;
+    }
+    return unwrapErrorMessage((error as { cause?: unknown }).cause);
+  }
+  return undefined;
+};
+
+const isContractRevertError = (error: unknown) => {
+  const message = unwrapErrorMessage(error)?.toLowerCase() ?? "";
+  return message.includes("revert") || message.includes("contractfunctionexecutionerror");
+};
+
 type ViewKey = "swap" | "pairs" | "liquidity";
 type LiquidityMode = "add" | "remove";
 
@@ -363,6 +391,7 @@ export default function FoidSwapPage() {
         toast.error("Token addresses must differ");
         return undefined;
       }
+      const [queryToken0, queryToken1] = sortPairAddresses(targetToken0, targetToken1);
 
       const normalizePair = (a: Address, b: Address) => {
         const [x, y] = [a.toLowerCase(), b.toLowerCase()].sort();
@@ -377,7 +406,7 @@ export default function FoidSwapPage() {
           address: factoryAddress,
           abi: factoryAbi,
           functionName: "getPair",
-          args: [targetToken0, targetToken1],
+          args: [queryToken0, queryToken1],
         })) as Address;
         if (existingPair && existingPair !== zeroAddress) {
           if (!options?.silent) {
@@ -394,10 +423,8 @@ export default function FoidSwapPage() {
           return existingPair;
         }
       } catch (err) {
-        console.error("getPair lookup failed", err);
-        if (!walletClient) {
-          toast.error("Unable to lookup pair without wallet connection");
-          return undefined;
+        if (!isContractRevertError(err)) {
+          console.warn("getPair lookup failed", err);
         }
       }
 
@@ -414,8 +441,16 @@ export default function FoidSwapPage() {
           address: factoryAddress,
           abi: factoryAbi,
           functionName: "createPair",
-          args: [targetToken0, targetToken1],
+          args: [queryToken0, queryToken1],
+        }).catch((err) => {
+          const message = unwrapErrorMessage(err) ?? "Pair simulation failed";
+          if (toastId) toast.dismiss(toastId);
+          toast.error(message);
+          return null;
         });
+        if (!simulation) {
+          return undefined;
+        }
         const hash = await walletClient.writeContract(simulation.request);
         if (toastId) toast.dismiss(toastId);
         if (!options?.silent) {
@@ -443,7 +478,7 @@ export default function FoidSwapPage() {
             address: factoryAddress,
             abi: factoryAbi,
             functionName: "getPair",
-            args: [targetToken0, targetToken1],
+            args: [queryToken0, queryToken1],
           })) as Address;
         }
         if (createdPair && createdPair !== zeroAddress) {
@@ -460,9 +495,10 @@ export default function FoidSwapPage() {
         toast.error("Pair creation succeeded but address unreadable");
         return undefined;
       } catch (err: any) {
-        console.error(err);
         if (toastId) toast.dismiss(toastId);
-        toast.error(err?.shortMessage || err?.message || "Pair creation failed");
+        const message =
+          unwrapErrorMessage(err) ?? "Pair creation failed";
+        toast.error(message);
         return undefined;
       } finally {
         setCreatingPair(false);
@@ -550,7 +586,8 @@ export default function FoidSwapPage() {
       setPairAddress(undefined);
       return;
     }
-    const [token0, token1] = tokenAddresses;
+    const [raw0, raw1] = tokenAddresses;
+    const [token0, token1] = sortPairAddresses(raw0, raw1);
     let cancelled = false;
     const loadPair = async () => {
       try {
@@ -566,7 +603,9 @@ export default function FoidSwapPage() {
           setPairAddress(undefined);
         }
       } catch (err) {
-        console.error("getPair failed", err);
+        if (!isContractRevertError(err)) {
+          console.warn("getPair failed", err);
+        }
         if (!cancelled) setPairAddress(undefined);
       }
     };

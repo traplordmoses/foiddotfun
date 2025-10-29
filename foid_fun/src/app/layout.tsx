@@ -8,6 +8,9 @@ import AmbientFX from "@/components/AmbientFX";
 export const metadata = {
   title: "wFOID Control Panel",
   description: "Interact with wFOID, Bridge, and Registry on Fluent Testnet",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
