@@ -494,9 +494,9 @@ export default function FoidSwapPage() {
   const chainId = Number.isFinite(configuredChainId)
     ? configuredChainId
     : FALLBACK_CHAIN_ID;
-  const factoryAddress = resolveAddress(
-    process.env.NEXT_PUBLIC_FACTORY as string | undefined,
+  const pairFactoryAddress = resolveAddress(
     process.env.NEXT_PUBLIC_PAIR_FACTORY as string | undefined,
+    process.env.NEXT_PUBLIC_FACTORY as string | undefined,
     DEFAULT_FACTORY,
   );
   const routerAddress = resolveAddress(
@@ -819,7 +819,7 @@ export default function FoidSwapPage() {
       token1Override?: Address,
       options?: { silent?: boolean },
     ): Promise<Address | undefined> => {
-      if (!publicClient || !factoryAddress) {
+      if (!publicClient || !pairFactoryAddress) {
         toast.error("Factory configuration missing");
         return undefined;
       }
@@ -847,7 +847,7 @@ export default function FoidSwapPage() {
       const resolveExistingPair = async (announce = false) => {
         try {
           const existing = (await publicClient.readContract({
-            address: factoryAddress,
+            address: pairFactoryAddress,
             abi: factoryAbi,
             functionName: "getPair",
             args: [queryToken0, queryToken1],
@@ -891,7 +891,7 @@ export default function FoidSwapPage() {
       setCreatingPair(true);
       try {
         let writeRequest: Parameters<typeof walletClient.writeContract>[0] = {
-          address: factoryAddress,
+          address: pairFactoryAddress,
           abi: factoryAbi,
           functionName: "createPair",
           args: [queryToken0, queryToken1],
@@ -906,7 +906,7 @@ export default function FoidSwapPage() {
         try {
           const simulation = await publicClient.simulateContract({
             account: walletClient.account ?? account,
-            address: factoryAddress,
+            address: pairFactoryAddress,
             abi: factoryAbi,
             functionName: "createPair",
             args: [queryToken0, queryToken1],
@@ -973,7 +973,7 @@ export default function FoidSwapPage() {
         let createdPair = simulatedResult;
         if (!createdPair || createdPair === zeroAddress) {
           createdPair = (await publicClient.readContract({
-            address: factoryAddress,
+            address: pairFactoryAddress,
             abi: factoryAbi,
             functionName: "getPair",
             args: [queryToken0, queryToken1],
@@ -1039,7 +1039,7 @@ export default function FoidSwapPage() {
         setCreatingPair(false);
       }
     },
-    [account, explorerBase, factoryAddress, publicClient, tokenAAddress, tokenBAddress, walletClient],
+    [account, explorerBase, pairFactoryAddress, publicClient, tokenAAddress, tokenBAddress, walletClient],
   );
 
   const loadTokenSummary = useCallback(
@@ -1336,9 +1336,9 @@ export default function FoidSwapPage() {
 
         [...logsIn, ...logsOut].forEach((log) => addAddress(log.address as Address));
 
-        if (factoryAddress) {
+        if (pairFactoryAddress) {
           const creationLogs = await fetchLogsChunked({
-            address: factoryAddress,
+            address: pairFactoryAddress,
             event: tokenDeployedEvent,
           });
           creationLogs.forEach((log) => {
@@ -1443,7 +1443,7 @@ export default function FoidSwapPage() {
     publicClient,
     tokenAAddress,
     tokenBAddress,
-    factoryAddress,
+    pairFactoryAddress,
   ]);
 
   useEffect(() => {
@@ -1469,7 +1469,7 @@ export default function FoidSwapPage() {
       setPairAddress(shouldFallback ? fallbackPairAddress : undefined);
       return;
     }
-    if (!factoryAddress) {
+    if (!pairFactoryAddress) {
       setPairAddress(shouldFallback ? fallbackPairAddress : undefined);
       return;
     }
@@ -1479,7 +1479,7 @@ export default function FoidSwapPage() {
     const loadPair = async () => {
       try {
         const addr = (await publicClient.readContract({
-          address: factoryAddress,
+          address: pairFactoryAddress,
           abi: factoryAbi,
           functionName: "getPair",
           args: [token0, token1],
@@ -1503,7 +1503,7 @@ export default function FoidSwapPage() {
   }, [
     defaultPairKey,
     fallbackPairAddress,
-    factoryAddress,
+    pairFactoryAddress,
     publicClient,
     selectedPairKey,
     tokenAddresses,
@@ -1623,7 +1623,7 @@ export default function FoidSwapPage() {
 
   // fetch factory pairs list for pairs view
   useEffect(() => {
-    if (!publicClient || !factoryAddress) {
+    if (!publicClient || !pairFactoryAddress) {
       setFactoryPairs([]);
       return;
     }
@@ -1633,7 +1633,7 @@ export default function FoidSwapPage() {
         setFactoryPairsLoading(true);
         setFactoryPairsError(null);
         const length = (await publicClient.readContract({
-          address: factoryAddress,
+          address: pairFactoryAddress,
           abi: factoryAbi,
           functionName: "allPairsLength",
         })) as bigint;
@@ -1647,7 +1647,7 @@ export default function FoidSwapPage() {
         const addresses = (await Promise.all(
           indices.map((idx) =>
             publicClient.readContract({
-              address: factoryAddress,
+              address: pairFactoryAddress,
               abi: factoryAbi,
               functionName: "allPairs",
               args: [idx],
@@ -1697,7 +1697,7 @@ export default function FoidSwapPage() {
     return () => {
       cancelled = true;
     };
-  }, [factoryAddress, fallbackPairAddress, pairAddress, pairRefreshNonce, publicClient]);
+  }, [pairFactoryAddress, fallbackPairAddress, pairAddress, pairRefreshNonce, publicClient]);
 
   useEffect(() => {
     if (!publicClient || trackedPairs.length === 0) {
@@ -2405,11 +2405,11 @@ export default function FoidSwapPage() {
               Factory:{" "}
               <a
                 className="text-fluent-blue underline decoration-dotted decoration-fluent-blue/60 underline-offset-2"
-                href={`${explorerBase}/address/${factoryAddress}`}
+                href={`${explorerBase}/address/${pairFactoryAddress}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                {shortAddress(factoryAddress)} ↗
+                {shortAddress(pairFactoryAddress)} ↗
               </a>
             </p>
           </div>
