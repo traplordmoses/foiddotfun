@@ -597,6 +597,14 @@ export default function FoidSwapPage() {
   const [pairDetails, setPairDetails] = useState<Record<string, PairDetails>>({});
   const [pairRefreshNonce, setPairRefreshNonce] = useState(0);
   const [walletTokens, setWalletTokens] = useState<WalletToken[]>([]);
+  const [walletTokensLoading, setWalletTokensLoading] = useState(false);
+  const displayWalletTokens = useMemo(
+    () =>
+      walletTokens.filter(
+        (token) => !((token.symbol ?? "").toUpperCase().includes("FLP")),
+      ),
+    [walletTokens],
+  );
 
   const trackedPairs = useMemo(
     () =>
@@ -1248,6 +1256,7 @@ export default function FoidSwapPage() {
     }
     let cancelled = false;
     const gather = async () => {
+      if (!cancelled) setWalletTokensLoading(true);
       const lowerToAddress = new Map<string, Address>();
       const blockscoutMeta = new Map<string, WalletToken>();
 
@@ -1347,72 +1356,81 @@ export default function FoidSwapPage() {
             }
           });
         }
+
+        const pairsToInspect = new Set<Address>();
+        [fallbackPairAddress, pairAddress, ...factoryPairs].forEach((maybePair) => {
+          if (maybePair && maybePair !== zeroAddress) {
+            pairsToInspect.add(maybePair);
+          }
+        });
+
+        const pairTokens = await Promise.all(
+          Array.from(pairsToInspect).map(async (pair) => {
+            try {
+              const [token0, token1] = await Promise.all([
+                publicClient.readContract({
+                  address: pair,
+                  abi: pairAbi,
+                  functionName: "token0",
+                }),
+                publicClient.readContract({
+                  address: pair,
+                  abi: pairAbi,
+                  functionName: "token1",
+                }),
+              ]);
+              return [token0 as Address, token1 as Address];
+            } catch (error) {
+              console.debug("pair token fetch failed", error);
+              return [] as Address[];
+            }
+          }),
+        );
+
+        pairTokens.forEach(([maybeToken0, maybeToken1]) => {
+          addAddress(maybeToken0 as Address | undefined);
+          addAddress(maybeToken1 as Address | undefined);
+        });
+
+        if (pairAddress && pairBalance && pairBalance > 0n) {
+          addAddress(pairAddress);
+        }
+        if (fallbackPairAddress && pairAddress !== fallbackPairAddress) {
+          addAddress(fallbackPairAddress);
+        }
+
+        const addressList = Array.from(lowerToAddress.values());
+        const summaries = await Promise.all(
+          addressList.map((addr) => {
+            const cached = blockscoutMeta.get(addr.toLowerCase());
+            if (cached) return cached;
+            return loadTokenSummary(addr);
+          }),
+        );
+        const filtered = summaries
+          .filter(
+            (token): token is WalletToken =>
+              Boolean(token) && (token as WalletToken).balance > 0n,
+          )
+          .sort((a, b) => a.symbol.localeCompare(b.symbol));
+
+        if (!cancelled) {
+          setWalletTokens(filtered);
+        }
       } catch (error) {
         console.debug("wallet token discovery failed", error);
-      }
-
-      const pairsToInspect = new Set<Address>();
-      [fallbackPairAddress, pairAddress, ...factoryPairs].forEach((maybePair) => {
-        if (maybePair && maybePair !== zeroAddress) {
-          pairsToInspect.add(maybePair);
+        if (!cancelled) {
+          setWalletTokens([]);
         }
-      });
-
-      const pairTokens = await Promise.all(
-        Array.from(pairsToInspect).map(async (pair) => {
-          try {
-            const [token0, token1] = await Promise.all([
-              publicClient.readContract({
-                address: pair,
-                abi: pairAbi,
-                functionName: "token0",
-              }),
-              publicClient.readContract({
-                address: pair,
-                abi: pairAbi,
-                functionName: "token1",
-              }),
-            ]);
-            return [token0 as Address, token1 as Address];
-          } catch (error) {
-            console.debug("pair token fetch failed", error);
-            return [] as Address[];
-          }
-        }),
-      );
-
-      pairTokens.forEach(([maybeToken0, maybeToken1]) => {
-        addAddress(maybeToken0 as Address | undefined);
-        addAddress(maybeToken1 as Address | undefined);
-      });
-
-      if (pairAddress && pairBalance && pairBalance > 0n) {
-        addAddress(pairAddress);
-      }
-      if (fallbackPairAddress && pairAddress !== fallbackPairAddress) {
-        addAddress(fallbackPairAddress);
-      }
-
-      const addressList = Array.from(lowerToAddress.values());
-      const summaries = await Promise.all(
-        addressList.map((addr) => {
-          const cached = blockscoutMeta.get(addr.toLowerCase());
-          if (cached) return cached;
-          return loadTokenSummary(addr);
-        }),
-      );
-      const filtered = summaries
-        .filter((token): token is WalletToken => Boolean(token) && (token as WalletToken).balance > 0n)
-        .sort((a, b) => a.symbol.localeCompare(b.symbol));
-
-      if (!cancelled) {
-        setWalletTokens(filtered);
+      } finally {
+        if (!cancelled) setWalletTokensLoading(false);
       }
     };
 
     void gather();
     return () => {
       cancelled = true;
+      setWalletTokensLoading(false);
     };
   }, [
     account,
@@ -2257,38 +2275,48 @@ export default function FoidSwapPage() {
   const renderTokenOverview = () => (
     <div className={cardPaddingClass}>
       <h2 className="text-sm font-semibold text-neutral-200 mb-2">Wallet tokens</h2>
-      {walletTokens.length === 0 ? (
+      {walletTokensLoading ? (
+        <div className="flex items-center gap-2 text-sm text-neutral-400">
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-neutral-500 border-t-transparent" />
+          Loading balances…
+        </div>
+      ) : displayWalletTokens.length === 0 ? (
         <p className="text-xs text-neutral-400">
-          Hold ERC-20 tokens in this wallet to see balances and quickly create pools.
+          No non-LP token balances detected. LP tokens (FLP) are hidden from this list.
         </p>
       ) : (
-        <div className="max-h-64 overflow-y-auto space-y-2 text-sm text-neutral-200">
-          {walletTokens.map((token) => {
-            const balanceFormatted = (() => {
-              try {
-                return Number.parseFloat(formatUnits(token.balance, token.decimals)).toLocaleString(
-                  undefined,
-                  { maximumFractionDigits: 6 },
-                );
-              } catch {
-                return token.balance.toString();
-              }
-            })();
-            return (
-              <div
-                key={token.address}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-800/70 bg-neutral-950/70 px-3 py-2 shadow-[0_10px_30px_-24px_rgba(0,0,0,0.9)]"
-              >
-                <div className="flex flex-col">
-                  <span className="font-medium">
-                    {token.symbol || "Token"}
-                    <span className="text-xs text-neutral-500"> · {shortAddress(token.address)}</span>
-                  </span>
+        <div className="space-y-3 text-sm text-neutral-200">
+          <div className="text-xs text-neutral-500">
+            Showing {displayWalletTokens.length} token
+            {displayWalletTokens.length === 1 ? "" : "s"} • LP positions are hidden here.
+          </div>
+          <div className="max-h-64 overflow-y-auto space-y-2">
+            {displayWalletTokens.map((token) => {
+              const balanceFormatted = (() => {
+                try {
+                  return Number.parseFloat(
+                    formatUnits(token.balance, token.decimals),
+                  ).toLocaleString(undefined, { maximumFractionDigits: 6 });
+                } catch {
+                  return token.balance.toString();
+                }
+              })();
+              return (
+                <div
+                  key={token.address}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-800/70 bg-neutral-950/70 px-3 py-2 shadow-[0_10px_30px_-24px_rgba(0,0,0,0.9)]"
+                >
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {token.symbol || "Token"}
+                      <span className="text-xs text-neutral-500"> · {shortAddress(token.address)}</span>
+                    </span>
+                  </div>
+                  <span className="text-sm">{balanceFormatted}</span>
                 </div>
-                <span className="text-sm">{balanceFormatted}</span>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-neutral-400">
