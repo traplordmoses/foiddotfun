@@ -6,7 +6,11 @@ import { BrowserProvider, Contract, Interface, isAddress, parseUnits } from "eth
 import toast from "react-hot-toast";
 import { FOID20_FACTORY_ABI } from "@/lib/foid20FactoryAbi";
 
-const FACTORY_ADDRESS = process.env.NEXT_PUBLIC_FACTORY as `0x${string}` | undefined;
+const FACTORY_ADDRESS = (
+  process.env.NEXT_PUBLIC_FACTORY ??
+  process.env.NEXT_PUBLIC_FOID_FACTORY ??
+  process.env.FACTORY
+) as `0x${string}` | undefined;
 const EXPLORER_BASE = (process.env.NEXT_PUBLIC_FLUENT_SCAN_BASE ?? "https://testnet.fluentscan.xyz").replace(
   /\/+$/,
   "",
@@ -56,7 +60,7 @@ export function LaunchpadForm() {
   }, [connectedAddress]);
 
   if (!FACTORY_ADDRESS) {
-    throw new Error("Missing NEXT_PUBLIC_FACTORY environment variable.");
+    throw new Error("Missing FACTORY address (set NEXT_PUBLIC_FACTORY or FACTORY env variable).");
   }
 
   const explorerUrl = (type: "address" | "tx", value: string) => `${EXPLORER_BASE}/${type}/${value}`;
