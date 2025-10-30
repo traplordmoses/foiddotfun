@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Public Key Encryption Client</title>
+    <script src="https://cdn.jsdelivr.net/npm/node-forge@1.3.1/dist/forge.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        textarea, input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+        
+        textarea {
+            resize: vertical;
+        }
+        
+        textarea:focus, input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        input[type="text"], input[type="number"] {
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .messages-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #e0e0e0;
+        }
+        
+        .messages-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .messages-header h2 {
+            font-size: 20px;
+            color: #333;
+        }
+        
+        .messages-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .message-item {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .message-item-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .message-item-body {
+            color: #333;
+            word-break: break-word;
+        }
+        
+        .message-item-encrypted {
+            font-size: 11px;
+            color: #999;
+            font-family: monospace;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #e0e0e0;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div>
+                <h1 style="margin: 0;">💰 Fluent Mixer</h1>
+                <p class="subtitle" style="margin: 5px 0 0 0;">Deposit ETH with encrypted recipient addresses</p>
+            </div>
+            <button type="button" id="connectBtn" style="width: auto; padding: 10px 20px;">
+                Connect MetaMask
+            </button>
+        </div>
+        <div id="walletStatus" style="margin-bottom: 15px; padding: 10px; background: #f0f0f0; border-radius: 8px; font-size: 14px; display: none;">
+            <strong>Connected:</strong> <span id="walletAddress"></span>
+        </div>
+        
+        <form id="depositForm">
+            <div class="form-group">
+                <label for="amount">Amount (ETH):</label>
+                <input type="number" id="amount" step="0.001" min="0.001" placeholder="0.1" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="recipientAddress">Recipient Address (EOA):</label>
+                <input type="text" id="recipientAddress" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$" required>
+            </div>
+            
+            <div class="form-group" style="background: #f0f0f0; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                <label style="margin-bottom: 8px; display: block;"><strong>Send ETH to Server:</strong></label>
+                <button type="button" id="sendEthBtn" style="width: 100%; padding: 10px 20px;">
+                    Send ETH
+                </button>
+                <div id="txHashDisplay" style="margin-top: 10px; font-size: 12px; color: #666; display: none;">
+                    <strong>Transaction Hash:</strong> <span id="txHashValue" style="font-family: monospace;"></span>
+                </div>
+            </div>
+            
+        </form>
+        
+        <div id="result" class="result"></div>
+        <div id="status" class="status"></div>
+        
+        <div class="messages-section">
+            <div class="messages-header">
+                <h2>🎁 Claim Deposits</h2>
+            </div>
+            <form id="claimForm">
+                <div class="form-group">
+                    <label for="claimAddress">Your Address:</label>
+                    <input type="text" id="claimAddress" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$" required>
+                </div>
+                <button type="submit" id="claimBtn" style="width: auto;">
+                    Check & Claim
+                </button>
+            </form>
+            <div id="claimResult" class="result" style="margin-top: 15px;"></div>
+        </div>
+        
+        <div class="messages-section">
+            <div class="messages-header">
+                <h2>📋 All Deposits</h2>
+                <button type="button" id="refreshBtn" style="width: auto; padding: 8px 16px; font-size: 14px;">
+                    Refresh
+                </button>
+            </div>
+            <div id="depositsList" class="messages-list"></div>
+        </div>
+    </div>
+
+    <script>
+        let serverPublicKey = null;
+        let userAddress = null;
+        let serverAddress = null;
+        
+        // Check if MetaMask is installed
+        function isMetaMaskInstalled() {
+            return typeof window.ethereum !== 'undefined' && window.ethereum.isMetaMask;
+        }
+        
+        // Connect to MetaMask
+        async function connectMetaMask() {
+            if (!isMetaMaskInstalled()) {
+                alert('MetaMask is not installed. Please install MetaMask to continue.');
+                return;
+            }
+            
+            try {
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                userAddress = accounts[0];
+                
+                // Update UI
+                document.getElementById('walletAddress').textContent = userAddress;
+                document.getElementById('walletStatus').style.display = 'block';
+                document.getElementById('connectBtn').textContent = 'Connected';
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('connectBtn').style.opacity = '0.6';
+                
+                // Auto-fill claim address only (not recipient - users will enter different addresses)
+                document.getElementById('claimAddress').value = userAddress;
+                
+                updateStatus('✓ MetaMask connected', 'success');
+            } catch (error) {
+                console.error('Connection error:', error);
+                updateStatus('✗ Failed to connect: ' + error.message, 'error');
+            }
+        }
+        
+        // Handle account changes
+        if (isMetaMaskInstalled()) {
+            window.ethereum.on('accountsChanged', (accounts) => {
+                if (accounts.length === 0) {
+                    // User disconnected
+                    userAddress = null;
+                    document.getElementById('walletStatus').style.display = 'none';
+                    document.getElementById('connectBtn').textContent = 'Connect MetaMask';
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('connectBtn').style.opacity = '1';
+                    document.getElementById('recipientAddress').value = '';
+                    document.getElementById('claimAddress').value = '';
+                } else {
+                    userAddress = accounts[0];
+                    document.getElementById('walletAddress').textContent = userAddress;
+                    document.getElementById('claimAddress').value = userAddress;
+                }
+            });
+        }
+        
+        // Connect button handler
+        document.getElementById('connectBtn').addEventListener('click', connectMetaMask);
+        
+        // Fetch public key and server address from server
+        async function fetchPublicKey() {
+            try {
+                const [pubKeyResponse, serverAddrResponse] = await Promise.all([
+                    fetch('/api/public-key'),
+                    fetch('/api/server-address')
+                ]);
+                
+                const pubKeyData = await pubKeyResponse.json();
+                serverPublicKey = pubKeyData.publicKey;
+                
+                const serverAddrData = await serverAddrResponse.json();
+                serverAddress = serverAddrData.serverAddress;
+                
+                updateStatus('✓ Public key and server address loaded', 'success');
+            } catch (error) {
+                updateStatus('✗ Failed to load: ' + error.message, 'error');
+            }
+        }
+        
+        // Send ETH via MetaMask and register deposit automatically
+        async function sendETH() {
+            if (!isMetaMaskInstalled()) {
+                alert('MetaMask is not installed');
+                return;
+            }
+            
+            if (!userAddress) {
+                alert('Please connect MetaMask first');
+                return;
+            }
+            
+            if (!serverPublicKey) {
+                alert('Public key not loaded yet. Please wait...');
+                return;
+            }
+            
+            const amount = document.getElementById('amount').value;
+            const recipientAddress = document.getElementById('recipientAddress').value.trim();
+            
+            if (!amount || amount <= 0) {
+                alert('Please enter a valid amount');
+                return;
+            }
+            
+            if (!isValidAddress(recipientAddress)) {
+                alert('Please enter a valid recipient address');
+                return;
+            }
+            
+            if (!serverAddress) {
+                alert('Server address not loaded');
+                return;
+            }
+            
+            const sendBtn = document.getElementById('sendEthBtn');
+            const resultEl = document.getElementById('result');
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Processing...';
+            resultEl.style.display = 'none';
+            
+            try {
+                // Step 1: Encrypt recipient address
+                const encryptedAddress = encryptAddress(recipientAddress, serverPublicKey);
+                
+                // Step 2: Send ETH
+                const { ethereum } = window;
+                const txHash = await ethereum.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: userAddress,
+                        to: serverAddress,
+                        value: '0x' + BigInt(Math.floor(parseFloat(amount) * 1e18)).toString(16),
+                    }]
+                });
+                
+                // Show transaction hash
+                document.getElementById('txHashValue').textContent = txHash;
+                document.getElementById('txHashDisplay').style.display = 'block';
+                
+                updateStatus('✓ Transaction sent. Waiting for confirmation...', 'success');
+                
+                // Step 3: Wait for transaction to be mined
+                const receipt = await waitForTransaction(txHash);
+                
+                if (receipt.status === '0x1' || receipt.status === 1) {
+                    // Transaction successful - save to DB
+                    const depositResponse = await fetch('/api/deposit', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            txHash: txHash,
+                            encryptedRecipientAddress: encryptedAddress
+                        })
+                    });
+                    
+                    const depositData = await depositResponse.json();
+                    
+                    if (!depositResponse.ok) {
+                        throw new Error(depositData.error || 'Failed to save deposit');
+                    }
+                    
+                    // Show success message
+                    resultEl.className = 'result success';
+                    resultEl.innerHTML = `
+                        <strong>✓ Deposit Complete!</strong><br>
+                        <strong>Amount:</strong> ${depositData.amount} ETH<br>
+                        <strong>Recipient:</strong> ${escapeHtml(depositData.recipientAddress)}<br>
+                        <strong>Transaction Hash:</strong> <a href="https://etherscan.io/tx/${txHash}" target="_blank" style="color: #667eea;">${txHash.substring(0, 10)}...</a>
+                    `;
+                    resultEl.style.display = 'block';
+                    
+                    updateStatus('✓ Deposit saved successfully!', 'success');
+                    sendBtn.textContent = 'Sent ✓';
+                    
+                    // Clear form and refresh
+                    setTimeout(() => {
+                        document.getElementById('depositForm').reset();
+                        document.getElementById('txHashDisplay').style.display = 'none';
+                        sendBtn.textContent = 'Send ETH';
+                        fetchDeposits();
+                    }, 2000);
+                } else {
+                    throw new Error('Transaction failed');
+                }
+                
+            } catch (error) {
+                console.error('Send ETH error:', error);
+                resultEl.className = 'result error';
+                resultEl.innerHTML = `<strong>✗ Error:</strong> ${escapeHtml(error.message)}`;
+                resultEl.style.display = 'block';
+                
+                if (error.code === 4001) {
+                    updateStatus('✗ Transaction rejected by user', 'error');
+                } else {
+                    updateStatus('✗ Failed: ' + error.message, 'error');
+                }
+                
+                sendBtn.textContent = 'Send ETH';
+            } finally {
+                sendBtn.disabled = false;
+            }
+        }
+        
+        // Wait for transaction to be mined
+        async function waitForTransaction(txHash) {
+            const { ethereum } = window;
+            return new Promise((resolve, reject) => {
+                const checkInterval = setInterval(async () => {
+                    try {
+                        const receipt = await ethereum.request({
+                            method: 'eth_getTransactionReceipt',
+                            params: [txHash]
+                        });
+                        
+                        if (receipt) {
+                            clearInterval(checkInterval);
+                            resolve(receipt);
+                        }
+                    } catch (error) {
+                        clearInterval(checkInterval);
+                        reject(error);
+                    }
+                }, 2000); // Check every 2 seconds
+                
+                // Timeout after 2 minutes
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    reject(new Error('Transaction timeout'));
+                }, 120000);
+            });
+        }
+        
+        // Send ETH button handler
+        document.getElementById('sendEthBtn').addEventListener('click', sendETH);
+        
+        // Convert PEM to Forge format
+        function pemToForgePublicKey(pem) {
+            const pemHeader = '-----BEGIN PUBLIC KEY-----';
+            const pemFooter = '-----END PUBLIC KEY-----';
+            const pemContents = pem
+                .replace(pemHeader, '')
+                .replace(pemFooter, '')
+                .replace(/\s/g, '');
+            return forge.pki.publicKeyFromPem(pem);
+        }
+        
+        // Encrypt address using public key
+        function encryptAddress(address, publicKeyPem) {
+            const publicKey = pemToForgePublicKey(publicKeyPem);
+            // Use RSA-OAEP with SHA-256 to match server's decryption settings
+            const encrypted = publicKey.encrypt(address, 'RSA-OAEP', {
+                md: forge.md.sha256.create(),
+                mgf1: forge.mgf.mgf1.create(forge.md.sha256.create())
+            });
+            return forge.util.encode64(encrypted);
+        }
+        
+        // Update status message
+        function updateStatus(message, type = '') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = 'status ' + type;
+        }
+        
+        // Validate EVM address
+        function isValidAddress(address) {
+            return /^0x[a-fA-F0-9]{40}$/i.test(address);
+        }
+        
+        // Deposit form - prevent default submission (everything happens in sendETH button)
+        document.getElementById('depositForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+        });
+        
+        // Handle claim form submission
+        document.getElementById('claimForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            let claimAddress = document.getElementById('claimAddress').value.trim();
+            const claimBtn = document.getElementById('claimBtn');
+            const claimResultEl = document.getElementById('claimResult');
+            
+            if (!isValidAddress(claimAddress)) {
+                claimResultEl.className = 'result error';
+                claimResultEl.innerHTML = `<strong>✗ Error:</strong> Invalid address format`;
+                claimResultEl.style.display = 'block';
+                return;
+            }
+            
+            // Normalize address to lowercase
+            claimAddress = claimAddress.toLowerCase();
+            
+            claimBtn.disabled = true;
+            claimBtn.textContent = 'Checking...';
+            claimResultEl.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/claim', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ recipientAddress: claimAddress })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    claimResultEl.className = 'result success';
+                    claimResultEl.innerHTML = `
+                        <strong>✓ Claim Successful!</strong><br>
+                        <strong>Total Amount:</strong> ${data.totalAmount} ETH<br>
+                        <strong>Deposits Claimed:</strong> ${data.depositCount}<br>
+                        <strong>Transaction Hash:</strong> <a href="https://etherscan.io/tx/${escapeHtml(data.txHash)}" target="_blank" style="color: #667eea;">${escapeHtml(data.txHash)}</a>
+                    `;
+                    claimResultEl.style.display = 'block';
+                    
+                    // Refresh deposits list
+                    fetchDeposits();
+                } else {
+                    claimResultEl.className = 'result error';
+                    claimResultEl.innerHTML = `<strong>ℹ️ No Claims Available</strong><br>${escapeHtml(data.message)}`;
+                    claimResultEl.style.display = 'block';
+                }
+            } catch (error) {
+                claimResultEl.className = 'result error';
+                claimResultEl.innerHTML = `<strong>✗ Error:</strong> ${escapeHtml(error.message)}`;
+                claimResultEl.style.display = 'block';
+            } finally {
+                claimBtn.disabled = false;
+                claimBtn.textContent = 'Check & Claim';
+            }
+        });
+        
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Fetch deposits
+        async function fetchDeposits() {
+            try {
+                const response = await fetch('/api/deposits');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayDeposits(data.deposits);
+                }
+            } catch (error) {
+                console.error('Failed to fetch deposits:', error);
+            }
+        }
+        
+        // Display deposits in the UI
+        function displayDeposits(deposits) {
+            const depositsList = document.getElementById('depositsList');
+            
+            if (deposits.length === 0) {
+                depositsList.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">No deposits yet</div>';
+                return;
+            }
+            
+            depositsList.innerHTML = deposits.map(deposit => `
+                <div class="message-item" style="border-left: 4px solid ${deposit.claimed ? '#28a745' : '#ffc107'};">
+                    <div class="message-item-header">
+                        <span><strong>ID:</strong> ${deposit.id}</span>
+                        <span><strong>Status:</strong> ${deposit.claimed ? '<span style="color: #28a745;">✓ Claimed</span>' : '<span style="color: #ffc107;">⏳ Pending</span>'}</span>
+                        <span>${new Date(deposit.created_at).toLocaleString()}</span>
+                    </div>
+                    <div class="message-item-body">
+                        <strong>Amount:</strong> ${deposit.amount} ETH<br>
+                        <strong>Recipient:</strong> ${escapeHtml(deposit.recipient_address)}<br>
+                        ${deposit.claimed ? `
+                            <strong>Claimed At:</strong> ${new Date(deposit.claimed_at).toLocaleString()}<br>
+                            <strong>TX Hash:</strong> <code style="font-size: 11px;">${escapeHtml(deposit.claim_tx_hash)}</code>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Refresh button handler
+        document.getElementById('refreshBtn').addEventListener('click', fetchDeposits);
+        
+        // Initialize: fetch public key and deposits when page loads
+        fetchPublicKey();
+        fetchDeposits();
+    </script>
+</body>
+</html>
+
