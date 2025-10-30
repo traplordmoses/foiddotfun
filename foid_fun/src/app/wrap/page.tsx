@@ -30,8 +30,10 @@ export default function WrapPage() {
 
   const { data: ethBalance } = useBalance({
     address,
-    watch: true,
-    enabled: Boolean(address),
+    query: {
+      enabled: Boolean(address),
+      refetchInterval: 4000,
+    },
   });
 
   const { data: wethBalance } = useContractRead({
