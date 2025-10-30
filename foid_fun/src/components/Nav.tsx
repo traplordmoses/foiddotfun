@@ -7,6 +7,7 @@ const links = [
   { href: "/", label: "Dashboard" },
   { href: "/token", label: "Token" },
   { href: "/registry", label: "Registry" },
+  { href: "/wrap", label: "Wrap ETH" },
   { href: "/foidswap", label: "FoidSwap" },
   { href: "/foidfactory", label: "FoidFactory" },
 ];

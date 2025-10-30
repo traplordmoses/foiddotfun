@@ -12,6 +12,7 @@ interface TxButtonProps {
   };
   functionName: string;
   args?: readonly unknown[];
+  value?: bigint;
   enabled?: boolean;
   children: React.ReactNode;
   onSuccess?: () => void;
@@ -21,6 +22,7 @@ export function TxButton({
   contract,
   functionName,
   args = [],
+  value,
   enabled = true,
   children,
   onSuccess,
@@ -48,7 +50,7 @@ export function TxButton({
       return;
     }
 
-    console.debug("TxButton click", { functionName, args });
+    console.debug("TxButton click", { functionName, args, value });
 
     try {
       const loadingId = toast.loading("Submitting transaction…");
@@ -67,6 +69,7 @@ export function TxButton({
         abi: contract.abi as Abi,
         functionName,
         args: normalizedArgs,
+        value,
       });
       setHash(txHash);
       toast.dismiss(loadingId);

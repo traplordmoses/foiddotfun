@@ -4,6 +4,7 @@ import AttestorRegistryAbi from "@/abis/AttestorRegistry.json";
 import SimpleSingleAMMAbi from "@/abis/SimpleSingleAMM.json";
 
 const fallbackExplorer = "https://testnet.fluentscan.xyz";
+const DEFAULT_WETH_ADDRESS = "0x3d38E57b5d23c3881AffB8BC0978d5E0bd96c1C6" as const;
 
 export const FLUENT_CHAIN_ID =
   Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? "20994") || 20994;
@@ -33,6 +34,101 @@ export const TOKEN1_METADATA = {
   symbol: process.env.NEXT_PUBLIC_TOKEN1_SYMBOL ?? "TOKEN1",
 } as const;
 
+export const WETH_ADDRESS = (process.env.NEXT_PUBLIC_WETH ?? DEFAULT_WETH_ADDRESS) as `0x${string}`;
+
+export const WETH9_ABI = [
+  {
+    type: "function",
+    name: "name",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "string" }],
+  },
+  {
+    type: "function",
+    name: "symbol",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "string" }],
+  },
+  {
+    type: "function",
+    name: "decimals",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint8" }],
+  },
+  {
+    type: "function",
+    name: "totalSupply",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "balanceOf",
+    stateMutability: "view",
+    inputs: [{ name: "", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "allowance",
+    stateMutability: "view",
+    inputs: [
+      { name: "", type: "address" },
+      { name: "", type: "address" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "approve",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "guy", type: "address" },
+      { name: "wad", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "transfer",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "dst", type: "address" },
+      { name: "wad", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "transferFrom",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "src", type: "address" },
+      { name: "dst", type: "address" },
+      { name: "wad", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "deposit",
+    stateMutability: "payable",
+    inputs: [],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "withdraw",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "wad", type: "uint256" }],
+    outputs: [],
+  },
+] as const;
+
 export const WrappedFoid = {
   address: WFOID_ADDRESS,
   abi: WrappedFoidAbi,
@@ -51,6 +147,11 @@ export const AttestorRegistry = {
 export const SimpleSingleAMM = {
   address: AMM_ADDRESS,
   abi: SimpleSingleAMMAbi,
+} as const;
+
+export const WETH9Contract = {
+  address: WETH_ADDRESS,
+  abi: WETH9_ABI,
 } as const;
 
 export type WrappedFoidAbiType = typeof WrappedFoidAbi;

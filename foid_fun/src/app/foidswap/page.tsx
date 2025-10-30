@@ -614,9 +614,6 @@ export default function FoidSwapPage() {
     [factoryPairs, fallbackPairAddress, pairAddress],
   );
   const selectedPairMeta = pairAddress ? pairDetails[pairAddress.toLowerCase()] : undefined;
-  const selectedPairLabel = selectedPairMeta
-    ? `${selectedPairMeta.token0.symbol ?? shortAddress(selectedPairMeta.token0.address)} / ${selectedPairMeta.token1.symbol ?? shortAddress(selectedPairMeta.token1.address)}`
-    : undefined;
   const tokenADecimals = tokenAState.decimals ?? selectedPairMeta?.token0.decimals ?? 18;
   const tokenBDecimals = tokenBState.decimals ?? selectedPairMeta?.token1.decimals ?? 18;
   const tokenADisplay =
@@ -628,18 +625,54 @@ export default function FoidSwapPage() {
     selectedPairMeta?.token1.symbol ??
     (selectedPairMeta?.token1.address ? shortAddress(selectedPairMeta.token1.address) : "Token B");
 
+  const activeTokenAddresses = useMemo(() => {
+    const map = new Map<string, Address>();
+    factoryPairs.forEach((pair) => {
+      if (!pair) return;
+      const detail = pairDetails[pair.toLowerCase()];
+      if (!detail) return;
+      [detail.token0, detail.token1].forEach((token) => {
+        if (!token?.address) return;
+        const lower = token.address.toLowerCase();
+        if (!map.has(lower)) {
+          map.set(lower, token.address);
+        }
+      });
+    });
+    return Array.from(map.values());
+  }, [factoryPairs, pairDetails]);
+
+  const activePairOptions = useMemo(() => {
+    return factoryPairs
+      .map((pair) => {
+        if (!pair) return null;
+        const detail = pairDetails[pair.toLowerCase()];
+        if (!detail || !detail.token0?.address || !detail.token1?.address) return null;
+        const label = `${detail.token0.symbol ?? shortAddress(detail.token0.address)} / ${detail.token1.symbol ?? shortAddress(detail.token1.address)}`;
+        return { address: pair, label, token0: detail.token0.address, token1: detail.token1.address };
+      })
+      .filter(
+        (option): option is { address: Address; label: string; token0: Address; token1: Address } =>
+          Boolean(option),
+      );
+  }, [factoryPairs, pairDetails]);
+
   const tokenOptions = useMemo(() => {
     const map = new Map<string, { address: Address; label: string }>();
 
-    walletTokens.forEach((token) => {
-      const lower = token.address.toLowerCase();
-      if (!map.has(lower)) {
-        const labelSymbol = token.symbol || "Token";
+    Object.values(pairDetails).forEach((detail) => {
+      if (!detail) return;
+      const tokens: PairTokenInfo[] = [detail.token0, detail.token1];
+      tokens.forEach((token) => {
+        if (!token?.address) return;
+        const lower = token.address.toLowerCase();
+        if (map.has(lower)) return;
+        const symbol = token.symbol && token.symbol.trim().length > 0 ? token.symbol.trim() : undefined;
         map.set(lower, {
           address: token.address,
-          label: `${labelSymbol} (${shortAddress(token.address)})`,
+          label: `${symbol ?? "Token"} (${shortAddress(token.address)})`,
         });
-      }
+      });
     });
 
     const ensureOption = (addr?: Address, symbolHint?: string) => {
@@ -655,14 +688,19 @@ export default function FoidSwapPage() {
 
     ensureOption(tokenIn as Address | undefined, tokenInState.symbol);
     ensureOption(tokenOut as Address | undefined, tokenOutState.symbol);
-    return Array.from(map.values());
-  }, [
-    tokenIn,
-    tokenInState.symbol,
-    tokenOut,
-    tokenOutState.symbol,
-    walletTokens,
-  ]);
+
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [pairDetails, tokenIn, tokenInState.symbol, tokenOut, tokenOutState.symbol]);
+
+  useEffect(() => {
+    if (pairAddress) return;
+    if (!activePairOptions.length) return;
+    const first = activePairOptions[0];
+    setPairAddress(first.address);
+    setTokenIn(first.token0);
+    setTokenOut(first.token1);
+  }, [activePairOptions, pairAddress]);
+
   const tokenInEntryValid = tokenInEntry.length === 0 || isAddress(tokenInEntry);
   const tokenOutEntryValid = tokenOutEntry.length === 0 || isAddress(tokenOutEntry);
   const manualToken0IsValid = manualToken0 ? isAddress(manualToken0) : false;
@@ -697,27 +735,30 @@ export default function FoidSwapPage() {
   }, [manualToken0, manualToken1, walletTokens]);
 
   useEffect(() => {
-    if (!walletTokens.length) return;
+    if (!activeTokenAddresses.length) return;
     const hasToken = (addr?: Address) =>
-      !!addr && walletTokens.some((token) => token.address.toLowerCase() === addr.toLowerCase());
+      !!addr && activeTokenAddresses.some((token) => token.toLowerCase() === addr.toLowerCase());
 
     let nextTokenIn = tokenIn;
     if (!hasToken(tokenIn)) {
-      nextTokenIn = walletTokens[0].address;
+      nextTokenIn = activeTokenAddresses[0];
       setTokenIn(nextTokenIn);
     }
 
-    const fallbackSecond = walletTokens.find(
-      (token) => token.address.toLowerCase() !== (nextTokenIn ?? "").toLowerCase(),
+    const fallbackSecond = activeTokenAddresses.find(
+      (token) => token.toLowerCase() !== (nextTokenIn ?? "").toLowerCase(),
     );
-    if (!hasToken(tokenOut) || (nextTokenIn && tokenOut && tokenOut.toLowerCase() === nextTokenIn.toLowerCase())) {
+    if (
+      !hasToken(tokenOut) ||
+      (nextTokenIn && tokenOut && tokenOut.toLowerCase() === nextTokenIn.toLowerCase())
+    ) {
       if (fallbackSecond) {
-        setTokenOut(fallbackSecond.address);
+        setTokenOut(fallbackSecond);
       } else if (tokenOut !== undefined) {
         setTokenOut(undefined);
       }
     }
-  }, [tokenIn, tokenOut, walletTokens]);
+  }, [activeTokenAddresses, tokenIn, tokenOut]);
 
   const tokenAddresses = useMemo(
     () =>
@@ -2935,6 +2976,35 @@ export default function FoidSwapPage() {
           </span>
         )}
       </div>
+      <label className="md:col-span-2 text-sm text-neutral-300">
+        <span className="mb-1 block font-medium text-neutral-200">Active pairs</span>
+        <select
+          className="w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple disabled:opacity-60"
+          value={pairAddress ?? ""}
+          disabled={activePairOptions.length === 0}
+          onChange={(event) => {
+            const next = event.target.value as Address;
+            if (!next) return;
+            const chosen = activePairOptions.find(
+              (option) => option.address.toLowerCase() === next.toLowerCase(),
+            );
+            setPairAddress(next);
+            if (chosen) {
+              setTokenIn(chosen.token0);
+              setTokenOut(chosen.token1);
+            }
+          }}
+        >
+          <option value="" disabled>
+            {activePairOptions.length === 0 ? "No active pairs detected" : "Select an active pair"}
+          </option>
+          {activePairOptions.map((option) => (
+            <option key={option.address} value={option.address}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <label className="text-sm text-neutral-300">
         From Token A
         <div className="mt-1 space-y-2">
@@ -3054,6 +3124,9 @@ export default function FoidSwapPage() {
           Please create a pool for this pair before swapping.
         </div>
       )}
+      <p className="md:col-span-2 text-xs text-neutral-500">
+        If you don't see your pair, please create a pool for this pair before swapping.
+      </p>
     </div>
   );
 
@@ -3077,8 +3150,8 @@ export default function FoidSwapPage() {
       <div className="pointer-events-none absolute inset-x-1/4 top-1/3 h-96 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.18),transparent_65%)] blur-2xl" />
       <div className="relative mx-auto max-w-6xl space-y-8 px-4 pb-12 pt-10 sm:px-6 lg:px-8">
         <NetworkGate chainId={chainId}>
-          <section className={`${cardBaseClass} border-neutral-800/70 bg-neutral-950/80 p-6 md:p-8`}>
-            <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <section className="space-y-8">
+            <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h1 className="text-3xl font-semibold text-white">FoidSwap Router</h1>
                 <p className="text-sm text-neutral-400">
@@ -3101,38 +3174,6 @@ export default function FoidSwapPage() {
                 ))}
               </div>
             </header>
-
-            {pairAddress && (
-              <div className="mb-6 rounded-2xl border border-fluent-purple/30 bg-fluent-purple/10 p-4 text-sm text-neutral-200 shadow-[0_20px_60px_-44px_rgba(168,85,247,0.9)]">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-semibold text-white">Selected pair</span>
-                  <a
-                    className="text-xs text-fluent-blue underline decoration-dotted decoration-fluent-blue/60 underline-offset-2"
-                    href={`${explorerBase}/address/${pairAddress}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    View {shortAddress(pairAddress)} ↗
-                  </a>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs sm:text-sm">
-                  <span className="rounded-full bg-neutral-900/70 px-3 py-1 font-medium text-white">
-                    {selectedPairLabel ?? shortAddress(pairAddress)}
-                  </span>
-                  <span className="text-neutral-200">
-                    Reserves · {formatBigNumber(pairReserves?.[0], tokenADecimals)} /{" "}
-                    {formatBigNumber(pairReserves?.[1], tokenBDecimals)}
-                  </span>
-                  {poolPrice && (
-                    <span className="text-neutral-200">
-                      Price · 1 {tokenADisplay} ≈{" "}
-                      {poolPrice.priceAB.toLocaleString(undefined, { maximumFractionDigits: 4 })}{" "}
-                      {tokenBDisplay}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
 
             <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
               <aside className="space-y-4">
