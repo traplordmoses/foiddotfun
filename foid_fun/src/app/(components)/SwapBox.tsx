@@ -11,10 +11,6 @@ const FLUENT_CHAIN_ID = 20994;
 const FLUENT_CHAIN_NAME = "Fluent Testnet";
 const RPC_URL = "https://rpc.testnet.fluent.xyz";
 
-interface SwapBoxProps {
-  calm: boolean;
-}
-
 interface QuoteHop {
   from: string;
   to: string;
@@ -122,7 +118,7 @@ function useRouteQuote(_from: string, _to: string, _amountIn: string): RouteQuot
   );
 }
 
-export function SwapBox({ calm }: SwapBoxProps) {
+export function SwapBox() {
   const { isConnected } = useAccount();
   const [fromToken, setFromToken] = useState("A");
   const [toToken, setToToken] = useState("B");
@@ -141,7 +137,7 @@ export function SwapBox({ calm }: SwapBoxProps) {
     switchNetwork,
   } = useNetworkGate(FLUENT_CHAIN_ID);
 
-  const amplitude = calm ? 0.4 : 1.2;
+  const amplitude = 1.1;
 
   const handlePaste = useCallback(async () => {
     if (typeof navigator === "undefined" || !navigator.clipboard) return;
@@ -166,24 +162,22 @@ export function SwapBox({ calm }: SwapBoxProps) {
       className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-black/60 text-emerald-200 shadow-[0_0_50px_rgba(23,255,170,0.08)]"
       initial={false}
       animate={{
-        rotateZ: calm ? 0 : [0, amplitude, -amplitude, 0],
-        x: calm ? 0 : [-amplitude * 2, amplitude * 2, 0],
+        rotateZ: [0, amplitude, -amplitude, 0],
+        x: [-amplitude * 2, amplitude * 2, 0],
       }}
       transition={{
-        duration: calm ? 8 : 4,
+        duration: 6,
         repeat: Infinity,
         repeatType: "mirror",
       }}
     >
-      {!calm && (
-        <div
-          className="pointer-events-none absolute inset-0 moire mix-blend-screen"
-          style={{ opacity: 0.14 }}
-        />
-      )}
+      <div
+        className="pointer-events-none absolute inset-0 moire mix-blend-screen"
+        style={{ opacity: 0.16 }}
+      />
       <div
         className="pointer-events-none absolute inset-0 scanlines"
-        style={{ opacity: calm ? 0.08 : 0.16 }}
+        style={{ opacity: 0.12 }}
       />
       <div className="pointer-events-none absolute inset-0 vignette" />
       <div className="relative space-y-6 p-6 font-mono text-sm">
@@ -199,7 +193,7 @@ export function SwapBox({ calm }: SwapBoxProps) {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-3 rounded-lg border border-emerald-500/30 bg-black/60 p-4 shadow-inner">
             <label className="text-xs uppercase tracking-widest text-emerald-500/90">
-              token selector — from
+              token selector—from
             </label>
             <input
               value={fromToken}
@@ -247,7 +241,7 @@ export function SwapBox({ calm }: SwapBoxProps) {
 
           <div className="space-y-3 rounded-lg border border-emerald-500/30 bg-black/60 p-4 shadow-inner">
             <label className="text-xs uppercase tracking-widest text-emerald-500/90">
-              token selector — to
+              token selector—to
             </label>
             <input
               value={toToken}
