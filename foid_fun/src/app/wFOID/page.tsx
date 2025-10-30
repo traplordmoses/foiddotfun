@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAccount, useContractRead } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { AttestorRegistry, WrappedFoid } from "@/lib/contracts";
@@ -13,7 +13,7 @@ const ShortAddr = ({ address }: { address?: string }) => {
   if (!address) return null;
   const value = String(address);
   return (
-    <span className="block truncate font-mono text-sm" title={value}>
+    <span className="block truncate font-mono text-sm text-neutral-200" title={value}>
       {value.length > 14 ? `${value.slice(0, 10)}…${value.slice(-6)}` : value}
     </span>
   );
@@ -110,211 +110,249 @@ export default function TokenPage() {
   });
 
   const chainId = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || "0", 10);
+  const inputClass =
+    "w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple";
+
+  const stats = useMemo(() => {
+    const items = [
+      <StatCard key="token" label="Token" value={`${name ?? ""} (${symbol ?? ""})`} />,
+      <StatCard key="decimals" label="Decimals" value={decimalsNum} />,
+      <StatCard
+        key="supply"
+        label="Total Supply"
+        value={`${totalSupplyFormatted} ${symbol ?? ""}`}
+      />,
+      <StatCard
+        key="owner"
+        label="Registry Owner"
+        value={<ShortAddr address={typeof registryOwner === "string" ? registryOwner : undefined} />}
+      />,
+    ];
+    if (address) {
+      items.push(
+        <StatCard
+          key="isOwner"
+          label="You are registry owner"
+          value={isRegistryOwner ? "Yes" : "No"}
+        />,
+      );
+    }
+    return items;
+  }, [address, decimalsNum, isRegistryOwner, name, registryOwner, symbol, totalSupplyFormatted]);
 
   return (
-    <main className="space-y-6">
-      <NetworkGate chainId={chainId}>
-        <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-4">
-          <StatCard label="Token" value={`${name ?? ""} (${symbol ?? ""})`} />
-          <StatCard label="Decimals" value={decimalsNum} />
-          <StatCard label="Total Supply" value={`${totalSupplyFormatted} ${symbol ?? ""}`} />
-          <StatCard
-            label="Registry Owner"
-            value={
-              <ShortAddr
-                address={typeof registryOwner === "string" ? registryOwner : undefined}
-              />
-            }
-          />
-          {address && (
-            <StatCard label="You are registry owner" value={isRegistryOwner ? "Yes" : "No"} />
-          )}
-        </div>
+    <main className="py-10">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+        <NetworkGate chainId={chainId}>
+          <section className="space-y-8">
+            <header className="space-y-3 text-white">
+              <h1 className="text-3xl font-semibold">wFOID Control Panel</h1>
+              <p className="max-w-2xl text-sm text-white/70">
+                Manage the wrapped FOID token, review registry ownership, and administer attestor access.
+              </p>
+            </header>
 
-        <div className="p-4 space-y-8">
-          {/* Transfer */}
-          <section className="card space-y-4">
-            <h2 className="font-mono uppercase text-fluent-pink text-sm">Transfer</h2>
-            <input
-              className="w-full p-2 rounded-lg bg-neutral-800"
-              placeholder="Recipient address"
-              value={transferTo}
-              onChange={(e) => setTransferTo(e.target.value)}
-            />
-            <AmountInput value={transferAmount} onChange={setTransferAmount} placeholder="Amount" />
-            <TxButton
-              contract={WrappedFoid}
-              functionName="transfer"
-              args={[transferTo, transferAmount ? parseUnits(transferAmount, decimalsNum) : 0n]}
-              enabled={!!transferTo && !!transferAmount}
-              onSuccess={() => {
-                setTransferTo("");
-                setTransferAmount("");
-              }}
-            >
-              Transfer
-            </TxButton>
-          </section>
-
-          {/* Approve */}
-          <section className="card space-y-4">
-            <h2 className="font-mono uppercase text-fluent-pink text-sm">Approve</h2>
-            <input
-              className="w-full p-2 rounded-lg bg-neutral-800"
-              placeholder="Spender address"
-              value={approveSpender}
-              onChange={(e) => setApproveSpender(e.target.value)}
-            />
-            <AmountInput value={approveAmount} onChange={setApproveAmount} placeholder="Amount" />
-            <div className="text-xs text-neutral-400">Current allowance: {allowanceFormatted}</div>
-            <TxButton
-              contract={WrappedFoid}
-              functionName="approve"
-              args={[
-                approveSpender,
-                approveAmount ? parseUnits(approveAmount, decimalsNum) : 0n,
-              ]}
-              enabled={!!approveSpender && !!approveAmount}
-              onSuccess={() => setApproveAmount("")}
-            >
-              Approve
-            </TxButton>
-          </section>
-
-          {/* Mint (gated) */}
-          {hasMinterRole && (
-            <section className="card space-y-4">
-              <h2 className="font-mono uppercase text-fluent-pink text-sm">Mint</h2>
-              <input
-                className="w-full p-2 rounded-lg bg-neutral-800"
-                placeholder="Recipient address"
-                value={mintTo}
-                onChange={(e) => setMintTo(e.target.value)}
-              />
-              <AmountInput value={mintAmount} onChange={setMintAmount} placeholder="Amount" />
-              <TxButton
-                contract={WrappedFoid}
-                functionName="mint"
-                args={[mintTo, mintAmount ? parseUnits(mintAmount, decimalsNum) : 0n]}
-                enabled={!!mintTo && !!mintAmount}
-                onSuccess={() => {
-                  setMintTo("");
-                  setMintAmount("");
-                }}
-              >
-                Mint
-              </TxButton>
-            </section>
-          )}
-
-          {/* Burn (gated) */}
-          {hasMinterRole && (
-            <section className="card space-y-4">
-              <h2 className="font-mono uppercase text-fluent-pink text-sm">Burn</h2>
-              <input
-                className="w-full p-2 rounded-lg bg-neutral-800"
-                placeholder="Address to burn from"
-                value={burnFrom}
-                onChange={(e) => setBurnFrom(e.target.value)}
-              />
-              <AmountInput value={burnAmount} onChange={setBurnAmount} placeholder="Amount" />
-              <TxButton
-                contract={WrappedFoid}
-                functionName="burn"
-                args={[burnFrom, burnAmount ? parseUnits(burnAmount, decimalsNum) : 0n]}
-                enabled={!!burnFrom && !!burnAmount}
-                onSuccess={() => {
-                  setBurnFrom("");
-                  setBurnAmount("");
-                }}
-              >
-                Burn
-              </TxButton>
-            </section>
-          )}
-
-          {/* Pause / Unpause (gated) */}
-          {hasPauserRole && (
-            <section className="card space-y-4">
-              <h2 className="font-mono uppercase text-fluent-pink text-sm">Pause / Unpause</h2>
-              <TxButton
-                contract={WrappedFoid}
-                functionName={isPaused ? "unpause" : "pause"}
-                args={[]}
-                enabled={true}
-              >
-                {isPaused ? "Unpause" : "Pause"}
-              </TxButton>
-            </section>
-          )}
-
-          {/* Roles (badges) */}
-          <section className="p-1">
-            <div className="flex flex-wrap gap-2">
-              <RoleBadge role="MINTER" hasRole={hasMinterRole} />
-              <RoleBadge role="PAUSER" hasRole={hasPauserRole} />
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {stats}
             </div>
-          </section>
 
-          {/* Attestor registry tools */}
-          <section className="card space-y-4">
-            <h2 className="font-mono uppercase text-fluent-pink text-sm">Check Attestor</h2>
-            <input
-              className="w-full rounded-lg bg-neutral-800 p-2"
-              placeholder="Address to check"
-              value={attestorToCheck}
-              onChange={(event) => setAttestorToCheck(event.target.value)}
-            />
-            {attestorToCheck && (
-              <div className="text-sm text-neutral-400">
-                Is attestor: {attestorStatus ? "Yes" : "No"}
+            <div className="grid gap-6 lg:grid-cols-2">
+              <section className="card space-y-4">
+                <h2 className="font-mono uppercase text-fluent-pink text-sm">Transfer</h2>
+                <input
+                  className={inputClass}
+                  placeholder="Recipient address"
+                  value={transferTo}
+                  onChange={(event) => setTransferTo(event.target.value)}
+                />
+                <AmountInput value={transferAmount} onChange={setTransferAmount} placeholder="Amount" />
+                <TxButton
+                  contract={WrappedFoid}
+                  functionName="transfer"
+                  args={[transferTo, transferAmount ? parseUnits(transferAmount, decimalsNum) : 0n]}
+                  enabled={!!transferTo && !!transferAmount}
+                  onSuccess={() => {
+                    setTransferTo("");
+                    setTransferAmount("");
+                  }}
+                >
+                  Transfer
+                </TxButton>
+              </section>
+
+              <section className="card space-y-4">
+                <h2 className="font-mono uppercase text-fluent-pink text-sm">Approve</h2>
+                <input
+                  className={inputClass}
+                  placeholder="Spender address"
+                  value={approveSpender}
+                  onChange={(event) => setApproveSpender(event.target.value)}
+                />
+                <AmountInput value={approveAmount} onChange={setApproveAmount} placeholder="Amount" />
+                <div className="text-xs text-neutral-400">Current allowance: {allowanceFormatted}</div>
+                <TxButton
+                  contract={WrappedFoid}
+                  functionName="approve"
+                  args={[
+                    approveSpender,
+                    approveAmount ? parseUnits(approveAmount, decimalsNum) : 0n,
+                  ]}
+                  enabled={!!approveSpender && !!approveAmount}
+                  onSuccess={() => setApproveAmount("")}
+                >
+                  Approve
+                </TxButton>
+              </section>
+
+              {hasMinterRole && (
+                <section className="card space-y-4">
+                  <h2 className="font-mono uppercase text-fluent-pink text-sm">Mint</h2>
+                  <input
+                    className={inputClass}
+                    placeholder="Recipient address"
+                    value={mintTo}
+                    onChange={(event) => setMintTo(event.target.value)}
+                  />
+                  <AmountInput value={mintAmount} onChange={setMintAmount} placeholder="Amount" />
+                  <TxButton
+                    contract={WrappedFoid}
+                    functionName="mint"
+                    args={[mintTo, mintAmount ? parseUnits(mintAmount, decimalsNum) : 0n]}
+                    enabled={!!mintTo && !!mintAmount}
+                    onSuccess={() => {
+                      setMintTo("");
+                      setMintAmount("");
+                    }}
+                  >
+                    Mint
+                  </TxButton>
+                </section>
+              )}
+
+              {hasMinterRole && (
+                <section className="card space-y-4">
+                  <h2 className="font-mono uppercase text-fluent-pink text-sm">Burn</h2>
+                  <input
+                    className={inputClass}
+                    placeholder="Address to burn from"
+                    value={burnFrom}
+                    onChange={(event) => setBurnFrom(event.target.value)}
+                  />
+                  <AmountInput value={burnAmount} onChange={setBurnAmount} placeholder="Amount" />
+                  <TxButton
+                    contract={WrappedFoid}
+                    functionName="burn"
+                    args={[burnFrom, burnAmount ? parseUnits(burnAmount, decimalsNum) : 0n]}
+                    enabled={!!burnFrom && !!burnAmount}
+                    onSuccess={() => {
+                      setBurnFrom("");
+                      setBurnAmount("");
+                    }}
+                  >
+                    Burn
+                  </TxButton>
+                </section>
+              )}
+
+              {hasPauserRole && (
+                <section className="card space-y-4">
+                  <h2 className="font-mono uppercase text-fluent-pink text-sm">Pause / Unpause</h2>
+                  <TxButton
+                    contract={WrappedFoid}
+                    functionName={isPaused ? "unpause" : "pause"}
+                    args={[]}
+                    enabled
+                  >
+                    {isPaused ? "Unpause" : "Pause"}
+                  </TxButton>
+                </section>
+              )}
+
+              <section className="card">
+                <h2 className="font-mono uppercase text-fluent-pink text-sm">Roles</h2>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <RoleBadge role="MINTER" hasRole={hasMinterRole} />
+                  <RoleBadge role="PAUSER" hasRole={hasPauserRole} />
+                </div>
+              </section>
+            </div>
+
+            <section className="card space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="font-mono uppercase text-fluent-pink text-sm">Attestor Registry</h2>
+                  <p className="text-xs text-neutral-400">
+                    Inspect and manage whitelisted attestors for FOID provenance proofs.
+                  </p>
+                </div>
+                {isRegistryOwner && (
+                  <span className="rounded-full border border-fluent-purple/40 bg-fluent-purple/10 px-3 py-1 text-xs font-semibold text-fluent-purple/80">
+                    Registry owner
+                  </span>
+                )}
               </div>
-            )}
+
+              <div className="grid gap-5 lg:grid-cols-2">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-semibold text-white">Check attestor status</h3>
+                  <input
+                    className={inputClass}
+                    placeholder="Address to check"
+                    value={attestorToCheck}
+                    onChange={(event) => setAttestorToCheck(event.target.value)}
+                  />
+                  {attestorToCheck && (
+                    <div className="rounded-lg bg-neutral-900/70 px-3 py-2 text-sm text-neutral-300">
+                      Is attestor: {attestorStatus ? "Yes" : "No"}
+                    </div>
+                  )}
+                </div>
+
+                {isRegistryOwner && (
+                  <div className="space-y-4">
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-white">Add attestor</h3>
+                      <input
+                        className={inputClass}
+                        placeholder="Attestor address"
+                        value={addAttestorAddr}
+                        onChange={(event) => setAddAttestorAddr(event.target.value)}
+                      />
+                      <TxButton
+                        contract={AttestorRegistry}
+                        functionName="addAttestor"
+                        args={[addAttestorAddr]}
+                        enabled={!!addAttestorAddr}
+                        onSuccess={() => setAddAttestorAddr("")}
+                      >
+                        Add Attestor
+                      </TxButton>
+                    </div>
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-white">Remove attestor</h3>
+                      <input
+                        className={inputClass}
+                        placeholder="Attestor address"
+                        value={removeAttestorAddr}
+                        onChange={(event) => setRemoveAttestorAddr(event.target.value)}
+                      />
+                      <TxButton
+                        contract={AttestorRegistry}
+                        functionName="removeAttestor"
+                        args={[removeAttestorAddr]}
+                        enabled={!!removeAttestorAddr}
+                        onSuccess={() => setRemoveAttestorAddr("")}
+                      >
+                        Remove Attestor
+                      </TxButton>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
           </section>
-
-          {isRegistryOwner && (
-            <section className="card space-y-4">
-              <h2 className="font-mono uppercase text-fluent-pink text-sm">Add Attestor</h2>
-              <input
-                className="w-full rounded-lg bg-neutral-800 p-2"
-                placeholder="Attestor address"
-                value={addAttestorAddr}
-                onChange={(event) => setAddAttestorAddr(event.target.value)}
-              />
-              <TxButton
-                contract={AttestorRegistry}
-                functionName="addAttestor"
-                args={[addAttestorAddr]}
-                enabled={!!addAttestorAddr}
-                onSuccess={() => setAddAttestorAddr("")}
-              >
-                Add Attestor
-              </TxButton>
-            </section>
-          )}
-
-          {isRegistryOwner && (
-            <section className="card space-y-4">
-              <h2 className="font-mono uppercase text-fluent-pink text-sm">Remove Attestor</h2>
-              <input
-                className="w-full rounded-lg bg-neutral-800 p-2"
-                placeholder="Attestor address"
-                value={removeAttestorAddr}
-                onChange={(event) => setRemoveAttestorAddr(event.target.value)}
-              />
-              <TxButton
-                contract={AttestorRegistry}
-                functionName="removeAttestor"
-                args={[removeAttestorAddr]}
-                enabled={!!removeAttestorAddr}
-                onSuccess={() => setRemoveAttestorAddr("")}
-              >
-                Remove Attestor
-              </TxButton>
-            </section>
-          )}
-        </div>
-      </NetworkGate>
+        </NetworkGate>
+      </div>
     </main>
   );
 }

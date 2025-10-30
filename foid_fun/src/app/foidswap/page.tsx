@@ -2729,7 +2729,7 @@ export default function FoidSwapPage() {
         )}
         <button
           className="w-full rounded-full bg-fluent-blue px-4 py-2 text-sm font-semibold text-white transition hover:bg-fluent-purple disabled:opacity-40"
-          disabled={!isConnected || swapNeedsApproval || !pairAddress}
+          disabled={!isConnected || swapNeedsApproval || !swapPath || swapPath.length < 2}
           onClick={() => void executeSwap()}
         >
           Swap
