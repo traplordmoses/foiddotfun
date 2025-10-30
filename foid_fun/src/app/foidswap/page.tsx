@@ -625,34 +625,84 @@ export default function FoidSwapPage() {
     selectedPairMeta?.token1.symbol ??
     (selectedPairMeta?.token1.address ? shortAddress(selectedPairMeta.token1.address) : "Token B");
 
-  const activeTokenAddresses = useMemo(() => {
-    const map = new Map<string, Address>();
-    factoryPairs.forEach((pair) => {
-      if (!pair) return;
-      const detail = pairDetails[pair.toLowerCase()];
-      if (!detail) return;
-      [detail.token0, detail.token1].forEach((token) => {
-        if (!token?.address) return;
-        const lower = token.address.toLowerCase();
-        if (!map.has(lower)) {
-          map.set(lower, token.address);
+  const swapPath = useMemo(() => {
+    if (!tokenIn || !tokenOut) return null;
+    const start = tokenIn.toLowerCase();
+    const target = tokenOut.toLowerCase();
+    if (start === target) return [tokenIn];
+
+    const graph = new Map<string, Set<string>>();
+    const canonical = new Map<string, Address>();
+
+    Object.values(pairDetails).forEach((detail) => {
+      if (!detail?.token0?.address || !detail?.token1?.address) return;
+      const a = detail.token0.address.toLowerCase();
+      const b = detail.token1.address.toLowerCase();
+      if (!graph.has(a)) graph.set(a, new Set());
+      if (!graph.has(b)) graph.set(b, new Set());
+      graph.get(a)?.add(b);
+      graph.get(b)?.add(a);
+      canonical.set(a, detail.token0.address);
+      canonical.set(b, detail.token1.address);
+    });
+
+    if (!graph.has(start) || !graph.has(target)) return null;
+
+    const queue: string[] = [start];
+    const visited = new Set<string>([start]);
+    const prev = new Map<string, string>();
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (current === target) break;
+      const neighbors = graph.get(current);
+      if (!neighbors) continue;
+      neighbors.forEach((neighbor) => {
+        if (!visited.has(neighbor)) {
+          visited.add(neighbor);
+          prev.set(neighbor, current);
+          queue.push(neighbor);
         }
       });
-    });
-    return Array.from(map.values());
-  }, [factoryPairs, pairDetails]);
+    }
 
-  const activePairOptions = useMemo(() => {
+    if (!visited.has(target)) return null;
+
+    const reversed: string[] = [];
+    let cursor: string | undefined = target;
+    while (cursor) {
+      reversed.push(cursor);
+      cursor = prev.get(cursor);
+    }
+    reversed.reverse();
+
+    return reversed.map((addr, index) => {
+      if (index === 0) return tokenIn;
+      if (index === reversed.length - 1) return tokenOut;
+      return (canonical.get(addr) ?? (addr as Address));
+    });
+  }, [pairDetails, tokenIn, tokenOut]);
+
+  const liquidityPairOptions = useMemo(() => {
     return factoryPairs
       .map((pair) => {
         if (!pair) return null;
         const detail = pairDetails[pair.toLowerCase()];
-        if (!detail || !detail.token0?.address || !detail.token1?.address) return null;
-        const label = `${detail.token0.symbol ?? shortAddress(detail.token0.address)} / ${detail.token1.symbol ?? shortAddress(detail.token1.address)}`;
-        return { address: pair, label, token0: detail.token0.address, token1: detail.token1.address };
+        if (!detail?.token0?.address || !detail.token1?.address) return null;
+        const label = `${detail.token0.symbol ?? shortAddress(detail.token0.address)} / ${
+          detail.token1.symbol ?? shortAddress(detail.token1.address)
+        }`;
+        return {
+          address: pair,
+          label,
+          token0: detail.token0.address,
+          token1: detail.token1.address,
+        };
       })
       .filter(
-        (option): option is { address: Address; label: string; token0: Address; token1: Address } =>
+        (
+          option,
+        ): option is { address: Address; label: string; token0: Address; token1: Address } =>
           Boolean(option),
       );
   }, [factoryPairs, pairDetails]);
@@ -660,46 +710,29 @@ export default function FoidSwapPage() {
   const tokenOptions = useMemo(() => {
     const map = new Map<string, { address: Address; label: string }>();
 
-    Object.values(pairDetails).forEach((detail) => {
-      if (!detail) return;
-      const tokens: PairTokenInfo[] = [detail.token0, detail.token1];
-      tokens.forEach((token) => {
-        if (!token?.address) return;
-        const lower = token.address.toLowerCase();
-        if (map.has(lower)) return;
-        const symbol = token.symbol && token.symbol.trim().length > 0 ? token.symbol.trim() : undefined;
-        map.set(lower, {
-          address: token.address,
-          label: `${symbol ?? "Token"} (${shortAddress(token.address)})`,
-        });
-      });
-    });
-
-    const ensureOption = (addr?: Address, symbolHint?: string) => {
+    const register = (addr?: Address, symbolHint?: string) => {
       if (!addr || addr === zeroAddress) return;
       const lower = addr.toLowerCase();
-      if (!map.has(lower)) {
-        map.set(lower, {
-          address: addr,
-          label: `${symbolHint ?? "Token"} (${shortAddress(addr)})`,
-        });
-      }
+      if (map.has(lower)) return;
+      map.set(lower, {
+        address: addr,
+        label: `${symbolHint ?? "Token"} (${shortAddress(addr)})`,
+      });
     };
 
-    ensureOption(tokenIn as Address | undefined, tokenInState.symbol);
-    ensureOption(tokenOut as Address | undefined, tokenOutState.symbol);
+    walletTokens.forEach((token) => register(token.address, token.symbol));
+
+    Object.values(pairDetails).forEach((detail) => {
+      if (!detail) return;
+      register(detail.token0.address, detail.token0.symbol);
+      register(detail.token1.address, detail.token1.symbol);
+    });
+
+    register(tokenIn as Address | undefined, tokenInState.symbol);
+    register(tokenOut as Address | undefined, tokenOutState.symbol);
 
     return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
-  }, [pairDetails, tokenIn, tokenInState.symbol, tokenOut, tokenOutState.symbol]);
-
-  useEffect(() => {
-    if (pairAddress) return;
-    if (!activePairOptions.length) return;
-    const first = activePairOptions[0];
-    setPairAddress(first.address);
-    setTokenIn(first.token0);
-    setTokenOut(first.token1);
-  }, [activePairOptions, pairAddress]);
+  }, [walletTokens, pairDetails, tokenIn, tokenInState.symbol, tokenOut, tokenOutState.symbol]);
 
   const tokenInEntryValid = tokenInEntry.length === 0 || isAddress(tokenInEntry);
   const tokenOutEntryValid = tokenOutEntry.length === 0 || isAddress(tokenOutEntry);
@@ -735,30 +768,19 @@ export default function FoidSwapPage() {
   }, [manualToken0, manualToken1, walletTokens]);
 
   useEffect(() => {
-    if (!activeTokenAddresses.length) return;
-    const hasToken = (addr?: Address) =>
-      !!addr && activeTokenAddresses.some((token) => token.toLowerCase() === addr.toLowerCase());
-
-    let nextTokenIn = tokenIn;
-    if (!hasToken(tokenIn)) {
-      nextTokenIn = activeTokenAddresses[0];
-      setTokenIn(nextTokenIn);
+    if (!tokenOptions.length) return;
+    if (!tokenIn) {
+      setTokenIn(tokenOptions[0].address);
     }
-
-    const fallbackSecond = activeTokenAddresses.find(
-      (token) => token.toLowerCase() !== (nextTokenIn ?? "").toLowerCase(),
-    );
-    if (
-      !hasToken(tokenOut) ||
-      (nextTokenIn && tokenOut && tokenOut.toLowerCase() === nextTokenIn.toLowerCase())
-    ) {
-      if (fallbackSecond) {
-        setTokenOut(fallbackSecond);
-      } else if (tokenOut !== undefined) {
-        setTokenOut(undefined);
+    if (!tokenOut || (tokenIn && tokenOut.toLowerCase() === tokenIn.toLowerCase())) {
+      const alternative = tokenOptions.find(
+        (option) => option.address.toLowerCase() !== (tokenIn ?? "").toLowerCase(),
+      );
+      if (alternative) {
+        setTokenOut(alternative.address);
       }
     }
-  }, [activeTokenAddresses, tokenIn, tokenOut]);
+  }, [tokenIn, tokenOut, tokenOptions]);
 
   const tokenAddresses = useMemo(
     () =>
@@ -1699,21 +1721,17 @@ export default function FoidSwapPage() {
 
   // swap quote
   useEffect(() => {
-    if (!publicClient || !routerAddress || !tokenIn || !tokenOut) {
+    if (!publicClient || !routerAddress || !tokenIn || !tokenOut || !swapPath || swapPath.length < 2) {
       setQuoteOut(undefined);
       setQuoteImpact(undefined);
       return;
     }
-    if (
-      tokenInState.decimals === undefined ||
-      tokenOutState.decimals === undefined ||
-      !pairReserves ||
-      !pairToken0
-    ) {
+    if (tokenInState.decimals === undefined || tokenOutState.decimals === undefined) {
       setQuoteOut(undefined);
       setQuoteImpact(undefined);
       return;
     }
+
     const tokenInDecimals = tokenInState.decimals;
     const tokenOutDecimals = tokenOutState.decimals;
     let cancelled = false;
@@ -1735,33 +1753,31 @@ export default function FoidSwapPage() {
           address: routerAddress,
           abi: routerAbi,
           functionName: "getAmountsOut",
-          args: [parsed, [tokenIn, tokenOut]],
+          args: [parsed, swapPath],
         })) as bigint[];
 
         if (cancelled || !Array.isArray(amounts) || amounts.length < 2) return;
 
         const out = amounts[amounts.length - 1];
-        const [reserve0, reserve1] = pairReserves;
+        let impact: number | undefined;
+        if (swapPath.length === 2 && pairReserves && pairToken0) {
+          const [reserve0, reserve1] = pairReserves;
+          const reserveIn = tokenIn === pairToken0 ? reserve0 : reserve1;
+          const reserveOut = tokenIn === pairToken0 ? reserve1 : reserve0;
+          if (reserveIn > 0n && reserveOut > 0n) {
+            const executionPrice =
+              Number(formatUnits(out, tokenOutDecimals)) /
+              Number(formatUnits(parsed, tokenInDecimals));
+            const spotPrice =
+              Number(formatUnits(reserveOut, tokenOutDecimals)) /
+              Number(formatUnits(reserveIn, tokenInDecimals));
 
-        const reserveIn = tokenIn === pairToken0 ? reserve0 : reserve1;
-        const reserveOut = tokenIn === pairToken0 ? reserve1 : reserve0;
-        if (reserveIn === 0n || reserveOut === 0n) {
-          setQuoteOut(out);
-          setQuoteImpact(undefined);
-          return;
+            impact =
+              executionPrice > 0 && spotPrice > 0
+                ? ((spotPrice - executionPrice) / spotPrice) * 100
+                : undefined;
+          }
         }
-
-        const executionPrice =
-          Number(formatUnits(out, tokenOutDecimals)) /
-          Number(formatUnits(parsed, tokenInDecimals));
-        const spotPrice =
-          Number(formatUnits(reserveOut, tokenOutDecimals)) /
-          Number(formatUnits(reserveIn, tokenInDecimals));
-
-        const impact =
-          executionPrice > 0 && spotPrice > 0
-            ? ((spotPrice - executionPrice) / spotPrice) * 100
-            : undefined;
 
         setQuoteOut(out);
         setQuoteImpact(impact);
@@ -1777,7 +1793,18 @@ export default function FoidSwapPage() {
     return () => {
       cancelled = true;
     };
-  }, [amountIn, publicClient, routerAddress, tokenIn, tokenOut, tokenInState.decimals, tokenOutState.decimals, pairReserves, pairToken0]);
+  }, [
+    amountIn,
+    pairReserves,
+    pairToken0,
+    publicClient,
+    routerAddress,
+    swapPath,
+    tokenIn,
+    tokenInState.decimals,
+    tokenOut,
+    tokenOutState.decimals,
+  ]);
 
   const handleApprove = useCallback(
     async (tokenAddress: Address | undefined, amount: bigint, label: string) => {
@@ -1853,6 +1880,11 @@ export default function FoidSwapPage() {
       toast.error("Swap not ready");
       return;
     }
+    const path = swapPath;
+    if (!path || path.length < 2) {
+      toast.error("No route found for the selected tokens");
+      return;
+    }
     if (!tokenInState.decimals || !tokenOutState.decimals) {
       toast.error("Token metadata missing");
       return;
@@ -1875,7 +1907,7 @@ export default function FoidSwapPage() {
         address: routerAddress,
         abi: routerAbi,
         functionName: "swapExactTokensForTokens",
-        args: [parsedAmountIn, amountOutMin, [tokenIn, tokenOut], walletClient.account.address, BigInt(deadline)],
+        args: [parsedAmountIn, amountOutMin, path, walletClient.account.address, BigInt(deadline)],
       });
       const loadingId = toast.loading("Submitting swap…");
       const hash = await walletClient.writeContract(request);
@@ -1918,6 +1950,7 @@ export default function FoidSwapPage() {
     tokenInState.decimals,
     tokenOut,
     tokenOutState.decimals,
+    swapPath,
     walletClient,
   ]);
 
@@ -2960,51 +2993,68 @@ export default function FoidSwapPage() {
     </div>
   );
 
-  const renderTokenSelectors = () => (
+  const renderTokenSelectors = ({ showPairStatus = false }: { showPairStatus?: boolean } = {}) => (
     <div className={`${cardPaddingClass} grid gap-4 md:grid-cols-2`}>
-      <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-semibold text-white">Pair configuration</h3>
+      {showPairStatus ? (
+        <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold text-white">Pair configuration</h3>
+            <p className="text-xs text-neutral-400">
+              Choose the tokens you’d like to manage liquidity for.
+            </p>
+          </div>
+          {pairAddress && (
+            <span className={chipClass}>
+              Pair active
+              <span className="font-semibold text-white">{shortAddress(pairAddress)}</span>
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="md:col-span-2">
+          <h3 className="text-sm font-semibold text-white">Swap tokens</h3>
           <p className="text-xs text-neutral-400">
-            Choose the tokens you’d like to trade or provide liquidity for.
+            Pick any two tokens. If a direct pool doesn&apos;t exist we&apos;ll route through available pairs.
           </p>
         </div>
-        {pairAddress && (
-          <span className={chipClass}>
-            Pair active
-            <span className="font-semibold text-white">{shortAddress(pairAddress)}</span>
-          </span>
-        )}
-      </div>
-      <label className="md:col-span-2 text-sm text-neutral-300">
-        <span className="mb-1 block font-medium text-neutral-200">Active pairs</span>
-        <select
-          className="w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple disabled:opacity-60"
-          value={pairAddress ?? ""}
-          disabled={activePairOptions.length === 0}
-          onChange={(event) => {
-            const next = event.target.value as Address;
-            if (!next) return;
-            const chosen = activePairOptions.find(
-              (option) => option.address.toLowerCase() === next.toLowerCase(),
-            );
-            setPairAddress(next);
-            if (chosen) {
-              setTokenIn(chosen.token0);
-              setTokenOut(chosen.token1);
-            }
-          }}
-        >
-          <option value="" disabled>
-            {activePairOptions.length === 0 ? "No active pairs detected" : "Select an active pair"}
-          </option>
-          {activePairOptions.map((option) => (
-            <option key={option.address} value={option.address}>
-              {option.label}
+      )}
+      {showPairStatus && (
+        <label className="md:col-span-2 text-sm text-neutral-300">
+          <span className="mb-1 block font-medium text-neutral-200">Known pairs</span>
+          <select
+            className="w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple disabled:opacity-60"
+            value={pairAddress ?? ""}
+            disabled={liquidityPairOptions.length === 0}
+            onChange={(event) => {
+              const next = event.target.value as Address;
+              if (!next) return;
+              const chosen = liquidityPairOptions.find(
+                (option) => option.address.toLowerCase() === next.toLowerCase(),
+              );
+              setPairAddress(next);
+              if (chosen) {
+                setTokenAAddress(chosen.token0);
+                setTokenBAddress(chosen.token1);
+                setTokenIn(chosen.token0);
+                setTokenOut(chosen.token1);
+                setTokenInEntry(chosen.token0);
+                setTokenOutEntry(chosen.token1);
+              }
+            }}
+          >
+            <option value="" disabled>
+              {liquidityPairOptions.length === 0
+                ? "No pools detected yet"
+                : "Select a deployed pool"}
             </option>
-          ))}
-        </select>
-      </label>
+            {liquidityPairOptions.map((option) => (
+              <option key={option.address} value={option.address}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label className="text-sm text-neutral-300">
         From Token A
         <div className="mt-1 space-y-2">
@@ -3119,14 +3169,27 @@ export default function FoidSwapPage() {
       >
         Swap tokens
       </button>
-      {!pairAddress && tokenIn && tokenOut && (
-        <div className="md:col-span-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-          Please create a pool for this pair before swapping.
+      {!showPairStatus && (
+        <div className="md:col-span-2 text-xs text-neutral-400">
+          {swapPath && swapPath.length >= 2 ? (
+            <span>
+              Route:&nbsp;
+              {swapPath
+                .map((addr) => {
+                  const option = tokenOptions.find(
+                    (candidate) => candidate.address.toLowerCase() === addr.toLowerCase(),
+                  );
+                  return option?.label ?? shortAddress(addr);
+                })
+                .join(" → ")}
+            </span>
+          ) : (
+            <span>
+              No route found for the selected tokens. Create intermediate pools to enable this swap.
+            </span>
+          )}
         </div>
       )}
-      <p className="md:col-span-2 text-xs text-neutral-500">
-        If you don't see your pair, please create a pool for this pair before swapping.
-      </p>
     </div>
   );
 
@@ -3145,27 +3208,25 @@ export default function FoidSwapPage() {
   }
 
   return (
-    <main className="relative overflow-hidden bg-neutral-950 text-neutral-100">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(147,51,234,0.28),transparent_60%)]" />
-      <div className="pointer-events-none absolute inset-x-1/4 top-1/3 h-96 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.18),transparent_65%)] blur-2xl" />
-      <div className="relative mx-auto max-w-6xl space-y-8 px-4 pb-12 pt-10 sm:px-6 lg:px-8">
+    <main className="py-10">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <NetworkGate chainId={chainId}>
           <section className="space-y-8">
-            <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <header className="flex flex-col gap-4 text-white md:flex-row md:items-center md:justify-between">
               <div>
-                <h1 className="text-3xl font-semibold text-white">FoidSwap Router</h1>
-                <p className="text-sm text-neutral-400">
+                <h1 className="text-3xl font-semibold">FoidSwap Router</h1>
+                <p className="text-sm text-white/70">
                   Tools for swapping, managing pairs, and providing liquidity on Fluent Testnet.
                 </p>
               </div>
-              <div className="flex flex-wrap justify-center gap-2 rounded-full bg-neutral-900/80 p-1 md:justify-start">
+              <div className="flex flex-wrap justify-center gap-2 rounded-2xl border border-neutral-800/60 bg-neutral-900/70 p-1 md:justify-start">
                 {(["swap", "pairs", "liquidity"] as ViewKey[]).map((view) => (
                   <button
                     key={view}
                     onClick={() => setActiveView(view)}
                     className={`px-4 py-2 rounded-full text-sm transition ${
                       activeView === view
-                        ? "bg-fluent-purple text-white shadow-[0_12px_28px_-14px_rgba(168,85,247,0.7)]"
+                        ? "bg-fluent-purple text-white"
                         : "text-neutral-300 hover:text-white"
                     }`}
                   >
@@ -3175,39 +3236,42 @@ export default function FoidSwapPage() {
               </div>
             </header>
 
-            <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
-              <aside className="space-y-4">
-                {renderTokenOverview()}
-                {renderPoolStats(activeView === "pairs")}
-              </aside>
+            <div className="card space-y-6">
+              <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
+                <aside className="space-y-4">
+                  {renderTokenOverview()}
+                  {renderPoolStats(activeView === "pairs")}
+                </aside>
 
-              <div className="space-y-6">
-                {activeView !== "pairs" && renderTokenSelectors()}
+                <div className="space-y-6">
+                  {activeView !== "pairs" &&
+                    renderTokenSelectors({ showPairStatus: activeView === "liquidity" })}
 
-                {activeView === "swap" && renderSwapForm()}
+                  {activeView === "swap" && renderSwapForm()}
 
-                {activeView === "liquidity" && (
-                  <>
-                    <div className={`${cardPaddingClass} flex flex-wrap justify-center gap-2 p-2 md:justify-start`}>
-                      {(["add", "remove"] as LiquidityMode[]).map((mode) => (
-                        <button
-                          key={mode}
-                          onClick={() => setLiquidityMode(mode)}
-                          className={`px-4 py-2 rounded-full text-sm transition ${
-                            liquidityMode === mode
-                              ? "bg-fluent-purple text-white shadow-[0_12px_28px_-18px_rgba(168,85,247,0.7)]"
-                              : "text-neutral-300 hover:text-white"
-                          }`}
-                        >
-                          {mode === "add" ? "Add Liquidity" : "Remove Liquidity"}
-                        </button>
-                      ))}
-                    </div>
-                    {liquidityMode === "add" ? renderAddLiquidityForm() : renderRemoveLiquidityForm()}
-                  </>
-                )}
+                  {activeView === "liquidity" && (
+                    <>
+                      <div className="flex flex-wrap justify-center gap-2 rounded-2xl border border-neutral-800/70 bg-neutral-900/60 p-2 md:justify-start">
+                        {(["add", "remove"] as LiquidityMode[]).map((mode) => (
+                          <button
+                            key={mode}
+                            onClick={() => setLiquidityMode(mode)}
+                            className={`px-4 py-2 rounded-full text-sm transition ${
+                              liquidityMode === mode
+                                ? "bg-fluent-purple text-white"
+                                : "text-neutral-300 hover:text-white"
+                            }`}
+                          >
+                            {mode === "add" ? "Add Liquidity" : "Remove Liquidity"}
+                          </button>
+                        ))}
+                      </div>
+                      {liquidityMode === "add" ? renderAddLiquidityForm() : renderRemoveLiquidityForm()}
+                    </>
+                  )}
 
-                {activeView === "pairs" && renderPairsManager()}
+                  {activeView === "pairs" && renderPairsManager()}
+                </div>
               </div>
             </div>
           </section>

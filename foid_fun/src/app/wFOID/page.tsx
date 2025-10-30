@@ -2,12 +2,22 @@
 import { useState } from "react";
 import { useAccount, useContractRead } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
-import { WrappedFoid } from "@/lib/contracts";
+import { AttestorRegistry, WrappedFoid } from "@/lib/contracts";
 import { NetworkGate } from "@/components/NetworkGate";
 import { StatCard } from "@/components/StatCard";
 import { AmountInput } from "@/components/AmountInput";
 import { TxButton } from "@/components/TxButton";
 import { RoleBadge } from "@/components/RoleBadge";
+
+const ShortAddr = ({ address }: { address?: string }) => {
+  if (!address) return null;
+  const value = String(address);
+  return (
+    <span className="block truncate font-mono text-sm" title={value}>
+      {value.length > 14 ? `${value.slice(0, 10)}…${value.slice(-6)}` : value}
+    </span>
+  );
+};
 
 export default function TokenPage() {
   const { address } = useAccount();
@@ -65,6 +75,9 @@ export default function TokenPage() {
   const [mintAmount, setMintAmount] = useState("");
   const [burnFrom, setBurnFrom] = useState("");
   const [burnAmount, setBurnAmount] = useState("");
+  const [attestorToCheck, setAttestorToCheck] = useState("");
+  const [addAttestorAddr, setAddAttestorAddr] = useState("");
+  const [removeAttestorAddr, setRemoveAttestorAddr] = useState("");
 
   // allowance (read-only)
   const { data: allowanceData } = useContractRead({
@@ -83,15 +96,39 @@ export default function TokenPage() {
   const hasPauserRole = hasPauser === true;
   const isPaused = paused === true;
 
+  const { data: registryOwner } = useContractRead({ ...AttestorRegistry, functionName: "owner" });
+  const isRegistryOwner =
+    typeof registryOwner === "string" &&
+    typeof address === "string" &&
+    registryOwner.toLowerCase() === address.toLowerCase();
+
+  const { data: attestorStatus } = useContractRead({
+    ...AttestorRegistry,
+    functionName: "isAttestor",
+    args: attestorToCheck ? [attestorToCheck] : undefined,
+    query: { enabled: Boolean(attestorToCheck), refetchInterval: 4000 },
+  });
+
   const chainId = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || "0", 10);
 
   return (
     <main className="space-y-6">
       <NetworkGate chainId={chainId}>
-        <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-4">
           <StatCard label="Token" value={`${name ?? ""} (${symbol ?? ""})`} />
           <StatCard label="Decimals" value={decimalsNum} />
           <StatCard label="Total Supply" value={`${totalSupplyFormatted} ${symbol ?? ""}`} />
+          <StatCard
+            label="Registry Owner"
+            value={
+              <ShortAddr
+                address={typeof registryOwner === "string" ? registryOwner : undefined}
+              />
+            }
+          />
+          {address && (
+            <StatCard label="You are registry owner" value={isRegistryOwner ? "Yes" : "No"} />
+          )}
         </div>
 
         <div className="p-4 space-y-8">
@@ -218,6 +255,64 @@ export default function TokenPage() {
               <RoleBadge role="PAUSER" hasRole={hasPauserRole} />
             </div>
           </section>
+
+          {/* Attestor registry tools */}
+          <section className="card space-y-4">
+            <h2 className="font-mono uppercase text-fluent-pink text-sm">Check Attestor</h2>
+            <input
+              className="w-full rounded-lg bg-neutral-800 p-2"
+              placeholder="Address to check"
+              value={attestorToCheck}
+              onChange={(event) => setAttestorToCheck(event.target.value)}
+            />
+            {attestorToCheck && (
+              <div className="text-sm text-neutral-400">
+                Is attestor: {attestorStatus ? "Yes" : "No"}
+              </div>
+            )}
+          </section>
+
+          {isRegistryOwner && (
+            <section className="card space-y-4">
+              <h2 className="font-mono uppercase text-fluent-pink text-sm">Add Attestor</h2>
+              <input
+                className="w-full rounded-lg bg-neutral-800 p-2"
+                placeholder="Attestor address"
+                value={addAttestorAddr}
+                onChange={(event) => setAddAttestorAddr(event.target.value)}
+              />
+              <TxButton
+                contract={AttestorRegistry}
+                functionName="addAttestor"
+                args={[addAttestorAddr]}
+                enabled={!!addAttestorAddr}
+                onSuccess={() => setAddAttestorAddr("")}
+              >
+                Add Attestor
+              </TxButton>
+            </section>
+          )}
+
+          {isRegistryOwner && (
+            <section className="card space-y-4">
+              <h2 className="font-mono uppercase text-fluent-pink text-sm">Remove Attestor</h2>
+              <input
+                className="w-full rounded-lg bg-neutral-800 p-2"
+                placeholder="Attestor address"
+                value={removeAttestorAddr}
+                onChange={(event) => setRemoveAttestorAddr(event.target.value)}
+              />
+              <TxButton
+                contract={AttestorRegistry}
+                functionName="removeAttestor"
+                args={[removeAttestorAddr]}
+                enabled={!!removeAttestorAddr}
+                onSuccess={() => setRemoveAttestorAddr("")}
+              >
+                Remove Attestor
+              </TxButton>
+            </section>
+          )}
         </div>
       </NetworkGate>
     </main>

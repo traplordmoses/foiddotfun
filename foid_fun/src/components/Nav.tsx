@@ -5,9 +5,8 @@ import { useEffect, useState } from "react";
 
 const links = [
   { href: "/", label: "Dashboard" },
-  { href: "/token", label: "Token" },
-  { href: "/registry", label: "Registry" },
-  { href: "/wrap", label: "Wrap ETH" },
+  { href: "/wFOID", label: "wFOID" },
+  { href: "/wETH", label: "wETH" },
   { href: "/foidswap", label: "FoidSwap" },
   { href: "/foidfactory", label: "FoidFactory" },
 ];
