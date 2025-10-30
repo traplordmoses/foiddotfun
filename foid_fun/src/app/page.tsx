@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import MoireLayer from "./(components)/MoireLayer";
-import { SwapBox } from "./(components)/SwapBox";
 import { CONTRACT_ADDRESSES, NETWORK_DETAILS } from "./(components)/contracts";
 
 const INTENSITY_STORAGE_KEY = "foidfun.intensity";
@@ -184,10 +183,6 @@ export default function FoidLanding() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-neutral-800/70 bg-neutral-950/75 p-6 shadow-card">
-          <SwapBox />
-        </section>
-
         <section className="rounded-3xl bg-neutral-950/70 p-8 ring-1 ring-neutral-800/40">
           <div className="mb-6 flex flex-col gap-2">
             <h2 className="text-sm uppercase tracking-[0.45em] text-neutral-400">launch suite</h2>
@@ -209,52 +204,6 @@ export default function FoidLanding() {
                 </div>
               </Link>
             ))}
-          </div>
-        </section>
-
-        <section className="rounded-3xl bg-neutral-950/75 p-8 ring-1 ring-neutral-800/40">
-          <div className="mb-6 space-y-2">
-            <h2 className="text-sm uppercase tracking-[0.45em] text-neutral-400">
-              foidfactory: idiot-proof creation
-            </h2>
-            <p className="text-lg text-neutral-200">
-              single form, four fields—nothing else.
-            </p>
-          </div>
-          <ol className="space-y-4 text-sm text-neutral-300">
-            <li>
-              token name
-              <span className="ml-2 text-xs uppercase tracking-[0.35em] text-neutral-500">
-                human-readable
-              </span>
-            </li>
-            <li>
-              symbol (≤ 11 chars)
-              <span className="ml-2 text-xs uppercase tracking-[0.35em] text-neutral-500">
-                ticker-ready
-              </span>
-            </li>
-            <li>
-              max supply
-              <span className="ml-2 text-xs uppercase tracking-[0.35em] text-neutral-500">
-                show 10^18 preview
-              </span>
-            </li>
-            <li>
-              initial recipient
-              <span className="ml-2 text-xs uppercase tracking-[0.35em] text-neutral-500">
-                defaults to connected wallet; editable
-              </span>
-            </li>
-          </ol>
-          <div className="mt-6 space-y-3 text-sm text-neutral-300">
-            <p>on submit: mint 100% of max supply to the recipient.</p>
-            <p className="text-xs uppercase tracking-[0.35em] text-neutral-400">
-              summary → initialMint = 100% of maxSupply → sent to {"{recipient}"}
-            </p>
-            <p className="text-xs uppercase tracking-[0.35em] text-neutral-500">
-              clear states: estimating → pending → confirmed (view on explorer).
-            </p>
           </div>
         </section>
 
