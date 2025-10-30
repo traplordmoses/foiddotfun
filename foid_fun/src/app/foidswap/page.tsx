@@ -396,6 +396,18 @@ const sortPairAddresses = (a: Address, b: Address): [Address, Address] => {
   return a.toLowerCase() < b.toLowerCase() ? [a, b] : [b, a];
 };
 
+const shortAddress = (value: string | undefined) => {
+  if (!value) return "—";
+  if (value.length <= 10) return value;
+  return `${value.slice(0, 6)}…${value.slice(-4)}`;
+};
+
+const cardBaseClass =
+  "rounded-2xl border border-neutral-800/60 bg-neutral-900/70 backdrop-blur-md shadow-[0_18px_48px_-28px_rgba(0,0,0,0.8)]";
+const cardPaddingClass = `${cardBaseClass} p-5`;
+const chipClass =
+  "inline-flex items-center gap-1 rounded-full border border-neutral-700/80 bg-neutral-900/70 px-3 py-1 text-xs font-medium text-neutral-200";
+
 const unwrapErrorMessage = (error: unknown): string | undefined => {
   if (!error) return undefined;
   if (typeof error === "string") return error;
@@ -465,6 +477,18 @@ interface WalletToken {
   decimals: number;
   balance: bigint;
 }
+
+type PairTokenInfo = {
+  address: Address;
+  symbol?: string;
+  decimals?: number;
+};
+
+type PairDetails = {
+  address: Address;
+  token0: PairTokenInfo;
+  token1: PairTokenInfo;
+};
 
 export default function FoidSwapPage() {
   const chainId = Number.isFinite(configuredChainId)
@@ -570,8 +594,39 @@ export default function FoidSwapPage() {
   );
   const [factoryPairsLoading, setFactoryPairsLoading] = useState(false);
   const [factoryPairsError, setFactoryPairsError] = useState<string | null>(null);
+  const [pairDetails, setPairDetails] = useState<Record<string, PairDetails>>({});
   const [pairRefreshNonce, setPairRefreshNonce] = useState(0);
   const [walletTokens, setWalletTokens] = useState<WalletToken[]>([]);
+
+  const trackedPairs = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [
+            ...(factoryPairs ?? []),
+            ...(pairAddress && pairAddress !== zeroAddress ? [pairAddress] : []),
+            ...(fallbackPairAddress && fallbackPairAddress !== zeroAddress
+              ? [fallbackPairAddress]
+              : []),
+          ].filter((addr): addr is Address => Boolean(addr) && addr !== zeroAddress),
+        ),
+      ),
+    [factoryPairs, fallbackPairAddress, pairAddress],
+  );
+  const selectedPairMeta = pairAddress ? pairDetails[pairAddress.toLowerCase()] : undefined;
+  const selectedPairLabel = selectedPairMeta
+    ? `${selectedPairMeta.token0.symbol ?? shortAddress(selectedPairMeta.token0.address)} / ${selectedPairMeta.token1.symbol ?? shortAddress(selectedPairMeta.token1.address)}`
+    : undefined;
+  const tokenADecimals = tokenAState.decimals ?? selectedPairMeta?.token0.decimals ?? 18;
+  const tokenBDecimals = tokenBState.decimals ?? selectedPairMeta?.token1.decimals ?? 18;
+  const tokenADisplay =
+    tokenAState.symbol ??
+    selectedPairMeta?.token0.symbol ??
+    (selectedPairMeta?.token0.address ? shortAddress(selectedPairMeta.token0.address) : "Token A");
+  const tokenBDisplay =
+    tokenBState.symbol ??
+    selectedPairMeta?.token1.symbol ??
+    (selectedPairMeta?.token1.address ? shortAddress(selectedPairMeta.token1.address) : "Token B");
 
   const tokenOptions = useMemo(() => {
     const map = new Map<string, { address: Address; label: string }>();
@@ -582,7 +637,7 @@ export default function FoidSwapPage() {
         const labelSymbol = token.symbol || "Token";
         map.set(lower, {
           address: token.address,
-          label: `${labelSymbol} (${token.address.slice(0, 6)}…${token.address.slice(-4)})`,
+          label: `${labelSymbol} (${shortAddress(token.address)})`,
         });
       }
     });
@@ -593,7 +648,7 @@ export default function FoidSwapPage() {
       if (!map.has(lower)) {
         map.set(lower, {
           address: addr,
-          label: `${symbolHint ?? "Token"} (${addr.slice(0, 6)}…${addr.slice(-4)})`,
+          label: `${symbolHint ?? "Token"} (${shortAddress(addr)})`,
         });
       }
     };
@@ -967,6 +1022,87 @@ export default function FoidSwapPage() {
       }
     },
     [account, publicClient],
+  );
+
+  const loadTokenPreview = useCallback(
+    async (tokenAddress: Address): Promise<PairTokenInfo> => {
+      if (!publicClient || tokenAddress === zeroAddress) {
+        return { address: tokenAddress };
+      }
+      try {
+        const [rawSymbol, rawDecimals] = await Promise.all([
+          publicClient
+            .readContract({
+              address: tokenAddress,
+              abi: erc20Abi,
+              functionName: "symbol",
+            })
+            .catch(() => ""),
+          publicClient
+            .readContract({
+              address: tokenAddress,
+              abi: erc20Abi,
+              functionName: "decimals",
+            })
+            .catch(() => 18),
+        ]);
+        const symbol =
+          typeof rawSymbol === "string" && rawSymbol.trim().length > 0
+            ? rawSymbol.trim()
+            : undefined;
+        const decimalsNumber = (() => {
+          if (typeof rawDecimals === "number" && Number.isFinite(rawDecimals)) return rawDecimals;
+          const parsed = Number((rawDecimals as any)?.toString?.() ?? "18");
+          return Number.isFinite(parsed) ? parsed : 18;
+        })();
+        return {
+          address: tokenAddress,
+          symbol,
+          decimals: decimalsNumber,
+        };
+      } catch (error) {
+        console.debug("token preview failed", error);
+        return { address: tokenAddress };
+      }
+    },
+    [publicClient],
+  );
+
+  const loadPairDetails = useCallback(
+    async (targetPair: Address): Promise<PairDetails | null> => {
+      if (!publicClient || !targetPair || targetPair === zeroAddress) {
+        return null;
+      }
+      try {
+        const [token0Raw, token1Raw] = await Promise.all([
+          publicClient.readContract({
+            address: targetPair,
+            abi: pairAbi,
+            functionName: "token0",
+          }),
+          publicClient.readContract({
+            address: targetPair,
+            abi: pairAbi,
+            functionName: "token1",
+          }),
+        ]);
+        const token0 = token0Raw as Address;
+        const token1 = token1Raw as Address;
+        const [token0Preview, token1Preview] = await Promise.all([
+          loadTokenPreview(token0),
+          loadTokenPreview(token1),
+        ]);
+        return {
+          address: targetPair,
+          token0: token0Preview,
+          token1: token1Preview,
+        };
+      } catch (error) {
+        console.debug("pair details fetch failed", error);
+        return null;
+      }
+    },
+    [loadTokenPreview, publicClient],
   );
 
   const fetchTokenData = useCallback(
@@ -1481,6 +1617,44 @@ export default function FoidSwapPage() {
       cancelled = true;
     };
   }, [factoryAddress, fallbackPairAddress, pairAddress, pairRefreshNonce, publicClient]);
+
+  useEffect(() => {
+    if (!publicClient || trackedPairs.length === 0) {
+      return;
+    }
+    const missing = trackedPairs.filter(
+      (addr) => !pairDetails[addr.toLowerCase()],
+    );
+    if (missing.length === 0) {
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      const entries = await Promise.all(
+        missing.map(async (addr) => {
+          const detail = await loadPairDetails(addr);
+          if (!detail) return null;
+          return [addr.toLowerCase(), detail] as const;
+        }),
+      );
+      if (cancelled) return;
+      const filtered = entries.filter(
+        (entry): entry is readonly [string, PairDetails] => Boolean(entry),
+      );
+      if (filtered.length === 0) return;
+      setPairDetails((prev) => {
+        const next = { ...prev };
+        filtered.forEach(([key, detail]) => {
+          next[key] = detail;
+        });
+        return next;
+      });
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadPairDetails, pairDetails, publicClient, trackedPairs]);
 
   // swap quote
   useEffect(() => {
@@ -2007,7 +2181,7 @@ export default function FoidSwapPage() {
   };
 
   const renderTokenOverview = () => (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
+    <div className={cardPaddingClass}>
       <h2 className="text-sm font-semibold text-neutral-200 mb-2">Wallet tokens</h2>
       {walletTokens.length === 0 ? (
         <p className="text-xs text-neutral-400">
@@ -2029,12 +2203,12 @@ export default function FoidSwapPage() {
             return (
               <div
                 key={token.address}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-950/60 px-3 py-2"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-800/70 bg-neutral-950/70 px-3 py-2 shadow-[0_10px_30px_-24px_rgba(0,0,0,0.9)]"
               >
                 <div className="flex flex-col">
                   <span className="font-medium">
                     {token.symbol || "Token"}
-                    <span className="text-xs text-neutral-500"> · {token.address.slice(0, 6)}…{token.address.slice(-4)}</span>
+                    <span className="text-xs text-neutral-500"> · {shortAddress(token.address)}</span>
                   </span>
                 </div>
                 <span className="text-sm">{balanceFormatted}</span>
@@ -2043,99 +2217,111 @@ export default function FoidSwapPage() {
           })}
         </div>
       )}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
-        <span>Router</span>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-neutral-400">
+        <span className="font-medium text-neutral-300">Router</span>
         <a
-          className="text-fluent-blue underline"
+          className="inline-flex items-center gap-1 text-fluent-blue underline decoration-dotted decoration-fluent-blue/60 underline-offset-2"
           href={`${explorerBase}/address/${routerAddress}`}
           target="_blank"
           rel="noopener noreferrer"
         >
-          {routerAddress?.slice(0, 10)}… ↗
+          {shortAddress(routerAddress)} ↗
         </a>
       </div>
     </div>
   );
 
-  const renderPoolStats = (showCreate: boolean) => (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
-      <h2 className="text-sm font-semibold text-neutral-200 mb-2">Pool stats</h2>
-      {pairAddress ? (
-        <div className="space-y-3 text-sm text-neutral-300">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span>Pair</span>
-            <a
-              className="text-fluent-blue underline"
-              href={`${explorerBase}/address/${pairAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {pairAddress.slice(0, 10)}… ↗
-            </a>
+  const renderPoolStats = (showCreate: boolean) => {
+    return (
+      <div className={cardPaddingClass}>
+        <h2 className="text-sm font-semibold text-neutral-200 mb-2">Pool stats</h2>
+        {pairAddress ? (
+          <div className="space-y-3 text-sm text-neutral-300">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>Tokens</span>
+              <span className="text-right text-sm font-semibold text-white">
+                {tokenADisplay} / {tokenBDisplay}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>Pair contract</span>
+              <a
+                className="text-fluent-blue underline decoration-dotted decoration-fluent-blue/60 underline-offset-2"
+                href={`${explorerBase}/address/${pairAddress}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {shortAddress(pairAddress)} ↗
+              </a>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>Reserves</span>
+              <span>
+                {formatBigNumber(pairReserves?.[0], tokenADecimals)} /{" "}
+                {formatBigNumber(pairReserves?.[1], tokenBDecimals)}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>
+                Price ({tokenADisplay} → {tokenBDisplay})
+              </span>
+              <span>
+                {poolPrice
+                  ? poolPrice.priceAB.toLocaleString(undefined, { maximumFractionDigits: 6 })
+                  : "—"}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
+              <span>24h est.</span>
+              <span>
+                {dailyEstimate
+                  ? dailyEstimate.priceAB.toLocaleString(undefined, { maximumFractionDigits: 6 })
+                  : "—"}{" "}
+                (assuming static reserves)
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>Your LP tokens</span>
+              <span>{formatBigNumber(pairBalance, pairDecimals)}</span>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span>Reserves</span>
-            <span>
-              {formatBigNumber(pairReserves?.[0], tokenAState.decimals ?? 18)} /{" "}
-              {formatBigNumber(pairReserves?.[1], tokenBState.decimals ?? 18)}
-            </span>
+        ) : (
+          <div className="space-y-3 text-sm text-neutral-300">
+            <p className="text-neutral-400">
+              Select or create a pair to preview on-chain stats and pricing.
+            </p>
+            {showCreate && (
+              <button
+                className="w-full rounded-full bg-fluent-purple/90 px-4 py-2 text-sm font-medium text-white transition hover:bg-fluent-purple disabled:opacity-40"
+                disabled={!isConnected || creatingPair || !tokenAAddress || !tokenBAddress}
+                onClick={() => void handleCreatePair(tokenAAddress, tokenBAddress)}
+              >
+                {creatingPair ? "Creating pair…" : "Create Pair"}
+              </button>
+            )}
+            <p className="text-xs text-neutral-500">
+              Factory:{" "}
+              <a
+                className="text-fluent-blue underline decoration-dotted decoration-fluent-blue/60 underline-offset-2"
+                href={`${explorerBase}/address/${factoryAddress}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {shortAddress(factoryAddress)} ↗
+              </a>
+            </p>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span>
-              Price ({tokenAState.symbol ?? "Token A"} → {tokenBState.symbol ?? "Token B"})
-            </span>
-            <span>
-              {poolPrice
-                ? poolPrice.priceAB.toLocaleString(undefined, { maximumFractionDigits: 6 })
-                : "—"}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
-            <span>24h est.</span>
-            <span>
-              {dailyEstimate
-                ? dailyEstimate.priceAB.toLocaleString(undefined, { maximumFractionDigits: 6 })
-                : "—"}{" "}
-              (assuming static reserves)
-            </span>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-3 text-sm text-neutral-300">
-          <p>Pair not deployed yet for the selected tokens.</p>
-          {showCreate && (
-            <button
-              className="w-full rounded-full bg-fluent-purple px-4 py-2 text-sm text-white hover:bg-fluent-pink disabled:opacity-40"
-              disabled={!isConnected || creatingPair || !tokenAAddress || !tokenBAddress}
-              onClick={() => void handleCreatePair(tokenAAddress, tokenBAddress)}
-            >
-              {creatingPair ? "Creating pair…" : "Create Pair"}
-            </button>
-          )}
-          <p className="text-xs text-neutral-500">
-            Factory:{" "}
-            <a
-              className="text-fluent-blue underline"
-              href={`${explorerBase}/address/${factoryAddress}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {factoryAddress?.slice(0, 10)}… ↗
-            </a>
-          </p>
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  };
 
   const renderPairsManager = () => {
     const secondaryOptions = walletTokens.filter((token) =>
       manualToken0 ? token.address.toLowerCase() !== manualToken0.toLowerCase() : true,
     );
     const token0Preview =
-      manualToken0 && manualToken0.length >= 10
-        ? `${manualToken0.slice(0, 6)}…${manualToken0.slice(-4)}`
-        : "Token A";
+      manualToken0 && manualToken0.length >= 10 ? shortAddress(manualToken0) : "Token A";
     const manualPairDisabled =
       !isConnected ||
       creatingPair ||
@@ -2160,7 +2346,7 @@ export default function FoidSwapPage() {
 
     return (
       <div className="space-y-6">
-        <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4">
+        <div className={cardPaddingClass}>
           <h2 className="text-sm font-semibold text-neutral-200 mb-3">Active pairs</h2>
           {factoryPairsLoading ? (
             <p className="text-neutral-400 text-sm">Loading pairs…</p>
@@ -2171,42 +2357,56 @@ export default function FoidSwapPage() {
           ) : (
             <ul className="space-y-2 text-sm text-neutral-300">
               {factoryPairs.map((address) => {
-                const isSelected = pairAddress && address.toLowerCase() === pairAddress.toLowerCase();
+                const lower = address.toLowerCase();
+                const detail = pairDetails[lower];
+                const isSelected = pairAddress && lower === pairAddress.toLowerCase();
+                const pairLabel = detail
+                  ? `${detail.token0.symbol ?? shortAddress(detail.token0.address)} / ${detail.token1.symbol ?? shortAddress(detail.token1.address)}`
+                  : "Loading tokens…";
                 return (
                   <li
                     key={address}
-                    className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2 ${
+                    className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
                       isSelected
-                        ? "border-fluent-purple/80 bg-fluent-purple/10"
-                        : "border-neutral-800 bg-neutral-950/60"
+                        ? "border-fluent-purple/80 bg-fluent-purple/15 shadow-[0_12px_40px_-28px_rgba(95,0,255,0.6)]"
+                        : "border-neutral-800/70 bg-neutral-950/70 shadow-[0_12px_32px_-28px_rgba(0,0,0,0.8)]"
                     }`}
                   >
-                  <div className="flex flex-col">
-                    <a
-                      className="text-fluent-blue underline"
-                      href={`${explorerBase}/address/${address}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {address.slice(0, 10)}…{address.slice(-4)}
-                    </a>
-                    {isSelected && (
-                      <span className="text-xs text-fluent-purple/80">Selected pair</span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className="text-xs text-neutral-400 hover:text-white"
-                    onClick={() => {
-                      setPairAddress(address);
-                      setPairToken0(undefined);
-                      setPairReserves(undefined);
-                      setPairAllowance(undefined);
-                      setPairBalance(undefined);
-                    }}
-                  >
-                    Inspect
-                  </button>
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="truncate text-sm font-semibold text-white">{pairLabel}</span>
+                      <a
+                        className="text-xs text-fluent-blue underline decoration-dotted decoration-fluent-blue/60 underline-offset-2"
+                        href={`${explorerBase}/address/${address}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {shortAddress(address)} ↗
+                      </a>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      {isSelected && (
+                        <span className="rounded-full bg-fluent-purple/20 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-wide text-fluent-purple/90">
+                          Selected
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        className="text-xs text-neutral-300 transition hover:text-white"
+                        onClick={() => {
+                          setPairAddress(address);
+                          setPairToken0(undefined);
+                          setPairReserves(undefined);
+                          setPairAllowance(undefined);
+                          setPairBalance(undefined);
+                          if (detail) {
+                            setTokenIn(detail.token0.address);
+                            setTokenOut(detail.token1.address);
+                          }
+                        }}
+                      >
+                        {isSelected ? "Manage" : "Inspect"}
+                      </button>
+                    </div>
                   </li>
                 );
               })}
@@ -2214,7 +2414,7 @@ export default function FoidSwapPage() {
           )}
         </div>
 
-        <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 space-y-3">
+        <div className={`${cardPaddingClass} space-y-4`}>
           <h2 className="text-sm font-semibold text-neutral-200">Create a New Pair</h2>
           {walletTokens.length === 0 ? (
             <p className="text-xs text-neutral-400">
@@ -2232,10 +2432,10 @@ export default function FoidSwapPage() {
                     placeholder="0x…"
                     value={manualToken0}
                     onChange={(event) => handleManualToken0Change(event.target.value)}
-                    className={`w-full rounded-lg bg-neutral-950 px-3 py-2 text-sm text-white outline-none ${
+                    className={`w-full rounded-lg bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none transition ${
                       manualToken0.length === 0 || manualToken0IsValid
-                        ? "border border-neutral-700 focus:border-fluent-purple"
-                        : "border border-red-500 focus:border-red-400"
+                        ? "border border-neutral-700/80 focus:border-fluent-purple"
+                        : "border border-red-500/80 focus:border-red-400"
                     }`}
                   />
                   {manualToken0.length > 0 && !manualToken0IsValid && (
@@ -2246,7 +2446,7 @@ export default function FoidSwapPage() {
                   <select
                     value={manualToken0}
                     onChange={(event) => handleManualToken0Change(event.target.value)}
-                    className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white outline-none focus:border-fluent-purple"
+                    className="w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-fluent-purple"
                   >
                     {walletTokens.map((token) => {
                       const formattedBalance = (() => {
@@ -2260,8 +2460,7 @@ export default function FoidSwapPage() {
                       })();
                       return (
                         <option key={token.address} value={token.address}>
-                          {token.symbol || "Token"} · {formattedBalance} ({token.address.slice(0, 6)}…
-                          {token.address.slice(-4)})
+                          {token.symbol || "Token"} · {formattedBalance} ({shortAddress(token.address)})
                         </option>
                       );
                     })}
@@ -2278,10 +2477,10 @@ export default function FoidSwapPage() {
                     placeholder="0x…"
                     value={manualToken1}
                     onChange={(event) => handleManualToken1Change(event.target.value)}
-                    className={`w-full rounded-lg bg-neutral-950 px-3 py-2 text-sm text-white outline-none ${
+                    className={`w-full rounded-lg bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none transition ${
                       manualToken1.length === 0 || manualToken1IsValid
-                        ? "border border-neutral-700 focus:border-fluent-purple"
-                        : "border border-red-500 focus:border-red-400"
+                        ? "border border-neutral-700/80 focus:border-fluent-purple"
+                        : "border border-red-500/80 focus:border-red-400"
                     }`}
                   />
                   {manualToken1.length > 0 && !manualToken1IsValid && (
@@ -2293,7 +2492,7 @@ export default function FoidSwapPage() {
                     <select
                       value={manualToken1}
                       onChange={(event) => handleManualToken1Change(event.target.value)}
-                      className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-white outline-none focus:border-fluent-purple"
+                      className="w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-sm text-white outline-none transition focus:border-fluent-purple"
                     >
                       {secondaryOptions.map((token) => {
                         const formattedBalance = (() => {
@@ -2307,21 +2506,20 @@ export default function FoidSwapPage() {
                         })();
                         return (
                           <option key={token.address} value={token.address}>
-                            {token.symbol || "Token"} · {formattedBalance} (
-                            {token.address.slice(0, 6)}…{token.address.slice(-4)})
+                            {token.symbol || "Token"} · {formattedBalance} ({shortAddress(token.address)})
                           </option>
                         );
                       })}
                     </select>
                   ) : (
-                    <p className="rounded-lg border border-dashed border-neutral-700 bg-neutral-950 px-3 py-2 text-xs text-neutral-400">
+                    <p className="rounded-lg border border-dashed border-neutral-700/70 bg-neutral-950/70 px-3 py-2 text-xs text-neutral-400">
                       Hold another ERC-20 (different from {token0Preview}) or paste an address above.
                     </p>
-                  )}
+                    )}
                 </div>
               </label>
             <button
-              className="w-full rounded-full bg-fluent-blue px-4 py-2 text-sm text-white hover:bg-fluent-purple disabled:opacity-40"
+              className="w-full rounded-full bg-fluent-blue px-4 py-2 text-sm font-medium text-white transition hover:bg-fluent-purple disabled:opacity-40"
               disabled={manualPairDisabled}
               onClick={() => {
                 if (!manualToken0IsValid || !manualToken1IsValid) {
@@ -2352,7 +2550,7 @@ export default function FoidSwapPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                           >
-                            {pair.slice(0, 10)}… ↗
+                            {shortAddress(pair)} ↗
                           </a>
                         </span>
                       ),
@@ -2371,7 +2569,22 @@ export default function FoidSwapPage() {
 };
 
   const renderSwapForm = () => (
-    <div className="space-y-4">
+    <div className={`${cardPaddingClass} space-y-5`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Swap</h3>
+          <p className="text-xs text-neutral-400">
+            Trade instantly between your selected tokens with configurable slippage controls.
+          </p>
+        </div>
+        {poolPrice && (
+          <span className={chipClass}>
+            1 {tokenADisplay} ≈{" "}
+            {poolPrice.priceAB.toLocaleString(undefined, { maximumFractionDigits: 4 })}{" "}
+            {tokenBDisplay}
+          </span>
+        )}
+      </div>
       <label className="text-sm text-neutral-300">
         Amount in
         <input
@@ -2379,7 +2592,7 @@ export default function FoidSwapPage() {
           value={amountIn}
           onChange={(event) => setAmountIn(event.target.value)}
           placeholder="0.0"
-          className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
+          className="mt-1 w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple"
         />
       </label>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2391,7 +2604,7 @@ export default function FoidSwapPage() {
             step="0.1"
             value={swapSlippage}
             onChange={(event) => setSwapSlippage(event.target.value)}
-            className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
+            className="mt-1 w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple"
           />
         </label>
         <label className="text-sm text-neutral-300">
@@ -2402,20 +2615,22 @@ export default function FoidSwapPage() {
             step="1"
             value={swapDeadline}
             onChange={(event) => setSwapDeadline(event.target.value)}
-            className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
+            className="mt-1 w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple"
           />
         </label>
       </div>
-      <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-3 text-sm text-neutral-200">
+      <div className="rounded-xl border border-neutral-800/70 bg-neutral-950/70 p-4 text-sm text-neutral-200 shadow-[0_12px_30px_-28px_rgba(0,0,0,0.8)]">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span>Estimated out</span>
-          <span>
+          <span className="text-neutral-400">Estimated out</span>
+          <span className="font-mono text-sm text-white">
             {quoteOut && tokenOutState.decimals
-              ? formatUnits(quoteOut, tokenOutState.decimals)
+              ? Number(formatUnits(quoteOut, tokenOutState.decimals)).toLocaleString(undefined, {
+                  maximumFractionDigits: 6,
+                })
               : "—"}
           </span>
         </div>
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
           <span>Price impact</span>
           <span>{quoteImpact !== undefined ? `${quoteImpact.toFixed(2)}%` : "n/a"}</span>
         </div>
@@ -2423,7 +2638,7 @@ export default function FoidSwapPage() {
       <div className="flex flex-col gap-3">
         {swapNeedsApproval && (
           <button
-            className="w-full rounded-full bg-fluent-purple px-4 py-2 text-sm text-white hover:bg-fluent-pink disabled:opacity-40"
+            className="w-full rounded-full bg-fluent-purple px-4 py-2 text-sm font-semibold text-white transition hover:bg-fluent-pink disabled:opacity-40 disabled:hover:bg-fluent-purple"
             disabled={!isConnected || !tokenInState.decimals || !amountIn}
             onClick={() => {
               if (!tokenInState.decimals || !amountIn) return;
@@ -2439,7 +2654,7 @@ export default function FoidSwapPage() {
           </button>
         )}
         <button
-          className="w-full rounded-full bg-fluent-blue px-4 py-2 text-sm text-white hover:bg-fluent-purple disabled:opacity-40"
+          className="w-full rounded-full bg-fluent-blue px-4 py-2 text-sm font-semibold text-white transition hover:bg-fluent-purple disabled:opacity-40"
           disabled={!isConnected || swapNeedsApproval || !pairAddress}
           onClick={() => void executeSwap()}
         >
@@ -2454,7 +2669,22 @@ export default function FoidSwapPage() {
   );
 
   const renderAddLiquidityForm = () => (
-    <div className="space-y-4">
+    <div className={`${cardPaddingClass} space-y-5`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Add liquidity</h3>
+          <p className="text-xs text-neutral-400">
+            Deposit tokens in the current pool ratio to mint LP shares.
+          </p>
+        </div>
+        {poolPrice && (
+          <span className={chipClass}>
+            Ratio · 1 {tokenADisplay} ≈{" "}
+            {poolPrice.priceAB.toLocaleString(undefined, { maximumFractionDigits: 3 })}{" "}
+            {tokenBDisplay}
+          </span>
+        )}
+      </div>
       <div className="grid gap-3">
         <label className="text-sm text-neutral-300">
           Amount A ({tokenAState.symbol ?? "Token A"})
@@ -2463,7 +2693,7 @@ export default function FoidSwapPage() {
             value={liqAmountA}
             onChange={(event) => setLiqAmountA(event.target.value)}
             placeholder="0.0"
-            className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
+            className="mt-1 w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple"
           />
         </label>
         <label className="text-sm text-neutral-300">
@@ -2473,7 +2703,7 @@ export default function FoidSwapPage() {
             value={liqAmountB}
             onChange={(event) => setLiqAmountB(event.target.value)}
             placeholder="0.0"
-            className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
+            className="mt-1 w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple"
           />
         </label>
       </div>
@@ -2486,7 +2716,7 @@ export default function FoidSwapPage() {
             step="0.1"
             value={liqSlippage}
             onChange={(event) => setLiqSlippage(event.target.value)}
-            className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
+            className="mt-1 w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple"
           />
         </label>
         <label className="text-sm text-neutral-300">
@@ -2497,18 +2727,18 @@ export default function FoidSwapPage() {
             step="1"
             value={liqDeadline}
             onChange={(event) => setLiqDeadline(event.target.value)}
-            className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
+            className="mt-1 w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple"
           />
         </label>
       </div>
-      <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-3 text-sm text-neutral-200">
+      <div className="rounded-xl border border-neutral-800/70 bg-neutral-950/70 p-4 text-sm text-neutral-200 shadow-[0_12px_30px_-28px_rgba(0,0,0,0.8)]">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span>Expected shares</span>
-          <span>
+          <span className="text-neutral-400">Expected shares</span>
+          <span className="font-mono text-sm text-white">
             {expectedAddResult ? formatUnits(expectedAddResult.shares, 18) : "—"}
           </span>
         </div>
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
           <span>Deposits</span>
           <span>
             {expectedAddResult && tokenAState.decimals
@@ -2524,7 +2754,7 @@ export default function FoidSwapPage() {
       <div className="flex flex-col gap-3">
         {addNeedsApprovalA && (
           <button
-            className="w-full rounded-full bg-fluent-purple px-4 py-2 text-sm text-white hover:bg-fluent-pink disabled:opacity-40"
+            className="w-full rounded-full bg-fluent-purple px-4 py-2 text-sm font-semibold text-white transition hover:bg-fluent-pink disabled:opacity-40"
             disabled={!isConnected || !liqAmountA || !tokenAState.decimals}
             onClick={() => {
               if (!tokenAState.decimals || !liqAmountA) return;
@@ -2541,7 +2771,7 @@ export default function FoidSwapPage() {
         )}
         {addNeedsApprovalB && (
           <button
-            className="w-full rounded-full bg-fluent-purple px-4 py-2 text-sm text-white hover:bg-fluent-pink disabled:opacity-40"
+            className="w-full rounded-full bg-fluent-purple px-4 py-2 text-sm font-semibold text-white transition hover:bg-fluent-pink disabled:opacity-40"
             disabled={!isConnected || !liqAmountB || !tokenBState.decimals}
             onClick={() => {
               if (!tokenBState.decimals || !liqAmountB) return;
@@ -2557,7 +2787,7 @@ export default function FoidSwapPage() {
           </button>
         )}
         <button
-          className="w-full rounded-full bg-fluent-blue px-4 py-2 text-sm text-white hover:bg-fluent-purple disabled:opacity-40"
+          className="w-full rounded-full bg-fluent-blue px-4 py-2 text-sm font-semibold text-white transition hover:bg-fluent-purple disabled:opacity-40"
           disabled={!isConnected || addNeedsApprovalA || addNeedsApprovalB}
           onClick={() => void executeAddLiquidity()}
         >
@@ -2574,13 +2804,26 @@ export default function FoidSwapPage() {
   );
 
   const renderRemoveLiquidityForm = () => (
-    <div className="space-y-4">
+    <div className={`${cardPaddingClass} space-y-5`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Remove liquidity</h3>
+          <p className="text-xs text-neutral-400">
+            Burn LP shares to withdraw underlying tokens with custom slippage limits.
+          </p>
+        </div>
+        {pairBalance && pairBalance > 0n && (
+          <span className={chipClass}>
+            LP balance · {formatBigNumber(pairBalance, pairDecimals)} shares
+          </span>
+        )}
+      </div>
       <label className="text-sm text-neutral-300">
         <span className="flex flex-wrap items-center justify-between gap-2">
           Shares to burn
           <button
             type="button"
-            className="text-xs text-fluent-blue hover:underline"
+            className="text-xs text-fluent-blue underline decoration-dotted decoration-fluent-blue/60 underline-offset-2"
             onClick={() => {
               if (!pairBalance) return;
               setRemoveShares(formatUnits(pairBalance, 18));
@@ -2594,7 +2837,7 @@ export default function FoidSwapPage() {
           value={removeShares}
           onChange={(event) => setRemoveShares(event.target.value)}
           placeholder="0.0"
-          className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
+          className="mt-1 w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple"
         />
       </label>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2606,7 +2849,7 @@ export default function FoidSwapPage() {
             step="0.1"
             value={removeSlippage}
             onChange={(event) => setRemoveSlippage(event.target.value)}
-            className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
+            className="mt-1 w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple"
           />
         </label>
         <label className="text-sm text-neutral-300">
@@ -2617,11 +2860,11 @@ export default function FoidSwapPage() {
             step="1"
             value={removeDeadline}
             onChange={(event) => setRemoveDeadline(event.target.value)}
-            className="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
+            className="mt-1 w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple"
           />
         </label>
       </div>
-      <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-3 text-sm text-neutral-200">
+      <div className="rounded-xl border border-neutral-800/70 bg-neutral-950/70 p-4 text-sm text-neutral-200 shadow-[0_12px_30px_-28px_rgba(0,0,0,0.8)]">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span>Expected return</span>
           <span>
@@ -2634,7 +2877,7 @@ export default function FoidSwapPage() {
               : "—"}
           </span>
         </div>
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500">
           <span>Slippage floor</span>
           <span>
             {expectedRemoveResult && tokenAState.decimals
@@ -2650,7 +2893,7 @@ export default function FoidSwapPage() {
       <div className="flex flex-col gap-3">
         {removeNeedsApproval && (
           <button
-            className="w-full rounded-full bg-fluent-purple px-4 py-2 text-sm text-white hover:bg-fluent-pink disabled:opacity-40"
+            className="w-full rounded-full bg-fluent-purple px-4 py-2 text-sm font-semibold text-white transition hover:bg-fluent-pink disabled:opacity-40"
             disabled={!isConnected || !pairAddress || !removeShares}
             onClick={() => {
               if (!pairAddress || !removeShares) return;
@@ -2666,7 +2909,7 @@ export default function FoidSwapPage() {
           </button>
         )}
         <button
-          className="w-full rounded-full bg-fluent-blue px-4 py-2 text-sm text-white hover:bg-fluent-purple disabled:opacity-40"
+          className="w-full rounded-full bg-fluent-blue px-4 py-2 text-sm font-semibold text-white transition hover:bg-fluent-purple disabled:opacity-40"
           disabled={!isConnected || removeNeedsApproval || !pairAddress}
           onClick={() => void executeRemoveLiquidity()}
         >
@@ -2677,7 +2920,21 @@ export default function FoidSwapPage() {
   );
 
   const renderTokenSelectors = () => (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className={`${cardPaddingClass} grid gap-4 md:grid-cols-2`}>
+      <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Pair configuration</h3>
+          <p className="text-xs text-neutral-400">
+            Choose the tokens you’d like to trade or provide liquidity for.
+          </p>
+        </div>
+        {pairAddress && (
+          <span className={chipClass}>
+            Pair active
+            <span className="font-semibold text-white">{shortAddress(pairAddress)}</span>
+          </span>
+        )}
+      </div>
       <label className="text-sm text-neutral-300">
         From Token A
         <div className="mt-1 space-y-2">
@@ -2698,10 +2955,10 @@ export default function FoidSwapPage() {
                 setTokenIn(next as Address);
               }
             }}
-            className={`w-full rounded-lg bg-neutral-950 px-3 py-2 text-white outline-none ${
+            className={`w-full rounded-lg bg-neutral-950/70 px-3 py-2 text-white outline-none transition ${
               tokenInEntryValid
-                ? "border border-neutral-700 focus:border-fluent-purple"
-                : "border border-red-500 focus:border-red-400"
+                ? "border border-neutral-700/80 focus:border-fluent-purple"
+                : "border border-red-500/80 focus:border-red-400"
             }`}
           />
           {!tokenInEntryValid && (
@@ -2710,7 +2967,7 @@ export default function FoidSwapPage() {
             </span>
           )}
           <select
-            className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
+            className="w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple"
             value={tokenIn ?? ""}
             onChange={(event) => {
               const next = event.target.value;
@@ -2752,10 +3009,10 @@ export default function FoidSwapPage() {
                 setTokenOut(next as Address);
               }
             }}
-            className={`w-full rounded-lg bg-neutral-950 px-3 py-2 text-white outline-none ${
+            className={`w-full rounded-lg bg-neutral-950/70 px-3 py-2 text-white outline-none transition ${
               tokenOutEntryValid
-                ? "border border-neutral-700 focus:border-fluent-purple"
-                : "border border-red-500 focus:border-red-400"
+                ? "border border-neutral-700/80 focus:border-fluent-purple"
+                : "border border-red-500/80 focus:border-red-400"
             }`}
           />
           {!tokenOutEntryValid && (
@@ -2764,7 +3021,7 @@ export default function FoidSwapPage() {
             </span>
           )}
           <select
-            className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-white outline-none focus:border-fluent-purple"
+            className="w-full rounded-lg border border-neutral-700/80 bg-neutral-950/70 px-3 py-2 text-white outline-none transition focus:border-fluent-purple"
             value={tokenOut ?? ""}
             onChange={(event) => {
               const next = event.target.value;
@@ -2787,13 +3044,13 @@ export default function FoidSwapPage() {
         </span>
       </label>
       <button
-        className="w-full rounded-lg border border-neutral-700/80 bg-neutral-950/80 py-2 text-sm text-neutral-300 hover:text-white md:col-span-2"
+        className="w-full rounded-lg border border-neutral-700/80 bg-neutral-950/80 py-2 text-sm text-neutral-300 transition hover:text-white md:col-span-2"
         onClick={switchTokens}
       >
         Swap tokens
       </button>
       {!pairAddress && tokenIn && tokenOut && (
-        <div className="md:col-span-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+        <div className="md:col-span-2 rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
           Please create a pool for this pair before swapping.
         </div>
       )}
@@ -2815,68 +3072,106 @@ export default function FoidSwapPage() {
   }
 
   return (
-    <main className="space-y-6 py-8">
-      <NetworkGate chainId={chainId}>
-        <section className="rounded-2xl border border-neutral-800/60 bg-neutral-950/70 p-6 shadow-xl shadow-black/20 backdrop-blur">
-          <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl font-semibold text-white">FoidSwap Router</h1>
-              <p className="text-sm text-neutral-400">
-                Tools for swapping, managing pairs, and providing liquidity on Fluent Testnet.
-              </p>
+    <main className="relative overflow-hidden bg-neutral-950 text-neutral-100">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(147,51,234,0.28),transparent_60%)]" />
+      <div className="pointer-events-none absolute inset-x-1/4 top-1/3 h-96 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.18),transparent_65%)] blur-2xl" />
+      <div className="relative mx-auto max-w-6xl space-y-8 px-4 pb-12 pt-10 sm:px-6 lg:px-8">
+        <NetworkGate chainId={chainId}>
+          <section className={`${cardBaseClass} border-neutral-800/70 bg-neutral-950/80 p-6 md:p-8`}>
+            <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h1 className="text-3xl font-semibold text-white">FoidSwap Router</h1>
+                <p className="text-sm text-neutral-400">
+                  Tools for swapping, managing pairs, and providing liquidity on Fluent Testnet.
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2 rounded-full bg-neutral-900/80 p-1 md:justify-start">
+                {(["swap", "pairs", "liquidity"] as ViewKey[]).map((view) => (
+                  <button
+                    key={view}
+                    onClick={() => setActiveView(view)}
+                    className={`px-4 py-2 rounded-full text-sm transition ${
+                      activeView === view
+                        ? "bg-fluent-purple text-white shadow-[0_12px_28px_-14px_rgba(168,85,247,0.7)]"
+                        : "text-neutral-300 hover:text-white"
+                    }`}
+                  >
+                    {view === "swap" ? "Swap" : view === "pairs" ? "Pairs" : "Liquidity"}
+                  </button>
+                ))}
+              </div>
+            </header>
+
+            {pairAddress && (
+              <div className="mb-6 rounded-2xl border border-fluent-purple/30 bg-fluent-purple/10 p-4 text-sm text-neutral-200 shadow-[0_20px_60px_-44px_rgba(168,85,247,0.9)]">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold text-white">Selected pair</span>
+                  <a
+                    className="text-xs text-fluent-blue underline decoration-dotted decoration-fluent-blue/60 underline-offset-2"
+                    href={`${explorerBase}/address/${pairAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View {shortAddress(pairAddress)} ↗
+                  </a>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-xs sm:text-sm">
+                  <span className="rounded-full bg-neutral-900/70 px-3 py-1 font-medium text-white">
+                    {selectedPairLabel ?? shortAddress(pairAddress)}
+                  </span>
+                  <span className="text-neutral-200">
+                    Reserves · {formatBigNumber(pairReserves?.[0], tokenADecimals)} /{" "}
+                    {formatBigNumber(pairReserves?.[1], tokenBDecimals)}
+                  </span>
+                  {poolPrice && (
+                    <span className="text-neutral-200">
+                      Price · 1 {tokenADisplay} ≈{" "}
+                      {poolPrice.priceAB.toLocaleString(undefined, { maximumFractionDigits: 4 })}{" "}
+                      {tokenBDisplay}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="grid gap-6 lg:grid-cols-[320px,1fr]">
+              <aside className="space-y-4">
+                {renderTokenOverview()}
+                {renderPoolStats(activeView === "pairs")}
+              </aside>
+
+              <div className="space-y-6">
+                {activeView !== "pairs" && renderTokenSelectors()}
+
+                {activeView === "swap" && renderSwapForm()}
+
+                {activeView === "liquidity" && (
+                  <>
+                    <div className={`${cardPaddingClass} flex flex-wrap justify-center gap-2 p-2 md:justify-start`}>
+                      {(["add", "remove"] as LiquidityMode[]).map((mode) => (
+                        <button
+                          key={mode}
+                          onClick={() => setLiquidityMode(mode)}
+                          className={`px-4 py-2 rounded-full text-sm transition ${
+                            liquidityMode === mode
+                              ? "bg-fluent-purple text-white shadow-[0_12px_28px_-18px_rgba(168,85,247,0.7)]"
+                              : "text-neutral-300 hover:text-white"
+                          }`}
+                        >
+                          {mode === "add" ? "Add Liquidity" : "Remove Liquidity"}
+                        </button>
+                      ))}
+                    </div>
+                    {liquidityMode === "add" ? renderAddLiquidityForm() : renderRemoveLiquidityForm()}
+                  </>
+                )}
+
+                {activeView === "pairs" && renderPairsManager()}
+              </div>
             </div>
-            <div className="flex flex-wrap justify-center gap-2 rounded-full bg-neutral-900/80 p-1 md:justify-start">
-              {(["swap", "pairs", "liquidity"] as ViewKey[]).map((view) => (
-                <button
-                  key={view}
-                  onClick={() => setActiveView(view)}
-                  className={`px-4 py-2 rounded-full text-sm transition ${
-                    activeView === view ? "bg-fluent-purple text-white" : "text-neutral-300 hover:text-white"
-                  }`}
-                >
-                  {view === "swap" ? "Swap" : view === "pairs" ? "Pairs" : "Liquidity"}
-                </button>
-              ))}
-            </div>
-          </header>
-
-          <div className="grid gap-6 md:grid-cols-[320px,1fr]">
-            <aside className="space-y-4">
-              {renderTokenOverview()}
-              {renderPoolStats(activeView === "pairs")}
-            </aside>
-
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-6 space-y-6">
-              {activeView !== "pairs" && renderTokenSelectors()}
-
-              {activeView === "swap" && renderSwapForm()}
-
-              {activeView === "liquidity" && (
-                <>
-                  <div className="flex flex-wrap justify-center gap-2 rounded-full bg-neutral-900/80 p-1 md:justify-start">
-                    {(["add", "remove"] as LiquidityMode[]).map((mode) => (
-                      <button
-                        key={mode}
-                        onClick={() => setLiquidityMode(mode)}
-                        className={`px-4 py-2 rounded-full text-sm transition ${
-                          liquidityMode === mode
-                            ? "bg-fluent-purple text-white"
-                            : "text-neutral-300 hover:text-white"
-                        }`}
-                      >
-                        {mode === "add" ? "Add Liquidity" : "Remove Liquidity"}
-                      </button>
-                    ))}
-                  </div>
-                  {liquidityMode === "add" ? renderAddLiquidityForm() : renderRemoveLiquidityForm()}
-                </>
-              )}
-
-              {activeView === "pairs" && renderPairsManager()}
-            </div>
-          </div>
-        </section>
-      </NetworkGate>
+          </section>
+        </NetworkGate>
+      </div>
     </main>
   );
 }
