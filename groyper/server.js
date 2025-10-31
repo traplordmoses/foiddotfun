@@ -13,17 +13,22 @@ app.use(express.static('public'));
 
 let publicKey, privateKey;
 let db;
-let provider, wallet;
+let provider, wallet, contract;
 
-// Initialize ethers provider and wallet
+// Initialize ethers provider, wallet, and contract
 function initializeWallet() {
   const rpcUrl = process.env.RPC_URL;
   const serverPrivateKey = process.env.SERVER_PRIVATE_KEY;
   const serverAddress = process.env.SERVER_ADDRESS;
+  const contractAddress = process.env.CONTRACT_ADDRESS;
 
   if (!rpcUrl || !serverPrivateKey || !serverAddress) {
     console.warn('⚠️  Missing RPC_URL, SERVER_PRIVATE_KEY, or SERVER_ADDRESS in .env - blockchain features disabled');
     return;
+  }
+
+  if (!contractAddress) {
+    console.warn('⚠️  Missing CONTRACT_ADDRESS in .env - contract features disabled');
   }
 
   try {
@@ -36,10 +41,23 @@ function initializeWallet() {
     }
     
     console.log(`✓ Wallet initialized: ${wallet.address}`);
+
+    // Initialize contract if address is provided
+    if (contractAddress) {
+      const abiPath = path.join(__dirname, 'Groyper.json');
+      if (fs.existsSync(abiPath)) {
+        const contractABI = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
+        contract = new ethers.Contract(contractAddress, contractABI, wallet);
+        console.log(`✓ Contract initialized: ${contractAddress}`);
+      } else {
+        console.warn('⚠️  Groyper.json ABI file not found - contract features disabled');
+      }
+    }
   } catch (error) {
     console.error('✗ Wallet initialization failed:', error.message);
     provider = null;
     wallet = null;
+    contract = null;
   }
 }
 
@@ -148,6 +166,24 @@ app.post('/api/deposit', async (req, res) => {
       return res.status(400).json({ error: 'Transaction not found' });
     }
     
+    // Wait for transaction confirmation
+    const receipt = await provider.waitForTransaction(txHash);
+    if (!receipt || receipt.status !== 1) {
+      return res.status(400).json({ error: 'Transaction failed or not confirmed' });
+    }
+    
+    // Verify transaction is sent to the contract address
+    const contractAddress = process.env.CONTRACT_ADDRESS;
+    if (!contractAddress) {
+      return res.status(500).json({ error: 'Contract address not configured' });
+    }
+    
+    if (!tx.to || tx.to.toLowerCase() !== contractAddress.toLowerCase()) {
+      return res.status(400).json({ 
+        error: `Transaction must be sent to contract address ${contractAddress}` 
+      });
+    }
+    
     const amount = parseFloat(ethers.formatEther(tx.value));
     
     // Store deposit in database
@@ -178,11 +214,14 @@ app.post('/api/deposit', async (req, res) => {
 // Endpoint to claim deposits for an address
 app.post('/api/claim', async (req, res) => {
   try {
-    const { recipientAddress } = req.body;
+    let { recipientAddress } = req.body;
     
     if (!recipientAddress) {
       return res.status(400).json({ error: 'recipientAddress is required' });
     }
+    
+    // Normalize address: trim whitespace and convert to lowercase
+    recipientAddress = recipientAddress.trim().toLowerCase();
     
     // Basic address validation
     if (!recipientAddress.startsWith('0x') || recipientAddress.length !== 42) {
@@ -200,7 +239,7 @@ app.post('/api/claim', async (req, res) => {
     }
     
     // Find all unclaimed deposits for this address (case-insensitive comparison)
-    const recipientAddressLower = recipientAddress.toLowerCase();
+    const recipientAddressLower = recipientAddress;
     const unclaimed = db.prepare(`
       SELECT id, amount, recipient_address, created_at 
       FROM deposits 
@@ -218,22 +257,26 @@ app.post('/api/claim', async (req, res) => {
     
     // Calculate total amount
     const totalAmount = unclaimed.reduce((sum, deposit) => sum + deposit.amount, 0);
-    const totalAmountWei = ethers.parseEther(totalAmount.toString());
+    // Convert to decimal string without scientific notation (ethers.parseEther doesn't accept scientific notation)
+    // Use toFixed(18) to ensure proper decimal format with up to 18 decimal places
+    const totalAmountString = totalAmount.toFixed(18);
+    const totalAmountWei = ethers.parseEther(totalAmountString);
+    
+    if (!contract) {
+      return res.status(500).json({ error: 'Contract not initialized' });
+    }
     
     try {
-      // Check wallet balance
-      const balance = await provider.getBalance(wallet.address);
-      if (balance < totalAmountWei) {
+      // Check contract balance
+      const contractBalance = await provider.getBalance(contract.target);
+      if (contractBalance < totalAmountWei) {
         return res.status(400).json({ 
-          error: `Insufficient balance. Server has ${ethers.formatEther(balance)} ETH, need ${totalAmount} ETH` 
+          error: `Insufficient contract balance. Contract has ${ethers.formatEther(contractBalance)} ETH, need ${totalAmount} ETH` 
         });
       }
       
-      // Send ETH to recipient
-      const tx = await wallet.sendTransaction({
-        to: recipientAddress,
-        value: totalAmountWei
-      });
+      // Call contract's claim function
+      const tx = await contract.claim(totalAmountWei, recipientAddress);
       
       // Wait for transaction confirmation
       const receipt = await tx.wait();
@@ -279,12 +322,13 @@ app.get('/api/deposits', (req, res) => {
     
     let deposits;
     if (address) {
+      const addressLower = address.toLowerCase();
       deposits = db.prepare(`
         SELECT id, amount, recipient_address, claimed, claim_tx_hash, created_at, claimed_at
         FROM deposits 
-        WHERE recipient_address = ?
+        WHERE LOWER(recipient_address) = ?
         ORDER BY created_at DESC
-      `).all(address);
+      `).all(addressLower);
     } else {
       deposits = db.prepare(`
         SELECT id, amount, recipient_address, claimed, claim_tx_hash, created_at, claimed_at
@@ -300,13 +344,13 @@ app.get('/api/deposits', (req, res) => {
   }
 });
 
-// Endpoint to get server address for deposits
+// Endpoint to get contract address for deposits
 app.get('/api/server-address', (req, res) => {
-  const serverAddress = process.env.SERVER_ADDRESS;
-  if (!serverAddress) {
-    return res.status(500).json({ error: 'Server address not configured' });
+  const contractAddress = process.env.CONTRACT_ADDRESS;
+  if (!contractAddress) {
+    return res.status(500).json({ error: 'Contract address not configured' });
   }
-  res.json({ serverAddress });
+  res.json({ serverAddress: contractAddress });
 });
 
 const PORT = process.env.PORT || 3000;
