@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
-import { BrowserProvider, Contract, Interface, isAddress, parseUnits } from "ethers";
+import {
+  BrowserProvider,
+  Contract,
+  Interface,
+  isAddress,
+  parseUnits,
+} from "ethers";
 import toast from "react-hot-toast";
 import { FOID20_FACTORY_ABI } from "@/lib/foid20FactoryAbi";
 
@@ -10,330 +16,261 @@ const FACTORY_ADDRESS = (
   process.env.NEXT_PUBLIC_FOID_FACTORY ??
   process.env.NEXT_PUBLIC_FACTORY
 ) as `0x${string}` | undefined;
-const EXPLORER_BASE = (process.env.NEXT_PUBLIC_FLUENT_SCAN_BASE ?? "https://testnet.fluentscan.xyz").replace(
-  /\/+$/,
-  "",
-);
-const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? "20994") || 20994;
 
-const PREDICT_ABI = [
-  "function predictMyAddress(string name_,string symbol_,uint8 decimals_,uint256 cap_,address initialMintTo_,uint256 initialMintAmount_,bytes32 userSalt_) view returns (address predicted, bytes32 namespacedSalt)",
-] as const;
+const EXPLORER_BASE = (process.env.NEXT_PUBLIC_FLUENT_SCAN_BASE ??
+  "https://testnet.fluentscan.xyz").replace(/\/+$/, "");
 
-const WALLET_ABI = [...FOID20_FACTORY_ABI, ...PREDICT_ABI] as const;
+const DECIMALS = 18;
+const ZERO_SALT = "0x".padEnd(66, "0");
 const EVENT_INTERFACE = new Interface(FOID20_FACTORY_ABI);
 
+type LaunchStatus = "idle" | "estimating" | "pending" | "confirmed";
+
 type DeployResult = {
-  address: string;
+  address: string | null;
   txHash: string | null;
-  predicted?: string | null;
-  userSalt?: string | null;
-  via: "wallet" | "vanity";
 };
 
 export function LaunchpadForm() {
   const { address: connectedAddress } = useAccount();
 
-  const [name, setName] = useState("");
+  const [tokenName, setTokenName] = useState("");
   const [symbol, setSymbol] = useState("");
-  const [decimals, setDecimals] = useState("18");
-  const [cap, setCap] = useState("100000000");
-  const [initialMintTo, setInitialMintTo] = useState("");
-  const [initialMintAmount, setInitialMintAmount] = useState("0");
-  const useHumanUnits = true;
+  const [maxSupply, setMaxSupply] = useState("");
+  const [recipient, setRecipient] = useState("");
 
-  const [result, setResult] = useState<DeployResult | null>(null);
-  const [isVanityDeploying, setIsVanityDeploying] = useState(false);
-
-  const lastAutofillRef = useRef<string | null>(null);
+  const [status, setStatus] = useState<LaunchStatus>("idle");
+  const [result, setResult] = useState<DeployResult>({ address: null, txHash: null });
 
   useEffect(() => {
     if (!connectedAddress) return;
-    setInitialMintTo((prev) => {
-      if (!prev || prev === lastAutofillRef.current) {
-        lastAutofillRef.current = connectedAddress;
-        return connectedAddress;
-      }
-      return prev;
-    });
+    setRecipient((prev) => (prev ? prev : connectedAddress));
   }, [connectedAddress]);
+
+  const rawSupply = useMemo(() => {
+    if (!maxSupply.trim()) return null;
+    try {
+      return parseUnits(maxSupply.trim(), DECIMALS);
+    } catch {
+      return null;
+    }
+  }, [maxSupply]);
+
+  const supplyPreview = useMemo(() => {
+    if (rawSupply === null) return "—";
+    return rawSupply.toString();
+  }, [rawSupply]);
 
   if (!FACTORY_ADDRESS) {
     throw new Error("Missing FOID factory address (set NEXT_PUBLIC_FOID_FACTORY).");
   }
 
-  const explorerUrl = (type: "address" | "tx", value: string) => `${EXPLORER_BASE}/${type}/${value}`;
+  const explorerHref = (type: "address" | "tx", value: string) =>
+    `${EXPLORER_BASE}/${type}/${value}`;
 
-  const parseDecimals = () => {
-    const parsed = Number(decimals);
-    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 255) {
-      throw new Error("Decimals must be between 0 and 255.");
-    }
-    return parsed;
+  const resetResult = () => {
+    setResult({ address: null, txHash: null });
   };
 
-  const parseAmount = (input: string, decimalsValue: number) => {
-    const trimmed = input.trim();
-    if (!trimmed) {
-      return 0n;
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    resetResult();
+    setStatus("idle");
+
+    const trimmedName = tokenName.trim();
+    const trimmedSymbol = symbol.trim().toUpperCase().slice(0, 11);
+    const trimmedRecipient = recipient.trim();
+
+    if (!trimmedName) {
+      toast.error("Token name required.");
+      return;
     }
-    try {
-      return useHumanUnits ? parseUnits(trimmed, decimalsValue) : BigInt(trimmed);
-    } catch (error) {
-      throw new Error("Invalid amount format.");
+    if (!trimmedSymbol) {
+      toast.error("Symbol required.");
+      return;
     }
-  };
-
-  const validateAddress = (value: string, label: string) => {
-    if (!isAddress(value)) {
-      throw new Error(`${label} must be a valid 0x address.`);
+    if (!maxSupply.trim()) {
+      toast.error("Max supply required.");
+      return;
     }
-  };
+    if (!rawSupply || rawSupply <= 0n) {
+      toast.error("Max supply must be a positive number.");
+      return;
+    }
+    if (!isAddress(trimmedRecipient)) {
+      toast.error("Recipient must be a valid wallet address.");
+      return;
+    }
 
-  const prepareDeployment = () => {
-    if (!name.trim()) throw new Error("Token name is required.");
-    if (!symbol.trim()) throw new Error("Token symbol is required.");
-
-    const decimalsValue = parseDecimals();
-    validateAddress(initialMintTo, "Initial mint recipient");
-    const capValue = parseAmount(cap, decimalsValue);
-    const mintValue = parseAmount(initialMintAmount, decimalsValue);
-
-    return {
-      decimalsValue,
-      capValue,
-      mintValue,
-      recipient: initialMintTo as `0x${string}`,
-    };
-  };
-
-  const handleVanityDeploy = async () => {
     if (typeof window === "undefined") return;
-    const { ethereum } = window as typeof window & { ethereum?: unknown };
+    const ethereum = (window as typeof window & { ethereum?: unknown }).ethereum;
     if (!ethereum) {
       toast.error("No injected wallet detected.");
       return;
     }
-    if (!connectedAddress) {
-      toast.error("Connect wallet first.");
-      return;
-    }
 
     try {
-      setIsVanityDeploying(true);
-      setResult(null);
-
-      const { decimalsValue, capValue, mintValue, recipient } = prepareDeployment();
-
-      const response = await fetch("/api/vanity-deploy", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          symbol: symbol.trim(),
-          decimals: decimalsValue,
-          cap: capValue.toString(),
-          initialMintTo: recipient,
-          initialMintAmount: mintValue.toString(),
-          creator: connectedAddress,
-        }),
-      });
-
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload?.ok) {
-        const msg = payload?.logs ?? payload?.error ?? "Vanity deployment failed.";
-        throw new Error(msg);
-      }
-
-      const userSalt = payload.userSalt as string | undefined;
-      if (!userSalt || typeof userSalt !== "string") {
-        throw new Error("Server did not return a vanity salt.");
-      }
-
-      const serverPredicted = typeof payload.predicted === "string" ? payload.predicted.toLowerCase() : null;
-      if (!serverPredicted || !serverPredicted.endsWith("f01d")) {
-        throw new Error("Server returned an invalid vanity prediction.");
-      }
-
-      const saltHex = userSalt as `0x${string}`;
-
+      setStatus("estimating");
       const provider = new BrowserProvider(ethereum);
-      const network = await provider.getNetwork();
-      if (Number(network.chainId) !== CHAIN_ID) {
-        throw new Error(`Switch to Fluent Testnet (chainId ${CHAIN_ID}).`);
-      }
-
       const signer = await provider.getSigner();
-      const contract = new Contract(FACTORY_ADDRESS, WALLET_ABI, signer);
+      const contract = new Contract(FACTORY_ADDRESS, FOID20_FACTORY_ABI, signer);
 
-      const [predicted] = await contract.predictMyAddress.staticCall(
-        name.trim(),
-        symbol.trim(),
-        decimalsValue,
-        capValue,
-        recipient,
-        mintValue,
-        saltHex,
+      setStatus("pending");
+      const tx = await contract.deployToken(
+        trimmedName,
+        trimmedSymbol,
+        DECIMALS,
+        rawSupply,
+        trimmedRecipient,
+        rawSupply,
+        ZERO_SALT,
       );
 
-      const predictedLower = (predicted as string)?.toLowerCase?.();
-      if (predictedLower !== serverPredicted) {
-        throw new Error("Predicted vanity address mismatch. Please retry.");
-      }
+      toast.success("Deployment submitted.");
+      const receipt = await tx.wait();
 
-      const txResponse = await contract.deployToken(
-        name.trim(),
-        symbol.trim(),
-        decimalsValue,
-        capValue,
-        recipient,
-        mintValue,
-        saltHex,
-      );
-
-      toast.loading("Waiting for vanity confirmation…", { id: "vanity-deploy" });
-      const receipt = await txResponse.wait();
-      toast.dismiss("vanity-deploy");
-
-      const tokenAddress =
-        parseTokenFromLogs(receipt.logs) ?? (predicted as string | undefined) ?? serverPredicted ?? null;
-      if (!tokenAddress) {
-        throw new Error("Could not determine deployed token address.");
+      let deployed: string | null = null;
+      try {
+        deployed = parseTokenFromLogs(receipt?.logs);
+      } catch {
+        deployed = null;
       }
 
       setResult({
-        address: tokenAddress,
-        txHash: receipt.hash ?? null,
-        predicted: serverPredicted,
-        userSalt: saltHex,
-        via: "vanity",
+        address: deployed,
+        txHash: tx.hash,
       });
-      toast.success("Vanity deployment complete.");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Vanity deployment failed.";
+      setStatus("confirmed");
+      toast.success("Token created on Fluent.");
+    } catch (error: any) {
+      setStatus("idle");
+      const message = error?.message ?? "Deployment failed.";
       toast.error(message);
-    } finally {
-      setIsVanityDeploying(false);
     }
   };
 
-  const capLabel = "Cap (tokens)";
-  const mintLabel = "Initial Mint Amount (tokens)";
-  const capPlaceholder = "100000000";
-  const mintPlaceholder = "1000000";
+  const statusLabel =
+    status === "idle"
+      ? "status: idle"
+      : status === "estimating"
+        ? "status: estimating"
+        : status === "pending"
+          ? "status: pending"
+          : "status: confirmed";
 
   return (
     <form
-      onSubmit={(event) => event.preventDefault()}
-      className="space-y-6 rounded-2xl border border-white/10 bg-black/50 p-6 shadow-xl backdrop-blur"
+      onSubmit={handleSubmit}
+      className="mx-auto flex max-w-3xl flex-col gap-6 rounded-3xl bg-neutral-950/85 p-8 ring-1 ring-neutral-800/40"
     >
+      <header className="space-y-2">
+        <h1 className="text-2xl font-semibold text-neutral-50">launch without friction</h1>
+        <p className="text-sm text-neutral-300">
+          single form, four fields—nothing else. mint 100% of supply straight to your wallet.
+        </p>
+      </header>
+
       <div className="grid gap-4 md:grid-cols-2">
         <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-white/80">Token Name</span>
+          <span className="text-sm font-medium text-neutral-200">Token name</span>
           <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="My FOID Token"
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-fluent-blue focus:outline-none"
+            value={tokenName}
+            onChange={(event) => setTokenName(event.target.value)}
+            placeholder="My FOID experiment"
+            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-neutral-100 focus:border-fluent-pink/60 focus:outline-none"
           />
         </label>
         <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-white/80">Symbol</span>
+          <span className="text-sm font-medium text-neutral-200">Symbol (≤ 11 chars)</span>
           <input
             value={symbol}
-            onChange={(event) => setSymbol(event.target.value.replace(/\s+/g, ""))}
+            onChange={(event) => setSymbol(event.target.value.toUpperCase().slice(0, 11))}
             placeholder="FOID"
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-fluent-blue focus:outline-none uppercase"
-          />
-        </label>
-        <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-white/80">Decimals</span>
-          <input
-            value={decimals}
-            onChange={(event) => setDecimals(event.target.value.replace(/[^\d]/g, ""))}
-            inputMode="numeric"
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-fluent-blue focus:outline-none"
-          />
-        </label>
-        <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-white/80">{capLabel}</span>
-          <input
-            value={cap}
-            onChange={(event) => setCap(event.target.value.trimStart())}
-            placeholder={capPlaceholder}
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-fluent-blue focus:outline-none"
+            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm uppercase text-neutral-100 focus:border-fluent-pink/60 focus:outline-none"
           />
         </label>
         <label className="flex flex-col gap-2 md:col-span-2">
-          <span className="text-sm font-medium text-white/80">Initial Mint To</span>
+          <span className="text-sm font-medium text-neutral-200">Max supply</span>
           <input
-            value={initialMintTo}
-            onChange={(event) => {
-              const next = event.target.value.trim();
-              setInitialMintTo(next);
-              lastAutofillRef.current = next;
-            }}
+            value={maxSupply}
+            onChange={(event) => setMaxSupply(event.target.value.trimStart())}
+            placeholder="1000000"
+            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-neutral-100 focus:border-fluent-pink/60 focus:outline-none"
+          />
+          <span className="text-xs uppercase tracking-[0.35em] text-neutral-500">
+            10^18 preview → {supplyPreview}
+          </span>
+        </label>
+        <label className="flex flex-col gap-2 md:col-span-2">
+          <span className="text-sm font-medium text-neutral-200">Initial recipient</span>
+          <input
+            value={recipient}
+            onChange={(event) => setRecipient(event.target.value.trim())}
             placeholder="0x..."
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-fluent-blue focus:outline-none"
-          />
-        </label>
-        <label className="flex flex-col gap-2 md:col-span-2">
-          <span className="text-sm font-medium text-white/80">{mintLabel}</span>
-          <input
-            value={initialMintAmount}
-            onChange={(event) => setInitialMintAmount(event.target.value.trimStart())}
-            placeholder={mintPlaceholder}
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-fluent-blue focus:outline-none"
+            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-neutral-100 focus:border-fluent-pink/60 focus:outline-none"
           />
         </label>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={handleVanityDeploy}
-          disabled={isVanityDeploying}
-          className="inline-flex items-center justify-center rounded-lg border border-fuchsia-400/60 bg-fuchsia-500/20 px-4 py-2 text-sm font-medium text-fuchsia-100 transition hover:bg-fuchsia-500/30 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isVanityDeploying ? "Grinding vanity…" : "Launch FOID20"}
-        </button>
+      <div className="flex flex-col gap-3 rounded-2xl bg-neutral-900/40 p-4 text-sm text-neutral-200">
+        <span className="font-mono text-xs uppercase tracking-[0.35em] text-neutral-400">
+          {statusLabel}
+        </span>
+        <p className="text-neutral-300">
+          initialMint = 100% of maxSupply → sent to {recipient || "recipient"}.
+        </p>
+        <p className="text-xs uppercase tracking-[0.35em] text-neutral-500">
+          clear states: estimating → pending → confirmed (view on explorer).
+        </p>
       </div>
 
-      {result && (
-        <div className="space-y-2 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white">
-          <p className="font-medium text-white">
-            Deployment result <span className="text-xs text-white/60">({result.via === "wallet" ? "wallet" : "vanity"})</span>
-          </p>
-          <p className="flex flex-col md:flex-row md:items-center md:gap-2">
-            <span>Token address:</span>
-            <span className="break-all font-mono text-xs md:text-sm">{result.address}</span>
+      <button
+        type="submit"
+        disabled={status === "pending" || status === "estimating"}
+        className="inline-flex items-center justify-center rounded-2xl bg-fluent-pink/80 px-6 py-3 text-sm font-semibold uppercase tracking-[0.35em] text-black transition hover:bg-fluent-pink disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {status === "estimating"
+          ? "estimating..."
+          : status === "pending"
+            ? "pending..."
+            : "launch foid20"}
+      </button>
+
+      {result.txHash && (
+        <div className="flex flex-col gap-2 rounded-2xl bg-neutral-900/40 p-4 text-sm text-neutral-200">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-neutral-100">Transaction</span>
             <a
-              href={explorerUrl("address", result.address)}
+              href={explorerHref("tx", result.txHash)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-fluent-blue underline-offset-4 hover:underline"
+              className="text-xs uppercase tracking-[0.35em] text-fluent-blue hover:underline"
             >
-              View on explorer ↗
+              view on explorer →
             </a>
-          </p>
-          {result.txHash && (
-            <p className="flex flex-col md:flex-row md:items-center md:gap-2">
-              <span>Tx hash:</span>
-              <span className="break-all font-mono text-xs md:text-sm">{result.txHash}</span>
-              <a
-                href={explorerUrl("tx", result.txHash)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-fluent-blue underline-offset-4 hover:underline"
-              >
-                View transaction ↗
-              </a>
-            </p>
-          )}
-          {result.userSalt && <p className="break-all text-xs text-white/70">Vanity userSalt: {result.userSalt}</p>}
-          {result.predicted && result.predicted.toLowerCase() !== result.address.toLowerCase() && (
-            <p className="text-xs text-amber-300/80">Warning: predicted address differs from final deployment.</p>
-          )}
+          </div>
+          <span className="break-all font-mono text-xs uppercase tracking-[0.25em] text-neutral-400">
+            {result.txHash}
+          </span>
+        </div>
+      )}
+
+      {result.address && (
+        <div className="flex flex-col gap-2 rounded-2xl bg-neutral-900/40 p-4 text-sm text-neutral-200">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium text-neutral-100">Token address</span>
+            <a
+              href={explorerHref("address", result.address)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs uppercase tracking-[0.35em] text-fluent-blue hover:underline"
+            >
+              view on explorer →
+            </a>
+          </div>
+          <span className="break-all font-mono text-xs uppercase tracking-[0.25em] text-neutral-400">
+            {result.address}
+          </span>
         </div>
       )}
     </form>
@@ -346,7 +283,7 @@ function parseTokenFromLogs(logs: readonly unknown[] | undefined) {
     try {
       const parsed = EVENT_INTERFACE.parseLog(log as any);
       if (parsed?.name === "TokenDeployed") {
-        return parsed.args?.token as string;
+        return (parsed.args?.token as string) ?? null;
       }
     } catch {
       continue;

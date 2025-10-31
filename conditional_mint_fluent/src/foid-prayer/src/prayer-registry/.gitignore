@@ -1,0 +1,11 @@
+target
+out
+tmp
+tmp2
+artifacts
+.idea
+fluent-builder
+out-docker
+.wake
+justfile
+tmp/
