@@ -1,14 +1,17 @@
 "use client";
 
 import Head from "next/head";
-import Script from "next/script";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useAccount, useReadContract, useWriteContract } from "wagmi";
-import { keccak256, stringToBytes, type Hex } from "viem";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useAccount, usePublicClient, useReadContract, useWriteContract } from "wagmi";
+import { keccak256, stringToBytes, type Hex, type Hash } from "viem";
 import { toast } from "react-hot-toast";
 import { CONTRACT_ADDRESSES, NETWORK_DETAILS } from "./(components)/contracts";
 import MoireLayer from "./(components)/MoireLayer";
+import FoidMommyTerminal, {
+  FEELING_LABELS,
+  type FeelingKey,
+} from "./(components)/FoidMommyTerminal";
 
 const appTiles = [
   {
@@ -31,7 +34,7 @@ const appTiles = [
 const valueProps = [
   {
     title: "blended execution (evm + wasm + svm)",
-    body: "fluent lets contracts from different VMs interoperate on one chain, on shared state—no bridges. solidity and rust can call each other inside one app, enabling simpler architectures and new design space.",
+    body: "fluent lets contracts from different VMs interoperate on one chain, on shared state--no bridges. solidity and rust can call each other inside one app, enabling simpler architectures and new design space.",
   },
   {
     title: "zk-powered l2 security",
@@ -39,7 +42,7 @@ const valueProps = [
   },
   {
     title: "dev ergonomics, familiar tools",
-    body: "ship today with evm compatibility (solidity/vyper), then extend with rust/wasm when you’re ready—the fluentbase sdk bridges types and shared state so both paths feel native. less friction, more composability.",
+    body: "ship today with evm compatibility (solidity/vyper), then extend with rust/wasm when you're ready--the fluentbase sdk bridges types and shared state so both paths feel native. less friction, more composability.",
   },
 ] as const;
 
@@ -47,7 +50,7 @@ const faqItems = [
   {
     question: "how do i add fluent testnet?",
     answer:
-      "network name: fluent testnet · chain id: 20994 · rpc: https://rpc.testnet.fluent.xyz · symbol: ETH · explorer: https://testnet.fluentscan.xyz. add via wallet prompt or manually in metamask → networks. docs.fluent.xyz",
+      "network name: fluent testnet - chain id: 20994 - rpc: https://rpc.testnet.fluent.xyz - symbol: ETH - explorer: https://testnet.fluentscan.xyz. add via wallet prompt or manually in metamask -&gt; networks. docs.fluent.xyz",
   },
   {
     question: "how do i get test tokens?",
@@ -62,7 +65,7 @@ const faqItems = [
   {
     question: "how do i add liquidity on foidswap?",
     answer:
-      "choose a pair (or create one), deposit both assets in proportion, confirm. you’ll receive lp tokens representing your share; trades auto-route across pairs with a 0.3% fee per hop. docs.fluent.xyz",
+      "choose a pair (or create one), deposit both assets in proportion, confirm. you'll receive lp tokens representing your share; trades auto-route across pairs with a 0.3% fee per hop. docs.fluent.xyz",
   },
 ] as const;
 
@@ -169,7 +172,7 @@ const PrayerMirrorAbi = [
 
 function formatHexShort(h?: Hex) {
   if (!h) return "0x";
-  return `${h.slice(0, 8)}…${h.slice(-6)}`;
+  return `${h.slice(0, 8)}...${h.slice(-6)}`;
 }
 
 function secondsLeft(tsNow: number, tsNext: bigint | undefined) {
@@ -192,12 +195,8 @@ export default function Page() {
   const MIRROR = env.mirror;
   const FLUENT_CHAIN_ID = env.chainId;
 
+  const publicClient = usePublicClient();
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
-  const [terminalReady, setTerminalReady] = useState(false);
-  const terminalRef = useRef<HTMLDivElement>(null);
-  const terminalInstance = useRef<any>(null);
-  const accountRef = useRef({ address, isConnected, chainId });
-  const writeRef = useRef(writeContractAsync);
   const snapRef = useRef<(() => Promise<unknown>) | null>(null);
   const nextRef = useRef<(() => Promise<unknown>) | null>(null);
 
@@ -237,14 +236,6 @@ export default function Page() {
   const registryRef = useRef<Hex | undefined>(REGISTRY);
 
   useEffect(() => {
-    accountRef.current = { address, isConnected, chainId };
-  }, [address, isConnected, chainId]);
-
-  useEffect(() => {
-    writeRef.current = writeContractAsync;
-  }, [writeContractAsync]);
-
-  useEffect(() => {
     snapRef.current = refetchSnap;
   }, [refetchSnap]);
 
@@ -256,158 +247,56 @@ export default function Page() {
     registryRef.current = REGISTRY as Hex | undefined;
   }, [REGISTRY]);
 
-  useEffect(() => {
-    if (!terminalReady || !terminalRef.current) return;
-    if (terminalInstance.current) return;
-    const $ = (window as any).jQuery as any;
-    if (!$?.fn?.terminal) return;
-
-    const targetChainId = FLUENT_CHAIN_ID ?? 20994;
-
-    terminalInstance.current = $(terminalRef.current).terminal(
-      async function (this: any, command: string) {
-        const cmd = (command || "").trim().toLowerCase();
-        if (!cmd) return;
-
-        if (cmd !== "pray with mommy") {
-          this.echo('[[;#00ffd0;]foid mommy:] type [[b;#9be7ff;]pray with mommy] to begin.');
-          return;
-        }
-
-        const { address: currentAddress, isConnected: currentConnected, chainId: currentChainId } =
-          accountRef.current;
-
-        if (!currentConnected || !currentAddress) {
-          this.echo('[[;#ffb703;]wallet:] please connect your wallet first, then run "pray with mommy" again.');
-          return;
-        }
-
-        if (currentChainId && currentChainId !== targetChainId) {
-          this.echo(
-            '[[;#ffb703;]wallet:] switch to fluent testnet (chain id 20994) and run "pray with mommy" again.',
-          );
-          return;
-        }
-
-        this.echo('[[;#00ffd0;]foid mommy:] share your prayer below (one line).');
-        const prayer = await this.read("prayer: ");
-        const finalPrayer = (prayer || "").toString().trim();
-
-        if (!finalPrayer) {
-          this.echo('[[;#00ffd0;]foid mommy:] nothing received. try again with "pray with mommy".');
-          return;
-        }
-
-        this.echo(
-          '[[;#00ffd0;]foid mommy:] i will hash your prayer locally and only the keccak stays on-chain.',
-        );
-        const confirm = await this.read('type "yes" to continue: ');
-        if ((confirm || "").toString().trim().toLowerCase() !== "yes") {
-          this.echo("[[;#00ffd0;]foid mommy:] understood. nothing saved.");
-          return;
-        }
-
-        try {
-          const registryAddress = registryRef.current;
-          if (!registryAddress) {
-            this.echo('[[;#ff6b6b;]error:] missing registry address on this page.');
-            return;
-          }
-
-          this.echo("[[;#00ffd0;]foid mommy:] hashing prayer…]");
-          const prayerHash = keccak256(stringToBytes(finalPrayer));
-          this.echo("[[;#00ffd0;]foid mommy:] please sign and send the transaction…]");
-
-          const writer = writeRef.current;
-          if (!writer) {
-            throw new Error("transaction signer unavailable");
-          }
-
-          const txHash = await writer({
-            address: registryAddress,
-            abi: PrayerRegistryAbi,
-            functionName: "checkIn",
-            args: [prayerHash, 72, 1],
-          });
-
-          this.echo(`[[;#00ffd0;]foid mommy:] done. tx hash: ${txHash}]`);
-          this.echo("[[b;#9be7ff;]check-in complete. you are loved.]");
-          this.echo('type [[b;#9be7ff;]pray with mommy] to send another.');
-
-          const tasks: Promise<unknown>[] = [];
-          if (snapRef.current) tasks.push(snapRef.current());
-          if (nextRef.current) tasks.push(nextRef.current());
-          if (tasks.length) {
-            await Promise.allSettled(tasks);
-          }
-        } catch (e: any) {
-          this.echo(`[[;#ff6b6b;]error:] ${e?.message || e}`);
-          this.echo("[[;#00ffd0;]foid mommy:] nothing was saved. try again when ready.");
-        }
-      },
-      {
-        greetings: 'foid mommy online.\n-----------------------------------------------\ntype "pray with mommy" to begin.',
-        prompt: "anon$ ",
-        name: "ttyFOID",
-        height: 420,
-        clipboard: false,
-      },
-    );
-
-    const hideClipboard = () => {
-      const root = terminalRef.current;
-      if (!root) return;
-
-      const node = root.querySelector<HTMLTextAreaElement>("textarea.cmd-clipboard");
-      const label = root.querySelector<HTMLElement>("label.visually-hidden");
-      if (node && node.parentElement) {
-        node.parentElement.removeChild(node);
-      }
-      if (label && label.parentElement) {
-        label.parentElement.removeChild(label);
-      }
-    };
-
-    hideClipboard();
-    let intervalId: number | null = null;
-    if (typeof window !== "undefined") {
-      intervalId = window.setInterval(() => {
-        hideClipboard();
-        if (terminalRef.current) {
-          const leftovers = terminalRef.current.querySelectorAll(
-            "textarea.clipboard, textarea.cmd-clipboard, label[for='clipboard'], label.visually-hidden, span.clipboard",
-          );
-          if (leftovers.length === 0 && intervalId != null) {
-            window.clearInterval(intervalId);
-            intervalId = null;
-          }
-        }
-      }, 300);
+  const ensureWalletReady = useCallback(async () => {
+    if (!isConnected || !address) {
+      throw new Error("please connect your wallet before anchoring your prayer.");
     }
-    let observer: MutationObserver | null = null;
-    const terminalNode = terminalRef.current;
-    if (terminalNode) {
-      observer = new MutationObserver(hideClipboard);
-      observer.observe(terminalNode, { childList: true, subtree: true });
+    if (FLUENT_CHAIN_ID && chainId && chainId !== FLUENT_CHAIN_ID) {
+      throw new Error(`switch to fluent testnet (chain id ${FLUENT_CHAIN_ID}) to continue.`);
     }
+  }, [FLUENT_CHAIN_ID, address, chainId, isConnected]);
 
-    return () => {
-      try {
-        terminalInstance.current?.destroy?.();
-      } catch {
-        // ignore
+  const submitPrayer = useCallback(
+    async (prayer: string, feeling: FeelingKey) => {
+      const registryAddress = registryRef.current;
+      if (!registryAddress) {
+        throw new Error("missing registry address on this page.");
       }
-      terminalInstance.current = null;
-      observer?.disconnect();
-      observer = null;
-      if (intervalId != null && typeof window !== "undefined") {
-        window.clearInterval(intervalId);
+
+      const prayerHash = keccak256(stringToBytes(prayer));
+      const label = FEELING_LABELS[feeling] ?? 1;
+
+      const txHash = await writeContractAsync({
+        address: registryAddress,
+        abi: PrayerRegistryAbi,
+        functionName: "checkIn",
+        args: [prayerHash, 72, label],
+      });
+
+      return { txHash };
+    },
+    [writeContractAsync],
+  );
+
+  const waitForReceipt = useCallback(
+    async (hash: string) => {
+      if (publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash: hash as Hash });
       }
-    };
-  }, [FLUENT_CHAIN_ID, terminalReady]);
+      const tasks: Promise<unknown>[] = [];
+      if (snapRef.current) tasks.push(snapRef.current());
+      if (nextRef.current) tasks.push(nextRef.current());
+      if (tasks.length) {
+        await Promise.allSettled(tasks);
+      }
+    },
+    [publicClient],
+  );
+
 
   const requestSwitchNetwork = async () => {
     if (!(globalThis as any)?.ethereum) return;
+    if (!FLUENT_CHAIN_ID) return;
     try {
       await (globalThis as any).ethereum.request({
         method: "wallet_switchEthereumChain",
@@ -424,34 +313,7 @@ export default function Page() {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet" />
-        <link
-          href="https://cdn.jsdelivr.net/npm/jquery.terminal/css/jquery.terminal.min.css"
-          rel="stylesheet"
-        />
       </Head>
-      <Script
-        src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"
-        strategy="afterInteractive"
-        onLoad={() => {
-          const jq = (window as any).jQuery || (window as any).$;
-          if (jq) {
-            (window as any).jQuery = jq;
-            (window as any).$ = jq;
-            if ((window as any).jQuery?.fn?.terminal) {
-              setTerminalReady(true);
-            }
-          }
-        }}
-      />
-      <Script
-        src="https://cdn.jsdelivr.net/npm/jquery.terminal/js/jquery.terminal.min.js"
-        strategy="afterInteractive"
-        onLoad={() => {
-          if ((window as any).jQuery?.fn?.terminal) {
-            setTerminalReady(true);
-          }
-        }}
-      />
       <main className="relative isolate min-h-screen text-neutral-200 pb-24">
         <MoireLayer />
         <div className="pointer-events-none fixed inset-0 z-0 vignette" />
@@ -461,10 +323,10 @@ export default function Page() {
           <div className="max-w-6xl mx-auto flex flex-col gap-10 rounded-3xl border border-neutral-800/60 bg-neutral-950/40 p-8 shadow-card backdrop-blur-md md:flex-row md:items-end md:justify-between">
             <div>
               <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-neutral-50">
-                foid.fun—make on-chain fun again.
+                foid.fun--make on-chain fun again.
               </h1>
               <p className="mt-5 max-w-2xl text-lg text-neutral-300 sm:text-xl">
-                pray daily, launch anything, swap everything—on fluent testnet, fast and cheap.
+                pray daily, launch anything, swap everything--on fluent testnet, fast and cheap.
               </p>
               <div className="mt-8 inline-flex flex-wrap items-center gap-3 text-sm text-neutral-300">
                 <span className="px-2 py-1 rounded-full bg-neutral-900/80 border border-neutral-700/60">
@@ -489,7 +351,13 @@ export default function Page() {
         <div className="max-w-6xl mx-auto rounded-3xl border border-neutral-800/60 bg-neutral-950/40 p-8 shadow-card backdrop-blur-md">
           <div className="grid gap-8 md:grid-cols-[1.3fr_0.7fr]">
           <div className="crt flicker">
-            <div id="foid-terminal" ref={terminalRef} className="min-h-[380px]" />
+            <FoidMommyTerminal
+              className="min-h-[380px]"
+              ensureWalletReady={ensureWalletReady}
+              submitPrayer={submitPrayer}
+              waitForReceipt={waitForReceipt}
+              nextAllowedAt={nextAllowed as bigint | undefined}
+            />
           </div>
 
           <div className="flex flex-col gap-6">
@@ -526,17 +394,16 @@ export default function Page() {
             <div className="rounded-2xl border border-emerald-700/60 bg-[#071f0d] p-5 text-[#64ff93] shadow-[0_0_60px_rgba(16,185,129,0.15)]">
               <div className="font-semibold uppercase tracking-[0.3em] text-[#8dffb5]">foid mommy</div>
               <p className="text-sm mt-2 leading-relaxed text-[#b7ffd4]">
-                think retro terminal nurse + oracle. she greets you; you share your vibe. when you type "pray with mommy"
-                we encrypt your words client-side and send only ciphertext to fluent testnet.
+                a nurturing, slightly absurd terminal guide. share how you feel, let her mirror it back, and anchor your prayer when you're ready.
               </p>
               <ul className="text-sm mt-4 space-y-2 text-[#a8ffca] list-disc pl-4">
-                <li>type "pray with mommy" to begin — the terminal accepts one command</li>
-                <li>24h cadence — miss ≥ 48h resets streak to 1</li>
-                <li>milestones bitset at days: 7/14/21/28/60/90</li>
-                <li>privacy by default: only encrypted bytes stay on-chain</li>
+                <li>chat first: type anything or tap a feeling chip</li>
+                <li>client-side encryption before every send</li>
+                <li>on-chain anchor via fluent testnet (chain id 20994)</li>
+                <li>optional daily check-in nudges to stay consistent</li>
               </ul>
               <div className="mt-5 text-xs text-[#7cffab]">
-                drop an image of foid mommy here later; keep this card for copy + stats.
+                privacy sidebar: client-side encryption - fluent testnet anchor - readable by you + foid mommy.
               </div>
             </div>
           </div>
@@ -559,7 +426,7 @@ export default function Page() {
               >
                 <div className="space-y-3">
                   <div className="flex justify-end text-xs uppercase tracking-[0.4em] text-neutral-400 group-hover:text-neutral-200">
-                    <span>enter →</span>
+                    <span>enter -&gt;</span>
                   </div>
                   <h3 className="text-2xl font-bold text-neutral-50">{tile.title}</h3>
                   <p className="text-sm text-neutral-300">{tile.body}</p>
@@ -631,7 +498,7 @@ export default function Page() {
                     rel="noopener noreferrer"
                     className="transition hover:text-neutral-100"
                   >
-                    view →
+                    view -&gt;
                   </a>
                 </div>
               </li>
@@ -658,7 +525,7 @@ export default function Page() {
                     aria-expanded={open}
                   >
                     <span>{item.question}</span>
-                    <span className="text-lg leading-none">{open ? "—" : "+"}</span>
+                    <span className="text-lg leading-none">{open ? "--" : "+"}</span>
                   </button>
                   {open && (
                     <div className="px-5 pb-4 text-[0.7rem] uppercase tracking-[0.25em] text-neutral-400">
@@ -680,7 +547,7 @@ export default function Page() {
               href="https://x.com/foidfun"
               className="inline-flex items-center gap-2 rounded-xl border border-neutral-700/70 bg-black/60 px-4 py-2 text-neutral-200 transition hover:border-fluent-pink/60 hover:text-white"
             >
-              X / @foidfun →
+              X / @foidfun -&gt;
             </a>
           </div>
         </div>
