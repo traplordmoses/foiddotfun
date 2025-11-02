@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url("https://fonts.googleapis.com/css2?family=VT323&display=swap");
+
 :root {
   --grain: 0.06;
   --moire: 0.5;
@@ -248,4 +250,110 @@
       animation: none !important;
     }
   }
+
+  .crt {
+    position: relative;
+    border-radius: 18px;
+    overflow: hidden;
+    background: #05170a;
+    border: 1px solid rgba(54, 166, 106, 0.32);
+    box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.5);
+    padding: 22px 24px;
+  }
+
+  .crt .terminal,
+  #foid-terminal {
+    font-family: "VT323", ui-monospace, monospace !important;
+    font-size: 22px;
+    color: #c6ffe1;
+    text-shadow:
+      0 0 2px rgba(198, 255, 225, 0.9),
+      0 0 8px rgba(152, 255, 205, 0.45);
+  }
+
+  .crt .terminal {
+    background: transparent !important;
+  }
+
+  .crt::before {
+    display: none;
+  }
+
+  .crt::after {
+    display: none;
+  }
+
+  .flicker {
+    animation: crt-flicker 2.4s infinite steps(1, end);
+  }
+
+  @keyframes crt-flicker {
+    0% {
+      opacity: 0.98;
+    }
+    10% {
+      opacity: 1;
+    }
+    20% {
+      opacity: 0.99;
+    }
+    30% {
+      opacity: 1;
+    }
+    40% {
+      opacity: 0.985;
+    }
+    100% {
+      opacity: 1;
+    }
+  }
+
+  .terminal .cursor {
+    background: #00ff7a !important;
+  }
+
+  .terminal .prompt {
+    color: #00ff7a !important;
+  }
+
+  .terminal .clipboard,
+  .terminal textarea.clipboard,
+  textarea.clipboard {
+    position: absolute !important;
+    left: -9999px !important;
+    top: auto !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    border: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    color: transparent !important;
+    resize: none !important;
+  }
+
+  .terminal span.clipboard,
+  span.clipboard {
+    display: none !important;
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    clip-path: inset(50%) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  .terminal .cmd {
+    padding-left: 0 !important;
+  }
+
+  .terminal .terminal-hidden,
+  .terminal .terminal-font-forcer {
+    display: none !important;
+  }
+
 }

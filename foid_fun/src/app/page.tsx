@@ -1,12 +1,14 @@
 "use client";
 
+import Head from "next/head";
+import Script from "next/script";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
+import { keccak256, stringToBytes, type Hex } from "viem";
 import { toast } from "react-hot-toast";
-import MoireLayer from "./(components)/MoireLayer";
 import { CONTRACT_ADDRESSES, NETWORK_DETAILS } from "./(components)/contracts";
-
-const INTENSITY_STORAGE_KEY = "foidfun.intensity";
+import MoireLayer from "./(components)/MoireLayer";
 
 const appTiles = [
   {
@@ -64,58 +66,140 @@ const faqItems = [
   },
 ] as const;
 
-function clampIntensity(value: number) {
-  return Math.min(Math.max(value, 0), 1);
+/**
+ * Resolve registry, mirror, and chain id from several sources so the page also
+ * works in previews or when the user overrides via URL params/global env.
+ */
+function resolveEnv(): { registry?: Hex; mirror?: Hex; chainId: number } {
+  let registry: string | undefined;
+  let mirror: string | undefined;
+  let chainId = 20994;
+
+  try {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      registry = sp.get("registry") ?? undefined;
+      mirror = sp.get("mirror") ?? undefined;
+      const chainParam = sp.get("chain");
+      if (chainParam) chainId = Number(chainParam);
+    }
+
+    const g: any = (globalThis as any) ?? {};
+    if (!registry && g.__ENV__?.NEXT_PUBLIC_FOIP_REGISTRY) {
+      registry = g.__ENV__.NEXT_PUBLIC_FOIP_REGISTRY;
+    }
+    if (!mirror && g.__ENV__?.NEXT_PUBLIC_FOIP_MIRROR) {
+      mirror = g.__ENV__.NEXT_PUBLIC_FOIP_MIRROR;
+    }
+    if (
+      g.__ENV__?.NEXT_PUBLIC_FLUENT_CHAIN_ID &&
+      !Number.isNaN(Number(g.__ENV__.NEXT_PUBLIC_FLUENT_CHAIN_ID))
+    ) {
+      chainId = Number(g.__ENV__.NEXT_PUBLIC_FLUENT_CHAIN_ID);
+    }
+
+    if (typeof process !== "undefined" && (process as any).env) {
+      const env: any = (process as any).env;
+      if (!registry && env.NEXT_PUBLIC_FOIP_REGISTRY) {
+        registry = env.NEXT_PUBLIC_FOIP_REGISTRY;
+      }
+      if (!mirror && env.NEXT_PUBLIC_FOIP_MIRROR) {
+        mirror = env.NEXT_PUBLIC_FOIP_MIRROR;
+      }
+      if (
+        env.NEXT_PUBLIC_FLUENT_CHAIN_ID &&
+        !Number.isNaN(Number(env.NEXT_PUBLIC_FLUENT_CHAIN_ID))
+      ) {
+        chainId = Number(env.NEXT_PUBLIC_FLUENT_CHAIN_ID);
+      }
+    }
+  } catch {
+    // swallow and fall back to defaults
+  }
+
+  return { registry: registry as Hex | undefined, mirror: mirror as Hex | undefined, chainId };
 }
 
-export default function FoidLanding() {
-  const [intensity, setIntensity] = useState(0.95);
+const PrayerRegistryAbi = [
+  {
+    type: "function",
+    name: "checkIn",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "prayer_hash", type: "bytes32" },
+      { name: "score", type: "uint16" },
+      { name: "label", type: "uint8" },
+    ],
+    outputs: [
+      { type: "uint256" },
+      { type: "uint256" },
+      { type: "uint256" },
+      { type: "uint256" },
+      { type: "uint256" },
+      { type: "bytes32" },
+      { type: "uint256" },
+      { type: "uint256" },
+    ],
+  },
+  {
+    type: "function",
+    name: "nextAllowedAt",
+    stateMutability: "view",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [{ type: "uint256" }],
+  },
+] as const;
+
+const PrayerMirrorAbi = [
+  {
+    type: "function",
+    name: "get",
+    stateMutability: "view",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [
+      { name: "streak", type: "uint32" },
+      { name: "longest", type: "uint32" },
+      { name: "total", type: "uint32" },
+      { name: "milestones", type: "uint32" },
+      { name: "score", type: "uint16" },
+      { name: "prayerHash", type: "bytes32" },
+    ],
+  },
+] as const;
+
+function formatHexShort(h?: Hex) {
+  if (!h) return "0x";
+  return `${h.slice(0, 8)}…${h.slice(-6)}`;
+}
+
+function secondsLeft(tsNow: number, tsNext: bigint | undefined) {
+  if (!tsNext) return 0;
+  const left = Number(tsNext) - tsNow;
+  return left > 0 ? left : 0;
+}
+
+if (typeof window !== "undefined") {
+  console.assert(secondsLeft(10, 15n) === 5, "secondsLeft basic forward should be 5");
+  console.assert(secondsLeft(10, 9n) === 0, "secondsLeft past should clamp to 0");
+}
+
+export default function Page() {
+  const { address, isConnected, chainId } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+
+  const env = useMemo(resolveEnv, []);
+  const REGISTRY = env.registry;
+  const MIRROR = env.mirror;
+  const FLUENT_CHAIN_ID = env.chainId;
+
   const [faqOpen, setFaqOpen] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem(INTENSITY_STORAGE_KEY);
-    if (!stored) return;
-    const parsed = Number(stored);
-    if (!Number.isNaN(parsed)) {
-      setIntensity(clampIntensity(parsed));
-    }
-  }, []);
-
-  useEffect(() => {
-    const clamped = clampIntensity(intensity);
-    if (typeof document !== "undefined") {
-      const root = document.documentElement;
-      const moire = (0.35 + clamped * 2.4).toFixed(2);
-      const grain = (0.12 + clamped * 0.85).toFixed(2);
-      const vignette = (0.38 + clamped * 1.05).toFixed(2);
-      const glow = (0.25 + clamped * 0.6).toFixed(2);
-
-      root.style.setProperty("--moire", moire);
-      root.style.setProperty("--grain", grain);
-      root.style.setProperty("--vignette", vignette);
-      root.style.setProperty("--glow", glow);
-    }
-
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(INTENSITY_STORAGE_KEY, clamped.toFixed(2));
-    }
-
-    return () => {
-      if (typeof document !== "undefined") {
-        const root = document.documentElement;
-        root.style.setProperty("--moire", "0.5");
-        root.style.setProperty("--grain", "0.06");
-        root.style.setProperty("--vignette", "0.62");
-        root.style.setProperty("--glow", "0.35");
-      }
-    };
-  }, [intensity]);
-
-  const intensityLabel = useMemo(
-    () => (intensity >= 0.95 ? "MAX" : `${Math.round(intensity * 100)}%`),
-    [intensity],
-  );
+  const [terminalReady, setTerminalReady] = useState(false);
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const terminalInstance = useRef<any>(null);
+  const accountRef = useRef({ address, isConnected, chainId });
+  const writeRef = useRef(writeContractAsync);
+  const snapRef = useRef<(() => Promise<unknown>) | null>(null);
+  const nextRef = useRef<(() => Promise<unknown>) | null>(null);
 
   const toggleFaq = (index: number) => {
     setFaqOpen((prev) => (prev === index ? null : index));
@@ -134,69 +218,347 @@ export default function FoidLanding() {
     }
   };
 
+  const { data: snap, refetch: refetchSnap } = useReadContract({
+    address: (MIRROR ?? "0x0000000000000000000000000000000000000000") as Hex,
+    abi: PrayerMirrorAbi,
+    functionName: "get",
+    args: [((address ?? "0x0000000000000000000000000000000000000000") as Hex)],
+    query: { enabled: Boolean(address && MIRROR) },
+  });
+
+  const { data: nextAllowed, refetch: refetchNext } = useReadContract({
+    address: (REGISTRY ?? "0x0000000000000000000000000000000000000000") as Hex,
+    abi: PrayerRegistryAbi,
+    functionName: "nextAllowedAt",
+    args: [((address ?? "0x0000000000000000000000000000000000000000") as Hex)],
+    query: { enabled: Boolean(address && REGISTRY) },
+  });
+
+  const registryRef = useRef<Hex | undefined>(REGISTRY);
+
+  useEffect(() => {
+    accountRef.current = { address, isConnected, chainId };
+  }, [address, isConnected, chainId]);
+
+  useEffect(() => {
+    writeRef.current = writeContractAsync;
+  }, [writeContractAsync]);
+
+  useEffect(() => {
+    snapRef.current = refetchSnap;
+  }, [refetchSnap]);
+
+  useEffect(() => {
+    nextRef.current = refetchNext;
+  }, [refetchNext]);
+
+  useEffect(() => {
+    registryRef.current = REGISTRY as Hex | undefined;
+  }, [REGISTRY]);
+
+  useEffect(() => {
+    if (!terminalReady || !terminalRef.current) return;
+    if (terminalInstance.current) return;
+    const $ = (window as any).jQuery as any;
+    if (!$?.fn?.terminal) return;
+
+    const targetChainId = FLUENT_CHAIN_ID ?? 20994;
+
+    terminalInstance.current = $(terminalRef.current).terminal(
+      async function (this: any, command: string) {
+        const cmd = (command || "").trim().toLowerCase();
+        if (!cmd) return;
+
+        if (cmd !== "pray with mommy") {
+          this.echo('[[;#00ffd0;]foid mommy:] type [[b;#9be7ff;]pray with mommy] to begin.');
+          return;
+        }
+
+        const { address: currentAddress, isConnected: currentConnected, chainId: currentChainId } =
+          accountRef.current;
+
+        if (!currentConnected || !currentAddress) {
+          this.echo('[[;#ffb703;]wallet:] please connect your wallet first, then run "pray with mommy" again.');
+          return;
+        }
+
+        if (currentChainId && currentChainId !== targetChainId) {
+          this.echo(
+            '[[;#ffb703;]wallet:] switch to fluent testnet (chain id 20994) and run "pray with mommy" again.',
+          );
+          return;
+        }
+
+        this.echo('[[;#00ffd0;]foid mommy:] share your prayer below (one line).');
+        const prayer = await this.read("prayer: ");
+        const finalPrayer = (prayer || "").toString().trim();
+
+        if (!finalPrayer) {
+          this.echo('[[;#00ffd0;]foid mommy:] nothing received. try again with "pray with mommy".');
+          return;
+        }
+
+        this.echo(
+          '[[;#00ffd0;]foid mommy:] i will hash your prayer locally and only the keccak stays on-chain.',
+        );
+        const confirm = await this.read('type "yes" to continue: ');
+        if ((confirm || "").toString().trim().toLowerCase() !== "yes") {
+          this.echo("[[;#00ffd0;]foid mommy:] understood. nothing saved.");
+          return;
+        }
+
+        try {
+          const registryAddress = registryRef.current;
+          if (!registryAddress) {
+            this.echo('[[;#ff6b6b;]error:] missing registry address on this page.');
+            return;
+          }
+
+          this.echo("[[;#00ffd0;]foid mommy:] hashing prayer…]");
+          const prayerHash = keccak256(stringToBytes(finalPrayer));
+          this.echo("[[;#00ffd0;]foid mommy:] please sign and send the transaction…]");
+
+          const writer = writeRef.current;
+          if (!writer) {
+            throw new Error("transaction signer unavailable");
+          }
+
+          const txHash = await writer({
+            address: registryAddress,
+            abi: PrayerRegistryAbi,
+            functionName: "checkIn",
+            args: [prayerHash, 72, 1],
+          });
+
+          this.echo(`[[;#00ffd0;]foid mommy:] done. tx hash: ${txHash}]`);
+          this.echo("[[b;#9be7ff;]check-in complete. you are loved.]");
+          this.echo('type [[b;#9be7ff;]pray with mommy] to send another.');
+
+          const tasks: Promise<unknown>[] = [];
+          if (snapRef.current) tasks.push(snapRef.current());
+          if (nextRef.current) tasks.push(nextRef.current());
+          if (tasks.length) {
+            await Promise.allSettled(tasks);
+          }
+        } catch (e: any) {
+          this.echo(`[[;#ff6b6b;]error:] ${e?.message || e}`);
+          this.echo("[[;#00ffd0;]foid mommy:] nothing was saved. try again when ready.");
+        }
+      },
+      {
+        greetings: 'foid mommy online.\n-----------------------------------------------\ntype "pray with mommy" to begin.',
+        prompt: "anon$ ",
+        name: "ttyFOID",
+        height: 420,
+        clipboard: false,
+      },
+    );
+
+    const hideClipboard = () => {
+      const root = terminalRef.current;
+      if (!root) return;
+
+      const node = root.querySelector<HTMLTextAreaElement>("textarea.cmd-clipboard");
+      const label = root.querySelector<HTMLElement>("label.visually-hidden");
+      if (node && node.parentElement) {
+        node.parentElement.removeChild(node);
+      }
+      if (label && label.parentElement) {
+        label.parentElement.removeChild(label);
+      }
+    };
+
+    hideClipboard();
+    let intervalId: number | null = null;
+    if (typeof window !== "undefined") {
+      intervalId = window.setInterval(() => {
+        hideClipboard();
+        if (terminalRef.current) {
+          const leftovers = terminalRef.current.querySelectorAll(
+            "textarea.clipboard, textarea.cmd-clipboard, label[for='clipboard'], label.visually-hidden, span.clipboard",
+          );
+          if (leftovers.length === 0 && intervalId != null) {
+            window.clearInterval(intervalId);
+            intervalId = null;
+          }
+        }
+      }, 300);
+    }
+    let observer: MutationObserver | null = null;
+    const terminalNode = terminalRef.current;
+    if (terminalNode) {
+      observer = new MutationObserver(hideClipboard);
+      observer.observe(terminalNode, { childList: true, subtree: true });
+    }
+
+    return () => {
+      try {
+        terminalInstance.current?.destroy?.();
+      } catch {
+        // ignore
+      }
+      terminalInstance.current = null;
+      observer?.disconnect();
+      observer = null;
+      if (intervalId != null && typeof window !== "undefined") {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, [FLUENT_CHAIN_ID, terminalReady]);
+
+  const requestSwitchNetwork = async () => {
+    if (!(globalThis as any)?.ethereum) return;
+    try {
+      await (globalThis as any).ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: `0x${FLUENT_CHAIN_ID.toString(16)}` }],
+      });
+    } catch {
+      // ignore
+    }
+  };
+
   return (
-    <main className="relative isolate pb-24">
-      <MoireLayer />
-      <div className="pointer-events-none fixed inset-0 z-0 vignette" />
+    <>
+      <Head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet" />
+        <link
+          href="https://cdn.jsdelivr.net/npm/jquery.terminal/css/jquery.terminal.min.css"
+          rel="stylesheet"
+        />
+      </Head>
+      <Script
+        src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"
+        strategy="afterInteractive"
+        onLoad={() => {
+          const jq = (window as any).jQuery || (window as any).$;
+          if (jq) {
+            (window as any).jQuery = jq;
+            (window as any).$ = jq;
+            if ((window as any).jQuery?.fn?.terminal) {
+              setTerminalReady(true);
+            }
+          }
+        }}
+      />
+      <Script
+        src="https://cdn.jsdelivr.net/npm/jquery.terminal/js/jquery.terminal.min.js"
+        strategy="afterInteractive"
+        onLoad={() => {
+          if ((window as any).jQuery?.fn?.terminal) {
+            setTerminalReady(true);
+          }
+        }}
+      />
+      <main className="relative isolate min-h-screen text-neutral-200 pb-24">
+        <MoireLayer />
+        <div className="pointer-events-none fixed inset-0 z-0 vignette" />
 
-      <div className="relative z-20 flex flex-col gap-12">
-        <header className="faxbar w-full bg-black/70 px-3 py-1 text-xs text-neutral-200 shadow-[0_2px_0_#000] backdrop-blur-sm md:text-sm">
-          FAX FROM: FOID OPS // DATE // PAGE 001/001
-        </header>
-
-        <section className="rounded-3xl border border-neutral-800/60 bg-neutral-950/70 p-8 shadow-card">
-          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-4">
-              <h1 className="text-4xl font-black tracking-tight text-neutral-50 sm:text-5xl">
+        <div className="relative z-10 space-y-16">
+          <section className="relative px-6 pt-12 md:pt-16 lg:pt-20">
+          <div className="max-w-6xl mx-auto flex flex-col gap-10 rounded-3xl border border-neutral-800/60 bg-neutral-950/40 p-8 shadow-card backdrop-blur-md md:flex-row md:items-end md:justify-between">
+            <div>
+              <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-neutral-50">
                 foid.fun—make on-chain fun again.
               </h1>
-              <p className="max-w-2xl text-lg text-neutral-300 sm:text-xl">
-                launch anything, swap everything—on fluent testnet, fast and cheap.
+              <p className="mt-5 max-w-2xl text-lg text-neutral-300 sm:text-xl">
+                pray daily, launch anything, swap everything—on fluent testnet, fast and cheap.
               </p>
+              <div className="mt-8 inline-flex flex-wrap items-center gap-3 text-sm text-neutral-300">
+                <span className="px-2 py-1 rounded-full bg-neutral-900/80 border border-neutral-700/60">
+                  registry: {formatHexShort(REGISTRY)}
+                </span>
+                <span className="px-2 py-1 rounded-full bg-neutral-900/80 border border-neutral-700/60">
+                  mirror: {formatHexShort(MIRROR)}
+                </span>
+              </div>
             </div>
-            <div className="flex flex-col gap-2 text-xs uppercase tracking-[0.35em] text-neutral-400">
+
+            <div className="flex flex-col gap-2 text-xs uppercase tracking-[0.45em] text-neutral-400">
               <span>fax log id 20994</span>
               <span>checksum 0xf0id</span>
+              <span>status: fluent testnet</span>
+              <span>prayer ops online</span>
             </div>
-          </div>
-
-          <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
-            <label
-              htmlFor="intensity"
-              className="text-xs font-semibold uppercase tracking-[0.4em] text-neutral-300"
-            >
-              INTENSITY
-            </label>
-            <input
-              id="intensity"
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={intensity}
-              onChange={(event) => setIntensity(Number(event.target.value))}
-              className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-neutral-800 accent-fluent-pink"
-            />
-            <span className="font-mono text-sm uppercase tracking-[0.4em] text-neutral-200">
-              {intensityLabel}
-            </span>
           </div>
         </section>
 
-        <section className="rounded-3xl bg-neutral-950/70 p-8 ring-1 ring-neutral-800/40">
+        <section className="px-6">
+        <div className="max-w-6xl mx-auto rounded-3xl border border-neutral-800/60 bg-neutral-950/40 p-8 shadow-card backdrop-blur-md">
+          <div className="grid gap-8 md:grid-cols-[1.3fr_0.7fr]">
+          <div className="crt flicker">
+            <div id="foid-terminal" ref={terminalRef} className="min-h-[380px]" />
+          </div>
+
+          <div className="flex flex-col gap-6">
+            <aside className="rounded-2xl border border-emerald-700/60 bg-[#05170a] p-5 text-[#64ff93] font-mono shadow-[0_0_60px_rgba(16,185,129,0.20)]">
+              <div className="font-semibold uppercase tracking-[0.3em] text-[#8dffb5]">your snapshot</div>
+              {address ? (
+                <div className="mt-3 space-y-1 text-sm">
+                  <div>addr: <span className="text-[#b7ffd4]">{formatHexShort(address as Hex)}</span></div>
+                  <div>streak: <b className="text-[#b7ffd4]">{snap?.[0]?.toString?.() ?? 0}</b></div>
+                  <div>longest: <b className="text-[#b7ffd4]">{snap?.[1]?.toString?.() ?? 0}</b></div>
+                  <div>total: <b className="text-[#b7ffd4]">{snap?.[2]?.toString?.() ?? 0}</b></div>
+                  <div>milestones: <b className="text-[#b7ffd4]">{snap?.[3]?.toString?.() ?? 0}</b></div>
+                  <div>score: <b className="text-[#b7ffd4]">{snap?.[4]?.toString?.() ?? 0}</b></div>
+                  <div>hash: <span className="break-all text-[#b7ffd4]">{(snap?.[5] as Hex) ?? "0x"}</span></div>
+                </div>
+              ) : (
+                <div className="mt-3 text-sm text-[#7cffab]">connect your wallet to load snapshot.</div>
+              )}
+              <div className="mt-4 text-xs text-[#7cffab]">
+                chain: {chainId ?? "?"}
+                {chainId !== FLUENT_CHAIN_ID && (
+                  <button onClick={requestSwitchNetwork} className="ml-2 underline hover:text-[#c9ffd8]">
+                    switch to fluent {FLUENT_CHAIN_ID}
+                  </button>
+                )}
+              </div>
+              {address && (
+                <div className="mt-4 text-xs text-[#7cffab]">
+                  next allowed in: {secondsLeft(Math.floor(Date.now() / 1000), nextAllowed as bigint | undefined)}s
+                </div>
+              )}
+            </aside>
+
+            <div className="rounded-2xl border border-emerald-700/60 bg-[#071f0d] p-5 text-[#64ff93] shadow-[0_0_60px_rgba(16,185,129,0.15)]">
+              <div className="font-semibold uppercase tracking-[0.3em] text-[#8dffb5]">foid mommy</div>
+              <p className="text-sm mt-2 leading-relaxed text-[#b7ffd4]">
+                think retro terminal nurse + oracle. she greets you; you share your vibe. when you type "pray with mommy"
+                we encrypt your words client-side and send only ciphertext to fluent testnet.
+              </p>
+              <ul className="text-sm mt-4 space-y-2 text-[#a8ffca] list-disc pl-4">
+                <li>type "pray with mommy" to begin — the terminal accepts one command</li>
+                <li>24h cadence — miss ≥ 48h resets streak to 1</li>
+                <li>milestones bitset at days: 7/14/21/28/60/90</li>
+                <li>privacy by default: only encrypted bytes stay on-chain</li>
+              </ul>
+              <div className="mt-5 text-xs text-[#7cffab]">
+                drop an image of foid mommy here later; keep this card for copy + stats.
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
+        </section>
+
+        <section className="px-6">
+        <div className="max-w-6xl mx-auto rounded-3xl border border-neutral-800/60 bg-neutral-950/40 p-8 shadow-card backdrop-blur-md text-neutral-100">
           <div className="mb-6 flex flex-col gap-2">
             <h2 className="text-sm uppercase tracking-[0.45em] text-neutral-400">launch suite</h2>
-            <p className="text-2xl font-semibold text-neutral-50">three apps, zero friction.</p>
+            <p className="text-2xl font-semibold text-neutral-100">three apps, zero friction.</p>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {appTiles.map((tile) => (
               <Link
                 key={tile.title}
                 href={tile.href}
-                className="group flex h-full flex-col justify-between gap-4 rounded-2xl bg-neutral-950/80 p-6 ring-1 ring-neutral-800/50 transition hover:ring-fluent-pink/60 hover:bg-neutral-950"
+                className="group flex h-full flex-col justify-between gap-4 rounded-2xl bg-neutral-950/90 p-6 ring-1 ring-neutral-800/50 transition hover:ring-fluent-pink/60 hover:bg-neutral-950"
               >
                 <div className="space-y-3">
-                  <div className="flex justify-end text-xs uppercase tracking-[0.4em] text-neutral-400">
+                  <div className="flex justify-end text-xs uppercase tracking-[0.4em] text-neutral-400 group-hover:text-neutral-200">
                     <span>enter →</span>
                   </div>
                   <h3 className="text-2xl font-bold text-neutral-50">{tile.title}</h3>
@@ -205,27 +567,27 @@ export default function FoidLanding() {
               </Link>
             ))}
           </div>
+        </div>
         </section>
 
-        <section className="rounded-3xl bg-neutral-950/70 p-8 ring-1 ring-neutral-800/40">
+        <section className="px-6">
+        <div className="max-w-6xl mx-auto rounded-3xl border border-neutral-800/60 bg-neutral-950/40 p-8 shadow-card backdrop-blur-md text-neutral-100">
           <div className="mb-6 flex flex-col gap-2">
-            <h2 className="text-sm uppercase tracking-[0.45em] text-neutral-400">
-              why choose fluent
-            </h2>
-            <p className="text-2xl font-semibold text-neutral-50">three signals builders care about.</p>
+            <h2 className="text-sm uppercase tracking-[0.45em] text-neutral-400">why choose fluent</h2>
+            <p className="text-2xl font-semibold text-neutral-100">three signals builders care about.</p>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
             {valueProps.map((prop) => (
               <div
                 key={prop.title}
-                className="flex h-full flex-col justify-between gap-4 rounded-2xl bg-neutral-950/85 p-6 ring-1 ring-neutral-800/40"
+                className="flex h-full flex-col justify-between gap-4 rounded-2xl bg-neutral-950/90 p-6 ring-1 ring-neutral-800/50"
               >
                 <div className="space-y-3">
-                  <h3 className="text-lg font-semibold text-neutral-100">{prop.title}</h3>
+                  <h3 className="text-lg font-semibold text-neutral-50">{prop.title}</h3>
                   <p className="text-sm text-neutral-300">{prop.body}</p>
                 </div>
                 <div className="flex items-center justify-between text-xs uppercase tracking-[0.35em] text-neutral-400">
-                  <Link href="https://docs.fluent.xyz" target="_blank" rel="noopener noreferrer">
+                  <Link href="https://docs.fluent.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-neutral-200">
                     docs.fluent.xyz
                   </Link>
                   <span>+1</span>
@@ -233,40 +595,41 @@ export default function FoidLanding() {
               </div>
             ))}
           </div>
+        </div>
         </section>
 
-        <section className="rounded-3xl bg-neutral-950/75 p-8 ring-1 ring-neutral-800/40">
+        <section className="px-6">
+        <div className="max-w-6xl mx-auto rounded-3xl border border-neutral-800/60 bg-neutral-950/40 p-8 shadow-card backdrop-blur-md text-neutral-100">
           <div className="mb-6 flex flex-col gap-2">
             <h2 className="text-sm uppercase tracking-[0.45em] text-neutral-400">contracts</h2>
-            <p className="text-2xl font-semibold text-neutral-50">copy, paste, ship.</p>
+            <p className="text-2xl font-semibold text-neutral-100">copy, paste, ship.</p>
           </div>
-          <ul className="space-y-4 font-mono text-xs uppercase tracking-[0.25em] text-neutral-400">
+          <ul className="space-y-4 text-neutral-200">
             {CONTRACT_ADDRESSES.map((contract) => (
               <li
                 key={contract.label}
-                className="flex flex-col gap-3 rounded-2xl bg-neutral-950/80 p-5 ring-1 ring-neutral-800/50 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-2xl bg-black/60 p-5 ring-1 ring-neutral-800/50 sm:flex-row sm:items-center sm:justify-between"
               >
-                <div>
-                  <p className="text-sm text-neutral-200">{contract.label}</p>
-                  <p className="break-all text-[0.7rem] lowercase text-neutral-400/80">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold uppercase tracking-[0.35em] text-neutral-300">{contract.label}</p>
+                  <p className="font-mono text-xs uppercase tracking-[0.25em] text-neutral-500">
                     {contract.address}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-4 text-xs uppercase tracking-[0.35em] text-neutral-400">
                   <button
                     type="button"
-                    onClick={() =>
-                      void copyToClipboard(contract.address, `${contract.label} copied.`)
-                    }
-                    className="rounded-xl px-4 py-2 text-[0.65rem] text-neutral-200 transition hover:text-white hover:ring-1 hover:ring-fluent-pink/50"
+                    onClick={() => void copyToClipboard(contract.address, `${contract.label} copied.`)}
+                    className="transition hover:text-neutral-100"
                   >
                     copy
                   </button>
+                  <span className="hidden h-3 w-px bg-neutral-700 sm:block" />
                   <a
                     href={`${NETWORK_DETAILS.explorer}/address/${contract.address}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-xl px-4 py-2 text-[0.65rem] text-neutral-200 transition hover:text-white hover:ring-1 hover:ring-fluent-pink/50"
+                    className="transition hover:text-neutral-100"
                   >
                     view →
                   </a>
@@ -274,29 +637,31 @@ export default function FoidLanding() {
               </li>
             ))}
           </ul>
+        </div>
         </section>
 
-        <section className="rounded-3xl bg-neutral-950/70 p-8 ring-1 ring-neutral-800/40">
+        <section className="px-6">
+        <div className="max-w-6xl mx-auto rounded-3xl border border-neutral-800/60 bg-neutral-950/40 p-8 shadow-card backdrop-blur-md text-neutral-100">
           <div className="mb-6 flex flex-col gap-2">
             <h2 className="text-sm uppercase tracking-[0.45em] text-neutral-400">faq</h2>
-            <p className="text-2xl font-semibold text-neutral-50">builder questions, answered.</p>
+            <p className="text-2xl font-semibold text-neutral-100">builder questions, answered.</p>
           </div>
           <div className="space-y-3">
             {faqItems.map((item, index) => {
               const open = faqOpen === index;
               return (
-                <div key={item.question} className="rounded-2xl bg-neutral-950/85 ring-1 ring-neutral-800/40">
+                <div key={item.question} className="rounded-2xl bg-black/60 ring-1 ring-neutral-800/50">
                   <button
                     type="button"
                     onClick={() => toggleFaq(index)}
-                    className="flex w-full items-center justify-between px-4 py-3 text-left text-sm uppercase tracking-[0.35em] text-neutral-200 transition hover:bg-neutral-900/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-fluent-pink/60"
+                    className="flex w-full items-center justify-between px-5 py-3 text-left text-xs uppercase tracking-[0.45em] text-neutral-200 transition hover:bg-black/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-fluent-pink/60"
                     aria-expanded={open}
                   >
                     <span>{item.question}</span>
                     <span className="text-lg leading-none">{open ? "—" : "+"}</span>
                   </button>
                   {open && (
-                    <div className="px-4 pb-4 text-[0.7rem] uppercase tracking-[0.25em] text-neutral-400">
+                    <div className="px-5 pb-4 text-[0.7rem] uppercase tracking-[0.25em] text-neutral-400">
                       {item.answer}
                     </div>
                   )}
@@ -304,9 +669,11 @@ export default function FoidLanding() {
               );
             })}
           </div>
+        </div>
         </section>
 
-        <footer className="rounded-3xl border border-neutral-800/60 bg-neutral-950/80 px-6 py-8 shadow-card">
+        <footer className="px-6 pb-20">
+        <div className="max-w-6xl mx-auto rounded-3xl border border-neutral-800/60 bg-neutral-950/40 px-6 py-8 shadow-card backdrop-blur-md text-neutral-100">
           <div className="flex flex-col items-center gap-4 text-xs uppercase tracking-[0.4em] text-neutral-400">
             <span className="text-neutral-500/80">follow the signal.</span>
             <a
@@ -316,8 +683,10 @@ export default function FoidLanding() {
               X / @foidfun →
             </a>
           </div>
+        </div>
         </footer>
       </div>
     </main>
+    </>
   );
 }
