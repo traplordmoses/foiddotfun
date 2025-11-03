@@ -571,6 +571,44 @@ export default function FoidMommyTerminal({
     } catch (error: any) {
       window.clearTimeout(waitingTimer);
 
+      const seenMessages: string[] = [];
+      const collectMessage = (value: unknown) => {
+        if (typeof value === "string" && value.trim()) {
+          seenMessages.push(value.toLowerCase());
+        }
+      };
+      collectMessage(error?.shortMessage);
+      collectMessage(error?.message);
+      collectMessage(error?.cause?.shortMessage);
+      collectMessage(error?.cause?.message);
+      collectMessage(error?.cause?.cause?.shortMessage);
+      collectMessage(error?.cause?.cause?.message);
+
+      const seenNames: string[] = [];
+      const collectName = (value: unknown) => {
+        if (typeof value === "string" && value.trim()) {
+          seenNames.push(value.toLowerCase());
+        }
+      };
+      collectName(error?.name);
+      collectName(error?.cause?.name);
+      collectName(error?.cause?.cause?.name);
+
+      const outOfGasIndicators = [
+        "insufficient funds",
+        "insufficient balance",
+        "not enough funds",
+        "not enough balance",
+        "fee too low",
+        "gas * price",
+        "gas price too low",
+        "gas required exceeds",
+        "max fee per gas",
+      ];
+      const isOutOfGas =
+        seenNames.some((name) => name.includes("insufficientfunds")) ||
+        seenMessages.some((text) => outOfGasIndicators.some((pattern) => text.includes(pattern)));
+
       const nowSeconds = Math.floor(Date.now() / 1000);
       const nextAllowedSecondsRaw =
         typeof nextAllowedAt === "bigint"
@@ -595,6 +633,14 @@ export default function FoidMommyTerminal({
         await typeMessage({
           role: "foid",
           text: `you have already prayed with mommy today, anon. next window opens in ${relative} (${nextWindow}).`,
+        });
+        setStage("txFail");
+      } else if (isOutOfGas) {
+        updateMessage(statusId, "wallet needs a gas top-up.");
+        await sleep(300);
+        await typeMessage({
+          role: "foid",
+          text: "anon, you're out of gas. swing by the faucet at https://testnet.fluent.xyz/dev-portal, juice up, then try again.",
         });
         setStage("txFail");
       } else {
