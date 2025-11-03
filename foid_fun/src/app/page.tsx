@@ -324,7 +324,8 @@ export default function Page() {
     abi: PrayerMirrorAbi,
     functionName: "get",
     args: [((address ?? "0x0000000000000000000000000000000000000000") as Hex)],
-    query: { enabled: Boolean(address && MIRROR) },
+    chainId: FLUENT_CHAIN_ID,
+    query: { enabled: Boolean(address && MIRROR && FLUENT_CHAIN_ID) },
   });
 
   const { data: nextAllowed, refetch: refetchNext } = useReadContract({
@@ -332,7 +333,8 @@ export default function Page() {
     abi: PrayerRegistryAbi,
     functionName: "nextAllowedAt",
     args: [((address ?? "0x0000000000000000000000000000000000000000") as Hex)],
-    query: { enabled: Boolean(address && REGISTRY) },
+    chainId: FLUENT_CHAIN_ID,
+    query: { enabled: Boolean(address && REGISTRY && FLUENT_CHAIN_ID) },
   });
 
   const registryRef = useRef<Hex | undefined>(REGISTRY);
@@ -348,6 +350,16 @@ export default function Page() {
   useEffect(() => {
     registryRef.current = REGISTRY as Hex | undefined;
   }, [REGISTRY]);
+
+  useEffect(() => {
+    if (!address || !FLUENT_CHAIN_ID) return;
+    if (MIRROR) {
+      void refetchSnap({ throwOnError: false, cancelRefetch: false });
+    }
+    if (REGISTRY) {
+      void refetchNext({ throwOnError: false, cancelRefetch: false });
+    }
+  }, [MIRROR, REGISTRY, address, FLUENT_CHAIN_ID, refetchNext, refetchSnap]);
 
   const ensureWalletReady = useCallback(async () => {
     if (!isConnected || !address) {
