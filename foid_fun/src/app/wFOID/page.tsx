@@ -147,7 +147,7 @@ export default function TokenPage() {
           <section className="space-y-8">
             <header className="space-y-3 text-white">
               <h1 className="text-3xl font-semibold">wFOID Control Panel</h1>
-              <p className="max-w-2xl text-sm text-white/70">
+              <p className="max-w-2xl text-sm text-white/90 drop-shadow-[0_8px_20px_rgba(4,18,34,0.45)]">
                 Manage the wrapped FOID token, review registry ownership, and administer attestor access.
               </p>
             </header>

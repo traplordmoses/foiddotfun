@@ -21,23 +21,23 @@ export default function Nav() {
   }, [pathname]);
 
   const linkClassName = (active: boolean) =>
-    `block rounded-xl px-3 py-1.5 text-sm transition ${
+    `block rounded-full px-3 py-1.5 text-sm font-medium tracking-wide transition ${
       active
-        ? "bg-neutral-800 text-white"
-        : "text-neutral-300 hover:bg-neutral-800/60 hover:text-white"
+        ? "bg-gradient-to-r from-foid-aqua/80 via-foid-periw/80 to-foid-candy/80 text-foid-midnight shadow-[0_0_20px_rgba(114,225,255,0.45)]"
+        : "text-white/85 hover:bg-white/15 hover:text-white hover:shadow-[0_0_16px_rgba(114,225,255,0.24)]"
     }`;
 
   return (
-    <nav className="border-b border-neutral-800/60 bg-neutral-950/70 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <span className="font-mono text-sm tracking-wide text-neutral-300 sm:text-base">
+    <nav className="relative border-b border-white/10 bg-transparent backdrop-blur-sm">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 foid-glass">
+        <span className="font-mono text-sm uppercase tracking-[0.32em] text-foid-mint/90 sm:text-base">
           wFOID • control panel
         </span>
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setIsOpen((prev) => !prev)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-800/70 bg-neutral-900/80 text-neutral-200 transition hover:border-neutral-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-fluent-pink md:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/35 bg-white/15 text-white/80 transition hover:border-white/55 hover:text-white focus:outline-none focus:ring-2 focus:ring-foid-cyan/50 md:hidden"
             aria-label="Toggle navigation"
             aria-expanded={isOpen}
             aria-controls="mobile-nav"
@@ -68,7 +68,7 @@ export default function Nav() {
       </div>
       <div
         id="mobile-nav"
-        className={`border-t border-neutral-800/60 bg-neutral-950/90 px-4 py-3 md:hidden ${
+        className={`foid-glass border border-white/20 px-4 py-3 md:hidden ${
           isOpen ? "block" : "hidden"
         }`}
       >

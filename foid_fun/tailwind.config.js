@@ -1,3 +1,15 @@
+const foid = {
+  aqua: "#72e1ff",
+  cyan: "#00d0ff",
+  periw: "#8faaf2",
+  lav: "#cdb7ff",
+  candy: "#ffb3d9",
+  mint: "#a8f0d1",
+  tng: "#ffa552",
+  ocean: "#0b2e4e",
+  midnight: "#0e0f2b",
+};
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: 'class',
@@ -13,6 +25,7 @@ module.exports = {
           pink:   '#ff4ecd',
           blue:   '#00d4ff',
         },
+        foid,
       },
       backgroundImage: {
         // solid gradient utility if you want to use it directly
