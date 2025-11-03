@@ -24,7 +24,8 @@ const DECIMALS = 18;
 const ZERO_SALT = "0x".padEnd(66, "0");
 const EVENT_INTERFACE = new Interface(FOID20_FACTORY_ABI);
 
-type LaunchStatus = "idle" | "estimating" | "pending" | "confirmed";
+type LaunchStatus = "idle" | "preparing" | "estimating" | "pending" | "confirmed";
+type VanityStatus = "idle" | "working" | "ready" | "error";
 
 type DeployResult = {
   address: string | null;
@@ -41,11 +42,23 @@ export function LaunchpadForm() {
 
   const [status, setStatus] = useState<LaunchStatus>("idle");
   const [result, setResult] = useState<DeployResult>({ address: null, txHash: null });
+  const [vanityStatus, setVanityStatus] = useState<VanityStatus>("idle");
+  const [vanitySalt, setVanitySalt] = useState<`0x${string}` | null>(null);
+  const [vanityAddress, setVanityAddress] = useState<`0x${string}` | null>(null);
+  const [vanityError, setVanityError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!connectedAddress) return;
     setRecipient((prev) => (prev ? prev : connectedAddress));
   }, [connectedAddress]);
+
+  useEffect(() => {
+    if (vanityStatus === "idle") return;
+    setVanityStatus("idle");
+    setVanitySalt(null);
+    setVanityAddress(null);
+    setVanityError(null);
+  }, [tokenName, symbol, maxSupply, recipient, connectedAddress]);
 
   const rawSupply = useMemo(() => {
     if (!maxSupply.trim()) return null;
@@ -72,33 +85,116 @@ export function LaunchpadForm() {
     setResult({ address: null, txHash: null });
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    resetResult();
-    setStatus("idle");
-
+  const prepareInputs = () => {
     const trimmedName = tokenName.trim();
     const trimmedSymbol = symbol.trim().toUpperCase().slice(0, 11);
     const trimmedRecipient = recipient.trim();
 
     if (!trimmedName) {
       toast.error("Token name required.");
-      return;
+      return null;
     }
     if (!trimmedSymbol) {
       toast.error("Symbol required.");
-      return;
+      return null;
     }
     if (!maxSupply.trim()) {
       toast.error("Max supply required.");
-      return;
+      return null;
     }
     if (!rawSupply || rawSupply <= 0n) {
       toast.error("Max supply must be a positive number.");
-      return;
+      return null;
     }
     if (!isAddress(trimmedRecipient)) {
       toast.error("Recipient must be a valid wallet address.");
+      return null;
+    }
+
+    return { trimmedName, trimmedSymbol, trimmedRecipient };
+  };
+
+  const grindVanitySalt = async ({
+    trimmedName,
+    trimmedSymbol,
+    trimmedRecipient,
+    rawSupplyValue,
+  }: {
+    trimmedName: string;
+    trimmedSymbol: string;
+    trimmedRecipient: string;
+    rawSupplyValue: bigint;
+  }) => {
+    if (!connectedAddress) {
+      toast.error("Connect your wallet first.");
+      return null;
+    }
+
+    if (vanityStatus === "ready" && vanitySalt) {
+      return vanitySalt;
+    }
+
+    try {
+      setVanityStatus("working");
+      setVanityError(null);
+
+      const response = await fetch("/api/vanity-deploy", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: trimmedName,
+          symbol: trimmedSymbol,
+          decimals: DECIMALS,
+          cap: rawSupplyValue.toString(),
+          initialMintTo: trimmedRecipient,
+          initialMintAmount: rawSupplyValue.toString(),
+          creator: connectedAddress,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || !data?.ok) {
+        const message = data?.error ?? "Failed to grind vanity salt.";
+        setVanityStatus("error");
+        setVanityError(message);
+        toast.error(message);
+        return null;
+      }
+
+      const salt = data.userSalt as `0x${string}`;
+      const predicted = data.predicted as `0x${string}`;
+      setVanitySalt(salt);
+      setVanityAddress(predicted);
+      setVanityStatus("ready");
+      toast.success("f01d vanity address prepared.");
+      return salt;
+    } catch (error: any) {
+      const message = error?.message ?? "Failed to grind vanity salt.";
+      setVanityStatus("error");
+      setVanityError(message);
+      toast.error(message);
+      return null;
+    }
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    resetResult();
+    setStatus("idle");
+
+    const prepared = prepareInputs();
+    if (!prepared || !rawSupply) return;
+    const { trimmedName, trimmedSymbol, trimmedRecipient } = prepared;
+
+    setStatus("preparing");
+    const salt = await grindVanitySalt({
+      trimmedName,
+      trimmedSymbol,
+      trimmedRecipient,
+      rawSupplyValue: rawSupply,
+    });
+    if (!salt) {
+      setStatus("idle");
       return;
     }
 
@@ -123,7 +219,7 @@ export function LaunchpadForm() {
         rawSupply,
         trimmedRecipient,
         rawSupply,
-        ZERO_SALT,
+        salt ?? ZERO_SALT,
       );
 
       toast.success("Deployment submitted.");
@@ -152,6 +248,8 @@ export function LaunchpadForm() {
   const statusLabel =
     status === "idle"
       ? "status: idle"
+      : status === "preparing"
+        ? "status: preparing vanity"
       : status === "estimating"
         ? "status: estimating"
         : status === "pending"
@@ -222,6 +320,40 @@ export function LaunchpadForm() {
         <p className="text-xs uppercase tracking-[0.35em] text-neutral-500">
           clear states: estimating → pending → confirmed (view on explorer).
         </p>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl bg-neutral-900/50 p-4 text-sm text-neutral-200">
+        <span className="font-mono text-xs uppercase tracking-[0.35em] text-neutral-400">
+          f01d vanity target
+        </span>
+        <p className="text-neutral-300">
+          when you launch, we automatically grind a CREATE2 salt so your token lands at an address ending
+          in f01d. once prepared, the deterministic address appears below before the wallet prompt.
+        </p>
+        <div className="rounded-2xl bg-neutral-950/60 p-3">
+          <span className="text-xs uppercase tracking-[0.35em] text-neutral-500">
+            {vanityStatus === "working"
+              ? "grinding…"
+              : vanityStatus === "ready"
+                ? "vanity ready"
+                : vanityStatus === "error"
+                  ? "error"
+                  : "idle"}
+          </span>
+          {vanityStatus === "ready" && vanityAddress && vanitySalt && (
+            <div className="mt-2 space-y-2 break-all font-mono text-xs uppercase tracking-[0.3em] text-neutral-300">
+              <div>
+                predicted token → <span className="text-fluent-blue">{vanityAddress}</span>
+              </div>
+              <div>
+                userSalt → <span className="text-fluent-pink">{vanitySalt}</span>
+              </div>
+            </div>
+          )}
+          {vanityStatus === "error" && vanityError && (
+            <p className="mt-2 text-xs text-red-300">{vanityError}</p>
+          )}
+        </div>
       </div>
 
       <button

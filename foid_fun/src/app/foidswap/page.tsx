@@ -3243,7 +3243,7 @@ export default function FoidSwapPage() {
             <header className="flex flex-col gap-4 text-white md:flex-row md:items-center md:justify-between">
               <div>
                 <h1 className="text-3xl font-semibold">FoidSwap Router</h1>
-                <p className="text-sm text-white/70">
+                <p className="text-sm text-white/90 drop-shadow-[0_8px_20px_rgba(4,18,34,0.45)]">
                   Tools for swapping, managing pairs, and providing liquidity on Fluent Testnet.
                 </p>
               </div>

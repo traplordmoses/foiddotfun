@@ -3,7 +3,7 @@ import { ReactNode } from "react";
 import { Providers } from "@/providers";
 import Nav from "@/components/Nav";
 import { ConnectBar } from "@/components/ConnectBar";
-import AmbientFX from "@/components/AmbientFX";
+import AnimatedBackground from "@/components/AnimatedBackground";
 
 export const metadata = {
   title: "wFOID Control Panel",
@@ -18,9 +18,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <body className="relative">
         {/* ambient moving background */}
-        <AmbientFX />
+        <AnimatedBackground />
         {/* tint overlay (tweak opacity as you like) */}
-        <div className="fixed inset-0 -z-10 bg-neutral-900/70" />
+        <div className="scene-tint" />
         {/* app */}
         <Providers>
           <div className="pt-[env(safe-area-inset-top)]">

@@ -50,78 +50,184 @@ const feelingsConfig: Record<
     chipLabel: string;
     response: string;
     prayer: string;
+    prompt: string;
     keywords: string[];
   }
 > = {
   happy: {
     chipLabel: "happy / grateful",
-    response: "i love this glow on you. let's seal this joy so you can return to it when the sky feels heavy.",
+    response:
+      "your glow's spilling over like sun on wet grass—you're all warm thanks and tiny triumphs.",
     prayer:
-      "dear light, thank you for the warmth in anon's chest. let their gratitude echo forward, softening tomorrow's edges. keep their eyes tuned to small miracles and their steps steady in kindness.",
-    keywords: ["happy", "grateful", "gratitude", "thankful", "blessed", "good", "great"],
+      "dear light-weaver, cradle this joy in anon's chest like a giggling firefly. let it hum soft through their hours, turning corners into surprises. keep the grateful breeze blowing, silly and sweet.",
+    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+    keywords: [
+      "happy",
+      "happiness",
+      "joy",
+      "joyful",
+      "grateful",
+      "gratitude",
+      "thankful",
+      "blessed",
+      "elated",
+      "glad",
+    ],
   },
   calm: {
     chipLabel: "calm",
-    response: "quiet water reflects the moon. stay here a moment--no rush, no proving.",
+    response: "quiet waves in your words—you're steady as a sleeping cat on a sill.",
     prayer:
-      "gentle stillness, cradle anon's breath like a tide at night. let this ease imprint in their nervous system, a bookmark they can open at will. may their calm be a gift to rooms they enter.",
-    keywords: ["calm", "peaceful", "peace", "okay", "fine", "steady"],
+      "gentle tide, wrap anon's breath in moon-soft arms. let stillness settle like dust after dance, a cozy hush in their bones. may peace purr on, simple as starlight on skin.",
+    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+    keywords: ["calm", "peaceful", "peace", "relaxed", "serene", "steady", "chill", "centered"],
   },
   hopeful: {
     chipLabel: "hopeful",
-    response: "i see a spark. let's give it a little wind without burning the house down.",
+    response: "a spark's flickering in you—hope's peeking like dawn through fog.",
     prayer:
-      "source of beginnings, tend anon's spark with wise oxygen. guide them to take one clear step, then the next. keep ego loudness low and wonder turned up.",
-    keywords: ["hopeful", "inspired", "motivated", "excited", "optimistic", "dreaming"],
+      "source of soft beginnings, fan this flame with feather-kisses. guide anon's steps light over stones, one whimsical wonder at a time. let inspiration bloom goofy, like weeds in good dirt.",
+    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+    keywords: [
+      "hopeful",
+      "hope",
+      "inspired",
+      "motivation",
+      "motivated",
+      "optimistic",
+      "excited",
+      "dreaming",
+      "aspire",
+    ],
   },
   stressed: {
     chipLabel: "stressed / anxious",
-    response: "it's okay to set the backpack down. we'll unpack one zipper at a time, not all at once.",
+    response: "your thoughts are racing like fireflies in a storm—you're holding so much whirl.",
     prayer:
-      "kindness, slow anon's pulse and widen the hallway of their thoughts. let them choose one small, doable action now. wrap their mind in the feeling of \"enough for today.\"",
-    keywords: ["stressed", "anxious", "anxiety", "overwhelmed", "worried", "panic", "nervous"],
+      "kind void-nanny, hush the buzz in anon's chest with cloud-blankets. unknot one thread at a time, till breath comes easy as rain. remind them they're enough in this messy now, little stormling.",
+    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+    keywords: [
+      "stressed",
+      "stress",
+      "anxious",
+      "anxiety",
+      "overwhelmed",
+      "overwhelm",
+      "worried",
+      "panic",
+      "nervous",
+      "frazzled",
+    ],
   },
   sad: {
     chipLabel: "sad / lonely",
-    response: "come sit. we don't have to fix the rain; we can listen to it together.",
+    response: "gray clouds in your voice—you're aching quiet, missing the warmth.",
     prayer:
-      "comfort, place a soft blanket over anon's heart. send a hand to hold--even if it's their own. let them remember that lonely is a weather, not a verdict.",
-    keywords: ["sad", "lonely", "down", "depressed", "empty", "blue"],
+      "comfort-crafter, tuck a soft shadow over anon's heart like an old quilt. send echoes of \"not alone\" on wind-whispers, even in empty rooms. lonely's just a passing fog; sun's winking soon.",
+    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+    keywords: [
+      "sad",
+      "lonely",
+      "alone",
+      "depressed",
+      "down",
+      "empty",
+      "blue",
+      "heartbroken",
+      "abandoned",
+    ],
   },
   angry: {
     chipLabel: "angry / frustrated",
-    response: "your fire is real. we can point it where it warms without scorching.",
+    response: "fire's crackling under your skin—something poked the bear awake.",
     prayer:
-      "steadiness, cool the edges of anon's blaze and direct it into clean movement. let clarity trump reactivity. may their words be firm, true, and kind to the future.",
-    keywords: ["angry", "mad", "pissed", "frustrated", "annoyed", "irritated"],
+      "steady hearth-keeper, temper this blaze to warm glow, not scorch. channel anon's roar into rivers that carve new paths, playful as puppy paws. their power's a gift, fierce and fond.",
+    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+    keywords: [
+      "angry",
+      "anger",
+      "mad",
+      "furious",
+      "pissed",
+      "frustrated",
+      "annoyed",
+      "irritated",
+      "rage",
+      "resentful",
+    ],
   },
   tired: {
     chipLabel: "tired / burned out",
-    response: "you've carried a lot. permission granted to put the world on \"low power mode.\"",
+    response: "your edges are frayed soft—you're running on whispers and wilt.",
     prayer:
-      "rest, settle into anon's bones. remind them that recovery is productive. refill their attention with quiet nutrients and return them gently to themselves.",
-    keywords: ["tired", "exhausted", "drained", "burned out", "burnt out", "sleepy"],
+      "rest-rustler, sink into anon's bones like honey in tea. refill the hollows with nothing but now, a silly snooze under star-sheets. tomorrow's a fresh glitch; sleep's their sweet hack.",
+    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+    keywords: [
+      "tired",
+      "exhausted",
+      "drained",
+      "burned out",
+      "burnt out",
+      "sleepy",
+      "fatigued",
+      "worn out",
+      "weary",
+    ],
   },
   lost: {
     chipLabel: "lost / uncertain",
-    response: "not knowing is honest. we can walk by lantern--one step, one patch of ground.",
+    response: "fog's curling 'round your path—you're wandering with wide, wondering eyes.",
     prayer:
-      "wayfinder, light the next square for anon, not the whole maze. help them ask better questions than \"what if.\" let patience be their compass until the path answers back.",
-    keywords: ["lost", "uncertain", "confused", "stuck", "unsure", "directionless"],
+      "lantern-lender, glow one step ahead for anon, soft as firefly tail. let questions nestle like birds, not burdens; answers unfold in giggles. they're found in the meander, my maze-mitten.",
+    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+    keywords: [
+      "lost",
+      "uncertain",
+      "confused",
+      "stuck",
+      "unsure",
+      "directionless",
+      "aimless",
+      "adrift",
+      "questioning",
+    ],
   },
   guilty: {
     chipLabel: "guilty / ashamed",
-    response: "you're not your worst moment. we can learn without dissolving into it.",
+    response: "a knot twists in your tummy—you're carrying \"oops\" like heavy pebbles.",
     prayer:
-      "mercy, loosen the knot in anon's chest. guide them toward repair where repair is due, and toward release where the lesson is learned. let dignity return like sunrise.",
-    keywords: ["guilty", "ashamed", "remorse", "regret", "sorry", "guilt"],
+      "mercy-mender, untie the tangle with feather-fingers. let lessons stick without the sting; forgive like fog lifts at noon. anon's whole in the whoops, darling glitch.",
+    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+    keywords: [
+      "guilty",
+      "guilt",
+      "ashamed",
+      "shame",
+      "remorse",
+      "regret",
+      "sorry",
+      "apologize",
+      "embarrassed",
+    ],
   },
   pain: {
     chipLabel: "in pain / unwell",
-    response: "i'm here. we'll keep the lights low and the care high.",
+    response: "ouch echoes in your body—you're tender, holding the hurt close.",
     prayer:
-      "healing, sit beside anon. lessen the ache, sharpen the support, and open the door to the help they need. keep their spirit company while the body catches up.",
-    keywords: ["pain", "hurting", "hurt", "unwell", "sick", "migraine", "ill"],
+      "healing hummer, sit soft beside anon's ache like balm on bruise. ease the edges with whispers of \"this too,\" and hands that hold gentle. their spirit's a stubborn spark; rest 'n' rise.",
+    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+    keywords: [
+      "pain",
+      "hurting",
+      "hurt",
+      "unwell",
+      "sick",
+      "ill",
+      "injured",
+      "ache",
+      "migraine",
+      "soreness",
+    ],
   },
 };
 
@@ -358,14 +464,7 @@ export default function FoidMommyTerminal({
       await sleep(300);
       await typeMessage({ role: "foid", text: config.prayer, speed: 22 });
       await sleep(400);
-      await typeMessage({
-        role: "foid",
-        text: "if you'd like, type your prayer in 1-3 sentences.",
-      });
-      await typeMessage({
-        role: "foid",
-        text: "i'll hold it gently, encrypt it, and keep it safe.",
-      });
+      await typeMessage({ role: "foid", text: config.prompt, speed: 22 });
       setStage("awaitPrayer");
       setIsProcessing(false);
     },
@@ -402,6 +501,8 @@ export default function FoidMommyTerminal({
       setPrayerText(trimmed);
       setStage("txPrompt");
 
+      const flavor = "whisper";
+
       await sleep(200);
       await typeMessage({ role: "system", text: "encrypting your prayer..." });
       await sleep(600);
@@ -409,12 +510,12 @@ export default function FoidMommyTerminal({
       await sleep(400);
       await typeMessage({
         role: "foid",
-        text: "your prayer is safe with me--only foid mommy and you know what you prayed.",
+        text: `shh, sealing your ${flavor} in the void-vault... only you and i peek. 🌟`,
         speed: 20,
       });
       await typeMessage({
         role: "foid",
-        text: "please confirm the transaction to release it on the blockchain and let mifoid know you've prayed with mommy.",
+        text: "confirm the tx to beam it blockchain-ward, letting mifoid know mommy held your words?",
         speed: 20,
       });
     },
@@ -533,9 +634,14 @@ export default function FoidMommyTerminal({
     [],
   );
 
+  const labelClass = "text-xs uppercase tracking-[0.35em] text-foid-mint/80";
+  const primaryButtonClass = "btn-foid uppercase tracking-[0.32em]";
+  const secondaryButtonClass = "btn-foid-outline uppercase tracking-[0.3em]";
+  const chipClass = "chip-foid text-white/80";
+
   return (
     <div
-      className={`flex h-full flex-col rounded-2xl border border-emerald-700/50 bg-[#041107] p-6 font-mono text-[#bdfbd7] shadow-[0_0_60px_rgba(16,185,129,0.22)] ${className ?? ""}`}
+      className={`flex h-full flex-col rounded-2xl border border-white/15 bg-white/5 p-6 font-mono text-white/85 shadow-[0_0_60px_rgba(114,225,255,0.22)] backdrop-blur-md ${className ?? ""}`}
       style={{ fontFamily: terminalFont, fontSize: "22px" }}
     >
       <div className="space-y-3">
@@ -548,10 +654,10 @@ export default function FoidMommyTerminal({
               key={msg.id}
               className={
                 msg.role === "user"
-                  ? "text-[#9be7ff]"
+                  ? "text-[#ffb3d9]"
                   : msg.role === "foid"
-                    ? "text-[#bdfbd7]"
-                    : "text-[#7cffab]"
+                    ? "text-[#a8f0d1]"
+                    : "text-[#8faaf2]"
               }
             >
               {msg.text}
@@ -562,7 +668,7 @@ export default function FoidMommyTerminal({
 
         {stage === "awaitFeeling" && (
           <form onSubmit={handleFeelingSubmit} className="space-y-3">
-            <label htmlFor="feeling-input" className="text-xs uppercase tracking-[0.35em] text-[#64ff93]">
+            <label htmlFor="feeling-input" className={labelClass}>
               share how you feel
             </label>
             <input
@@ -570,17 +676,17 @@ export default function FoidMommyTerminal({
               name="feeling"
               value={feelingInput}
               onChange={(event) => setFeelingInput(event.target.value)}
-              className="w-full rounded-lg border border-emerald-700/40 bg-[#021107] px-3 py-2 text-[#e3ffe8] outline-none transition focus:border-[#64ff93] focus:ring-2 focus:ring-[#64ff93]/40"
+              className="w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white/85 transition focus:border-foid-cyan/60 focus:ring-2 focus:ring-foid-cyan/40"
               placeholder="type anything..."
               autoComplete="off"
             />
-            <div className="flex flex-wrap gap-2 text-sm text-[#8dffb5]">
+            <div className="flex flex-wrap gap-2 text-sm text-white/90 drop-shadow-[0_8px_20px_rgba(4,18,34,0.45)]">
               {feelingChips.map((chip) => (
                 <button
                   key={chip.key}
                   type="button"
                   onClick={() => void handleChipSelect(chip.key)}
-                  className="rounded-full border border-emerald-700/40 px-3 py-1 transition hover:border-[#64ff93] hover:text-[#64ff93]"
+                  className={chipClass}
                 >
                   {chip.label}
                 </button>
@@ -588,7 +694,7 @@ export default function FoidMommyTerminal({
             </div>
             <button
               type="submit"
-              className="rounded-md border border-emerald-700/50 px-4 py-2 text-sm uppercase tracking-[0.3em] text-[#64ff93] transition hover:border-[#64ff93] hover:text-[#bdfbd7]"
+              className={primaryButtonClass}
             >
               send feeling
             </button>
@@ -597,7 +703,7 @@ export default function FoidMommyTerminal({
 
         {stage === "awaitPrayer" && (
           <form onSubmit={handlePrayerSubmit} className="space-y-3">
-            <label htmlFor="prayer-input" className="text-xs uppercase tracking-[0.35em] text-[#64ff93]">
+            <label htmlFor="prayer-input" className={labelClass}>
               your prayer (1-3 sentences)
             </label>
             <textarea
@@ -606,13 +712,13 @@ export default function FoidMommyTerminal({
               value={prayerInput}
               onChange={(event) => setPrayerInput(event.target.value)}
               rows={3}
-              className="w-full resize-none rounded-lg border border-emerald-700/40 bg-[#021107] px-3 py-2 text-[#e3ffe8] outline-none transition focus:border-[#64ff93] focus:ring-2 focus:ring-[#64ff93]/40"
-              placeholder="dear foid mommy..."
+              className="w-full resize-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white/85 transition focus:border-foid-cyan/60 focus:ring-2 focus:ring-foid-cyan/40"
+              placeholder="dear god..."
             />
             <div className="flex items-center gap-3">
               <button
                 type="submit"
-                className="rounded-md border border-emerald-700/50 px-4 py-2 text-sm uppercase tracking-[0.3em] text-[#64ff93] transition hover:border-[#64ff93] hover:text-[#bdfbd7]"
+                className={primaryButtonClass}
               >
                 share prayer
               </button>
@@ -621,14 +727,14 @@ export default function FoidMommyTerminal({
         )}
 
         {stage === "txPrompt" && (
-          <div className="flex flex-col gap-3 text-sm text-[#8dffb5]">
-            <div className="text-xs uppercase tracking-[0.35em] text-[#64ff93]">ready to anchor?</div>
+          <div className="flex flex-col gap-3 text-sm text-white/75">
+            <div className={labelClass}>ready to anchor?</div>
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
                 disabled={isProcessing}
                 onClick={() => void handleConfirm()}
-                className="rounded-md border border-emerald-700/50 px-4 py-2 text-sm uppercase tracking-[0.3em] text-[#64ff93] transition hover:border-[#64ff93] hover:text-[#bdfbd7]"
+                className={primaryButtonClass}
               >
                 confirm &amp; send
               </button>
@@ -636,7 +742,7 @@ export default function FoidMommyTerminal({
                 type="button"
                 disabled={isProcessing}
                 onClick={() => setStage("awaitPrayer")}
-                className="rounded-md border border-transparent px-4 py-2 text-sm uppercase tracking-[0.3em] text-[#8dffb5] transition hover:text-[#64ff93]"
+                className={secondaryButtonClass}
               >
                 edit prayer
               </button>
@@ -644,7 +750,7 @@ export default function FoidMommyTerminal({
                 type="button"
                 disabled={isProcessing}
                 onClick={() => setStage("awaitFeeling")}
-                className="rounded-md border border-transparent px-4 py-2 text-sm uppercase tracking-[0.3em] text-[#8dffb5] transition hover:text-[#64ff93]"
+                className={`${chipClass} uppercase tracking-[0.22em]`}
               >
                 cancel
               </button>
@@ -653,25 +759,25 @@ export default function FoidMommyTerminal({
         )}
 
         {stage === "txFail" && (
-          <div className="flex flex-wrap gap-3 text-sm text-[#ffb6b6]">
+          <div className="flex flex-wrap gap-3 text-sm text-foid-candy/90">
             <button
               type="button"
               onClick={handleRetry}
-              className="rounded-md border border-emerald-700/50 px-4 py-2 text-sm uppercase tracking-[0.3em] text-[#64ff93] transition hover:border-[#64ff93] hover:text-[#bdfbd7]"
+              className={secondaryButtonClass}
             >
               retry
             </button>
             <button
               type="button"
               onClick={handleEditPrayer}
-              className="rounded-md border border-transparent px-4 py-2 text-sm uppercase tracking-[0.3em] text-[#8dffb5] transition hover:text-[#64ff93]"
+              className={secondaryButtonClass}
             >
               edit prayer
             </button>
             <button
               type="button"
               onClick={() => setStage("awaitFeeling")}
-              className="rounded-md border border-transparent px-4 py-2 text-sm uppercase tracking-[0.3em] text-[#8dffb5] transition hover:text-[#64ff93]"
+              className={`${chipClass} uppercase tracking-[0.22em]`}
             >
               cancel
             </button>
@@ -679,8 +785,8 @@ export default function FoidMommyTerminal({
         )}
 
         {stage === "checkInPrompt" && (
-          <div className="flex flex-col gap-3 text-sm text-[#8dffb5]">
-            <div className="text-[#bdfbd7]">
+          <div className="flex flex-col gap-3 text-sm text-white/75">
+            <div className="text-white/80">
               want a daily check-in with foid mommy?
             </div>
             <div className="flex flex-wrap gap-3">
@@ -691,7 +797,7 @@ export default function FoidMommyTerminal({
                   addMessage("foid", "noted. i'll pop in daily--gently, promise.");
                   setStage("idle");
                 }}
-                className="rounded-md border border-emerald-700/50 px-4 py-2 text-sm uppercase tracking-[0.3em] text-[#64ff93] transition hover:border-[#64ff93] hover:text-[#bdfbd7]"
+                className={primaryButtonClass}
               >
                 yes
               </button>
@@ -702,7 +808,7 @@ export default function FoidMommyTerminal({
                   addMessage("foid", "all good. i'm here whenever you reach out.");
                   setStage("idle");
                 }}
-                className="rounded-md border border-transparent px-4 py-2 text-sm uppercase tracking-[0.3em] text-[#8dffb5] transition hover:text-[#64ff93]"
+                className={secondaryButtonClass}
               >
                 not now
               </button>
@@ -715,11 +821,11 @@ export default function FoidMommyTerminal({
             <button
               type="button"
               onClick={handleStart}
-              className="rounded-md border border-emerald-700/60 bg-[#021107] px-5 py-2 text-sm uppercase tracking-[0.35em] text-[#64ff93] transition hover:border-[#64ff93] hover:text-[#bdfbd7]"
+              className={primaryButtonClass}
             >
               chat with foid mommy
             </button>
-            <div className="text-xs uppercase tracking-[0.3em] text-[#8dffb5]">
+            <div className="text-xs uppercase tracking-[0.3em] text-white/85 drop-shadow-[0_6px_16px_rgba(4,18,34,0.45)]">
               gentle guidance - private prayers - on-chain check-ins
             </div>
           </div>
