@@ -10,21 +10,21 @@ if [[ -f "$ENV_FILE" ]]; then
   # shellcheck disable=SC1090
   source "$ENV_FILE"
 else
-  echo "Missing $ENV_FILE. Create it with RPC_URL and SERVER_PRIVATE_KEY." >&2
+  echo "Missing $ENV_FILE. Create it with RPC_URL." >&2
   exit 1
 fi
 
-if [[ -z "${RPC_URL:-}" || -z "${SERVER_PRIVATE_KEY:-}" ]]; then
-  echo "RPC_URL and SERVER_PRIVATE_KEY must be set in $ENV_FILE" >&2
+if [[ -z "${RPC_URL:-}" ]]; then
+  echo "RPC_URL must be set in $ENV_FILE" >&2
   exit 1
 fi
 
 cd "$SCRIPT_DIR/.."
 
+echo "⚠️  Deploy script requires private key to be provided via --private-key flag or foundry config" >&2
 forge script script/Counter.s.sol:GroyperScript \
   --rpc-url "$RPC_URL" \
   --broadcast \
-  --private-key "$SERVER_PRIVATE_KEY" \
   -vvv
 
 

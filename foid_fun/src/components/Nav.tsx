@@ -9,6 +9,7 @@ const links = [
   { href: "/wETH", label: "wETH" },
   { href: "/foidswap", label: "FoidSwap" },
   { href: "/foidfactory", label: "FoidFactory" },
+  { href: "/mixer", label: "Mixer" },
 ];
 
 export default function Nav() {

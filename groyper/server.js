@@ -1,7 +1,6 @@
 require('dotenv').config();
 
 const express = require('express');
-const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
@@ -11,50 +10,44 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-let publicKey, privateKey;
 let db;
-let provider, wallet, contract;
+let provider;
+let wallet;
+let contract;
 
-// Initialize ethers provider, wallet, and contract
-function initializeWallet() {
+// Initialize ethers provider and wallet for contract calls
+function initializeProvider() {
   const rpcUrl = process.env.RPC_URL;
   const serverPrivateKey = process.env.SERVER_PRIVATE_KEY;
-  const serverAddress = process.env.SERVER_ADDRESS;
   const contractAddress = process.env.CONTRACT_ADDRESS;
 
-  if (!rpcUrl || !serverPrivateKey || !serverAddress) {
-    console.warn('⚠️  Missing RPC_URL, SERVER_PRIVATE_KEY, or SERVER_ADDRESS in .env - blockchain features disabled');
+  if (!rpcUrl) {
+    console.warn('⚠️  Missing RPC_URL in .env - blockchain features disabled');
     return;
-  }
-
-  if (!contractAddress) {
-    console.warn('⚠️  Missing CONTRACT_ADDRESS in .env - contract features disabled');
   }
 
   try {
     provider = new ethers.JsonRpcProvider(rpcUrl);
-    wallet = new ethers.Wallet(serverPrivateKey, provider);
-    
-    // Verify server address matches wallet
-    if (wallet.address.toLowerCase() !== serverAddress.toLowerCase()) {
-      throw new Error('SERVER_ADDRESS does not match SERVER_PRIVATE_KEY');
-    }
-    
-    console.log(`✓ Wallet initialized: ${wallet.address}`);
+    console.log(`✓ Provider initialized`);
 
-    // Initialize contract if address is provided
-    if (contractAddress) {
+    // Initialize wallet and contract for claims
+    if (serverPrivateKey && contractAddress) {
+      wallet = new ethers.Wallet(serverPrivateKey, provider);
+      
+      // Load contract ABI
       const abiPath = path.join(__dirname, 'Groyper.json');
       if (fs.existsSync(abiPath)) {
         const contractABI = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
         contract = new ethers.Contract(contractAddress, contractABI, wallet);
-        console.log(`✓ Contract initialized: ${contractAddress}`);
+        console.log(`✓ Wallet and contract initialized for claims`);
       } else {
-        console.warn('⚠️  Groyper.json ABI file not found - contract features disabled');
+        console.warn('⚠️  Groyper.json ABI file not found - claim features disabled');
       }
+    } else {
+      console.warn('⚠️  Missing SERVER_PRIVATE_KEY or CONTRACT_ADDRESS - claim features disabled');
     }
   } catch (error) {
-    console.error('✗ Wallet initialization failed:', error.message);
+    console.error('✗ Provider initialization failed:', error.message);
     provider = null;
     wallet = null;
     contract = null;
@@ -84,49 +77,17 @@ function initializeDatabase() {
   console.log('✓ Database initialized');
 }
 
-// Generate or load RSA key pair
-function initializeKeys() {
-  const keysPath = process.env.KEYS_PATH || path.join(__dirname, 'keys.json');
-  
-  if (fs.existsSync(keysPath)) {
-    // Load existing keys
-    const keys = JSON.parse(fs.readFileSync(keysPath, 'utf8'));
-    publicKey = keys.publicKey;
-    privateKey = keys.privateKey;
-    console.log('✓ Loaded existing keys');
-  } else {
-    // Generate new key pair (2048-bit RSA)
-    const { publicKey: pub, privateKey: priv } = crypto.generateKeyPairSync('rsa', {
-      modulusLength: 2048,
-      publicKeyEncoding: { type: 'spki', format: 'pem' },
-      privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
-    });
-    
-    publicKey = pub;
-    privateKey = priv;
-    
-    // Save keys
-    fs.writeFileSync(keysPath, JSON.stringify({ publicKey, privateKey }, null, 2));
-    console.log('✓ Generated new RSA key pair');
-  }
-}
-
-// Endpoint to get the public key
-app.get('/api/public-key', (req, res) => {
-  res.json({ publicKey });
-});
-
 // Endpoint to save deposit after transaction is confirmed
 app.post('/api/deposit', async (req, res) => {
   try {
-    const { txHash, encryptedRecipientAddress } = req.body;
+    const { txHash, recipientAddress } = req.body;
     
     if (!txHash) {
       return res.status(400).json({ error: 'Transaction hash is required' });
     }
     
-    if (!encryptedRecipientAddress) {
-      return res.status(400).json({ error: 'encryptedRecipientAddress is required' });
+    if (!recipientAddress) {
+      return res.status(400).json({ error: 'recipientAddress is required' });
     }
     
     // Check if already processed
@@ -135,26 +96,11 @@ app.post('/api/deposit', async (req, res) => {
       return res.status(400).json({ error: 'This transaction has already been processed' });
     }
     
-    // Decrypt the recipient address
-    const buffer = Buffer.from(encryptedRecipientAddress, 'base64');
-    const decrypted = crypto.privateDecrypt(
-      {
-        key: privateKey,
-        padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
-        oaepHash: 'sha256'
-      },
-      buffer
-    );
-    
-    let recipientAddress = decrypted.toString('utf8');
-    
     // Basic address validation
-    if (!recipientAddress.startsWith('0x') || recipientAddress.length !== 42) {
+    let normalizedAddress = recipientAddress.trim().toLowerCase();
+    if (!normalizedAddress.startsWith('0x') || normalizedAddress.length !== 42) {
       return res.status(400).json({ error: 'Invalid recipient address format' });
     }
-    
-    // Normalize address to lowercase
-    recipientAddress = recipientAddress.toLowerCase();
     
     // Get transaction details to get amount
     if (!provider) {
@@ -186,22 +132,22 @@ app.post('/api/deposit', async (req, res) => {
     
     const amount = parseFloat(ethers.formatEther(tx.value));
     
-    // Store deposit in database
+    // Store deposit in database (keep encrypted_recipient_address column but set to empty string)
     const stmt = db.prepare(`
       INSERT INTO deposits (amount, encrypted_recipient_address, recipient_address, deposit_tx_hash, created_at) 
       VALUES (?, ?, ?, ?, datetime('now'))
     `);
     
-    stmt.run(amount, encryptedRecipientAddress, recipientAddress, txHash);
+    stmt.run(amount, '', normalizedAddress, txHash);
     const depositId = stmt.lastInsertRowid;
     
-    console.log(`✓ Deposit saved: ${amount} ETH to ${recipientAddress} (TX: ${txHash}, ID: ${depositId})`);
+    console.log(`✓ Deposit saved: ${amount} ETH to ${normalizedAddress} (TX: ${txHash}, ID: ${depositId})`);
     
     res.json({
       success: true,
       depositId,
       amount,
-      recipientAddress,
+      recipientAddress: normalizedAddress,
       message: 'Deposit saved successfully'
     });
     
@@ -228,18 +174,8 @@ app.post('/api/claim', async (req, res) => {
       return res.status(400).json({ error: 'Invalid address format' });
     }
     
-    if (!wallet || !provider) {
-      return res.status(500).json({ error: 'Server wallet not configured' });
-    }
-    
-    // Validate server address from .env
-    const serverAddress = process.env.SERVER_ADDRESS;
-    if (!serverAddress || !serverAddress.startsWith('0x') || serverAddress.length !== 42) {
-      return res.status(500).json({ error: 'Invalid SERVER_ADDRESS in configuration' });
-    }
-    
     // Find all unclaimed deposits for this address (case-insensitive comparison)
-    const recipientAddressLower = recipientAddress;
+    const recipientAddressLower = recipientAddress.toLowerCase();
     const unclaimed = db.prepare(`
       SELECT id, amount, recipient_address, created_at 
       FROM deposits 
@@ -257,21 +193,32 @@ app.post('/api/claim', async (req, res) => {
     
     // Calculate total amount
     const totalAmount = unclaimed.reduce((sum, deposit) => sum + deposit.amount, 0);
-    // Convert to decimal string without scientific notation (ethers.parseEther doesn't accept scientific notation)
-    // Use toFixed(18) to ensure proper decimal format with up to 18 decimal places
+    
+    // Check if wallet and contract are configured
+    if (!wallet || !contract || !provider) {
+      return res.json({
+        success: false,
+        message: 'Claim functionality is disabled - wallet not configured. Please set SERVER_PRIVATE_KEY and CONTRACT_ADDRESS in .env',
+        deposits: unclaimed,
+        totalAmount: totalAmount.toFixed(18),
+        depositCount: unclaimed.length
+      });
+    }
+    
+    // Convert to decimal string without scientific notation
     const totalAmountString = totalAmount.toFixed(18);
     const totalAmountWei = ethers.parseEther(totalAmountString);
-    
-    if (!contract) {
-      return res.status(500).json({ error: 'Contract not initialized' });
-    }
     
     try {
       // Check contract balance
       const contractBalance = await provider.getBalance(contract.target);
       if (contractBalance < totalAmountWei) {
         return res.status(400).json({ 
-          error: `Insufficient contract balance. Contract has ${ethers.formatEther(contractBalance)} ETH, need ${totalAmount} ETH` 
+          success: false,
+          error: `Insufficient contract balance. Contract has ${ethers.formatEther(contractBalance)} ETH, need ${totalAmount} ETH`,
+          deposits: unclaimed,
+          totalAmount: totalAmount.toFixed(18),
+          depositCount: unclaimed.length
         });
       }
       
@@ -296,7 +243,7 @@ app.post('/api/claim', async (req, res) => {
       
       console.log(`✓ Claimed ${unclaimed.length} deposit(s) for ${recipientAddress}: ${totalAmount} ETH (TX: ${receipt.hash})`);
       
-      res.json({
+      return res.json({
         success: true,
         message: `Successfully claimed ${totalAmount} ETH`,
         totalAmount,
@@ -307,7 +254,13 @@ app.post('/api/claim', async (req, res) => {
       
     } catch (error) {
       console.error('Transaction error:', error.message);
-      res.status(500).json({ error: 'Failed to send ETH: ' + error.message });
+      return res.status(500).json({ 
+        success: false,
+        error: 'Failed to send ETH: ' + error.message,
+        deposits: unclaimed,
+        totalAmount: totalAmount.toFixed(18),
+        depositCount: unclaimed.length
+      });
     }
   } catch (error) {
     console.error('Claim error:', error.message);
@@ -345,22 +298,29 @@ app.get('/api/deposits', (req, res) => {
 });
 
 // Endpoint to get contract address for deposits
+app.get('/api/contract-address', (req, res) => {
+  const contractAddress = process.env.CONTRACT_ADDRESS;
+  if (!contractAddress) {
+    return res.status(500).json({ error: 'Contract address not configured' });
+  }
+  res.json({ contractAddress });
+});
+
+// Endpoint to get server address (legacy, keeping for compatibility)
 app.get('/api/server-address', (req, res) => {
   const contractAddress = process.env.CONTRACT_ADDRESS;
   if (!contractAddress) {
     return res.status(500).json({ error: 'Contract address not configured' });
   }
-  res.json({ serverAddress: contractAddress });
+  res.json({ serverAddress: contractAddress }); // Return contract address for backward compatibility
 });
 
 const PORT = process.env.PORT || 3000;
-initializeKeys();
 initializeDatabase();
-initializeWallet();
+initializeProvider();
 
 app.listen(PORT, () => {
   console.log(`\n🚀 Mixer Server running on http://localhost:${PORT}`);
-  console.log(`📝 Public key endpoint: http://localhost:${PORT}/api/public-key`);
   console.log(`📍 Server address endpoint: http://localhost:${PORT}/api/server-address`);
   console.log(`💰 Deposit endpoint: http://localhost:${PORT}/api/deposit`);
   console.log(`🎁 Claim endpoint: http://localhost:${PORT}/api/claim`);

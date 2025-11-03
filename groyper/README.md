@@ -1,19 +1,17 @@
 # 💰 Fluent Mixer
 
-A decentralized ETH mixer that uses public-key encryption to protect recipient addresses. Users can deposit ETH with an encrypted recipient address, and only the intended recipient can claim their funds.
+A decentralized ETH mixer that allows users to deposit ETH with recipient addresses. Recipients can claim their deposits using their wallet address.
 
 ## Features
 
-- 🔐 **Public-Key Encryption**: Recipient addresses are encrypted using RSA-OAEP encryption
 - 💼 **MetaMask Integration**: Connect wallet and send ETH directly from the browser
 - 🤖 **Automatic Processing**: Deposits are automatically saved when transactions confirm
 - 🎁 **Claim System**: Recipients can claim their deposits using their wallet address
 - 💾 **SQLite Database**: Lightweight database to track all deposits and claims
-- 🔒 **Secure Storage**: Encrypted recipient addresses stored in database
 
 ## How It Works
 
-1. **Deposit**: User enters amount and recipient address → Address is encrypted → ETH is sent → Transaction is verified → Deposit saved to database
+1. **Deposit**: User enters amount and recipient address → ETH is sent → Transaction is verified → Deposit saved to database
 2. **Claim**: Recipient enters their address → Server finds unclaimed deposits → Sends ETH to recipient → Marks deposits as claimed
 
 ## Prerequisites
@@ -55,24 +53,11 @@ PORT=3000
 # Database Configuration
 DB_PATH=messages.db
 
-# Keys Configuration
-KEYS_PATH=keys.json
-
 # Blockchain Configuration
 RPC_URL=https://eth.llamarpc.com
-SERVER_PRIVATE_KEY=0xYourServerWalletPrivateKey
 SERVER_ADDRESS=0xYourServerWalletAddress
+CONTRACT_ADDRESS=0xYourContractAddress
 ```
-
-### Setting Up Server Wallet
-
-1. Create a new wallet or use an existing one
-2. Copy the private key (starting with `0x`)
-3. Copy the address (must match the private key)
-4. Fund the wallet with ETH (for sending claims back to users)
-5. Add both to your `.env` file
-
-**⚠️ Security Warning**: Never commit your `.env` file or share your private keys. The `.gitignore` file is configured to exclude sensitive files.
 
 ## Running the Application
 
@@ -97,7 +82,6 @@ http://localhost:3000
    - Amount: Enter the amount of ETH you want to deposit (e.g., `0.1`)
    - Recipient Address: Enter the Ethereum address where funds should be sent (must be different from your connected address)
 3. **Send ETH**: Click "Send ETH" button
-   - This will encrypt the recipient address
    - Send the ETH transaction via MetaMask
    - Wait for transaction confirmation
    - Deposit is automatically saved to the database
@@ -130,13 +114,11 @@ mixer/
 ├── .env                   # Environment variables (not in repo)
 ├── .env.example           # Example environment file
 ├── .gitignore             # Git ignore rules
-├── keys.json              # RSA key pair (auto-generated)
 └── messages.db            # SQLite database (auto-generated)
 ```
 
 ## API Endpoints
 
-- `GET /api/public-key` - Get server's public key for encryption
 - `GET /api/server-address` - Get server's wallet address for deposits
 - `POST /api/deposit` - Save deposit after transaction confirms
 - `POST /api/claim` - Claim deposits for an address
@@ -144,10 +126,7 @@ mixer/
 
 ## Security Considerations
 
-- 🔐 **Encryption**: Recipient addresses are encrypted using RSA 2048-bit keys
-- 🔑 **Key Management**: Private keys are stored locally in `keys.json` (keep secure!)
-- 💾 **Database**: Stores encrypted recipient addresses and transaction hashes
-- ⚠️ **Private Keys**: Server private key must be kept secure - anyone with access can drain funds
+- 💾 **Database**: Stores recipient addresses and transaction hashes
 - 🌐 **Network**: Consider using HTTPS in production
 - 🔍 **Validation**: All addresses are validated before processing
 
@@ -170,19 +149,18 @@ The `deposits` table contains:
 
 - **Backend**: Node.js, Express, SQLite (better-sqlite3)
 - **Frontend**: Vanilla JavaScript, MetaMask API
-- **Encryption**: Node.js crypto (RSA-OAEP), Forge.js (client-side)
 - **Blockchain**: ethers.js v6
 
 ## Troubleshooting
 
 **Issue**: "Provider not configured"
-- **Solution**: Check that `RPC_URL`, `SERVER_PRIVATE_KEY`, and `SERVER_ADDRESS` are set in `.env`
+- **Solution**: Check that `RPC_URL` and `SERVER_ADDRESS` are set in `.env`
 
 **Issue**: "Transaction not found"
 - **Solution**: Wait a few seconds for the transaction to be mined, then try again
 
-**Issue**: "Insufficient balance"
-- **Solution**: Ensure your server wallet has enough ETH to cover claim payouts
+**Issue**: "Claim functionality is disabled"
+- **Solution**: Claim functionality requires wallet configuration which has been removed
 
 **Issue**: "No unclaimed deposits found"
 - **Solution**: Verify the address matches exactly (case-insensitive but double-check)
