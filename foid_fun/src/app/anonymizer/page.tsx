@@ -108,7 +108,11 @@ export default function AnonymizerPage() {
       // Wait for transaction to be mined
       const receipt = await tx.wait();
 
-      if (receipt && receipt.status === 1) {
+      if (!receipt) {
+        throw new Error("Transaction pending - receipt unavailable");
+      }
+
+      if (receipt.status === 1) {
         // Transaction successful - save to DB with plaintext recipient address
         const depositResponse = await fetch(`${ANONYMIZER_API_URL}/api/deposit`, {
           method: "POST",
@@ -141,8 +145,6 @@ export default function AnonymizerPage() {
           setShowTxHash(false);
           fetchDeposits();
         }, 2000);
-      } else if (!receipt) {
-        throw new Error("Transaction pending - receipt unavailable");
       } else {
         throw new Error("Transaction failed");
       }
