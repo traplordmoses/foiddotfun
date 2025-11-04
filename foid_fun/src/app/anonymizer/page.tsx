@@ -215,7 +215,7 @@ export default function AnonymizerPage() {
           type: "error",
           show: true,
         });
-        toast.info("No claims available");
+        toast("No claims available");
       }
     } catch (error: any) {
       setClaimResult({
