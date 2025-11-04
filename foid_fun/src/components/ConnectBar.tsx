@@ -5,7 +5,7 @@ import { BLOCK_EXPLORER_URL, FLUENT_CHAIN_NAME } from "@/lib/contracts";
 
 export function ConnectBar() {
   return (
-    <div className="flex flex-col gap-3 px-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-0">
+    <div className="flex flex-col gap-3 px-2 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-0">
       <a
         href={BLOCK_EXPLORER_URL}
         target="_blank"

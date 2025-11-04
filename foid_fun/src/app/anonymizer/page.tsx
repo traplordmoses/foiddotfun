@@ -7,7 +7,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import toast from "react-hot-toast";
 
 // API base URL - change this to match your Express server port
-const MIXER_API_URL = process.env.NEXT_PUBLIC_MIXER_API_URL || "http://localhost:3001";
+const ANONYMIZER_API_URL = process.env.NEXT_PUBLIC_ANONYMIZER_API_URL || "http://localhost:3001";
 
 interface Deposit {
   id: number;
@@ -19,7 +19,7 @@ interface Deposit {
   claimed_at?: string;
 }
 
-export default function MixerPage() {
+export default function AnonymizerPage() {
   const { address: connectedAddress, isConnected } = useAccount();
   const [serverAddress, setServerAddress] = useState<string | null>(null);
   
@@ -40,7 +40,7 @@ export default function MixerPage() {
   // Fetch server address
   const fetchServerAddress = async () => {
     try {
-      const serverAddrResponse = await fetch(`${MIXER_API_URL}/api/server-address`);
+      const serverAddrResponse = await fetch(`${ANONYMIZER_API_URL}/api/server-address`);
       const serverAddrData = await serverAddrResponse.json();
       setServerAddress(serverAddrData.serverAddress);
       setStatus({ message: "✓ Server address loaded", type: "success" });
@@ -110,7 +110,7 @@ export default function MixerPage() {
 
       if (receipt.status === 1) {
         // Transaction successful - save to DB with plaintext recipient address
-        const depositResponse = await fetch(`${MIXER_API_URL}/api/deposit`, {
+        const depositResponse = await fetch(`${ANONYMIZER_API_URL}/api/deposit`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -187,7 +187,7 @@ export default function MixerPage() {
     setClaimResult({ message: "", type: "", show: false });
 
     try {
-      const response = await fetch(`${MIXER_API_URL}/api/claim`, {
+      const response = await fetch(`${ANONYMIZER_API_URL}/api/claim`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -228,7 +228,7 @@ export default function MixerPage() {
   // Fetch deposits
   const fetchDeposits = async () => {
     try {
-      const response = await fetch(`${MIXER_API_URL}/api/deposits`);
+      const response = await fetch(`${ANONYMIZER_API_URL}/api/deposits`);
       const data = await response.json();
 
       if (data.success) {
@@ -253,44 +253,49 @@ export default function MixerPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 to-purple-800 flex items-center justify-center p-5">
-      <div className="bg-white rounded-3xl p-10 max-w-2xl w-full shadow-2xl">
-        <div className="flex justify-between items-center mb-5">
+    <div className="relative z-10 flex min-h-screen items-start justify-center px-4 py-16">
+      <div className="w-full max-w-3xl rounded-3xl border border-white/20 foid-glass p-8 text-white/90 shadow-[0_24px_80px_rgba(11,46,78,0.45)]">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 m-0">💰 Fluent Mixer</h1>
-            <p className="text-sm text-gray-700 mt-1">Deposit ETH with recipient addresses</p>
+            <p className="text-xs uppercase tracking-[0.32em] text-white/55">Foid Toolsuite</p>
+            <h1 className="mt-2 text-3xl font-semibold text-white">🛡️ Foid Anonymizer</h1>
+            <p className="mt-1 text-sm text-white/70">Disguise ETH flows by routing deposits through the Foid relay.</p>
           </div>
-          <ConnectButton chainStatus="name" showBalance={false} />
+          <div className="self-start">
+            <ConnectButton chainStatus="name" showBalance={false} />
+          </div>
         </div>
 
         {isConnected && connectedAddress && (
-          <div className="mb-4 p-3 bg-gray-100 rounded-lg text-sm text-gray-800">
-            <strong>Connected:</strong> <span className="font-mono">{connectedAddress}</span>
+          <div className="mt-5 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white/75 shadow-[0_0_30px_rgba(114,225,255,0.18)]">
+            <span className="font-semibold text-white/65">Connected:</span>{" "}
+            <span className="font-mono text-white/90">{connectedAddress}</span>
           </div>
         )}
 
         <form
+          className="mt-6 space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
             sendETH();
           }}
         >
-          <div className="mb-5">
-            <label className="block mb-2 text-gray-900 font-medium text-sm">Amount (ETH):</label>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">Amount (ETH)</label>
             <input
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               step="0.001"
               min="0.001"
-              placeholder="0.1"
+              placeholder="0.10"
               required
-              className="w-full p-3 border-2 border-gray-300 rounded-lg text-sm font-mono text-gray-900 focus:outline-none focus:border-purple-600"
+              className="w-full rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-base font-mono text-white/90 placeholder-white/40 transition focus:border-foid-cyan/70 focus:outline-none focus:ring-2 focus:ring-foid-cyan/40"
             />
           </div>
 
-          <div className="mb-5">
-            <label className="block mb-2 text-gray-900 font-medium text-sm">Recipient Address (EOA):</label>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">Recipient Address (EOA)</label>
             <input
               type="text"
               value={recipientAddress}
@@ -298,22 +303,23 @@ export default function MixerPage() {
               placeholder="0x..."
               pattern="^0x[a-fA-F0-9]{40}$"
               required
-              className="w-full p-3 border-2 border-gray-300 rounded-lg text-sm font-mono text-gray-900 focus:outline-none focus:border-purple-600"
+              className="w-full rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-base font-mono text-white/90 placeholder-white/40 transition focus:border-foid-cyan/70 focus:outline-none focus:ring-2 focus:ring-foid-cyan/40"
             />
           </div>
 
-          <div className="mb-5 bg-gray-100 p-3 rounded-lg">
-            <label className="block mb-2 font-semibold text-gray-900">Send ETH to Server:</label>
+          <div className="space-y-3 rounded-2xl border border-white/20 bg-white/[0.08] p-4">
+            <label className="text-sm font-semibold text-white/80">Send ETH through the anonymizer relay</label>
             <button
               type="submit"
               disabled={isLoading || !isConnected}
-              className="w-full py-2.5 px-5 bg-gradient-to-r from-purple-600 to-purple-800 text-white rounded-lg font-semibold transition-transform hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-foid-aqua via-foid-periw to-foid-candy px-5 py-3 text-base font-semibold text-foid-midnight shadow-[0_18px_45px_rgba(114,225,255,0.24)] transition hover:scale-[1.01] hover:shadow-[0_22px_55px_rgba(114,225,255,0.32)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isLoading ? "Processing..." : "Send ETH"}
             </button>
             {showTxHash && (
-              <div className="mt-2.5 text-xs text-gray-700">
-                <strong>Transaction Hash:</strong> <span className="font-mono">{txHash}</span>
+              <div className="text-xs text-white/70">
+                <strong className="font-semibold text-white/80">Transaction Hash:</strong>{" "}
+                <span className="font-mono">{txHash}</span>
               </div>
             )}
           </div>
@@ -321,10 +327,10 @@ export default function MixerPage() {
 
         {result.show && (
           <div
-            className={`mt-5 p-4 rounded-lg text-sm ${
+            className={`mt-6 rounded-2xl border px-4 py-3 text-sm ${
               result.type === "success"
-                ? "bg-green-100 text-green-900 border border-green-300"
-                : "bg-red-100 text-red-900 border border-red-300"
+                ? "border-emerald-400/45 bg-emerald-400/15 text-emerald-100"
+                : "border-rose-400/45 bg-rose-400/15 text-rose-100"
             }`}
             dangerouslySetInnerHTML={{ __html: result.message }}
           />
@@ -332,25 +338,25 @@ export default function MixerPage() {
 
         {status.message && (
           <div
-            className={`mt-2.5 p-2.5 rounded-lg text-xs ${
+            className={`mt-3 rounded-full border px-4 py-2 text-xs tracking-wide ${
               status.type === "success"
-                ? "bg-green-100 text-green-900"
+                ? "border-emerald-400/45 bg-emerald-400/10 text-emerald-100"
                 : status.type === "error"
-                ? "bg-red-100 text-red-900"
-                : "bg-gray-100 text-gray-900"
+                ? "border-rose-400/45 bg-rose-400/10 text-rose-100"
+                : "border-white/20 bg-white/10 text-white/70"
             }`}
           >
             {status.message}
           </div>
         )}
 
-        <div className="mt-8 pt-8 border-t-2 border-gray-200">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl text-gray-900">🎁 Claim Deposits</h2>
+        <div className="mt-10 border-t border-white/20 pt-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-white">🎁 Claim Deposits</h2>
           </div>
-          <form onSubmit={handleClaim}>
-            <div className="mb-4">
-              <label className="block mb-2 text-gray-900 font-medium text-sm">Your Address:</label>
+          <form onSubmit={handleClaim} className="mt-4 space-y-4">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase tracking-[0.18em] text-white/60">Your address</label>
               <input
                 type="text"
                 value={claimAddress}
@@ -358,78 +364,86 @@ export default function MixerPage() {
                 placeholder="0x..."
                 pattern="^0x[a-fA-F0-9]{40}$"
                 required
-                className="w-full p-3 border-2 border-gray-300 rounded-lg text-sm font-mono text-gray-900 focus:outline-none focus:border-purple-600"
+                className="w-full rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-base font-mono text-white/90 placeholder-white/40 transition focus:border-foid-cyan/70 focus:outline-none focus:ring-2 focus:ring-foid-cyan/40"
               />
             </div>
             <button
               type="submit"
               disabled={isClaiming}
-              className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-purple-800 text-white rounded-lg font-semibold transition-transform hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed"
-              style={{ width: "auto" }}
+              className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-foid-aqua via-foid-periw to-foid-candy px-5 py-2.5 text-sm font-semibold text-foid-midnight shadow-[0_15px_35px_rgba(114,225,255,0.22)] transition hover:scale-[1.01] hover:shadow-[0_18px_45px_rgba(114,225,255,0.3)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isClaiming ? "Checking..." : "Check & Claim"}
             </button>
           </form>
           {claimResult.show && (
             <div
-              className={`mt-4 p-4 rounded-lg text-sm ${
+              className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${
                 claimResult.type === "success"
-                  ? "bg-green-100 text-green-900 border border-green-300"
-                  : "bg-red-100 text-red-900 border border-red-300"
+                  ? "border-emerald-400/45 bg-emerald-400/15 text-emerald-100"
+                  : "border-rose-400/45 bg-rose-400/15 text-rose-100"
               }`}
               dangerouslySetInnerHTML={{ __html: claimResult.message }}
             />
           )}
         </div>
 
-        <div className="mt-8 pt-8 border-t-2 border-gray-200">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl text-gray-900">📋 All Deposits</h2>
+        <div className="mt-10 border-t border-white/20 pt-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-white">📋 All Deposits</h2>
             <button
               onClick={fetchDeposits}
-              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-800 text-white rounded-lg text-sm font-semibold transition-transform hover:scale-105"
+              className="rounded-full border border-white/25 bg-white/10 px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-foid-cyan/60 hover:bg-foid-cyan/10 hover:text-white"
             >
               Refresh
             </button>
           </div>
-          <div className="max-h-96 overflow-y-auto">
+          <div className="mt-4 max-h-96 space-y-3 overflow-y-auto pr-1">
             {deposits.length === 0 ? (
-              <div className="text-center text-gray-700 py-5">No deposits yet</div>
+              <div className="rounded-2xl border border-dashed border-white/20 px-4 py-8 text-center text-white/60">
+                No deposits yet
+              </div>
             ) : (
               deposits.map((deposit) => (
                 <div
                   key={deposit.id}
-                  className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-2.5"
-                  style={{
-                    borderLeft: `4px solid ${deposit.claimed ? "#28a745" : "#ffc107"}`,
-                  }}
+                  className="relative overflow-hidden rounded-2xl border border-white/20 bg-white/[0.08] p-4 shadow-[0_0_25px_rgba(114,225,255,0.15)] transition hover:border-white/25"
                 >
-                  <div className="flex justify-between mb-2.5 text-xs text-gray-700">
+                  <span
+                    className={`absolute inset-y-0 left-0 w-1 ${deposit.claimed ? "bg-emerald-300/80" : "bg-amber-300/80"}`}
+                  />
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-white/70">
                     <span>
-                      <strong>ID:</strong> {deposit.id}
+                      <strong className="text-white/80">ID:</strong> {deposit.id}
                     </span>
                     <span>
-                      <strong>Status:</strong>{" "}
+                      <strong className="text-white/80">Status:</strong>{" "}
                       {deposit.claimed ? (
-                        <span style={{ color: "#28a745" }}>✓ Claimed</span>
+                        <span className="text-emerald-200">✓ Claimed</span>
                       ) : (
-                        <span style={{ color: "#ffc107" }}>⏳ Pending</span>
+                        <span className="text-amber-200">⏳ Pending</span>
                       )}
                     </span>
                     <span>{new Date(deposit.created_at).toLocaleString()}</span>
                   </div>
-                  <div className="text-sm text-gray-900">
-                    <strong>Amount:</strong> {deposit.amount} ETH
-                    <br />
-                    <strong>Recipient:</strong> <span className="font-mono">{deposit.recipient_address}</span>
-                    <br />
+                  <div className="mt-3 space-y-2 text-sm text-white/85">
+                    <div>
+                      <strong className="text-white/80">Amount:</strong> {deposit.amount} ETH
+                    </div>
+                    <div>
+                      <strong className="text-white/80">Recipient:</strong>{" "}
+                      <span className="font-mono text-white/90">{deposit.recipient_address}</span>
+                    </div>
                     {deposit.claimed && (
-                      <>
-                        <strong>Claimed At:</strong> {new Date(deposit.claimed_at!).toLocaleString()}
-                        <br />
-                        <strong>TX Hash:</strong>{" "}
-                        <code className="text-xs font-mono">{deposit.claim_tx_hash}</code>
-                      </>
+                      <div className="space-y-1 text-xs text-white/70">
+                        <div>
+                          <strong className="text-white/80">Claimed At:</strong>{" "}
+                          {new Date(deposit.claimed_at!).toLocaleString()}
+                        </div>
+                        <div>
+                          <strong className="text-white/80">TX Hash:</strong>{" "}
+                          <code className="font-mono text-emerald-200/90">{deposit.claim_tx_hash}</code>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
