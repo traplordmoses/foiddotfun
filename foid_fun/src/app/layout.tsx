@@ -4,6 +4,9 @@ import { Providers } from "@/providers";
 import Nav from "@/components/Nav";
 import { ConnectBar } from "@/components/ConnectBar";
 import AnimatedBackground from "@/components/AnimatedBackground";
+import SfxInitializer from "@/components/SfxInitializer";
+import MusicPanel from "@/components/MusicPanel";
+import FairyDustCursor from "@/components/FairyDustCursor";
 
 export const metadata = {
   title: "wFOID Control Panel",
@@ -23,23 +26,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <div className="scene-tint" />
         {/* app */}
         <Providers>
+          <SfxInitializer />
+          <FairyDustCursor />
           <div className="pt-[env(safe-area-inset-top)]">
             <Nav />
-            <div className="mx-auto max-w-6xl px-4">
+            <div className="mx-auto max-w-7xl px-4">
               <ConnectBar />
               {children}
-              <footer className="mt-12 pb-12">
-                <div className="foid-glass rounded-3xl px-6 py-6 text-center">
-                  <a
-                    href="https://x.com/foidfun"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-foid inline-flex items-center gap-2 text-sm uppercase tracking-[0.32em]"
-                  >
-                    X / @foidfun -&gt;
-                  </a>
-                </div>
-              </footer>
             </div>
           </div>
         </Providers>

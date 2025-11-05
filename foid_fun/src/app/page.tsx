@@ -2,18 +2,32 @@
 
 import Head from "next/head";
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useCallback } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useRef, useCallback, useState } from "react";
 import { useAccount, usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import { keccak256, stringToBytes, type Hex, type Hash } from "viem";
 import FoidMommyTerminal, {
   FEELING_LABELS,
   type FeelingKey,
 } from "./(components)/FoidMommyTerminal";
+import MusicPanel from "@/components/MusicPanel";
 
-/**
- * Resolve registry, mirror, and chain id from several sources so the page also
- * works in previews or when the user overrides via URL params/global env.
- */
+/* --- left sidebar routes --- */
+type NavLink = { href: string; label: string; external?: boolean };
+
+const NAV_LINKS: NavLink[] = [
+  { href: "/", label: "Dashboard" },
+  { href: "/about", label: "About" },
+  { href: "/wFOID", label: "wFOID" },
+  { href: "/wETH", label: "wETH" },
+  { href: "/foidswap", label: "FoidSwap" },
+  { href: "/foidfactory", label: "FoidFactory" },
+  { href: "/anonymizer", label: "Anonymizer" },
+  { href: "https://x.com/foidfun", label: "X / @foidfun", external: true },
+] as const;
+
+/* --- env --- */
 function resolveEnv(): { registry?: Hex; mirror?: Hex; chainId: number } {
   let registry: string | undefined;
   let mirror: string | undefined;
@@ -27,40 +41,21 @@ function resolveEnv(): { registry?: Hex; mirror?: Hex; chainId: number } {
       const chainParam = sp.get("chain");
       if (chainParam) chainId = Number(chainParam);
     }
-
     const g: any = (globalThis as any) ?? {};
-    if (!registry && g.__ENV__?.NEXT_PUBLIC_FOIP_REGISTRY) {
-      registry = g.__ENV__.NEXT_PUBLIC_FOIP_REGISTRY;
-    }
-    if (!mirror && g.__ENV__?.NEXT_PUBLIC_FOIP_MIRROR) {
-      mirror = g.__ENV__.NEXT_PUBLIC_FOIP_MIRROR;
-    }
-    if (
-      g.__ENV__?.NEXT_PUBLIC_FLUENT_CHAIN_ID &&
-      !Number.isNaN(Number(g.__ENV__.NEXT_PUBLIC_FLUENT_CHAIN_ID))
-    ) {
+    if (!registry && g.__ENV__?.NEXT_PUBLIC_FOIP_REGISTRY) registry = g.__ENV__.NEXT_PUBLIC_FOIP_REGISTRY;
+    if (!mirror && g.__ENV__?.NEXT_PUBLIC_FOIP_MIRROR) mirror = g.__ENV__.NEXT_PUBLIC_FOIP_MIRROR;
+    if (g.__ENV__?.NEXT_PUBLIC_FLUENT_CHAIN_ID && !Number.isNaN(Number(g.__ENV__.NEXT_PUBLIC_FLUENT_CHAIN_ID))) {
       chainId = Number(g.__ENV__.NEXT_PUBLIC_FLUENT_CHAIN_ID);
     }
-
     if (typeof process !== "undefined" && (process as any).env) {
       const env: any = (process as any).env;
-      if (!registry && env.NEXT_PUBLIC_FOIP_REGISTRY) {
-        registry = env.NEXT_PUBLIC_FOIP_REGISTRY;
-      }
-      if (!mirror && env.NEXT_PUBLIC_FOIP_MIRROR) {
-        mirror = env.NEXT_PUBLIC_FOIP_MIRROR;
-      }
-      if (
-        env.NEXT_PUBLIC_FLUENT_CHAIN_ID &&
-        !Number.isNaN(Number(env.NEXT_PUBLIC_FLUENT_CHAIN_ID))
-      ) {
+      if (!registry && env.NEXT_PUBLIC_FOIP_REGISTRY) registry = env.NEXT_PUBLIC_FOIP_REGISTRY;
+      if (!mirror && env.NEXT_PUBLIC_FOIP_MIRROR) mirror = env.NEXT_PUBLIC_FOIP_MIRROR;
+      if (env.NEXT_PUBLIC_FLUENT_CHAIN_ID && !Number.isNaN(Number(env.NEXT_PUBLIC_FLUENT_CHAIN_ID))) {
         chainId = Number(env.NEXT_PUBLIC_FLUENT_CHAIN_ID);
       }
     }
-  } catch {
-    // swallow and fall back to defaults
-  }
-
+  } catch {}
   return { registry: registry as Hex | undefined, mirror: mirror as Hex | undefined, chainId };
 }
 
@@ -75,14 +70,8 @@ const PrayerRegistryAbi = [
       { name: "label", type: "uint8" },
     ],
     outputs: [
-      { type: "uint256" },
-      { type: "uint256" },
-      { type: "uint256" },
-      { type: "uint256" },
-      { type: "uint256" },
-      { type: "bytes32" },
-      { type: "uint256" },
-      { type: "uint256" },
+      { type: "uint256" }, { type: "uint256" }, { type: "uint256" }, { type: "uint256" },
+      { type: "uint256" }, { type: "bytes32" }, { type: "uint256" }, { type: "uint256" },
     ],
   },
   {
@@ -116,7 +105,6 @@ function secondsLeft(tsNow: number, tsNext: bigint | undefined) {
   const left = Number(tsNext) - tsNow;
   return left > 0 ? left : 0;
 }
-
 function formatDurationShort(seconds: number) {
   if (seconds <= 0) return "ready now";
   const units = [
@@ -130,9 +118,7 @@ function formatDurationShort(seconds: number) {
   for (const unit of units) {
     if (remaining >= unit.value || (unit.label === "s" && parts.length === 0)) {
       const count = Math.floor(remaining / unit.value);
-      if (count > 0) {
-        parts.push(`${count}${unit.label}`);
-      }
+      if (count > 0) parts.push(`${count}${unit.label}`);
       remaining -= count * unit.value;
     }
     if (parts.length === 2) break;
@@ -141,8 +127,8 @@ function formatDurationShort(seconds: number) {
 }
 
 if (typeof window !== "undefined") {
-  console.assert(secondsLeft(10, 15n) === 5, "secondsLeft basic forward should be 5");
-  console.assert(secondsLeft(10, 9n) === 0, "secondsLeft past should clamp to 0");
+  console.assert(secondsLeft(10, 15n) === 5, "secondsLeft forward = 5");
+  console.assert(secondsLeft(10, 9n) === 0, "secondsLeft past = 0");
 }
 
 export default function Page() {
@@ -177,73 +163,83 @@ export default function Page() {
   });
 
   const registryRef = useRef<Hex | undefined>(REGISTRY);
-
-  useEffect(() => {
-    snapRef.current = refetchSnap;
-  }, [refetchSnap]);
-
-  useEffect(() => {
-    nextRef.current = refetchNext;
-  }, [refetchNext]);
-
-  useEffect(() => {
-    registryRef.current = REGISTRY as Hex | undefined;
-  }, [REGISTRY]);
-
+  useEffect(() => { snapRef.current = refetchSnap; }, [refetchSnap]);
+  useEffect(() => { nextRef.current = refetchNext; }, [refetchNext]);
+  useEffect(() => { registryRef.current = REGISTRY as Hex | undefined; }, [REGISTRY]);
   useEffect(() => {
     if (!address || !FLUENT_CHAIN_ID) return;
-    if (MIRROR) {
-      void refetchSnap({ throwOnError: false, cancelRefetch: false });
-    }
+    if (MIRROR) void refetchSnap({ throwOnError: false, cancelRefetch: false });
     if (!REGISTRY) return;
     void refetchNext({ throwOnError: false, cancelRefetch: false });
   }, [MIRROR, REGISTRY, address, FLUENT_CHAIN_ID, refetchNext, refetchSnap]);
 
   const ensureWalletReady = useCallback(async () => {
-    if (!isConnected || !address) {
-      throw new Error("please connect your wallet before anchoring your prayer.");
-    }
+    if (!isConnected || !address) throw new Error("please connect your wallet before anchoring your prayer.");
     if (FLUENT_CHAIN_ID && chainId && chainId !== FLUENT_CHAIN_ID) {
       throw new Error(`switch to fluent testnet (chain id ${FLUENT_CHAIN_ID}) to continue.`);
     }
   }, [FLUENT_CHAIN_ID, address, chainId, isConnected]);
 
-  const submitPrayer = useCallback(
-    async (prayer: string, feeling: FeelingKey) => {
-      const registryAddress = registryRef.current;
-      if (!registryAddress) {
-        throw new Error("missing registry address on this page.");
-      }
+  const submitPrayer = useCallback(async (prayer: string, feeling: FeelingKey) => {
+    const registryAddress = registryRef.current;
+    if (!registryAddress) throw new Error("missing registry address on this page.");
+    const prayerHash = keccak256(stringToBytes(prayer));
+    const label = FEELING_LABELS[feeling] ?? 1;
+    const txHash = await writeContractAsync({
+      address: registryAddress,
+      abi: PrayerRegistryAbi,
+      functionName: "checkIn",
+      args: [prayerHash, 72, label],
+    });
+    return { txHash };
+  }, [writeContractAsync]);
 
-      const prayerHash = keccak256(stringToBytes(prayer));
-      const label = FEELING_LABELS[feeling] ?? 1;
+  const waitForReceipt = useCallback(async (hash: string) => {
+    if (publicClient) await publicClient.waitForTransactionReceipt({ hash: hash as Hash });
+    const tasks: Promise<unknown>[] = [];
+    if (snapRef.current) tasks.push(snapRef.current());
+    if (nextRef.current) tasks.push(nextRef.current());
+    if (tasks.length) await Promise.allSettled(tasks);
+  }, [publicClient]);
 
-      const txHash = await writeContractAsync({
-        address: registryAddress,
-        abi: PrayerRegistryAbi,
-        functionName: "checkIn",
-        args: [prayerHash, 72, label],
-      });
+  /* active-state helper for left nav */
+  const pathname = usePathname();
+  const leftLinkClass = (active: boolean) =>
+    `block rounded-xl px-3 py-2 text-sm font-semibold shadow-[0_3px_0_rgba(0,0,0,.18)] transition ${
+      active
+        ? "bg-gradient-to-r from-foid-aqua/80 via-foid-periw/80 to-foid-candy/80 text-foid-midnight border border-white/60"
+        : "border border-white/25 bg-white/10 text-white/90 hover:-translate-y-0.5 hover:bg-white/15"
+    }`;
 
-      return { txHash };
-    },
-    [writeContractAsync],
-  );
+  const [paneMax, setPaneMax] = useState<number | null>(null);
+  const rightRef = useRef<HTMLDivElement | null>(null);
 
-  const waitForReceipt = useCallback(
-    async (hash: string) => {
-      if (publicClient) {
-        await publicClient.waitForTransactionReceipt({ hash: hash as Hash });
-      }
-      const tasks: Promise<unknown>[] = [];
-      if (snapRef.current) tasks.push(snapRef.current());
-      if (nextRef.current) tasks.push(nextRef.current());
-      if (tasks.length) {
-        await Promise.allSettled(tasks);
-      }
-    },
-    [publicClient],
-  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const update = () => {
+      const height = rightRef.current?.getBoundingClientRect().height ?? 0;
+      if (!height) return;
+      const cap = Math.round(window.innerHeight * 0.92);
+      setPaneMax(Math.min(height, cap));
+    };
+
+    update();
+    window.addEventListener("resize", update);
+
+    const node = rightRef.current;
+    let observer: ResizeObserver | null = null;
+    if (node && typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(update);
+      observer.observe(node);
+    }
+
+    return () => {
+      window.removeEventListener("resize", update);
+      observer?.disconnect();
+    };
+  }, [snap, nextAllowed]);
+
 
   return (
     <>
@@ -252,113 +248,228 @@ export default function Page() {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet" />
       </Head>
-      <main className="relative isolate min-h-screen pb-24 text-white/90">
+
+      <main className="relative isolate min-h-[104vh] pb-4 sm:pb-6 text-white/90">
         <div className="pointer-events-none fixed inset-0 z-0 vignette" />
-
-        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center gap-6 px-6 pt-10">
-          <section className="w-full space-y-4">
-            <div className="foid-glass rounded-3xl px-8 py-12 text-center shadow-[0_24px_80px_rgba(11,46,78,0.45)]">
-              <h1 className="text-4xl font-semibold tracking-[0.38em] text-white drop-shadow-[0_12px_30px_rgba(0,208,255,0.25)] sm:text-5xl">
-                foid.fun
-              </h1>
-              <p className="mx-auto mt-4 max-w-2xl text-lg text-white/75 sm:text-xl">
-                pray daily with foid mommy, mint a foid20, and trade it on foidswap.
-              </p>
-            </div>
-            <div className="overflow-hidden rounded-3xl shadow-[0_22px_65px_rgba(11,46,78,0.4)]">
-              <Image
-                src="/foidmommy.jpg"
-                alt="Crayon sketch of Foid with cherries and neon eyes on a diner table."
-                width={1280}
-                height={960}
-                className="h-full w-full object-cover"
-                priority
-              />
-            </div>
-          </section>
-
-          <section className="w-full">
-            <div className="grid items-stretch gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-              <div className="foid-glass overflow-hidden rounded-3xl shadow-[0_24px_80px_rgba(11,46,78,0.45)]">
-                <div className="crt flicker h-full rounded-[30px] p-8">
-                  <FoidMommyTerminal
-                    className="h-full w-full min-h-[520px]"
-                    ensureWalletReady={ensureWalletReady}
-                    submitPrayer={submitPrayer}
-                    waitForReceipt={waitForReceipt}
-                    nextAllowedAt={nextAllowed as bigint | undefined}
-                  />
+        <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-4 sm:px-6">
+        {/* floating brand — overlays UI, doesn't move layout */}
+        <div className="pointer-events-none absolute left-6 -top-8 z-[2000] sm:left-10 sm:-top-10">
+          <span className="bg-gradient-to-r from-foid-candy via-foid-aqua to-foid-mint bg-clip-text
+                          text-4xl font-black uppercase tracking-[0.5em] text-transparent
+                          drop-shadow-[0_0_28px_rgba(114,225,255,0.6)]
+                          sm:text-[2.75rem] sm:tracking-[0.55em]">
+            foid.fun
+          </span>
+        </div>
+           <div className="grid grid-cols-12 items-stretch gap-3 lg:gap-4">
+            {/* LEFT SIDEBAR — cut off at paneMax */}
+            <aside className="col-span-12 lg:col-span-3">
+              <div
+                className="vista-window vista-window--compact flex h-full flex-col"
+                style={{ maxHeight: paneMax ?? undefined }}
+              >
+                <div className="vista-window__titlebar">
+                  <span className="vista-window__title">navigate</span>
+                </div>
+                <div className="vista-window__body flex-1 overflow-hidden">
+                  <nav className="grid gap-2 overflow-y-auto pr-1">
+                    {NAV_LINKS.map(({ href, label, external }) => {
+                      const active = !external && pathname === href;
+                      const className = leftLinkClass(active);
+                      return external ? (
+                        <a
+                          key={href}
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={className}
+                        >
+                          {label}
+                        </a>
+                      ) : (
+                        <Link key={href} href={href} className={className}>
+                          {label}
+                        </Link>
+                      );
+                    })}
+                  </nav>
                 </div>
               </div>
-              <div className="flex flex-col gap-6">
-                <aside className="foid-glass rounded-3xl p-6 text-white/85 shadow-[0_0_50px_rgba(203,183,255,0.18)]">
-                  <h3 className="text-xs uppercase tracking-[0.5em] text-foid-mint/80">foid mommy</h3>
-                  <p className="mt-3 text-sm text-white/75">
-                    foid mommy is a super-simple daily check-in game on-chain: every time you “pray,” it logs your streak,
-                    and the more consistent you are, the bigger your mifoid’s boobs will be at launch (tge = token generation event).
-                  </p>
-                  <div className="mt-5 space-y-3 text-sm text-white/80">
-                    <div>
-                      <span className="font-semibold uppercase tracking-[0.35em] text-foid-mint/80">how to start</span>
-                      <ol className="mt-2 list-decimal space-y-2 pl-5 text-foid-mint/85">
-                        <li>connect your wallet → switch to the fluent network (if asked).</li>
-                        <li>click “chat with foid mommy.” the retro terminal opens.</li>
-                        <li>foid mommy asks “how are you feeling?” pick a mood or type it.</li>
-                        <li>foid mommy shows a short prayer. type your own prayer (optional).</li>
-                        <li>click “send prayer.” your wallet pops up—confirm the transaction.</li>
-                        <li>done. your streak number ticks up. come back in ~24h and do it again.</li>
-                      </ol>
+            </aside>
+              {/* CENTER COLUMN — scroll area cut off at paneMax */}
+              <section className="col-span-12 lg:col-span-6 min-h-0">
+                <div
+                  className="mb-4 flex min-h-0 flex-col gap-4 overflow-y-auto pr-1"
+                  style={{ maxHeight: paneMax ?? undefined }}
+                >
+                {/* foidmommy.jpg */}
+                <div className="vista-window vista-window--media lg:min-h-[420px] shrink-0">
+                  <div className="vista-window__titlebar">
+                    <div className="vista-window__controls" aria-hidden="true">
+                      <span className="vista-window__control vista-window__control--minimize" />
+                      <span className="vista-window__control vista-window__control--restore" />
+                      <span className="vista-window__control vista-window__control--close" />
                     </div>
-                    <div>
-                      <span className="font-semibold uppercase tracking-[0.35em] text-foid-mint/80">
-                        daily rules
-                      </span>
-                      <ol className="mt-2 list-decimal space-y-2 pl-5 text-foid-mint/85">
-                        <li>1 prayer = 1 day’s check-in.</li>
-                        <li>wait ~24 hours before the next one (too early won’t count).</li>
-                        <li>higher streak = your mifoid has bigger boobs.</li>
-                      </ol>
-                    </div>
-                    <div>
-                      <span className="font-semibold uppercase tracking-[0.35em] text-foid-mint/80">privacy note</span>
-                      <p className="mt-2 text-foid-mint/85">
-                        prayers are encrypted and written on-chain; what you type isn’t publicly readable.
-                      </p>
-                    </div>
-                    <div>
-                      <span className="font-semibold uppercase tracking-[0.35em] text-foid-mint/80">
-                        why it matters
-                      </span>
-                      <p className="mt-2 text-foid-mint/85">
-                        show up daily → grow your streak → your mifoid has exclusive traits at tge.
-                      </p>
-                    </div>
+                    <span className="vista-window__title">
+                      <span aria-hidden="true">📸</span> foidmommy.jpg
+                    </span>
+                    <span className="vista-window__badge" aria-hidden="true">🦋</span>
                   </div>
-                </aside>
+                  <div className="vista-window__body vista-window__body--flush">
+                    <Image
+                      src="/foidmommy.jpg"
+                      alt="Crayon sketch of Foid with cherries and neon eyes on a diner table."
+                      width={1280}
+                      height={960}
+                      className="h-full w-full object-cover"
+                      priority
+                    />
+                  </div>
+                </div>
 
-                <aside className="foid-glass rounded-3xl p-6 font-mono text-foid-mint/85 shadow-[0_0_55px_rgba(114,225,255,0.18)]">
-                  <div className="text-xs font-semibold uppercase tracking-[0.42em] text-foid-candy/85">
-                    your prayers
+                {/* terminal (hidden until scroll) */}
+                <div className="vista-window vista-window--terminal lg:min-h-[460px] shrink-0">
+                  <div className="vista-window__titlebar">
+                    <div className="vista-window__controls" aria-hidden="true">
+                      <span className="vista-window__control vista-window__control--minimize" />
+                      <span className="vista-window__control vista-window__control--restore" />
+                      <span className="vista-window__control vista-window__control--close" />
+                    </div>
+                    <span className="vista-window__title">
+                      <span aria-hidden="true">💾</span> FoidMommyTerminal.exe
+                    </span>
+                    <span className="vista-window__badge" aria-hidden="true">🪼</span>
                   </div>
-                  <div className="mt-4 space-y-2 text-sm text-white/85">
+                  <div className="vista-window__body vista-window__body--flush">
+                    <div className="frutiger-terminal flicker h-full p-8">
+                      <FoidMommyTerminal
+                        className="h-full w-full min-h-[520px]"
+                        ensureWalletReady={ensureWalletReady}
+                        submitPrayer={submitPrayer}
+                        waitForReceipt={waitForReceipt}
+                        nextAllowedAt={nextAllowed as bigint | undefined}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* manual (below that) */}
+                <div className="vista-window vista-window--info vista-window--frosted lg:min-h-[460px] shrink-0">
+                  <div className="vista-window__titlebar">
+                    <div className="vista-window__controls" aria-hidden="true">
+                      <span className="vista-window__control vista-window__control--minimize" />
+                      <span className="vista-window__control vista-window__control--restore" />
+                      <span className="vista-window__control vista-window__control--close" />
+                    </div>
+                    <span className="vista-window__title">
+                      <span aria-hidden="true">📄</span> foid mommy manual
+                    </span>
+                    <span className="vista-window__badge" aria-hidden="true">🌊</span>
+                  </div>
+                  <div className="vista-window__body space-y-6">
+                    <div className="space-y-4 text-sm">
+                      <h3 className="text-xs uppercase tracking-[0.5em] text-foid-mint/80">foid mommy</h3>
+                      <p>
+                        foid mommy is a super-simple daily check-in game on-chain: every time you “pray,” it logs your streak,
+                        and the more consistent you are, the bigger your mifoid’s boobs will be at launch (tge = token generation event).
+                      </p>
+                      <div className="space-y-4">
+                        <div>
+                          <span className="font-semibold uppercase tracking-[0.35em] text-foid-mint/80">how to start</span>
+                          <ol className="mt-2 list-decimal space-y-1 pl-5 text-foid-mint/85">
+                            <li>connect your wallet → switch to the fluent network (if asked).</li>
+                            <li>click “chat with foid mommy.” the retro terminal opens.</li>
+                            <li>foid mommy asks “how are you feeling?” pick a mood or type it.</li>
+                            <li>foid mommy shows a short prayer. type your own prayer (optional).</li>
+                            <li>click “send prayer.” your wallet pops up—confirm the transaction.</li>
+                            <li>done. your streak number ticks up. come back in ~24h and do it again.</li>
+                          </ol>
+                        </div>
+                        <div>
+                          <span className="font-semibold uppercase tracking-[0.35em] text-foid-mint/80">daily rules</span>
+                          <ol className="mt-2 list-decimal space-y-1 pl-5 text-foid-mint/85">
+                            <li>1 prayer = 1 day’s check-in.</li>
+                            <li>wait ~24 hours before the next one (too early won’t count).</li>
+                            <li>higher streak = your mifoid has bigger boobs.</li>
+                          </ol>
+                        </div>
+                        <div>
+                          <span className="font-semibold uppercase tracking-[0.35em] text-foid-mint/80">privacy note</span>
+                          <p className="mt-2 text-foid-mint/85">
+                            prayers are encrypted and written on-chain; what you type isn’t publicly readable.
+                          </p>
+                        </div>
+                        <div>
+                          <span className="font-semibold uppercase tracking-[0.35em] text-foid-mint/80">why it matters</span>
+                          <p className="mt-2 text-foid-mint/85">
+                            show up daily → grow your streak → your mifoid has exclusive traits at tge.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    {/* stats removed from here */}
+                  </div>
+                </div>
+              </div>
+            </section>
+            {/* RIGHT RAIL — cut off at paneMax */}
+              <aside
+                ref={rightRef}
+                className="col-span-12 space-y-4 lg:col-span-3"
+              >
+              {/* visit foid’s room */}
+              <div className="vista-window vista-window--compact">
+                <div className="vista-window__titlebar">
+                  <span className="vista-window__title">visit foid’s room</span>
+                </div>
+                <div className="vista-window__body">
+                  <a
+                    href="https://www.youtube.com/watch?v=0Bmhjf0rKe8"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full rounded-2xl border border-white/35 bg-gradient-to-r from-foid-aqua/70 via-foid-periw/70 to-foid-candy/70 px-8 py-6 text-center text-xl font-bold uppercase tracking-[0.35em] text-foid-midnight shadow-[0_6px_0_rgba(0,0,0,.18)] transition hover:-translate-y-0.5 hover:brightness-110"
+                  >
+                    enter
+                  </a>
+                </div>
+              </div>
+
+              {/* Your prayers (no divider, no duplicate header) */}
+              <div className="vista-window vista-window--compact">
+                <div className="vista-window__titlebar">
+                  <span className="vista-window__title">your prayers</span>
+                </div>
+                <div className="vista-window__body font-mono text-sm">
+                  <div className="space-y-1 text-white/90">
                     <div>
                       prayer streak:{" "}
-                      <b className="text-foid-mint">{snap?.[0]?.toString?.() ?? (address ? 0 : "–")}</b>
+                      <b className="text-foid-mint">
+                        {snap?.[0]?.toString?.() ?? (address ? 0 : "–")}
+                      </b>
                     </div>
                     <div>
                       longest prayer streak:{" "}
-                      <b className="text-foid-mint">{snap?.[1]?.toString?.() ?? (address ? 0 : "–")}</b>
+                      <b className="text-foid-mint">
+                        {snap?.[1]?.toString?.() ?? (address ? 0 : "–")}
+                      </b>
                     </div>
                     <div>
                       total prayers:{" "}
-                      <b className="text-foid-mint">{snap?.[2]?.toString?.() ?? (address ? 0 : "–")}</b>
+                      <b className="text-foid-mint">
+                        {snap?.[2]?.toString?.() ?? (address ? 0 : "–")}
+                      </b>
                     </div>
                     <div>
                       milestones:{" "}
-                      <b className="text-foid-mint">{snap?.[3]?.toString?.() ?? (address ? 0 : "–")}</b>
+                      <b className="text-foid-mint">
+                        {snap?.[3]?.toString?.() ?? (address ? 0 : "–")}
+                      </b>
                     </div>
                     <div>
-                      score: <b className="text-foid-mint">{snap?.[4]?.toString?.() ?? (address ? 0 : "–")}</b>
+                      score:{" "}
+                      <b className="text-foid-mint">
+                        {snap?.[4]?.toString?.() ?? (address ? 0 : "–")}
+                      </b>
                     </div>
                     <div>chain: {FLUENT_CHAIN_ID ?? "?"}</div>
                     <div>
@@ -367,16 +478,27 @@ export default function Page() {
                         secondsLeft(Math.floor(Date.now() / 1000), nextAllowed as bigint | undefined),
                       )}
                     </div>
+
+                    {!address && (
+                      <div className="pt-2 text-xs uppercase tracking-[0.32em] text-white/60">
+                        connect your wallet to start logging prayers.
+                      </div>
+                    )}
                   </div>
-                  {!address && (
-                    <div className="mt-4 text-xs uppercase tracking-[0.32em] text-white/60">
-                      connect your wallet to start logging prayers.
-                    </div>
-                  )}
-                </aside>
+                </div>
               </div>
-            </div>
-          </section>
+              {/* music (inside a vista window, below “your prayers”) */}
+              <div className="vista-window vista-window--compact">
+                <div className="vista-window__titlebar">
+                  <span className="vista-window__title">music</span>
+                </div>
+                {/* flush body so the player can fill it; no inner scrollbars */}
+                <div className="vista-window__body p-0 overflow-hidden">
+                  <MusicPanel />
+                </div>
+              </div>
+            </aside>
+          </div>
         </div>
       </main>
     </>
