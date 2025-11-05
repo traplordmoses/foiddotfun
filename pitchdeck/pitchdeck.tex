@@ -101,22 +101,22 @@
 \begin{center}
 \begin{tikzpicture}[scale=0.9]
 % Activity nodes
-\foreach \x/\label in {0/Build, 2.5/Test, 5/Launch, 7.5/Scale} {
+\foreach \x/\label in {0/Build, 4/Test, 8/Launch, 12/Scale} {
     \node[circle, fill=punkpink, draw=rebelred, line width=2pt, minimum size=1.5cm] at (\x,2) {\textbf{\label}};
 }
 
-% Connecting arrows with decorations
-\foreach \x in {1.25, 3.75, 6.25} {
-    \draw[->, line width=2pt, cuteviolet, decorate, decoration={snake, amplitude=.4mm, segment length=2mm}] (\x-1.25,2) -- (\x+0.25,2);
-}
+% Connecting arrows with decorations (shorter arrows with more padding)
+\draw[->, line width=2pt, cuteviolet, decorate, decoration={snake, amplitude=.4mm, segment length=2mm}] (1,2) -- (3,2);
+\draw[->, line width=2pt, cuteviolet, decorate, decoration={snake, amplitude=.4mm, segment length=2mm}] (5,2) -- (7,2);
+\draw[->, line width=2pt, cuteviolet, decorate, decoration={snake, amplitude=.4mm, segment length=2mm}] (9,2) -- (11,2);
 
-% Activity indicators below
-\node[star, star points=5, fill=rebelred, minimum size=0.5cm] at (0,0.5) {};
-\node[star, star points=5, fill=cuteviolet, minimum size=0.5cm] at (2.5,0.5) {};
-\node[star, star points=5, fill=punkpink, minimum size=0.5cm] at (5,0.5) {};
-\node[star, star points=5, fill=darkpunk, minimum size=0.5cm] at (7.5,0.5) {};
+% Activity indicators below with unique icons
+\node at (0,0.5) {\Large\textcolor{rebelred}{\faCog}}; % Build
+\node at (4,0.5) {\Large\textcolor{cuteviolet}{\faCheckCircle}}; % Test
+\node at (8,0.5) {\Large\textcolor{punkpink}{\faRocket}}; % Launch
+\node at (12,0.5) {\Large\textcolor{darkpunk}{\faChartLine}}; % Scale
 
-\node at (3.75,-0.5) {\Large\textcolor{cuteviolet}{\textit{Active Development}}};
+\node at (6,-0.5) {\Large\textcolor{cuteviolet}{\textit{Active Development}}};
 \end{tikzpicture}
 \end{center}
 \end{frame}
