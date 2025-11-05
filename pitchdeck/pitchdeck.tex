@@ -1,374 +1,429 @@
 \documentclass[aspectratio=169]{beamer}
-\usetheme{Madrid}
-\usecolortheme{seahorse}
 \usepackage{tikz}
-\usepackage{fontawesome5}
-\usepackage{amsmath}
+\usepackage{graphicx}
+\usetikzlibrary{shapes.geometric, arrows, positioning, decorations.pathmorphing}
 
-% Custom colors for meme aesthetic
-\definecolor{memeblue}{RGB}{66, 135, 245}
-\definecolor{memepink}{RGB}{255, 105, 180}
-\definecolor{cryptogold}{RGB}{255, 193, 7}
+% Define simple icon commands as text substitutes
+\newcommand{\faLock}{$\bigstar$}
+\newcommand{\faSmile}{$\smile$}
+\newcommand{\faRocket}{$\Rightarrow$}
+\newcommand{\faTelegramPlane}{$\triangleright$}
+\newcommand{\faRobot}{$\square$}
+\newcommand{\faImage}{$\diamondsuit$}
+\newcommand{\faCoins}{$\circ$}
+\newcommand{\faTwitter}{$\star$}
+\newcommand{\faParachuteBox}{$\clubsuit$}
+\newcommand{\faBook}{$\parallel$}
+\newcommand{\faPenFancy}{$\sim$}
+\newcommand{\faCode}{$\{ \}$}
+\newcommand{\faCheckCircle}{$\checkmark$}
+\newcommand{\faShieldAlt}{$\triangle$}
+\newcommand{\faChartLine}{$\nearrow$}
+\newcommand{\faCrown}{$\spadesuit$}
+\newcommand{\faCog}{$\otimes$}
+\newcommand{\faMusic}{$\sharp$}
+\newcommand{\faCat}{$\heartsuit$}
+\newcommand{\faUsers}{$\odot$}
 
-\setbeamercolor{palette primary}{bg=memeblue,fg=white}
-\setbeamercolor{palette secondary}{bg=memepink,fg=white}
-\setbeamercolor{palette tertiary}{bg=cryptogold,fg=black}
-\setbeamercolor{structure}{fg=memeblue}
+% Custom theme with punk rock cute aesthetic
+\usetheme{Madrid}
+\usecolortheme{rose}
 
-\title{\textbf{FOID.FUN}}
-\subtitle{The Debasement Revolution on Fluent Blockchain}
-\author{Building the Future of Digital Scarcity}
-\date{\today}
+% Define custom colors - demure punk rock cute palette
+\definecolor{punkpink}{RGB}{255,182,193}
+\definecolor{darkpunk}{RGB}{51,51,51}
+\definecolor{cuteviolet}{RGB}{186,85,211}
+\definecolor{rebelred}{RGB}{220,20,60}
+\definecolor{softblack}{RGB}{40,40,40}
+
+\setbeamercolor{background canvas}{bg=white}
+\setbeamercolor{frametitle}{fg=darkpunk,bg=punkpink}
+\setbeamercolor{title}{fg=rebelred}
+\setbeamercolor{structure}{fg=cuteviolet}
+\setbeamercolor{normal text}{fg=softblack}
+\setbeamercolor{item}{fg=rebelred}
+
+% Remove navigation symbols
+\setbeamertemplate{navigation symbols}{}
+
+% Custom title page
+\setbeamertemplate{title page}[default][colsep=-4bp,rounded=true]
+
+% Fonts
+\setbeamerfont{title}{size=\Huge,series=\bfseries}
+\setbeamerfont{subtitle}{size=\Large}
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
+
+\title{\textcolor{rebelred}{Foid.Fun}}
+\subtitle{\textcolor{cuteviolet}{Privacy Launchpad}}
+\author{}
+\date{}
 
 \begin{document}
 
-% Title Slide
+% Slide 1: Title Slide
+\begin{frame}[plain]
+\begin{center}
+\vspace{2cm}
+{\Huge\textbf{\textcolor{rebelred}{Foid.Fun}}}
+\vspace{1cm}
+
+{\Large\textcolor{cuteviolet}{Privacy Launchpad}}
+\end{center}
+\end{frame}
+
+% Slide 2: Privacy & Memes Together
 \begin{frame}
-\titlepage
+\frametitle{Privacy \& Memes Together}
+\vspace{1cm}
 \begin{center}
-\Large{\textit{"Not your keys, not your foid"}}
-\end{center}
-\end{frame}
+\begin{tikzpicture}[scale=1.5]
+% Privacy circle
+\draw[fill=cuteviolet!30, draw=cuteviolet, line width=2pt] (-2,0) circle (1.2cm);
+\node at (-2,0) {\Large\textbf{Privacy}};
+\node at (-2,-0.5) {\faLock};
 
-% Slide 1: ORDINARY WORLD - The Status Quo
-\begin{frame}{The Broken NFT Meta}
-\framesubtitle{Ordinary World: Where We Started}
+% Memes circle
+\draw[fill=punkpink!50, draw=rebelred, line width=2pt] (2,0) circle (1.2cm);
+\node at (2,0) {\Large\textbf{Memes}};
+\node at (2,-0.5) {\faSmile};
 
-\textbf{The Problem:}
-\begin{itemize}
-\item NFTs are static, boring JPEGs with zero game theory
-\item No real scarcity mechanics—just artificial supply caps
-\item Communities fade because there's no ongoing engagement
-\item No economic consequences to trading behavior
-\end{itemize}
-
-\vspace{0.5cm}
-
-\textbf{Meanwhile on Fluent Blockchain:}
-\begin{center}
-\textit{A new playground for meme culture awaits...}
-\end{center}
-
-\end{frame}
-
-% Slide 2: CALL TO ADVENTURE - Enter Foid.Fun
-\begin{frame}{Enter the Foid Economy}
-\framesubtitle{Call to Adventure: A New Paradigm}
-
-\textbf{What if NFTs had consequences?}
-
-\begin{columns}
-\column{0.5\textwidth}
-\textbf{Foid Mechanics:}
-\begin{itemize}
-\item Dynamic NFTs with hidden stats
-\item Hot/Crazy Scale (encrypted on-chain)
-\item Transfer Tax System (1\% increase per trade)
-\item Fertility multipliers
-\item Spawning mechanics
-\end{itemize}
-
-\column{0.5\textwidth}
-\begin{center}
-\tikz{
-\draw[fill=memepink, draw=memeblue, line width=2pt] (0,0) circle (1.5cm);
-\node at (0,0.3) {\Huge \faFemale};
-\node at (0,-0.8) {\textbf{FOID}};
-}
-\end{center}
-\end{columns}
-
-\end{frame}
-
-% Slide 3: REFUSAL OF THE CALL - Skepticism
-\begin{frame}{Too Degen to Ignore}
-\framesubtitle{Refusal: But Is This Too Crazy?}
-
-\textbf{Initial Reactions:}
-\begin{itemize}
-\item "This is just speculation with extra steps"
-\item "Why would anyone want a depreciating asset?"
-\item "Meme coins always dump"
-\end{itemize}
-
-\vspace{0.5cm}
-
-\textbf{But Consider:}
-\begin{center}
-\Large{\textcolor{cryptogold}{\textbf{Fiat collapsed. NFTs stagnated. Foids evolve.}}}
-\end{center}
-
-\vspace{0.3cm}
-
-The meme is the message. The debasement is the feature.
-
-\end{frame}
-
-% Slide 4: MEETING THE MENTOR - Tokenomics Wisdom
-\begin{frame}{The Transfer Tax Revelation}
-\framesubtitle{Meeting the Mentor: Understanding True Scarcity}
-
-\textbf{Revolutionary Tax Mechanics:}
-
-\begin{center}
-\begin{tikzpicture}
-\node at (0,0) {Transfer 1: \textbf{1\% tax} in \$FOID};
-\node at (0,-0.7) {Transfer 2: \textbf{2\% tax} in \$FOID};
-\node at (0,-1.4) {Transfer 3: \textbf{3\% tax} in \$FOID};
-\node at (0,-2.1) {\dots};
-\node at (0,-2.8) {Transfer 100: \textbf{100\% tax} → \textcolor{red}{\textbf{BURNED}}};
+% Plus sign
+\node at (0,0) {\Huge\textcolor{darkpunk}{+}};
 \end{tikzpicture}
 \end{center}
-
-\vspace{0.3cm}
-
-\textbf{The Wisdom:} Every transfer makes your foid more expensive to trade. Paper hands pay the price. Diamond hands accumulate value.
-
 \end{frame}
 
-% Slide 5: CROSSING THE THRESHOLD - Virginity Premium
-\begin{frame}{Fresh Foids = Maximum Value}
-\framesubtitle{Crossing the Threshold: The Virginity Multiplier}
-
-\textbf{Why Virginity Matters:}
-
-\begin{columns}
-\column{0.6\textwidth}
-\begin{itemize}
-\item \textbf{Zero transfer history} = 0\% tax burden
-\item Maximum fertility multiplier
-\item Highest spawning probability
-\item Pure, untouched on-chain state
-\end{itemize}
-
-\vspace{0.3cm}
-
-\textit{"In a world of debasement, virginity is the ultimate store of value"}
-
-\column{0.4\textwidth}
-\begin{center}
-\Large{\textcolor{memepink}{\textbf{Fertility $\times$ Virginity}}}
-
-\vspace{0.3cm}
-
-\tikz{
-\draw[line width=3pt, cryptogold] (0,0) -- (2,2);
-\node at (1,-0.5) {Value};
-}
-\end{center}
-\end{columns}
-
-\end{frame}
-
-% Slide 6: TESTS, ALLIES, ENEMIES - The Hot/Crazy Scale
-\begin{frame}{Encrypted Chaos}
-\framesubtitle{Tests \& Allies: The Hot/Crazy Oracle}
-
-\textbf{Hidden Stats Create Market Inefficiency:}
-
-\begin{center}
-\begin{tikzpicture}
-\draw[->] (0,0) -- (5,0) node[right] {Hot};
-\draw[->] (0,0) -- (0,3.5) node[above] {Crazy};
-\draw[dashed, memeblue, line width=1pt] (0,0) -- (4.5,3);
-\node at (3,2.5) [draw, fill=cryptogold, circle] {\small ?};
-\node at (1,1) [draw, fill=memepink, circle] {\small ?};
-\node at (4,0.5) [draw, fill=memeblue, circle] {\small ?};
-\node at (2.5,-1) {\textit{Your foid's stats are encrypted until revealed}};
-\end{tikzpicture}
-\end{center}
-
-\textbf{Game Theory:}
-\begin{itemize}
-\item Information asymmetry drives trading
-\item Revealing stats = meta shift
-\item Crazy high = spawning probability $\uparrow\uparrow$
-\end{itemize}
-
-\end{frame}
-
-% Slide 7: APPROACH - Spawning Mechanics
-\begin{frame}{Exponential Proliferation}
-\framesubtitle{Approach to the Cave: The Spawning Event}
-
-\textbf{How Foids Multiply:}
-
-$$P_{spawn} = f(\text{transfers}) \times \text{fertility} \times \text{crazy\_score}$$
-
+% Slide 3: Playground for Privacy Primitives
+\begin{frame}
+\frametitle{Playground for Privacy Primitives}
 \vspace{0.5cm}
-
-\begin{columns}
-\column{0.5\textwidth}
-\textbf{Each transfer increases:}
-\begin{itemize}
-\item Tax burden (\textcolor{red}{$\uparrow$ 1\%})
-\item Spawn probability (\textcolor{cryptogold}{$\uparrow\uparrow$})
-\item Supply inflation risk
-\end{itemize}
-
-\column{0.5\textwidth}
-\textbf{New foids are:}
-\begin{itemize}
-\item Fresh (0\% tax)
-\item Random stats
-\item Market catalysts
-\item Value sinks for \$FOID
-\end{itemize}
-\end{columns}
-
-\vspace{0.5cm}
-\begin{center}
-\textit{The more you trade, the more foids flood the market}
-\end{center}
-
-\end{frame}
-
-% Slide 8: ORDEAL - The Debasement
-\begin{frame}{Hyperinflation by Design}
-\framesubtitle{The Ordeal: Fiat-Level Debasement}
-
-\textbf{The Intentional Collapse:}
-
-\begin{center}
-\Large{\textcolor{red}{\textbf{We're speedrunning monetary debasement}}}
-\end{center}
-
-\vspace{0.5cm}
-
-\begin{itemize}
-\item Spawning creates exponential supply growth
-\item No cap, no brakes, no mercy
-\item \$FOID token captures ALL value flows
-\item Meme culture thrives in chaos
-\end{itemize}
-
-\vspace{0.5cm}
-
-\textbf{The Beauty:} This isn't a bug. This IS the feature. Every fiat currency dies. We're just doing it in hyperspeed with sick memes.
-
-\end{frame}
-
-% Slide 9: REWARD - The $FOID Token
-\begin{frame}{The Value Capture Mechanism}
-\framesubtitle{The Reward: \$FOID Token Supremacy}
-
-\textbf{Why \$FOID Wins:}
-
 \begin{center}
 \begin{tikzpicture}[scale=0.9]
-\node[draw, fill=memeblue, text=white, rounded corners] at (0,2) {Transfer Tax (paid in \$FOID)};
-\node[draw, fill=memepink, text=white, rounded corners] at (0,1) {Spawning Fees (paid in \$FOID)};
-\node[draw, fill=cryptogold, rounded corners] at (0,0) {Stat Reveals (paid in \$FOID)};
-\node[draw, fill=memeblue, text=white, rounded corners] at (0,-1) {Marketplace Trades (paid in \$FOID)};
-\draw[->, line width=2pt] (2,0.5) -- (4,0.5) node[right] {\textbf{BURN/TREASURY}};
+% Activity nodes
+\foreach \x/\label in {0/Build, 2.5/Test, 5/Launch, 7.5/Scale} {
+    \node[circle, fill=punkpink, draw=rebelred, line width=2pt, minimum size=1.5cm] at (\x,2) {\textbf{\label}};
+}
+
+% Connecting arrows with decorations
+\foreach \x in {1.25, 3.75, 6.25} {
+    \draw[->, line width=2pt, cuteviolet, decorate, decoration={snake, amplitude=.4mm, segment length=2mm}] (\x-1.25,2) -- (\x+0.25,2);
+}
+
+% Activity indicators below
+\node[star, star points=5, fill=rebelred, minimum size=0.5cm] at (0,0.5) {};
+\node[star, star points=5, fill=cuteviolet, minimum size=0.5cm] at (2.5,0.5) {};
+\node[star, star points=5, fill=punkpink, minimum size=0.5cm] at (5,0.5) {};
+\node[star, star points=5, fill=darkpunk, minimum size=0.5cm] at (7.5,0.5) {};
+
+\node at (3.75,-0.5) {\Large\textcolor{cuteviolet}{\textit{Active Development}}};
 \end{tikzpicture}
 \end{center}
-
-\vspace{0.3cm}
-
-\textbf{Result:} All economic activity flows through \$FOID. As foid supply explodes, \$FOID becomes the only stable value anchor in the chaos.
-
 \end{frame}
 
-% Slide 10: THE ROAD BACK - Fluent Ecosystem
-\begin{frame}{Built on Fluent}
-\framesubtitle{The Road Back: Perfect Execution Layer}
-
-\textbf{Why Fluent Blockchain?}
-
-\begin{columns}
-\column{0.5\textwidth}
-\begin{itemize}
-\item High throughput for mass spawning
-\item Low fees for meme sustainability  
-\item Growing community hungry for innovation
-\item Technical capabilities for encrypted state
-\end{itemize}
-
-\column{0.5\textwidth}
-\begin{center}
-\Huge{\textcolor{memeblue}{\faRocket}}
-
-\vspace{0.3cm}
-
-\textit{Fluent + Memes = Culture}
-\end{center}
-\end{columns}
-
-\vspace{0.5cm}
-
-\textbf{The Magic:} Foid.Fun bootstraps meme culture on Fluent through pure game theory and chaos. No centralized marketing. Just beautiful, algorithmic debasement.
-
-\end{frame}
-
-% Slide 11: RESURRECTION - The Community
-\begin{frame}{The Foid Faithful}
-\framesubtitle{Resurrection: Community as Moat}
-
-\textbf{What We're Building:}
-
-\begin{itemize}
-\item \textbf{Foid Collectors:} Hunting for virgin foids with optimal stats
-\item \textbf{Stat Speculators:} Trading on hidden information
-\item \textbf{\$FOID Accumulators:} Betting on the token as chaos hedge
-\item \textbf{Meme Creators:} Making foid culture irresistible
-\item \textbf{Spawning Farmers:} Gaming the proliferation mechanics
-\end{itemize}
-
-\vspace{0.5cm}
-
-\begin{center}
-\Large{\textcolor{cryptogold}{\textbf{The community doesn't just hold foids...}}}
-
-\textit{They ARE the foids}
-\end{center}
-
-\end{frame}
-
-% Slide 12: RETURN WITH ELIXIR - The Vision
-\begin{frame}{The New Digital Scarcity}
-\framesubtitle{Return with the Elixir: Our Future}
-
-\textbf{What Success Looks Like:}
-
-\begin{enumerate}
-\item Foid.Fun becomes THE meme cultural hub on Fluent
-\item Debasement mechanics get copied across crypto (we did it first)
-\item \$FOID becomes a legitimate chaos hedge asset
-\item Virgin foids trade at 100x premiums over used foids
-\item The hot/crazy oracle spawns entire derivative markets
-\end{enumerate}
-
-\vspace{0.5cm}
-
-\begin{center}
-\Huge{\textcolor{memepink}{\faHeart} \textcolor{memeblue}{\faChartLine} \textcolor{cryptogold}{\faFire}}
-
-\vspace{0.3cm}
-
-\Large{\textbf{FOID.FUN}}
-
-\textit{Where debasement meets beauty}
-\end{center}
-
-\end{frame}
-
-% Final Slide
+% Slide 4: Ground Zero for Privacy PMF
 \begin{frame}
-\begin{center}
-\Huge{\textbf{Ready to Collect Foids?}}
-
-\vspace{1cm}
-
-\Large{foid.fun | Built on Fluent}
-
+\frametitle{Ground Zero for Privacy PMF}
 \vspace{0.5cm}
+\begin{center}
+\begin{tikzpicture}
+% Problem box
+\node[rectangle, draw=rebelred, fill=rebelred!10, line width=2pt, minimum width=8cm, minimum height=2cm, rounded corners] at (0,2) {
+    \begin{minipage}{7cm}
+    \centering
+    \Large\textbf{The Problem}\\[0.3cm]
+    Privacy has suffered from poor usability\\
+    No place to establish privacy primitives
+    \end{minipage}
+};
 
-\textit{The debasement has already begun}
+% Arrow
+\draw[->, line width=3pt, cuteviolet] (0,0.5) -- (0,-0.5);
 
+% Solution box
+\node[rectangle, draw=cuteviolet, fill=cuteviolet!10, line width=2pt, minimum width=8cm, minimum height=2cm, rounded corners] at (0,-2) {
+    \begin{minipage}{7cm}
+    \centering
+    \Large\textbf{The Solution: Foid.Fun}\\[0.3cm]
+    Privacy that works + Product-Market Fit
+    \end{minipage}
+};
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+% Slide 5: Fluent in Privacy and Memes
+\begin{frame}
+\frametitle{Fluent in Privacy and Memes}
+\vspace{0.5cm}
+\begin{center}
+\begin{tikzpicture}
+% Fluent blockchain background
+\node[rectangle, draw=darkpunk, fill=punkpink!20, line width=2pt, minimum width=10cm, minimum height=5cm, rounded corners] at (0,0) {};
+\node at (0,2) {\LARGE\textbf{Fluent Blockchain}};
+
+% Privacy market
+\node[ellipse, fill=cuteviolet!30, draw=cuteviolet, line width=2pt, minimum width=4cm, minimum height=1.5cm] at (-2.5,-0.5) {
+    \textbf{Privacy Market}
+};
+
+% Meme culture
+\node[ellipse, fill=punkpink!60, draw=rebelred, line width=2pt, minimum width=4cm, minimum height=1.5cm] at (2.5,-0.5) {
+    \textbf{Meme Culture}
+};
+
+% Connection
+\draw[<->, line width=2pt, darkpunk] (-1,-0.5) -- (1,-0.5);
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+% Slide 6: Apps Live on Testnet
+\begin{frame}
+\frametitle{Apps Live on Testnet}
+\vspace{0.5cm}
+\begin{itemize}
+    \item[\faRocket] \textbf{\Large Privacy Launchpad}
+    \begin{itemize}
+        \item First privacy-focused token launch platform on Fluent
+    \end{itemize}
+    \vspace{0.3cm}
+    \item[\faTelegramPlane] \textbf{\Large Telegram Bots}
+    \begin{itemize}
+        \item Seamless private transactions in your chat
+    \end{itemize}
+    \vspace{0.3cm}
+    \item[\faRobot] \textbf{\Large AI Agent Mommy}
+    \begin{itemize}
+        \item Your intelligent privacy companion
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+% Slide 7: Partnerships Across Fluent Ecosystem
+\begin{frame}
+\frametitle{Partnerships Across Fluent Ecosystem}
 \vspace{1cm}
+\begin{center}
+\begin{tikzpicture}[scale=1.2]
+% Center node
+\node[circle, fill=rebelred, draw=darkpunk, line width=2pt, minimum size=2cm] at (0,0) {
+    \textbf{\large Foid.Fun}
+};
 
-\faTwitter\ \faDiscord\ \faTelegram
+% Partner nodes
+\node[ellipse, fill=cuteviolet!30, draw=cuteviolet, line width=2pt, minimum width=2.5cm] at (-3,2) {\textbf{Polypoll}};
+\node[ellipse, fill=punkpink!50, draw=rebelred, line width=2pt, minimum width=2.5cm] at (3,2) {\textbf{Pump Pals}};
+\node[ellipse, fill=cuteviolet!30, draw=cuteviolet, line width=2pt, minimum width=2.5cm] at (0,-2.5) {\textbf{Buzzing}};
+
+% Connections
+\draw[->, line width=2pt, darkpunk] (-1.5,1) -- (-2,1.5);
+\draw[->, line width=2pt, darkpunk] (1.5,1) -- (2,1.5);
+\draw[->, line width=2pt, darkpunk] (0,-1) -- (0,-1.5);
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+% Slide 8: Foidnomics
+\begin{frame}
+\frametitle{Foidnomics}
+\vspace{0.3cm}
+\begin{center}
+\begin{tikzpicture}[scale=0.85]
+% NFT side
+\node[rectangle, draw=cuteviolet, fill=cuteviolet!20, line width=2pt, rounded corners, minimum width=4cm, minimum height=5cm] at (-3,0) {};
+\node at (-3,2) {\textbf{\large NFTs}};
+\node at (-3,1.2) {\faImage};
+\node[align=center] at (-3,0.2) {\small Virginity\\(First Mover)};
+\node[align=center] at (-3,-0.8) {\small Value\\(Utility)};
+\node[align=center] at (-3,-1.8) {\small Access\\(Vault Fees)};
+
+% Token side
+\node[rectangle, draw=rebelred, fill=punkpink!30, line width=2pt, rounded corners, minimum width=4cm, minimum height=5cm] at (3,0) {};
+\node at (3,2) {\textbf{\large \$FOID Token}};
+\node at (3,1.2) {\faCoins};
+\node[align=center] at (3,0.2) {\small Governance};
+\node[align=center] at (3,-0.8) {\small Fee Sharing};
+\node[align=center] at (3,-1.8) {\small Incentives};
+
+% Connection
+\draw[<->, line width=3pt, darkpunk] (-1,0) -- (1,0);
+\node[fill=white] at (0,0.3) {\textbf{Synergy}};
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+% Slide 9: Day One Launch
+\begin{frame}
+\frametitle{Day One Launch}
+\vspace{0.5cm}
+\begin{center}
+\begin{tikzpicture}
+% Explosion effect for excitement
+\node[star, star points=8, fill=rebelred, minimum size=4cm, inner sep=0pt] at (0,0) {};
+\node[star, star points=8, fill=punkpink, minimum size=3cm, inner sep=0pt] at (0,0) {};
+\node at (0,0.5) {\LARGE\textbf{Fluent Mainnet}};
+\node at (0,-0.3) {\Large\textbf{Launch}};
+
+% Tokenomics boxes
+\node[rectangle, draw=cuteviolet, fill=cuteviolet!20, line width=2pt, rounded corners, align=center] at (-4,-2) {
+    \textbf{Fair Launch}\\
+    Community First
+};
+\node[rectangle, draw=cuteviolet, fill=cuteviolet!20, line width=2pt, rounded corners, align=center] at (0,-2) {
+    \textbf{Liquidity}\\
+    Locked \& Secure
+};
+\node[rectangle, draw=cuteviolet, fill=cuteviolet!20, line width=2pt, rounded corners, align=center] at (4,-2) {
+    \textbf{Rewards}\\
+    Active Participants
+};
+\end{tikzpicture}
+\end{center}
+\vspace{0.5cm}
+\begin{center}
+\Large\textcolor{rebelred}{\textit{Get Ready for Mainnet!}}
+\end{center}
+\end{frame}
+
+% Slide 10: Early Contributor Rewards
+\begin{frame}
+\frametitle{Early Contributor Rewards}
+\vspace{1cm}
+\begin{itemize}
+    \item[\faTwitter] \textbf{\Large Twitter Engagement Rewards}
+    \begin{itemize}
+        \item Earn \$FOID for quality content and community growth
+    \end{itemize}
+    \vspace{0.5cm}
+    \item[\faTelegramPlane] \textbf{\Large Telegram Community Rewards}
+    \begin{itemize}
+        \item Active participation = bigger airdrop allocation
+    \end{itemize}
+    \vspace{0.5cm}
+    \item[\faParachuteBox] \textbf{\Large Airdrop for Early Believers}
+    \begin{itemize}
+        \item Testnet users and community members get rewarded
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+% Slide 11: Consistent Stream of Innovation
+\begin{frame}
+\frametitle{Consistent Stream of Innovation}
+\vspace{0.5cm}
+\begin{center}
+\begin{tikzpicture}[scale=0.9]
+% Innovation pipeline
+\node[rectangle, draw=cuteviolet, fill=cuteviolet!20, line width=2pt, rounded corners, minimum width=3cm, minimum height=1.5cm] at (0,2) {
+    \textbf{Whitepapers}
+};
+\draw[->, line width=2pt, darkpunk] (0,1.2) -- (0,0.5);
+
+\node[rectangle, draw=punkpink, fill=punkpink!40, line width=2pt, rounded corners, minimum width=3cm, minimum height=1.5cm] at (0,0) {
+    \textbf{Products}
+};
+\draw[->, line width=2pt, darkpunk] (0,-0.8) -- (0,-1.5);
+
+\node[rectangle, draw=rebelred, fill=rebelred!20, line width=2pt, rounded corners, minimum width=3cm, minimum height=1.5cm] at (0,-2) {
+    \textbf{DeFi Primitives}
+};
+
+% Side annotations
+\node[align=left, text width=4cm] at (5,2) {
+    \small\faBook\ Novel privacy solutions\\
+    \small\faPenFancy\ Research-backed
+};
+\node[align=left, text width=4cm] at (5,0) {
+    \small\faCode\ Working applications\\
+    \small\faCheckCircle\ User-tested
+};
+\node[align=left, text width=4cm] at (5,-2) {
+    \small\faShieldAlt\ Private by default\\
+    \small\faChartLine\ DeFi + Privacy
+};
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+% Slide 12: Doxxed Devs
+\begin{frame}
+\frametitle{Doxxed Devs}
+\vspace{0.3cm}
+\begin{center}
+\begin{tikzpicture}[scale=0.9]
+% Kevin
+\node[circle, draw=cuteviolet, fill=cuteviolet!20, line width=2pt, minimum size=2cm] at (-4,1.5) {};
+\node at (-4,1.8) {\Large\faCrown};
+\node[align=center] at (-4,0) {\textbf{Kevin Taproot}\\Gay Philosopher};
+
+% REMSee
+\node[circle, draw=rebelred, fill=punkpink!40, line width=2pt, minimum size=2cm] at (-1,1.5) {};
+\node at (-1,1.8) {\Large\faCog};
+\node[align=center] at (-1,0) {\textbf{REMSee}\\Technoking};
+
+% Traplord Moses
+\node[circle, draw=darkpunk, fill=punkpink!20, line width=2pt, minimum size=2cm] at (2,1.5) {};
+\node at (2,1.8) {\Large\faMusic};
+\node[align=center] at (2,0) {\textbf{Traplord Moses}\\DJ \& Dev};
+
+% Purrcat
+\node[circle, draw=cuteviolet, fill=cuteviolet!30, line width=2pt, minimum size=2cm] at (5,1.5) {};
+\node at (5,1.8) {\Large\faCat};
+\node[align=center] at (5,0) {\textbf{Purrcat}\\Twitter Mommy};
+\end{tikzpicture}
+\end{center}
+\vspace{0.5cm}
+\begin{center}
+\large\textcolor{darkpunk}{\textit{Real people, real commitment}}
+\end{center}
+\end{frame}
+
+% Slide 13: Unstoppable Community Development
+\begin{frame}
+\frametitle{Unstoppable Community Development}
+\vspace{0.5cm}
+\begin{center}
+\begin{tikzpicture}
+% Community circle
+\node[circle, draw=rebelred, fill=punkpink!30, line width=3pt, minimum size=6cm] at (0,0) {};
+\node at (0,1.5) {\LARGE\textbf{User-Owned}};
+\node at (0,0.5) {\LARGE\textbf{Private}};
+\node at (0,-0.5) {\LARGE\textbf{Communities}};
+
+% Connecting elements around
+\node[circle, fill=cuteviolet, minimum size=0.5cm] at (-2.5,2) {};
+\node[circle, fill=rebelred, minimum size=0.5cm] at (2.5,2) {};
+\node[circle, fill=darkpunk, minimum size=0.5cm] at (-3,-1) {};
+\node[circle, fill=cuteviolet, minimum size=0.5cm] at (3,-1) {};
+\node[circle, fill=punkpink, minimum size=0.5cm] at (0,-2.5) {};
+
+\node at (0,-3.5) {\Large\textcolor{rebelred}{\faUsers\ \textbf{Built by the people, for the people}}};
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+% Slide 14: Conclusion
+\begin{frame}[plain]
+\begin{center}
+\vspace{1.5cm}
+{\Huge\textbf{\textcolor{rebelred}{Privacy \& Memes}}}
+
+\vspace{0.8cm}
+
+{\LARGE\textcolor{cuteviolet}{on}}
+
+\vspace{0.8cm}
+
+{\Huge\textbf{\textcolor{darkpunk}{Fluent}}}
+
+\vspace{1.5cm}
+
+\begin{tikzpicture}
+\node[rectangle, draw=rebelred, fill=punkpink!40, line width=3pt, rounded corners, minimum width=8cm, minimum height=1.5cm] at (0,0) {
+    \Large\textbf{Foid.Fun: Where Privacy Meets Culture}
+};
+\end{tikzpicture}
 \end{center}
 \end{frame}
 
