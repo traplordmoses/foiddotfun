@@ -315,7 +315,8 @@ app.get('/api/server-address', (req, res) => {
   res.json({ serverAddress: contractAddress }); // Return contract address for backward compatibility
 });
 
-const PORT = process.env.PORT || 3000;
+// Use port 3001 by default so it doesn't collide with the Next.js dev server (3000)
+const PORT = process.env.PORT || 3001;
 initializeDatabase();
 initializeProvider();
 
@@ -326,4 +327,3 @@ app.listen(PORT, () => {
   console.log(`🎁 Claim endpoint: http://localhost:${PORT}/api/claim`);
   console.log(`📋 Deposits endpoint: http://localhost:${PORT}/api/deposits\n`);
 });
-
