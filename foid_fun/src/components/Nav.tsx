@@ -15,6 +15,11 @@ const links = [
 
 export default function Nav() {
   const pathname = usePathname();
+
+  if (pathname === "/") {
+    return null;
+  }
+
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -30,7 +35,7 @@ export default function Nav() {
 
   return (
     <nav className="relative border-b border-white/10 bg-transparent pb-2 pt-5 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 rounded-3xl px-6 py-5 foid-glass">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 rounded-3xl px-6 py-5 foid-glass">
         <span className="font-mono text-base uppercase tracking-[0.32em] text-foid-mint/90 sm:text-lg">
           control panel
         </span>

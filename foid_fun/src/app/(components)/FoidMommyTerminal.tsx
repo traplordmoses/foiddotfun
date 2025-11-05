@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import sfx from "@/lib/sfx";
+import { attachTypingClicks, initTypingClicks } from "@/lib/typingClicks";
 
 export type FeelingKey =
   | "happy"
@@ -321,12 +323,33 @@ export default function FoidMommyTerminal({
   const messageEndRef = useRef<HTMLDivElement | null>(null);
   const timeoutsRef = useRef<number[]>([]);
   const intervalsRef = useRef<number[]>([]);
+  const feelingInputRef = useRef<HTMLInputElement | null>(null);
+  const prayerInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const attachedTypingTargets = useRef(new WeakSet<HTMLElement>());
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    void initTypingClicks();
+  }, []);
+
+  useEffect(() => {
+    const targets = [feelingInputRef.current, prayerInputRef.current];
+
+    targets.forEach((el) => {
+      if (!el) return;
+      if (!attachedTypingTargets.current.has(el)) {
+        attachTypingClicks(el);
+        attachedTypingTargets.current.add(el);
+      }
+    });
+  }, [stage]);
 
   const resetTimers = useCallback(() => {
     timeoutsRef.current.forEach((id) => window.clearTimeout(id));
     intervalsRef.current.forEach((id) => window.clearInterval(id));
     timeoutsRef.current = [];
     intervalsRef.current = [];
+    sfx.typing.stop();
   }, []);
 
   const scrollToBottom = useCallback(() => {
@@ -371,6 +394,7 @@ export default function FoidMommyTerminal({
         const id = makeId();
         setMessages((prev) => [...prev, { id, role: input.role, text: "" }]);
         if (!input.text) {
+          sfx.typing.stop();
           resolve(id);
           return;
         }
@@ -378,6 +402,7 @@ export default function FoidMommyTerminal({
         let index = 0;
         const speed = input.speed ?? 28;
 
+        sfx.typing.start();
         const interval = window.setInterval(() => {
           index += 1;
           const nextText = input.text.slice(0, index);
@@ -387,6 +412,7 @@ export default function FoidMommyTerminal({
           if (index >= input.text.length) {
             window.clearInterval(interval);
             intervalsRef.current = intervalsRef.current.filter((stored) => stored !== interval);
+            sfx.typing.stop();
             resolve(id);
           }
         }, speed);
@@ -444,7 +470,13 @@ export default function FoidMommyTerminal({
     };
   }, [stage, typeMessage, addMessage, updateMessage, resetTimers]);
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
+    try {
+      await sfx.unlock();
+    } catch {
+      /* ignore unlock failures */
+    }
+    sfx.playLoading();
     setStage("loading");
   }, []);
 
@@ -565,6 +597,7 @@ export default function FoidMommyTerminal({
         text: "thank you for trusting me, anon. drink water, unclench your jaw, breathe.",
       });
 
+      sfx.playReward();
       setStage("checkInPrompt");
       setPrayerText("");
       setIsProcessing(false);
@@ -634,6 +667,7 @@ export default function FoidMommyTerminal({
           role: "foid",
           text: `you have already prayed with mommy today, anon. next window opens in ${relative} (${nextWindow}).`,
         });
+        sfx.playError();
         setStage("txFail");
       } else if (isOutOfGas) {
         updateMessage(statusId, "wallet needs a gas top-up.");
@@ -642,6 +676,7 @@ export default function FoidMommyTerminal({
           role: "foid",
           text: "anon, you're out of gas. swing by the faucet at https://testnet.fluent.xyz/dev-portal, juice up, then try again.",
         });
+        sfx.playError();
         setStage("txFail");
       } else {
         updateMessage(statusId, "something glitched in the chain tunnel.");
@@ -650,6 +685,7 @@ export default function FoidMommyTerminal({
           role: "foid",
           text: "want to try again?",
         });
+        sfx.playError();
         setStage("txFail");
       }
       setIsProcessing(false);
@@ -721,7 +757,10 @@ export default function FoidMommyTerminal({
               id="feeling-input"
               name="feeling"
               value={feelingInput}
-              onChange={(event) => setFeelingInput(event.target.value)}
+              onChange={(event) => {
+                setFeelingInput(event.target.value);
+              }}
+              ref={feelingInputRef}
               className="w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white/85 transition focus:border-foid-cyan/60 focus:ring-2 focus:ring-foid-cyan/40"
               placeholder="type anything..."
               autoComplete="off"
@@ -756,8 +795,11 @@ export default function FoidMommyTerminal({
               id="prayer-input"
               name="prayer"
               value={prayerInput}
-              onChange={(event) => setPrayerInput(event.target.value)}
+              onChange={(event) => {
+                setPrayerInput(event.target.value);
+              }}
               rows={3}
+              ref={prayerInputRef}
               className="w-full resize-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white/85 transition focus:border-foid-cyan/60 focus:ring-2 focus:ring-foid-cyan/40"
               placeholder="dear god..."
             />
