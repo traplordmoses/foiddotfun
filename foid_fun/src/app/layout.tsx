@@ -8,12 +8,20 @@ import SfxInitializer from "@/components/SfxInitializer";
 import MusicPanel from "@/components/MusicPanel";
 import FairyDustCursor from "@/components/FairyDustCursor";
 
+// app/layout.tsx (or wherever your metadata lives)
 export const metadata = {
-  title: "wFOID Control Panel",
-  description: "Interact with wFOID, Bridge, and Registry on Fluent Testnet",
+  title: "FOID.FUN",
+  description: "Pray with Foid Mommy daily, on Foid.Fun",
   icons: {
-    icon: "/icon.svg",
+    icon: [
+      { url: "/favicon.ico" },                                  // multi-size .ico
+      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon-16.png", type: "image/png", sizes: "16x16" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }], // rename favicon-180.png → apple-touch-icon.png
+    shortcut: "/favicon.ico",
   },
+  manifest: "/site.webmanifest", // optional, if you use a PWA manifest
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

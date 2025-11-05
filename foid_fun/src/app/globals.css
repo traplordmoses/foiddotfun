@@ -361,7 +361,7 @@
   .vista-window--media .vista-window__body {
     padding: 0;
     overflow: hidden;
-    border-radius: 0.75rem;
+    border-radius: inherit;
     box-shadow: inset 0 0 0 1px rgba(175, 230, 255, 0.22);
   }
 

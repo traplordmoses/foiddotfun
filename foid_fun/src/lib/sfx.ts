@@ -14,6 +14,8 @@ const PATHS = {
 
 type SfxKey = keyof typeof PATHS;
 
+const TYPING_VOLUME = 0.4;
+
 let ctx: AudioContext | null = null;
 let unlocked = false;
 let fallbackMode = false;
@@ -345,8 +347,7 @@ function typingTick(): void {
   if (!isBrowser || !typingState.active) return;
 
   const detune = Math.random() * 80 - 40;
-  const volume = 0.35 + Math.random() * 0.12;
-  play("typing", { detune, volume });
+  play("typing", { detune, volume: TYPING_VOLUME });
 
   const delay = 70 + Math.random() * 55;
   typingState.timer = window.setTimeout(typingTick, delay);
@@ -369,8 +370,7 @@ export const typing = {
 
 export function playTypingTick(): void {
   const detune = Math.random() * 60 - 30;
-  const volume = 0.3 + Math.random() * 0.1;
-  play("typing", { detune, volume });
+  play("typing", { detune, volume: TYPING_VOLUME });
 }
 
 export function playLoading(): void {

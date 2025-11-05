@@ -205,7 +205,7 @@ export default function Page() {
   /* active-state helper for left nav */
   const pathname = usePathname();
   const leftLinkClass = (active: boolean) =>
-    `block rounded-xl px-3 py-2 text-sm font-semibold shadow-[0_3px_0_rgba(0,0,0,.18)] transition ${
+    `flex items-center gap-3 rounded-2xl px-4 py-3.5 text-lg font-semibold shadow-[0_3px_0_rgba(0,0,0,.18)] transition ${
       active
         ? "bg-gradient-to-r from-foid-aqua/80 via-foid-periw/80 to-foid-candy/80 text-foid-midnight border border-white/60"
         : "border border-white/25 bg-white/10 text-white/90 hover:-translate-y-0.5 hover:bg-white/15"
@@ -218,10 +218,21 @@ export default function Page() {
     if (typeof window === "undefined") return;
 
     const update = () => {
-      const height = rightRef.current?.getBoundingClientRect().height ?? 0;
+      const node = rightRef.current;
+      if (!node) {
+        setPaneMax(null);
+        return;
+      }
+      const viewportIsDesktop = window.innerWidth >= 1024;
+      if (!viewportIsDesktop) {
+        setPaneMax(null);
+        return;
+      }
+      const height = node.getBoundingClientRect().height;
       if (!height) return;
       const cap = Math.round(window.innerHeight * 0.92);
-      setPaneMax(Math.min(height, cap));
+      const nextHeight = Math.min(height, cap);
+      setPaneMax((prev) => (prev === nextHeight ? prev : nextHeight));
     };
 
     update();
@@ -247,6 +258,11 @@ export default function Page() {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
       </Head>
 
       <main className="relative isolate min-h-[104vh] pb-4 sm:pb-6 text-white/90">
@@ -266,16 +282,30 @@ export default function Page() {
             <aside className="col-span-12 lg:col-span-3">
               <div
                 className="vista-window vista-window--compact flex h-full flex-col"
-                style={{ maxHeight: paneMax ?? undefined }}
+                style={paneMax !== null ? { height: paneMax, maxHeight: paneMax } : undefined}
               >
                 <div className="vista-window__titlebar">
                   <span className="vista-window__title">navigate</span>
                 </div>
                 <div className="vista-window__body flex-1 overflow-hidden">
-                  <nav className="grid gap-2 overflow-y-auto pr-1">
+                  <nav className="grid gap-3 overflow-y-auto pr-1">
                     {NAV_LINKS.map(({ href, label, external }) => {
                       const active = !external && pathname === href;
                       const className = leftLinkClass(active);
+                      const content = (
+                        <>
+                          <span className="flex-1 text-left">{label}</span>
+                          <Image
+                            src="/foidmommy.gif"
+                            alt=""
+                            aria-hidden="true"
+                            width={44}
+                            height={44}
+                            className="h-10 w-10 flex-shrink-0 rounded-full object-contain"
+                            draggable={false}
+                          />
+                        </>
+                      );
                       return external ? (
                         <a
                           key={href}
@@ -284,11 +314,11 @@ export default function Page() {
                           rel="noopener noreferrer"
                           className={className}
                         >
-                          {label}
+                          {content}
                         </a>
                       ) : (
                         <Link key={href} href={href} className={className}>
-                          {label}
+                          {content}
                         </Link>
                       );
                     })}
@@ -299,8 +329,8 @@ export default function Page() {
               {/* CENTER COLUMN — scroll area cut off at paneMax */}
               <section className="col-span-12 lg:col-span-6 min-h-0">
                 <div
-                  className="mb-4 flex min-h-0 flex-col gap-4 overflow-y-auto pr-1"
-                  style={{ maxHeight: paneMax ?? undefined }}
+                  className="flex min-h-0 flex-col gap-4 overflow-y-auto pr-1"
+                  style={paneMax !== null ? { height: paneMax, maxHeight: paneMax } : undefined}
                 >
                 {/* foidmommy.jpg */}
                 <div className="vista-window vista-window--media lg:min-h-[420px] shrink-0">
@@ -311,7 +341,7 @@ export default function Page() {
                       <span className="vista-window__control vista-window__control--close" />
                     </div>
                     <span className="vista-window__title">
-                      <span aria-hidden="true">📸</span> foidmommy.jpg
+                      <span aria-hidden="true">📸</span> foid_mommy.jpg
                     </span>
                     <span className="vista-window__badge" aria-hidden="true">🦋</span>
                   </div>
@@ -336,7 +366,7 @@ export default function Page() {
                       <span className="vista-window__control vista-window__control--close" />
                     </div>
                     <span className="vista-window__title">
-                      <span aria-hidden="true">💾</span> FoidMommyTerminal.exe
+                      <span aria-hidden="true">💾</span> foid_mommy_terminal.exe
                     </span>
                     <span className="vista-window__badge" aria-hidden="true">🪼</span>
                   </div>
@@ -362,7 +392,7 @@ export default function Page() {
                       <span className="vista-window__control vista-window__control--close" />
                     </div>
                     <span className="vista-window__title">
-                      <span aria-hidden="true">📄</span> foid mommy manual
+                      <span aria-hidden="true">📄</span> foid_mommy_manual.txt
                     </span>
                     <span className="vista-window__badge" aria-hidden="true">🌊</span>
                   </div>
@@ -490,7 +520,7 @@ export default function Page() {
               {/* music (inside a vista window, below “your prayers”) */}
               <div className="vista-window vista-window--compact">
                 <div className="vista-window__titlebar">
-                  <span className="vista-window__title">music</span>
+                  <span className="vista-window__title">music.exe</span>
                 </div>
                 {/* flush body so the player can fill it; no inner scrollbars */}
                 <div className="vista-window__body p-0 overflow-hidden">

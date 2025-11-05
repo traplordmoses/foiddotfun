@@ -10,6 +10,8 @@ const FILES = {
   enter: "/sfx/enter.wav",
 } as const;
 
+const TYPING_VOLUME = 0.4;
+
 function ensureCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
   if (!ctx) {
@@ -49,7 +51,7 @@ export async function unlockAudio() {
   unlocked = true;
 }
 
-function play(buf?: AudioBuffer, volume = 0.85, detuneRange = 40) {
+function play(buf?: AudioBuffer, volume = TYPING_VOLUME, detuneRange = 40) {
   if (!unlocked || !buf) return;
   const ac = ensureCtx();
   if (!ac) return;
@@ -59,7 +61,7 @@ function play(buf?: AudioBuffer, volume = 0.85, detuneRange = 40) {
     (src as any).detune.value = (Math.random() * 2 - 1) * detuneRange;
   }
   const gain = ac.createGain();
-  const amount = volume * (0.75 + Math.random() * 0.2);
+  const amount = volume;
   gain.gain.value = Math.min(1, Math.max(0, amount));
   src.connect(gain).connect(ac.destination);
   src.start();
@@ -84,14 +86,14 @@ export function attachTypingClicks(container: HTMLElement) {
     lastTime = now;
 
     if (event.key === " " && buffers.space) {
-      play(buffers.space, 0.9, 20);
+      play(buffers.space, TYPING_VOLUME, 20);
       return;
     }
     if ((event.key === "Enter" || event.key === "Return") && buffers.enter) {
-      play(buffers.enter, 0.9, 10);
+      play(buffers.enter, TYPING_VOLUME, 10);
       return;
     }
-    play(buffers.typing, 1.0, 50);
+    play(buffers.typing, TYPING_VOLUME, 50);
   });
 
   container.addEventListener(
@@ -100,7 +102,7 @@ export function attachTypingClicks(container: HTMLElement) {
       const now = performance.now();
       if (now - lastTime < MIN_GAP) return;
       lastTime = now;
-      play(buffers.typing, 1.0, 50);
+      play(buffers.typing, TYPING_VOLUME, 50);
     },
     { capture: true },
   );
