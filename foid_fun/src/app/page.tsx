@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Head from "next/head";
 import Image from "next/image";
 import Link from "next/link";
@@ -11,7 +12,7 @@ import FoidMommyTerminal, {
   FEELING_LABELS,
   type FeelingKey,
 } from "./(components)/FoidMommyTerminal";
-import MusicPanel from "@/components/MusicPanel";
+const MusicPanel = dynamic(() => import("@/components/MusicPanel"), { ssr: false });
 
 /* --- left sidebar routes --- */
 type NavLink = { href: string; label: string; external?: boolean };
@@ -24,6 +25,7 @@ const NAV_LINKS: NavLink[] = [
   { href: "/foidswap", label: "FoidSwap" },
   { href: "/foidfactory", label: "FoidFactory" },
   { href: "/anonymizer", label: "Anonymizer" },
+  { href: "https://github.com/traplordmoses/foiddotfun", label: "GitHub", external: true },
   { href: "https://x.com/foidfun", label: "X / @foidfun", external: true },
 ] as const;
 
@@ -126,11 +128,6 @@ function formatDurationShort(seconds: number) {
   return parts.join(" ");
 }
 
-if (typeof window !== "undefined") {
-  console.assert(secondsLeft(10, 15n) === 5, "secondsLeft forward = 5");
-  console.assert(secondsLeft(10, 9n) === 0, "secondsLeft past = 0");
-}
-
 export default function Page() {
   const { address, isConnected, chainId } = useAccount();
   const { writeContractAsync } = useWriteContract();
@@ -143,6 +140,9 @@ export default function Page() {
   const publicClient = usePublicClient();
   const snapRef = useRef<(() => Promise<unknown>) | null>(null);
   const nextRef = useRef<(() => Promise<unknown>) | null>(null);
+
+  const musicRef = useRef<HTMLDivElement | null>(null);
+
 
   const { data: snap, refetch: refetchSnap } = useReadContract({
     address: (MIRROR ?? "0x0000000000000000000000000000000000000000") as Hex,
@@ -217,39 +217,49 @@ export default function Page() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const update = () => {
-      const node = rightRef.current;
-      if (!node) {
+    const measure = () => {
+      // only apply on desktop layout (3 columns)
+      if (window.innerWidth < 1024) {
         setPaneMax(null);
         return;
       }
-      const viewportIsDesktop = window.innerWidth >= 1024;
-      if (!viewportIsDesktop) {
+      const aside = rightRef.current;
+      const music = musicRef.current;
+      if (!aside || !music) {
         setPaneMax(null);
         return;
       }
-      const height = node.getBoundingClientRect().height;
-      if (!height) return;
-      const cap = Math.round(window.innerHeight * 0.92);
-      const nextHeight = Math.min(height, cap);
-      setPaneMax((prev) => (prev === nextHeight ? prev : nextHeight));
+      const asideBox = aside.getBoundingClientRect();
+      const musicBox = music.getBoundingClientRect();
+      // height of the right column up to the bottom of MUSIC.EXE
+      const height = Math.max(0, Math.ceil(musicBox.bottom - asideBox.top));
+      if (height) setPaneMax((prev) => (prev === height ? prev : height));
     };
 
-    update();
-    window.addEventListener("resize", update);
+    // measure now + on resize + when right rail reflows
+    measure();
+    window.addEventListener("resize", measure);
 
-    const node = rightRef.current;
-    let observer: ResizeObserver | null = null;
-    if (node && typeof ResizeObserver !== "undefined") {
-      observer = new ResizeObserver(update);
-      observer.observe(node);
+    const observers: ResizeObserver[] = [];
+    if (typeof ResizeObserver !== "undefined") {
+      if (rightRef.current) {
+        const observer = new ResizeObserver(measure);
+        observer.observe(rightRef.current);
+        observers.push(observer);
+      }
+      if (musicRef.current) {
+        const observer = new ResizeObserver(measure);
+        observer.observe(musicRef.current);
+        observers.push(observer);
+      }
     }
 
     return () => {
-      window.removeEventListener("resize", update);
-      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+      observers.forEach((observer) => observer.disconnect());
     };
   }, [snap, nextAllowed]);
+
 
 
   return (
@@ -265,7 +275,7 @@ export default function Page() {
         <link rel="manifest" href="/site.webmanifest" />
       </Head>
 
-      <main className="relative isolate min-h-[104vh] pb-4 sm:pb-6 text-white/90">
+      <main className="relative isolate pb-4 sm:pb-6 text-white/90">
         <div className="pointer-events-none fixed inset-0 z-0 vignette" />
         <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-4 sm:px-6">
         {/* floating brand — overlays UI, doesn't move layout */}
@@ -279,10 +289,10 @@ export default function Page() {
         </div>
            <div className="grid grid-cols-12 items-stretch gap-3 lg:gap-4">
             {/* LEFT SIDEBAR — cut off at paneMax */}
-            <aside className="col-span-12 lg:col-span-3">
-              <div
-                className="vista-window vista-window--compact flex h-full flex-col"
-                style={paneMax !== null ? { height: paneMax, maxHeight: paneMax } : undefined}
+          <aside className="col-span-12 lg:col-span-3">
+            <div
+              className="vista-window vista-window--compact flex h-full flex-col"
+              style={paneMax !== null ? { height: paneMax, maxHeight: paneMax } : undefined}
               >
                 <div className="vista-window__titlebar">
                   <span className="vista-window__title">navigate</span>
@@ -326,12 +336,14 @@ export default function Page() {
                 </div>
               </div>
             </aside>
-              {/* CENTER COLUMN — scroll area cut off at paneMax */}
-              <section className="col-span-12 lg:col-span-6 min-h-0">
-                <div
-                  className="flex min-h-0 flex-col gap-4 overflow-y-auto pr-1"
-                  style={paneMax !== null ? { height: paneMax, maxHeight: paneMax } : undefined}
-                >
+            {/* CENTER COLUMN — scroll area cut off at paneMax */}
+            <section className="col-span-12 lg:col-span-6 min-h-0">
+              <div
+                className="flex h-full min-h-0 flex-col overflow-hidden"
+                style={paneMax !== null ? { height: paneMax, maxHeight: paneMax } : undefined}
+              >
+                <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                {/* your three vista windows, each with `shrink-0` */}
                 {/* foidmommy.jpg */}
                 <div className="vista-window vista-window--media lg:min-h-[420px] shrink-0">
                   <div className="vista-window__titlebar">
@@ -441,6 +453,7 @@ export default function Page() {
                   </div>
                 </div>
               </div>
+              </div>
             </section>
             {/* RIGHT RAIL — cut off at paneMax */}
               <aside
@@ -517,13 +530,14 @@ export default function Page() {
                   </div>
                 </div>
               </div>
-              {/* music (inside a vista window, below “your prayers”) */}
-              <div className="vista-window vista-window--compact">
-                <div className="vista-window__titlebar">
-                  <span className="vista-window__title">music.exe</span>
+              {/* music (inside a vista window, below "your prayers") */}
+              <div ref={musicRef} className="vista-window vista-window--compact w-full flex flex-col">
+                <div className="vista-window__titlebar flex items-center justify-between">
+                  <span className="vista-window__title select-none uppercase">MUSIC.EXE</span>
                 </div>
-                {/* flush body so the player can fill it; no inner scrollbars */}
-                <div className="vista-window__body p-0 overflow-hidden">
+
+                {/* let the player fill; no inner scrollbars */}
+                <div className="vista-window__body overflow-hidden p-0">
                   <MusicPanel />
                 </div>
               </div>

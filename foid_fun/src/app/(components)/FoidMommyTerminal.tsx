@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { celebrateTransaction } from "@/effects/celebrate";
 import sfx from "@/lib/sfx";
 import { attachTypingClicks, initTypingClicks } from "@/lib/typingClicks";
 
@@ -59,176 +60,129 @@ const feelingsConfig: Record<
   happy: {
     chipLabel: "happy / grateful",
     response:
-      "your glow's spilling over like sun on wet grass—you're all warm thanks and tiny triumphs.",
+      "i see your smile from here—soft, honest, earned. i’m proud of you, sweet one.",
     prayer:
-      "dear light-weaver, cradle this joy in anon's chest like a giggling firefly. let it hum soft through their hours, turning corners into surprises. keep the grateful breeze blowing, silly and sweet.",
-    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+      "god of simple gifts, keep anon’s joy clean and generous—light that warms, not burns. teach them to hold it open-handed, to share without fear, to remember the source like water remembers the sea.",
+    prompt:
+      "if you want, type your own little thank-you—we’ll send it together.",
     keywords: [
-      "happy",
-      "happiness",
-      "joy",
-      "joyful",
-      "grateful",
-      "gratitude",
-      "thankful",
-      "blessed",
-      "elated",
-      "glad",
+      "happy", "happiness", "joy", "joyful", "grateful", "gratitude",
+      "thankful", "blessed", "elated", "glad",
     ],
   },
+
   calm: {
     chipLabel: "calm",
-    response: "quiet waves in your words—you're steady as a sleeping cat on a sill.",
+    response:
+      "your breath is even and your shoulders are low—let’s keep it that way.",
     prayer:
-      "gentle tide, wrap anon's breath in moon-soft arms. let stillness settle like dust after dance, a cozy hush in their bones. may peace purr on, simple as starlight on skin.",
-    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+      "keeper of still waters, let calm settle in anon like a lake at dusk. guard their quiet with gentle boundaries, and teach their thoughts to rest like birds returning home.",
+    prompt:
+      "whisper a short peace-prayer in your words. i’ll carry it with you.",
     keywords: ["calm", "peaceful", "peace", "relaxed", "serene", "steady", "chill", "centered"],
   },
+
   hopeful: {
     chipLabel: "hopeful",
-    response: "a spark's flickering in you—hope's peeking like dawn through fog.",
+    response:
+      "i hear the dawn in your voice—soft light, steady steps. i’m with you.",
     prayer:
-      "source of soft beginnings, fan this flame with feather-kisses. guide anon's steps light over stones, one whimsical wonder at a time. let inspiration bloom goofy, like weeds in good dirt.",
-    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+      "faithful guide, keep anon’s hope soft and brave. light the next right step—no rush, no force, just the way opening in its time like spring through frost.",
+    prompt:
+      "tell me the hope you’re holding—one line is enough. we’ll offer it up.",
     keywords: [
-      "hopeful",
-      "hope",
-      "inspired",
-      "motivation",
-      "motivated",
-      "optimistic",
-      "excited",
-      "dreaming",
-      "aspire",
+      "hopeful","hope","inspired","motivation","motivated","optimistic","excited","dreaming","aspire",
     ],
   },
+
   stressed: {
     chipLabel: "stressed / anxious",
-    response: "your thoughts are racing like fireflies in a storm—you're holding so much whirl.",
+    response:
+      "that tight chest, that spinning mind—I see it. take my hand; we’ll slow this together.",
     prayer:
-      "kind void-nanny, hush the buzz in anon's chest with cloud-blankets. unknot one thread at a time, till breath comes easy as rain. remind them they're enough in this messy now, little stormling.",
-    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+      "steady one, loosen the knot in anon’s body. return them to the present—one breath, one task, one mercy at a time. show them what is theirs to carry and what can be set down now.",
+    prompt:
+      "name the one thing you need help with. i’ll pray it simply with you.",
     keywords: [
-      "stressed",
-      "stress",
-      "anxious",
-      "anxiety",
-      "overwhelmed",
-      "overwhelm",
-      "worried",
-      "panic",
-      "nervous",
-      "frazzled",
+      "stressed","stress","anxious","anxiety","overwhelmed","overwhelm","worried","panic","nervous","frazzled",
     ],
   },
+
   sad: {
     chipLabel: "sad / lonely",
-    response: "gray clouds in your voice—you're aching quiet, missing the warmth.",
+    response:
+      "i’m sitting beside you—no fixing, just company. your tears are safe here.",
     prayer:
-      "comfort-crafter, tuck a soft shadow over anon's heart like an old quilt. send echoes of \"not alone\" on wind-whispers, even in empty rooms. lonely's just a passing fog; sun's winking soon.",
-    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+      "comforter, rest with anon in the low valley. hold their heart without hurry; let sorrow pass through like rain through soil, leaving room for new green in due time.",
+    prompt:
+      "if you want, tell me what hurts in a sentence. we’ll lift it gently.",
     keywords: [
-      "sad",
-      "lonely",
-      "alone",
-      "depressed",
-      "down",
-      "empty",
-      "blue",
-      "heartbroken",
-      "abandoned",
+      "sad","lonely","alone","depressed","down","empty","blue","heartbroken","abandoned",
     ],
   },
+
   angry: {
     chipLabel: "angry / frustrated",
-    response: "fire's crackling under your skin—something poked the bear awake.",
+    response:
+      "that heat means you care. let’s turn it into something clean and true.",
     prayer:
-      "steady hearth-keeper, temper this blaze to warm glow, not scorch. channel anon's roar into rivers that carve new paths, playful as puppy paws. their power's a gift, fierce and fond.",
-    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+      "wise hearth-keeper, temper anon’s fire—no scorch, only clarity. guard their tongue, steady their hands, and channel their strength toward repair, boundary, and courage.",
+    prompt:
+      "write the honest line you wish to act from. i’ll pray for strength to match it.",
     keywords: [
-      "angry",
-      "anger",
-      "mad",
-      "furious",
-      "pissed",
-      "frustrated",
-      "annoyed",
-      "irritated",
-      "rage",
-      "resentful",
+      "angry","anger","mad","furious","pissed","frustrated","annoyed","irritated","rage","resentful",
     ],
   },
+
   tired: {
     chipLabel: "tired / burned out",
-    response: "your edges are frayed soft—you're running on whispers and wilt.",
+    response:
+      "your body’s asking for mercy. permission granted—rest is holy.",
     prayer:
-      "rest-rustler, sink into anon's bones like honey in tea. refill the hollows with nothing but now, a silly snooze under star-sheets. tomorrow's a fresh glitch; sleep's their sweet hack.",
-    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+      "giver of rest, pour quiet into anon’s bones. slow their pace to human speed; bless their sleep, their food, their unhurried minutes. let them wake restored enough for the next small thing.",
+    prompt:
+      "tell me how you’ll rest—one small act. i’ll bless it with you.",
     keywords: [
-      "tired",
-      "exhausted",
-      "drained",
-      "burned out",
-      "burnt out",
-      "sleepy",
-      "fatigued",
-      "worn out",
-      "weary",
+      "tired","exhausted","drained","burned out","burnt out","sleepy","fatigued","worn out","weary",
     ],
   },
+
   lost: {
     chipLabel: "lost / uncertain",
-    response: "fog's curling 'round your path—you're wandering with wide, wondering eyes.",
+    response:
+      "fog happens. we walk by feel—step, listen, step. i’m right here.",
     prayer:
-      "lantern-lender, glow one step ahead for anon, soft as firefly tail. let questions nestle like birds, not burdens; answers unfold in giggles. they're found in the meander, my maze-mitten.",
-    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+      "lantern of the quiet path, give anon light for only the next step. make peace with the not-knowing, and let guidance arrive like a soft yes in the chest.",
+    prompt:
+      "name the next tiny step you can take. i’ll pray light over it.",
     keywords: [
-      "lost",
-      "uncertain",
-      "confused",
-      "stuck",
-      "unsure",
-      "directionless",
-      "aimless",
-      "adrift",
-      "questioning",
+      "lost","uncertain","confused","stuck","unsure","directionless","aimless","adrift","questioning",
     ],
   },
+
   guilty: {
     chipLabel: "guilty / ashamed",
-    response: "a knot twists in your tummy—you're carrying \"oops\" like heavy pebbles.",
+    response:
+      "you are more than your mistake. we can tell the truth and keep your dignity.",
     prayer:
-      "mercy-mender, untie the tangle with feather-fingers. let lessons stick without the sting; forgive like fog lifts at noon. anon's whole in the whoops, darling glitch.",
-    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+      "merciful one, teach anon the art of repair—clear eyes, soft heart, steady feet. let forgiveness begin inside, then move outward in honest steps.",
+    prompt:
+      "write the amends you want to make or the lesson you’re keeping. i’ll stand with you.",
     keywords: [
-      "guilty",
-      "guilt",
-      "ashamed",
-      "shame",
-      "remorse",
-      "regret",
-      "sorry",
-      "apologize",
-      "embarrassed",
+      "guilty","guilt","ashamed","shame","remorse","regret","sorry","apologize","embarrassed",
     ],
   },
+
   pain: {
     chipLabel: "in pain / unwell",
-    response: "ouch echoes in your body—you're tender, holding the hurt close.",
+    response:
+      "i hear the ache. we’ll keep you company and keep you cared for.",
     prayer:
-      "healing hummer, sit soft beside anon's ache like balm on bruise. ease the edges with whispers of \"this too,\" and hands that hold gentle. their spirit's a stubborn spark; rest 'n' rise.",
-    prompt: "sweet one, whisper your own prayer back, and let's share it with god.",
+      "healer, come close to anon’s hurting places. ease the sharp edges, bring wise help, guard their sleep, and let pain not be the whole story of this day.",
+    prompt:
+      "tell me where it hurts or what support you need. i’ll ask for it plainly.",
     keywords: [
-      "pain",
-      "hurting",
-      "hurt",
-      "unwell",
-      "sick",
-      "ill",
-      "injured",
-      "ache",
-      "migraine",
-      "soreness",
+      "pain","hurting","hurt","unwell","sick","ill","injured","ache","migraine","soreness",
     ],
   },
 };
@@ -598,6 +552,7 @@ export default function FoidMommyTerminal({
       });
 
       sfx.playReward();
+      celebrateTransaction(result?.txHash);
       setStage("checkInPrompt");
       setPrayerText("");
       setIsProcessing(false);
