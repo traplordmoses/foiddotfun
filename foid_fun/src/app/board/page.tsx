@@ -244,7 +244,23 @@ export default function BoardPage() {
   const [devW, setDevW] = useState(200);
   const [devH, setDevH] = useState(200);
   const [devX, setDevX] = useState(0);
-  const [devY, setDevY] = useState(0);
+const [devY, setDevY] = useState(0);
+  const zoomToRect = useCallback(
+    (r: Rect, padding = 32) => {
+      const el = containerRef.current;
+      if (!el) return;
+      const viewW = el.clientWidth || 1;
+      const viewH = el.clientHeight || 1;
+      const targetW = r.w + padding * 2;
+      const targetH = r.h + padding * 2;
+      const s = Math.max(0.25, Math.min(4, Math.min(viewW / targetW, viewH / targetH)));
+      const x = (viewW - r.w * s) / 2 - r.x * s;
+      const y = (viewH - r.h * s) / 2 - r.y * s;
+      setScale(s);
+      setPan({ x, y });
+    },
+    []
+  );
 
   // ---- Epoch (hydration-safe) ----
   const { enabled, index: epochIdx, remainingMs } = useEpochCountdown();
@@ -751,11 +767,29 @@ const handleSingleFile = useCallback(
             return;
           }
           const cidPath = last.manifestCID.replace(/^ipfs:\/\//, "");
-          const res = await fetch(`https://ipfs.io/ipfs/${cidPath}`);
+          const url = `https://ipfs.io/ipfs/${cidPath}?_=${Date.now()}`;
+          const res = await fetch(url, { cache: "no-store" });
           if (!res.ok) throw new Error("manifest fetch failed");
           const man = await res.json();
           if (!alive) return;
-          const placements: FinalizedPlacement[] = (man.winners ?? []).map((w: any) => {
+          const winnersRaw = man.winners ?? [];
+          const withCid = await Promise.all(
+            winnersRaw.map(async (w: any) => {
+              if (!w.cid && w.id) {
+                try {
+                  const res = await fetch(`/api/cid-by-id?id=${encodeURIComponent(w.id)}`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    if (data.cid) w.cid = data.cid;
+                  }
+                } catch {
+                  /* ignore */
+                }
+              }
+              return w;
+            })
+          );
+          const placements: FinalizedPlacement[] = withCid.map((w: any) => {
             const rect = w.rect ?? { x: w.x, y: w.y, w: w.w, h: w.h };
             const cells = w.cells ?? rectCells(rect);
             return {
@@ -770,6 +804,14 @@ const handleSingleFile = useCallback(
             };
           });
           setPlaced(placements);
+          if (placements.length) {
+            zoomToRect({
+              x: placements[0].x,
+              y: placements[0].y,
+              w: placements[0].w,
+              h: placements[0].h,
+            });
+          }
           setPlacedEpoch(last.epoch);
         } else {
           const man = await getManifest(viewEpoch);
@@ -1270,6 +1312,7 @@ const handleSingleFile = useCallback(
                     cells,
                   },
                 ]);
+                zoomToRect(rect);
               }}
             >
               Add to board

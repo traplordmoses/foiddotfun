@@ -13,6 +13,7 @@ import {
 } from "../_store";
 import { hasOverlap } from "@/lib/grid";
 import { uploadJSON } from "@/lib/ipfs";
+import { ProposalStore } from "@/lib/proposalStore";
 
 function canDisplaceAccepted(a: Proposal, accepted: Placement[]) {
   // NOTE: second arg must be Rect[]
@@ -86,18 +87,21 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const added: Placement[] = winners.map((w) => ({
-    id: w.id,
-    owner: w.owner,
-    cid: w.cid,
-    name: w.name,
-    mime: w.mime,
-    rect: w.rect,
-    cells: w.cells,
-    bidPerCellWei: w.bidPerCellWei,
-    width: w.width,
-    height: w.height,
-  }));
+  const added: Placement[] = winners.map((w) => {
+    const stored = ProposalStore.get(w.id);
+    return {
+      id: w.id,
+      owner: w.owner || stored?.owner || "",
+      cid: w.cid || stored?.cid || "",
+      name: w.name,
+      mime: w.mime,
+      rect: w.rect,
+      cells: w.cells,
+      bidPerCellWei: w.bidPerCellWei,
+      width: w.width,
+      height: w.height,
+    };
+  });
 
   nextAccepted = [...nextAccepted, ...added];
 

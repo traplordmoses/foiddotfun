@@ -67,21 +67,24 @@ export async function GET(req: NextRequest) {
     const logs = await getLogsChunked({ fromBlock, toBlock: latest });
 
     const proposed = logs
-      .map((l) => ({
-        id: l.args.id as Hex,
-        bidder: l.args.bidder as `0x${string}`,
-        epoch: Number(l.args.epoch),
-        rect: {
-          x: Number(l.args.rect?.x ?? 0),
-          y: Number(l.args.rect?.y ?? 0),
-          w: Number(l.args.rect?.w ?? 0),
-          h: Number(l.args.rect?.h ?? 0),
-        },
-        bidPerCellWei: l.args.bidPerCellWei?.toString() ?? "0",
-        cells: Number(l.args.cells ?? 0),
-        cidHash: l.args.cidHash as Hex,
-        value: l.args.value?.toString() ?? "0",
-      }))
+      .map((l) => {
+        const args = (l as typeof l & { args?: any }).args ?? {};
+        return {
+          id: args.id as Hex,
+          bidder: args.bidder as `0x${string}`,
+          epoch: Number(args.epoch ?? 0),
+          rect: {
+            x: Number(args.rect?.x ?? 0),
+            y: Number(args.rect?.y ?? 0),
+            w: Number(args.rect?.w ?? 0),
+            h: Number(args.rect?.h ?? 0),
+          },
+          bidPerCellWei: args.bidPerCellWei?.toString() ?? "0",
+          cells: Number(args.cells ?? 0),
+          cidHash: args.cidHash as Hex,
+          value: args.value?.toString() ?? "0",
+        };
+      })
       .filter((p) => (epoch === undefined ? true : p.epoch === epoch));
 
     const uniq = Object.values(

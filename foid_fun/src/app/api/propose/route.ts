@@ -8,6 +8,8 @@ import {
   listAccepted,
   type Proposal,
 } from "../_store";
+import { ProposalStore, type StoredProposalMeta } from "@/lib/proposalStore";
+import { keccak256, stringToHex } from "viem";
 
 export const runtime = "nodejs";
 
@@ -73,8 +75,9 @@ export async function POST(req: Request) {
   const window = Math.max(1, S.voteWindowEpochs);
   const voteEndsAtEpoch = nowEpoch + window;
 
+  const generatedId = body.id ?? uid();
   const p = addProposal({
-    id: body.id ?? uid(),
+    id: generatedId,
     owner,
     cid,
     name: name ?? "",
@@ -88,10 +91,47 @@ export async function POST(req: Request) {
     voteEndsAtEpoch,
   } as Omit<Proposal, "yes" | "no" | "voters" | "status" | "createdAt">);
 
+  const normalizedId = generatedId.startsWith("0x")
+    ? (generatedId as `0x${string}`)
+    : (keccak256(stringToHex(generatedId)) as `0x${string}`);
+  const normalizedCid = cid.replace(/^ipfs:\/\//, "");
+  let cidHash = (body as any).cidHash as `0x${string}` | undefined;
+  if (!cidHash || cidHash === "0x") {
+    cidHash = (await fetchCidHash(normalizedCid)) ?? ("0x" as `0x${string}`);
+  }
+
+  const stored: StoredProposalMeta = {
+    id: normalizedId,
+    owner: owner as `0x${string}`,
+    cid: normalizedCid,
+    cidHash,
+    rect,
+    cells,
+    name: name ?? "",
+    mime: (mime ?? "image/png") as "image/png" | "image/jpeg",
+    epoch: nowEpoch,
+    bidPerCellWei: String(bidPerCellWei),
+    createdAt: new Date().toISOString(),
+  };
+  ProposalStore.put(stored);
+
   return NextResponse.json({
     ok: true,
     id: p.id,
     epochSubmitted: p.epochSubmitted,
     voteEndsAtEpoch: p.voteEndsAtEpoch,
   });
+}
+
+async function fetchCidHash(cid: string): Promise<`0x${string}` | null> {
+  const normalized = cid.replace(/^ipfs:\/\//, "").trim();
+  if (!normalized) return null;
+  try {
+    const res = await fetch(`https://ipfs.io/ipfs/${normalized}`);
+    if (!res.ok) return null;
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    return keccak256(bytes);
+  } catch {
+    return null;
+  }
 }
