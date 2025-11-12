@@ -1,9 +1,11 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-const links = [
+type NavLink = { href: string; label: string };
+
+const LINKS: NavLink[] = [
   { href: "/", label: "Dashboard" },
   { href: "/about", label: "About" },
   { href: "/wFOID", label: "wFOID" },
@@ -14,24 +16,39 @@ const links = [
 ];
 
 export default function Nav() {
-  const pathname = usePathname();
+  const pathname = usePathname() || "/";
 
-  if (pathname === "/") {
-    return null;
-  }
-
+  // Always call hooks on every render (fixes the warning)
   const [isOpen, setIsOpen] = useState(false);
 
+  // Close mobile menu when route changes
   useEffect(() => {
     setIsOpen(false);
   }, [pathname]);
 
-  const linkClassName = (active: boolean) =>
-    `block rounded-full px-4 py-2 text-base font-medium tracking-wide transition ${
+  // Normalize and compute active path
+  const activePath = useMemo(
+    () => (pathname.replace(/\/$/, "") || "/"),
+    [pathname]
+  );
+
+  const linkClass = (href: string) => {
+    const active =
+      href === "/"
+        ? activePath === "/"
+        : activePath === href || activePath.startsWith(href + "/");
+    return `block rounded-full px-4 py-2 text-base font-medium tracking-wide transition ${
       active
         ? "bg-gradient-to-r from-foid-aqua/80 via-foid-periw/80 to-foid-candy/80 text-foid-midnight shadow-[0_0_24px_rgba(114,225,255,0.5)]"
         : "text-white/85 hover:bg-white/18 hover:text-white hover:shadow-[0_0_18px_rgba(114,225,255,0.28)]"
     }`;
+  };
+
+  const isHome = activePath === "/";
+  if (isHome) {
+    // Safe to return here because all hooks above have run
+    return null;
+  }
 
   return (
     <nav className="relative border-b border-white/10 bg-transparent pb-2 pt-5 backdrop-blur-sm">
@@ -39,56 +56,52 @@ export default function Nav() {
         <span className="font-mono text-base uppercase tracking-[0.32em] text-foid-mint/90 sm:text-lg">
           control panel
         </span>
+
         <div className="flex items-center gap-3">
+          {/* Mobile toggle */}
           <button
             type="button"
-            onClick={() => setIsOpen((prev) => !prev)}
+            onClick={() => setIsOpen((v) => !v)}
             className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/35 bg-white/15 text-white/80 transition hover:border-white/55 hover:text-white focus:outline-none focus:ring-2 focus:ring-foid-cyan/50 md:hidden"
             aria-label="Toggle navigation"
             aria-expanded={isOpen}
             aria-controls="mobile-nav"
           >
-            <svg
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.5}
-            >
+            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" d="M3.5 6h13m-13 4h13m-13 4h13" />
             </svg>
           </button>
+
+          {/* Desktop links */}
           <ul className="hidden items-center gap-3 md:flex">
-            {links.map((l) => {
-              const active = pathname === l.href;
-              return (
-                <li key={l.href}>
-                  <Link href={l.href} className={linkClassName(active)}>
-                    {l.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </div>
-      <div
-        id="mobile-nav"
-        className={`foid-glass border border-white/20 px-4 py-3 md:hidden ${
-          isOpen ? "block" : "hidden"
-        }`}
-      >
-        <ul className="flex flex-col gap-2">
-          {links.map((l) => {
-            const active = pathname === l.href;
-            return (
+            {LINKS.map((l) => (
               <li key={l.href}>
-                <Link href={l.href} className={linkClassName(active)}>
+                <Link href={l.href} className={linkClass(l.href)}>
                   {l.label}
                 </Link>
               </li>
-            );
-          })}
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Mobile menu */}
+      <div
+        id="mobile-nav"
+        className={`foid-glass border border-white/20 px-4 py-3 md:hidden ${isOpen ? "block" : "hidden"}`}
+      >
+        <ul className="flex flex-col gap-2">
+          {LINKS.map((l) => (
+            <li key={l.href}>
+              <Link
+                href={l.href}
+                className={linkClass(l.href)}
+                onClick={() => setIsOpen(false)}
+              >
+                {l.label}
+              </Link>
+            </li>
+          ))}
         </ul>
       </div>
     </nav>

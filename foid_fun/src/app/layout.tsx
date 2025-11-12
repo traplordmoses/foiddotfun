@@ -5,7 +5,6 @@ import Nav from "@/components/Nav";
 import { ConnectBar } from "@/components/ConnectBar";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import SfxInitializer from "@/components/SfxInitializer";
-import MusicPanel from "@/components/MusicPanel";
 import FairyDustCursor from "@/components/FairyDustCursor";
 
 // app/layout.tsx (or wherever your metadata lives)
@@ -27,12 +26,13 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="manifest" href="/site.webmanifest" />
+        <meta name="theme-color" content="#0e0f2b" />
+      </head>
       <body className="relative">
-        {/* ambient moving background */}
         <AnimatedBackground />
-        {/* tint overlay (tweak opacity as you like) */}
         <div className="scene-tint" />
-        {/* app */}
         <Providers>
           <SfxInitializer />
           <FairyDustCursor />

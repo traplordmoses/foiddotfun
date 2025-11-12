@@ -4,15 +4,32 @@ type AudioContextConstructor =
   | typeof AudioContext
   | (typeof globalThis extends { webkitAudioContext: infer T } ? T : never);
 
+// IMPORTANT: make sure these files exist under /public
+// e.g. public/sfx/typing.wav, public/sfx/reward.wav, etc.
 const PATHS = {
   loading: "/sfx/loadingfoid.wav",
   reward: "/sfx/reward.wav",
   typing: "/sfx/typing.wav",
   error: "/sfx/error.wav",
-  background: "/sfx/backgroundfoid.wav",
+
+  // background track (adjust the first one to a file you actually have)
+  background_primary: "/sfx/music/foidbackground1.opus",
+
+  // --- legacy aliases to kill 404s from older code ---
+  enter: "/sfx/typing.wav",            // old code requested /sfx/enter.wav
+  spacebar: "/sfx/typing.wav",         // old code requested /sfx/spacebar.wav
+  backgroundfoid: "/sfx/music/foidbackground1.opus",
 } as const;
 
 type SfxKey = keyof typeof PATHS;
+
+// optional background fallbacks if the primary is missing on disk
+const BG_FALLBACKS = [
+  PATHS.backgroundfoid,
+  "/sfx/music/foidbackground15.opus",
+  "/sfx/music/foidbackground1.m4a",
+  "/sfx/music/foidbackground15.m4a",
+];
 
 const TYPING_VOLUME = 0.4;
 
@@ -43,22 +60,21 @@ const backgroundState: BackgroundState = {
   html: null,
 };
 
-const typingState: {
-  timer: number | null;
-  active: boolean;
-} = {
+const typingState: { timer: number | null; active: boolean } = {
   timer: null,
   active: false,
 };
+
+const isBrowser = typeof window !== "undefined";
+const audioContextSupported =
+  isBrowser &&
+  (typeof window.AudioContext === "function" ||
+    typeof (window as any).webkitAudioContext === "function");
 
 function clampVolume(value: number) {
   if (Number.isNaN(value)) return 0;
   return Math.min(1, Math.max(0, value));
 }
-
-const isBrowser = typeof window !== "undefined";
-const audioContextSupported =
-  isBrowser && (typeof window.AudioContext === "function" || typeof (window as any).webkitAudioContext === "function");
 
 function ensureCtx(): AudioContext | null {
   if (!isBrowser) return null;
@@ -84,25 +100,38 @@ function ensureBackgroundGain(ac: AudioContext): GainNode {
   return backgroundState.gain;
 }
 
+async function fetchFirst(paths: string[]): Promise<ArrayBuffer | null> {
+  for (const p of paths) {
+    try {
+      const res = await fetch(p);
+      if (res.ok) return await res.arrayBuffer();
+    } catch {}
+  }
+  return null;
+}
+
 async function loadOne(key: SfxKey): Promise<void> {
-  if (!isBrowser) return;
-  if (buffers[key]) return;
-  if (pendingLoads[key]) {
-    await pendingLoads[key];
+  if (!isBrowser || buffers[key] || pendingLoads[key]) {
+    if (pendingLoads[key]) await pendingLoads[key];
     return;
   }
   const promise = (async () => {
     const ac = ensureCtx();
     if (!ac) return;
-    const response = await fetch(PATHS[key]);
-    if (!response.ok) throw new Error(`Failed to load sfx: ${PATHS[key]}`);
-    const arrayBuffer = await response.arrayBuffer();
-    const audioBuffer = await ac.decodeAudioData(arrayBuffer);
+
+    const candidates =
+      key === "background_primary"
+        ? [PATHS.background_primary, ...BG_FALLBACKS]
+        : [PATHS[key]];
+
+    const data = await fetchFirst(candidates);
+    if (!data) throw new Error(`Failed to load sfx: ${candidates.join(", ")}`);
+
+    const audioBuffer = await ac.decodeAudioData(data);
     buffers[key] = audioBuffer;
   })();
 
   pendingLoads[key] = promise;
-
   try {
     await promise;
   } finally {
@@ -110,9 +139,10 @@ async function loadOne(key: SfxKey): Promise<void> {
   }
 }
 
+// background buffer accessor (uses the "background_primary" key)
 async function getBackgroundBuffer(): Promise<AudioBuffer | null> {
-  await loadOne("background").catch(() => {});
-  return (buffers.background as AudioBuffer | undefined) ?? null;
+  await loadOne("background_primary").catch(() => {});
+  return (buffers.background_primary as AudioBuffer | undefined) ?? null;
 }
 
 export async function init(): Promise<void> {
@@ -121,13 +151,9 @@ export async function init(): Promise<void> {
     fallbackMode = true;
     return;
   }
-  await Promise.all(
-    (Object.keys(PATHS) as SfxKey[]).map((key) =>
-      loadOne(key).catch(() => {
-        // ignore missing asset; keep app running
-      }),
-    ),
-  );
+  // preload common effects; background lazily loads on first play
+  const keys: SfxKey[] = ["loading", "reward", "typing", "error", "enter", "spacebar"];
+  await Promise.all(keys.map((k) => loadOne(k).catch(() => {})));
 }
 
 export async function unlock(): Promise<void> {
@@ -135,21 +161,18 @@ export async function unlock(): Promise<void> {
   unlocked = true;
   if (fallbackMode) return;
   const ac = ensureCtx();
-  if (!ac) return;
   try {
-    await ac.resume();
-  } catch (error) {
-    console.warn("Failed to resume AudioContext", error);
+    await ac?.resume();
+  } catch (e) {
+    console.warn("Failed to resume AudioContext", e);
   }
 }
 
-function playViaBuffer(
-  key: SfxKey,
-  options: { volume?: number; detune?: number } = {},
-): void {
+function playViaBuffer(key: SfxKey, options: { volume?: number; detune?: number } = {}): void {
   if (!isBrowser || !unlocked || fallbackMode) return;
   const ac = ensureCtx();
   if (!ac) return;
+
   const buffer = buffers[key];
   if (!buffer) {
     void loadOne(key).catch(() => {});
@@ -159,11 +182,7 @@ function playViaBuffer(
   const source = ac.createBufferSource();
   source.buffer = buffer;
   if (typeof options.detune === "number" && "detune" in source) {
-    try {
-      source.detune.value = options.detune;
-    } catch {
-      // ignore unsupported detune
-    }
+    try { source.detune.value = options.detune; } catch {}
   }
 
   const gain = ac.createGain();
@@ -175,43 +194,41 @@ function playViaBuffer(
 
 function playViaHtmlAudio(key: SfxKey, volume = 0.9): void {
   if (!isBrowser || !unlocked) return;
-  const audio = new Audio(PATHS[key]);
+  const path = PATHS[key];
+  const audio = new Audio(path);
   audio.volume = volume;
-  void audio.play().catch(() => {
-    /* ignore autoplay rejection */
-  });
+  void audio.play().catch(() => {});
 }
 
 function play(key: SfxKey, options?: { volume?: number; detune?: number }) {
-  if (fallbackMode) {
-    playViaHtmlAudio(key, options?.volume ?? 0.9);
-  } else {
-    playViaBuffer(key, options);
-  }
+  if (fallbackMode) playViaHtmlAudio(key, options?.volume ?? 0.9);
+  else playViaBuffer(key, options);
 }
 
+// PUBLIC API (effects)
+export function playTypingTick(): void {
+  const detune = Math.random() * 60 - 30;
+  play("typing", { detune, volume: TYPING_VOLUME });
+}
+export function playLoading(): void { play("loading", { volume: 1 }); }
+export function playReward(): void { play("reward", { volume: 1 }); }
+export function playError(): void { play("error", { volume: 0.95 }); }
+
+// background controls
 async function playBackground(): Promise<boolean> {
   if (!isBrowser || !unlocked) return false;
 
   if (fallbackMode) {
     if (!backgroundState.html) {
-      backgroundState.html = new Audio(PATHS.background);
+      backgroundState.html = new Audio(PATHS.background_primary);
       backgroundState.html.loop = true;
     }
-    const element = backgroundState.html;
-    element.volume = backgroundState.volume;
+    const el = backgroundState.html;
+    el.volume = backgroundState.volume;
+    try { if (!Number.isNaN(el.duration) && el.duration > 0) el.currentTime = backgroundState.offset % el.duration; } catch {}
     try {
-      if (!Number.isNaN(element.duration) && element.duration > 0) {
-        const duration = element.duration;
-        const offset = backgroundState.offset % duration;
-        element.currentTime = offset;
-      }
-    } catch {
-      /* ignore seek issues */
-    }
-    try {
-      await element.play();
-      backgroundState.offset = element.currentTime || backgroundState.offset;
+      await el.play();
+      backgroundState.offset = el.currentTime || backgroundState.offset;
       backgroundState.playing = true;
       return true;
     } catch {
@@ -231,12 +248,7 @@ async function playBackground(): Promise<boolean> {
   source.loop = true;
   const gain = ensureBackgroundGain(ac);
   source.connect(gain);
-
-  try {
-    source.start(0, offset);
-  } catch {
-    return false;
-  }
+  try { source.start(0, offset); } catch { return false; }
 
   backgroundState.source = source;
   backgroundState.startTime = ac.currentTime;
@@ -249,7 +261,6 @@ async function playBackground(): Promise<boolean> {
       backgroundState.playing = false;
     }
   };
-
   return true;
 }
 
@@ -257,68 +268,42 @@ function pauseBackground(): void {
   if (!isBrowser) return;
 
   if (fallbackMode) {
-    const element = backgroundState.html;
-    if (element) {
-      try {
-        backgroundState.offset = element.currentTime;
-      } catch {
-        backgroundState.offset = 0;
-      }
-      element.pause();
+    const el = backgroundState.html;
+    if (el) {
+      try { backgroundState.offset = el.currentTime; } catch { backgroundState.offset = 0; }
+      el.pause();
     }
     backgroundState.playing = false;
     return;
   }
 
   const ac = ensureCtx();
-  if (!ac) return;
   const source = backgroundState.source;
-  if (!source) {
-    backgroundState.playing = false;
-    return;
-  }
+  if (!ac || !source) { backgroundState.playing = false; return; }
 
-  const buffer = buffers.background as AudioBuffer | undefined;
+  const buffer = buffers.background_primary as AudioBuffer | undefined;
   if (buffer && buffer.duration > 0) {
     const elapsed = ac.currentTime - backgroundState.startTime;
-    const nextOffset = (backgroundState.offset + elapsed) % buffer.duration;
-    backgroundState.offset = Number.isFinite(nextOffset) ? nextOffset : 0;
+    backgroundState.offset = (backgroundState.offset + elapsed) % buffer.duration;
   } else {
     backgroundState.offset = 0;
   }
 
-  try {
-    source.stop();
-  } catch {
-    /* ignore stop errors */
-  }
+  try { source.stop(); } catch {}
   source.disconnect();
-  if (backgroundState.gain) {
-    backgroundState.gain.disconnect();
-    backgroundState.gain = null;
-  }
+  if (backgroundState.gain) { backgroundState.gain.disconnect(); backgroundState.gain = null; }
   backgroundState.source = null;
   backgroundState.playing = false;
 }
 
-function setBackgroundVolume(volume: number): void {
-  const value = clampVolume(volume);
+function setBackgroundVolume(v: number): void {
+  const value = clampVolume(v);
   backgroundState.volume = value;
 
   if (!isBrowser) return;
-
-  if (fallbackMode) {
-    if (backgroundState.html) {
-      backgroundState.html.volume = value;
-    }
-    return;
-  }
-
+  if (fallbackMode) { if (backgroundState.html) backgroundState.html.volume = value; return; }
   if (!ctx) return;
-  if (backgroundState.gain) {
-    backgroundState.gain.gain.value = value;
-    return;
-  }
+  if (backgroundState.gain) { backgroundState.gain.gain.value = value; return; }
   if (backgroundState.source) {
     const gain = ensureBackgroundGain(ctx);
     backgroundState.source.disconnect();
@@ -327,14 +312,10 @@ function setBackgroundVolume(volume: number): void {
   }
 }
 
-function getBackgroundVolume(): number {
-  return clampVolume(backgroundState.volume);
-}
+function getBackgroundVolume(): number { return clampVolume(backgroundState.volume); }
+function isBackgroundPlaying(): boolean { return backgroundState.playing; }
 
-function isBackgroundPlaying(): boolean {
-  return backgroundState.playing;
-}
-
+// typing loop API
 function stopTypingLoop(): void {
   typingState.active = false;
   if (typingState.timer !== null) {
@@ -342,48 +323,22 @@ function stopTypingLoop(): void {
     typingState.timer = null;
   }
 }
-
 function typingTick(): void {
   if (!isBrowser || !typingState.active) return;
-
   const detune = Math.random() * 80 - 40;
   play("typing", { detune, volume: TYPING_VOLUME });
-
   const delay = 70 + Math.random() * 55;
   typingState.timer = window.setTimeout(typingTick, delay);
 }
-
 export const typing = {
   start() {
     if (!isBrowser || typingState.active) return;
     typingState.active = true;
-    if (!fallbackMode) {
-      void loadOne("typing").catch(() => {});
-    }
+    if (!fallbackMode) void loadOne("typing").catch(() => {});
     typingTick();
   },
-  stop() {
-    if (!isBrowser) return;
-    stopTypingLoop();
-  },
+  stop() { if (!isBrowser) return; stopTypingLoop(); },
 };
-
-export function playTypingTick(): void {
-  const detune = Math.random() * 60 - 30;
-  play("typing", { detune, volume: TYPING_VOLUME });
-}
-
-export function playLoading(): void {
-  play("loading", { volume: 1 });
-}
-
-export function playReward(): void {
-  play("reward", { volume: 1 });
-}
-
-export function playError(): void {
-  play("error", { volume: 0.95 });
-}
 
 export const background = {
   play: playBackground,
@@ -393,9 +348,7 @@ export const background = {
   isPlaying: isBackgroundPlaying,
 };
 
-export function isUnlocked(): boolean {
-  return unlocked;
-}
+export async function isUnlocked(): Promise<boolean> { return unlocked; }
 
 export default {
   init,

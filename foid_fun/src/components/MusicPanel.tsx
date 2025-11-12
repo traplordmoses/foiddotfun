@@ -23,6 +23,10 @@ const TRACKS: Track[] = Array.from({ length: 23 }, (_, i) => {
 
 const CROSSFADE_SECONDS = 2;
 
+export type MusicPanelProps = React.HTMLAttributes<HTMLDivElement> & {
+  compact?: boolean;
+};
+
 /* tiny speaker icon (emoji can shift layout) */
 function SpeakerIcon({ className = "" }: { className?: string }) {
   return (
@@ -33,8 +37,11 @@ function SpeakerIcon({ className = "" }: { className?: string }) {
   );
 }
 
-export default function MusicPanel(props: React.HTMLAttributes<HTMLDivElement>) {
-  const { className = "", ...rest } = props;
+export default function MusicPanel({
+  compact = false,
+  className = "",
+  ...rest
+}: MusicPanelProps) {
 
   const [currentTrackIndex, setCurrentTrackIndexState] = useState(0);
   const [isPlaying, setIsPlayingState] = useState(false);
@@ -476,6 +483,65 @@ const ensureVisualizer = useCallback(() => {
   }, [play]);
 
   const track = TRACKS[currentTrackIndex];
+  const currentTrackName = track?.name ?? "—";
+
+  const audioElements = (
+    <>
+      {[0, 1].map((slot) => (
+        <audio
+          key={slot}
+          ref={registerAudio(slot as Slot)}
+          preload="auto"
+          crossOrigin="anonymous"
+          onEnded={() => handleEnded(slot as Slot)}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => {
+            const anyPlaying = audioRefs.current.some((audio) => audio && !audio.paused);
+            if (!anyPlaying) setIsPlaying(false);
+          }}
+          className="hidden"
+        />
+      ))}
+    </>
+  );
+
+  if (compact) {
+    return (
+      <div
+        {...rest}
+        className={`rounded-xl bg-white/85 text-black px-3 py-2 shadow-sm ${className}`}
+      >
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggle}
+            className="rounded px-2 py-1 bg-white/90 text-xs font-semibold border border-black/10"
+          >
+            {isPlaying ? "Pause" : "Play"}
+          </button>
+          <div className="text-xs opacity-80 truncate max-w-[120px]">
+            {currentTrackName}
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={volume}
+            onChange={(e) => setVolume(Number(e.target.value))}
+            className="w-24"
+            aria-label="Volume"
+          />
+          <button
+            onClick={next}
+            className="rounded px-2 py-1 bg-white/70 text-xs font-semibold border border-black/10"
+          >
+            Next
+          </button>
+        </div>
+        {audioElements}
+      </div>
+    );
+  }
 
   return (
     <div {...rest} className={`relative rounded-3xl bg-gradient-to-b from-[#98c4ff]/30 to-[#2a5aa0]/40 p-4 backdrop-blur-sm shadow-lg ${className}`}>
@@ -501,22 +567,7 @@ const ensureVisualizer = useCallback(() => {
           onClick={loadRandomPreset}
           className="absolute inset-0 h-full w-full cursor-pointer"
         />
-
-        {[0, 1].map((slot) => (
-          <audio
-            key={slot}
-            ref={registerAudio(slot as Slot)}
-            preload="auto"
-            crossOrigin="anonymous"
-            onEnded={() => handleEnded(slot as Slot)}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => {
-              const anyPlaying = audioRefs.current.some((audio) => audio && !audio.paused);
-              if (!anyPlaying) setIsPlaying(false);
-            }}
-            className="hidden"
-          />
-        ))}
+        {audioElements}
       </div>
         <div className="mt-4">
          <div

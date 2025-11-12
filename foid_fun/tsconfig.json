@@ -16,17 +16,22 @@
     "incremental": true,
     "baseUrl": "./",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@/src/*": ["src/*"],
+      "@/state/*": ["state/*"]
     },
     "typeRoots": ["./node_modules/@types", "./src/types"],
+    "types": ["node"],
     "plugins": [{ "name": "next" }]
   },
   "include": [
     "next-env.d.ts",
     "src/**/*",
     "src/types/**/*.d.ts",
+    "state/**/*",
     "next.config.mjs",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "scripts/**/*"
   ],
   "exclude": ["node_modules"]
 }

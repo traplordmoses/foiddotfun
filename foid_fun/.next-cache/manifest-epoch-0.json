@@ -1,0 +1,19 @@
+{
+  "epoch": 0,
+  "winners": [
+    {
+      "id": "0x490ed285f62a371a9d211f82c3111aa1409f3b9075192eb20140d87fe10c0147",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 736,
+        "h": 544
+      },
+      "cells": 391
+    }
+  ],
+  "rejected": [],
+  "generatedAt": "2025-11-12T04:22:25.457Z",
+  "emitter": "0x7c5ede19f17910431c780323e9d8ffafd92eaecf",
+  "topic0Used": "0x92b1196f974df8d5783915b6db84d712f8cb5ef8957f77bd341b6e731257cb34"
+}

@@ -12,7 +12,17 @@ import FoidMommyTerminal, {
   FEELING_LABELS,
   type FeelingKey,
 } from "./(components)/FoidMommyTerminal";
-const MusicPanel = dynamic(() => import("@/components/MusicPanel"), { ssr: false });
+const MusicPanel = dynamic(() => import("@/components/MusicPanel"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex flex-col items-center justify-center gap-2 py-10 text-xs text-white/70">
+      <span>Booting MUSIC.EXE…</span>
+      <span className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+        keeping the dashboard snappy
+      </span>
+    </div>
+  ),
+});
 
 /* --- left sidebar routes --- */
 type NavLink = { href: string; label: string; external?: boolean };
@@ -142,6 +152,7 @@ export default function Page() {
   const nextRef = useRef<(() => Promise<unknown>) | null>(null);
 
   const musicRef = useRef<HTMLDivElement | null>(null);
+  const [musicPanelReady, setMusicPanelReady] = useState(false);
 
 
   const { data: snap, refetch: refetchSnap } = useReadContract({
@@ -172,6 +183,43 @@ export default function Page() {
     if (!REGISTRY) return;
     void refetchNext({ throwOnError: false, cancelRefetch: false });
   }, [MIRROR, REGISTRY, address, FLUENT_CHAIN_ID, refetchNext, refetchSnap]);
+
+  useEffect(() => {
+    if (musicPanelReady) return;
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+    const enable = () => {
+      if (!cancelled) setMusicPanelReady(true);
+    };
+    const idleCb = (window as any).requestIdleCallback?.(enable, { timeout: 2400 }) ?? null;
+    const timeout = window.setTimeout(enable, 2600);
+    return () => {
+      cancelled = true;
+      if (idleCb !== null) {
+        (window as any).cancelIdleCallback?.(idleCb);
+      }
+      window.clearTimeout(timeout);
+    };
+  }, [musicPanelReady]);
+
+  useEffect(() => {
+    if (musicPanelReady) return;
+    if (typeof window === "undefined" || typeof IntersectionObserver === "undefined") return;
+    const target = musicRef.current;
+    if (!target) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setMusicPanelReady(true);
+        }
+      },
+      { rootMargin: "64px", threshold: 0.1 }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [musicPanelReady]);
+
+  const loadMusicPanelNow = useCallback(() => setMusicPanelReady(true), []);
 
   const ensureWalletReady = useCallback(async () => {
     if (!isConnected || !address) throw new Error("please connect your wallet before anchoring your prayer.");
@@ -460,23 +508,21 @@ export default function Page() {
                 ref={rightRef}
                 className="col-span-12 space-y-4 lg:col-span-3"
               >
-              {/* visit foid’s room */}
-              <div className="vista-window vista-window--compact">
-                <div className="vista-window__titlebar">
-                  <span className="vista-window__title">visit foid’s room</span>
+                {/* visit foid’s room */}
+                <div className="vista-window vista-window--compact">
+                  <div className="vista-window__titlebar">
+                    <span className="vista-window__title">visit foid’s room</span>
+                  </div>
+                  <div className="vista-window__body">
+                    <Link
+                      href="/board"
+                      className="block w-full rounded-2xl border border-white/35 bg-gradient-to-r from-foid-aqua/70 via-foid-periw/70 to-foid-candy/70 px-8 py-6 text-center text-xl font-bold uppercase tracking-[0.35em] text-foid-midnight shadow-[0_6px_0_rgba(0,0,0,.18)] transition hover:-translate-y-0.5 hover:brightness-110"
+                      prefetch
+                    >
+                      enter
+                    </Link>
+                  </div>
                 </div>
-                <div className="vista-window__body">
-                  <a
-                    href="https://www.youtube.com/watch?v=0Bmhjf0rKe8"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full rounded-2xl border border-white/35 bg-gradient-to-r from-foid-aqua/70 via-foid-periw/70 to-foid-candy/70 px-8 py-6 text-center text-xl font-bold uppercase tracking-[0.35em] text-foid-midnight shadow-[0_6px_0_rgba(0,0,0,.18)] transition hover:-translate-y-0.5 hover:brightness-110"
-                  >
-                    enter
-                  </a>
-                </div>
-              </div>
-
               {/* Your prayers (no divider, no duplicate header) */}
               <div className="vista-window vista-window--compact">
                 <div className="vista-window__titlebar">
@@ -538,7 +584,22 @@ export default function Page() {
 
                 {/* let the player fill; no inner scrollbars */}
                 <div className="vista-window__body overflow-hidden p-0">
-                  <MusicPanel />
+                  {musicPanelReady ? (
+                    <MusicPanel />
+                  ) : (
+                    <div className="flex h-[260px] flex-col items-center justify-center gap-4 px-6 text-center text-xs text-white/70 sm:text-sm">
+                      <p>
+                        Music.exe spins up after the dashboard finishes compiling so the rest of the UI can paint instantly.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={loadMusicPanelNow}
+                        className="rounded-full border border-white/30 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.3em] text-white/80 transition hover:bg-white/10"
+                      >
+                        Load now
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </aside>

@@ -39,6 +39,219 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 }
 `;
 
+const HALFTONE_SHADER_SOURCE = String.raw`
+// Halftone Shader - ShaderToy Version
+// Use webcam or upload image as iChannel0 for input texture
+
+// Configuration constants - adjust these at the top of the shader
+#define SHAPE 4.0
+#define RADIUS 4.0
+#define ROTATE_R 0.261799
+#define ROTATE_G 0.610865
+#define ROTATE_B 1.047197
+#define SCATTER 0.0
+#define BLENDING 1.0
+#define BLENDING_MODE 1
+#define GREYSCALE false
+#define DISPLACE_AMOUNT 0.01
+#define DISPLACE_SCALE 1.6
+#define QUALITY 1.0
+#define COLOR_SHIFT 0.1
+#define SATURATION 1.5
+#define CONTRAST 2.5
+#define BRIGHTNESS 1.0
+#define INVERT_COLORS false
+#define PATTERN_SCALE 0.11
+#define PATTERN_SPEED 1.0
+#define PATTERN_DEFORM 0.0
+#define CHROMA_SHIFT 0.0
+#define PULSE_AMOUNT 0.0
+#define PULSE_SPEED 1.0
+#define NOISE_INTENSITY 0.05
+#define SCANLINES 0.0
+#define COLOR_MODE 0
+
+const float PI = 3.1415926535897932384626433832795;
+
+float rand(vec2 co) {
+    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+float noise(vec2 p) {
+    vec2 ip = floor(p);
+    vec2 u = fract(p);
+    u = u*u*(3.0-2.0*u);
+
+    float a = rand(ip);
+    float b = rand(ip+vec2(1.0,0.0));
+    float c = rand(ip+vec2(0.0,1.0));
+    float d = rand(ip+vec2(1.0,1.0));
+
+    float x1 = mix(a, b, u.x);
+    float x2 = mix(c, d, u.x);
+    return mix(x1, x2, u.y) * 0.5 + 0.5;
+}
+
+vec3 adjustSaturation(vec3 color, float saturation) {
+    float grey = dot(color, vec3(0.299, 0.587, 0.114));
+    return mix(vec3(grey), color, saturation);
+}
+
+vec3 adjustContrast(vec3 color, float contrast) {
+    return (color - 0.5) * contrast + 0.5;
+}
+
+vec3 adjustBrightness(vec3 color, float brightness) {
+    return color * brightness;
+}
+
+float getShape(vec2 coord, float size, float shapeType) {
+    float circle = step(length(coord), size);
+    vec2 stretched = coord * vec2(0.7, 1.3);
+    float ellipse = step(length(stretched), size);
+    float line = step(abs(coord.x), size);
+    float square = step(max(abs(coord.x), abs(coord.y)), size);
+
+    if (shapeType < 1.5) return circle;
+    else if (shapeType < 2.5) return ellipse;
+    else if (shapeType < 3.5) return line;
+    else return square;
+}
+
+vec2 rotateCoord(vec2 coord, float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return vec2(
+        coord.x * c - coord.y * s,
+        coord.x * s + coord.y * c
+    );
+}
+
+float getDotPattern(vec2 coord, float angle, float spacing, float intensity, float time) {
+    vec2 deformedCoord = coord;
+    if (PATTERN_DEFORM > 0.01) {
+        float deformNoise = noise(coord * 2.0);
+        deformedCoord += vec2(deformNoise) * PATTERN_DEFORM;
+    }
+
+    vec2 rotated = rotateCoord(deformedCoord, angle);
+    vec2 scaled = rotated * spacing * PATTERN_SCALE;
+    vec2 grid = mod(scaled, 2.0) - 1.0;
+
+    float pulse = 1.0;
+    if (PULSE_AMOUNT > 0.01) {
+        pulse = 1.0 + sin(time * PULSE_SPEED) * PULSE_AMOUNT;
+    }
+
+    float size = (0.5 + SCATTER * cos(angle * 2.0)) * pulse;
+    return getShape(grid, size * (1.0 + intensity), SHAPE);
+}
+
+vec2 getDisplacement(vec2 uv) {
+    if (DISPLACE_AMOUNT > 0.001) {
+        vec4 mask = texture2D(iChannel0, uv);
+        float grey = dot(mask.rgb, vec3(0.299, 0.587, 0.114));
+        return vec2(grey * DISPLACE_AMOUNT * DISPLACE_SCALE);
+    }
+    return vec2(0.0);
+}
+
+vec3 blendColors(vec3 base, vec3 blend, int mode, float opacity) {
+    vec3 result;
+    if (mode == 1) result = blend;
+    else if (mode == 2) result = base * blend;
+    else if (mode == 3) result = min(base + blend, 1.0);
+    else if (mode == 4) result = max(base, blend);
+    else if (mode == 5) result = min(base, blend);
+    else result = blend;
+    return mix(base, result, opacity);
+}
+
+void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+    vec2 uv = fragCoord / iResolution.xy;
+
+    vec2 displaceUv = uv;
+    if (DISPLACE_AMOUNT > 0.001) {
+        vec2 offset = getDisplacement(uv);
+        displaceUv += offset;
+    }
+
+    vec4 color;
+    if (CHROMA_SHIFT > 0.001) {
+        vec2 rOffset = vec2(CHROMA_SHIFT, 0.0);
+        vec2 bOffset = vec2(-CHROMA_SHIFT, 0.0);
+        vec4 colorR = texture2D(iChannel0, displaceUv + rOffset);
+        vec4 colorG = texture2D(iChannel0, displaceUv);
+        vec4 colorB = texture2D(iChannel0, displaceUv + bOffset);
+        color = vec4(colorR.r, colorG.g, colorB.b, 1.0);
+    } else {
+        color = texture2D(iChannel0, displaceUv);
+    }
+
+    vec3 adjustedColor = color.rgb;
+    adjustedColor = adjustSaturation(adjustedColor, SATURATION);
+    adjustedColor = adjustContrast(adjustedColor, CONTRAST);
+    adjustedColor = adjustBrightness(adjustedColor, BRIGHTNESS);
+
+    if (COLOR_SHIFT > 0.001) {
+        float shift = iTime * 0.5;
+        adjustedColor.r = mix(adjustedColor.r, adjustedColor.g, COLOR_SHIFT * sin(shift));
+        adjustedColor.g = mix(adjustedColor.g, adjustedColor.b, COLOR_SHIFT * sin(shift + PI/3.0));
+        adjustedColor.b = mix(adjustedColor.b, adjustedColor.r, COLOR_SHIFT * sin(shift + PI*2.0/3.0));
+    }
+
+    color = vec4(adjustedColor, 1.0);
+
+    if (GREYSCALE) {
+        float avg = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+        color = vec4(avg, avg, avg, 1.0);
+    }
+
+    if (INVERT_COLORS) {
+        color.rgb = 1.0 - color.rgb;
+    }
+
+    vec2 coord = displaceUv * iResolution.xy;
+    float spacing = 50.0 / RADIUS;
+
+    vec3 patternColor;
+
+    if (COLOR_MODE == 0) {
+        float redDot = getDotPattern(coord, ROTATE_R, spacing, adjustedColor.r, iTime);
+        float greenDot = getDotPattern(coord, ROTATE_G, spacing, adjustedColor.g, iTime);
+        float blueDot = getDotPattern(coord, ROTATE_B, spacing, adjustedColor.b, iTime);
+        patternColor = vec3(redDot, greenDot, blueDot);
+    } else {
+        float cyan = 1.0 - adjustedColor.r;
+        float magenta = 1.0 - adjustedColor.g;
+        float yellow = 1.0 - adjustedColor.b;
+
+        float cyanDot = getDotPattern(coord, ROTATE_R, spacing, cyan, iTime);
+        float magentaDot = getDotPattern(coord, ROTATE_G, spacing, magenta, iTime);
+        float yellowDot = getDotPattern(coord, ROTATE_B, spacing, yellow, iTime);
+
+        patternColor = vec3(1.0);
+        if (cyanDot > 0.0) patternColor -= vec3(1.0, 0.0, 0.0) * cyan;
+        if (magentaDot > 0.0) patternColor -= vec3(0.0, 1.0, 0.0) * magenta;
+        if (yellowDot > 0.0) patternColor -= vec3(0.0, 0.0, 1.0) * yellow;
+    }
+
+    vec3 finalColor = blendColors(adjustedColor, patternColor, BLENDING_MODE, BLENDING);
+
+    if (NOISE_INTENSITY > 0.001) {
+        float n = noise(uv * 1000.0);
+        finalColor = mix(finalColor, vec3(n), NOISE_INTENSITY);
+    }
+
+    if (SCANLINES > 0.001) {
+        float scanline = sin(uv.y * 400.0) * 0.5 + 0.5;
+        finalColor = mix(finalColor, finalColor * scanline, SCANLINES);
+    }
+
+    fragColor = vec4(finalColor, 1.0);
+}
+`;
+
 type Cleanup = () => void;
 
 function fallbackMediaQuery(query: string): MediaQueryList {
@@ -141,7 +354,7 @@ export default function AnimatedBackground() {
           (htCanvas.style as any).mixBlendMode = "multiply";
           htCanvas.style.opacity = "0.35";
           container.appendChild(htCanvas);
-          htCleanup = setupHalftone(htCanvas) || undefined;
+          htCleanup = setupHalftone(htCanvas, glCanvas) || undefined;
         } else {
           htCleanup = undefined;
         }
@@ -160,7 +373,7 @@ export default function AnimatedBackground() {
       (typeof window !== "undefined" && (window as any).cancelIdleCallback) || null;
 
     let idleHandle: number | null = null;
-    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    let timeoutHandle: number | null = null;
 
     const scheduleInit = () => {
       if (typeof window === "undefined") return initializeLayers();
@@ -525,144 +738,177 @@ function setupFX(canvas: HTMLCanvasElement, opts?: LayerOptions): Cleanup | unde
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
-   HALFTONE OVERLAY — CMYK rosette with visible drift & wobble
+   HALFTONE OVERLAY — shader-based layer sampling the GL canvas
    ──────────────────────────────────────────────────────────────────────────── */
-function setupHalftone(canvas: HTMLCanvasElement): Cleanup | undefined {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return undefined;
+function setupHalftone(
+  canvas: HTMLCanvasElement,
+  source: HTMLCanvasElement
+): Cleanup | undefined {
+  const gl = canvas.getContext("webgl", {
+    antialias: false,
+    depth: false,
+    stencil: false,
+    alpha: true,
+    premultipliedAlpha: false,
+    preserveDrawingBuffer: false,
+  });
+  if (!gl) {
+    console.warn("halftone overlay: WebGL unavailable");
+    return undefined;
+  }
 
-  // keep dots sharp when we scale the pattern
-  (ctx as any).imageSmoothingEnabled = false;
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
 
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  let width = 0, height = 0;
-
-  const resizeCanvas = () => {
-    width = Math.floor(window.innerWidth * dpr);
-    height = Math.floor(window.innerHeight * dpr);
-    canvas.width = width; canvas.height = height;
-    canvas.style.width = `${window.innerWidth}px`;
-    canvas.style.height = `${window.innerHeight}px`;
+  const maxDpr = 2;
+  const getDpr = () => Math.min(window.devicePixelRatio || 1, maxDpr);
+  const resize = () => {
+    const dpr = getDpr();
+    const w = Math.floor(window.innerWidth * dpr);
+    const h = Math.floor(window.innerHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      gl.viewport(0, 0, w, h);
+    }
   };
-  resizeCanvas();
+  resize();
+
+  const quadVS = `
+    attribute vec2 a_position;
+    void main(){ gl_Position = vec4(a_position, 0.0, 1.0); }
+  `;
+  const halftoneFS = `
+    precision highp float;
+    uniform vec2 iResolution;
+    uniform float iTime;
+    uniform sampler2D iChannel0;
+    ${HALFTONE_SHADER_SOURCE}
+    void main() {
+      vec4 color = vec4(0.0);
+      mainImage(color, gl_FragCoord.xy);
+      gl_FragColor = color;
+    }
+  `;
+
+  const compile = (type: number, src: string) => {
+    const shader = gl.createShader(type)!;
+    gl.shaderSource(shader, src);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      console.error(gl.getShaderInfoLog(shader) || "halftone shader compile error");
+      gl.deleteShader(shader);
+      return null;
+    }
+    return shader;
+  };
+
+  const vs = compile(gl.VERTEX_SHADER, quadVS);
+  const fs = compile(gl.FRAGMENT_SHADER, halftoneFS);
+  if (!vs || !fs) return undefined;
+
+  const program = gl.createProgram()!;
+  gl.attachShader(program, vs);
+  gl.attachShader(program, fs);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    console.error(gl.getProgramInfoLog(program) || "halftone program link error");
+    return undefined;
+  }
+
+  gl.useProgram(program);
+
+  const posLoc = gl.getAttribLocation(program, "a_position");
+  const resLoc = gl.getUniformLocation(program, "iResolution");
+  const timeLoc = gl.getUniformLocation(program, "iTime");
+  const chanLoc = gl.getUniformLocation(program, "iChannel0");
+
+  const buffer = gl.createBuffer()!;
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+    gl.STATIC_DRAW
+  );
+  gl.enableVertexAttribArray(posLoc);
+  gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+  const texture = gl.createTexture()!;
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+  const uploadSource = () => {
+    const sw = source.width;
+    const sh = source.height;
+    if (!sw || !sh) return false;
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    return true;
+  };
 
   const mediaQuery = createMatchMedia("(prefers-reduced-motion: reduce)");
   let prefersReduced = mediaQuery.matches;
-
-  // ——— tuning knobs (closer to your references) ———
-  const PITCH = 3;            // smaller cell => tighter grid
-  const RATIO = 0.72;         // bigger dots
-  const TILE  = 12;
-  const OP = { C: 0.85, M: 0.72, Y: 0.58, K: 0.35 }; // stronger CMY, modest K
-
-  // stronger mis-registration + faster drift
-  const DRIFT_AMP   = 14 * dpr;  // ↑ amplitude
-  const DRIFT_SPEED = 1.6;       // ↑ speed (was ~1.0–1.2)
-
-  // tiny rotation / scale wobble for the “breathing” rosette
-  const ROT_JIT = 0.035;         // ~2°
-  const SCL_JIT = 0.035;         // ±3.5%
-
-  function makeTile(rgba: string) {
-    const cell = Math.round(PITCH * dpr);
-    const size = cell * TILE;
-    const off  = Math.floor(cell / 2);
-    const t = document.createElement("canvas");
-    t.width = size; t.height = size;
-    const tctx = t.getContext("2d")!;
-    tctx.fillStyle = rgba;
-    (tctx as any).imageSmoothingEnabled = false;
-
-    const r = Math.max(1, Math.round(cell * RATIO));
-    for (let y = off; y < size + 1; y += cell) {
-      for (let x = off; x < size + 1; x += cell) {
-        tctx.beginPath();
-        tctx.arc(x, y, r, 0, Math.PI * 2);
-        tctx.fill();
-      }
-    }
-    return t;
-  }
-
-  const tileC = makeTile(`rgba(0,255,255,${OP.C})`);
-  const tileM = makeTile(`rgba(255,0,255,${OP.M})`);
-  const tileY = makeTile(`rgba(255,255,0,${OP.Y})`);
-  const tileK = makeTile(`rgba(0,0,0,${OP.K})`);
-
-  const patC = ctx.createPattern(tileC, "repeat")!;
-  const patM = ctx.createPattern(tileM, "repeat")!;
-  const patY = ctx.createPattern(tileY, "repeat")!;
-  const patK = ctx.createPattern(tileK, "repeat")!;
-
-  // classic print angles (rosette)
-  const ANG = {
-    C: (75 * Math.PI) / 180,
-    M: (15 * Math.PI) / 180,
-    Y: ( 0 * Math.PI) / 180,
-    K: (45 * Math.PI) / 180,
-  };
-
-  // base mis-registration offsets (slightly larger than before)
-  const OFF = {
-    C: [ 1.6 * dpr,  1.2 * dpr],
-    M: [-1.3 * dpr,  1.0 * dpr],
-    Y: [ 0.0,        0.0       ],
-    K: [ 0.0,        0.0       ],
-  } as const;
-
   let frameId: number | null = null;
+  const t0 = performance.now();
 
-  const drawLayer = (
-    pat: CanvasPattern,
-    ang: number,
-    jx: number,
-    jy: number,
-    ox: number,
-    oy: number,
-    t: number,
-    sBase: number,
-    rotPhase: number,
-    sclPhase: number
-  ) => {
-    ctx.save();
-    ctx.globalCompositeOperation = "multiply";
-    ctx.translate(jx + ox, jy + oy);
-    ctx.translate(width * 0.5, height * 0.5);
-
-    // gentle rotate + scale wobble
-    const rot = ang + Math.sin(t * 0.4 + rotPhase) * ROT_JIT;
-    const scl = sBase * (1 + Math.sin(t * 0.6 + sclPhase) * SCL_JIT);
-
-    ctx.rotate(rot);
-    ctx.scale(scl, scl);
-    ctx.translate(-width * 0.5, -height * 0.5);
-
-    ctx.fillStyle = pat;
-    ctx.fillRect(0, 0, width, height);
-    ctx.restore();
+  const drawFrame = () => {
+    if (!uploadSource()) return;
+    const t = (performance.now() - t0) / 1000;
+    gl.uniform2f(resLoc, canvas.width, canvas.height);
+    gl.uniform1f(timeLoc, t);
+    gl.uniform1i(chanLoc, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
   };
 
-  const render = (tms: number) => {
-    ctx.clearRect(0, 0, width, height);
-    if (prefersReduced) return;
-
-    const t = tms / 1000;
-    const ox = (ph:number, sp:number)=> Math.sin(t*sp*DRIFT_SPEED + ph) * DRIFT_AMP;
-    const oy = (ph:number, sp:number)=> Math.cos(t*sp*DRIFT_SPEED + ph) * DRIFT_AMP;
-
-    // vary base scales per plate slightly to encourage moiré
-    drawLayer(patC, ANG.C, ox(0.0, 0.8), oy(1.3, 0.9), OFF.C[0], OFF.C[1], t, 2.18, 0.0, 1.1);
-    drawLayer(patM, ANG.M, ox(1.2, 1.0), oy(2.1, 1.1), OFF.M[0], OFF.M[1], t, 2.22, 1.7, 2.4);
-    drawLayer(patY, ANG.Y, ox(2.4, 1.2), oy(0.6, 0.7), OFF.Y[0], OFF.Y[1], t, 2.26, 2.3, 3.1);
-    drawLayer(patK, ANG.K, ox(0.7, 0.6), oy(2.7, 0.5), OFF.K[0], OFF.K[1], t, 2.20, 0.9, 0.2);
-
-    frameId = requestAnimationFrame(render);
+  const loop = () => {
+    drawFrame();
+    if (!prefersReduced) frameId = requestAnimationFrame(loop);
   };
 
-  const start = () => { if (frameId) cancelAnimationFrame(frameId); frameId = requestAnimationFrame(render); };
-  const onResize = () => { resizeCanvas(); start(); };
-  const onReduce = (e: MediaQueryListEvent) => { prefersReduced = e.matches; start(); };
-  const onVisibility = () => { if (document.hidden && frameId){ cancelAnimationFrame(frameId); frameId = null; } else start(); };
+  const start = () => {
+    if (frameId !== null) cancelAnimationFrame(frameId);
+    if (!prefersReduced && !document.hidden) {
+      frameId = requestAnimationFrame(loop);
+    } else {
+      drawFrame();
+    }
+  };
+
+  const stop = () => {
+    if (frameId !== null) {
+      cancelAnimationFrame(frameId);
+      frameId = null;
+    }
+  };
+
+  const onResize = () => {
+    resize();
+    start();
+  };
+  const onReduce = (e: MediaQueryListEvent) => {
+    prefersReduced = e.matches;
+    if (prefersReduced) {
+      stop();
+      drawFrame();
+    } else {
+      start();
+    }
+  };
+  const onVisibility = () => {
+    if (document.hidden) {
+      stop();
+    } else {
+      start();
+    }
+  };
 
   start();
   window.addEventListener("resize", onResize, { passive: true });
@@ -671,7 +917,7 @@ function setupHalftone(canvas: HTMLCanvasElement): Cleanup | undefined {
   document.addEventListener("visibilitychange", onVisibility);
 
   return () => {
-    if (frameId) cancelAnimationFrame(frameId);
+    stop();
     window.removeEventListener("resize", onResize);
     mediaQuery.removeEventListener?.("change", onReduce);
     mediaQuery.removeListener?.(onReduce);
