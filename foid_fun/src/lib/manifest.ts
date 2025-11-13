@@ -4,12 +4,20 @@ import { publicClient, TREASURY, DEPLOY_BLOCK } from "@/lib/viem";
 export type NormalizedPlacement = {
   id: string;
   owner: string;
-  cid: string; // bare CID (no ipfs://)
+  cid: string;
   x: number;
   y: number;
   w: number;
   h: number;
   cells: number;
+};
+
+export type LatestManifestResponse = {
+  epoch: number | null;
+  manifestCID: string | null;
+  manifest: {
+    placements: NormalizedPlacement[];
+  } | null;
 };
 
 const ProposedEvt = parseAbiItem(
@@ -66,16 +74,14 @@ function buildAbsoluteUrl(path: string) {
   return `http://localhost:3000${path}`;
 }
 
-export async function getLatestNormalized(): Promise<{
-  epoch: number | null;
-  manifestCID: string | null;
-  manifest: { placements: NormalizedPlacement[] } | null;
-}> {
-  const endpoint =
-    typeof window === "undefined"
-      ? buildAbsoluteUrl("/api/manifest/latest")
-      : "/api/manifest/latest";
-  const res = await fetch(endpoint, { cache: "no-store" });
-  if (!res.ok) throw new Error("latest manifest fetch failed");
+/**
+ * Simple client helper used by /board to load the latest epoch.
+ * This runs in the browser and calls the Next.js API route.
+ */
+export async function getLatestNormalized(): Promise<LatestManifestResponse> {
+  const res = await fetch("/api/manifest/latest", { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error("Failed to load latest manifest");
+  }
   return res.json();
 }

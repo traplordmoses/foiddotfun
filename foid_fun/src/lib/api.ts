@@ -71,9 +71,12 @@ export async function getManifest(
   manifestCID: string | null;
   manifest: { placements: any[] } | null;
 }> {
-  const q = epoch === "latest" ? "latest" : String(epoch);
-  const res = await fetch(`/api/manifest?epoch=${q}`, { cache: "no-store" });
-  if (!res.ok) throw new Error("failed to load manifest");
+  const query = epoch === "latest" ? "latest" : String(epoch);
+  const res = await fetch(
+    `/api/manifest?epoch=${encodeURIComponent(query)}`,
+    { cache: "no-store" }
+  );
+  if (!res.ok) throw new Error("Failed to load manifest");
   return res.json();
 }
 
