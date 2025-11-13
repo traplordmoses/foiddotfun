@@ -15,6 +15,9 @@ import { hasOverlap } from "@/lib/grid";
 import { uploadJSON } from "@/lib/ipfs";
 import { ProposalStore } from "@/lib/proposalStore";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 function canDisplaceAccepted(a: Proposal, accepted: Placement[]) {
   // NOTE: second arg must be Rect[]
   const overlapping = accepted.filter((pl) => hasOverlap(a.rect, [pl.rect]));
@@ -114,7 +117,8 @@ export async function POST(req: NextRequest) {
   let cid: string | null = null;
   try {
     cid = await uploadJSON(`mifoid-epoch-${epoch}.manifest.json`, manifest);
-  } catch {
+  } catch (e) {
+    console.error("uploadJSON failed:", e);
     cid = null;
   }
 

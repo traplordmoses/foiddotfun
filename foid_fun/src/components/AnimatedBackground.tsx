@@ -409,7 +409,13 @@ export default function AnimatedBackground() {
     };
   }, []);
 
-  return <div ref={containerRef} className="foid-background" aria-hidden="true" />;
+  return (
+    <div
+      ref={containerRef}
+      className="foid-background fixed inset-0 h-screen w-screen pointer-events-none -z-10"
+      aria-hidden="true"
+    />
+  );
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

@@ -8,10 +8,11 @@ import {
   listAccepted,
   type Proposal,
 } from "../_store";
-import { ProposalStore, type StoredProposalMeta } from "@/lib/proposalStore";
+import { ProposalStore, type StoredProposal } from "@/lib/proposalStore";
 import { keccak256, stringToHex } from "viem";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const MAX_CELLS = Number(process.env.NEXT_PUBLIC_MAX_CELLS_PER_RECT ?? 400);
 
@@ -100,20 +101,18 @@ export async function POST(req: Request) {
     cidHash = (await fetchCidHash(normalizedCid)) ?? ("0x" as `0x${string}`);
   }
 
-  const stored: StoredProposalMeta = {
+  const stored: StoredProposal = {
     id: normalizedId,
     owner: owner as `0x${string}`,
     cid: normalizedCid,
     cidHash,
     rect,
-    cells,
     name: name ?? "",
     mime: (mime ?? "image/png") as "image/png" | "image/jpeg",
     epoch: nowEpoch,
     bidPerCellWei: String(bidPerCellWei),
-    createdAt: new Date().toISOString(),
   };
-  ProposalStore.put(stored);
+  ProposalStore.upsert(stored);
 
   return NextResponse.json({
     ok: true,

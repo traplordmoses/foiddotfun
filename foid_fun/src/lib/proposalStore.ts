@@ -1,31 +1,44 @@
-"use server";
-
-export type StoredProposalMeta = {
+// src/lib/proposalStore.ts
+export type StoredProposal = {
   id: string;
   owner?: string;
   cid?: string;
   cidHash?: `0x${string}`;
-  rect?: { x: number; y: number; w: number; h: number };
-  cells?: number;
   name?: string;
   mime?: "image/png" | "image/jpeg";
+  width?: number;
+  height?: number;
   epoch?: number;
-  bidPerCellWei?: string;
-  createdAt?: string;
+  rect?: { x: number; y: number; w: number; h: number };
+  bidPerCellWei?: string | number | bigint;
 };
 
 class _ProposalStore {
-  private byId = new Map<string, StoredProposalMeta>();
-
-  set(meta: StoredProposalMeta) {
-    if (!meta?.id) return;
-    const existing = this.byId.get(meta.id) ?? {};
-    this.byId.set(meta.id, { ...existing, ...meta });
-  }
+  private map = new Map<string, StoredProposal>();
 
   get(id: string) {
-    return this.byId.get(id);
+    return this.map.get(id);
+  }
+  set(id: string, value: StoredProposal) {
+    this.map.set(id, { ...value, id });
+  }
+  upsert(value: StoredProposal) {
+    if (!value?.id) return;
+    const prev = this.map.get(value.id);
+    this.map.set(value.id, { ...prev, ...value, id: value.id });
+  }
+  has(id: string) {
+    return this.map.has(id);
+  }
+  delete(id: string) {
+    this.map.delete(id);
+  }
+  all() {
+    return Array.from(this.map.values());
   }
 }
 
-export const ProposalStore = new _ProposalStore();
+// HMR-safe singleton (Next.js dev)
+const g = globalThis as any;
+export const ProposalStore: _ProposalStore =
+  g.__proposalStore ?? (g.__proposalStore = new _ProposalStore());

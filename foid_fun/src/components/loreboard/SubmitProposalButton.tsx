@@ -77,6 +77,7 @@ export default function SubmitProposalButton({
     [bidPerCellWei, safeCells]
   );
 
+  const mustSwitchChain = Boolean(chainId && chainId !== FLUENT_CHAIN_ID);
   const disabled =
     pending ||
     !isConnected ||
@@ -85,7 +86,7 @@ export default function SubmitProposalButton({
     (cid && !cidHash) ||
     bidPerCellWei <= 0n ||
     safeCells <= 0 ||
-    (chainId && chainId !== FLUENT_CHAIN_ID);
+    mustSwitchChain;
 
   async function onClick() {
     if (!isConnected) {
@@ -135,15 +136,35 @@ export default function SubmitProposalButton({
       alert("Missing CID hash");
       return;
     }
-    if (chainId && chainId !== FLUENT_CHAIN_ID) {
+    if (mustSwitchChain) {
       alert("Switch to Fluent Testnet (chain 20994)");
       return;
     }
 
+    const toI32 = (value: number) => Number(BigInt.asIntN(32, BigInt(value)));
+    const toU32 = (value: number) => Number(BigInt.asUintN(32, BigInt(value)));
+
+    const normalizedRect = {
+      x: toI32(rect.x),
+      y: toI32(rect.y),
+      w: toU32(rect.w),
+      h: toU32(rect.h),
+    };
+
+    const encodedEpoch = Number(BigInt.asUintN(32, BigInt(epoch)));
+
     const proposalId = keccak256(
       encodePacked(
         ["address", "uint32", "bytes32", "int32", "int32", "int32", "int32"],
-        [bidder, BigInt(epoch), ensuredCidHash, rect.x, rect.y, rect.w, rect.h]
+        [
+          bidder,
+          encodedEpoch,
+          ensuredCidHash,
+          normalizedRect.x,
+          normalizedRect.y,
+          normalizedRect.w,
+          normalizedRect.h,
+        ]
       )
     );
 
@@ -152,25 +173,28 @@ export default function SubmitProposalButton({
     setTxHash(null);
 
     try {
-      const hash = await writeContract(config, {
-        account: bidder,
-        address: treasury,
-        abi: ABI as any,
-        functionName: "proposePlacement",
-        args: [
-          {
-            id: proposalId,
-            bidder,
-            rect,
-            cells,
-            bidPerCellWei,
-            cidHash: ensuredCidHash,
-            epoch,
-          },
-        ],
-        value,
-        chainId: FLUENT_CHAIN_ID,
-      });
+      const hash = await writeContract(
+        config,
+        {
+          account: bidder,
+          address: treasury,
+          abi: ABI as any,
+          functionName: "proposePlacement",
+          args: [
+            {
+              id: proposalId,
+              bidder,
+              rect: normalizedRect,
+              cells: safeCells,
+              bidPerCellWei,
+              cidHash: ensuredCidHash,
+              epoch: encodedEpoch,
+            },
+          ],
+          value,
+          chainId: FLUENT_CHAIN_ID,
+        } as any
+      );
       setTxHash(hash);
       onSubmitted?.({ txHash: hash, proposalId, cid: ensuredCid });
     } catch (e: any) {

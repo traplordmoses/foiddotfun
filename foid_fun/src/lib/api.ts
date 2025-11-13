@@ -64,15 +64,17 @@ export async function getStatus() {
   }>(res);
 }
 
-export async function getManifest(epoch: number | "latest") {
-  const q = typeof epoch === "number" ? String(epoch) : "latest";
+export async function getManifest(
+  epoch: number | "latest"
+): Promise<{
+  epoch: number | null;
+  manifestCID: string | null;
+  manifest: { placements: any[] } | null;
+}> {
+  const q = epoch === "latest" ? "latest" : String(epoch);
   const res = await fetch(`/api/manifest?epoch=${q}`, { cache: "no-store" });
-  if (!res.ok) throw new Error("manifest not found");
-  return asJson<{
-    epoch: number;
-    cid: string | null;
-    manifest: { placements: any[] };
-  }>(res);
+  if (!res.ok) throw new Error("failed to load manifest");
+  return res.json();
 }
 
 export async function getMempool(epoch?: number) {

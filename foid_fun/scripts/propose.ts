@@ -41,8 +41,8 @@ async function main() {
     transport: http(rpc),
   });
 
-  const toI32 = (n: number) => BigInt.asIntN(32, BigInt(n));
-  const toU32 = (n: number) => BigInt.asUintN(32, BigInt(n));
+  const toI32 = (n: number) => Number(BigInt.asIntN(32, BigInt(n)));
+  const toU32 = (n: number) => Number(BigInt.asUintN(32, BigInt(n)));
 
   // --- fill these for the test ---
   const bidder = account.address as `0x${string}`;

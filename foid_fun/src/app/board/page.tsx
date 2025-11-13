@@ -27,7 +27,7 @@ import {
   castVote,
 } from "@/lib/api";
 import type { ProposalSummary } from "@/lib/api";
-import { loadLatestFinalized } from "@/lib/manifest";
+import { getLatestNormalized } from "@/lib/manifest";
 import { writeProposePlacement } from "@/lib/viem";
 
 const MusicPanel = dynamic(() => import("@/components/MusicPanel"), {
@@ -55,6 +55,7 @@ const OWNER_DEMO =
 
 const VIRTUAL_CANVAS_W = 1_000_000;
 const VIRTUAL_CANVAS_H = 1_000_000;
+const DEV_UI = process.env.NEXT_PUBLIC_DEV_TOOLS === "1";
 
 // ---------------------------------------------------------------------------
 // Types for local drag/ghost
@@ -758,71 +759,47 @@ const handleSingleFile = useCallback(
     const load = async () => {
       try {
         if (viewEpoch === "latest") {
-          const last = await loadLatestFinalized();
-          if (!last) {
-            if (alive) {
-              setPlaced([]);
-              setPlacedEpoch(null);
-            }
-            return;
-          }
-          const cidPath = last.manifestCID.replace(/^ipfs:\/\//, "");
-          const url = `https://ipfs.io/ipfs/${cidPath}?_=${Date.now()}`;
-          const res = await fetch(url, { cache: "no-store" });
-          if (!res.ok) throw new Error("manifest fetch failed");
-          const man = await res.json();
+          const latest = await getLatestNormalized();
+          console.log("LATEST_NORMALIZED", latest);
           if (!alive) return;
-          const winnersRaw = man.winners ?? [];
-          const withCid = await Promise.all(
-            winnersRaw.map(async (w: any) => {
-              if (!w.cid && w.id) {
-                try {
-                  const res = await fetch(`/api/cid-by-id?id=${encodeURIComponent(w.id)}`);
-                  if (res.ok) {
-                    const data = await res.json();
-                    if (data.cid) w.cid = data.cid;
-                  }
-                } catch {
-                  /* ignore */
-                }
-              }
-              return w;
-            })
-          );
-          const placements: FinalizedPlacement[] = withCid.map((w: any) => {
-            const rect = w.rect ?? { x: w.x, y: w.y, w: w.w, h: w.h };
-            const cells = w.cells ?? rectCells(rect);
-            return {
-              id: w.id ?? "",
-              owner: w.owner ?? "",
-              cid: w.cid ?? "",
-              x: rect.x,
-              y: rect.y,
-              w: rect.w,
-              h: rect.h,
-              cells,
-            };
-          });
+          const placements: FinalizedPlacement[] = (
+            latest?.manifest?.placements ?? []
+          ).map((p: any) => ({
+            ...p,
+            x: Number(p.x),
+            y: Number(p.y),
+            w: Number(p.w),
+            h: Number(p.h),
+            cells: Number(p.cells ?? 1),
+          }));
           setPlaced(placements);
+          setPlacedEpoch(latest?.epoch ?? null);
           if (placements.length) {
-            zoomToRect({
-              x: placements[0].x,
-              y: placements[0].y,
-              w: placements[0].w,
-              h: placements[0].h,
-            });
+            const first = placements[0];
+            zoomToRect({ x: first.x, y: first.y, w: first.w, h: first.h });
           }
-          setPlacedEpoch(last.epoch);
         } else {
           const man = await getManifest(viewEpoch);
           if (!alive) return;
-          setPlaced(man.manifest?.placements ?? []);
+          const placements: FinalizedPlacement[] = (
+            man.manifest?.placements ?? []
+          ).map((p: any) => ({
+            ...p,
+            x: Number(p.x),
+            y: Number(p.y),
+            w: Number(p.w),
+            h: Number(p.h),
+            cells: Number(p.cells ?? 1),
+          }));
+          setPlaced(placements);
           setPlacedEpoch(man.epoch);
         }
-      } catch {
+      } catch (e: any) {
         if (!alive) return;
         setPlaced([]);
         setPlacedEpoch(null);
+        console.error("LATEST_LOAD_FAIL", e);
+        setMessage(String(e?.message ?? "Failed to load manifest"));
       }
     };
 
@@ -831,7 +808,7 @@ const handleSingleFile = useCallback(
     return () => {
       alive = false;
     };
-  }, [viewEpoch]);
+  }, [viewEpoch, zoomToRect]);
 
   useEffect(() => {
     let alive = true;
@@ -1251,73 +1228,75 @@ const handleSingleFile = useCallback(
             onChange={onFileChange}
           />
 
-          <div className="mt-3 p-3 rounded-xl border border-white/15 bg-white/5 text-xs text-white/80 space-y-2">
-            <div className="text-white/70">Add finalized by CID (dev)</div>
-            <input
-              className="w-full px-2 py-1 rounded bg-white/80 text-black text-sm"
-              placeholder="ipfs://... or CID"
-              value={devCid}
-              onChange={(e) => setDevCid(e.currentTarget.value.trim())}
-            />
-            <div className="grid grid-cols-4 gap-2">
+          {DEV_UI && (
+            <div className="mt-3 p-3 rounded-xl border border-white/15 bg-white/5 text-xs text-white/80 space-y-2">
+              <div className="text-white/70">Add finalized by CID (dev)</div>
               <input
-                className="px-2 py-1 rounded bg-white/80 text-black text-sm"
-                type="number"
-                value={devW}
-                onChange={(e) => setDevW(Number(e.currentTarget.value) || TILE)}
-                placeholder="w"
+                className="w-full px-2 py-1 rounded bg-white/80 text-black text-sm"
+                placeholder="ipfs://... or CID"
+                value={devCid}
+                onChange={(e) => setDevCid(e.currentTarget.value.trim())}
               />
-              <input
-                className="px-2 py-1 rounded bg-white/80 text-black text-sm"
-                type="number"
-                value={devH}
-                onChange={(e) => setDevH(Number(e.currentTarget.value) || TILE)}
-                placeholder="h"
-              />
-              <input
-                className="px-2 py-1 rounded bg-white/80 text-black text-sm"
-                type="number"
-                value={devX}
-                onChange={(e) => setDevX(Number(e.currentTarget.value) || 0)}
-                placeholder="x"
-              />
-              <input
-                className="px-2 py-1 rounded bg-white/80 text-black text-sm"
-                type="number"
-                value={devY}
-                onChange={(e) => setDevY(Number(e.currentTarget.value) || 0)}
-                placeholder="y"
-              />
+              <div className="grid grid-cols-4 gap-2">
+                <input
+                  className="px-2 py-1 rounded bg-white/80 text-black text-sm"
+                  type="number"
+                  value={devW}
+                  onChange={(e) => setDevW(Number(e.currentTarget.value) || TILE)}
+                  placeholder="w"
+                />
+                <input
+                  className="px-2 py-1 rounded bg-white/80 text-black text-sm"
+                  type="number"
+                  value={devH}
+                  onChange={(e) => setDevH(Number(e.currentTarget.value) || TILE)}
+                  placeholder="h"
+                />
+                <input
+                  className="px-2 py-1 rounded bg-white/80 text-black text-sm"
+                  type="number"
+                  value={devX}
+                  onChange={(e) => setDevX(Number(e.currentTarget.value) || 0)}
+                  placeholder="x"
+                />
+                <input
+                  className="px-2 py-1 rounded bg-white/80 text-black text-sm"
+                  type="number"
+                  value={devY}
+                  onChange={(e) => setDevY(Number(e.currentTarget.value) || 0)}
+                  placeholder="y"
+                />
+              </div>
+              <button
+                className="w-full rounded-md px-3 py-2 bg-white/80 text-black font-semibold"
+                type="button"
+                onClick={() => {
+                  if (!devCid) return;
+                  const rect = capRectToMaxCells(
+                    { x: devX, y: devY, w: devW, h: devH },
+                    MAX_CELLS_PER_RECT
+                  );
+                  const cells = rectCells(rect);
+                  setPlaced((prev) => [
+                    ...prev,
+                    {
+                      id: `dev:${Date.now()}`,
+                      owner: "0xdev",
+                      cid: devCid.replace(/^ipfs:\/\//, ""),
+                      x: rect.x,
+                      y: rect.y,
+                      w: rect.w,
+                      h: rect.h,
+                      cells,
+                    },
+                  ]);
+                  zoomToRect(rect);
+                }}
+              >
+                Add to board
+              </button>
             </div>
-            <button
-              className="w-full rounded-md px-3 py-2 bg-white/80 text-black font-semibold"
-              type="button"
-              onClick={() => {
-                if (!devCid) return;
-                const rect = capRectToMaxCells(
-                  { x: devX, y: devY, w: devW, h: devH },
-                  MAX_CELLS_PER_RECT
-                );
-                const cells = rectCells(rect);
-                setPlaced((prev) => [
-                  ...prev,
-                  {
-                    id: `dev:${Date.now()}`,
-                    owner: "0xdev",
-                    cid: devCid.replace(/^ipfs:\/\//, ""),
-                    x: rect.x,
-                    y: rect.y,
-                    w: rect.w,
-                    h: rect.h,
-                    cells,
-                  },
-                ]);
-                zoomToRect(rect);
-              }}
-            >
-              Add to board
-            </button>
-          </div>
+          )}
 
           <button
             className="mt-2 w-full rounded-xl px-4 py-2 bg-cyan-300/90 text-black font-semibold disabled:opacity-50"
@@ -1382,9 +1361,19 @@ const handleSingleFile = useCallback(
             onClick={async () => {
               try {
                 const { epoch, manifestCID } = await finalizeEpoch(true); // dev
-                const man = await getManifest("latest");
-                setPlaced(man.manifest?.placements ?? []);
-                setPlacedEpoch(man.epoch);
+            const man = await getManifest("latest");
+            const placements: FinalizedPlacement[] = (
+              man.manifest?.placements ?? []
+            ).map((p: any) => ({
+              ...p,
+              x: Number(p.x),
+              y: Number(p.y),
+              w: Number(p.w),
+              h: Number(p.h),
+              cells: Number(p.cells ?? 1),
+            }));
+            setPlaced(placements);
+            setPlacedEpoch(man.epoch);
                 setViewEpoch("latest");
                 clearBoardState?.();
                 try {

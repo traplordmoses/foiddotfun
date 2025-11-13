@@ -18,6 +18,12 @@ export const publicClient = createPublicClient({
 
 export const TreasuryAbiTyped = TreasuryAbi as unknown as readonly any[];
 
+export async function getWalletClient() {
+  const eth = (globalThis as any)?.ethereum;
+  if (!eth) throw new Error("wallet not available");
+  return createWalletClient({ chain: fluentTestnet, transport: custom(eth) });
+}
+
 /** call: proposePlacement(Proposed) payable */
 export async function writeProposePlacement(args: {
   id: `0x${string}`;

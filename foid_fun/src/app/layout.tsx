@@ -25,18 +25,18 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className="h-full">
       <head>
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="theme-color" content="#0e0f2b" />
       </head>
-      <body className="relative">
+      <body className="relative h-full min-h-screen bg-black">
         <AnimatedBackground />
         <div className="scene-tint" />
         <Providers>
           <SfxInitializer />
           <FairyDustCursor />
-          <div className="pt-[env(safe-area-inset-top)]">
+          <div className="relative z-10 pt-[env(safe-area-inset-top)]">
             <Nav />
             <div className="mx-auto max-w-7xl px-4">
               <ConnectBar />

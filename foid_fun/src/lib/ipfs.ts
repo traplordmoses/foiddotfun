@@ -33,8 +33,9 @@ export function ipfsToHttp(
   });
 }
 
-export function ipfsUrl(cid: string): string {
-  return ipfsToHttp(cid)[0] ?? "";
+export function ipfsUrl(cidOrUri: string): string {
+  const cleaned = (cidOrUri ?? "").replace(/^ipfs:\/\//, "");
+  return ipfsToHttp(cleaned)[0] ?? "";
 }
 
 /** Convert a Blob/File to base64 (no data: prefix). */
