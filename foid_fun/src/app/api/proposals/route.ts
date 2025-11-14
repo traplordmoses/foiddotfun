@@ -1,116 +1,94 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rectCells, type Rect } from "@/lib/grid";
+import { currentEpoch } from "@/lib/epoch";
 import {
-  createPublicClient,
-  defineChain,
-  http,
-  parseAbiItem,
-  type Hex,
-} from "viem";
+  addProposal,
+  getStore,
+  listProposals,
+  type Proposal,
+} from "../_store";
+import { ProposalStore } from "@/lib/proposalStore";
 
-const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC!;
-const address = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS as `0x${string}`;
-const deployBlockEnv = process.env.NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK;
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-const fluentTestnet = defineChain({
-  id: 20994,
-  name: "Fluent Testnet",
-  nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-  rpcUrls: { default: { http: [rpc] } },
-});
-
-const publicClient = createPublicClient({
-  chain: fluentTestnet,
-  transport: http(rpc),
-});
-
-const ProposedEvt = parseAbiItem(
-  "event ProposedEvt(bytes32 indexed id, address indexed bidder, uint32 epoch, (int32 x,int32 y,int32 w,int32 h) rect, uint96 bidPerCellWei, uint32 cells, bytes32 cidHash, uint256 value)"
-);
-
-async function getLogsChunked(args: {
-  fromBlock: bigint;
-  toBlock: bigint;
-  step?: bigint;
-}) {
-  const { fromBlock, toBlock, step = 90_000n } = args;
-  const all: typeof publicClient.getLogs extends (...args: any) => infer R
-    ? Awaited<R>
-    : never = [];
-  let start = fromBlock;
-  while (start <= toBlock) {
-    const end = start + step > toBlock ? toBlock : start + step;
-    const chunk = await publicClient.getLogs({
-      address,
-      event: ProposedEvt,
-      fromBlock: start,
-      toBlock: end,
-    });
-    all.push(...chunk);
-    start = end + 1n;
-  }
-  return all;
+export async function GET() {
+  const proposals = listProposals();
+  return NextResponse.json({ proposals }, { status: 200 });
 }
 
-export async function GET(req: NextRequest) {
+type ProposalPostBody = {
+  id?: string;
+  owner: string;
+  cid: string;
+  name?: string;
+  mime?: "image/png" | "image/jpeg";
+  rect: Rect;
+  width?: number;
+  height?: number;
+  bidPerCellWei: string | number | bigint;
+  cells?: number;
+  filename?: string;
+};
+
+export async function POST(req: NextRequest) {
+  let body: ProposalPostBody;
   try {
-    const url = new URL(req.url);
-    const epochQ = url.searchParams.get("epoch");
-    const epoch = epochQ ? Number(epochQ) : undefined;
-
-    const latest = await publicClient.getBlockNumber();
-    const fromBlock = deployBlockEnv
-      ? BigInt(deployBlockEnv)
-      : latest > 95_000n
-      ? latest - 95_000n
-      : 0n;
-
-    const logs = await getLogsChunked({ fromBlock, toBlock: latest });
-
-    const proposed = logs
-      .map((l) => {
-        const args = (l as typeof l & { args?: any }).args ?? {};
-        return {
-          id: args.id as Hex,
-          bidder: args.bidder as `0x${string}`,
-          epoch: Number(args.epoch ?? 0),
-          rect: {
-            x: Number(args.rect?.x ?? 0),
-            y: Number(args.rect?.y ?? 0),
-            w: Number(args.rect?.w ?? 0),
-            h: Number(args.rect?.h ?? 0),
-          },
-          bidPerCellWei: args.bidPerCellWei?.toString() ?? "0",
-          cells: Number(args.cells ?? 0),
-          cidHash: args.cidHash as Hex,
-          value: args.value?.toString() ?? "0",
-        };
-      })
-      .filter((p) => (epoch === undefined ? true : p.epoch === epoch));
-
-    const uniq = Object.values(
-      proposed.reduce<Record<string, (typeof proposed)[number]>>(
-        (acc, p) => {
-          acc[p.id] = p;
-          return acc;
-        },
-        {}
-      )
-    );
-
-    return NextResponse.json(
-      { epoch: epoch ?? null, proposed: uniq, finalized: [] },
-      { status: 200 }
-    );
-  } catch (e: any) {
-    console.error("[api/proposals]", e);
-    return NextResponse.json(
-      {
-        epoch: null,
-        proposed: [],
-        finalized: [],
-        error: String(e?.message ?? e),
-      },
-      { status: 200 }
-    );
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
+
+  const { owner, cid, rect, bidPerCellWei } = body ?? {};
+  if (!owner || !cid || !rect || bidPerCellWei == null) {
+    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  }
+
+  if (body.mime && body.mime !== "image/png" && body.mime !== "image/jpeg") {
+    return NextResponse.json({ error: "Unsupported mime type" }, { status: 400 });
+  }
+
+  const normalizedCid = cid.replace(/^ipfs:\/\//, "").trim();
+  if (!normalizedCid) {
+    return NextResponse.json({ error: "Invalid CID" }, { status: 400 });
+  }
+
+  const cells = Number.isFinite(body.cells) && body.cells && body.cells > 0 ? body.cells : rectCells(rect);
+  if (cells <= 0) {
+    return NextResponse.json({ error: "Cells must be positive" }, { status: 400 });
+  }
+
+  const S = getStore();
+  const nowEpoch = currentEpoch();
+  const window = Math.max(1, S.voteWindowEpochs);
+
+  const proposal = addProposal({
+    id: body.id ?? normalizedCid,
+    owner,
+    cid: normalizedCid,
+    name: body.name ?? "",
+    mime: (body.mime ?? "image/png") as "image/png" | "image/jpeg",
+    rect,
+    cells,
+    bidPerCellWei: String(bidPerCellWei),
+    width: body.width,
+    height: body.height,
+    epochSubmitted: nowEpoch,
+    voteEndsAtEpoch: nowEpoch + window,
+  } as Omit<Proposal, "yes" | "no" | "voters" | "status" | "createdAt">);
+
+  ProposalStore.upsert({
+    id: proposal.id,
+    owner,
+    cid: normalizedCid,
+    name: proposal.name,
+    mime: proposal.mime,
+    width: proposal.width,
+    height: proposal.height,
+    filename: body.filename,
+    rect,
+    bidPerCellWei: proposal.bidPerCellWei,
+  });
+
+  return NextResponse.json({ ok: true, proposal }, { status: 200 });
 }

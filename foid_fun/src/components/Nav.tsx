@@ -12,7 +12,6 @@ const LINKS: NavLink[] = [
   { href: "/wETH", label: "wETH" },
   { href: "/foidswap", label: "FoidSwap" },
   { href: "/foidfactory", label: "FoidFactory" },
-  { href: "/anonymizer", label: "Anonymizer" },
 ];
 
 export default function Nav() {

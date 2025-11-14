@@ -34,7 +34,6 @@ const NAV_LINKS: NavLink[] = [
   { href: "/wETH", label: "wETH" },
   { href: "/foidswap", label: "FoidSwap" },
   { href: "/foidfactory", label: "FoidFactory" },
-  { href: "/anonymizer", label: "Anonymizer" },
   { href: "https://github.com/traplordmoses/foiddotfun", label: "GitHub", external: true },
   { href: "https://x.com/foidfun", label: "X / @foidfun", external: true },
 ] as const;

@@ -78,25 +78,44 @@ export async function uploadJSON(
   name: string,
   data: unknown
 ): Promise<string> {
-  const W3 = process.env.WEB3_STORAGE_TOKEN;
-  const body = new Blob([JSON.stringify(data)], {
+  const payload = JSON.stringify(data);
+  const body = new Blob([payload], {
     type: "application/json",
   });
 
+  const parseJson = (txt: string) => {
+    try {
+      return JSON.parse(txt);
+    } catch {
+      return null;
+    }
+  };
+
+  const W3 = process.env.WEB3_STORAGE_TOKEN;
   if (W3) {
-    const r = await fetch("https://api.web3.storage/upload", {
+    const res = await fetch("https://api.web3.storage/upload", {
       method: "POST",
       headers: { Authorization: `Bearer ${W3}` },
       body,
     });
-    if (!r.ok) throw new Error("web3.storage upload failed");
-    const j = await r.json();
-    return j.cid as string;
+    const text = await res.text();
+    const json = parseJson(text);
+    if (!res.ok) {
+      throw new Error(
+        `web3.storage upload failed: ${res.status} ${
+          json?.error ?? text ?? "unknown error"
+        }`
+      );
+    }
+    if (!json?.cid) {
+      throw new Error("web3.storage upload failed: missing cid");
+    }
+    return json.cid as string;
   }
 
   const PINATA_JWT = process.env.PINATA_JWT;
   if (PINATA_JWT) {
-    const r = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
+    const res = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${PINATA_JWT}`,
@@ -107,10 +126,21 @@ export async function uploadJSON(
         pinataContent: data,
       }),
     });
-    if (!r.ok) throw new Error("pinata upload failed");
-    const j = await r.json();
-    return j.IpfsHash as string;
+    const text = await res.text();
+    const json = parseJson(text);
+    if (!res.ok) {
+      const errMsg =
+        json?.error?.message ?? json?.error ?? text ?? "unknown error";
+      throw new Error(`pinata upload failed: ${res.status} ${errMsg}`);
+    }
+    if (!json?.IpfsHash) {
+      throw new Error("pinata upload failed: missing IpfsHash");
+    }
+    return json.IpfsHash as string;
   }
 
-  return `bafy-dev-${Math.random().toString(36).slice(2)}`;
+  console.warn(
+    "[ipfs] No WEB3_STORAGE_TOKEN or PINATA_JWT configured. Using dev CID."
+  );
+  return `dev-manifest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }

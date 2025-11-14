@@ -12,6 +12,15 @@ import dynamic from "next/dynamic";
 import { useBoard } from "@/state/board";
 import type { PendingItem } from "@/state/board";
 import { TILE, snapRect, rectCells, hasOverlap, type Rect } from "@/lib/grid";
+import {
+  VIRTUAL_CANVAS_W,
+  VIRTUAL_CANVAS_H,
+  BOARD_OFFSET_X,
+  BOARD_OFFSET_Y,
+  WORLD_MAX_X,
+  WORLD_MAX_Y,
+  worldToContractRect,
+} from "@/lib/boardSpace";
 import { sniffImageType, mimeFromType } from "@/lib/image";
 import { uploadImage, ipfsUrl } from "@/lib/ipfs";
 import { formatEth } from "@/lib/wei";
@@ -20,7 +29,6 @@ import sfx from "@/lib/sfx";
 import { keccak256, stringToHex } from "viem";
 import type { FinalizedPlacement } from "@/lib/types";
 import {
-  finalizeEpoch,
   getManifest,
   proposePlacement,
   listProposals,
@@ -36,6 +44,25 @@ const MusicPanel = dynamic(() => import("@/components/MusicPanel"), {
 const ChatDock = dynamic(() => import("@/components/ChatDock"), {
   ssr: false,
 });
+
+function display(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "bigint") return value.toString();
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return String(value);
+  }
+  try {
+    const json = JSON.stringify(value);
+    if (json === "{}") return "[object]";
+    return json;
+  } catch {
+    return "[object]";
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -53,9 +80,25 @@ const MAX_CELLS_PER_RECT: number = Number(
 const OWNER_DEMO =
   "0xDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF"; // TODO: replace with connected wallet
 
-const VIRTUAL_CANVAS_W = 1_000_000;
-const VIRTUAL_CANVAS_H = 1_000_000;
+const GRID_MULTIPLIER = 8; // fake “infinite” backdrop multiplier
+const STAGE_CANVAS_W = VIRTUAL_CANVAS_W * GRID_MULTIPLIER;
+const STAGE_CANVAS_H = VIRTUAL_CANVAS_H * GRID_MULTIPLIER;
+const STAGE_PAD_X = (STAGE_CANVAS_W - VIRTUAL_CANVAS_W) / 2;
+const STAGE_PAD_Y = (STAGE_CANVAS_H - VIRTUAL_CANVAS_H) / 2;
+const GRID_RADIUS_X = Math.floor(WORLD_MAX_X / TILE);
+const GRID_RADIUS_Y = Math.floor(WORLD_MAX_Y / TILE);
+
 const DEV_UI = process.env.NEXT_PUBLIC_DEV_TOOLS === "1";
+
+const toStageRect = (rect: Rect): Rect => {
+  const boardRect = worldToContractRect(rect);
+  return {
+    x: boardRect.x + STAGE_PAD_X,
+    y: boardRect.y + STAGE_PAD_Y,
+    w: boardRect.w,
+    h: boardRect.h,
+  };
+};
 
 // ---------------------------------------------------------------------------
 // Types for local drag/ghost
@@ -207,6 +250,39 @@ async function lockPendingAndPropose(p: PendingItem) {
   return cid;
 }
 
+const asWorldRect = (value: any) => {
+  const src = value?.rect ?? value ?? {};
+  return {
+    x: Number(src.x ?? 0),
+    y: Number(src.y ?? 0),
+    w: Number(src.w ?? src.width ?? 0),
+    h: Number(src.h ?? src.height ?? 0),
+  };
+};
+
+const normalizePlacements = (list: any[]): FinalizedPlacement[] =>
+  list.map((p: any) => {
+    const { rect, ...rest } = p ?? {};
+    const coerced = asWorldRect(rect ?? p);
+    return {
+      ...rest,
+      x: coerced.x,
+      y: coerced.y,
+      w: coerced.w,
+      h: coerced.h,
+      cells: Number(p?.cells ?? 1),
+    } as FinalizedPlacement;
+  });
+
+const normalizeProposals = (list: ProposalSummary[] | undefined): ProposalSummary[] =>
+  (list ?? []).map((p) => {
+    const rect = asWorldRect(p.rect ?? p);
+    return {
+      ...p,
+      rect,
+    };
+  });
+
 // ---------------------------------------------------------------------------
 
 export default function BoardPage() {
@@ -245,18 +321,23 @@ export default function BoardPage() {
   const [devW, setDevW] = useState(200);
   const [devH, setDevH] = useState(200);
   const [devX, setDevX] = useState(0);
-const [devY, setDevY] = useState(0);
+  const [devY, setDevY] = useState(0);
+  const [finalizing, setFinalizing] = useState(false);
+  const [finalizeResult, setFinalizeResult] = useState<string | null>(null);
+  const [latestDebug, setLatestDebug] = useState<string | null>(null);
+  const [submittingProposals, setSubmittingProposals] = useState(false);
   const zoomToRect = useCallback(
     (r: Rect, padding = 32) => {
       const el = containerRef.current;
       if (!el) return;
       const viewW = el.clientWidth || 1;
       const viewH = el.clientHeight || 1;
-      const targetW = r.w + padding * 2;
-      const targetH = r.h + padding * 2;
+      const stageRect = toStageRect(r);
+      const targetW = stageRect.w + padding * 2;
+      const targetH = stageRect.h + padding * 2;
       const s = Math.max(0.25, Math.min(4, Math.min(viewW / targetW, viewH / targetH)));
-      const x = (viewW - r.w * s) / 2 - r.x * s;
-      const y = (viewH - r.h * s) / 2 - r.y * s;
+      const x = (viewW - stageRect.w * s) / 2 - stageRect.x * s;
+      const y = (viewH - stageRect.h * s) / 2 - stageRect.y * s;
       setScale(s);
       setPan({ x, y });
     },
@@ -286,9 +367,20 @@ const [devY, setDevY] = useState(0);
       const el = containerRef.current;
       if (!el) return { x: 0, y: 0 };
       const r = el.getBoundingClientRect();
-      const x = (clientX - r.left - pan.x) / scale;
-      const y = (clientY - r.top - pan.y) / scale;
-      return { x: Math.max(0, x), y: Math.max(0, y) };
+      const stageX = (clientX - r.left - pan.x) / scale;
+      const stageY = (clientY - r.top - pan.y) / scale;
+      const boardX = stageX - STAGE_PAD_X;
+      const boardY = stageY - STAGE_PAD_Y;
+      const worldX = boardX - BOARD_OFFSET_X;
+      const worldY = boardY - BOARD_OFFSET_Y;
+      const gridX = Math.round(worldX / TILE);
+      const gridY = Math.round(worldY / TILE);
+      const clampedGridX = Math.max(-GRID_RADIUS_X, Math.min(GRID_RADIUS_X, gridX));
+      const clampedGridY = Math.max(-GRID_RADIUS_Y, Math.min(GRID_RADIUS_Y, gridY));
+      return {
+        x: clampedGridX * TILE,
+        y: clampedGridY * TILE,
+      };
     },
     [pan, scale]
   );
@@ -344,6 +436,25 @@ const [devY, setDevY] = useState(0);
     (e.currentTarget as Element).setPointerCapture?.((e as any).pointerId);
   };
 
+  const onCanvasWheel: React.WheelEventHandler<HTMLDivElement> = (e) => {
+    if (e.shiftKey) return;
+    e.preventDefault();
+    const el = containerRef.current;
+    if (!el) return;
+    const factor = Math.exp(-e.deltaY * 0.001);
+    const nextScale = Math.min(4, Math.max(0.25, scale * factor));
+    const r = el.getBoundingClientRect();
+    const cx = e.clientX - r.left;
+    const cy = e.clientY - r.top;
+    const wx = (cx - pan.x) / scale;
+    const wy = (cy - pan.y) / scale;
+    setScale(nextScale);
+    setPan({
+      x: cx - wx * nextScale,
+      y: cy - wy * nextScale,
+    });
+  };
+
   useEffect(() => {
     if (!isPanning) return;
     const onMove = (ev: PointerEvent) => {
@@ -390,32 +501,11 @@ const [devY, setDevY] = useState(0);
     const el = containerRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const x = (r.width - VIRTUAL_CANVAS_W) / 2;
-    const y = (r.height - VIRTUAL_CANVAS_H) / 2;
+    const x = (r.width - STAGE_CANVAS_W) / 2;
+    const y = (r.height - STAGE_CANVAS_H) / 2;
     setPan({ x, y });
   }, []);
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const wheelHandler = (e: WheelEvent) => {
-      if (e.shiftKey) return;
-      e.preventDefault();
-      const factor = Math.exp(-e.deltaY * 0.001);
-      const nextScale = Math.min(4, Math.max(0.25, scale * factor));
-      const r = el.getBoundingClientRect();
-      const cx = e.clientX - r.left;
-      const cy = e.clientY - r.top;
-      const wx = (cx - pan.x) / scale;
-      const wy = (cy - pan.y) / scale;
-      setScale(nextScale);
-      setPan({ x: cx - wx * nextScale, y: cy - wy * nextScale });
-    };
-
-    el.addEventListener("wheel", wheelHandler, { passive: false });
-    return () => el.removeEventListener("wheel", wheelHandler as any);
-  }, [scale, pan]);
   async function getImageSize(file: File): Promise<{ w: number; h: number }> {
     try {
       // @ts-ignore
@@ -521,99 +611,134 @@ const [devY, setDevY] = useState(0);
     }
   };
 
-const handleSingleFile = useCallback(
-  async (file: File, pos?: DropPos) => {
-    setMessage("");
-    setBusy(true);
-    try {
-      let workingFile = file;
-      let kind = await sniffImageType(workingFile);
-      if (!kind) {
-        setMessage("Only PNG or JPG allowed.");
-        return;
-      }
-      let mime = mimeFromType(kind) as "image/png" | "image/jpeg";
-      let { w, h } = await getImageSize(workingFile);
+  const clampToCanvas = useCallback((r: Rect): Rect => {
+    // allow symmetric placement around 0,0 instead of clamping to only +x/+y
+    const minX = -WORLD_MAX_X;
+    const maxX = WORLD_MAX_X - r.w;
+    const minY = -WORLD_MAX_Y;
+    const maxY = WORLD_MAX_Y - r.h;
 
-      let rect = snapRect({ x: pos?.x ?? 0, y: pos?.y ?? 0, w, h });
-      let cells = rectCells(rect);
+    return {
+      x: Math.min(Math.max(r.x, minX), maxX),
+      y: Math.min(Math.max(r.y, minY), maxY),
+      w: r.w,
+      h: r.h,
+    };
+  }, []);
 
-      if (cells > MAX_CELLS_PER_RECT) {
-        const resized = await downscaleToMaxCells(
-          workingFile,
-          MAX_CELLS_PER_RECT,
-          TILE,
-          "image/jpeg",
-          0.9
-        );
-        workingFile = resized;
-        kind = await sniffImageType(resized);
-        mime = kind ? (mimeFromType(kind) as "image/png" | "image/jpeg") : "image/jpeg";
-        const size2 = await getImageSize(resized);
-        w = size2.w;
-        h = size2.h;
-        rect = snapRect({ x: pos?.x ?? 0, y: pos?.y ?? 0, w, h });
-        cells = rectCells(rect);
-        if (cells > MAX_CELLS_PER_RECT) {
-          setMessage(`Too large after resize: ${cells} cells > max ${MAX_CELLS_PER_RECT}.`);
+  const handleSingleFile = useCallback(
+    async (file: File, pos?: DropPos) => {
+      setMessage("");
+      setBusy(true);
+      try {
+        let workingFile = file;
+        let kind = await sniffImageType(workingFile);
+        if (!kind) {
+          setMessage("Only PNG or JPG allowed.");
           return;
         }
+
+        let mime = mimeFromType(kind) as "image/png" | "image/jpeg";
+
+        // 1) measure original image
+        let { w, h } = await getImageSize(workingFile);
+
+        // initial rect at drop position, snapped to grid
+        let rect = snapRect({
+          x: pos?.x ?? 0,
+          y: pos?.y ?? 0,
+          w,
+          h,
+        });
+
+        let cells = rectCells(rect);
+
+        // 2) if huge, downscale the image once toward the cell cap
+        if (cells > MAX_CELLS_PER_RECT) {
+          const resized = await downscaleToMaxCells(
+            workingFile,
+            MAX_CELLS_PER_RECT,
+            TILE,
+            "image/jpeg",
+            0.9
+          );
+          workingFile = resized;
+
+          kind = await sniffImageType(resized);
+          mime = kind
+            ? (mimeFromType(kind) as "image/png" | "image/jpeg")
+            : ("image/jpeg" as const);
+
+          const size2 = await getImageSize(resized);
+          rect = snapRect({
+            x: pos?.x ?? 0,
+            y: pos?.y ?? 0,
+            w: size2.w,
+            h: size2.h,
+          });
+          cells = rectCells(rect);
+        }
+
+        // 3) Force the rect underneath the cell cap and keep it on the canvas
+        rect = capRectToMaxCells(rect, MAX_CELLS_PER_RECT);
+        rect = clampToCanvas(rect);
+        const cellsNow = rectCells(rect);
+
+        const previewUrl = URL.createObjectURL(workingFile);
+
+        addPending({
+          name: workingFile.name,
+          mime,
+          width: rect.w,
+          height: rect.h,
+          rect,
+          cells: cellsNow,
+          tipPerCellWei: 0n,
+          previewUrl,
+          cid: undefined,
+          fitMode: "contain",
+        });
+
+        setMessage('Set size/position, then click "Lock" on the piece to propose.');
+      } finally {
+        setBusy(false);
+        setGhost(null);
+        ghostMetaRef.current = null;
       }
+    },
+    [addPending, clampToCanvas]
+  );
 
-      rect = capRectToMaxCells(rect, MAX_CELLS_PER_RECT);
-      w = rect.w;
-      h = rect.h;
-      const cellsNow = rectCells(rect);
-      if (cellsNow > MAX_CELLS_PER_RECT) {
-        setMessage(
-          `Too large after cap: ${cellsNow} cells > max ${MAX_CELLS_PER_RECT}.`
-        );
-        return;
-      }
-
-      const previewUrl = URL.createObjectURL(workingFile);
-
-      // Create a pending item (no upload yet; user can move/resize)
-      const created = addPending({
-        name: workingFile.name,
-        mime,
-        width: w,
-        height: h,
-        rect,
-        cells: cellsNow,
-        tipPerCellWei: 0n,
-        previewUrl,
-        cid: undefined,
-        fitMode: "contain",
-      });
-
-      setMessage('Set size/position, then click "Lock" on the piece to propose.');
-    } finally {
-      setBusy(false);
-      setGhost(null);
-      ghostMetaRef.current = null;
-    }
-  },
-  []
-);
-
+  const handleFiles = useCallback(
+    async (files: FileList | null, pos?: DropPos) => {
+      if (!files || files.length === 0) return;
+      await handleSingleFile(files[0], pos);
+    },
+    [handleSingleFile]
+  );
 
   const onDrop: React.DragEventHandler<HTMLDivElement> = async (e) => {
     e.preventDefault();
     setDragOver(false);
-    if (!e.dataTransfer?.files?.length) return;
-    await handleSingleFile(
-      e.dataTransfer.files[0],
+    await handleFiles(
+      e.dataTransfer?.files ?? null,
       getDropPos(e.clientX, e.clientY)
     );
   };
 
-  const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (
-    e
-  ) => {
+  const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const input = e.currentTarget;
-    const f = input.files?.[0];
-    if (f) await handleSingleFile(f, { x: 0, y: 0 });
+
+    let pos: DropPos | undefined;
+    const el = containerRef.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      pos = screenToWorld(cx, cy);
+    }
+
+    await handleFiles(input.files ?? null, pos);
     input.value = "";
   };
 
@@ -623,6 +748,64 @@ const handleSingleFile = useCallback(
   const [viewEpoch, setViewEpoch] = useState<number | "latest">("latest");
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
 
+  const handleFinalizeClick = useCallback(async () => {
+    try {
+      setFinalizing(true);
+      setFinalizeResult(null);
+
+      const res = await fetch("/api/operator/finalize?force=1", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFinalizeResult(`Error: ${json?.error ?? res.statusText}`);
+        return;
+      }
+
+      const epoch = json?.epoch ?? "latest";
+      const winnersCount =
+        json?.winners ??
+        (Array.isArray(json?.accepted) ? json.accepted.length : "—");
+      const txHash = json?.txHash ?? "n/a";
+      const manifestRoot = json?.manifestRoot ?? "n/a";
+
+      const man = await getManifest("latest");
+      const placements: FinalizedPlacement[] = normalizePlacements(
+        man.manifest?.placements ?? []
+      );
+      setPlaced(placements);
+      setPlacedEpoch(man.epoch);
+      setViewEpoch("latest");
+      clearBoardState?.();
+
+      try {
+        const { proposals } = await listProposals();
+        setProposals(normalizeProposals(proposals ?? []));
+      } catch {
+        /* ignore */
+      }
+
+      setFinalizeResult(
+        `Finalized epoch ${epoch} • winners=${winnersCount} • tx=${txHash} • manifest=${manifestRoot}`
+      );
+      document
+        .querySelector("#referendum")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e: any) {
+      setFinalizeResult(`Error: ${e?.message ?? "Unknown error"}`);
+    } finally {
+      setFinalizing(false);
+    }
+  }, [
+    clearBoardState,
+    setPlaced,
+    setPlacedEpoch,
+    setViewEpoch,
+    setProposals,
+  ]);
+
   // ======== MOVE / RESIZE ========
   const [activeId, setActiveId] = useState<string | null>(null);
   const [liveRect, setLiveRect] = useState<Rect | null>(null);
@@ -631,13 +814,6 @@ const handleSingleFile = useCallback(
   const startPtRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const aspectRef = useRef<number>(1);
 
-  const clampToCanvas = useCallback((r: Rect): Rect => {
-    const w = Math.max(TILE, r.w);
-    const h = Math.max(TILE, r.h);
-    const x = Math.max(0, r.x);
-    const y = Math.max(0, r.y);
-    return { x, y, w, h };
-  }, []);
   const snap = (v: number) => Math.round(v / TILE) * TILE;
 
   const beginMove = (p: PendingItem) => (e: React.PointerEvent) => {
@@ -761,17 +937,15 @@ const handleSingleFile = useCallback(
         if (viewEpoch === "latest") {
           const latest = await getLatestNormalized();
           console.log("LATEST_NORMALIZED", latest);
+          if (DEV_UI) {
+            setLatestDebug(JSON.stringify(latest, null, 2));
+          } else {
+            setLatestDebug(null);
+          }
           if (!alive) return;
-          const placements: FinalizedPlacement[] = (
+          const placements: FinalizedPlacement[] = normalizePlacements(
             latest?.manifest?.placements ?? []
-          ).map((p: any) => ({
-            ...p,
-            x: Number(p.x),
-            y: Number(p.y),
-            w: Number(p.w),
-            h: Number(p.h),
-            cells: Number(p.cells ?? 1),
-          }));
+          );
           setPlaced(placements);
           setPlacedEpoch(latest?.epoch ?? null);
           if (placements.length) {
@@ -780,17 +954,15 @@ const handleSingleFile = useCallback(
           }
         } else {
           const man = await getManifest(viewEpoch);
+          if (DEV_UI) {
+            setLatestDebug(JSON.stringify(man, null, 2));
+          } else {
+            setLatestDebug(null);
+          }
           if (!alive) return;
-          const placements: FinalizedPlacement[] = (
+          const placements: FinalizedPlacement[] = normalizePlacements(
             man.manifest?.placements ?? []
-          ).map((p: any) => ({
-            ...p,
-            x: Number(p.x),
-            y: Number(p.y),
-            w: Number(p.w),
-            h: Number(p.h),
-            cells: Number(p.cells ?? 1),
-          }));
+          );
           setPlaced(placements);
           setPlacedEpoch(man.epoch);
         }
@@ -798,6 +970,7 @@ const handleSingleFile = useCallback(
         if (!alive) return;
         setPlaced([]);
         setPlacedEpoch(null);
+        setLatestDebug(null);
         console.error("LATEST_LOAD_FAIL", e);
         setMessage(String(e?.message ?? "Failed to load manifest"));
       }
@@ -816,7 +989,7 @@ const handleSingleFile = useCallback(
     const tick = async () => {
       try {
         const { proposals } = await listProposals();
-        if (alive) setProposals(proposals ?? []);
+        if (alive) setProposals(normalizeProposals(proposals));
       } catch {
         if (alive) setProposals([]);
       }
@@ -871,6 +1044,7 @@ const handleSingleFile = useCallback(
         onDragEnter={onDragEnter}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
+        onWheel={onCanvasWheel}
         style={{
           cursor: spaceDown ? (isPanning ? "grabbing" : "grab") : "default",
           backgroundColor: "rgba(14,15,43,0.7)",
@@ -881,58 +1055,68 @@ const handleSingleFile = useCallback(
       >
         <div
           ref={stageRef}
-          className="absolute inset-0"
+          className="absolute top-0 left-0"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
             transformOrigin: "0 0",
             backgroundImage: gridBg,
             backgroundSize: gridSize,
-            width: VIRTUAL_CANVAS_W,
-            height: VIRTUAL_CANVAS_H,
+            width: STAGE_CANVAS_W,
+            height: STAGE_CANVAS_H,
           }}
         >
           {/* finalized placements (bottom layer) */}
-        {placed.map((p) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={p.id}
-            src={ipfsUrl(p.cid)}
-            alt={p.id}
-            className="absolute rounded-md pointer-events-none"
-            style={{
-              left: p.x,
-              top: p.y,
-              width: p.w,
-              height: p.h,
-              zIndex: 0,
-              outline: "2px solid rgba(72,255,171,.55)",
-              background: "rgba(72,255,171,.04)",
-              borderRadius: "6px",
-            }}
-            referrerPolicy="no-referrer"
-            onError={(e) => {
-              const el = e.currentTarget as HTMLImageElement;
-              const tried = el.dataset.tried ?? "0";
-              if (tried === "0") {
-                el.src = `https://cloudflare-ipfs.com/ipfs/${p.cid}`;
-                el.dataset.tried = "1";
-              } else if (tried === "1") {
-                el.src = `https://ipfs.io/ipfs/${p.cid}`;
-                el.dataset.tried = "2";
-              }
-            }}
-          />
-        ))}
+        {placed.map((p) => {
+          const stageRect = toStageRect({
+            x: p.x,
+            y: p.y,
+            w: p.w,
+            h: p.h,
+          });
+          return (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={p.id}
+              src={ipfsUrl(p.cid)}
+              alt={p.id}
+              className="absolute rounded-md pointer-events-none"
+              style={{
+                left: stageRect.x,
+                top: stageRect.y,
+                width: stageRect.w,
+                height: stageRect.h,
+                zIndex: 0,
+                outline: "2px solid rgba(72,255,171,.55)",
+                background: "rgba(72,255,171,.04)",
+                borderRadius: "6px",
+              }}
+              referrerPolicy="no-referrer"
+              onError={(e) => {
+                const el = e.currentTarget as HTMLImageElement;
+                const tried = el.dataset.tried ?? "0";
+                if (tried === "0") {
+                  el.src = `https://cloudflare-ipfs.com/ipfs/${p.cid}`;
+                  el.dataset.tried = "1";
+                } else if (tried === "1") {
+                  el.src = `https://ipfs.io/ipfs/${p.cid}`;
+                  el.dataset.tried = "2";
+                }
+              }}
+            />
+          );
+        })}
 
         {/* ghost preview */}
-        {ghost ? (
+        {ghost ? (() => {
+          const stageRect = toStageRect(ghost.rect);
+          return (
           <div
             className="absolute rounded-md pointer-events-none"
             style={{
-              left: ghost.rect.x,
-              top: ghost.rect.y,
-              width: ghost.rect.w,
-              height: ghost.rect.h,
+              left: stageRect.x,
+              top: stageRect.y,
+              width: stageRect.w,
+              height: stageRect.h,
               outlineWidth: 2,
               outlineStyle: "dashed",
               outlineColor:
@@ -970,20 +1154,23 @@ const handleSingleFile = useCallback(
               )}
             </div>
           </div>
-        ) : null}
+        );
+        })() : null}
 
         {/* proposals (top of accepted layer, dashed while voting) */}
         {proposals
           .filter((p) => p.status === "proposed")
-          .map((p) => (
+          .map((p) => {
+            const stageRect = toStageRect(p.rect);
+            return (
             <figure
               key={p.id}
               className="absolute pointer-events-none"
               style={{
-                left: p.rect.x,
-                top: p.rect.y,
-                width: p.rect.w,
-                height: p.rect.h,
+                left: stageRect.x,
+                top: stageRect.y,
+                width: stageRect.w,
+                height: stageRect.h,
                 zIndex: 2,
               }}
             >
@@ -1003,22 +1190,24 @@ const handleSingleFile = useCallback(
               />
 
               <figcaption className="absolute left-1 top-1 text-[11px] px-2 py-1 rounded-md bg-black/60 text-white border border-white/20 flex items-center gap-2">
-                <span>{p.cells} cells</span>
+                <span>{display(p.cells)} cells</span>
                 <span>·</span>
-                <span>bid {p.bidPerCellWei}/cell</span>
+                <span>bid {display(p.bidPerCellWei)}/cell</span>
                 <span>·</span>
-                <span>{Math.round(p.percentYes * 100)}% yes</span>
+                <span>{display(Math.round(Number(p.percentYes ?? 0) * 100))}% yes</span>
                 <span>·</span>
-                <span>{p.voters} voters</span>
+                <span>{display(p.voters)} voters</span>
                 <span>·</span>
-                <span>{p.secondsLeft}s left</span>
+                <span>{display(p.secondsLeft)}s left</span>
               </figcaption>
             </figure>
-          ))}
+          );
+          })}
 
         {/* pending items (top layer) */}
         {items.map((p) => {
           const r = renderRectFor(p);
+          const stageRect = toStageRect(r);
           const cellsNow = rectCells(r);
           const totalNow =
             BigInt(cellsNow) * (BASE_FEE_PER_CELL_WEI + p.tipPerCellWei);
@@ -1027,7 +1216,13 @@ const handleSingleFile = useCallback(
             <figure
               key={p.id}
               className="absolute"
-              style={{ left: r.x, top: r.y, width: r.w, height: r.h, zIndex: 3 }}
+              style={{
+                left: stageRect.x,
+                top: stageRect.y,
+                width: stageRect.w,
+                height: stageRect.h,
+                zIndex: 3,
+              }}
             >
               {/* image */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1272,10 +1467,11 @@ const handleSingleFile = useCallback(
                 type="button"
                 onClick={() => {
                   if (!devCid) return;
-                  const rect = capRectToMaxCells(
+                  const capped = capRectToMaxCells(
                     { x: devX, y: devY, w: devW, h: devH },
                     MAX_CELLS_PER_RECT
                   );
+                  const rect = clampToCanvas(capped);
                   const cells = rectCells(rect);
                   setPlaced((prev) => [
                     ...prev,
@@ -1295,37 +1491,49 @@ const handleSingleFile = useCallback(
               >
                 Add to board
               </button>
+
+              {latestDebug && (
+                <pre className="mt-3 max-h-56 overflow-auto rounded-lg bg-black/40 p-2 text-[11px] leading-tight text-white/70 whitespace-pre-wrap">
+                  {latestDebug}
+                </pre>
+              )}
             </div>
           )}
 
           <button
             className="mt-2 w-full rounded-xl px-4 py-2 bg-cyan-300/90 text-black font-semibold disabled:opacity-50"
-            disabled={!items.length}
+            disabled={!items.length || submittingProposals}
             type="button"
-            onClick={async () => {
-              try {
-                // 1) ensure wallet (MetaMask pop)
-                const eth = (globalThis as any)?.ethereum;
-                if (!eth) throw new Error("No wallet detected");
-                const [account] = await eth.request({ method: "eth_requestAccounts" });
+          onClick={async () => {
+            if (submittingProposals) return;
+            setSubmittingProposals(true);
+            setMessage("Preparing submissions...");
+            try {
+              // 1) ensure wallet (MetaMask pop)
+              const eth = (globalThis as any)?.ethereum;
+              if (!eth) throw new Error("No wallet detected");
+              const [account] = await eth.request({ method: "eth_requestAccounts" });
 
-                for (const it of items) {
-                  const bytes = await getPendingBytes(it);
-                  const byteArray = new Uint8Array(bytes);
-                  const cidHash = keccak256(byteArray) as `0x${string}`;
-                  const id = keccak256(stringToHex(it.id)) as `0x${string}`;
+              for (const it of items) {
+                setMessage(`Submitting ${it.name} on-chain...`);
+                const bytes = await getPendingBytes(it);
+                const byteArray = new Uint8Array(bytes);
+                const cidHash = keccak256(byteArray) as `0x${string}`;
+                const id = keccak256(stringToHex(it.id)) as `0x${string}`;
 
                   const bidPerCellWei = BASE_FEE_PER_CELL_WEI + it.tipPerCellWei;
                   const epoch = typeof epochIdx === "number" ? epochIdx : 0;
+
+                  const onChainRect = worldToContractRect(it.rect);
 
                   await writeProposePlacement({
                     id,
                     bidder: account as `0x${string}`,
                     rect: {
-                      x: it.rect.x,
-                      y: it.rect.y,
-                      w: it.rect.w,
-                      h: it.rect.h,
+                      x: onChainRect.x,
+                      y: onChainRect.y,
+                      w: onChainRect.w,
+                      h: onChainRect.h,
                     },
                     cells: it.cells,
                     bidPerCellWei,
@@ -1333,70 +1541,66 @@ const handleSingleFile = useCallback(
                     epoch,
                   });
 
+                  setMessage(`Uploading ${it.name} to IPFS...`);
                   const file = new File([bytes], it.name, { type: it.mime });
                   const cid = await uploadImage(it.name, file, it.mime);
                   if (!cid) throw new Error("IPFS upload disabled.");
                   setCidFor(it.id, cid);
+
+                  const normalizedCid = cid.replace(/^ipfs:\/\//, "");
+                  setMessage(`Saving ${it.name} to operator store...`);
+                  const res = await fetch("/api/proposals", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      id,
+                      owner: account,
+                      cid: normalizedCid,
+                      name: it.name,
+                      mime: it.mime,
+                      rect: it.rect,
+                      width: it.width,
+                      height: it.height,
+                      bidPerCellWei: bidPerCellWei.toString(),
+                      cells: it.cells,
+                      filename: it.name,
+                    }),
+                  });
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err?.error ?? "Failed to persist proposal");
+                  }
                 }
 
                 clearBoardState?.();
                 try {
                   const { proposals } = await listProposals();
-                  setProposals(proposals ?? []);
+                  setProposals(normalizeProposals(proposals));
                 } catch {
                   /* ignore */
                 }
                 setMessage("Proposed on-chain ✓ and files uploaded to IPFS");
               } catch (e: any) {
                 setMessage(String(e?.message ?? e));
+              } finally {
+                setSubmittingProposals(false);
               }
             }}
           >
-            Submit proposal(s)
+            {submittingProposals ? "Submitting..." : "Submit proposal(s)"}
           </button>
 
           <button
-            className="mt-2 w-full rounded-xl px-4 py-2 bg-white/20 text-white font-semibold hover:bg-white/25"
+            className="mt-2 w-full rounded-xl px-4 py-2 bg-white/20 text-white font-semibold hover:bg-white/25 disabled:opacity-60"
             type="button"
-            onClick={async () => {
-              try {
-                const { epoch, manifestCID } = await finalizeEpoch(true); // dev
-            const man = await getManifest("latest");
-            const placements: FinalizedPlacement[] = (
-              man.manifest?.placements ?? []
-            ).map((p: any) => ({
-              ...p,
-              x: Number(p.x),
-              y: Number(p.y),
-              w: Number(p.w),
-              h: Number(p.h),
-              cells: Number(p.cells ?? 1),
-            }));
-            setPlaced(placements);
-            setPlacedEpoch(man.epoch);
-                setViewEpoch("latest");
-                clearBoardState?.();
-                try {
-                  const { proposals } = await listProposals();
-                  setProposals(proposals ?? []);
-                } catch {
-                  /* ignore */
-                }
-                setMessage(
-                  manifestCID
-                    ? `Epoch #${epoch} finalized ✓ · CID: ${manifestCID}`
-                    : `Epoch #${epoch} finalized ✓`
-                );
-                document
-                  .querySelector("#referendum")
-                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
-              } catch (e: any) {
-                setMessage(String(e?.message ?? e));
-              }
-            }}
+            disabled={finalizing}
+            onClick={handleFinalizeClick}
           >
-            Finalize epoch (dev)
+            {finalizing ? "Finalizing..." : "Finalize epoch (dev)"}
           </button>
+          {finalizeResult && (
+            <p className="mt-1 text-xs text-foid-mint/80">{finalizeResult}</p>
+          )}
 
           <div className="mt-4 rounded-2xl border border-white/15 bg-white/6 backdrop-blur-md p-4 text-white/85">
             <div className="flex items-center gap-2">
@@ -1448,16 +1652,16 @@ const handleSingleFile = useCallback(
                 >
                   <div className="flex justify-between">
                     <span>
-                      {p.cells} cells · bid {p.bidPerCellWei}/cell
+                      {display(p.cells)} cells · bid {display(p.bidPerCellWei)}/cell
                     </span>
-                    <span>{Math.round(p.percentYes * 100)}% yes</span>
+                    <span>{display(Math.round(Number(p.percentYes ?? 0) * 100))}% yes</span>
                   </div>
                   <div className="flex justify-between mt-1">
-                    <span>{p.voters} voters</span>
+                    <span>{display(p.voters)} voters</span>
                     <span>
                       {p.status === "proposed"
-                        ? `${p.secondsLeft}s left`
-                        : p.status}
+                        ? `${display(p.secondsLeft)}s left`
+                        : display(p.status)}
                     </span>
                   </div>
                   <div className="mt-2 flex gap-2">
@@ -1474,7 +1678,7 @@ const handleSingleFile = useCallback(
                             vote: true,
                           });
                           const { proposals } = await listProposals();
-                          setProposals(proposals ?? []);
+                          setProposals(normalizeProposals(proposals));
                         } catch {
                           /* demo only */
                         }
@@ -1495,7 +1699,7 @@ const handleSingleFile = useCallback(
                             vote: false,
                           });
                           const { proposals } = await listProposals();
-                          setProposals(proposals ?? []);
+                          setProposals(normalizeProposals(proposals));
                         } catch {
                           /* demo only */
                         }

@@ -1,6 +1,7 @@
 // /src/state/board.ts
 import { create } from "zustand";
 import type { Rect } from "@/lib/grid";
+import { contractToWorldRect } from "@/lib/boardSpace";
 
 const BASE = BigInt(process.env.NEXT_PUBLIC_BASE_FEE_PER_CELL_WEI ?? "0");
 type FitMode = "contain" | "cover";
@@ -18,6 +19,7 @@ export type PendingItem = {
   previewUrl: string;
   cid?: string;
   fitMode: FitMode;
+  space?: "world" | "chain";
 };
 
 type AddPendingInput = Omit<PendingItem, "id" | "totalWei" | "fitMode"> & { id?: string; fitMode?: FitMode };
@@ -51,7 +53,14 @@ function save(pending: PendingItem[]) {
 function load(): PendingItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((item: PendingItem) => {
+      if (!item?.rect) return item;
+      const rect = item.space === "world" ? item.rect : contractToWorldRect(item.rect);
+      return { ...item, rect, space: "world" as const };
+    });
   } catch { return []; }
 }
 
@@ -61,7 +70,13 @@ export const useBoard = create<BoardState>((set, get) => ({
   addPending: (input) => {
     const id = input.id ?? uid();
     const { fitMode = "contain", ...rest } = input;
-    const item: PendingItem = { id, fitMode, totalWei: totalWei(input.cells, input.tipPerCellWei), ...rest };
+    const item: PendingItem = {
+      id,
+      fitMode,
+      totalWei: totalWei(input.cells, input.tipPerCellWei),
+      ...rest,
+      space: "world",
+    };
     const next = [...get().pending, item];
     set({ pending: next });
     save(next);
@@ -90,7 +105,7 @@ export const useBoard = create<BoardState>((set, get) => ({
   setRect: (id, rect) => {
     const next = get().pending.map((p) =>
       p.id === id
-        ? { ...p, rect, /* cells recompute? keep existing; client already shows cost live */ }
+        ? { ...p, rect, space: "world" /* cells recompute? keep existing; client already shows cost live */ }
         : p
     );
     set({ pending: next }); save(next);

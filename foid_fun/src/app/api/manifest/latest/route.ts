@@ -11,6 +11,7 @@ import {
   decodeFunctionData,
   getFunctionSelector,
 } from "viem";
+import { manifestForEpoch } from "../../_store";
 
 const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC!;
 const treasury = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS as `0x${string}`;
@@ -85,6 +86,32 @@ async function fetchManifest(cid: string) {
   return null;
 }
 
+function coerceRect(raw: any) {
+  const src = raw?.rect ?? raw ?? {};
+  const x = Number(src.x ?? 0);
+  const y = Number(src.y ?? 0);
+  const w = Number(src.w ?? src.width ?? 0);
+  const h = Number(src.h ?? src.height ?? 0);
+  return { x, y, w, h };
+}
+
+function flattenPlacements(rows: any[] | undefined) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((p: any) => {
+    const rect = coerceRect(p);
+    return {
+      ...p,
+      cid: String(p.cid ?? "").replace(/^ipfs:\/\//, ""),
+      rect,
+      x: rect.x,
+      y: rect.y,
+      w: rect.w,
+      h: rect.h,
+      cells: Number(p.cells ?? 1),
+    };
+  });
+}
+
 type RawLog = Awaited<ReturnType<typeof client.getLogs>>[number];
 
 type FinalizedLog = RawLog & {
@@ -149,31 +176,30 @@ async function decodeFromProbeTx() {
 function normalizePlacements(manifest: any, manifestCIDDefault = "") {
   // Handle manifests that expose either placements (final output) or winners (operator script input)
   const rows = manifest?.placements ?? manifest?.winners ?? [];
-
-  return rows.map((p: any) => {
-    const rect = p.rect ?? p;
-    const cidRaw =
+  const enriched = rows.map((p: any) => ({
+    ...p,
+    cid:
       p.cid ??
-      manifest.cid ??
-      manifest.manifestCID ??
+      manifest?.cid ??
+      manifest?.manifestCID ??
       manifestCIDDefault ??
-      "";
-
-    return {
-      id: String(p.id),
-      owner: p.owner ? String(p.owner) : "0x",
-      cid: String(cidRaw).replace(/^ipfs:\/\//, ""),
-      x: Number(rect.x ?? 0),
-      y: Number(rect.y ?? 0),
-      w: Number(rect.w ?? 0),
-      h: Number(rect.h ?? 0),
-      cells: Number(p.cells ?? rect.cells ?? 1),
-    };
-  });
+      "",
+  }));
+  return flattenPlacements(enriched);
 }
 
 export async function GET() {
   try {
+    const cached = manifestForEpoch("latest");
+    if (cached?.manifest) {
+      const placements = flattenPlacements(cached.manifest.placements);
+      return NextResponse.json({
+        epoch: cached.epoch,
+        manifestCID: cached.cid ?? null,
+        manifest: { ...cached.manifest, placements },
+      });
+    }
+
     // Pull all Finalized logs since deploy; take the latest
     const latestBlock = await client.getBlockNumber();
     const logs = await getFinalizedLogs(deployBlock, latestBlock);

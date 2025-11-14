@@ -5,6 +5,7 @@ export type StoredProposal = {
   cid?: string;
   cidHash?: `0x${string}`;
   name?: string;
+  filename?: string;
   mime?: "image/png" | "image/jpeg";
   width?: number;
   height?: number;

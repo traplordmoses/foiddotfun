@@ -2,10 +2,10 @@
   "epoch": 0,
   "winners": [
     {
-      "id": "0x490ed285f62a371a9d211f82c3111aa1409f3b9075192eb20140d87fe10c0147",
+      "id": "0x6bf7b65152e8350b6e9e9fda4e51ebc3051668b5598c51d2a0f82116d83e2d18",
       "rect": {
         "x": 0,
-        "y": 0,
+        "y": 544,
         "w": 736,
         "h": 544
       },
@@ -13,7 +13,6 @@
     }
   ],
   "rejected": [],
-  "generatedAt": "2025-11-12T04:22:25.457Z",
-  "emitter": "0x7c5ede19f17910431c780323e9d8ffafd92eaecf",
-  "topic0Used": "0x92b1196f974df8d5783915b6db84d712f8cb5ef8957f77bd341b6e731257cb34"
+  "generatedAt": "2025-11-13T20:19:44.013Z",
+  "emitter": "0x7c5ede19f17910431c780323e9d8ffafd92eaecf"
 }
