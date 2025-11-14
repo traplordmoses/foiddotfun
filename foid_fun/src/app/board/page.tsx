@@ -36,7 +36,6 @@ import {
   castVote,
 } from "@/lib/api";
 import type { ProposalSummary } from "@/lib/api";
-import { getLatestNormalized } from "@/lib/manifest";
 import { writeProposePlacement } from "@/lib/viem";
 
 const MusicPanel = dynamic(() => import("@/components/MusicPanel"), {
@@ -90,6 +89,14 @@ const GRID_RADIUS_X = Math.floor(WORLD_MAX_X / TILE);
 const GRID_RADIUS_Y = Math.floor(WORLD_MAX_Y / TILE);
 
 const DEV_UI = process.env.NEXT_PUBLIC_DEV_TOOLS === "1";
+const BOARD_PASSWORD = process.env.NEXT_PUBLIC_BOARD_PASSWORD ?? "";
+
+const BoardLockBadge: React.FC<{ unlocked?: boolean }> = ({ unlocked }) => (
+  <span className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/80 align-middle">
+    <span className="text-[13px]">{unlocked ? "🔓" : "🔒"}</span>
+    <span>{unlocked ? "dev access" : "beta lock"}</span>
+  </span>
+);
 
 const toStageRect = (rect: Rect): Rect => {
   const boardRect = worldToContractRect(rect);
@@ -309,6 +316,46 @@ export default function BoardPage() {
   const setFitMode = useBoard((s) => s.setFitMode);
   const clearBoardState = useBoard((s) => s.clearAll);
   const setCidFor = useBoard((s) => s.setCidFor);
+
+  // --- simple password gate ---
+  const [unlocked, setUnlocked] = useState(false);
+  const [pwInput, setPwInput] = useState("");
+  const [pwError, setPwError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("mifoid-board-unlocked");
+    if (stored === "1") {
+      setUnlocked(true);
+    }
+  }, []);
+
+  const handleUnlock = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!BOARD_PASSWORD) {
+        setPwError(
+          "Missing NEXT_PUBLIC_BOARD_PASSWORD – set it in your env to use this gate."
+        );
+        return;
+      }
+      if (pwInput.trim() === BOARD_PASSWORD) {
+        setUnlocked(true);
+        setPwError(null);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("mifoid-board-unlocked", "1");
+        }
+        try {
+          sfx.unlock?.();
+        } catch {
+          /* noop */
+        }
+      } else {
+        setPwError("incorrect password");
+      }
+    },
+    [pwInput]
+  );
 
   // pan/zoom
   const [scale, setScale] = useState(1);
@@ -942,41 +989,27 @@ export default function BoardPage() {
 
   // ---- load manifest ----
   useEffect(() => {
+    if (!unlocked) return;
     let alive = true;
 
     const load = async () => {
+      const requestingLatest = viewEpoch === "latest";
       try {
-        if (viewEpoch === "latest") {
-          const latest = await getLatestNormalized();
-          console.log("LATEST_NORMALIZED", latest);
-          if (DEV_UI) {
-            setLatestDebug(JSON.stringify(latest, null, 2));
-          } else {
-            setLatestDebug(null);
-          }
-          if (!alive) return;
-          const placements: FinalizedPlacement[] = normalizePlacements(
-            latest?.manifest?.placements ?? []
-          );
-          setPlaced(placements);
-          setPlacedEpoch(latest?.epoch ?? null);
-          if (placements.length) {
-            const first = placements[0];
-            zoomToRect({ x: first.x, y: first.y, w: first.w, h: first.h });
-          }
+        const man = await getManifest(viewEpoch);
+        if (!alive) return;
+        if (DEV_UI) {
+          setLatestDebug(JSON.stringify(man, null, 2));
         } else {
-          const man = await getManifest(viewEpoch);
-          if (DEV_UI) {
-            setLatestDebug(JSON.stringify(man, null, 2));
-          } else {
-            setLatestDebug(null);
-          }
-          if (!alive) return;
-          const placements: FinalizedPlacement[] = normalizePlacements(
-            man.manifest?.placements ?? []
-          );
-          setPlaced(placements);
-          setPlacedEpoch(man.epoch);
+          setLatestDebug(null);
+        }
+        const placements: FinalizedPlacement[] = normalizePlacements(
+          man.manifest?.placements ?? []
+        );
+        setPlaced(placements);
+        setPlacedEpoch(man.epoch ?? null);
+        if (requestingLatest && placements.length) {
+          const first = placements[0];
+          zoomToRect({ x: first.x, y: first.y, w: first.w, h: first.h });
         }
       } catch (e: any) {
         if (!alive) return;
@@ -993,9 +1026,10 @@ export default function BoardPage() {
     return () => {
       alive = false;
     };
-  }, [viewEpoch, zoomToRect]);
+  }, [viewEpoch, zoomToRect, unlocked]);
 
   useEffect(() => {
+    if (!unlocked) return;
     let alive = true;
 
     const tick = async () => {
@@ -1013,7 +1047,7 @@ export default function BoardPage() {
       alive = false;
       clearInterval(t);
     };
-  }, []);
+  }, [unlocked]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1039,6 +1073,57 @@ export default function BoardPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [activeId, pending, clampToCanvas, setRect]);
+
+  if (!unlocked) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center px-4">
+        <div className="relative max-w-sm w-full rounded-3xl border border-white/20 bg-gradient-to-b from-white/15 via-white/5 to-white/0 backdrop-blur-xl p-6 shadow-[0_18px_60px_rgba(0,0,0,.55)]">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300/90 via-sky-400/90 to-blue-500/90 shadow-[0_0_0_1px_rgba(255,255,255,.6),0_16px_30px_rgba(0,0,0,.5)]">
+            <span className="text-2xl">🔒</span>
+          </div>
+
+          <h1 className="text-lg font-semibold text-white text-center">
+            Mifoid Loreboard
+          </h1>
+          <p className="mt-1 text-xs text-white/70 text-center">
+            this board is still in beta. enter the access word to continue.
+          </p>
+
+          <form onSubmit={handleUnlock} className="mt-4 space-y-3">
+            <label className="block text-xs text-white/75">
+              access password
+              <input
+                type="password"
+                className="mt-1 w-full rounded-xl border border-white/25 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-cyan-300/80 focus:ring-1 focus:ring-cyan-300/80"
+                placeholder="••••••••"
+                value={pwInput}
+                onChange={(e) => setPwInput(e.currentTarget.value)}
+              />
+            </label>
+
+            {pwError && (
+              <p className="text-[11px] text-rose-300/90">{pwError}</p>
+            )}
+
+            <button
+              type="submit"
+              className="mt-1 w-full rounded-xl px-4 py-2 text-sm font-semibold bg-cyan-300/95 text-black hover:bg-cyan-200 transition shadow-[0_10px_30px_rgba(0,0,0,.6)]"
+            >
+              unlock board
+            </button>
+
+            <p className="mt-2 text-[10px] text-white/50 text-center">
+              tip: set{" "}
+              <code className="font-mono text-[10px]">
+                NEXT_PUBLIC_BOARD_PASSWORD
+              </code>{" "}
+              in your env.
+            </p>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // Render
@@ -1388,7 +1473,10 @@ export default function BoardPage() {
       {/* Right rail */}
       <aside className="w-full self-start">
         <div className="rounded-2xl border border-white/15 bg-white/6 backdrop-blur-md p-4 text-white/90 shadow-[0_8px_30px_rgba(0,0,0,.18)]">
-          <h2 className="font-semibold mb-2">Mifoid Loreboard</h2>
+          <h2 className="font-semibold mb-2 flex items-center gap-2">
+            Mifoid Loreboard
+            <BoardLockBadge unlocked={unlocked} />
+          </h2>
           <p className="text-white/75 text-sm">
             Base fee:{" "}
             <code className="text-white/90">

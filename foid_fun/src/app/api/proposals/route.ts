@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rectCells, type Rect } from "@/lib/grid";
-import { currentEpoch } from "@/lib/epoch";
+import {
+  currentEpoch,
+  nowUnix,
+  EPOCH_SECONDS,
+  EPOCH_ZERO_UNIX,
+} from "@/lib/epoch";
 import {
   addProposal,
   getStore,
@@ -14,7 +19,26 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const proposals = listProposals();
-  return NextResponse.json({ proposals }, { status: 200 });
+  const nowEpoch = currentEpoch();
+  const secondsPerEpoch = Math.max(1, Number.isFinite(EPOCH_SECONDS) ? EPOCH_SECONDS : 3600);
+  const nowSec = nowUnix();
+  const delta = Math.max(0, nowSec - EPOCH_ZERO_UNIX);
+  const secsIntoEpoch = secondsPerEpoch ? delta % secondsPerEpoch : 0;
+  const secsRemainingCurrentEpoch = secondsPerEpoch - secsIntoEpoch;
+
+  const withCountdown = proposals.map((p) => {
+    const epochsDiff = p.voteEndsAtEpoch - nowEpoch;
+    const secondsLeft =
+      epochsDiff < 0
+        ? 0
+        : secsRemainingCurrentEpoch + epochsDiff * secondsPerEpoch;
+    return {
+      ...p,
+      secondsLeft: Math.max(0, secondsLeft),
+    };
+  });
+
+  return NextResponse.json({ proposals: withCountdown }, { status: 200 });
 }
 
 type ProposalPostBody = {
