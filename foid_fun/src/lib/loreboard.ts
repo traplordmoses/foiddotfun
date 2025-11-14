@@ -1,4 +1,5 @@
 import { createPublicClient, http, parseAbiItem } from "viem";
+import { cidToHttpUrl } from "./ipfsUrl";
 
 const client = createPublicClient({
   transport: http(process.env.NEXT_PUBLIC_FLUENT_RPC!),
@@ -38,9 +39,8 @@ export async function fetchLatestManifest(addr: `0x${string}`) {
 
 async function fetchManifestFromLog(log: any) {
   const cid = (log.args as any).manifestCID as string;
-  const gw = process.env.NEXT_PUBLIC_IPFS_GATEWAY ?? "https://ipfs.io/ipfs/";
-  const url = cid.startsWith("ipfs://") ? cid.replace("ipfs://", gw) : cid;
-
+  const url = cidToHttpUrl(cid);
+  if (!url) throw new Error("invalid manifest cid");
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`failed to fetch manifest ${res.status}`);
   return res.json();

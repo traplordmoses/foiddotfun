@@ -12,6 +12,7 @@ import {
   getFunctionSelector,
 } from "viem";
 import { manifestForEpoch } from "../../_store";
+import { ipfsToHttp } from "@/lib/ipfsUrl";
 
 const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC!;
 const treasury = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS as `0x${string}`;
@@ -68,13 +69,7 @@ const FINALIZE_SELECTOR = getFunctionSelector(
 );
 
 async function fetchManifest(cid: string) {
-  // Accept both "ipfs://<cid>" and plain "<cid>"
-  const cidClean = cid.replace(/^ipfs:\/\//, "");
-  // Try a couple of gateways
-  const urls = [
-    `https://cloudflare-ipfs.com/ipfs/${cidClean}`,
-    `https://ipfs.io/ipfs/${cidClean}`,
-  ];
+  const urls = ipfsToHttp(cid);
   for (const u of urls) {
     try {
       const res = await fetch(u, { cache: "no-store" });

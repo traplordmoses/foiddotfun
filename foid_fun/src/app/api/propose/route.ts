@@ -10,6 +10,7 @@ import {
 } from "../_store";
 import { ProposalStore, type StoredProposal } from "@/lib/proposalStore";
 import { keccak256, stringToHex } from "viem";
+import { ipfsToHttp } from "@/lib/ipfsUrl";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -125,12 +126,16 @@ export async function POST(req: Request) {
 async function fetchCidHash(cid: string): Promise<`0x${string}` | null> {
   const normalized = cid.replace(/^ipfs:\/\//, "").trim();
   if (!normalized) return null;
-  try {
-    const res = await fetch(`https://ipfs.io/ipfs/${normalized}`);
-    if (!res.ok) return null;
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    return keccak256(bytes);
-  } catch {
-    return null;
+  const urls = ipfsToHttp(normalized);
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      return keccak256(bytes);
+    } catch {
+      // continue to next gateway
+    }
   }
+  return null;
 }

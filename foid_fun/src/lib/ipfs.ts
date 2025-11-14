@@ -2,41 +2,7 @@
 // Client-safe utilities + a server-safe JSON uploader.
 // Env options: WEB3_STORAGE_TOKEN (preferred) or PINATA_JWT (fallback).
 
-const DEFAULT_IPFS_GATEWAYS = [
-  "https://cloudflare-ipfs.com/ipfs/",
-  "https://ipfs.io/ipfs/",
-  "https://gateway.pinata.cloud/ipfs/",
-];
-
-export function ipfsToHttp(
-  uri: string,
-  gateways = DEFAULT_IPFS_GATEWAYS
-): string[] {
-  if (!uri) return [];
-  let cidPath = uri.trim();
-  if (!cidPath) return [];
-
-  if (/^https?:\/\//i.test(cidPath)) {
-    return [cidPath];
-  }
-
-  if (cidPath.startsWith("ipfs://")) {
-    cidPath = cidPath.slice("ipfs://".length);
-  }
-
-  cidPath = cidPath.replace(/^ipfs\//i, "").replace(/^\/+/, "");
-  if (!cidPath) return [];
-
-  return gateways.map((base) => {
-    const prefix = base.endsWith("/") ? base : `${base}/`;
-    return `${prefix}${cidPath}`;
-  });
-}
-
-export function ipfsUrl(cidOrUri: string): string {
-  const cleaned = (cidOrUri ?? "").replace(/^ipfs:\/\//, "");
-  return ipfsToHttp(cleaned)[0] ?? "";
-}
+export { ipfsToHttp, cidToHttpUrl, ipfsUrl } from "./ipfsUrl";
 
 /** Convert a Blob/File to base64 (no data: prefix). */
 async function blobToBase64(b: Blob): Promise<string> {

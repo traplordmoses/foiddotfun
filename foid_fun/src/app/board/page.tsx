@@ -22,7 +22,8 @@ import {
   worldToContractRect,
 } from "@/lib/boardSpace";
 import { sniffImageType, mimeFromType } from "@/lib/image";
-import { uploadImage, ipfsUrl } from "@/lib/ipfs";
+import { uploadImage } from "@/lib/ipfs";
+import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 import { formatEth } from "@/lib/wei";
 import { useEpochCountdown } from "@/hooks/useEpochCountdown";
 import sfx from "@/lib/sfx";
@@ -200,6 +201,17 @@ async function downscaleToMaxCells(
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+function tryNextGateway(el: HTMLImageElement, cid?: string) {
+  if (!cid) return;
+  const urls = ipfsToHttp(cid);
+  if (!urls.length) return;
+  const currentIdx = Number(el.dataset.gatewayIndex ?? "-1");
+  const nextIdx = currentIdx + 1;
+  if (nextIdx >= urls.length) return;
+  el.src = urls[nextIdx];
+  el.dataset.gatewayIndex = String(nextIdx);
 }
 
 async function getPendingBytes(p: PendingItem): Promise<ArrayBuffer> {
@@ -1077,7 +1089,7 @@ export default function BoardPage() {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               key={p.id}
-              src={ipfsUrl(p.cid)}
+              src={cidToHttpUrl(p.cid)}
               alt={p.id}
               className="absolute rounded-md pointer-events-none"
               style={{
@@ -1091,17 +1103,8 @@ export default function BoardPage() {
                 borderRadius: "6px",
               }}
               referrerPolicy="no-referrer"
-              onError={(e) => {
-                const el = e.currentTarget as HTMLImageElement;
-                const tried = el.dataset.tried ?? "0";
-                if (tried === "0") {
-                  el.src = `https://cloudflare-ipfs.com/ipfs/${p.cid}`;
-                  el.dataset.tried = "1";
-                } else if (tried === "1") {
-                  el.src = `https://ipfs.io/ipfs/${p.cid}`;
-                  el.dataset.tried = "2";
-                }
-              }}
+              data-gateway-index="0"
+              onError={(e) => tryNextGateway(e.currentTarget, p.cid)}
             />
           );
         })}
@@ -1176,11 +1179,13 @@ export default function BoardPage() {
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={ipfsUrl(p.cid)}
+                src={cidToHttpUrl(p.cid)}
                 alt={p.name}
                 referrerPolicy="no-referrer"
                 className="w-full h-full rounded-md object-contain"
                 draggable={false}
+                data-gateway-index="0"
+                onError={(e) => tryNextGateway(e.currentTarget, p.cid)}
                 style={{
                   outlineWidth: 2,
                   outlineStyle: "dashed",
@@ -1234,19 +1239,8 @@ export default function BoardPage() {
                   p.fitMode === "cover" ? "object-cover" : "object-contain"
                 }`}
                 draggable={false}
-                onError={(e) => {
-                  if (p.cid) {
-                    const el = e.currentTarget as HTMLImageElement;
-                    const tried = el.dataset.tried ?? "0";
-                    if (tried === "0") {
-                      el.src = `https://cloudflare-ipfs.com/ipfs/${p.cid}`;
-                      el.dataset.tried = "1";
-                    } else if (tried === "1") {
-                      el.src = `https://ipfs.io/ipfs/${p.cid}`;
-                      el.dataset.tried = "2";
-                    }
-                  }
-                }}
+                data-gateway-index="-1"
+                onError={(e) => tryNextGateway(e.currentTarget, p.cid)}
               />
               {/* MOVE handle */}
               <button
