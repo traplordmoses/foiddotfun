@@ -83,6 +83,7 @@ RainbowKit will prompt you to add/switch to Fluent Testnet the first time you co
 | `NEXT_PUBLIC_CHAIN_ID` | Numeric chain ID (default `20994`) | ✅ |
 | `NEXT_PUBLIC_CHAIN_NAME` | Friendly network label | ⛭ |
 | `NEXT_PUBLIC_BLOCK_EXPLORER` | Explorer base URL (no trailing slash) | ✅ |
+| `NEXT_PUBLIC_IPFS_GATEWAY_BASE` | Preferred IPFS gateway prefix for CID rendering | ⛭ |
 | `NEXT_PUBLIC_WFOID` / `NEXT_PUBLIC_TOKEN0` | Wrapped FOID address | ✅ |
 | `NEXT_PUBLIC_REGISTRY` | Attestor registry contract | ✅ |
 | `NEXT_PUBLIC_BRIDGE` | Bridge router contract | ✅ |
