@@ -89,6 +89,10 @@ const GRID_RADIUS_X = Math.floor(WORLD_MAX_X / TILE);
 const GRID_RADIUS_Y = Math.floor(WORLD_MAX_Y / TILE);
 
 const DEV_UI = process.env.NEXT_PUBLIC_DEV_TOOLS === "1";
+// Use env so you can update this without touching code
+const LATEST_EPOCH_HINT = Number(
+  process.env.NEXT_PUBLIC_LATEST_EPOCH ?? "0"
+);
 const BOARD_PASSWORD = process.env.NEXT_PUBLIC_BOARD_PASSWORD ?? "";
 
 const BoardLockBadge: React.FC<{ unlocked?: boolean }> = ({ unlocked }) => (
@@ -804,7 +808,8 @@ export default function BoardPage() {
   // ======== Finalized + proposals state ========
   const [placed, setPlaced] = useState<FinalizedPlacement[]>([]);
   const [placedEpoch, setPlacedEpoch] = useState<number | null>(null);
-  const [viewEpoch, setViewEpoch] = useState<number | "latest">("latest");
+  // start by showing whatever you consider "latest" on-chain
+  const [viewEpoch, setViewEpoch] = useState<number>(LATEST_EPOCH_HINT);
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
 
   const handleFinalizeClick = useCallback(async () => {
@@ -823,20 +828,26 @@ export default function BoardPage() {
         return;
       }
 
-      const epoch = json?.epoch ?? "latest";
+      const parsedEpoch =
+        typeof json?.epoch === "number"
+          ? json.epoch
+          : Number(json?.epoch ?? LATEST_EPOCH_HINT);
+      const epoch = Number.isFinite(parsedEpoch)
+        ? parsedEpoch
+        : LATEST_EPOCH_HINT;
       const winnersCount =
         json?.winners ??
         (Array.isArray(json?.accepted) ? json.accepted.length : "—");
       const txHash = json?.txHash ?? "n/a";
       const manifestRoot = json?.manifestRoot ?? "n/a";
 
-      const man = await getManifest("latest");
+      const man = await getManifest(epoch as any);
       const placements: FinalizedPlacement[] = normalizePlacements(
         man.manifest?.placements ?? []
       );
       setPlaced(placements);
       setPlacedEpoch(man.epoch);
-      setViewEpoch("latest");
+      setViewEpoch(epoch);
       clearBoardState?.();
 
       try {
@@ -993,23 +1004,31 @@ export default function BoardPage() {
     let alive = true;
 
     const load = async () => {
-      const requestingLatest = viewEpoch === "latest";
       try {
-        const man = await getManifest(viewEpoch);
+        // Always just ask for the numeric epoch we want
+        const man = await getManifest(viewEpoch as any);
         if (!alive) return;
+
         if (DEV_UI) {
           setLatestDebug(JSON.stringify(man, null, 2));
         } else {
           setLatestDebug(null);
         }
+
         const placements: FinalizedPlacement[] = normalizePlacements(
           man.manifest?.placements ?? []
         );
         setPlaced(placements);
-        setPlacedEpoch(man.epoch ?? null);
-        if (requestingLatest && placements.length) {
-          const first = placements[0];
-          zoomToRect({ x: first.x, y: first.y, w: first.w, h: first.h });
+
+        // If the backend returns an epoch, trust it; otherwise fall back to viewEpoch
+        const epochValue =
+          typeof man.epoch === "number" ? man.epoch : viewEpoch;
+        setPlacedEpoch(epochValue);
+
+        // Zoom to the most recent placement in that epoch
+        if (placements.length) {
+          const last = placements[placements.length - 1];
+          zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
         }
       } catch (e: any) {
         if (!alive) return;
@@ -1697,7 +1716,7 @@ export default function BoardPage() {
               </button>
               <button
                 className="px-2 py-1 rounded border border-white/20 bg-white/10"
-                onClick={() => setViewEpoch("latest")}
+                onClick={() => setViewEpoch(LATEST_EPOCH_HINT)}
               >
                 Latest
               </button>
