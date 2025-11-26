@@ -209,7 +209,10 @@ export function saveManifestForEpoch(
     cid,
   };
   manifestCache.byEpoch.set(epoch, record);
-  manifestCache.latestEpoch = epoch;
+  const currentLatest = manifestCache.latestEpoch;
+  if (currentLatest === null || epoch >= currentLatest) {
+    manifestCache.latestEpoch = epoch;
+  }
 }
 
 export function getManifestForEpoch(epoch: number): StoredManifest | null {

@@ -1,13 +1,10 @@
-import { createPublicClient, http, parseAbiItem } from "viem";
+import { createPublicClient, http } from "viem";
 import { cidToHttpUrl } from "./ipfsUrl";
+import { FINALIZED_EVENT } from "./events";
 
 const client = createPublicClient({
   transport: http(process.env.NEXT_PUBLIC_FLUENT_RPC!),
 });
-
-const Finalized = parseAbiItem(
-  "event Finalized(uint32 indexed epoch, bytes32 manifestRoot, string manifestCID)"
-);
 
 const MAX_RANGE = 100_000n;
 
@@ -19,7 +16,7 @@ export async function fetchLatestManifest(addr: `0x${string}`) {
   while (true) {
     const logs = await client.getLogs({
       address: addr,
-      events: [Finalized],
+      events: [FINALIZED_EVENT],
       fromBlock: from,
       toBlock: to,
     });

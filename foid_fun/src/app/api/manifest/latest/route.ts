@@ -2,16 +2,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import type { AbiEvent } from "viem";
 import {
   createPublicClient,
   defineChain,
   http,
-  parseAbiItem,
   decodeFunctionData,
   getFunctionSelector,
 } from "viem";
 import { manifestForEpoch } from "../../_store";
+import { FINALIZED_EVENT } from "@/lib/events";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 
 const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC!;
@@ -43,11 +42,6 @@ const client = createPublicClient({
   chain: fluentTestnet,
   transport: http(rpc),
 });
-
-// event Finalized(uint32 epoch, bytes32 manifestHash, string manifestCID);
-const FINALIZED = parseAbiItem(
-  "event Finalized(uint32 epoch, bytes32 manifestHash, string manifestCID)"
-) as AbiEvent;
 
 const FINALIZE_FN = [
   {
@@ -133,7 +127,7 @@ async function getFinalizedLogs(
     const chunkTo = cursor + step > toBlock ? toBlock : cursor + step;
     const logsRaw = await client.getLogs({
       address: treasury,
-      event: FINALIZED,
+      events: [FINALIZED_EVENT],
       fromBlock: cursor,
       toBlock: chunkTo,
     });
@@ -186,30 +180,30 @@ function normalizePlacements(manifest: any, manifestCIDDefault = "") {
 export async function GET() {
   try {
     const cached = manifestForEpoch("latest");
-    if (cached?.manifest) {
-      const placements = flattenPlacements(cached.manifest.placements);
-      return NextResponse.json({
-        epoch: cached.epoch,
-        manifestCID: cached.cid ?? null,
-        manifest: { ...cached.manifest, placements },
-      });
-    }
+    let epoch: number | null =
+      typeof cached?.epoch === "number" ? cached.epoch : null;
+    let manifestCID: string | null =
+      typeof cached?.cid === "string" ? cached.cid : null;
 
-    // Pull all Finalized logs since deploy; take the latest
     const latestBlock = await client.getBlockNumber();
     const logs = await getFinalizedLogs(deployBlock, latestBlock);
-
-    let epoch: number | null = null;
-    let manifestCID: string | null = null;
 
     if (logs.length) {
       const last = logs[logs.length - 1];
       const { epoch: epochRaw, manifestCID: cid } = last.args;
-      epoch = Number(epochRaw ?? 0n);
-      manifestCID = String(cid ?? "");
-    } else {
-      const probe = await decodeFromProbeTx();
-      if (probe) {
+      const onchainEpoch = Number(epochRaw ?? 0n);
+      const onchainCid = String(cid ?? "");
+      if (!Number.isNaN(onchainEpoch) && onchainCid) {
+        if (epoch == null || onchainEpoch > epoch) {
+          epoch = onchainEpoch;
+          manifestCID = onchainCid;
+        }
+      }
+    }
+
+    const probe = await decodeFromProbeTx();
+    if (probe) {
+      if (epoch == null || probe.epoch > epoch) {
         epoch = probe.epoch;
         manifestCID = probe.manifestCID;
       }

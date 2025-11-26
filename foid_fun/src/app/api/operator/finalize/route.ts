@@ -1,21 +1,4 @@
 // src/app/api/operator/finalize/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { currentEpoch } from "@/lib/epoch";
-import {
-  getStore,
-  listAccepted,
-  listProposals,
-  replaceAccepted,
-  setLatestManifest,
-  gcProposals,
-  getLatestManifest,
-  saveManifestForEpoch,
-  type Placement,
-  type Proposal,
-} from "../../_store";
-import { hasOverlap } from "@/lib/grid";
-import { uploadJSON } from "@/lib/ipfs";
-import { ProposalStore } from "@/lib/proposalStore";
 import {
   createPublicClient,
   createWalletClient,
@@ -25,6 +8,24 @@ import {
   stringToHex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { FINALIZED_EVENT } from "@/lib/events";
+import { ipfsToHttp } from "@/lib/ipfsUrl";
+import { NextRequest, NextResponse } from "next/server";
+import { currentEpoch } from "@/lib/epoch";
+import {
+  getStore,
+  listAccepted,
+  listProposals,
+  replaceAccepted,
+  setLatestManifest,
+  gcProposals,
+  saveManifestForEpoch,
+  type Placement,
+  type Proposal,
+} from "../../_store";
+import { hasOverlap } from "@/lib/grid";
+import { uploadJSON } from "@/lib/ipfs";
+import { ProposalStore } from "@/lib/proposalStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,13 +61,158 @@ const wallet = createWalletClient({
   account: operatorAccount,
 });
 
+const deployBlockEnv =
+  process.env.NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK ??
+  process.env.NEXT_PUBLIC_DEPLOY_BLOCK;
+
+if (!deployBlockEnv) {
+  throw new Error(
+    "NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK (or NEXT_PUBLIC_DEPLOY_BLOCK) is required"
+  );
+}
+
+const deployBlock = BigInt(deployBlockEnv);
+
+type RawLog = Awaited<ReturnType<typeof publicClient.getLogs>>[number];
+
+type FinalizedLog = RawLog & {
+  args: {
+    epoch: bigint;
+    manifestCID: string;
+  };
+};
+
+function isFinalizedLog(log: RawLog): log is FinalizedLog {
+  const args = (log as any)?.args;
+  return typeof args?.epoch === "bigint" && typeof args?.manifestCID === "string";
+}
+
+async function getFinalizedLogs(
+  fromBlock: bigint,
+  toBlock: bigint,
+  step = 90_000n
+): Promise<FinalizedLog[]> {
+  if (toBlock < fromBlock) return [];
+  const logsAll: FinalizedLog[] = [];
+  let cursor = fromBlock;
+  while (cursor <= toBlock) {
+    const chunkTo = cursor + step > toBlock ? toBlock : cursor + step;
+    const logsRaw = (await publicClient.getLogs({
+      address: treasury,
+      event: FINALIZED_EVENT,
+      fromBlock: cursor,
+      toBlock: chunkTo,
+    })) as RawLog[];
+    const filtered = logsRaw.filter(isFinalizedLog);
+    if (filtered.length) logsAll.push(...filtered);
+    if (chunkTo === toBlock) break;
+    cursor = chunkTo + 1n;
+  }
+  return logsAll;
+}
+
+async function fetchManifestFromCid(cid: string) {
+  const urls = ipfsToHttp(cid);
+  for (const u of urls) {
+    try {
+      const res = await fetch(u, { cache: "no-store" });
+      if (res.ok) return await res.json();
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
+}
+
+function coerceRect(raw: any) {
+  const src = raw?.rect ?? raw ?? {};
+  const x = Number(src.x ?? 0);
+  const y = Number(src.y ?? 0);
+  const w = Number(src.w ?? src.width ?? 0);
+  const h = Number(src.h ?? src.height ?? 0);
+  return { x, y, w, h };
+}
+
+function normalizeManifestPlacements(manifest: any): Placement[] {
+  const rows = manifest?.placements ?? manifest?.winners ?? [];
+  return rows.map((p: any): Placement => {
+    const rect = coerceRect(p);
+    return {
+      id: String(p.id ?? ""),
+      owner: String(p.owner ?? ""),
+      cid: String(
+        p.cid ?? manifest?.cid ?? manifest?.manifestCID ?? ""
+      ),
+      name: String(p.name ?? p.filename ?? ""),
+      mime: (p.mime ?? "image/png") as "image/png" | "image/jpeg",
+      rect,
+      cells: Number(p.cells ?? 1),
+      bidPerCellWei: String(p.bidPerCellWei ?? "0"),
+      width: Number(p.width ?? rect.w ?? 0),
+      height: Number(p.height ?? rect.h ?? 0),
+    };
+  });
+}
+
+async function loadBaseBoardFromOnchain() {
+  const latestBlock = await publicClient.getBlockNumber();
+  const logs = await getFinalizedLogs(deployBlock, latestBlock);
+
+  if (!logs.length) {
+    console.log("[finalize] no Finalized logs on-chain yet");
+    return { basePlacements: [] as Placement[], latestEpoch: null };
+  }
+
+  const byId = new Map<string, Placement>();
+
+  for (const log of logs) {
+    const manifestCID = log.args.manifestCID;
+    const epoch = Number(log.args.epoch);
+    console.log("[finalize] replaying manifest", {
+      epoch,
+      manifestCID,
+      blockNumber: log.blockNumber?.toString(),
+    });
+
+    const manifestRaw = await fetchManifestFromCid(manifestCID);
+    if (!manifestRaw) {
+      console.warn(
+        "[finalize] failed to fetch manifest for epoch",
+        epoch,
+        "CID",
+        manifestCID
+      );
+      continue;
+    }
+
+    const placements = normalizeManifestPlacements(manifestRaw);
+    console.log("[finalize] manifest placements", {
+      epoch,
+      count: placements.length,
+      ids: placements.map((p) => p.id),
+    });
+
+    for (const placement of placements) {
+      byId.set(placement.id, placement);
+    }
+  }
+
+  const latestEpoch = Number(logs[logs.length - 1].args.epoch);
+  const basePlacements = Array.from(byId.values());
+  console.log("[finalize] reconstructed base board from logs", {
+    latestEpoch,
+    count: basePlacements.length,
+    ids: basePlacements.map((p) => p.id),
+  });
+
+  return { basePlacements, latestEpoch };
+}
+
 /* ---------- Helpers (same as old finalize) ---------- */
 
-function canDisplaceAccepted(a: Proposal, accepted: Placement[]) {
-  const overlapping = accepted.filter((pl) => hasOverlap(a.rect, [pl.rect]));
-  if (!overlapping.length) return true;
-  const aBid = BigInt(a.bidPerCellWei);
-  return overlapping.every((pl) => aBid > BigInt(pl.bidPerCellWei));
+function canPlaceWithoutOverlap(a: Proposal, accepted: Placement[]) {
+  // Once something is on the board it's permanent – any overlap is forbidden
+  return !accepted.some((pl) => hasOverlap(a.rect, [pl.rect]));
 }
 
 const finalizeAbi = [
@@ -146,27 +292,42 @@ export async function POST(req: NextRequest) {
     return a.id.localeCompare(b.id);
   });
 
-  const latest = getLatestManifest();
-  let nextAccepted = latest?.placements
-    ? latest.placements.map(clonePlacement)
-    : listAccepted().map(clonePlacement);
+  // --- Seed base board from full on-chain history (replaying manifests) ---
+  const { basePlacements } = await loadBaseBoardFromOnchain();
+
+  let nextAccepted: Placement[];
+  if (basePlacements.length) {
+    nextAccepted = basePlacements.map(clonePlacement);
+    console.log("[finalize] basePlacements from full on-chain replay", {
+      count: nextAccepted.length,
+      ids: nextAccepted.map((p) => p.id),
+    });
+  } else {
+    const acceptedSnapshot = listAccepted().map(clonePlacement);
+    nextAccepted = acceptedSnapshot;
+    console.log("[finalize] basePlacements from accepted store fallback", {
+      count: nextAccepted.length,
+      ids: nextAccepted.map((p) => p.id),
+    });
+  }
+
   const winners: Proposal[] = [];
+  const rejectedDueToOverlap: string[] = [];
 
   for (const proposal of sorted) {
-    if (!canDisplaceAccepted(proposal, nextAccepted)) {
+    // 1) Must not overlap anything already finalized on the board
+    if (!canPlaceWithoutOverlap(proposal, nextAccepted)) {
       proposal.status = "rejected";
-      continue;
-    }
-    if (winners.some((w) => hasOverlap(proposal.rect, [w.rect]))) {
-      proposal.status = "rejected";
+      rejectedDueToOverlap.push(proposal.id);
       continue;
     }
 
-    const aBid = BigInt(proposal.bidPerCellWei);
-    nextAccepted = nextAccepted.filter((pl) => {
-      if (!hasOverlap(pl.rect, [proposal.rect])) return true;
-      return BigInt(pl.bidPerCellWei) > aBid;
-    });
+    // 2) Must not overlap any other winner in this same finalize run
+    if (winners.some((w) => hasOverlap(proposal.rect, [w.rect]))) {
+      proposal.status = "rejected";
+      rejectedDueToOverlap.push(proposal.id);
+      continue;
+    }
 
     winners.push(proposal);
     proposal.status = "accepted";
@@ -199,9 +360,16 @@ export async function POST(req: NextRequest) {
   const added: Placement[] = enriched.map((e) => e.placement);
   const acceptedIds = enriched.map((e) => e.chainId as Hex32);
 
+  // Merge winners into the working board state
   nextAccepted = [...nextAccepted, ...added];
 
-  const manifestPlacements = nextAccepted.map(clonePlacement);
+  console.log("[finalize] nextAccepted before manifest upload", {
+    epoch,
+    count: nextAccepted.length,
+    ids: nextAccepted.map((p) => p.id),
+  });
+
+  const manifestPlacements: Placement[] = nextAccepted.map(clonePlacement);
   const manifest = {
     epoch,
     finalizedAt: Date.now(),
@@ -260,6 +428,7 @@ export async function POST(req: NextRequest) {
     manifestCID: cid,
     manifestRoot,
     winners: acceptedIds,
+    rejectedDueToOverlap,
     txHash,
     status: receipt.status,
   });

@@ -29,6 +29,7 @@ import { useEpochCountdown } from "@/hooks/useEpochCountdown";
 import sfx from "@/lib/sfx";
 import { keccak256, stringToHex } from "viem";
 import type { FinalizedPlacement } from "@/lib/types";
+import { getLatestNormalized } from "@/lib/manifest";
 import {
   getManifest,
   proposePlacement,
@@ -89,10 +90,7 @@ const GRID_RADIUS_X = Math.floor(WORLD_MAX_X / TILE);
 const GRID_RADIUS_Y = Math.floor(WORLD_MAX_Y / TILE);
 
 const DEV_UI = process.env.NEXT_PUBLIC_DEV_TOOLS === "1";
-// Use env so you can update this without touching code
-const LATEST_EPOCH_HINT = Number(
-  process.env.NEXT_PUBLIC_LATEST_EPOCH ?? "0"
-);
+const LATEST_EPOCH_HINT = 0; // 0 = ask backend for the true latest epoch
 const BOARD_PASSWORD = process.env.NEXT_PUBLIC_BOARD_PASSWORD ?? "";
 
 const BoardLockBadge: React.FC<{ unlocked?: boolean }> = ({ unlocked }) => (
@@ -419,6 +417,106 @@ export default function BoardPage() {
   }, [enabled, remainingMs]);
   const epochLabel = enabled ? " #" + epochIdx : "";
 
+  // ======== Finalized + proposals state ========
+  const [placed, setPlaced] = useState<FinalizedPlacement[]>([]);
+  const [placedEpoch, setPlacedEpoch] = useState<number | null>(null);
+  // start by showing whatever you consider "latest" on-chain
+  const [viewEpoch, setViewEpoch] = useState<number>(LATEST_EPOCH_HINT);
+  const [proposals, setProposals] = useState<ProposalSummary[]>([]);
+
+  useEffect(() => {
+    if (!unlocked) return;
+    let alive = true;
+
+    (async () => {
+      try {
+        const latest = await getLatestNormalized();
+        if (!alive) return;
+        if (typeof latest.epoch === "number") {
+          setViewEpoch(latest.epoch);
+        }
+      } catch (e) {
+        console.error("LATEST_NORMALIZED_FAIL", e);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [unlocked]);
+
+  const handleFinalizeClick = useCallback(async () => {
+    try {
+      setFinalizing(true);
+      setFinalizeResult(null);
+
+      const res = await fetch("/api/operator/finalize?force=1", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFinalizeResult(`Error: ${json?.error ?? res.statusText}`);
+        return;
+      }
+
+      const parsedEpoch =
+        typeof json?.epoch === "number"
+          ? json.epoch
+          : Number(json?.epoch ?? LATEST_EPOCH_HINT);
+      const epoch = Number.isFinite(parsedEpoch)
+        ? parsedEpoch
+        : LATEST_EPOCH_HINT;
+
+      const winnersCount =
+        json?.winners ??
+        (Array.isArray(json?.accepted) ? json.accepted.length : "—");
+      const txHash = json?.txHash ?? "n/a";
+      const manifestRoot = json?.manifestRoot ?? "n/a";
+
+      const overlapRejected = Array.isArray(json?.rejectedDueToOverlap)
+        ? json.rejectedDueToOverlap.length
+        : 0;
+
+      const latest = await getLatestNormalized();
+      const placements: FinalizedPlacement[] = normalizePlacements(
+        latest.manifest?.placements ?? []
+      );
+      setPlaced(placements);
+      setPlacedEpoch(typeof latest.epoch === "number" ? latest.epoch : null);
+      setViewEpoch(LATEST_EPOCH_HINT);
+      clearBoardState?.();
+
+      try {
+        const { proposals } = await listProposals();
+        setProposals(normalizeProposals(proposals ?? []));
+      } catch {
+        /* ignore */
+      }
+
+      let msg = `Finalized epoch ${epoch} • winners=${winnersCount} • tx=${txHash} • manifest=${manifestRoot}`;
+      if (overlapRejected > 0) {
+        msg += ` • ${overlapRejected} proposal(s) rejected for overlapping existing memes`;
+      }
+      setFinalizeResult(msg);
+
+      document
+        .querySelector("#referendum")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e: any) {
+      setFinalizeResult(`Error: ${e?.message ?? "Unknown error"}`);
+    } finally {
+      setFinalizing(false);
+    }
+  }, [
+    clearBoardState,
+    setPlaced,
+    setPlacedEpoch,
+    setViewEpoch,
+    setProposals,
+  ]);
+
   // ---- Ghost for DnD ----
   const ghostMetaRef = useRef<DragMeta | null>(null);
   const [ghost, setGhost] = useState<Ghost | null>(null);
@@ -594,6 +692,12 @@ export default function BoardPage() {
     }
   }
 
+const rectsOverlap = (a: Rect, b: Rect) =>
+  a.x < b.x + b.w &&
+  a.x + a.w > b.x &&
+  a.y < b.y + b.h &&
+  a.y + a.h > b.y;
+
   const primeGhostMetaFromEvent = useCallback(async (e: React.DragEvent) => {
     if (ghostMetaRef.current) return ghostMetaRef.current;
     const items = e.dataTransfer?.items;
@@ -641,14 +745,26 @@ export default function BoardPage() {
       const cells = rectCells(rect);
 
       let status: GhostStatus = "ok";
-      if (cells > MAX_CELLS_PER_RECT) status = "oversize";
-      else if (hasOverlap(rect, pending.map((p) => storedRectFor(p))))
+
+      const placedRects = placed.map((pl) => ({
+        x: pl.x,
+        y: pl.y,
+        w: pl.w,
+        h: pl.h,
+      }));
+
+      if (cells > MAX_CELLS_PER_RECT) {
+        status = "oversize";
+      } else if (hasOverlap(rect, placedRects)) {
         status = "overlap";
+      } else if (hasOverlap(rect, pending.map((p) => storedRectFor(p)))) {
+        status = "overlap";
+      }
 
       const totalWei = BigInt(cells) * BASE_FEE_PER_CELL_WEI;
       setGhost({ rect, cells, status, totalWei });
     },
-    [pending, storedRectFor]
+    [pending, placed, storedRectFor]
   );
 
   // ---- DnD ----
@@ -805,77 +921,6 @@ export default function BoardPage() {
     input.value = "";
   };
 
-  // ======== Finalized + proposals state ========
-  const [placed, setPlaced] = useState<FinalizedPlacement[]>([]);
-  const [placedEpoch, setPlacedEpoch] = useState<number | null>(null);
-  // start by showing whatever you consider "latest" on-chain
-  const [viewEpoch, setViewEpoch] = useState<number>(LATEST_EPOCH_HINT);
-  const [proposals, setProposals] = useState<ProposalSummary[]>([]);
-
-  const handleFinalizeClick = useCallback(async () => {
-    try {
-      setFinalizing(true);
-      setFinalizeResult(null);
-
-      const res = await fetch("/api/operator/finalize?force=1", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setFinalizeResult(`Error: ${json?.error ?? res.statusText}`);
-        return;
-      }
-
-      const parsedEpoch =
-        typeof json?.epoch === "number"
-          ? json.epoch
-          : Number(json?.epoch ?? LATEST_EPOCH_HINT);
-      const epoch = Number.isFinite(parsedEpoch)
-        ? parsedEpoch
-        : LATEST_EPOCH_HINT;
-      const winnersCount =
-        json?.winners ??
-        (Array.isArray(json?.accepted) ? json.accepted.length : "—");
-      const txHash = json?.txHash ?? "n/a";
-      const manifestRoot = json?.manifestRoot ?? "n/a";
-
-      const man = await getManifest(epoch as any);
-      const placements: FinalizedPlacement[] = normalizePlacements(
-        man.manifest?.placements ?? []
-      );
-      setPlaced(placements);
-      setPlacedEpoch(man.epoch);
-      setViewEpoch(epoch);
-      clearBoardState?.();
-
-      try {
-        const { proposals } = await listProposals();
-        setProposals(normalizeProposals(proposals ?? []));
-      } catch {
-        /* ignore */
-      }
-
-      setFinalizeResult(
-        `Finalized epoch ${epoch} • winners=${winnersCount} • tx=${txHash} • manifest=${manifestRoot}`
-      );
-      document
-        .querySelector("#referendum")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } catch (e: any) {
-      setFinalizeResult(`Error: ${e?.message ?? "Unknown error"}`);
-    } finally {
-      setFinalizing(false);
-    }
-  }, [
-    clearBoardState,
-    setPlaced,
-    setPlacedEpoch,
-    setViewEpoch,
-    setProposals,
-  ]);
-
   // ======== MOVE / RESIZE ========
   const [activeId, setActiveId] = useState<string | null>(null);
   const [liveRect, setLiveRect] = useState<Rect | null>(null);
@@ -1005,30 +1050,52 @@ export default function BoardPage() {
 
     const load = async () => {
       try {
-        // Always just ask for the numeric epoch we want
-        const man = await getManifest(viewEpoch as any);
-        if (!alive) return;
+        if (viewEpoch <= 0) {
+          const latest = await getLatestNormalized();
+          if (!alive) return;
 
-        if (DEV_UI) {
-          setLatestDebug(JSON.stringify(man, null, 2));
+          if (DEV_UI) {
+            setLatestDebug(JSON.stringify(latest, null, 2));
+          } else {
+            setLatestDebug(null);
+          }
+
+          const placements: FinalizedPlacement[] = normalizePlacements(
+            latest.manifest?.placements ?? []
+          );
+          setPlaced(placements);
+
+          const epochValue =
+            typeof latest.epoch === "number" ? latest.epoch : null;
+          setPlacedEpoch(epochValue);
+
+          if (placements.length) {
+            const last = placements[placements.length - 1];
+            zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
+          }
         } else {
-          setLatestDebug(null);
-        }
+          const man = await getManifest(viewEpoch as any);
+          if (!alive) return;
 
-        const placements: FinalizedPlacement[] = normalizePlacements(
-          man.manifest?.placements ?? []
-        );
-        setPlaced(placements);
+          if (DEV_UI) {
+            setLatestDebug(JSON.stringify(man, null, 2));
+          } else {
+            setLatestDebug(null);
+          }
 
-        // If the backend returns an epoch, trust it; otherwise fall back to viewEpoch
-        const epochValue =
-          typeof man.epoch === "number" ? man.epoch : viewEpoch;
-        setPlacedEpoch(epochValue);
+          const placements: FinalizedPlacement[] = normalizePlacements(
+            man.manifest?.placements ?? []
+          );
+          setPlaced(placements);
 
-        // Zoom to the most recent placement in that epoch
-        if (placements.length) {
-          const last = placements[placements.length - 1];
-          zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
+          const epochValue =
+            typeof man.epoch === "number" ? man.epoch : viewEpoch;
+          setPlacedEpoch(epochValue);
+
+          if (placements.length) {
+            const last = placements[placements.length - 1];
+            zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
+          }
         }
       } catch (e: any) {
         if (!alive) return;
@@ -1606,14 +1673,36 @@ export default function BoardPage() {
             disabled={!items.length || submittingProposals}
             type="button"
           onClick={async () => {
-            if (submittingProposals) return;
-            setSubmittingProposals(true);
-            setMessage("Preparing submissions...");
-            try {
-              // 1) ensure wallet (MetaMask pop)
-              const eth = (globalThis as any)?.ethereum;
-              if (!eth) throw new Error("No wallet detected");
-              const [account] = await eth.request({ method: "eth_requestAccounts" });
+    if (submittingProposals) return;
+    setSubmittingProposals(true);
+    setMessage("Preparing submissions...");
+    try {
+      // PRE-FLIGHT: reject overlaps with finalized board
+      const overlapNames = items
+        .filter((it) =>
+          placed.some((pl) =>
+            rectsOverlap(it.rect, {
+              x: pl.x,
+              y: pl.y,
+              w: pl.w,
+              h: pl.h,
+            })
+          )
+        )
+        .map((it) => it.name);
+
+      if (overlapNames.length > 0) {
+        throw new Error(
+          `These pieces overlap existing memes on the board: ${overlapNames.join(
+            ", "
+          )}. Move them or resize so they don't overlap, then try again.`
+        );
+      }
+
+      // 1) ensure wallet (MetaMask pop)
+      const eth = (globalThis as any)?.ethereum;
+      if (!eth) throw new Error("No wallet detected");
+      const [account] = await eth.request({ method: "eth_requestAccounts" });
 
               for (const it of items) {
                 setMessage(`Submitting ${it.name} on-chain...`);
