@@ -1,6 +1,3 @@
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
 import { NextResponse } from "next/server";
 import {
   createPublicClient,
@@ -10,11 +7,21 @@ import {
   getFunctionSelector,
 } from "viem";
 import { manifestForEpoch } from "../../_store";
-import { FINALIZED_EVENT } from "@/lib/events";
+import { FINALIZED_EVENT, MANIFEST_ANCHORED_EVENT } from "@/lib/events";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+// --- Env + clients ---------------------------------------------------------
+
 const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC!;
-const treasury = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS as `0x${string}`;
+const treasury = process.env
+  .NEXT_PUBLIC_LOREBOARD_ADDRESS as `0x${string}`;
+const manifestStore =
+  (process.env.NEXT_PUBLIC_LOREBOARD_ANCHOR ||
+    process.env.NEXT_PUBLIC_MANIFEST_STORE ||
+    process.env.NEXT_PUBLIC_MANIFEST_STORE_ADDRESS) as `0x${string}` | undefined;
 const deployBlockEnv =
   process.env.NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK ??
   process.env.NEXT_PUBLIC_DEPLOY_BLOCK;
@@ -22,12 +29,17 @@ const probeTx =
   (process.env.NEXT_PUBLIC_FINALIZE_PROBE_TX ||
     process.env.PROBE_TX) as `0x${string}` | undefined;
 
-if (!rpc) throw new Error("NEXT_PUBLIC_FLUENT_RPC is required");
-if (!treasury) throw new Error("NEXT_PUBLIC_LOREBOARD_ADDRESS is required");
-if (!deployBlockEnv)
+if (!rpc) {
+  throw new Error("NEXT_PUBLIC_FLUENT_RPC is required");
+}
+if (!treasury) {
+  throw new Error("NEXT_PUBLIC_LOREBOARD_ADDRESS is required");
+}
+if (!deployBlockEnv) {
   throw new Error(
     "NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK (or NEXT_PUBLIC_DEPLOY_BLOCK) is required"
   );
+}
 
 const deployBlock = BigInt(deployBlockEnv);
 
@@ -42,6 +54,8 @@ const client = createPublicClient({
   chain: fluentTestnet,
   transport: http(rpc),
 });
+
+// --- ABI pieces ------------------------------------------------------------
 
 const FINALIZE_FN = [
   {
@@ -58,9 +72,12 @@ const FINALIZE_FN = [
     outputs: [],
   },
 ] as const;
+
 const FINALIZE_SELECTOR = getFunctionSelector(
   "finalizeEpoch(uint32,bytes32,string,bytes32[],bytes32[])"
 );
+
+// --- Helpers ---------------------------------------------------------------
 
 async function fetchManifest(cid: string) {
   const urls = ipfsToHttp(cid);
@@ -69,7 +86,7 @@ async function fetchManifest(cid: string) {
       const res = await fetch(u, { cache: "no-store" });
       if (res.ok) return await res.json();
     } catch {
-      /* noop */
+      // ignore and try next gateway
     }
   }
   return null;
@@ -101,60 +118,95 @@ function flattenPlacements(rows: any[] | undefined) {
   });
 }
 
-type RawLog = Awaited<ReturnType<typeof client.getLogs>>[number];
-
-type FinalizedLog = RawLog & {
-  args: {
-    epoch: bigint;
-    manifestCID: string;
-  };
-};
-
-function isFinalizedLog(log: RawLog): log is FinalizedLog {
-  const args = (log as any)?.args;
-  return typeof args?.epoch === "bigint" && typeof args?.manifestCID === "string";
-}
-
-async function getFinalizedLogs(
+/**
+ * Scan Finalized events from `fromBlock` to `toBlock` in chunks.
+ * We keep typings loose here (`any`) to avoid viem/TS inference drama.
+ */
+async function findLatestLog(
+  address: `0x${string}`,
+  event: any,
   fromBlock: bigint,
   toBlock: bigint,
-  step = 90_000n
-) {
-  if (toBlock < fromBlock) return [] as FinalizedLog[];
-  const logsAll: FinalizedLog[] = [];
-  let cursor = fromBlock;
-  while (cursor <= toBlock) {
-    const chunkTo = cursor + step > toBlock ? toBlock : cursor + step;
-    const logsRaw = await client.getLogs({
-      address: treasury,
-      events: [FINALIZED_EVENT],
-      fromBlock: cursor,
-      toBlock: chunkTo,
+  step = 80_000n
+): Promise<any | null> {
+  if (toBlock < fromBlock) return null;
+  let end = toBlock;
+
+  const fetchChunk = async (
+    start: bigint,
+    stop: bigint,
+    curStep: bigint
+  ): Promise<any[]> => {
+    try {
+      const logsRaw: any[] = await client.getLogs({
+        address,
+        event,
+        fromBlock: start,
+        toBlock: stop,
+        strict: false,
+      });
+      return logsRaw;
+    } catch (err: any) {
+      const msg = String(err?.message ?? "");
+      if (
+        msg.includes("max block range") ||
+        msg.includes("exceeds max block range")
+      ) {
+        const nextStep = curStep > 10_000n ? curStep / 2n : 0n;
+        if (nextStep === 0n) throw err;
+        const nextStop = start + nextStep - 1n;
+        return fetchChunk(start, nextStop, nextStep);
+      }
+      throw err;
+    }
+  };
+
+  // Walk backwards in chunks until we find at least one Finalized event.
+  while (end >= fromBlock) {
+    const start = end - step + 1n < fromBlock ? fromBlock : end - step + 1n;
+    const logsRaw = await fetchChunk(start, end, step);
+
+    const filtered = logsRaw.filter((log: any) => {
+      const args = log?.args;
+      return (
+        args &&
+        (typeof args.epoch === "bigint" || typeof args.epoch === "number") &&
+        typeof args.manifestCID === "string"
+      );
     });
-    const filtered = logsRaw.filter(isFinalizedLog);
-    if (filtered.length) logsAll.push(...(filtered as FinalizedLog[]));
-    if (chunkTo === toBlock) break;
-    cursor = chunkTo + 1n;
+
+    if (filtered.length) {
+      return filtered[filtered.length - 1];
+    }
+
+    if (start === fromBlock) break;
+    end = start - 1n;
   }
-  return logsAll;
+
+  return null;
 }
 
 async function decodeFromProbeTx() {
   if (!probeTx) return null;
+
   try {
     const tx = await client.getTransaction({ hash: probeTx });
     if (!tx?.input) return null;
     if (tx.to?.toLowerCase() !== treasury.toLowerCase()) return null;
     if (!tx.input.startsWith(FINALIZE_SELECTOR)) return null;
+
     const decoded = decodeFunctionData({
       abi: FINALIZE_FN,
       data: tx.input,
     });
+
     if (decoded.functionName !== "finalizeEpoch") return null;
+
     const [epochRaw, , manifestCID] = decoded.args;
     const epoch = Number(epochRaw ?? 0);
     const manifestCIDStr = String(manifestCID ?? "");
     if (!manifestCIDStr) return null;
+
     return { epoch, manifestCID: manifestCIDStr };
   } catch (err) {
     console.warn("[/api/manifest/latest] probe decode failed", err);
@@ -177,22 +229,32 @@ function normalizePlacements(manifest: any, manifestCIDDefault = "") {
   return flattenPlacements(enriched);
 }
 
+// --- Route -----------------------------------------------------------------
+
 export async function GET() {
   try {
+    // optional cache from _store (used only as a fallback)
     const cached = manifestForEpoch("latest");
-    let epoch: number | null =
-      typeof cached?.epoch === "number" ? cached.epoch : null;
-    let manifestCID: string | null =
-      typeof cached?.cid === "string" ? cached.cid : null;
+    let epoch: number | null = null;
+    let manifestCID: string | null = null;
 
+    // scan Finalized events on-chain (authoritative source)
     const latestBlock = await client.getBlockNumber();
-    const logs = await getFinalizedLogs(deployBlock, latestBlock);
+    const last = await findLatestLog(
+      treasury,
+      FINALIZED_EVENT,
+      deployBlock,
+      latestBlock
+    );
 
-    if (logs.length) {
-      const last = logs[logs.length - 1];
-      const { epoch: epochRaw, manifestCID: cid } = last.args;
-      const onchainEpoch = Number(epochRaw ?? 0n);
+    if (last) {
+      const args = last?.args ?? {};
+      const epochRaw = args.epoch;
+      const cid = args.manifestCID;
+
+      const onchainEpoch = Number(epochRaw ?? 0);
       const onchainCid = String(cid ?? "");
+
       if (!Number.isNaN(onchainEpoch) && onchainCid) {
         if (epoch == null || onchainEpoch > epoch) {
           epoch = onchainEpoch;
@@ -201,20 +263,51 @@ export async function GET() {
       }
     }
 
-    const probe = await decodeFromProbeTx();
-    if (probe) {
-      if (epoch == null || probe.epoch > epoch) {
-        epoch = probe.epoch;
-        manifestCID = probe.manifestCID;
+    // fallback: check ManifestAnchored on optional manifest store contract
+    if (epoch == null && manifestStore) {
+      const anchored = await findLatestLog(
+        manifestStore,
+        MANIFEST_ANCHORED_EVENT,
+        deployBlock,
+        latestBlock
+      );
+      if (anchored) {
+        const args = anchored?.args ?? {};
+        const epochRaw = args.epoch;
+        const cid = args.manifestCid ?? args.manifestCID;
+        const anchorEpoch = Number(epochRaw ?? 0);
+        const anchorCid = String(cid ?? "");
+        if (!Number.isNaN(anchorEpoch) && anchorCid) {
+          epoch = anchorEpoch;
+          manifestCID = anchorCid;
+        }
       }
     }
 
+    // optional explicit probe tx override (only if ahead of on-chain logs)
+    const enableProbeFallback =
+      process.env.ENABLE_PROBE_TX === "1" || process.env.ENABLE_PROBE_TX === "true";
+    if (enableProbeFallback) {
+      const probe = await decodeFromProbeTx();
+      if (probe) {
+        if (epoch == null || probe.epoch > epoch) {
+          epoch = probe.epoch;
+          manifestCID = probe.manifestCID;
+        }
+      }
+    }
+
+    // last-resort fallback to in-memory cache if it has a non-zero epoch
+    if ((!manifestCID || epoch == null) && cached?.cid && cached.epoch > 0) {
+      epoch = cached.epoch;
+      manifestCID = cached.cid;
+    }
+
     if (!manifestCID) {
-      return NextResponse.json({
-        epoch: null,
-        manifestCID: null,
-        manifest: null,
-      });
+      return NextResponse.json(
+        { error: "No finalized manifest found on-chain yet" },
+        { status: 404 }
+      );
     }
 
     const manifestCIDStr = manifestCID;
