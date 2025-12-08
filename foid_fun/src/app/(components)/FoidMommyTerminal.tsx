@@ -277,7 +277,7 @@ export default function FoidMommyTerminal({
   const messageEndRef = useRef<HTMLDivElement | null>(null);
   const timeoutsRef = useRef<number[]>([]);
   const intervalsRef = useRef<number[]>([]);
-  const feelingInputRef = useRef<HTMLInputElement | null>(null);
+  const feelingInputRef = useRef<HTMLTextAreaElement | null>(null);
   const prayerInputRef = useRef<HTMLTextAreaElement | null>(null);
   const attachedTypingTargets = useRef(new WeakSet<HTMLElement>());
 
@@ -411,7 +411,7 @@ export default function FoidMommyTerminal({
       await typeMessage({ role: "system", text: "foid mommy online.", speed: 24 });
       await sleep(800);
       await typeMessage({ role: "foid", text: "hi anon, how are you doing today?", speed: 26 });
-      addMessage("system", "you can type anything, or pick a feeling below");
+      addMessage("system", "tell me how you're feeling to start.");
       setStage("awaitFeeling");
     };
 
@@ -445,14 +445,45 @@ export default function FoidMommyTerminal({
 
       const config = feelingsConfig[feeling];
 
-      await sleep(250);
-      await typeMessage({ role: "foid", text: config.response });
-      await sleep(300);
-      await typeMessage({ role: "foid", text: config.prayer, speed: 22 });
-      await sleep(400);
-      await typeMessage({ role: "foid", text: config.prompt, speed: 22 });
-      setStage("awaitPrayer");
-      setIsProcessing(false);
+      try {
+        await sleep(250);
+        await typeMessage({ role: "foid", text: config.response });
+
+        const res = await fetch("/api/foid-mommy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            feelingKey: feeling,
+            feelingText: inputText.trim(),
+          }),
+        });
+
+        let prayer = config.prayer;
+
+        if (res.ok) {
+          const data = await res.json();
+          if (typeof data.prayer === "string" && data.prayer.trim().length > 0) {
+            prayer = data.prayer;
+          }
+        }
+
+        await sleep(300);
+        await typeMessage({ role: "foid", text: prayer, speed: 22 });
+
+        await sleep(400);
+        await typeMessage({ role: "foid", text: config.prompt, speed: 22 });
+
+        setStage("awaitPrayer");
+      } catch (err) {
+        console.error("processFeeling error:", err);
+        await sleep(300);
+        await typeMessage({ role: "foid", text: config.prayer, speed: 22 });
+        await sleep(400);
+        await typeMessage({ role: "foid", text: config.prompt, speed: 22 });
+        setStage("awaitPrayer");
+      } finally {
+        setIsProcessing(false);
+      }
     },
     [addMessage, typeMessage, isProcessing],
   );
@@ -467,14 +498,6 @@ export default function FoidMommyTerminal({
       setFeelingInput("");
     },
     [detectFeeling, feelingInput, processFeeling],
-  );
-
-  const handleChipSelect = useCallback(
-    async (key: FeelingKey) => {
-      const config = feelingsConfig[key];
-      await processFeeling(config.chipLabel, key);
-    },
-    [processFeeling],
   );
 
   const handlePrayerSubmit = useCallback(
@@ -666,15 +689,27 @@ export default function FoidMommyTerminal({
     setStage("awaitPrayer");
   }, []);
 
-  const feelingChips = useMemo(
-    () => feelingOrder.map((key) => ({ key, label: feelingsConfig[key].chipLabel })),
-    [],
-  );
-
   const labelClass = "text-xs uppercase tracking-[0.35em] text-foid-mint/80";
   const primaryButtonClass = "btn-foid uppercase tracking-[0.32em]";
   const secondaryButtonClass = "btn-foid-outline uppercase tracking-[0.3em]";
   const chipClass = "chip-foid text-white/80";
+
+  const nextAllowedText = useMemo(() => {
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const target =
+      typeof nextAllowedAt === "bigint"
+        ? Number(nextAllowedAt)
+        : typeof nextAllowedAt === "number"
+          ? nextAllowedAt
+          : null;
+
+    if (target && target > nowSeconds) {
+      const waitSeconds = target - nowSeconds;
+      return formatCooldown(waitSeconds);
+    }
+
+    return "soon";
+  }, [nextAllowedAt]);
 
   return (
     <div
@@ -703,12 +738,29 @@ export default function FoidMommyTerminal({
           <div ref={messageEndRef} />
         </div>
 
+        {stage === "processingFeeling" && (
+          <div className="flex items-center gap-3 text-sm text-foid-mint/80">
+            <div className="flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-foid-mint/70 animate-ping" />
+              <span
+                className="h-2.5 w-2.5 rounded-full bg-foid-mint/70 animate-ping"
+                style={{ animationDelay: "140ms" }}
+              />
+              <span
+                className="h-2.5 w-2.5 rounded-full bg-foid-mint/70 animate-ping"
+                style={{ animationDelay: "280ms" }}
+              />
+            </div>
+            <span>foid mommy is thinking...</span>
+          </div>
+        )}
+
         {stage === "awaitFeeling" && (
           <form onSubmit={handleFeelingSubmit} className="space-y-3">
             <label htmlFor="feeling-input" className={labelClass}>
               share how you feel
             </label>
-            <input
+            <textarea
               id="feeling-input"
               name="feeling"
               value={feelingInput}
@@ -716,22 +768,11 @@ export default function FoidMommyTerminal({
                 setFeelingInput(event.target.value);
               }}
               ref={feelingInputRef}
-              className="w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white/85 transition focus:border-foid-cyan/60 focus:ring-2 focus:ring-foid-cyan/40"
+              rows={3}
+              className="w-full resize-y rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white/85 transition focus:border-foid-cyan/60 focus:ring-2 focus:ring-foid-cyan/40"
               placeholder="type anything..."
               autoComplete="off"
             />
-            <div className="flex flex-wrap gap-2 text-sm text-white/90 drop-shadow-[0_8px_20px_rgba(4,18,34,0.45)]">
-              {feelingChips.map((chip) => (
-                <button
-                  key={chip.key}
-                  type="button"
-                  onClick={() => void handleChipSelect(chip.key)}
-                  className={chipClass}
-                >
-                  {chip.label}
-                </button>
-              ))}
-            </div>
             <button
               type="submit"
               className={primaryButtonClass}
@@ -830,32 +871,18 @@ export default function FoidMommyTerminal({
         {stage === "checkInPrompt" && (
           <div className="flex flex-col gap-3 text-sm text-white/75">
             <div className="text-white/80">
-              want a daily check-in with foid mommy?
+              next prayer allowed in: {nextAllowedText}
             </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  onDailyCheckInChoice?.("yes");
-                  addMessage("foid", "noted. i'll pop in daily--gently, promise.");
-                  setStage("idle");
-                }}
-                className={primaryButtonClass}
-              >
-                yes
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onDailyCheckInChoice?.("not_now");
-                  addMessage("foid", "all good. i'm here whenever you reach out.");
-                  setStage("idle");
-                }}
-                className={secondaryButtonClass}
-              >
-                not now
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onDailyCheckInChoice?.("not_now");
+                setStage("idle");
+              }}
+              className={secondaryButtonClass}
+            >
+              ok
+            </button>
           </div>
         )}
 
