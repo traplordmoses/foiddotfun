@@ -713,13 +713,13 @@ export default function FoidMommyTerminal({
 
   return (
     <div
-      className={`flex h-full flex-col rounded-2xl border border-white/15 bg-white/5 p-6 font-mono text-white/85 shadow-[0_0_60px_rgba(114,225,255,0.22)] backdrop-blur-md ${className ?? ""}`}
+      className={`flex w-full flex-col rounded-2xl border border-white/15 bg-white/5 p-5 font-mono text-white/85 shadow-[0_0_60px_rgba(114,225,255,0.22)] backdrop-blur-md ${className ?? ""}`}
       style={{ fontFamily: terminalFont, fontSize: "22px" }}
     >
-      <div className="space-y-3">
+      <div className="flex flex-1 flex-col space-y-3">
         <div
           ref={logRef}
-          className="max-h-[360px] overflow-y-auto pr-1 text-[1.1rem] leading-relaxed tracking-wide"
+          className="flex-1 overflow-y-auto pr-1 text-[1.1rem] leading-relaxed tracking-wide"
         >
           {messages.map((msg) => (
             <div

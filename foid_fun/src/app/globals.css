@@ -271,6 +271,17 @@
     font-size: 0.82rem;
     font-weight: 600;
     z-index: 2;
+    overflow: hidden;
+  }
+
+  .vista-window__titlebar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.06) 32%, rgba(255, 255, 255, 0.18) 68%, rgba(255, 255, 255, 0.1));
+    opacity: 0.65;
+    mix-blend-mode: screen;
   }
 
   .vista-window__titlebar::after {
@@ -279,7 +290,7 @@
     inset: 0;
     pointer-events: none;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.58), transparent 60%);
-    opacity: 0.75;
+    opacity: 0.78;
   }
 
   .vista-window__controls {
@@ -335,14 +346,22 @@
     justify-content: center;
     padding: 0.3rem 0.6rem;
     border-radius: 999px;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(152, 234, 255, 0.78));
-    color: #1f5a92;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(168, 244, 255, 0.9));
+    color: #104b86;
     font-size: 0.8rem;
     box-shadow:
-      0 10px 20px rgba(0, 0, 0, 0.35),
+      0 12px 22px rgba(0, 0, 0, 0.35),
       inset 0 1px 0 rgba(255, 255, 255, 0.75);
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
     animation: vista-badge-pulse 7s ease-in-out infinite;
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
+
+  .vista-window__badge:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 14px 26px rgba(0, 0, 0, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.82);
   }
 
   .vista-window__body {
