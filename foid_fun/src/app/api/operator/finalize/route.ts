@@ -23,6 +23,7 @@ import {
   type Placement,
   type Proposal,
 } from "../../_store";
+import { loadLatestFinalized } from "@/lib/manifest";
 import { hasOverlap } from "@/lib/grid";
 import { uploadJSON } from "@/lib/ipfs";
 import { ProposalStore } from "@/lib/proposalStore";
@@ -159,7 +160,24 @@ async function loadBaseBoardFromOnchain() {
   const logs = await getFinalizedLogs(deployBlock, latestBlock);
 
   if (!logs.length) {
-    console.log("[finalize] no Finalized logs on-chain yet");
+    console.log("[finalize] no Finalized logs on-chain yet – falling back to latest manifest endpoint");
+    const fallbackLatest = await loadLatestFinalized();
+    if (fallbackLatest?.manifestCID) {
+      const manifestRaw = await fetchManifestFromCid(fallbackLatest.manifestCID);
+      if (manifestRaw) {
+        const placements = normalizeManifestPlacements(manifestRaw);
+        console.log("[finalize] fallback manifest from /api/manifest/latest", {
+          epoch: fallbackLatest.epoch,
+          cid: fallbackLatest.manifestCID,
+          count: placements.length,
+        });
+        return {
+          basePlacements: placements,
+          latestEpoch: fallbackLatest.epoch ?? null,
+        };
+      }
+    }
+
     return { basePlacements: [] as Placement[], latestEpoch: null };
   }
 

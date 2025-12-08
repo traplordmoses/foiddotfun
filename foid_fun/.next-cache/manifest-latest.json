@@ -1,0 +1,78 @@
+{
+  "latestEpoch": 564284,
+  "byEpoch": [
+    {
+      "epoch": 0,
+      "placements": [
+        {
+          "id": "0x490ed285f62a371a9d211f82c3111aa1409f3b9075192eb20140d87fe10c0147",
+          "owner": "",
+          "cid": "QmXuaCr8S7JdggmS9wefhMmtiC4ePHeoAa4hfG5x7uVdpo",
+          "name": "beliefs.png",
+          "mime": "image/png",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "w": 736,
+            "h": 544
+          },
+          "cells": 391,
+          "bidPerCellWei": "0",
+          "width": 736,
+          "height": 544
+        }
+      ],
+      "finalizedAt": 0,
+      "cid": "ipfs://bafkreieo43q5jmr4raj26fslh53px72j7iatscxodxh7ej2v7pddmzuuie"
+    },
+    {
+      "epoch": 564284,
+      "placements": [
+        {
+          "id": "0x490ed285f62a371a9d211f82c3111aa1409f3b9075192eb20140d87fe10c0147",
+          "owner": "",
+          "cid": "QmXuaCr8S7JdggmS9wefhMmtiC4ePHeoAa4hfG5x7uVdpo",
+          "name": "beliefs.png",
+          "mime": "image/png",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "w": 736,
+            "h": 544
+          },
+          "cells": 391,
+          "bidPerCellWei": "0",
+          "width": 736,
+          "height": 544,
+          "x": 0,
+          "y": 0,
+          "w": 736,
+          "h": 544
+        },
+        {
+          "id": "0x632105984321331e0adfa10c29fea72a67f2064c0585c66e9e28e253c831c063",
+          "owner": "0x1a2a5e805342d5139111488c59d72832055a3e8f",
+          "cid": "QmZT8qKAAz4NgxAacy7bckwSXoVzoVqi6g3YjyERjy7ojZ",
+          "name": "nomeme.resized.jpg",
+          "mime": "image/jpeg",
+          "rect": {
+            "x": -640,
+            "y": 0,
+            "w": 640,
+            "h": 608
+          },
+          "cells": 380,
+          "bidPerCellWei": "10000000000000",
+          "width": 640,
+          "height": 608,
+          "x": -640,
+          "y": 0,
+          "w": 640,
+          "h": 608
+        }
+      ],
+      "finalizedAt": 1764794703643,
+      "cid": "QmcHJjsYyjEmQFERv3fbae75SqmXGXKJeDdUw5tYmgzpKc"
+    }
+  ]
+}

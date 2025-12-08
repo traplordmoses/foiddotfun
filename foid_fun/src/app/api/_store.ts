@@ -1,6 +1,8 @@
 // Server-only in-memory store for demo
 import { type Rect } from "@/lib/grid";
 import { currentEpoch } from "@/lib/epoch";
+import fs from "fs";
+import path from "path";
 
 export type Placement = {
   id: string;
@@ -61,12 +63,52 @@ type ManifestCache = {
 const manifestGlobal = globalThis as typeof globalThis & {
   __MANIFEST_CACHE__?: ManifestCache;
 };
+const PERSIST_PATH = path.join(process.cwd(), ".next-cache", "manifest-latest.json");
+
+function loadPersistedManifest(): ManifestCache {
+  try {
+    const raw = fs.readFileSync(PERSIST_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    const byEpoch = new Map<number, StoredManifest>();
+    const list: StoredManifest[] = Array.isArray(parsed?.byEpoch) ? parsed.byEpoch : [];
+    for (const rec of list) {
+      if (rec && typeof rec.epoch === "number" && rec.cid) {
+        byEpoch.set(rec.epoch, {
+          ...rec,
+          placements: Array.isArray(rec.placements) ? rec.placements.map(clonePlacement) : [],
+        });
+      }
+    }
+    const latestEpoch =
+      typeof parsed?.latestEpoch === "number" && Number.isFinite(parsed.latestEpoch)
+        ? parsed.latestEpoch
+        : (list.length ? list[list.length - 1]?.epoch ?? null : null);
+    return { byEpoch, latestEpoch };
+  } catch {
+    return { byEpoch: new Map<number, StoredManifest>(), latestEpoch: null };
+  }
+}
+
+function persistManifestCache(cache: ManifestCache) {
+  try {
+    const dir = path.dirname(PERSIST_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const byEpochArr = Array.from(cache.byEpoch.values()).map((rec) => ({
+      ...rec,
+      placements: rec.placements.map(clonePlacement),
+    }));
+    fs.writeFileSync(
+      PERSIST_PATH,
+      JSON.stringify({ latestEpoch: cache.latestEpoch, byEpoch: byEpochArr }, null, 2),
+      "utf8"
+    );
+  } catch {
+    /* best-effort */
+  }
+}
 
 if (!manifestGlobal.__MANIFEST_CACHE__) {
-  manifestGlobal.__MANIFEST_CACHE__ = {
-    byEpoch: new Map<number, StoredManifest>(),
-    latestEpoch: null,
-  };
+  manifestGlobal.__MANIFEST_CACHE__ = loadPersistedManifest();
 }
 
 const manifestCache = manifestGlobal.__MANIFEST_CACHE__!;
@@ -122,6 +164,7 @@ if (!manifestCache.byEpoch.size) {
     placements: seedManifest.placements.map(clonePlacement),
   });
   manifestCache.latestEpoch = seedManifest.epoch;
+  persistManifestCache(manifestCache);
 }
 
 if (!S.latestManifest) {
@@ -169,6 +212,19 @@ export function setLatestManifest(m: Manifest, cid: string | null) {
   S.latestManifest = m;
   S.latestManifestCID = cid;
   S.manifestHistory.set(m.epoch, { manifest: m, cid });
+
+  const stored: StoredManifest = {
+    epoch: m.epoch,
+    placements: m.placements.map(clonePlacement),
+    finalizedAt: m.finalizedAt,
+    cid: cid ?? "",
+  };
+  manifestCache.byEpoch.set(m.epoch, stored);
+  const currentLatest = manifestCache.latestEpoch;
+  if (currentLatest === null || m.epoch >= currentLatest) {
+    manifestCache.latestEpoch = m.epoch;
+  }
+  persistManifestCache(manifestCache);
 }
 
 export function latestManifestCID() {
@@ -213,6 +269,7 @@ export function saveManifestForEpoch(
   if (currentLatest === null || epoch >= currentLatest) {
     manifestCache.latestEpoch = epoch;
   }
+  persistManifestCache(manifestCache);
 }
 
 export function getManifestForEpoch(epoch: number): StoredManifest | null {

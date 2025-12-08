@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 import {
   createPublicClient,
   defineChain,
@@ -28,6 +30,15 @@ const deployBlockEnv =
 const probeTx =
   (process.env.NEXT_PUBLIC_FINALIZE_PROBE_TX ||
     process.env.PROBE_TX) as `0x${string}` | undefined;
+const envEpochHint = Number(
+  process.env.NEXT_PUBLIC_FINALIZED_EPOCH_HINT ??
+    process.env.FINALIZED_EPOCH_HINT ??
+    0
+);
+const envCidHint =
+  process.env.NEXT_PUBLIC_FINALIZED_MANIFEST_CID_HINT ??
+  process.env.FINALIZED_MANIFEST_CID_HINT ??
+  "";
 
 if (!rpc) {
   throw new Error("NEXT_PUBLIC_FLUENT_RPC is required");
@@ -54,6 +65,8 @@ const client = createPublicClient({
   chain: fluentTestnet,
   transport: http(rpc),
 });
+
+const PERSIST_PATH = path.join(process.cwd(), ".next-cache", "manifest-latest.json");
 
 // --- ABI pieces ------------------------------------------------------------
 
@@ -116,6 +129,80 @@ function flattenPlacements(rows: any[] | undefined) {
       cells: Number(p.cells ?? 1),
     };
   });
+}
+
+function loadPersistedLatest(): { epoch: number | null; cid: string | null; placements: any[] } {
+  try {
+    const raw = fs.readFileSync(PERSIST_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    const latestEpoch =
+      typeof parsed?.latestEpoch === "number" && Number.isFinite(parsed.latestEpoch)
+        ? parsed.latestEpoch
+        : null;
+    const list: any[] = Array.isArray(parsed?.byEpoch) ? parsed.byEpoch : [];
+    const best = list.reduce(
+      (acc, cur) => (cur?.epoch != null && cur.epoch >= (acc?.epoch ?? -1) ? cur : acc),
+      null as any
+    );
+    const epoch =
+      typeof best?.epoch === "number" && Number.isFinite(best.epoch)
+        ? best.epoch
+        : latestEpoch;
+    const cid = typeof best?.cid === "string" && best.cid ? best.cid.replace(/^ipfs:\/\//, "") : null;
+    const placements = Array.isArray(best?.placements) ? best.placements : [];
+    return { epoch, cid, placements };
+  } catch {
+    return { epoch: null, cid: null, placements: [] };
+  }
+}
+
+function persistLatestToDisk(epoch: number, cid: string, placements: any[]) {
+  if (!Number.isFinite(epoch) || !cid) return;
+  try {
+    const dir = path.dirname(PERSIST_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+    let parsed: any = {};
+    try {
+      const raw = fs.readFileSync(PERSIST_PATH, "utf8");
+      parsed = JSON.parse(raw);
+    } catch {
+      /* file might not exist yet */
+    }
+
+    const byEpochArr: any[] = Array.isArray(parsed?.byEpoch) ? parsed.byEpoch : [];
+    const normalizedCid = cid.replace(/^ipfs:\/\//, "");
+    const record = {
+      epoch,
+      placements: Array.isArray(placements) ? placements : [],
+      finalizedAt: Date.now(),
+      cid: normalizedCid,
+    };
+
+    const existingIdx = byEpochArr.findIndex((r) => r?.epoch === epoch);
+    if (existingIdx >= 0) {
+      byEpochArr[existingIdx] = {
+        ...byEpochArr[existingIdx],
+        ...record,
+        placements: record.placements,
+      };
+    } else {
+      byEpochArr.push(record);
+    }
+
+    const latestEpoch =
+      typeof parsed?.latestEpoch === "number" && Number.isFinite(parsed.latestEpoch)
+        ? Math.max(parsed.latestEpoch, epoch)
+        : epoch;
+
+    fs.writeFileSync(
+      PERSIST_PATH,
+      JSON.stringify({ latestEpoch, byEpoch: byEpochArr }, null, 2),
+      "utf8"
+    );
+  } catch (err) {
+    console.warn("[/api/manifest/latest] persistLatestToDisk failed", err);
+  }
 }
 
 /**
@@ -233,17 +320,37 @@ function normalizePlacements(manifest: any, manifestCIDDefault = "") {
 
 export async function GET() {
   try {
-    // optional cache from _store (used only as a fallback)
+    const persisted = loadPersistedLatest();
     const cached = manifestForEpoch("latest");
-    let epoch: number | null = null;
-    let manifestCID: string | null = null;
+
+    let bestEpoch: number | null = null;
+    let bestCid: string | null = null;
+    let bestPlacements: any[] | null = null;
+
+    const consider = (e: any, c: any, placements?: any[]) => {
+      if (typeof c !== "string" || !c) return;
+      const epochNum = Number(e);
+      if (!Number.isFinite(epochNum)) return;
+      if (bestEpoch == null || epochNum > bestEpoch) {
+        bestEpoch = epochNum;
+        bestCid = c.replace(/^ipfs:\/\//, "");
+        bestPlacements = placements ?? null;
+      }
+    };
+
+    // persisted cache (survives restart)
+    consider(persisted.epoch, persisted.cid, persisted.placements);
+
+    // optional cache from _store (used as a fallback or for dev/epoch 0)
+    consider(cached?.epoch, cached?.cid, cached?.manifest?.placements);
 
     // scan Finalized events on-chain (authoritative source)
     const latestBlock = await client.getBlockNumber();
+    const fromBlock = deployBlock > latestBlock ? 0n : deployBlock;
     const last = await findLatestLog(
       treasury,
       FINALIZED_EVENT,
-      deployBlock,
+      fromBlock,
       latestBlock
     );
 
@@ -255,20 +362,33 @@ export async function GET() {
       const onchainEpoch = Number(epochRaw ?? 0);
       const onchainCid = String(cid ?? "");
 
-      if (!Number.isNaN(onchainEpoch) && onchainCid) {
-        if (epoch == null || onchainEpoch > epoch) {
-          epoch = onchainEpoch;
-          manifestCID = onchainCid;
-        }
+      consider(onchainEpoch, onchainCid);
+    }
+
+    // some deployments emit Finalized on the anchor/store contract instead of the treasury
+    if (manifestStore) {
+      const anchoredFinalized = await findLatestLog(
+        manifestStore,
+        FINALIZED_EVENT,
+        fromBlock,
+        latestBlock
+      );
+      if (anchoredFinalized) {
+        const args = anchoredFinalized?.args ?? {};
+        const epochRaw = args.epoch;
+        const cid = args.manifestCID ?? args.manifestCid;
+        const storeEpoch = Number(epochRaw ?? 0);
+        const storeCid = String(cid ?? "");
+        consider(storeEpoch, storeCid);
       }
     }
 
     // fallback: check ManifestAnchored on optional manifest store contract
-    if (epoch == null && manifestStore) {
+    if (manifestStore) {
       const anchored = await findLatestLog(
         manifestStore,
         MANIFEST_ANCHORED_EVENT,
-        deployBlock,
+        fromBlock,
         latestBlock
       );
       if (anchored) {
@@ -277,47 +397,49 @@ export async function GET() {
         const cid = args.manifestCid ?? args.manifestCID;
         const anchorEpoch = Number(epochRaw ?? 0);
         const anchorCid = String(cid ?? "");
-        if (!Number.isNaN(anchorEpoch) && anchorCid) {
-          epoch = anchorEpoch;
-          manifestCID = anchorCid;
-        }
+        consider(anchorEpoch, anchorCid);
       }
     }
 
-    // optional explicit probe tx override (only if ahead of on-chain logs)
-    const enableProbeFallback =
-      process.env.ENABLE_PROBE_TX === "1" || process.env.ENABLE_PROBE_TX === "true";
-    if (enableProbeFallback) {
+    // optional explicit probe tx override (attempt whenever provided)
+    if (probeTx) {
       const probe = await decodeFromProbeTx();
-      if (probe) {
-        if (epoch == null || probe.epoch > epoch) {
-          epoch = probe.epoch;
-          manifestCID = probe.manifestCID;
-        }
-      }
+      if (probe) consider(probe.epoch, probe.manifestCID);
     }
 
-    // last-resort fallback to in-memory cache if it has a non-zero epoch
-    if ((!manifestCID || epoch == null) && cached?.cid && cached.epoch > 0) {
-      epoch = cached.epoch;
-      manifestCID = cached.cid;
+    // optional explicit env hint (failsafe)
+    if (envCidHint && Number.isFinite(envEpochHint)) {
+      consider(envEpochHint, envCidHint);
     }
 
-    if (!manifestCID) {
+    if (!bestCid) {
       return NextResponse.json(
         { error: "No finalized manifest found on-chain yet" },
         { status: 404 }
       );
     }
 
-    const manifestCIDStr = manifestCID;
-    const manifestRaw = await fetchManifest(manifestCIDStr);
-    const placements = manifestRaw
-      ? normalizePlacements(manifestRaw, manifestCIDStr)
-      : [];
+    const manifestCIDStr = bestCid;
+    let placements =
+      bestPlacements != null
+        ? normalizePlacements({ placements: bestPlacements }, manifestCIDStr)
+        : [];
+
+    if (!placements.length) {
+      const manifestRaw = await fetchManifest(manifestCIDStr);
+      placements = manifestRaw
+        ? normalizePlacements(manifestRaw, manifestCIDStr)
+        : [];
+    }
+
+    if (bestEpoch != null && bestCid) {
+      const placementsForPersist =
+        placements.length > 0 ? placements : bestPlacements ?? [];
+      persistLatestToDisk(bestEpoch, bestCid, placementsForPersist);
+    }
 
     return NextResponse.json({
-      epoch,
+      epoch: bestEpoch,
       manifestCID: manifestCIDStr,
       manifest: { placements },
     });

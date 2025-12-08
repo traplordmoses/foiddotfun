@@ -223,6 +223,19 @@ function tryNextGateway(el: HTMLImageElement, cid?: string) {
   el.dataset.gatewayIndex = String(nextIdx);
 }
 
+async function fetchManifestFromCid(cid: string) {
+  const urls = ipfsToHttp(cid);
+  for (const u of urls) {
+    try {
+      const res = await fetch(u, { cache: "no-store" });
+      if (res.ok) return await res.json();
+    } catch {
+      /* try next gateway */
+    }
+  }
+  return null;
+}
+
 async function getPendingBytes(p: PendingItem): Promise<ArrayBuffer> {
   const res = await fetch(p.previewUrl);
   if (!res.ok) throw new Error("Failed to read pending asset");
@@ -421,29 +434,9 @@ export default function BoardPage() {
   const [placed, setPlaced] = useState<FinalizedPlacement[]>([]);
   const [placedEpoch, setPlacedEpoch] = useState<number | null>(null);
   // start by showing whatever you consider "latest" on-chain
-  const [viewEpoch, setViewEpoch] = useState<number>(LATEST_EPOCH_HINT);
+  const [viewEpoch, setViewEpoch] = useState<number | null>(null);
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
-
-  useEffect(() => {
-    if (!unlocked) return;
-    let alive = true;
-
-    (async () => {
-      try {
-        const latest = await getLatestNormalized();
-        if (!alive) return;
-        if (typeof latest.epoch === "number") {
-          setViewEpoch(latest.epoch);
-        }
-      } catch (e) {
-        console.error("LATEST_NORMALIZED_FAIL", e);
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [unlocked]);
+  const [viewMode, setViewMode] = useState<"latest" | "fixed">("latest");
 
   const handleFinalizeClick = useCallback(async () => {
     try {
@@ -467,7 +460,7 @@ export default function BoardPage() {
           : Number(json?.epoch ?? LATEST_EPOCH_HINT);
       const epoch = Number.isFinite(parsedEpoch)
         ? parsedEpoch
-        : LATEST_EPOCH_HINT;
+        : 0;
 
       const winnersCount =
         json?.winners ??
@@ -479,13 +472,37 @@ export default function BoardPage() {
         ? json.rejectedDueToOverlap.length
         : 0;
 
-      const latest = await getLatestNormalized();
-      const placements: FinalizedPlacement[] = normalizePlacements(
-        latest.manifest?.placements ?? []
-      );
+      const manifestCidResp: string | undefined =
+        json?.manifestCID ?? json?.manifestCid ?? json?.manifest;
+      let latestEpochValue: number | null =
+        typeof json?.epoch === "number"
+          ? json.epoch
+          : Number.isFinite(Number(json?.epoch))
+          ? Number(json?.epoch)
+          : null;
+
+      let placements: FinalizedPlacement[] = [];
+
+      if (manifestCidResp) {
+        const manifestRaw = await fetchManifestFromCid(
+          manifestCidResp.replace(/^ipfs:\/\//, "")
+        );
+        if (manifestRaw) {
+          placements = normalizePlacements(manifestRaw?.placements ?? manifestRaw?.winners ?? []);
+        }
+      }
+
+      if (!placements.length) {
+        const latest = await getLatestNormalized();
+        placements = normalizePlacements(latest.manifest?.placements ?? []);
+        latestEpochValue =
+          typeof latest.epoch === "number" ? latest.epoch : latestEpochValue;
+      }
+
       setPlaced(placements);
-      setPlacedEpoch(typeof latest.epoch === "number" ? latest.epoch : null);
-      setViewEpoch(LATEST_EPOCH_HINT);
+      setPlacedEpoch(latestEpochValue);
+      setViewEpoch(latestEpochValue);
+      setViewMode("latest");
       clearBoardState?.();
 
       try {
@@ -515,6 +532,7 @@ export default function BoardPage() {
     setPlacedEpoch,
     setViewEpoch,
     setProposals,
+    setViewMode,
   ]);
 
   // ---- Ghost for DnD ----
@@ -691,12 +709,6 @@ export default function BoardPage() {
       URL.revokeObjectURL(url);
     }
   }
-
-const rectsOverlap = (a: Rect, b: Rect) =>
-  a.x < b.x + b.w &&
-  a.x + a.w > b.x &&
-  a.y < b.y + b.h &&
-  a.y + a.h > b.y;
 
   const primeGhostMetaFromEvent = useCallback(async (e: React.DragEvent) => {
     if (ghostMetaRef.current) return ghostMetaRef.current;
@@ -1041,7 +1053,15 @@ const rectsOverlap = (a: Rect, b: Rect) =>
   });
 
   const totalWei = items.reduce((acc, p) => acc + p.totalWei, 0n);
-  const canStepPrev = typeof placedEpoch === "number" && placedEpoch > 0;
+  const currentEpochView = viewMode === "fixed" ? viewEpoch : placedEpoch;
+  const canStepPrev =
+    typeof currentEpochView === "number" && Number.isFinite(currentEpochView) && currentEpochView > 0;
+  const canStepNext =
+    typeof placedEpoch === "number" &&
+    typeof currentEpochView === "number" &&
+    Number.isFinite(placedEpoch) &&
+    Number.isFinite(currentEpochView) &&
+    currentEpochView < placedEpoch;
 
   // ---- load manifest ----
   useEffect(() => {
@@ -1050,7 +1070,7 @@ const rectsOverlap = (a: Rect, b: Rect) =>
 
     const load = async () => {
       try {
-        if (viewEpoch <= 0) {
+        if (viewMode === "latest") {
           const latest = await getLatestNormalized();
           if (!alive) return;
 
@@ -1063,39 +1083,57 @@ const rectsOverlap = (a: Rect, b: Rect) =>
           const placements: FinalizedPlacement[] = normalizePlacements(
             latest.manifest?.placements ?? []
           );
-          setPlaced(placements);
-
           const epochValue =
             typeof latest.epoch === "number" ? latest.epoch : null;
-          setPlacedEpoch(epochValue);
 
-          if (placements.length) {
-            const last = placements[placements.length - 1];
-            zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
-          }
-        } else {
-          const man = await getManifest(viewEpoch as any);
-          if (!alive) return;
-
-          if (DEV_UI) {
-            setLatestDebug(JSON.stringify(man, null, 2));
-          } else {
-            setLatestDebug(null);
+          // Ignore stale responses that are behind what we already show.
+          if (
+            placedEpoch != null &&
+            epochValue != null &&
+            epochValue < placedEpoch
+          ) {
+            return;
           }
 
-          const placements: FinalizedPlacement[] = normalizePlacements(
-            man.manifest?.placements ?? []
-          );
           setPlaced(placements);
-
-          const epochValue =
-            typeof man.epoch === "number" ? man.epoch : viewEpoch;
           setPlacedEpoch(epochValue);
+          setViewEpoch(epochValue);
 
           if (placements.length) {
             const last = placements[placements.length - 1];
             zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
           }
+          return;
+        }
+
+        if (viewEpoch == null || viewEpoch < 0) {
+          setPlaced([]);
+          setPlacedEpoch(null);
+          return;
+        }
+
+        const man = await getManifest(viewEpoch as any);
+        if (!alive) return;
+
+        if (DEV_UI) {
+          setLatestDebug(JSON.stringify(man, null, 2));
+        } else {
+          setLatestDebug(null);
+        }
+
+        const placements: FinalizedPlacement[] = normalizePlacements(
+          man.manifest?.placements ?? []
+        );
+        setPlaced(placements);
+
+        const epochValue =
+          typeof man.epoch === "number" ? man.epoch : viewEpoch;
+        setPlacedEpoch(typeof man.epoch === "number" ? man.epoch : null);
+        setViewEpoch(epochValue);
+
+        if (placements.length) {
+          const last = placements[placements.length - 1];
+          zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
         }
       } catch (e: any) {
         if (!alive) return;
@@ -1112,7 +1150,7 @@ const rectsOverlap = (a: Rect, b: Rect) =>
     return () => {
       alive = false;
     };
-  }, [viewEpoch, zoomToRect, unlocked]);
+  }, [viewEpoch, viewMode, zoomToRect, unlocked]);
 
   useEffect(() => {
     if (!unlocked) return;
@@ -1678,18 +1716,26 @@ const rectsOverlap = (a: Rect, b: Rect) =>
     setMessage("Preparing submissions...");
     try {
       // PRE-FLIGHT: reject overlaps with finalized board
-      const overlapNames = items
-        .filter((it) =>
-          placed.some((pl) =>
-            rectsOverlap(it.rect, {
-              x: pl.x,
-              y: pl.y,
-              w: pl.w,
-              h: pl.h,
-            })
-          )
-        )
-        .map((it) => it.name);
+      const placedRects = placed.map((pl) => ({
+        x: pl.x,
+        y: pl.y,
+        w: pl.w,
+        h: pl.h,
+      }));
+      const pendingRects = items.map((it) => ({
+        name: it.name,
+        rect: { ...it.rect },
+      }));
+
+      const overlapNames: string[] = [];
+      pendingRects.forEach((candidate, idx) => {
+        const peers = pendingRects
+          .filter((_, j) => j !== idx)
+          .map((r) => r.rect);
+        if (hasOverlap(candidate.rect, placedRects) || hasOverlap(candidate.rect, peers)) {
+          overlapNames.push(candidate.name);
+        }
+      });
 
       if (overlapNames.length > 0) {
         throw new Error(
@@ -1797,28 +1843,49 @@ const rectsOverlap = (a: Rect, b: Rect) =>
               <button
                 className="px-2 py-1 rounded border border-white/20 bg-white/10 disabled:opacity-50"
                 disabled={!canStepPrev}
-                onClick={() =>
-                  placedEpoch != null && setViewEpoch(Math.max(0, placedEpoch - 1))
-                }
+                onClick={() => {
+                  if (!canStepPrev) return;
+                  const base =
+                    typeof currentEpochView === "number"
+                      ? currentEpochView
+                      : placedEpoch ?? 0;
+                  const target = Math.max(0, base - 1);
+                  setViewMode("fixed");
+                  setViewEpoch(target);
+                }}
               >
                 ◀ Prev
               </button>
               <button
                 className="px-2 py-1 rounded border border-white/20 bg-white/10"
-                onClick={() => setViewEpoch(LATEST_EPOCH_HINT)}
+                onClick={() => {
+                  setViewMode("latest");
+                  setViewEpoch(placedEpoch);
+                }}
               >
                 Latest
               </button>
               <button
                 className="px-2 py-1 rounded border border-white/20 bg-white/10"
-                onClick={() =>
-                  placedEpoch != null && setViewEpoch(placedEpoch + 1)
-                }
+                disabled={!canStepNext}
+                onClick={() => {
+                  if (!canStepNext || placedEpoch == null) return;
+                  const base =
+                    typeof currentEpochView === "number"
+                      ? currentEpochView
+                      : placedEpoch;
+                  const target = Math.min(placedEpoch, base + 1);
+                  setViewMode("fixed");
+                  setViewEpoch(target);
+                }}
               >
                 Next ▶
               </button>
               <div className="ml-auto text-sm">
-                Viewing epoch {placedEpoch ?? "—"}
+                Viewing epoch{" "}
+                {viewMode === "latest"
+                  ? placedEpoch ?? "—"
+                  : currentEpochView ?? "—"}
               </div>
             </div>
           </div>
