@@ -154,9 +154,10 @@ export default function Page() {
   const [musicPanelReady, setMusicPanelReady] = useState(false);
   const rightColumnRef = useRef<HTMLDivElement | null>(null);
   const [columnsHeight, setColumnsHeight] = useState<number | null>(null);
-  const columnHeightStyle = useMemo(
-    () => (columnsHeight ? ({ "--column-height": `${columnsHeight}px` } satisfies CSSProperties) : undefined),
-    [columnsHeight],
+  type ColumnHeightStyle = CSSProperties & { "--column-height"?: string };
+  const columnHeightStyle: ColumnHeightStyle | undefined = useMemo(
+    () => (columnsHeight != null ? { "--column-height": `${columnsHeight}px` } : undefined),
+    [columnsHeight]
   );
 
   const syncColumnsHeight = useCallback(() => {

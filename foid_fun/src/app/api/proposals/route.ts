@@ -34,6 +34,8 @@ export async function GET() {
         : secsRemainingCurrentEpoch + epochsDiff * secondsPerEpoch;
     return {
       ...p,
+      placementId: p.id,
+      epochId: p.epochSubmitted,
       secondsLeft: Math.max(0, secondsLeft),
     };
   });

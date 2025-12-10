@@ -54,9 +54,15 @@ module.exports = {
           '0%, 100%': { transform: 'translateY(0) scale(1)' },
           '50%': { transform: 'translateY(-2%) scale(1.01)' },
         },
+        'aero-border': {
+          '0%':  { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+          '100%': { backgroundPosition: '0% 50%' },
+        },
       },
       animation: {
         ribbon: 'ribbon 8s ease-in-out infinite',
+        'aero-border': 'aero-border 10s ease-in-out infinite',
       },
     },
   },

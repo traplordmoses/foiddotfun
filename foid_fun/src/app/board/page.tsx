@@ -9,6 +9,7 @@ import React, {
   useEffect,
 } from "react";
 import dynamic from "next/dynamic";
+import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { useBoard } from "@/state/board";
 import type { PendingItem } from "@/state/board";
 import { TILE, snapRect, rectCells, hasOverlap, type Rect } from "@/lib/grid";
@@ -26,6 +27,9 @@ import { uploadImage } from "@/lib/ipfs";
 import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 import { formatEth } from "@/lib/wei";
 import { useEpochCountdown } from "@/hooks/useEpochCountdown";
+import { useLatestManifestFromChain } from "@/hooks/useLatestManifestFromChain";
+import { usePlacementVotes } from "@/hooks/usePlacementVotes";
+import { useVoteOnPlacement } from "@/hooks/useVoteOnPlacement";
 import sfx from "@/lib/sfx";
 import { keccak256, stringToHex } from "viem";
 import type { FinalizedPlacement } from "@/lib/types";
@@ -34,10 +38,11 @@ import {
   getManifest,
   proposePlacement,
   listProposals,
-  castVote,
 } from "@/lib/api";
 import type { ProposalSummary } from "@/lib/api";
 import { writeProposePlacement } from "@/lib/viem";
+import { PlacementCard, type Placement } from "@/components/PlacementCard";
+import { PlacementModal } from "@/components/PlacementModal";
 
 const MusicPanel = dynamic(() => import("@/components/MusicPanel"), {
   ssr: false,
@@ -92,6 +97,9 @@ const GRID_RADIUS_Y = Math.floor(WORLD_MAX_Y / TILE);
 const DEV_UI = process.env.NEXT_PUBLIC_DEV_TOOLS === "1";
 const LATEST_EPOCH_HINT = 0; // 0 = ask backend for the true latest epoch
 const BOARD_PASSWORD = process.env.NEXT_PUBLIC_BOARD_PASSWORD ?? "";
+const CARD_BORDER = "rgba(82, 255, 201, 0.45)";
+const CARD_SHADOW = "0 14px 28px rgba(0,0,0,.32), 0 0 0 1px rgba(82,255,201,.28)";
+const FLUENT_CHAIN_ID = 20994;
 
 const BoardLockBadge: React.FC<{ unlocked?: boolean }> = ({ unlocked }) => (
   <span className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/80 align-middle">
@@ -311,11 +319,148 @@ const normalizePlacements = (list: any[]): FinalizedPlacement[] =>
 const normalizeProposals = (list: ProposalSummary[] | undefined): ProposalSummary[] =>
   (list ?? []).map((p) => {
     const rect = asWorldRect(p.rect ?? p);
+    const placementId = (p.placementId ?? p.id) as `0x${string}`;
+    const epochId =
+      typeof p.epochId === "number" ? p.epochId : p.epochSubmitted;
     return {
       ...p,
       rect,
+      placementId,
+      epochId,
     };
   });
+
+type ProposalCardProps = {
+  proposal: ProposalSummary;
+};
+
+function ProposalCard({ proposal }: ProposalCardProps) {
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const { switchChainAsync, isPending: switchingChain } = useSwitchChain();
+
+  const isPending = proposal.status === "proposed" && proposal.secondsLeft > 0;
+  const placementId = (proposal.placementId ?? proposal.id ?? "0x") as `0x${string}`;
+  const epochId = proposal.epochId ?? proposal.epochSubmitted ?? 0;
+  const hasPlacementId = placementId?.startsWith("0x") && placementId.length > 2;
+  const queryEnabled = isPending && hasPlacementId && Number.isFinite(epochId);
+  const epochBigInt = BigInt(epochId || 0);
+
+  const {
+    votes,
+    isLoading: votesLoading,
+    refetch: refetchVotes,
+  } = usePlacementVotes({
+    epochId: epochBigInt,
+    placementId,
+    enabled: queryEnabled,
+  });
+
+  const {
+    vote,
+    isWriting,
+    isConfirming,
+    isConfirmed,
+    error,
+  } = useVoteOnPlacement({
+    epochId: epochBigInt,
+    placementId,
+  });
+
+  useEffect(() => {
+    if (isConfirmed) {
+      refetchVotes();
+    }
+  }, [isConfirmed, refetchVotes]);
+
+  const wrongChain = Boolean(chainId && chainId !== FLUENT_CHAIN_ID);
+  const isVoting = isWriting || isConfirming;
+  const canOnchainVote =
+    isPending &&
+    queryEnabled &&
+    !!address &&
+    isConnected &&
+    !isVoting &&
+    !votesLoading &&
+    !switchingChain;
+
+  const voteLabel = (() => {
+    if (!queryEnabled) return "No epoch/ID";
+    if (!isConnected) return "Connect wallet";
+    if (wrongChain) return "Switch to Fluent";
+    if (isVoting) return "Voting...";
+    if (isConfirmed) return "Voted";
+    return "Yes (on-chain)";
+  })();
+
+  const onVoteClick = async () => {
+    if (!queryEnabled || !address) return;
+    if (wrongChain) {
+      try {
+        await switchChainAsync?.({ chainId: FLUENT_CHAIN_ID });
+      } catch {
+        return;
+      }
+    }
+    try {
+      await vote();
+      await refetchVotes();
+    } catch (err) {
+      console.error("on-chain vote failed", err);
+    }
+  };
+
+  const onchainStatusLabel = votesLoading
+    ? "…"
+    : `${votes.toString()} on-chain vote${votes === 1n ? "" : "s"}`;
+
+  return (
+    <div className="border border-white/10 rounded-lg p-2">
+      <div className="flex justify-between">
+        <span>
+          {display(proposal.cells)} cells · bid {display(proposal.bidPerCellWei)}
+          /cell
+        </span>
+        <span>{display(Math.round(Number(proposal.percentYes ?? 0) * 100))}% yes</span>
+      </div>
+      <div className="flex justify-between mt-1">
+        <span>{display(proposal.voters)} voters</span>
+        <span>
+          {proposal.status === "proposed"
+            ? `${display(proposal.secondsLeft)}s left`
+            : display(proposal.status)}
+        </span>
+      </div>
+      <div className="mt-2 flex gap-2">
+        <button
+          className="px-2 py-1 rounded bg-white/80 text-black disabled:opacity-50"
+          disabled={!canOnchainVote}
+          type="button"
+          onClick={onVoteClick}
+        >
+          {voteLabel}
+        </button>
+        <button
+          className="px-2 py-1 rounded bg-white/10 disabled:opacity-50 opacity-50 cursor-default"
+          disabled
+          type="button"
+        >
+          No
+        </button>
+      </div>
+
+      {isPending && hasPlacementId && (
+        <p className="mt-1 text-[10px] text-white/60">{onchainStatusLabel}</p>
+      )}
+
+      {isPending && hasPlacementId && error && (
+        <div className="mt-1 text-[10px] text-rose-200">
+          {(error as any)?.shortMessage ?? (error as any)?.message ?? "On-chain vote failed"}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 
@@ -437,6 +582,14 @@ export default function BoardPage() {
   const [viewEpoch, setViewEpoch] = useState<number | null>(null);
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
   const [viewMode, setViewMode] = useState<"latest" | "fixed">("latest");
+  const [activePlacement, setActivePlacement] = useState<Placement | null>(null);
+  const {
+    manifest: latestManifest,
+    epoch: latestManifestEpoch,
+    loading: latestManifestLoading,
+    error: latestManifestError,
+  } = useLatestManifestFromChain();
+  const latestFallbackTried = useRef(false);
 
   const handleFinalizeClick = useCallback(async () => {
     try {
@@ -1026,13 +1179,19 @@ export default function BoardPage() {
   };
 
   // ---- Visuals ----
-  const gridBg = useMemo(
-    () =>
-      `linear-gradient(to right, rgba(255,255,255,.12) 1px, transparent 1px),
-       linear-gradient(to bottom, rgba(255,255,255,.12) 1px, transparent 1px)`,
-    []
-  );
   const gridSize = `${TILE}px ${TILE}px`;
+  const gridBg = useMemo(() => {
+    const mesh = [
+      "linear-gradient(to right, rgba(255,255,255,.07) 1px, transparent 1px)",
+      "linear-gradient(to bottom, rgba(255,255,255,.07) 1px, transparent 1px)",
+      "linear-gradient(to right, rgba(63,221,255,.06) 1px, transparent 1px)",
+      "linear-gradient(to bottom, rgba(63,221,255,.06) 1px, transparent 1px)",
+    ].join(", ");
+    const scanlines =
+      "linear-gradient(to bottom, rgba(255,255,255,.045) 1px, rgba(0,0,0,0) 1px)";
+    return `${mesh}, ${scanlines}`;
+  }, []);
+  const gridSizes = `${gridSize}, ${gridSize}, ${gridSize}, ${gridSize}, 100% 6px`;
 
   // Resolve the rect we should render for an item (live drag > override > original)
   const renderRectFor = useCallback(
@@ -1065,47 +1224,113 @@ export default function BoardPage() {
 
   // ---- load manifest ----
   useEffect(() => {
-    if (!unlocked) return;
+    if (!unlocked || viewMode !== "latest") {
+      latestFallbackTried.current = false;
+      return;
+    }
+    let alive = true;
+
+    const applyPlacements = (placements: FinalizedPlacement[], epochValue: number | null) => {
+      if (!alive) return;
+      setPlaced(placements);
+      setPlacedEpoch(epochValue);
+      setViewEpoch(epochValue);
+
+      if (placements.length) {
+        const last = placements[placements.length - 1];
+        zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
+      }
+    };
+
+    const loadFallbackLatest = async () => {
+      if (latestFallbackTried.current) return;
+      latestFallbackTried.current = true;
+      try {
+        const latest = await getLatestNormalized();
+        if (!alive) return;
+
+        if (DEV_UI) {
+          setLatestDebug(JSON.stringify(latest, null, 2));
+        } else {
+          setLatestDebug(null);
+        }
+
+        const placements: FinalizedPlacement[] = normalizePlacements(
+          latest.manifest?.placements ?? []
+        );
+        const epochValue =
+          typeof latest.epoch === "number" ? latest.epoch : null;
+
+        applyPlacements(placements, epochValue);
+      } catch (e: any) {
+        if (!alive) return;
+        setPlaced([]);
+        setPlacedEpoch(null);
+        setViewEpoch(null);
+        setLatestDebug(null);
+        setMessage(String(e?.message ?? "Failed to load manifest"));
+      }
+    };
+
+    if (latestManifestLoading) return;
+
+    if (latestManifestError) {
+      void loadFallbackLatest();
+      return;
+    }
+
+    if (latestManifest?.placements) {
+      const placements: FinalizedPlacement[] = normalizePlacements(
+        latestManifest.placements
+      );
+      const epochValue =
+        typeof latestManifestEpoch === "number"
+          ? latestManifestEpoch
+          : typeof latestManifest.epoch === "number"
+          ? latestManifest.epoch
+          : null;
+
+      if (
+        placedEpoch != null &&
+        epochValue != null &&
+        epochValue < placedEpoch
+      ) {
+        return;
+      }
+
+      if (DEV_UI) {
+        setLatestDebug(JSON.stringify(latestManifest, null, 2));
+      } else {
+        setLatestDebug(null);
+      }
+
+      applyPlacements(placements, epochValue);
+      latestFallbackTried.current = false;
+      return;
+    }
+
+    void loadFallbackLatest();
+
+    return () => {
+      alive = false;
+    };
+  }, [
+    unlocked,
+    viewMode,
+    latestManifest,
+    latestManifestEpoch,
+    latestManifestLoading,
+    latestManifestError,
+    zoomToRect,
+    placedEpoch,
+  ]);
+
+  useEffect(() => {
+    if (!unlocked || viewMode !== "fixed") return;
     let alive = true;
 
     const load = async () => {
       try {
-        if (viewMode === "latest") {
-          const latest = await getLatestNormalized();
-          if (!alive) return;
-
-          if (DEV_UI) {
-            setLatestDebug(JSON.stringify(latest, null, 2));
-          } else {
-            setLatestDebug(null);
-          }
-
-          const placements: FinalizedPlacement[] = normalizePlacements(
-            latest.manifest?.placements ?? []
-          );
-          const epochValue =
-            typeof latest.epoch === "number" ? latest.epoch : null;
-
-          // Ignore stale responses that are behind what we already show.
-          if (
-            placedEpoch != null &&
-            epochValue != null &&
-            epochValue < placedEpoch
-          ) {
-            return;
-          }
-
-          setPlaced(placements);
-          setPlacedEpoch(epochValue);
-          setViewEpoch(epochValue);
-
-          if (placements.length) {
-            const last = placements[placements.length - 1];
-            zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
-          }
-          return;
-        }
-
         if (viewEpoch == null || viewEpoch < 0) {
           setPlaced([]);
           setPlacedEpoch(null);
@@ -1281,12 +1506,14 @@ export default function BoardPage() {
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
             transformOrigin: "0 0",
             backgroundImage: gridBg,
-            backgroundSize: gridSize,
+            backgroundSize: gridSizes,
+            backgroundBlendMode: "screen",
             width: STAGE_CANVAS_W,
             height: STAGE_CANVAS_H,
+            boxShadow: "inset 0 0 80px rgba(0,0,0,.42)",
           }}
         >
-          {/* finalized placements (bottom layer) */}
+        {/* finalized placements (bottom layer) */}
         {placed.map((p) => {
           const stageRect = toStageRect({
             x: p.x,
@@ -1294,26 +1521,27 @@ export default function BoardPage() {
             w: p.w,
             h: p.h,
           });
+          const placementForCard: Placement = {
+            id: p.id,
+            cid: p.cid,
+            x: stageRect.x,
+            y: stageRect.y,
+            width: stageRect.w,
+            height: stageRect.h,
+            name: (p as any)?.name,
+            proposer: p.owner as `0x${string}` | undefined,
+            epochId: currentEpochView ?? placedEpoch ?? null,
+          };
           return (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <PlacementCard
               key={p.id}
-              src={cidToHttpUrl(p.cid)}
-              alt={p.id}
-              className="absolute rounded-md pointer-events-none"
-              style={{
-                left: stageRect.x,
-                top: stageRect.y,
-                width: stageRect.w,
-                height: stageRect.h,
-                zIndex: 0,
-                outline: "2px solid rgba(72,255,171,.55)",
-                background: "rgba(72,255,171,.04)",
-                borderRadius: "6px",
+              placement={placementForCard}
+              onOpen={setActivePlacement}
+              frameStyle={{
+                border: `1px solid ${CARD_BORDER}`,
+                boxShadow: CARD_SHADOW,
+                background: "rgba(8,18,36,0.35)",
               }}
-              referrerPolicy="no-referrer"
-              data-gateway-index="0"
-              onError={(e) => tryNextGateway(e.currentTarget, p.cid)}
             />
           );
         })}
@@ -1377,7 +1605,7 @@ export default function BoardPage() {
             return (
             <figure
               key={p.id}
-              className="absolute pointer-events-none"
+              className="absolute pointer-events-none foid-fade-in"
               style={{
                 left: stageRect.x,
                 top: stageRect.y,
@@ -1392,16 +1620,19 @@ export default function BoardPage() {
                 alt={p.name}
                 referrerPolicy="no-referrer"
                 className="w-full h-full rounded-md object-contain"
-                draggable={false}
-                data-gateway-index="0"
-                onError={(e) => tryNextGateway(e.currentTarget, p.cid)}
-                style={{
-                  outlineWidth: 2,
-                  outlineStyle: "dashed",
-                  outlineColor: "rgba(255,184,0,.9)",
-                  background: "rgba(255,184,0,.06)",
-                }}
-              />
+              draggable={false}
+              data-gateway-index="0"
+              onError={(e) => tryNextGateway(e.currentTarget, p.cid)}
+              style={{
+                outlineWidth: 2,
+                outlineStyle: "solid",
+                outlineColor: CARD_BORDER,
+                background: "rgba(8,18,36,0.4)",
+                boxShadow: CARD_SHADOW,
+                borderRadius: 12,
+                transition: "transform 140ms ease, box-shadow 140ms ease",
+              }}
+            />
 
               <figcaption className="absolute left-1 top-1 text-[11px] px-2 py-1 rounded-md bg-black/60 text-white border border-white/20 flex items-center gap-2">
                 <span>{display(p.cells)} cells</span>
@@ -1596,31 +1827,29 @@ export default function BoardPage() {
 
       {/* Right rail */}
       <aside className="w-full self-start">
-        <div className="rounded-2xl border border-white/15 bg-white/6 backdrop-blur-md p-4 text-white/90 shadow-[0_8px_30px_rgba(0,0,0,.18)]">
-          <h2 className="font-semibold mb-2 flex items-center gap-2">
+        <div className="rounded-2xl border border-white/15 bg-white/6 backdrop-blur-md p-5 text-white/90 shadow-[0_8px_30px_rgba(0,0,0,.18)] space-y-4">
+          <h2 className="font-semibold text-lg tracking-tight text-white">
             Mifoid Loreboard
-            <BoardLockBadge unlocked={unlocked} />
           </h2>
-          <p className="text-white/75 text-sm">
-            Base fee:{" "}
-            <code className="text-white/90">
-              {BASE_FEE_PER_CELL_WEI.toString()}
-            </code>{" "}
-            wei / cell
-          </p>
-          <p className="text-white/75 text-sm mb-3">
-            Max size:{" "}
-            <code className="text-white/90">{MAX_CELLS_PER_RECT}</code> cells /
-            piece
-          </p>
+          <div className="grid grid-cols-2 gap-3 text-sm text-white/80">
+            <div className="space-y-1">
+              <div className="text-white/60 text-xs uppercase tracking-[0.08em]">Base fee</div>
+              <div className="text-white font-medium">{BASE_FEE_PER_CELL_WEI.toString()} wei</div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-white/60 text-xs uppercase tracking-[0.08em]">Max size</div>
+              <div className="text-white font-medium">{MAX_CELLS_PER_RECT} cells</div>
+            </div>
+          </div>
 
-          <button
-            onClick={onPickClick}
-            className="w-full mb-3 rounded-xl px-4 py-2 bg-cyan-300/90 hover:bg-cyan-200 text-black font-medium transition"
-            type="button"
-          >
-            pick an image (propose)
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={onPickClick}
+              className="w-full rounded-xl px-4 py-3 bg-gradient-to-r from-cyan-300 via-emerald-300 to-cyan-400 text-black font-semibold transform-gpu transition duration-150 ease-out hover:brightness-105 hover:-translate-y-[1px] hover:scale-[1.015] shadow-[0_10px_30px_rgba(0,0,0,.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 focus-visible:shadow-[0_0_0_8px_rgba(34,211,238,0.18)]"
+              type="button"
+            >
+              pick an image (propose)
+            </button>
           <input
             ref={fileInputRef}
             type="file"
@@ -1630,8 +1859,8 @@ export default function BoardPage() {
           />
 
           {DEV_UI && (
-            <div className="mt-3 p-3 rounded-xl border border-white/15 bg-white/5 text-xs text-white/80 space-y-2">
-              <div className="text-white/70">Add finalized by CID (dev)</div>
+            <div className="p-3 rounded-xl border border-white/15 bg-white/5 text-xs text-white/80 space-y-2">
+              <div className="text-white font-semibold text-sm">Add finalized by CID (dev)</div>
               <input
                 className="w-full px-2 py-1 rounded bg-white/80 text-black text-sm"
                 placeholder="ipfs://... or CID"
@@ -1707,10 +1936,11 @@ export default function BoardPage() {
           )}
 
           <button
-            className="mt-2 w-full rounded-xl px-4 py-2 bg-cyan-300/90 text-black font-semibold disabled:opacity-50"
+            className="mt-2 w-full rounded-xl px-4 py-2 bg-cyan-300/90 text-black font-semibold disabled:opacity-50 transform-gpu transition duration-150 ease-out hover:-translate-y-[1px] hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300/80 focus-visible:shadow-[0_0_0_6px_rgba(34,211,238,0.18)]"
             disabled={!items.length || submittingProposals}
             type="button"
-          onClick={async () => {
+            aria-live="polite"
+            onClick={async () => {
     if (submittingProposals) return;
     setSubmittingProposals(true);
     setMessage("Preparing submissions...");
@@ -1826,26 +2056,27 @@ export default function BoardPage() {
             {submittingProposals ? "Submitting..." : "Submit proposal(s)"}
           </button>
 
-          <button
-            className="mt-2 w-full rounded-xl px-4 py-2 bg-white/20 text-white font-semibold hover:bg-white/25 disabled:opacity-60"
-            type="button"
-            disabled={finalizing}
-            onClick={handleFinalizeClick}
-          >
-            {finalizing ? "Finalizing..." : "Finalize epoch (dev)"}
-          </button>
+            <button
+              className="w-full rounded-xl px-4 py-2 border border-white/25 bg-white/10 text-white font-semibold hover:bg-white/14 disabled:opacity-60 transform-gpu transition duration-150 ease-out hover:-translate-y-[1px] hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300/80 focus-visible:shadow-[0_0_0_6px_rgba(34,211,238,0.16)]"
+              type="button"
+              disabled={finalizing}
+              onClick={handleFinalizeClick}
+            >
+              {finalizing ? "Finalizing..." : "Finalize epoch (dev)"}
+            </button>
+          </div>
           {finalizeResult && (
             <p className="mt-1 text-xs text-foid-mint/80">{finalizeResult}</p>
           )}
 
           <div className="mt-4 rounded-2xl border border-white/15 bg-white/6 backdrop-blur-md p-4 text-white/85">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
-                className="px-2 py-1 rounded border border-white/20 bg-white/10 disabled:opacity-50"
-                disabled={!canStepPrev}
-                onClick={() => {
-                  if (!canStepPrev) return;
-                  const base =
+              className="px-3 py-2 text-sm rounded border border-white/20 bg-white/10 disabled:opacity-50 transform-gpu transition duration-150 ease-out hover:-translate-y-[1px] hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 focus-visible:shadow-[0_0_0_6px_rgba(34,211,238,0.16)]"
+              disabled={!canStepPrev}
+              onClick={() => {
+                if (!canStepPrev) return;
+                const base =
                     typeof currentEpochView === "number"
                       ? currentEpochView
                       : placedEpoch ?? 0;
@@ -1857,7 +2088,7 @@ export default function BoardPage() {
                 ◀ Prev
               </button>
               <button
-                className="px-2 py-1 rounded border border-white/20 bg-white/10"
+                className="px-3 py-2 text-sm rounded border border-white/20 bg-white/10 transform-gpu transition duration-150 ease-out hover:-translate-y-[1px] hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 focus-visible:shadow-[0_0_0_6px_rgba(34,211,238,0.16)]"
                 onClick={() => {
                   setViewMode("latest");
                   setViewEpoch(placedEpoch);
@@ -1866,7 +2097,7 @@ export default function BoardPage() {
                 Latest
               </button>
               <button
-                className="px-2 py-1 rounded border border-white/20 bg-white/10"
+                className="px-3 py-2 text-sm rounded border border-white/20 bg-white/10 disabled:opacity-50 transform-gpu transition duration-150 ease-out hover:-translate-y-[1px] hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 focus-visible:shadow-[0_0_0_6px_rgba(34,211,238,0.16)]"
                 disabled={!canStepNext}
                 onClick={() => {
                   if (!canStepNext || placedEpoch == null) return;
@@ -1903,69 +2134,10 @@ export default function BoardPage() {
                 <div className="text-white/60">No proposals yet.</div>
               )}
               {proposals.map((p) => (
-                <div
+                <ProposalCard
                   key={p.id}
-                  className="border border-white/10 rounded-lg p-2"
-                >
-                  <div className="flex justify-between">
-                    <span>
-                      {display(p.cells)} cells · bid {display(p.bidPerCellWei)}/cell
-                    </span>
-                    <span>{display(Math.round(Number(p.percentYes ?? 0) * 100))}% yes</span>
-                  </div>
-                  <div className="flex justify-between mt-1">
-                    <span>{display(p.voters)} voters</span>
-                    <span>
-                      {p.status === "proposed"
-                        ? `${display(p.secondsLeft)}s left`
-                        : display(p.status)}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      className="px-2 py-1 rounded bg-white/80 text-black disabled:opacity-50"
-                      disabled={!(p.status === "proposed" && p.secondsLeft > 0)}
-                      onClick={async () => {
-                        if (!(p.status === "proposed" && p.secondsLeft > 0))
-                          return;
-                        try {
-                          await castVote({
-                            proposalId: p.id,
-                            voter: "demo:0xYOU",
-                            vote: true,
-                          });
-                          const { proposals } = await listProposals();
-                          setProposals(normalizeProposals(proposals));
-                        } catch {
-                          /* demo only */
-                        }
-                      }}
-                    >
-                      Yes
-                    </button>
-                    <button
-                      className="px-2 py-1 rounded bg-white/10 disabled:opacity-50"
-                      disabled={!(p.status === "proposed" && p.secondsLeft > 0)}
-                      onClick={async () => {
-                        if (!(p.status === "proposed" && p.secondsLeft > 0))
-                          return;
-                        try {
-                          await castVote({
-                            proposalId: p.id,
-                            voter: "demo:0xYOU",
-                            vote: false,
-                          });
-                          const { proposals } = await listProposals();
-                          setProposals(normalizeProposals(proposals));
-                        } catch {
-                          /* demo only */
-                        }
-                      }}
-                    >
-                      No
-                    </button>
-                  </div>
-                </div>
+                  proposal={p}
+                />
               ))}
             </div>
           </div>
@@ -1976,28 +2148,36 @@ export default function BoardPage() {
         </div>
 
         {/* Epoch + Totals */}
-        <div className="mt-4 rounded-2xl border border-white/15 bg-white/6 backdrop-blur-md p-4 text-white/85">
-          <div className="flex items-baseline justify-between">
-            <div className="text-sm font-medium">
-              <span>Epoch</span>
-              <span suppressHydrationWarning>{epochLabel}</span>
+        <div className="mt-4 rounded-2xl border border-white/15 bg-white/6 backdrop-blur-md p-4 text-white/85 space-y-3">
+          <div className="rounded-xl border border-white/15 bg-white/8 px-3 py-3 shadow-[0_8px_24px_rgba(0,0,0,.18)]">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold uppercase tracking-[0.08em] text-white/75">
+                Epoch {epochLabel || "—"}
+              </div>
+              <div
+                className="text-xl tabular-nums font-semibold text-white"
+                suppressHydrationWarning
+                title="Countdown"
+              >
+                {fmtCountdown}
+              </div>
             </div>
-            <div
-              className="text-2xl tabular-nums"
-              suppressHydrationWarning
-              title="Countdown"
-            >
-              {fmtCountdown}
+            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-emerald-300 to-cyan-400"
+                style={{
+                  width: enabled ? `${Math.min(100, Math.max(0, 100 - (remainingMs / (enabled ? remainingMs + 1 : 1)) * 100))}%` : "100%",
+                  transition: "width 0.6s ease",
+                }}
+              />
             </div>
           </div>
 
           {/* Total + Submit (client) */}
-          <div className="mt-3 rounded-xl border border-white/15 bg-white/5 p-3 text-white/80">
+          <div className="rounded-xl border border-white/15 bg-white/5 p-3 text-white/80">
             <div className="flex items-center justify-between">
-              <span className="text-sm">Total</span>
-              <span className="text-lg tabular-nums">
-                {formatEth(totalWei)} ETH
-              </span>
+              <span className="text-sm font-semibold">Total</span>
+              <span className="text-lg tabular-nums text-white">{formatEth(totalWei)} ETH</span>
             </div>
 
             <button
@@ -2063,6 +2243,13 @@ export default function BoardPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {activePlacement && (
+        <PlacementModal
+          placement={activePlacement}
+          onClose={() => setActivePlacement(null)}
+        />
       )}
     </div>
   );

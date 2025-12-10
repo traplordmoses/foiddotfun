@@ -98,6 +98,7 @@ export async function getMempool(epoch?: number) {
 // --------------------------
 export type ProposalSummary = {
   id: string;
+  placementId?: `0x${string}`;
   owner: string;
   cid: string;
   name: string;
@@ -105,6 +106,7 @@ export type ProposalSummary = {
   rect: Rect;
   cells: number;
   bidPerCellWei: string;
+  epochId?: number;
   yes: number;
   no: number;
   voters: number;

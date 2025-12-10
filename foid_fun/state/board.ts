@@ -105,7 +105,7 @@ export const useBoard = create<BoardState>((set, get) => ({
   setRect: (id, rect) => {
     const next = get().pending.map((p) =>
       p.id === id
-        ? { ...p, rect, space: "world" /* cells recompute? keep existing; client already shows cost live */ }
+        ? { ...p, rect, space: "world" as const /* cells recompute? keep existing; client already shows cost live */ }
         : p
     );
     set({ pending: next }); save(next);

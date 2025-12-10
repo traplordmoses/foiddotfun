@@ -16,6 +16,14 @@ const LINKS: NavLink[] = [
 
 export default function Nav() {
   const pathname = usePathname() || "/";
+  const baseFee =
+    process.env.NEXT_PUBLIC_BASE_FEE_PER_CELL_WEI ??
+    process.env.NEXT_PUBLIC_BASE_FEE_PER_CELL ??
+    "—";
+  const network =
+    process.env.NEXT_PUBLIC_CHAIN_NAME ??
+    process.env.NEXT_PUBLIC_FLUENT_CHAIN_NAME ??
+    "Fluent Testnet";
 
   // Always call hooks on every render (fixes the warning)
   const [isOpen, setIsOpen] = useState(false);
@@ -36,10 +44,10 @@ export default function Nav() {
       href === "/"
         ? activePath === "/"
         : activePath === href || activePath.startsWith(href + "/");
-    return `block rounded-full px-4 py-2 text-base font-medium tracking-wide transition ${
+    return `block rounded-full px-4 py-2 text-base font-medium tracking-wide transition transform ${
       active
         ? "bg-gradient-to-r from-foid-aqua/80 via-foid-periw/80 to-foid-candy/80 text-foid-midnight shadow-[0_0_24px_rgba(114,225,255,0.5)]"
-        : "text-white/85 hover:bg-white/18 hover:text-white hover:shadow-[0_0_18px_rgba(114,225,255,0.28)]"
+        : "text-white/85 hover:-translate-y-[1px] hover:bg-white/18 hover:text-white hover:shadow-[0_0_18px_rgba(114,225,255,0.32),0_10px_24px_rgba(0,0,0,0.16)]"
     }`;
   };
 
@@ -82,6 +90,24 @@ export default function Nav() {
             ))}
           </ul>
         </div>
+      </div>
+
+      {/* Status strip */}
+      <div className="mx-auto mt-2 flex max-w-7xl flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/8 px-4 py-2 text-xs text-white/85 backdrop-blur-md shadow-[0_6px_18px_rgba(0,0,0,.22)]">
+        <span className="font-semibold text-white/90">Status</span>
+        <span className="h-1 w-1 rounded-full bg-emerald-300 shadow-[0_0_0_4px_rgba(99,255,214,0.25)]" aria-hidden />
+        <span className="flex items-center gap-1 rounded-full bg-white/5 px-2 py-1">
+          <span className="text-white/70">Epoch</span>
+          <span className="font-semibold text-white">latest</span>
+        </span>
+        <span className="flex items-center gap-1 rounded-full bg-white/5 px-2 py-1">
+          <span className="text-white/70">Base fee</span>
+          <span className="font-semibold text-white">{baseFee}</span>
+        </span>
+        <span className="flex items-center gap-1 rounded-full bg-white/5 px-2 py-1">
+          <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_0_4px_rgba(82,255,201,0.18)]" aria-hidden />
+          <span className="font-semibold text-white">{network}</span>
+        </span>
       </div>
 
       {/* Mobile menu */}

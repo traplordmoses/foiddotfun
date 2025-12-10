@@ -12,6 +12,7 @@ import { FINALIZED_EVENT } from "@/lib/events";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 import { NextRequest, NextResponse } from "next/server";
 import { currentEpoch } from "@/lib/epoch";
+import { loreBoardManifestStoreAbi } from "@/abi/loreBoardManifestStore";
 import {
   getStore,
   listAccepted,
@@ -36,11 +37,21 @@ export const dynamic = "force-dynamic";
 const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC!;
 const treasuryEnv = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS;
 const operatorPk = process.env.OPERATOR_PK!;
+const manifestStoreEnv =
+  (process.env.NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS ||
+    process.env.NEXT_PUBLIC_LOREBOARD_ANCHOR ||
+    process.env.NEXT_PUBLIC_MANIFEST_STORE ||
+    process.env.NEXT_PUBLIC_MANIFEST_STORE_ADDRESS) as `0x${string}` | undefined;
 
 if (!rpc) throw new Error("NEXT_PUBLIC_FLUENT_RPC is required");
 if (!treasuryEnv) throw new Error("NEXT_PUBLIC_LOREBOARD_ADDRESS is required");
 if (!operatorPk) throw new Error("OPERATOR_PK is required");
+if (!manifestStoreEnv)
+  throw new Error(
+    "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS (or NEXT_PUBLIC_LOREBOARD_ANCHOR) is required"
+  );
 const treasury = treasuryEnv as `0x${string}`;
+const manifestStore = manifestStoreEnv as `0x${string}`;
 
 const chain = defineChain({
   id: 20994,
@@ -155,30 +166,37 @@ function normalizeManifestPlacements(manifest: any): Placement[] {
   });
 }
 
+type BaseBoardSource = "manifest-store" | "logs" | "none";
+
 async function loadBaseBoardFromOnchain() {
+  const latestFromStore = await loadLatestFinalized();
+  if (latestFromStore?.manifestCID) {
+    const cid = latestFromStore.manifestCID.replace(/^ipfs:\/\//, "");
+    const manifestRaw = await fetchManifestFromCid(cid);
+    if (manifestRaw) {
+      const placements = normalizeManifestPlacements(manifestRaw);
+      console.log("[finalize] base placements from manifest store", {
+        epoch: latestFromStore.epoch,
+        cid,
+        count: placements.length,
+      });
+      return {
+        basePlacements: placements,
+        latestEpoch: latestFromStore.epoch ?? null,
+        source: "manifest-store" as BaseBoardSource,
+      };
+    }
+    console.warn("[finalize] failed to load manifest from store CID", cid);
+  }
+
   const latestBlock = await publicClient.getBlockNumber();
   const logs = await getFinalizedLogs(deployBlock, latestBlock);
 
   if (!logs.length) {
-    console.log("[finalize] no Finalized logs on-chain yet – falling back to latest manifest endpoint");
-    const fallbackLatest = await loadLatestFinalized();
-    if (fallbackLatest?.manifestCID) {
-      const manifestRaw = await fetchManifestFromCid(fallbackLatest.manifestCID);
-      if (manifestRaw) {
-        const placements = normalizeManifestPlacements(manifestRaw);
-        console.log("[finalize] fallback manifest from /api/manifest/latest", {
-          epoch: fallbackLatest.epoch,
-          cid: fallbackLatest.manifestCID,
-          count: placements.length,
-        });
-        return {
-          basePlacements: placements,
-          latestEpoch: fallbackLatest.epoch ?? null,
-        };
-      }
-    }
-
-    return { basePlacements: [] as Placement[], latestEpoch: null };
+    console.log(
+      "[finalize] no Finalized logs on-chain yet and no manifest fallback – defaulting to empty board"
+    );
+    return { basePlacements: [] as Placement[], latestEpoch: null, source: "none" };
   }
 
   const byId = new Map<string, Placement>();
@@ -223,7 +241,7 @@ async function loadBaseBoardFromOnchain() {
     ids: basePlacements.map((p) => p.id),
   });
 
-  return { basePlacements, latestEpoch };
+  return { basePlacements, latestEpoch, source: "logs" as BaseBoardSource };
 }
 
 /* ---------- Helpers (same as old finalize) ---------- */
@@ -310,13 +328,14 @@ export async function POST(req: NextRequest) {
     return a.id.localeCompare(b.id);
   });
 
-  // --- Seed base board from full on-chain history (replaying manifests) ---
-  const { basePlacements } = await loadBaseBoardFromOnchain();
+  // --- Seed base board from the latest anchored manifest (logs as backup) ---
+  const { basePlacements, source: baseSource } = await loadBaseBoardFromOnchain();
 
   let nextAccepted: Placement[];
   if (basePlacements.length) {
     nextAccepted = basePlacements.map(clonePlacement);
-    console.log("[finalize] basePlacements from full on-chain replay", {
+    console.log("[finalize] basePlacements seeded", {
+      source: baseSource,
       count: nextAccepted.length,
       ids: nextAccepted.map((p) => p.id),
     });
@@ -324,6 +343,7 @@ export async function POST(req: NextRequest) {
     const acceptedSnapshot = listAccepted().map(clonePlacement);
     nextAccepted = acceptedSnapshot;
     console.log("[finalize] basePlacements from accepted store fallback", {
+      source: baseSource,
       count: nextAccepted.length,
       ids: nextAccepted.map((p) => p.id),
     });
@@ -438,6 +458,33 @@ export async function POST(req: NextRequest) {
     hash: txHash,
   });
 
+  if (receipt.status !== "success") {
+    return NextResponse.json(
+      {
+        epoch,
+        manifestCID: cid,
+        manifestRoot,
+        winners: acceptedIds,
+        rejectedDueToOverlap,
+        txHash,
+        status: receipt.status,
+        error: "finalizeEpoch reverted",
+      },
+      { status: 500 }
+    );
+  }
+
+  const anchorTx = await wallet.writeContract({
+    address: manifestStore,
+    abi: loreBoardManifestStoreAbi as any,
+    functionName: "anchor",
+    args: [epoch, manifestRoot, cid],
+  });
+
+  const anchorReceipt = await publicClient.waitForTransactionReceipt({
+    hash: anchorTx,
+  });
+
   replaceAccepted(nextAccepted.map(clonePlacement));
   gcProposals();
 
@@ -449,5 +496,7 @@ export async function POST(req: NextRequest) {
     rejectedDueToOverlap,
     txHash,
     status: receipt.status,
+    anchorTx,
+    anchorStatus: anchorReceipt.status,
   });
 }

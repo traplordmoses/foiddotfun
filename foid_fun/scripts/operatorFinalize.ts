@@ -12,6 +12,7 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { loreBoardManifestStoreAbi } from "../src/abi/loreBoardManifestStore";
 
 /* ---------- ENV ---------- */
 
@@ -24,6 +25,10 @@ const emitterEnv = process.env
 const emitter = emitterEnv
   ? (emitterEnv.toLowerCase() as `0x${string}`)
   : undefined;
+const manifestStore = (process.env.NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS ||
+  process.env.NEXT_PUBLIC_LOREBOARD_ANCHOR ||
+  process.env.NEXT_PUBLIC_MANIFEST_STORE ||
+  process.env.NEXT_PUBLIC_MANIFEST_STORE_ADDRESS) as `0x${string}` | undefined;
 
 const deployBlockEnv =
   process.env.NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK ??
@@ -43,6 +48,11 @@ if (!emitter)
   throw new Error(
     "Set NEXT_PUBLIC_LOREBOARD_EMITTER to the contract that emitted ProposedEvt"
   );
+if (!manifestStore)
+  throw new Error(
+    "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS (or NEXT_PUBLIC_LOREBOARD_ANCHOR) is required"
+  );
+const manifestStoreAddress: `0x${string}` = manifestStore;
 
 const deployBlock = BigInt(deployBlockEnv);
 
@@ -191,6 +201,7 @@ async function main() {
   console.log("[diag] balance (wei):", bal.toString());
   console.log("[diag] treasury:", treasury);
   console.log("[diag] emitter:", emitter);
+  console.log("[diag] manifestStore:", manifestStore);
 
   const proposalsAll = await fetchRecentProposals();
   if (!proposalsAll.length) {
@@ -327,6 +338,19 @@ async function main() {
     hash: txHash,
   });
   console.log("Finalize status:", receipt.status);
+
+  const anchorTx = await wallet.writeContract({
+    address: manifestStoreAddress,
+    abi: loreBoardManifestStoreAbi as any,
+    functionName: "anchor",
+    args: [targetEpoch, manifestRoot, manifestCid],
+  });
+
+  console.log("Anchor tx:", anchorTx);
+  const anchorReceipt = await publicClient.waitForTransactionReceipt({
+    hash: anchorTx,
+  });
+  console.log("Anchor status:", anchorReceipt.status);
 }
 
 main().catch((err) => {

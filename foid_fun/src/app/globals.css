@@ -144,6 +144,37 @@
   }
 }
 
+/* Global focus ring for keyboard users */
+:focus-visible {
+  outline: 2px solid rgba(126, 232, 255, 0.9);
+  outline-offset: 3px;
+}
+
+/* Slightly higher contrast on glassy surfaces */
+.foid-glass,
+.frutiger-box,
+.card {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+@layer utilities {
+  .foid-fade-in {
+    opacity: 0;
+    animation: foid-fade-in 320ms ease forwards;
+  }
+}
+
+@keyframes foid-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* fairy dust cursor particles */
 .fairy-dust-particle {
   position: fixed;

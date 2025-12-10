@@ -3,5 +3,6 @@ declare namespace NodeJS {
     NEXT_PUBLIC_BASE_FEE_PER_CELL_WEI: string;
     MAX_CELLS_PER_RECT?: string;
     WEB3_STORAGE_TOKEN?: string;
+    NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS?: string;
   }
 }

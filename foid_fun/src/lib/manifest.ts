@@ -14,7 +14,9 @@ export type NormalizedPlacement = {
 
 export type LatestManifestResponse = {
   epoch: number | null;
+  cid?: string | null;
   manifestCID: string | null;
+  count?: number;
   manifest: {
     placements: NormalizedPlacement[];
   } | null;
@@ -33,10 +35,16 @@ export async function loadLatestFinalized() {
     const res = await fetch(endpoint, { cache: "no-store" });
     if (!res.ok) return null;
     const data = await res.json();
-    if (!data?.manifestCID) return null;
+    const manifestCID =
+      typeof data?.manifestCID === "string" && data.manifestCID
+        ? data.manifestCID
+        : typeof data?.cid === "string" && data.cid
+        ? data.cid
+        : "";
+    if (!manifestCID) return null;
     return {
       epoch: data.epoch ?? null,
-      manifestCID: data.manifestCID as string,
+      manifestCID,
     };
   } catch {
     return null;
