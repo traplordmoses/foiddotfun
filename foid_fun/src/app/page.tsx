@@ -319,11 +319,13 @@ export default function Page() {
         <div className="relative z-10 w-full max-w-[1200px] px-6 lg:px-8 py-8 lg:py-10">
           {/* floating brand — overlays UI, doesn't move layout */}
           <div className="pointer-events-none absolute left-6 -top-8 z-[2000] sm:left-10 sm:-top-10">
-            <span className="bg-gradient-to-r from-foid-candy via-foid-aqua to-foid-mint bg-clip-text
-                            text-4xl font-black uppercase tracking-[0.5em] text-transparent
+            <span
+              className="font-primary bg-gradient-to-r from-foid-candy via-foid-aqua to-foid-mint bg-clip-text
+                            text-4xl font-black uppercase tracking-[0.35em] text-transparent
                             drop-shadow-[0_0_28px_rgba(114,225,255,0.6)]
-                            sm:text-[2.75rem] sm:tracking-[0.55em]">
-              foid.fun
+                            sm:text-[2.5rem] sm:tracking-[0.4em]"
+            >
+              FOID Foundation
             </span>
           </div>
 
@@ -344,7 +346,15 @@ export default function Page() {
                   <span className="vista-window__title">
                     <span aria-hidden="true">📸</span> foid_mommy.jpg
                   </span>
-                  <span className="vista-window__badge" aria-hidden="true">🦋</span>
+                  <span className="vista-window__badge" aria-hidden="true">
+                    <Image
+                      src="/icons/beetle.png"
+                      alt=""
+                      width={20}
+                      height={20}
+                      className="h-5 w-5 rounded-full"
+                    />
+                  </span>
                 </div>
                 <div className="vista-window__body vista-window__body--flush w-full max-h-[52vh] overflow-hidden">
                   <Image
@@ -368,7 +378,15 @@ export default function Page() {
                   <span className="vista-window__title">
                     <span aria-hidden="true">💾</span> foid_mommy_terminal.exe
                   </span>
-                  <span className="vista-window__badge" aria-hidden="true">🪼</span>
+                  <span className="vista-window__badge" aria-hidden="true">
+                    <Image
+                      src="/icons/skull.png"
+                      alt=""
+                      width={20}
+                      height={20}
+                      className="h-5 w-5 rounded-full"
+                    />
+                  </span>
                 </div>
                 <div className="vista-window__body vista-window__body--flush mt-3">
                   <div className="frutiger-terminal flicker w-full p-5 sm:p-6">
@@ -393,7 +411,15 @@ export default function Page() {
                   <span className="vista-window__title">
                     <span aria-hidden="true">📄</span> foid_mommy_manual.txt
                   </span>
-                  <span className="vista-window__badge" aria-hidden="true">🌊</span>
+                  <span className="vista-window__badge" aria-hidden="true">
+                    <Image
+                      src="/icons/monarch.png"
+                      alt=""
+                      width={20}
+                      height={20}
+                      className="h-5 w-5 rounded-full"
+                    />
+                  </span>
                 </div>
                 <div className="vista-window__body space-y-6">
                   <div className="space-y-4 text-sm">
@@ -513,7 +539,7 @@ export default function Page() {
                 <div className="vista-window__titlebar">
                   <span className="vista-window__title">your prayers</span>
                 </div>
-                <div className="vista-window__body font-mono text-sm">
+                <div className="vista-window__body font-terminal text-xs sm:text-[13px] leading-snug">
                   <div className="divide-y divide-white/12 rounded-lg border border-white/10 bg-white/5 text-white/95">
                     <div className="space-y-1 pb-2">
                       <div>

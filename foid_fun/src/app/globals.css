@@ -2,7 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=VT323&display=swap");
+@font-face {
+  font-family: 'Orbitron';
+  src: url('/fonts/orbitron/Orbitron-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Orbitron';
+  src: url('/fonts/orbitron/Orbitron-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/inter/Inter-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'VT323';
+  src: url('/fonts/vt323/VT323-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   --bg-deep: #0e0f2b;
@@ -949,7 +976,7 @@
     font-size: 0.95rem;
     letter-spacing: 0.03em;
     background: radial-gradient(120% 120% at 0% 0%, #8faaf2 0%, #00d0ff 42%, #ffb3d9 92%);
-    color: #02121f;
+    color: inherit;
     border: 1px solid rgba(255, 255, 255, 0.45);
     box-shadow:
       0 6px 18px rgba(0, 208, 255, 0.28),
@@ -1289,7 +1316,7 @@
     border-radius: 9999px;
     background: linear-gradient(160deg, rgba(0, 210, 255, 0.72) 0%, rgba(0, 180, 200, 0.6) 50%, rgba(0, 255, 120, 0.5) 100%);
     border: 1px solid rgba(255, 255, 255, 0.25);
-    color: #031f36;
+    color: inherit;
     font-weight: 700;
     letter-spacing: 0.02em;
     text-transform: uppercase;

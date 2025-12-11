@@ -39,6 +39,9 @@ module.exports = {
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['Menlo', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        primary: ['Orbitron', 'sans-serif'],
+        secondary: ['Inter', 'sans-serif'],
+        terminal: ['VT323', 'monospace'],
       },
       boxShadow: {
         // use with `shadow-card`

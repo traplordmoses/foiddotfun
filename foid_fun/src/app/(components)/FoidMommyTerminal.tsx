@@ -690,7 +690,8 @@ export default function FoidMommyTerminal({
   }, []);
 
   const labelClass = "text-xs uppercase tracking-[0.35em] text-foid-mint/80";
-  const primaryButtonClass = "btn-foid uppercase tracking-[0.32em]";
+  const primaryButtonClass =
+    "btn-foid font-terminal text-sm sm:text-base uppercase tracking-[0.22em] text-slate-900 drop-shadow-[0_1px_0_rgba(255,255,255,.7)]";
   const secondaryButtonClass = "btn-foid-outline uppercase tracking-[0.3em]";
   const chipClass = "chip-foid text-white/80";
 
@@ -777,7 +778,7 @@ export default function FoidMommyTerminal({
               type="submit"
               className={primaryButtonClass}
             >
-              send feeling
+              SEND FEELING
             </button>
           </form>
         )}
@@ -888,13 +889,13 @@ export default function FoidMommyTerminal({
 
         {stage === "idle" && (
           <div className="flex flex-col items-start gap-3">
-            <button
-              type="button"
-              onClick={handleStart}
-              className={primaryButtonClass}
-            >
-              chat with foid mommy
-            </button>
+              <button
+                type="button"
+                onClick={handleStart}
+                className={primaryButtonClass}
+              >
+                CHAT WITH FOID MOMMY
+              </button>
             <div className="text-xs uppercase tracking-[0.3em] text-white/85 drop-shadow-[0_6px_16px_rgba(4,18,34,0.45)]">
               gentle guidance - private prayers - on-chain check-ins
             </div>
