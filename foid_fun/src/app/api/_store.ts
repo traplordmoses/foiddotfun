@@ -1,6 +1,6 @@
 // Server-only in-memory store for demo
 import { type Rect } from "@/lib/grid";
-import { currentEpoch } from "@/lib/epoch";
+import { currentEpoch, voteWindowEpochs } from "@/lib/epoch";
 import fs from "fs";
 import path from "path";
 
@@ -122,7 +122,7 @@ if (!g.__REFERENDUM_STORE__) {
     manifestHistory: new Map<number, ManifestEntry>(),
     yesThreshold: Number(process.env.NEXT_PUBLIC_YES_THRESHOLD ?? 0.51),
     quorum: Number(process.env.NEXT_PUBLIC_QUORUM ?? 5),
-    voteWindowEpochs: Number(process.env.NEXT_PUBLIC_VOTE_WINDOW_EPOCHS ?? 2),
+    voteWindowEpochs: voteWindowEpochs(),
   } satisfies StoreShape;
 }
 

@@ -1,13 +1,8 @@
 // /src/app/api/propose/route.ts
 import { NextResponse } from "next/server";
 import { rectCells, hasOverlap, type Rect } from "@/lib/grid";
-import { currentEpoch } from "@/lib/epoch";
-import {
-  getStore,
-  addProposal,
-  listAccepted,
-  type Proposal,
-} from "../_store";
+import { currentEpoch, EPOCH_SECONDS, VOTE_WINDOW_SECONDS } from "@/lib/epoch";
+import { addProposal, listAccepted, type Proposal } from "../_store";
 import { ProposalStore, type StoredProposal } from "@/lib/proposalStore";
 import { keccak256, stringToHex } from "viem";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
@@ -72,10 +67,12 @@ export async function POST(req: Request) {
     }
   }
 
-  const S = getStore();
   const nowEpoch = currentEpoch();
-  const window = Math.max(1, S.voteWindowEpochs);
-  const voteEndsAtEpoch = nowEpoch + window;
+  const secondsPerEpoch = EPOCH_SECONDS > 0 ? EPOCH_SECONDS : 0;
+  const voteWindowSeconds = VOTE_WINDOW_SECONDS > 0 ? VOTE_WINDOW_SECONDS : 259200;
+  const windowEpochs =
+    secondsPerEpoch > 0 ? Math.max(1, Math.ceil(voteWindowSeconds / secondsPerEpoch)) : 1;
+  const voteEndsAtEpoch = nowEpoch + windowEpochs;
 
   const generatedId = body.id ?? uid();
   const p = addProposal({

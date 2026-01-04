@@ -7,7 +7,7 @@ export type EpochInfo = {
   secondsLeft: number;  // convenience
   endsAtSec: number;    // unix seconds when this epoch ends
   lengthSec: number;    // epoch length
-  startUnix: number;    // configured (or fallback) epoch 0 start
+  startUnix: number;    // configured epoch 0 start
 };
 
 // 32 slots × 12s = 384s ≈ 6.4 minutes
@@ -19,30 +19,39 @@ function readNum(v: string | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function resolveEpochZeroUnix(): number {
+  return (
+    readNum(process.env.NEXT_PUBLIC_EPOCH_ZERO_UNIX) ||
+    readNum(process.env.NEXT_PUBLIC_EPOCH_START_UNIX)
+  );
+}
+
+function resolveEpochSeconds(): number {
+  const direct = readNum(process.env.NEXT_PUBLIC_EPOCH_SECONDS);
+  if (direct) return direct;
+  const legacy = readNum(process.env.NEXT_PUBLIC_EPOCH_LENGTH_SEC);
+  if (legacy) return legacy;
+  const k = readNum(process.env.NEXT_PUBLIC_EPOCH_K);
+  return k ? k * EPOCH_BASE_SEC : 0;
+}
+
+export const EPOCH_ZERO_UNIX = resolveEpochZeroUnix();
+export const EPOCH_SECONDS = resolveEpochSeconds();
+export const VOTE_WINDOW_SECONDS = (() => {
+  const value = readNum(process.env.NEXT_PUBLIC_VOTE_WINDOW_SECONDS);
+  return value > 0 ? value : 259200;
+})();
+
 /**
  * Pure function: safe on server & client.
  * Reads envs:
- *  - NEXT_PUBLIC_EPOCH_START_UNIX
- *  - NEXT_PUBLIC_EPOCH_LENGTH_SEC (or)
+ *  - NEXT_PUBLIC_EPOCH_ZERO_UNIX (or NEXT_PUBLIC_EPOCH_START_UNIX)
+ *  - NEXT_PUBLIC_EPOCH_SECONDS (or NEXT_PUBLIC_EPOCH_LENGTH_SEC)
  *  - NEXT_PUBLIC_EPOCH_K  (multiplier of 6.4 minutes)
- *
- * Dev fallback (no envs in browser): 15-minute rolling epochs aligned to boundaries.
  */
 export function getEpochInfo(nowMs: number): EpochInfo {
-  const startUnix = readNum(process.env.NEXT_PUBLIC_EPOCH_START_UNIX);
-  let lengthSec = readNum(process.env.NEXT_PUBLIC_EPOCH_LENGTH_SEC);
-  const k = readNum(process.env.NEXT_PUBLIC_EPOCH_K);
-  if (!lengthSec && k) lengthSec = k * EPOCH_BASE_SEC;
-
-  const envEnabled = startUnix > 0 && lengthSec > 0;
   const nowSec = Math.floor(nowMs / 1000);
-
-  // Fallback: align to clean 15-minute boundaries so the timer looks real.
-  if (!envEnabled && typeof window !== "undefined") {
-    const fallbackLen = 15 * 60; // 900
-    const fallbackStart = Math.floor(nowSec / fallbackLen) * fallbackLen; // boundary
-    return compute(nowSec, fallbackStart, fallbackLen, true);
-  }
+  const envEnabled = EPOCH_ZERO_UNIX > 0 && EPOCH_SECONDS > 0;
 
   if (!envEnabled) {
     return {
@@ -56,7 +65,7 @@ export function getEpochInfo(nowMs: number): EpochInfo {
     };
   }
 
-  return compute(nowSec, startUnix, lengthSec, true);
+  return compute(nowSec, EPOCH_ZERO_UNIX, EPOCH_SECONDS, true);
 }
 
 function compute(
@@ -77,20 +86,19 @@ function compute(
 // Lightweight helpers used by server + client for the referendum flow.
 // ---------------------------------------------------------------------------
 
-export const EPOCH_SECONDS = Number(process.env.NEXT_PUBLIC_EPOCH_SECONDS ?? 3600);
-export const EPOCH_ZERO_UNIX = Number(process.env.NEXT_PUBLIC_EPOCH_ZERO_UNIX ?? 1730937600);
-
 export function nowUnix(): number {
   return Math.floor(Date.now() / 1000);
 }
 
 export function currentEpoch(): number {
-  const delta = Math.max(0, nowUnix() - EPOCH_ZERO_UNIX);
-  return Math.floor(delta / EPOCH_SECONDS);
+  return getEpochInfo(Date.now()).index;
 }
 
 export function secondsLeftInEpoch(): number {
-  const delta = Math.max(0, nowUnix() - EPOCH_ZERO_UNIX);
-  const s = EPOCH_SECONDS - (delta % EPOCH_SECONDS);
-  return s === EPOCH_SECONDS ? 0 : s;
+  return getEpochInfo(Date.now()).secondsLeft;
+}
+
+export function voteWindowEpochs(): number {
+  if (EPOCH_SECONDS <= 0) return 1;
+  return Math.max(1, Math.ceil(VOTE_WINDOW_SECONDS / EPOCH_SECONDS));
 }

@@ -1,17 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rectCells, type Rect } from "@/lib/grid";
-import {
-  currentEpoch,
-  nowUnix,
-  EPOCH_SECONDS,
-  EPOCH_ZERO_UNIX,
-} from "@/lib/epoch";
-import {
-  addProposal,
-  getStore,
-  listProposals,
-  type Proposal,
-} from "../_store";
+import { currentEpoch, getEpochInfo, EPOCH_SECONDS, VOTE_WINDOW_SECONDS } from "@/lib/epoch";
+import { addProposal, listProposals, type Proposal } from "../_store";
 import { ProposalStore } from "@/lib/proposalStore";
 
 export const runtime = "nodejs";
@@ -20,16 +10,14 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const proposals = listProposals();
   const nowEpoch = currentEpoch();
-  const secondsPerEpoch = Math.max(1, Number.isFinite(EPOCH_SECONDS) ? EPOCH_SECONDS : 3600);
-  const nowSec = nowUnix();
-  const delta = Math.max(0, nowSec - EPOCH_ZERO_UNIX);
-  const secsIntoEpoch = secondsPerEpoch ? delta % secondsPerEpoch : 0;
-  const secsRemainingCurrentEpoch = secondsPerEpoch - secsIntoEpoch;
+  const epochInfo = getEpochInfo(Date.now());
+  const secondsPerEpoch = epochInfo.lengthSec;
+  const secsRemainingCurrentEpoch = epochInfo.secondsLeft;
 
   const withCountdown = proposals.map((p) => {
     const epochsDiff = p.voteEndsAtEpoch - nowEpoch;
     const secondsLeft =
-      epochsDiff < 0
+      epochsDiff < 0 || !epochInfo.enabled || secondsPerEpoch <= 0
         ? 0
         : secsRemainingCurrentEpoch + epochsDiff * secondsPerEpoch;
     return {
@@ -84,9 +72,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Cells must be positive" }, { status: 400 });
   }
 
-  const S = getStore();
   const nowEpoch = currentEpoch();
-  const window = Math.max(1, S.voteWindowEpochs);
+  const secondsPerEpoch = EPOCH_SECONDS > 0 ? EPOCH_SECONDS : 0;
+  const voteWindowSeconds = VOTE_WINDOW_SECONDS > 0 ? VOTE_WINDOW_SECONDS : 259200;
+  const windowEpochs =
+    secondsPerEpoch > 0 ? Math.max(1, Math.ceil(voteWindowSeconds / secondsPerEpoch)) : 1;
 
   const proposal = addProposal({
     id: body.id ?? normalizedCid,
@@ -100,7 +90,7 @@ export async function POST(req: NextRequest) {
     width: body.width,
     height: body.height,
     epochSubmitted: nowEpoch,
-    voteEndsAtEpoch: nowEpoch + window,
+    voteEndsAtEpoch: nowEpoch + windowEpochs,
   } as Omit<Proposal, "yes" | "no" | "voters" | "status" | "createdAt">);
 
   ProposalStore.upsert({
