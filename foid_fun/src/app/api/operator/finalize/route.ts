@@ -45,6 +45,8 @@ const manifestStoreEnv =
     process.env.NEXT_PUBLIC_LOREBOARD_ANCHOR ||
     process.env.NEXT_PUBLIC_MANIFEST_STORE ||
     process.env.NEXT_PUBLIC_MANIFEST_STORE_ADDRESS) as `0x${string}` | undefined;
+const loreboardVmEnv =
+  process.env.NEXT_PUBLIC_LOREBOARD_VM_ADDRESS as `0x${string}` | undefined;
 
 if (!rpc) throw new Error("NEXT_PUBLIC_FLUENT_RPC is required");
 if (!treasuryEnv) throw new Error("NEXT_PUBLIC_LOREBOARD_ADDRESS is required");
@@ -270,12 +272,69 @@ const finalizeAbi = [
   } as const,
 ];
 
+const loreboardVmAbi = [
+  {
+    type: "function",
+    name: "selectWinners",
+    stateMutability: "view",
+    inputs: [
+      {
+        name: "base",
+        type: "tuple[]",
+        components: [
+          { name: "id", type: "bytes32" },
+          {
+            name: "rect",
+            type: "tuple",
+            components: [
+              { name: "x", type: "int32" },
+              { name: "y", type: "int32" },
+              { name: "w", type: "int32" },
+              { name: "h", type: "int32" },
+            ],
+          },
+          { name: "bidPerCellWei", type: "uint256" },
+        ],
+      },
+      {
+        name: "candidates",
+        type: "tuple[]",
+        components: [
+          { name: "id", type: "bytes32" },
+          {
+            name: "rect",
+            type: "tuple",
+            components: [
+              { name: "x", type: "int32" },
+              { name: "y", type: "int32" },
+              { name: "w", type: "int32" },
+              { name: "h", type: "int32" },
+            ],
+          },
+          { name: "bidPerCellWei", type: "uint256" },
+        ],
+      },
+    ],
+    outputs: [
+      { name: "accepted", type: "bytes32[]" },
+      { name: "rejected", type: "bytes32[]" },
+    ],
+  } as const,
+];
+
 type Hex32 = `0x${string}`;
 
 const clonePlacement = (p: Placement): Placement => ({
   ...p,
   rect: { ...p.rect },
 });
+
+const toBytes32Id = (value: string): Hex32 => {
+  if (value.startsWith("0x") && value.length === 66) {
+    return value as Hex32;
+  }
+  return keccak256(stringToHex(value)) as Hex32;
+};
 
 /* ---------- POST /api/operator/finalize ---------- */
 
@@ -384,23 +443,116 @@ export async function POST(req: NextRequest) {
   const winners: Proposal[] = [];
   const rejectedDueToOverlap: string[] = [];
 
-  for (const proposal of sorted) {
-    // 1) Must not overlap anything already finalized on the board
-    if (!canPlaceWithoutOverlap(proposal, nextAccepted)) {
-      proposal.status = "rejected";
-      rejectedDueToOverlap.push(proposal.id);
-      continue;
-    }
+  let usedVm = false;
 
-    // 2) Must not overlap any other winner in this same finalize run
-    if (winners.some((w) => hasOverlap(proposal.rect, [w.rect]))) {
-      proposal.status = "rejected";
-      rejectedDueToOverlap.push(proposal.id);
-      continue;
-    }
+  if (loreboardVmEnv) {
+    try {
+      const baseInputs = nextAccepted.map((placement) => ({
+        id: toBytes32Id(placement.id),
+        rect: {
+          x: placement.rect.x,
+          y: placement.rect.y,
+          w: placement.rect.w,
+          h: placement.rect.h,
+        },
+        bidPerCellWei: BigInt(placement.bidPerCellWei ?? "0"),
+      }));
 
-    winners.push(proposal);
-    proposal.status = "accepted";
+      const candidateInputs = sorted.map((proposal) => {
+        const stored = ProposalStore.get(proposal.id);
+        const chainId = (stored?.id ?? proposal.id) as Hex32;
+        return {
+          id: chainId,
+          rect: {
+            x: proposal.rect.x,
+            y: proposal.rect.y,
+            w: proposal.rect.w,
+            h: proposal.rect.h,
+          },
+          bidPerCellWei: BigInt(proposal.bidPerCellWei),
+        };
+      });
+
+      const [acceptedIds, rejectedIds] = (await publicClient.readContract({
+        address: loreboardVmEnv,
+        abi: loreboardVmAbi as any,
+        functionName: "selectWinners",
+        args: [baseInputs, candidateInputs],
+      })) as readonly [Hex32[], Hex32[]];
+
+      console.log("[finalize] loreboard VM mode enabled", {
+        enabled: Boolean(loreboardVmEnv),
+        accepted: acceptedIds.length,
+        rejected: rejectedIds.length,
+        address: loreboardVmEnv,
+      });
+
+      const byChainId = new Map<string, Proposal>();
+      for (const proposal of sorted) {
+        const stored = ProposalStore.get(proposal.id);
+        const chainId = (stored?.id ?? proposal.id) as Hex32;
+        byChainId.set(chainId.toLowerCase(), proposal);
+      }
+
+      const decided = new Set<string>();
+
+      for (const chainId of acceptedIds) {
+        const key = chainId.toLowerCase();
+        decided.add(key);
+        const proposal = byChainId.get(key);
+        if (!proposal) continue;
+        proposal.status = "accepted";
+        winners.push(proposal);
+      }
+
+      for (const chainId of rejectedIds) {
+        const key = chainId.toLowerCase();
+        if (decided.has(key)) continue;
+        decided.add(key);
+        const proposal = byChainId.get(key);
+        if (!proposal) continue;
+        proposal.status = "rejected";
+        rejectedDueToOverlap.push(proposal.id);
+      }
+
+      for (const proposal of sorted) {
+        const stored = ProposalStore.get(proposal.id);
+        const chainId = (stored?.id ?? proposal.id) as Hex32;
+        const key = chainId.toLowerCase();
+        if (decided.has(key)) continue;
+        decided.add(key);
+        proposal.status = "rejected";
+        rejectedDueToOverlap.push(proposal.id);
+      }
+
+      usedVm = true;
+    } catch (error) {
+      console.warn(
+        "[finalize] loreboard VM selection failed, falling back to JS",
+        error
+      );
+    }
+  }
+
+  if (!usedVm) {
+    for (const proposal of sorted) {
+      // 1) Must not overlap anything already finalized on the board
+      if (!canPlaceWithoutOverlap(proposal, nextAccepted)) {
+        proposal.status = "rejected";
+        rejectedDueToOverlap.push(proposal.id);
+        continue;
+      }
+
+      // 2) Must not overlap any other winner in this same finalize run
+      if (winners.some((w) => hasOverlap(proposal.rect, [w.rect]))) {
+        proposal.status = "rejected";
+        rejectedDueToOverlap.push(proposal.id);
+        continue;
+      }
+
+      winners.push(proposal);
+      proposal.status = "accepted";
+    }
   }
 
   for (const candidate of candidates) {

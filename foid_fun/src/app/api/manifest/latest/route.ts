@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
-import { createPublicClient, http } from "viem";
-import { fluentTestnet } from "@/lib/chains/fluentTestnet";
 import { LOREBOARD_MANIFEST_STORE_ADDRESS } from "@/config/contracts";
-import { loreBoardManifestStoreAbi } from "@/abi/loreBoardManifestStore";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
+import { DEPLOY_BLOCK } from "@/lib/viem";
+import { manifestForEpoch } from "@/app/api/_store";
+import {
+  type LatestManifestAnchor,
+  createManifestStoreClient,
+  normalizeManifestCid,
+  resolveLatestManifestCid,
+} from "@/lib/manifestStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const rpcUrl = process.env.NEXT_PUBLIC_FLUENT_RPC;
-
-const client = createPublicClient({
-  chain: fluentTestnet,
-  transport: http(rpcUrl),
-});
+const rpcUrl = process.env.NEXT_PUBLIC_FLUENT_RPC ?? "";
 
 async function fetchManifest(cid: string) {
   const urls = ipfsToHttp(cid);
@@ -30,28 +30,38 @@ async function fetchManifest(cid: string) {
 
 export async function GET() {
   try {
-    if (!rpcUrl) {
-      return NextResponse.json(
-        { error: "NEXT_PUBLIC_FLUENT_RPC is required" },
-        { status: 500 }
-      );
-    }
-    if (!LOREBOARD_MANIFEST_STORE_ADDRESS) {
-      return NextResponse.json(
-        { error: "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS is required or invalid" },
-        { status: 500 }
-      );
+    const fallback = manifestForEpoch("latest");
+    let latest: LatestManifestAnchor = { epoch: null, cid: null, source: "none" };
+
+    if (rpcUrl && LOREBOARD_MANIFEST_STORE_ADDRESS) {
+      const client = createManifestStoreClient(rpcUrl);
+      latest = await resolveLatestManifestCid({
+        client,
+        manifestStore: LOREBOARD_MANIFEST_STORE_ADDRESS,
+        fromBlock: DEPLOY_BLOCK,
+        fallback: fallback
+          ? { epoch: fallback.epoch, cid: fallback.cid }
+          : null,
+      });
+    } else if (fallback?.cid) {
+      latest = {
+        epoch: fallback.epoch,
+        cid: normalizeManifestCid(fallback.cid),
+        source: "store",
+      };
     }
 
-    const latest = await client.readContract({
-      address: LOREBOARD_MANIFEST_STORE_ADDRESS,
-      abi: loreBoardManifestStoreAbi,
-      functionName: "latest",
-    });
-    const [epoch, , cid] = latest as readonly [bigint | number, `0x${string}`, string];
+    const epochNum = latest.epoch ?? 0;
+    const normalizedCid = latest.cid ?? null;
 
-    const epochNum = Number(epoch ?? 0);
-    const normalizedCid = String(cid ?? "").replace(/^ipfs:\/\//, "");
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[/api/manifest/latest] resolved", {
+        manifestStoreAddr: LOREBOARD_MANIFEST_STORE_ADDRESS ?? null,
+        sourceUsed: latest.source,
+        epoch: epochNum,
+        cid: normalizedCid,
+      });
+    }
 
     if (!normalizedCid || epochNum === 0) {
       return NextResponse.json({

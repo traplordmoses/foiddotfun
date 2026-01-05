@@ -37,6 +37,7 @@ NEXT_PUBLIC_BLOCK_EXPLORER=https://testnet.fluentscan.xyz
 NEXT_PUBLIC_EPOCH_ZERO_UNIX=1730937600
 NEXT_PUBLIC_EPOCH_SECONDS=3600
 NEXT_PUBLIC_VOTE_WINDOW_SECONDS=259200
+NEXT_PUBLIC_LOREBOARD_VM_ADDRESS=0x0000000000000000000000000000000000000000
 
 # legacy variables for existing dashboards (optional)
 NEXT_PUBLIC_RPC_URL=https://rpc.testnet.fluent.xyz
@@ -100,6 +101,40 @@ npm start
 - Wallet connectivity is provided by [RainbowKit](https://www.rainbowkit.com/), configured with the Fluent testnet RPC.
 - The UI is styled with [TailwindCSS](https://tailwindcss.com/) and custom utility classes following the brief’s aesthetic guidelines.
 - ABIs are reconstructed from the provided function and event signatures. If you update your contracts, drop the new ABIs into `src/abis` and update the addresses in `.env.local`.
+
+## Deploy LoreboardVM
+
+From `blended/loreboardvm`:
+
+```bash
+# build the WASM + Solidity artifacts
+gblend build
+
+# deploy the Rust/WASM contract first (copy the printed address)
+gblend create wasm/target/wasm32-unknown-unknown/release/loreboardvm.wasm \\
+  --rpc-url $FLUENT_RPC \\
+  --private-key $DEPLOYER_PK
+
+# deploy the Solidity wrapper with the WASM address
+export LOREBOARD_VM_WASM_ADDRESS=<WASM_ADDR>
+cd solidity
+forge script script/DeployWrapper.s.sol \\
+  --rpc-url $FLUENT_RPC \\
+  --private-key $DEPLOYER_PK \\
+  --broadcast
+```
+
+The script prints the wrapper address (use that for `NEXT_PUBLIC_LOREBOARD_VM_ADDRESS`).
+
+Env vars:
+
+- `NEXT_PUBLIC_LOREBOARD_VM_ADDRESS=<wrapper>`
+- `LOREBOARD_VM_WASM_ADDRESS=<wasm>` (optional; used by the deploy script)
+
+Verification checklist:
+
+- Run `pnpm vm:smoke` and confirm accepted/rejected outputs are sensible.
+- Call `/api/operator/finalize` and confirm the winners match the VM output.
 
 ## License
 
