@@ -1,7 +1,7 @@
 import { createPublicClient, createWalletClient, custom, http, defineChain } from "viem";
 import TreasuryAbi from "@/abi/LoreBoardTreasury.json";
 
-export const TREASURY = (process.env.NEXT_PUBLIC_TREASURY || "").toLowerCase() as `0x${string}`;
+export const TREASURY = (process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS || "").toLowerCase() as `0x${string}`;
 export const DEPLOY_BLOCK = BigInt(process.env.NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK || "0");
 
 export const fluentTestnet = defineChain({

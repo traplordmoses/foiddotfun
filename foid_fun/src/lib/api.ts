@@ -98,6 +98,7 @@ export async function getMempool(epoch?: number) {
 // --------------------------
 export type ProposalSummary = {
   id: string;
+  chainId?: `0x${string}`;
   placementId?: `0x${string}`;
   owner: string;
   cid: string;
@@ -142,6 +143,7 @@ export async function proposePlacement(input: {
   return asJson<{
     ok: true;
     id: string;
+    chainId: `0x${string}`;
     epochSubmitted: number;
     voteEndsAtEpoch: number;
   }>(res);

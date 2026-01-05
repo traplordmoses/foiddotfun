@@ -3,6 +3,7 @@ import { rectCells, type Rect } from "@/lib/grid";
 import { currentEpoch, getEpochInfo, EPOCH_SECONDS, VOTE_WINDOW_SECONDS } from "@/lib/epoch";
 import { addProposal, listProposals, type Proposal } from "../_store";
 import { ProposalStore } from "@/lib/proposalStore";
+import { keccak256, stringToHex } from "viem";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,16 @@ export async function GET() {
   const secsRemainingCurrentEpoch = epochInfo.secondsLeft;
 
   const withCountdown = proposals.map((p) => {
+    const rawId = String(p.id ?? "");
+    const chainId =
+      typeof p.chainId === "string" && p.chainId.startsWith("0x") && p.chainId.length === 66
+        ? (p.chainId as `0x${string}`)
+        : undefined;
+    const placementId =
+      chainId ??
+      (rawId.startsWith("0x") && rawId.length === 66
+        ? (rawId as `0x${string}`)
+        : (keccak256(stringToHex(rawId)) as `0x${string}`));
     const epochsDiff = p.voteEndsAtEpoch - nowEpoch;
     const secondsLeft =
       epochsDiff < 0 || !epochInfo.enabled || secondsPerEpoch <= 0
@@ -22,7 +33,9 @@ export async function GET() {
         : secsRemainingCurrentEpoch + epochsDiff * secondsPerEpoch;
     return {
       ...p,
-      placementId: p.id,
+      chainId: chainId ?? placementId,
+      placementId,
+      voters: p.voters ? Object.keys(p.voters).length : 0,
       epochId: p.epochSubmitted,
       secondsLeft: Math.max(0, secondsLeft),
     };
@@ -91,6 +104,10 @@ export async function POST(req: NextRequest) {
     height: body.height,
     epochSubmitted: nowEpoch,
     voteEndsAtEpoch: nowEpoch + windowEpochs,
+    chainId:
+      typeof body.id === "string" && body.id.startsWith("0x") && body.id.length === 66
+        ? body.id
+        : undefined,
   } as Omit<Proposal, "yes" | "no" | "voters" | "status" | "createdAt">);
 
   ProposalStore.upsert({

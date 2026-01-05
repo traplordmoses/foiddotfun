@@ -30,6 +30,7 @@ import { useEpochCountdown } from "@/hooks/useEpochCountdown";
 import { useLatestManifestFromChain } from "@/hooks/useLatestManifestFromChain";
 import { usePlacementVotes } from "@/hooks/usePlacementVotes";
 import { useVoteOnPlacement } from "@/hooks/useVoteOnPlacement";
+import { resolveEpochConfig, currentEpoch } from "@/lib/epoch";
 import sfx from "@/lib/sfx";
 import { keccak256, stringToHex } from "viem";
 import type { FinalizedPlacement } from "@/lib/types";
@@ -69,6 +70,17 @@ function display(value: unknown): string {
     return "[object]";
   }
 }
+
+const isBytes32Hex = (value?: string): value is `0x${string}` =>
+  typeof value === "string" && /^0x[0-9a-fA-F]{64}$/.test(value);
+
+const votersCountFrom = (voters: unknown): number => {
+  if (Array.isArray(voters)) return voters.length;
+  if (voters && typeof voters === "object") {
+    return Object.keys(voters as Record<string, boolean>).length;
+  }
+  return Number.isFinite(Number(voters)) ? Number(voters) : 0;
+};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -319,9 +331,12 @@ const normalizePlacements = (list: any[]): FinalizedPlacement[] =>
 const normalizeProposals = (list: ProposalSummary[] | undefined): ProposalSummary[] =>
   (list ?? []).map((p) => {
     const rect = asWorldRect(p.rect ?? p);
-    const placementId = (p.placementId ?? p.id) as `0x${string}`;
-    const epochId =
-      typeof p.epochId === "number" ? p.epochId : p.epochSubmitted;
+    const placementId = isBytes32Hex(p.chainId)
+      ? p.chainId
+      : isBytes32Hex(p.placementId)
+      ? p.placementId
+      : undefined;
+    const epochId = typeof p.epochSubmitted === "number" ? p.epochSubmitted : 0;
     return {
       ...p,
       rect,
@@ -329,6 +344,15 @@ const normalizeProposals = (list: ProposalSummary[] | undefined): ProposalSummar
       epochId,
     };
   });
+
+const computeProposalSecondsLeft = (proposal: ProposalSummary): number | null => {
+  const { enabled, epochSec } = resolveEpochConfig();
+  if (!enabled || epochSec <= 0) return null;
+  const nowEpoch = currentEpoch();
+  const epochsDiff = proposal.voteEndsAtEpoch - nowEpoch;
+  if (epochsDiff <= 0) return 0;
+  return Math.max(0, epochsDiff * epochSec);
+};
 
 type ProposalCardProps = {
   proposal: ProposalSummary;
@@ -339,20 +363,41 @@ function ProposalCard({ proposal }: ProposalCardProps) {
   const chainId = useChainId();
   const { switchChainAsync, isPending: switchingChain } = useSwitchChain();
 
-  const isPending = proposal.status === "proposed" && proposal.secondsLeft > 0;
-  const placementId = (proposal.placementId ?? proposal.id ?? "0x") as `0x${string}`;
-  const epochId = proposal.epochId ?? proposal.epochSubmitted ?? 0;
-  const hasPlacementId = placementId?.startsWith("0x") && placementId.length > 2;
-  const queryEnabled = isPending && hasPlacementId && Number.isFinite(epochId);
+  const computedSecondsLeft = computeProposalSecondsLeft(proposal);
+  const hasEpoch =
+    typeof proposal.epochSubmitted === "number" && !Number.isNaN(proposal.epochSubmitted);
+  const hasChainId = isBytes32Hex(proposal.chainId);
+  const epochCfg = resolveEpochConfig();
+  const isPending =
+    proposal.status === "proposed" &&
+    epochCfg.enabled &&
+    computedSecondsLeft !== null &&
+    computedSecondsLeft > 0;
+  const placementId = isBytes32Hex(proposal.chainId)
+    ? proposal.chainId
+    : isBytes32Hex(proposal.placementId)
+    ? proposal.placementId
+    : undefined;
+  const epochId = proposal.epochSubmitted ?? 0;
+  const hasPlacementId = isBytes32Hex(placementId);
+  const queryEnabled = isPending && hasEpoch && hasPlacementId;
   const epochBigInt = BigInt(epochId || 0);
+  const chainIdLabel = hasPlacementId
+    ? `${placementId!.slice(0, 6)}…${placementId!.slice(-4)}`
+    : "—";
 
   const {
-    votes,
+    yes,
+    no,
+    total,
+    pctYes,
+    meetsQuorum,
+    passesMajority51,
     isLoading: votesLoading,
     refetch: refetchVotes,
   } = usePlacementVotes({
     epochId: epochBigInt,
-    placementId,
+    placementId: (placementId ?? "0x") as `0x${string}`,
     enabled: queryEnabled,
   });
 
@@ -385,15 +430,16 @@ function ProposalCard({ proposal }: ProposalCardProps) {
     !switchingChain;
 
   const voteLabel = (() => {
-    if (!queryEnabled) return "No epoch/ID";
+    if (!hasEpoch || !hasChainId) return "No epoch/ID";
+    if (!epochCfg.enabled) return "Epoch config disabled";
     if (!isConnected) return "Connect wallet";
     if (wrongChain) return "Switch to Fluent";
     if (isVoting) return "Voting...";
     if (isConfirmed) return "Voted";
-    return "Yes (on-chain)";
+    return null;
   })();
 
-  const onVoteClick = async () => {
+  const onVoteClick = async (support: boolean) => {
     if (!queryEnabled || !address) return;
     if (wrongChain) {
       try {
@@ -403,16 +449,23 @@ function ProposalCard({ proposal }: ProposalCardProps) {
       }
     }
     try {
-      await vote();
+      await vote(support);
       await refetchVotes();
     } catch (err) {
       console.error("on-chain vote failed", err);
     }
   };
 
+  const fallbackYes = BigInt(Number.isFinite(proposal.yes) ? proposal.yes : 0);
+  const fallbackNo = BigInt(Number.isFinite(proposal.no) ? proposal.no : 0);
+  const fallbackTotal = fallbackYes + fallbackNo;
+  const displayYes = queryEnabled ? yes : fallbackYes;
+  const displayNo = queryEnabled ? no : fallbackNo;
+  const displayTotal = queryEnabled ? total : fallbackTotal;
   const onchainStatusLabel = votesLoading
     ? "…"
-    : `${votes.toString()} on-chain vote${votes === 1n ? "" : "s"}`;
+    : `Yes ${displayYes.toString()} · No ${displayNo.toString()} · Total ${displayTotal.toString()}`;
+  const votersCount = votersCountFrom(proposal.voters);
 
   return (
     <div className="border border-white/10 rounded-lg p-2">
@@ -424,33 +477,66 @@ function ProposalCard({ proposal }: ProposalCardProps) {
         <span>{display(Math.round(Number(proposal.percentYes ?? 0) * 100))}% yes</span>
       </div>
       <div className="flex justify-between mt-1">
-        <span>{display(proposal.voters)} voters</span>
+        <span>chain {chainIdLabel}</span>
+        <span>epoch {display(proposal.epochSubmitted)}</span>
+      </div>
+      <div className="flex justify-between mt-1">
+        <span>{votersCount} voters</span>
         <span>
           {proposal.status === "proposed"
-            ? `${display(proposal.secondsLeft)}s left`
+            ? epochCfg.enabled && computedSecondsLeft !== null
+              ? `${display(computedSecondsLeft)}s left`
+              : "epoch disabled"
             : display(proposal.status)}
         </span>
       </div>
+      <div className="mt-1 text-[11px] text-white/80">{onchainStatusLabel}</div>
       <div className="mt-2 flex gap-2">
         <button
           className="px-2 py-1 rounded bg-white/80 text-black disabled:opacity-50"
           disabled={!canOnchainVote}
           type="button"
-          onClick={onVoteClick}
+          onClick={() => onVoteClick(true)}
         >
-          {voteLabel}
+          {voteLabel ?? "Yes"}
         </button>
         <button
-          className="px-2 py-1 rounded bg-white/10 disabled:opacity-50 opacity-50 cursor-default"
-          disabled
+          className="px-2 py-1 rounded bg-white/10 text-white disabled:opacity-50"
+          disabled={!canOnchainVote}
           type="button"
+          onClick={() => onVoteClick(false)}
         >
-          No
+          {voteLabel ?? "No"}
         </button>
       </div>
 
-      {isPending && hasPlacementId && (
-        <p className="mt-1 text-[10px] text-white/60">{onchainStatusLabel}</p>
+      {isPending && hasPlacementId && total > 0n && (
+        <p className="mt-1 text-[10px] text-white/60">
+          {(pctYes * 100).toFixed(0)}% yes
+        </p>
+      )}
+
+      {process.env.NODE_ENV !== "production" && (
+        <pre className="mt-2 text-[10px] text-white/60 whitespace-pre-wrap">
+          epochCfg={JSON.stringify(epochCfg)}
+          {"\n"}currentEpoch={currentEpoch()}
+          {"\n"}proposalEpoch={proposal.epochSubmitted ?? null}
+          {"\n"}voteEndsAtEpoch={proposal.voteEndsAtEpoch ?? null}
+          {"\n"}chainId={proposal.chainId ?? null}
+        </pre>
+      )}
+
+      {!epochCfg.enabled && (
+        <div className="mt-2 text-[10px] text-amber-200/90">
+          Epoch config disabled: set NEXT_PUBLIC_EPOCH_ZERO_UNIX + NEXT_PUBLIC_EPOCH_SECONDS
+        </div>
+      )}
+
+      {isPending && hasPlacementId && !votesLoading && (
+        <p className="mt-1 text-[10px] text-white/50">
+          {meetsQuorum ? "Quorum met" : "Quorum not met"} ·{" "}
+          {passesMajority51 ? "Passes 51%" : "Below 51%"}
+        </p>
       )}
 
       {isPending && hasPlacementId && error && (
@@ -1641,9 +1727,9 @@ export default function BoardPage() {
                 <span>·</span>
                 <span>{display(Math.round(Number(p.percentYes ?? 0) * 100))}% yes</span>
                 <span>·</span>
-                <span>{display(p.voters)} voters</span>
+                <span>{votersCountFrom(p.voters)} voters</span>
                 <span>·</span>
-                <span>{display(p.secondsLeft)}s left</span>
+                <span>{display(computeProposalSecondsLeft(p))}s left</span>
               </figcaption>
             </figure>
           );

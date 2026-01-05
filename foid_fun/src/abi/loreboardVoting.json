@@ -1,0 +1,125 @@
+[
+  {
+    "type": "function",
+    "name": "voteOnPlacement",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "epochId", "type": "uint256" },
+      { "name": "placementId", "type": "bytes32" },
+      { "name": "support", "type": "bool" }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "getPlacementVotes",
+    "stateMutability": "view",
+    "inputs": [
+      { "name": "epochId", "type": "uint256" },
+      { "name": "placementId", "type": "bytes32" }
+    ],
+    "outputs": [
+      { "name": "yesVotes", "type": "uint256" },
+      { "name": "noVotes", "type": "uint256" }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "placementYesVotes",
+    "stateMutability": "view",
+    "inputs": [
+      { "name": "epochId", "type": "uint256" },
+      { "name": "placementId", "type": "bytes32" }
+    ],
+    "outputs": [{ "name": "", "type": "uint256" }]
+  },
+  {
+    "type": "function",
+    "name": "placementNoVotes",
+    "stateMutability": "view",
+    "inputs": [
+      { "name": "epochId", "type": "uint256" },
+      { "name": "placementId", "type": "bytes32" }
+    ],
+    "outputs": [{ "name": "", "type": "uint256" }]
+  },
+  {
+    "type": "function",
+    "name": "meetsQuorum",
+    "stateMutability": "view",
+    "inputs": [
+      { "name": "epochId", "type": "uint256" },
+      { "name": "placementId", "type": "bytes32" }
+    ],
+    "outputs": [{ "name": "", "type": "bool" }]
+  },
+  {
+    "type": "function",
+    "name": "passesMajority51",
+    "stateMutability": "view",
+    "inputs": [
+      { "name": "epochId", "type": "uint256" },
+      { "name": "placementId", "type": "bytes32" }
+    ],
+    "outputs": [{ "name": "", "type": "bool" }]
+  },
+  {
+    "type": "function",
+    "name": "minTotalWeightQuorum",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "uint256" }]
+  },
+  {
+    "type": "function",
+    "name": "getEpochConfig",
+    "stateMutability": "view",
+    "inputs": [{ "name": "epochId", "type": "uint256" }],
+    "outputs": [
+      { "name": "startsAt", "type": "uint64" },
+      { "name": "endsAt", "type": "uint64" },
+      { "name": "finalized", "type": "bool" }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "isPendingPlacement",
+    "stateMutability": "view",
+    "inputs": [
+      { "name": "epochId", "type": "uint256" },
+      { "name": "placementId", "type": "bytes32" }
+    ],
+    "outputs": [{ "name": "", "type": "bool" }]
+  },
+  {
+    "type": "function",
+    "name": "configureEpoch",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "epochId", "type": "uint256" },
+      { "name": "votingStartsAt", "type": "uint64" },
+      { "name": "votingEndsAt", "type": "uint64" }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "registerPendingPlacement",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "epochId", "type": "uint256" },
+      { "name": "placementId", "type": "bytes32" }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "setEpochFinalized",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "epochId", "type": "uint256" },
+      { "name": "finalized", "type": "bool" }
+    ],
+    "outputs": []
+  }
+]

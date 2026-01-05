@@ -10,35 +10,31 @@ export type EpochInfo = {
   startUnix: number;    // configured epoch 0 start
 };
 
-// 32 slots × 12s = 384s ≈ 6.4 minutes
-export const EPOCH_BASE_SEC = 32 * 12;
-
-function readNum(v: string | undefined): number {
+export function readInt(v: string | undefined): number {
   if (v == null) return 0;
-  const n = parseInt(v, 10);
+  const s = String(v).trim();
+  if (!s) return 0;
+  const n = parseInt(s, 10);
   return Number.isFinite(n) ? n : 0;
 }
 
-function resolveEpochZeroUnix(): number {
-  return (
-    readNum(process.env.NEXT_PUBLIC_EPOCH_ZERO_UNIX) ||
-    readNum(process.env.NEXT_PUBLIC_EPOCH_START_UNIX)
-  );
+export function resolveEpochConfig() {
+  const zeroUnix =
+    readInt(process.env.NEXT_PUBLIC_EPOCH_ZERO_UNIX) ||
+    readInt(process.env.NEXT_PUBLIC_EPOCH_START_UNIX);
+
+  const epochSec =
+    readInt(process.env.NEXT_PUBLIC_EPOCH_SECONDS) ||
+    readInt(process.env.NEXT_PUBLIC_EPOCH_LENGTH_SEC);
+
+  const enabled = zeroUnix > 0 && epochSec > 0;
+  return { enabled, zeroUnix, epochSec };
 }
 
-function resolveEpochSeconds(): number {
-  const direct = readNum(process.env.NEXT_PUBLIC_EPOCH_SECONDS);
-  if (direct) return direct;
-  const legacy = readNum(process.env.NEXT_PUBLIC_EPOCH_LENGTH_SEC);
-  if (legacy) return legacy;
-  const k = readNum(process.env.NEXT_PUBLIC_EPOCH_K);
-  return k ? k * EPOCH_BASE_SEC : 0;
-}
-
-export const EPOCH_ZERO_UNIX = resolveEpochZeroUnix();
-export const EPOCH_SECONDS = resolveEpochSeconds();
+export const EPOCH_ZERO_UNIX = resolveEpochConfig().zeroUnix;
+export const EPOCH_SECONDS = resolveEpochConfig().epochSec;
 export const VOTE_WINDOW_SECONDS = (() => {
-  const value = readNum(process.env.NEXT_PUBLIC_VOTE_WINDOW_SECONDS);
+  const value = readInt(process.env.NEXT_PUBLIC_VOTE_WINDOW_SECONDS);
   return value > 0 ? value : 259200;
 })();
 
@@ -49,11 +45,9 @@ export const VOTE_WINDOW_SECONDS = (() => {
  *  - NEXT_PUBLIC_EPOCH_SECONDS (or NEXT_PUBLIC_EPOCH_LENGTH_SEC)
  *  - NEXT_PUBLIC_EPOCH_K  (multiplier of 6.4 minutes)
  */
-export function getEpochInfo(nowMs: number): EpochInfo {
-  const nowSec = Math.floor(nowMs / 1000);
-  const envEnabled = EPOCH_ZERO_UNIX > 0 && EPOCH_SECONDS > 0;
-
-  if (!envEnabled) {
+export function epochInfo(nowMs = Date.now()): EpochInfo {
+  const { enabled, zeroUnix, epochSec } = resolveEpochConfig();
+  if (!enabled) {
     return {
       enabled: false,
       index: 0,
@@ -65,7 +59,12 @@ export function getEpochInfo(nowMs: number): EpochInfo {
     };
   }
 
-  return compute(nowSec, EPOCH_ZERO_UNIX, EPOCH_SECONDS, true);
+  const nowSec = Math.floor(nowMs / 1000);
+  return compute(nowSec, zeroUnix, epochSec, true);
+}
+
+export function getEpochInfo(nowMs: number): EpochInfo {
+  return epochInfo(nowMs);
 }
 
 function compute(
@@ -91,14 +90,15 @@ export function nowUnix(): number {
 }
 
 export function currentEpoch(): number {
-  return getEpochInfo(Date.now()).index;
+  return epochInfo().index;
 }
 
 export function secondsLeftInEpoch(): number {
-  return getEpochInfo(Date.now()).secondsLeft;
+  return epochInfo().secondsLeft;
 }
 
 export function voteWindowEpochs(): number {
-  if (EPOCH_SECONDS <= 0) return 1;
-  return Math.max(1, Math.ceil(VOTE_WINDOW_SECONDS / EPOCH_SECONDS));
+  const { epochSec } = resolveEpochConfig();
+  if (epochSec <= 0) return 1;
+  return Math.max(1, Math.ceil(VOTE_WINDOW_SECONDS / epochSec));
 }

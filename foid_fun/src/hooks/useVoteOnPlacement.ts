@@ -14,6 +14,9 @@ interface UseVoteOnPlacementParams {
   placementId?: PlacementId;
 }
 
+const isBytes32Hex = (value?: string): value is PlacementId =>
+  typeof value === "string" && /^0x[0-9a-fA-F]{64}$/.test(value);
+
 export function useVoteOnPlacement({ epochId, placementId }: UseVoteOnPlacementParams) {
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
 
@@ -31,9 +34,11 @@ export function useVoteOnPlacement({ epochId, placementId }: UseVoteOnPlacementP
     hash: txHash ?? undefined,
   });
 
-  const voteOnChain = useCallback(async () => {
-    if (epochId === undefined || !placementId) {
-      throw new Error("Missing epochId or placementId");
+  const voteOnChain = useCallback(async (support: boolean) => {
+    if (epochId === undefined || !isBytes32Hex(placementId)) {
+      throw new Error(
+        "Missing chainId bytes32 or epochId; propose response didn't include it or UI didn't persist it."
+      );
     }
 
     const epochNumber = typeof epochId === "bigint" ? Number(epochId) : epochId;
@@ -55,7 +60,7 @@ export function useVoteOnPlacement({ epochId, placementId }: UseVoteOnPlacementP
       address: LOREBOARD_VOTING_ADDRESS,
       abi: loreboardVotingAbi,
       functionName: "voteOnPlacement",
-      args: [BigInt(epochNumber), placementId],
+      args: [BigInt(epochNumber), placementId, support],
     });
     setTxHash(hash);
     return hash;

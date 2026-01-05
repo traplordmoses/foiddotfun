@@ -75,6 +75,9 @@ export async function POST(req: Request) {
   const voteEndsAtEpoch = nowEpoch + windowEpochs;
 
   const generatedId = body.id ?? uid();
+  const normalizedId = generatedId.startsWith("0x")
+    ? (generatedId as `0x${string}`)
+    : (keccak256(stringToHex(generatedId)) as `0x${string}`);
   const p = addProposal({
     id: generatedId,
     owner,
@@ -88,11 +91,8 @@ export async function POST(req: Request) {
     height,
     epochSubmitted: nowEpoch,
     voteEndsAtEpoch,
+    chainId: normalizedId,
   } as Omit<Proposal, "yes" | "no" | "voters" | "status" | "createdAt">);
-
-  const normalizedId = generatedId.startsWith("0x")
-    ? (generatedId as `0x${string}`)
-    : (keccak256(stringToHex(generatedId)) as `0x${string}`);
   const normalizedCid = cid.replace(/^ipfs:\/\//, "");
   let cidHash = (body as any).cidHash as `0x${string}` | undefined;
   if (!cidHash || cidHash === "0x") {
@@ -115,6 +115,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     id: p.id,
+    chainId: normalizedId,
     epochSubmitted: p.epochSubmitted,
     voteEndsAtEpoch: p.voteEndsAtEpoch,
   });
