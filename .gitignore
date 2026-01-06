@@ -8,9 +8,13 @@ pnpm-debug.log*
 
 # Next.js
 .next/
+.next-cache/
 out/
 build/
 .turbo/
+
+# pnpm
+.pnpm-store/
 
 # Env files (keep secrets out of git)
 .env
@@ -27,6 +31,9 @@ coverage/
 .eslintcache
 .stylelintcache
 *.tsbuildinfo
+
+# Build artifacts
+manifest-latest.json
 
 # OS/editor junk
 .DS_Store
