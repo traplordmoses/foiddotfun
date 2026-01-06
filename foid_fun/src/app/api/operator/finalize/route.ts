@@ -27,6 +27,7 @@ import { loadLatestFinalized } from "@/lib/manifest";
 import { hasOverlap } from "@/lib/grid";
 import { uploadJSON } from "@/lib/ipfs";
 import { ProposalStore } from "@/lib/proposalStore";
+import { sortCandidatesByTieBreak } from "@/lib/winnerSelection";
 import {
   LOREBOARD_VOTING_ADDRESS,
   loreboardVotingAbi,
@@ -336,6 +337,11 @@ const toBytes32Id = (value: string): Hex32 => {
   return keccak256(stringToHex(value)) as Hex32;
 };
 
+const fakeRootFromIds = (ids: Hex32[]): Hex32 => {
+  const concat = (`0x${ids.map((id) => id.slice(2)).join("")}` || "0x") as Hex32;
+  return keccak256(concat) as Hex32;
+};
+
 /* ---------- POST /api/operator/finalize ---------- */
 
 export async function POST(req: NextRequest) {
@@ -410,14 +416,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const sorted = passed.slice().sort((a, b) => {
-    const bidDelta = BigInt(b.bidPerCellWei) - BigInt(a.bidPerCellWei);
-    if (bidDelta !== 0n) return bidDelta > 0n ? 1 : -1;
-    if (a.epochSubmitted !== b.epochSubmitted) {
-      return a.epochSubmitted - b.epochSubmitted;
-    }
-    return a.id.localeCompare(b.id);
-  });
+  const sorted = sortCandidatesByTieBreak(passed);
 
   // --- Seed base board from the latest anchored manifest (logs as backup) ---
   const { basePlacements, source: baseSource } = await loadBaseBoardFromOnchain();
@@ -592,10 +591,14 @@ export async function POST(req: NextRequest) {
   });
 
   const manifestPlacements: Placement[] = nextAccepted.map(clonePlacement);
+  const placementsRoot = fakeRootFromIds(
+    manifestPlacements.map((placement) => toBytes32Id(placement.id))
+  );
   const manifest = {
     epoch,
     finalizedAt: Date.now(),
     placements: manifestPlacements,
+    placementsRoot,
   };
   const manifestJson = JSON.stringify(manifest);
 

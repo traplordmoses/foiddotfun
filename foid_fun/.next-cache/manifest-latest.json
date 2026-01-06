@@ -1,5 +1,5 @@
 {
-  "latestEpoch": 0,
+  "latestEpoch": 612127,
   "byEpoch": [
     {
       "epoch": 0,
@@ -24,6 +24,234 @@
       ],
       "finalizedAt": 0,
       "cid": "ipfs://bafkreieo43q5jmr4raj26fslh53px72j7iatscxodxh7ej2v7pddmzuuie"
+    },
+    {
+      "epoch": 612127,
+      "placements": [
+        {
+          "id": "0x490ed285f62a371a9d211f82c3111aa1409f3b9075192eb20140d87fe10c0147",
+          "owner": "",
+          "cid": "QmXuaCr8S7JdggmS9wefhMmtiC4ePHeoAa4hfG5x7uVdpo",
+          "name": "beliefs.png",
+          "mime": "image/png",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "w": 736,
+            "h": 544
+          },
+          "cells": 391,
+          "bidPerCellWei": "0",
+          "width": 736,
+          "height": 544
+        },
+        {
+          "id": "0xd5eb7dfe1b03d4be840241fabd38c73e8b93b8f0cd5c17a8cb45ee1532d63a86",
+          "owner": "0x1a2a5e805342d5139111488c59d72832055a3e8f",
+          "cid": "Qma2DXbizCrWxYCuJo3h5m9z5Wa6oHbpcPrMuXht4LmQuW",
+          "name": "adalberto.resized.jpg",
+          "mime": "image/jpeg",
+          "rect": {
+            "x": 64,
+            "y": 544,
+            "w": 608,
+            "h": 640
+          },
+          "cells": 380,
+          "bidPerCellWei": "10000000000000",
+          "width": 608,
+          "height": 640
+        },
+        {
+          "id": "0x5c27de56a21f337eb487ac8a16a94da49dddd6a851ef919d3b1242e500ab329b",
+          "owner": "0x1a2a5e805342d5139111488c59d72832055a3e8f",
+          "cid": "QmdhtNyse97NncSyoxa1hRfeHpa3M5CfyWY8YTuR8KiLrq",
+          "name": "Screenshot 2025-11-05 at 11.02.53 AM.resized.jpg",
+          "mime": "image/jpeg",
+          "rect": {
+            "x": 64,
+            "y": -576,
+            "w": 608,
+            "h": 576
+          },
+          "cells": 342,
+          "bidPerCellWei": "10000000000000",
+          "width": 640,
+          "height": 608
+        },
+        {
+          "id": "0x5aeb2848827b35d0c9e8e17709a10abba9c2f1b4398eca7279b1de7876ff0197",
+          "owner": "0x1a2a5e805342d5139111488c59d72832055a3e8f",
+          "cid": "QmaKKecdxqtZFoGzrkntk1buDWjRmEws4teUXeyesVdt5n",
+          "name": "bc9ceb4586a002e86d6a58b56295a1f5.resized.jpg",
+          "mime": "image/jpeg",
+          "rect": {
+            "x": 672,
+            "y": -672,
+            "w": 480,
+            "h": 672
+          },
+          "cells": 315,
+          "bidPerCellWei": "10000000000000",
+          "width": 512,
+          "height": 736
+        },
+        {
+          "id": "0x2cbe2211dce25688b0f590cc6e0618ce6820fd43d8818a2a17afc15556860d47",
+          "owner": "0x1a2a5e805342d5139111488c59d72832055a3e8f",
+          "cid": "QmNwCHeKgHCAFQJVDRKuGxpQAWttqa8KfHSJfrgRv4NqsA",
+          "name": "0896bc3250dd92f5ab7362d0c4f9e9fd.resized.jpg",
+          "mime": "image/jpeg",
+          "rect": {
+            "x": -512,
+            "y": -672,
+            "w": 576,
+            "h": 672
+          },
+          "cells": 378,
+          "bidPerCellWei": "10000000000000",
+          "width": 576,
+          "height": 672
+        },
+        {
+          "id": "0xae62cb92d5cf57f2c70ff3b56ec5a7da0a6776758cdad923e90bd4446cb773c0",
+          "owner": "0x1a2a5e805342d5139111488c59d72832055a3e8f",
+          "cid": "QmQ8oXsD7jZ4ytpGgkWFnn874efNDNREMWo9Rk3hj8quMv",
+          "name": "Screenshot 2025-11-06 at 12.48.36 PM.resized.jpg",
+          "mime": "image/jpeg",
+          "rect": {
+            "x": 64,
+            "y": -896,
+            "w": 608,
+            "h": 320
+          },
+          "cells": 190,
+          "bidPerCellWei": "10000000000000",
+          "width": 864,
+          "height": 448
+        },
+        {
+          "id": "0xc6d6e5bec470ff15ebbddc9b74ce021412c8f5f2e810ada28642e4392d610c30",
+          "owner": "0x3f24aa2560246d4dbe35e907608a7a97893b3fb2",
+          "cid": "QmQzyRirwo1K59tQjxEmyVZN9Ra9ZPa96LFFdWCP45gdbj",
+          "name": "Screenshot 2025-11-06 at 12.26.58 PM.resized.jpg",
+          "mime": "image/jpeg",
+          "rect": {
+            "x": -832,
+            "y": 0,
+            "w": 832,
+            "h": 384
+          },
+          "cells": 312,
+          "bidPerCellWei": "10000000000000",
+          "width": 896,
+          "height": 416
+        },
+        {
+          "id": "0xdd620af37321f71ed39ede826223f82267cc208bad518978753a7d243c0c3b2d",
+          "owner": "0x3f24aa2560246d4dbe35e907608a7a97893b3fb2",
+          "cid": "QmXd3KbWuEXvUqJd5WecSv6SCLwMNZH1p4oGSDq5tMSp4r",
+          "name": "Screenshot 2025-11-06 at 12.28.33 PM.resized.jpg",
+          "mime": "image/jpeg",
+          "rect": {
+            "x": 736,
+            "y": 0,
+            "w": 1088,
+            "h": 352
+          },
+          "cells": 374,
+          "bidPerCellWei": "10000000000000",
+          "width": 1088,
+          "height": 352
+        },
+        {
+          "id": "0x177514fff1d742cf80c45c37def312612bef457cbeb64bfd87c49b792f93305e",
+          "owner": "0x1a2a5e805342d5139111488c59d72832055a3e8f",
+          "cid": "QmbmQ2C1KTcLnVQJ9e1NkYmRFQQPZg1wSPbUsuiDfeEGkW",
+          "name": "Screenshot 2025-11-06 at 12.50.36 PM.resized.jpg",
+          "mime": "image/jpeg",
+          "rect": {
+            "x": -928,
+            "y": 544,
+            "w": 992,
+            "h": 384
+          },
+          "cells": 372,
+          "bidPerCellWei": "10000000000000",
+          "width": 992,
+          "height": 384
+        },
+        {
+          "id": "0xd21bdd58338f8c9b60304119f52b0a7cd79053d18fbc6d29c4d440d92590bf1a",
+          "owner": "0x1a2a5e805342d5139111488c59d72832055a3e8f",
+          "cid": "QmPa71TodwkSdEdTa2W488YY5c4ZhGk7bAYHhCSyWKzCBT",
+          "name": "Screenshot 2025-12-26 at 9.36.57 PM.resized.jpg",
+          "mime": "image/jpeg",
+          "rect": {
+            "x": 1024,
+            "y": 352,
+            "w": 640,
+            "h": 608
+          },
+          "cells": 380,
+          "bidPerCellWei": "10000000000000",
+          "width": 640,
+          "height": 608
+        },
+        {
+          "id": "0xfcf3fd7b04c1a4efaf89a9362e50971fd14c82b2387dd951c346d32b96a151a3",
+          "owner": "0x1a2a5e805342d5139111488c59d72832055a3e8f",
+          "cid": "QmXcZSqr9QfPet8jUinpWVcJwQVkvQoM8Fd5DuvNHMWpLM",
+          "name": "Screenshot 2025-11-07 at 8.22.31 AM.resized.jpg",
+          "mime": "image/jpeg",
+          "rect": {
+            "x": 672,
+            "y": 960,
+            "w": 544,
+            "h": 704
+          },
+          "cells": 374,
+          "bidPerCellWei": "10000000000000",
+          "width": 544,
+          "height": 704
+        },
+        {
+          "id": "0xabc51fd6c4411a412f88bee0f3e9f0337e7e443a2d01c3251c2988093ed649d4",
+          "owner": "0xE9701150a470c0322E927A4a79b4b4AD7d754B87",
+          "cid": "bafkreihrgiy5b5sxw3i2d4zh7xazq2owntv5ygpwvpcawhxgldx6o5xq2u",
+          "name": "e2e-step3",
+          "mime": "image/png",
+          "rect": {
+            "x": 1825,
+            "y": 0,
+            "w": 1,
+            "h": 1
+          },
+          "cells": 1,
+          "bidPerCellWei": "10000000000001",
+          "width": 1,
+          "height": 1
+        },
+        {
+          "id": "0xd2bab87e875367b6e0481ab3c9f55eb9a40cecd2639fb602c2b9fc6db10354b8",
+          "owner": "0x1a2a5e805342d5139111488c59d72832055a3e8f",
+          "cid": "QmP4XxCQSTzEzWFJbC6ddauz3aM39YoPBq11nB1AhZMeGZ",
+          "name": "Screenshot 2026-01-03 at 5.29.27 PM.resized.jpg",
+          "mime": "image/jpeg",
+          "rect": {
+            "x": 1600,
+            "y": -320,
+            "w": 320,
+            "h": 320
+          },
+          "cells": 100,
+          "bidPerCellWei": "10000000000000",
+          "width": 640,
+          "height": 640
+        }
+      ],
+      "finalizedAt": 1767665207483,
+      "cid": "QmbE3mcgK3WACLQumgNi4yJEBseNhWFE7pN7sq9LR1DCqY"
     }
   ]
 }

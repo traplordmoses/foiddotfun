@@ -1,141 +1,76 @@
-# wFOID Control Panel
+# foid.fun control panel
 
-A full-featured dApp for managing your **Wrapped Foid (wFOID)** token and associated bridge on the Fluent testnet.
+foid.fun is a ritual-driven on-chain game and tooling hub on Fluent testnet. The app combines a daily encrypted check-in flow ("pray with foid mommy") with token creation, swaps, and supporting dapp tools. Your streak and activity feed into the evolution of a future on-chain avatar (mifoid), while the rest of the UI makes it fast to mint, trade, and inspect contracts.
 
-Built with **Next.js (App Router)**, **Typescript**, **wagmi** v2, **viem**, **RainbowKit**, **TailwindCSS** and **shadcn/ui** components.
+## What this project includes
 
-## Features
+- **Daily ritual terminal** to submit an encrypted check-in and track streaks.
+- **Foid factory** to mint a new foid20 token with a vanity suffix.
+- **Foid swap** to trade tokens and manage liquidity.
+- **wFOID and wETH tools** for wrapping, balances, allowances, and basic admin actions.
+- **Bridge router UI** to burn for redemption and mint from attestations.
+- **AMM inspector** for debugging a single-pair AMM contract.
+- **Board/Loreboard pages** for on-chain voting and manifest verification flows.
 
-- 🧠 **Dashboard**: view your wFOID balance, total supply, pause status and your roles (MINTER/PAUSER). Recent on‑chain events (transfer, role changes, pause/unpause, bridge events) are decoded and displayed in a scrolling list.
-- 💸 **Token page**: transfer tokens, approve allowances and view allowance, mint and burn if your address has the `MINTER_ROLE`, and pause/unpause the token if you have the `PAUSER_ROLE`. Read‑only metadata (name, symbol, decimals, total supply) is always visible.
-- 🌉 **Bridge page**: burn wFOID to redeem on Monero by providing a Monero destination; mint on Fluent with a signed attestation. A local helper computes the exact message hash that needs to be signed offline. Displays router chain ID and whether the connected wallet is an attestor.
-- 📜 **Registry page**: view the current registry owner and check if any address is an attestor. If the connected wallet is the owner, it can add or remove attestors.
-- 🔐 **Role‑aware UI**: buttons for mint/burn/pause/unpause and registry management only appear if your account has the appropriate role on chain. No secrets are ever requested; signing is handled by your wallet.
-- 🔄 **FoidSwap router**: connect the newly deployed pair, execute swaps, and manage liquidity directly against the Router contract with automatic allowance handling and Fluent Testnet onboarding.
-- 🎨 **Fluent meets Bebop**: dark first UI with a neon purple→pink→blue gradient inspired by Fluent’s brand, subtle noise overlays and rounded card components. The layout gently animates on hover.
+## Tech stack
 
-## Getting Started
+- Next.js (App Router), React, TypeScript
+- wagmi + viem + RainbowKit
+- Tailwind CSS + custom UI components
 
-1. **Install dependencies** (requires Node 18+ and npm):
+## Quick start
+
+1. Install dependencies (Node 20.x):
 
 ```bash
 npm install
 ```
 
-2. **Configure environment variables**:
+2. Configure environment:
 
-Copy `.env.local.example` to `.env.local` and adjust the addresses or RPC URLs if necessary.
-
-```env
-NEXT_PUBLIC_RPC=https://rpc.testnet.fluent.xyz
-NEXT_PUBLIC_CHAIN_ID=20994
-NEXT_PUBLIC_FACTORY=0xe97639fd6Ff7231ed270Ea16BD9Ba2c79f4cD2cc
-NEXT_PUBLIC_ROUTER=0xd71330e54eAA2e4248E75067F8f23bB2a6568613
-NEXT_PUBLIC_TOKEN_A=0x403ECF8ba28E58CE4d1847C1C95ac54651fAB151
-NEXT_PUBLIC_TOKEN_B=0xC08c0a41725F2329A9a315C643FE9b1a012D6213
-NEXT_PUBLIC_BLOCK_EXPLORER=https://testnet.fluentscan.xyz
-NEXT_PUBLIC_EPOCH_ZERO_UNIX=1730937600
-NEXT_PUBLIC_EPOCH_SECONDS=3600
-NEXT_PUBLIC_VOTE_WINDOW_SECONDS=259200
-NEXT_PUBLIC_LOREBOARD_VM_ADDRESS=0x0000000000000000000000000000000000000000
-
-# legacy variables for existing dashboards (optional)
-NEXT_PUBLIC_RPC_URL=https://rpc.testnet.fluent.xyz
-NEXT_PUBLIC_WFOID=0x403ECF8ba28E58CE4d1847C1C95ac54651fAB151
-NEXT_PUBLIC_REGISTRY=0xd0AD34C087b59292Fb9eBbA17ED2C0B941C7010D
+```bash
+cp .env.local.example .env.local
 ```
 
-3. **Run locally**:
+3. Run the dev server:
 
 ```bash
 npm run dev
 ```
 
-Then open [http://localhost:3000](http://localhost:3000) in your browser. Connect your wallet via the RainbowKit connect button. The dApp will automatically prompt you to add/switch to the Fluent testnet (chain ID 20994) if you are on a different network.
+Then open `http://localhost:3000` and connect a wallet on Fluent testnet (chain ID 20994).
 
-4. **Build for production**:
+## Environment variables
 
-```bash
-npm run build
-npm start
-```
+This app is contract-address driven. See `.env.local.example` for the full list. The minimum set for most pages is:
 
-## Screenshots
+- `NEXT_PUBLIC_RPC` and `NEXT_PUBLIC_CHAIN_ID`
+- `NEXT_PUBLIC_BLOCK_EXPLORER`
+- `NEXT_PUBLIC_FACTORY`, `NEXT_PUBLIC_ROUTER`
+- `NEXT_PUBLIC_TOKEN_A`, `NEXT_PUBLIC_TOKEN_B`
+- `NEXT_PUBLIC_WFOID`, `NEXT_PUBLIC_REGISTRY`, `NEXT_PUBLIC_BRIDGE`
 
-> **Note:** the screenshots below are illustrative of the final look and feel. They demonstrate the dark‑first UI, gradient cards and the structure of each page.
+Optional features (board/loreboard, AMM inspector, vanity factory, etc.) appear only when their related vars are configured.
 
-### Dashboard
+## Scripts
 
-![Dashboard](screenshots/dashboard.png)
+- `npm run dev` - start local dev server
+- `npm run build` - production build
+- `npm start` - run production server
+- `npm run lint` - lint
+- `npm run test` - vitest run
+- `npm run typecheck` - type checking
+- `npm run demo:one` - loreboard demo flow (uses pnpm in the script)
 
-### Token page
+## Project layout
 
-![Token](screenshots/token.png)
-
-### Bridge page
-
-![Bridge](screenshots/bridge.png)
-
-### Registry page
-
-![Registry](screenshots/registry.png)
-
-## Folder structure
-
-- `src/app` – application pages using Next.js App Router
-  - `layout.tsx` – global layout with providers and dark theme
-  - `page.tsx` – dashboard page
-  - `token/page.tsx` – token management page
-  - `bridge/page.tsx` – bridge interactions page
-  - `registry/page.tsx` – attestor registry page
-  - `foidswap/page.tsx` – router swaps and liquidity management
-- `src/components` – reusable UI components (ConnectBar, NetworkGate, StatCard, RoleBadge, TxButton, AmountInput, EventList)
-- `src/lib/contracts.ts` – addresses and typed ABIs
-- `src/abis` – contract ABI definitions used by wagmi/viem
-- `public/noise.png` – subtle noise texture for the background
-- `.env.local.example` – example environment variables
+- `src/app` - Next.js routes and pages
+- `src/components` - UI building blocks
+- `src/lib` - contract helpers, utilities
+- `src/abis` - contract ABIs
+- `scripts` - operators, loreboard, and demo scripts
 
 ## Notes
 
-- This project uses [wagmi](https://wagmi.sh/) v2 with [viem](https://viem.sh/) under the hood for contract interaction and signing.
-- Wallet connectivity is provided by [RainbowKit](https://www.rainbowkit.com/), configured with the Fluent testnet RPC.
-- The UI is styled with [TailwindCSS](https://tailwindcss.com/) and custom utility classes following the brief’s aesthetic guidelines.
-- ABIs are reconstructed from the provided function and event signatures. If you update your contracts, drop the new ABIs into `src/abis` and update the addresses in `.env.local`.
-
-## Deploy LoreboardVM
-
-From `blended/loreboardvm`:
-
-```bash
-# build the WASM + Solidity artifacts
-gblend build
-
-# deploy the Rust/WASM contract first (copy the printed address)
-gblend create wasm/target/wasm32-unknown-unknown/release/loreboardvm.wasm \\
-  --rpc-url $FLUENT_RPC \\
-  --private-key $DEPLOYER_PK
-
-# deploy the Solidity wrapper with the WASM address
-export LOREBOARD_VM_WASM_ADDRESS=<WASM_ADDR>
-cd solidity
-forge script script/DeployWrapper.s.sol \\
-  --rpc-url $FLUENT_RPC \\
-  --private-key $DEPLOYER_PK \\
-  --broadcast
-```
-
-The script prints the wrapper address (use that for `NEXT_PUBLIC_LOREBOARD_VM_ADDRESS`).
-
-Env vars:
-
-- `NEXT_PUBLIC_LOREBOARD_VM_ADDRESS=<wrapper>`
-- `LOREBOARD_VM_WASM_ADDRESS=<wasm>` (optional; used by the deploy script)
-
-Verification checklist:
-
-- Run `pnpm vm:smoke` and confirm accepted/rejected outputs are sensible.
-- Call `/api/operator/finalize` and confirm the winners match the VM output.
-
-## License
-
-This project is provided as‑is for demonstration purposes and does not include a specific license. Use at your own risk.
+- This is testnet software. Verify contract addresses before signing any transaction.
+- Some pages are gated by contract roles; the UI hides admin actions unless your wallet has permission.

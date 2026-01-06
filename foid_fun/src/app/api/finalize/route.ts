@@ -14,6 +14,7 @@ import {
 import { hasOverlap } from "@/lib/grid";
 import { uploadJSON } from "@/lib/ipfs";
 import { ProposalStore } from "@/lib/proposalStore";
+import { sortCandidatesByTieBreak } from "@/lib/winnerSelection";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,14 +49,7 @@ export async function POST(req: NextRequest) {
   });
 
   // sort winners: higher bid first, then earlier submission
-  const sorted = passed.slice().sort((a, b) => {
-    const bidDelta = BigInt(b.bidPerCellWei) - BigInt(a.bidPerCellWei);
-    if (bidDelta !== 0n) return bidDelta > 0n ? 1 : -1;
-    if (a.epochSubmitted !== b.epochSubmitted) {
-      return a.epochSubmitted - b.epochSubmitted;
-    }
-    return a.id.localeCompare(b.id);
-  });
+  const sorted = sortCandidatesByTieBreak(passed);
 
   let nextAccepted = listAccepted();
   const winners: Proposal[] = [];
