@@ -23,12 +23,12 @@ export async function POST(req: Request) {
     const epoch = BigInt(epochId);
     const placement = placementId as `0x${string}`;
 
-    const [startsAt, endsAt, finalized] = await fluentPublicClient.readContract({
+    const [startsAt, endsAt, finalized] = (await fluentPublicClient.readContract({
       address: LOREBOARD_VOTING_ADDRESS,
       abi: loreboardVotingAbi,
       functionName: "getEpochConfig",
       args: [epoch],
-    });
+    })) as [bigint, bigint, boolean];
 
     if (startsAt === 0n && endsAt === 0n) {
       const now = BigInt(Math.floor(Date.now() / 1000));

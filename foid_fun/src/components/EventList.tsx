@@ -3,11 +3,7 @@ import { useEffect, useState } from "react";
 import type { Abi, Address } from "viem";
 import { formatUnits, zeroAddress } from "viem"; // 👈 added (values only)
 import { usePublicClient } from "wagmi";
-import {
-  BLOCK_EXPLORER_URL,
-  BridgeRouter,
-  WrappedFoid,
-} from "@/lib/contracts";
+import { BLOCK_EXPLORER_URL, WrappedFoid } from "@/lib/contracts";
 
 type EventEntry = {
   id: string;
@@ -24,10 +20,7 @@ const TOKEN_EVENT_NAMES = [
   "Paused",
   "Unpaused",
 ] as const;
-const BRIDGE_EVENT_NAMES = ["Minted", "RedeemRequested"] as const;
-
 const TOKEN_EVENT_SET = new Set<string>(TOKEN_EVENT_NAMES);
-const BRIDGE_EVENT_SET = new Set<string>(BRIDGE_EVENT_NAMES);
 
 // --- UI helpers (presentation only) ---
 const DECIMALS = 18; // wFOID decimals
@@ -49,30 +42,18 @@ export function EventList() {
         const windowSize = 3000n;
         const fromBlock = latest > windowSize ? latest - windowSize : 0n;
 
-        const [tokenLogs, bridgeLogs] = await Promise.all([
-          publicClient
-            .getContractEvents({
-              address: WrappedFoid.address as Address,
-              abi: WrappedFoid.abi as Abi,
-              fromBlock,
-              toBlock: latest,
-            })
-            .then((logs) =>
-              logs.filter((log) => TOKEN_EVENT_SET.has(log.eventName ?? "")),
-            ),
-          publicClient
-            .getContractEvents({
-              address: BridgeRouter.address as Address,
-              abi: BridgeRouter.abi as Abi,
-              fromBlock,
-              toBlock: latest,
-            })
-            .then((logs) =>
-              logs.filter((log) => BRIDGE_EVENT_SET.has(log.eventName ?? "")),
-            ),
-        ]);
+        const tokenLogs = await publicClient
+          .getContractEvents({
+            address: WrappedFoid.address as Address,
+            abi: WrappedFoid.abi as Abi,
+            fromBlock,
+            toBlock: latest,
+          })
+          .then((logs) =>
+            logs.filter((log) => TOKEN_EVENT_SET.has(log.eventName ?? "")),
+          );
 
-        const decoded: EventEntry[] = [...tokenLogs, ...bridgeLogs]
+        const decoded: EventEntry[] = tokenLogs
           .map((log) => {
             const blockNumber = log.blockNumber ?? 0n;
             const logIndex = log.logIndex ?? 0;

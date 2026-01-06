@@ -1,5 +1,4 @@
 import WrappedFoidAbi from "@/abis/WrappedFoid.json";
-import BridgeRouterAbi from "@/abis/BridgeRouter.json";
 import AttestorRegistryAbi from "@/abis/AttestorRegistry.json";
 import SimpleSingleAMMAbi from "@/abis/SimpleSingleAMM.json";
 
@@ -134,10 +133,6 @@ export const WrappedFoid = {
   abi: WrappedFoidAbi,
 } as const;
 
-export const BridgeRouter = {
-  address: ROUTER_ADDRESS,
-  abi: BridgeRouterAbi,
-} as const;
 
 export const AttestorRegistry = {
   address: REGISTRY_ADDRESS,
@@ -155,6 +150,5 @@ export const WETH9Contract = {
 } as const;
 
 export type WrappedFoidAbiType = typeof WrappedFoidAbi;
-export type BridgeRouterAbiType = typeof BridgeRouterAbi;
 export type AttestorRegistryAbiType = typeof AttestorRegistryAbi;
 export type SimpleSingleAMMAbiType = typeof SimpleSingleAMMAbi;

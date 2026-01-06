@@ -1,6 +1,6 @@
 import path from "node:path";
 import dotenv from "dotenv";
-import { createPublicClient, defineChain, http, keccak256, stringToHex } from "viem";
+import { Address, createPublicClient, defineChain, http, keccak256, stringToHex } from "viem";
 
 dotenv.config({ path: path.join(process.cwd(), ".env") });
 dotenv.config({ path: path.join(process.cwd(), ".env.local"), override: true });
@@ -16,7 +16,7 @@ const vmAddressChecks = [
 ] as const;
 const vmAddress =
   (process.env.NEXT_PUBLIC_LOREBOARD_VM_ADDRESS ||
-    process.env.LOREBOARD_VM_ADDRESS) as `0x${string}` | undefined;
+    process.env.LOREBOARD_VM_ADDRESS) as Address | undefined;
 
 if (!rpc) {
   throw new Error(
@@ -29,6 +29,7 @@ if (!vmAddress) {
     `Missing vm address. Checked env vars: ${vmAddressChecks.join(", ")}`
   );
 }
+const vmAddressChecked = vmAddress;
 
 const chain = defineChain({
   id: 20994,
@@ -112,7 +113,7 @@ const candidates = [
 
 async function main() {
   const [accepted, rejected] = await publicClient.readContract({
-    address: vmAddress,
+    address: vmAddressChecked,
     abi: loreboardVmAbi,
     functionName: "selectWinners",
     args: [base, candidates],

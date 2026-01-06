@@ -23,7 +23,6 @@ foid.fun is a ritual-driven on-chain game where showing up creates value. each d
     - [wfoid control panel `/wfoid`](#wfoid-control-panel-wfoid)
     - [weth wrapper `/weth`](#weth-wrapper-weth)
     - [foid factory + vanity grind `/foidfactory`](#foid-factory--vanity-grind-foidfactory)
-    - [bridge router `/bridge`](#bridge-router-bridge)
     - [foidswap router `/foidswap`](#foidswap-router-foidswap)
     - [single pair amm inspector `/amm`](#single-pair-amm-inspector-amm)
 12. [daily prayer → transaction flow](#daily-prayer--transaction-flow)
@@ -49,7 +48,7 @@ foid.fun is a ritual-driven on-chain game where showing up creates value. each d
 - Node.js **18.17+** or **20+**
 - npm **9+**
 - An EVM wallet (RainbowKit compatible) with access to **Fluent Testnet (chain ID 20994)**
-- Contract deployments for Wrapped FOID, registry, bridge router, AMM pair(s), WETH9, and vanity factory
+- Contract deployments for Wrapped FOID, registry, AMM pair(s), WETH9, and vanity factory
 
 ---
 
@@ -87,7 +86,6 @@ RainbowKit will prompt you to add/switch to Fluent Testnet the first time you co
 | `NEXT_PUBLIC_BOARD_PASSWORD` | Optional password gate for `/board` (leave blank to disable) | ⛭ |
 | `NEXT_PUBLIC_WFOID` / `NEXT_PUBLIC_TOKEN0` | Wrapped FOID address | ✅ |
 | `NEXT_PUBLIC_REGISTRY` | Attestor registry contract | ✅ |
-| `NEXT_PUBLIC_BRIDGE` | Bridge router contract | ✅ |
 | `NEXT_PUBLIC_ROUTER` | Uniswap-style router for `/foidswap` | ✅ |
 | `NEXT_PUBLIC_FACTORY` | Pair factory (swap) + fallback for vanity | ✅ |
 | `NEXT_PUBLIC_PAIR` | Existing pair to seed swap UI | ⛭ |
@@ -310,15 +308,6 @@ mint a foid20 in seconds. no code, no hassle—deploy a token with a vanity suff
 - every token minted here ends with `f01d` / `F01d`
 - optional: jump to foid swap to create a pool and trade
 
-### bridge router `/bridge`
-
-two-way interface for the foid bridge.
-
-- **Burn to Redeem**: submit wFOID burn with Monero destination note. UI supplies exact hash to sign for off-chain workflows.
-- **Mint from Attestation**: attestors upload signed payloads to mint on Fluent.
-- **Status Cards**: show chain ID, router address, whether you are an attestor, and current fee metrics.
-- event feed highlights recent burns/mints.
-
 ### foidswap router `/foidswap`
 
 swap any token on fluent. a clean uniswap v2 fork ui with fast routes and instant feedback.
@@ -361,7 +350,6 @@ foid_fun/
 │   ├── app/
 │   │   ├── (components)/    # shared UI + feature modules
 │   │   ├── api/vanity-deploy/route.ts  # CREATE2 helper endpoint
-│   │   ├── bridge/          # bridge router page
 │   │   ├── foidfactory/     # vanity launchpad page
 │   │   ├── foidswap/        # swap/liquidity dashboard
 │   │   ├── wFOID/           # token management page

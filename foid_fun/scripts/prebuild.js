@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 
-const { execSync } = require("node:child_process");
 const { existsSync, readFileSync, writeFileSync, mkdirSync } = require("node:fs");
 const { createHash } = require("node:crypto");
 const { join, dirname } = require("node:path");
 
-const LOCKFILE = "package-lock.json";
-const HASH_PATH = join("node_modules", ".package-lock.hash");
+const LOCKFILE = "pnpm-lock.yaml";
+const HASH_PATH = join("node_modules", ".pnpm-lock.hash");
 
 const getLockHash = () => {
   if (!existsSync(LOCKFILE)) return null;
@@ -26,26 +25,21 @@ if (hasNodeModules && existsSync(HASH_PATH)) {
   }
 }
 
-const needsInstall = !hasNodeModules || !lockHash || existingHash !== lockHash;
+if (!hasNodeModules) {
+  console.error("node_modules missing. Run pnpm install before building.");
+  process.exit(1);
+}
 
-if (!needsInstall) {
+if (!lockHash) {
+  console.error("pnpm-lock.yaml missing. Run pnpm install to generate it.");
+  process.exit(1);
+}
+
+if (existingHash && existingHash === lockHash) {
   console.log("node_modules already present and lockfile unchanged, skipping install.");
   process.exit(0);
 }
 
-const run = (command) => {
-  execSync(command, { stdio: "inherit" });
-};
-
-try {
-  console.log("Running npm ci…");
-  run("npm ci");
-} catch (error) {
-  console.warn("npm ci failed, falling back to npm install.");
-  run("npm install");
-}
-
-if (lockHash) {
-  mkdirSync(dirname(HASH_PATH), { recursive: true });
-  writeFileSync(HASH_PATH, `${lockHash}\n`, "utf8");
-}
+mkdirSync(dirname(HASH_PATH), { recursive: true });
+writeFileSync(HASH_PATH, `${lockHash}\n`, "utf8");
+console.log("Recorded pnpm lockfile hash. Skipping install during prebuild.");

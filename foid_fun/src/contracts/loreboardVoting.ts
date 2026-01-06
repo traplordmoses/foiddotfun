@@ -1,5 +1,6 @@
 // src/contracts/loreboardVoting.ts
 import loreboardVotingAbiJson from "@/abi/loreboardVoting.json" assert { type: "json" };
+import type { Abi } from "viem";
 import { Address, getAddress, Hex } from "viem";
 
 export type PlacementId = Hex;
@@ -15,4 +16,4 @@ if (!votingAddressEnv) {
 
 export const LOREBOARD_VOTING_ADDRESS = getAddress(votingAddressEnv) as Address;
 
-export const loreboardVotingAbi = loreboardVotingAbiJson as const;
+export const loreboardVotingAbi = loreboardVotingAbiJson as Abi;
