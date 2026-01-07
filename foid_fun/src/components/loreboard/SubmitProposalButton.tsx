@@ -4,17 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useAccount, useChainId } from "wagmi";
 import { writeContract } from "@wagmi/core";
 import { config } from "@/providers";
-import ABI from "@/abi/LoreBoardTreasury.json" assert { type: "json" };
-import { encodePacked, keccak256, toHex } from "viem";
+import ABI from "@/abi/LoreboardBoardV1.json" assert { type: "json" };
+import { decodeEventLog, keccak256, toHex } from "viem";
 import type { Rect } from "@/lib/contracts/loreboard";
+import { publicClient } from "@/lib/viem";
 
 const FLUENT_CHAIN_ID = 20994;
 
 type Props = {
   treasury: `0x${string}`;
-  epoch: number;
   rect: Rect;
-  cells: number;
   cidV1?: string;
   bidPerCellWei: bigint;
   bidder?: `0x${string}`;
@@ -28,9 +27,7 @@ type Props = {
 
 export default function SubmitProposalButton({
   treasury,
-  epoch,
   rect,
-  cells,
   cidV1,
   bidPerCellWei,
   bidder,
@@ -44,7 +41,10 @@ export default function SubmitProposalButton({
   const [txHash, setTxHash] = useState<string | null>(null);
   const [cid, setCid] = useState(cidV1 ?? "");
 
-  const safeCells = Math.max(0, Math.trunc(cells));
+  const estimatedCells = Math.max(
+    1,
+    Math.ceil(rect.w / 32) * Math.ceil(rect.h / 32)
+  );
 
   useEffect(() => {
     setCid(cidV1 ?? "");
@@ -73,8 +73,8 @@ export default function SubmitProposalButton({
   }, [cidBytes]);
 
   const value = useMemo(
-    () => bidPerCellWei * BigInt(safeCells),
-    [bidPerCellWei, safeCells]
+    () => bidPerCellWei * BigInt(estimatedCells),
+    [bidPerCellWei, estimatedCells]
   );
 
   const mustSwitchChain = Boolean(chainId && chainId !== FLUENT_CHAIN_ID);
@@ -85,7 +85,7 @@ export default function SubmitProposalButton({
     (!cid && !prepareCid) ||
     (cid && !cidHash) ||
     bidPerCellWei <= 0n ||
-    safeCells <= 0 ||
+    estimatedCells <= 0 ||
     mustSwitchChain;
 
   async function onClick() {
@@ -151,22 +151,7 @@ export default function SubmitProposalButton({
       h: toU32(rect.h),
     };
 
-    const encodedEpoch = Number(BigInt.asUintN(32, BigInt(epoch)));
-
-    const proposalId = keccak256(
-      encodePacked(
-        ["address", "uint32", "bytes32", "int32", "int32", "int32", "int32"],
-        [
-          bidder,
-          encodedEpoch,
-          ensuredCidHash,
-          normalizedRect.x,
-          normalizedRect.y,
-          normalizedRect.w,
-          normalizedRect.h,
-        ]
-      )
-    );
+    const cidBytes = new TextEncoder().encode(normalizedCid);
 
     setPending(true);
     setError(null);
@@ -181,22 +166,33 @@ export default function SubmitProposalButton({
           abi: ABI as any,
           functionName: "proposePlacement",
           args: [
-            {
-              id: proposalId,
-              bidder,
-              rect: normalizedRect,
-              cells: safeCells,
-              bidPerCellWei,
-              cidHash: ensuredCidHash,
-              epoch: encodedEpoch,
-            },
+            normalizedRect.x,
+            normalizedRect.y,
+            normalizedRect.w,
+            normalizedRect.h,
+            bidPerCellWei,
+            cidBytes,
           ],
           value,
           chainId: FLUENT_CHAIN_ID,
         } as any
       );
       setTxHash(hash);
-      onSubmitted?.({ txHash: hash, proposalId, cid: ensuredCid });
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: hash as `0x${string}`,
+      });
+      const log = receipt.logs.find(
+        (entry) => entry.address.toLowerCase() === treasury.toLowerCase()
+      );
+      if (!log) throw new Error("PlacementProposed event not found");
+      const decoded = decodeEventLog({
+        abi: ABI as any,
+        data: log.data,
+        topics: log.topics,
+        eventName: "PlacementProposed",
+      });
+      const { id } = decoded.args as { id: `0x${string}` };
+      onSubmitted?.({ txHash: hash, proposalId: id, cid: ensuredCid });
     } catch (e: any) {
       setError(e?.shortMessage ?? e?.message ?? "tx failed");
     } finally {

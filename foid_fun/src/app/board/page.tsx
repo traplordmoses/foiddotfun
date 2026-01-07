@@ -32,7 +32,6 @@ import { usePlacementVotes } from "@/hooks/usePlacementVotes";
 import { useVoteOnPlacement } from "@/hooks/useVoteOnPlacement";
 import { resolveEpochConfig, currentEpoch } from "@/lib/epoch";
 import sfx from "@/lib/sfx";
-import { keccak256, stringToHex } from "viem";
 import type { FinalizedPlacement } from "@/lib/types";
 import { getLatestNormalized } from "@/lib/manifest";
 import {
@@ -2069,37 +2068,33 @@ export default function BoardPage() {
               for (const it of items) {
                 setMessage(`Submitting ${it.name} on-chain...`);
                 const bytes = await getPendingBytes(it);
-                const byteArray = new Uint8Array(bytes);
-                const cidHash = keccak256(byteArray) as `0x${string}`;
-                const id = keccak256(stringToHex(it.id)) as `0x${string}`;
+                const bidPerCellWei = BASE_FEE_PER_CELL_WEI + it.tipPerCellWei;
+                const onChainRect = worldToContractRect(it.rect);
 
-                  const bidPerCellWei = BASE_FEE_PER_CELL_WEI + it.tipPerCellWei;
-                  const epoch = typeof epochIdx === "number" ? epochIdx : 0;
+                setMessage(`Uploading ${it.name} to IPFS...`);
+                const file = new File([bytes], it.name, { type: it.mime });
+                const cid = await uploadImage(it.name, file, it.mime);
+                if (!cid) throw new Error("IPFS upload disabled.");
+                setCidFor(it.id, cid);
 
-                  const onChainRect = worldToContractRect(it.rect);
+                const normalizedCid = cid.replace(/^ipfs:\/\//, "");
+                const cidBytes = new TextEncoder().encode(normalizedCid);
 
-                  await writeProposePlacement({
-                    id,
-                    bidder: account as `0x${string}`,
-                    rect: {
-                      x: onChainRect.x,
-                      y: onChainRect.y,
-                      w: onChainRect.w,
-                      h: onChainRect.h,
-                    },
-                    cells: it.cells,
-                    bidPerCellWei,
-                    cidHash,
-                    epoch,
-                  });
+                setMessage(`Submitting ${it.name} on-chain...`);
+                const onChain = await writeProposePlacement({
+                  bidder: account as `0x${string}`,
+                  rect: {
+                    x: onChainRect.x,
+                    y: onChainRect.y,
+                    w: onChainRect.w,
+                    h: onChainRect.h,
+                  },
+                  bidPerCellWei,
+                  cidBytes,
+                });
 
-                  setMessage(`Uploading ${it.name} to IPFS...`);
-                  const file = new File([bytes], it.name, { type: it.mime });
-                  const cid = await uploadImage(it.name, file, it.mime);
-                  if (!cid) throw new Error("IPFS upload disabled.");
-                  setCidFor(it.id, cid);
+                const id = onChain.placementId;
 
-                  const normalizedCid = cid.replace(/^ipfs:\/\//, "");
                   setMessage(`Saving ${it.name} to operator store...`);
                   const res = await fetch("/api/proposals", {
                     method: "POST",
@@ -2114,7 +2109,7 @@ export default function BoardPage() {
                       width: it.width,
                       height: it.height,
                       bidPerCellWei: bidPerCellWei.toString(),
-                      cells: it.cells,
+                      cells: onChain.cells,
                       filename: it.name,
                     }),
                   });

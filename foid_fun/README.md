@@ -61,6 +61,50 @@ Optional features (board/loreboard, AMM inspector, vanity factory, etc.) appear 
 - `npm run test` - vitest run
 - `npm run typecheck` - type checking
 - `npm run demo:one` - loreboard demo flow (uses pnpm in the script)
+- `pnpm tsx scripts/loreboard-worker.ts run` - summarize + finalize the prior epoch (VotingV2 flow)
+- `pnpm worker:sync` - summarize the prior epoch
+- `pnpm worker:finalize` - finalize the prior epoch
+- `pnpm worker:dry` - dry-run finalize without sending transactions
+
+## Automating epochs
+
+The loreboard worker summarizes and finalizes placements using BoardV1 + VotingV2. It discovers proposals from `PlacementProposed`, checks quorum/majority via VotingV2, builds the manifest, and finalizes the epoch via Treasury + ManifestStore. Run it periodically (cron); it targets the previous time-derived epoch by default.
+
+Required env vars:
+
+- `NEXT_PUBLIC_FLUENT_RPC` or `FLUENT_RPC_URL`
+- `NEXT_PUBLIC_EPOCH_ZERO_UNIX`
+- `NEXT_PUBLIC_EPOCH_SECONDS`
+- `NEXT_PUBLIC_LOREBOARD_ADDRESS` (Treasury)
+- `NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS` or `LOREBOARD_BOARD_ADDRESS` (BoardV1)
+- `NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS` or `LOREBOARD_VOTING_ADDRESS`
+- `NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS` (required for finalize)
+- `NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK` (start block for event scan)
+- `OPERATOR_KEY` or `OPERATOR_PK` (treasury finalize + manifest anchor)
+- `LOREBOARD_VOTING_ADMIN_PRIVATE_KEY` (optional, only if boardAdmin is not the Board or operator)
+- `WEB3_STORAGE_TOKEN` or `PINATA_JWT` (for IPFS upload)
+
+Worker commands:
+
+```bash
+pnpm worker:sync
+pnpm worker:finalize
+pnpm tsx scripts/loreboard-worker.ts run
+```
+
+Flags:
+
+- `DRY_RUN=1` logs actions without sending transactions.
+- `EPOCH=<n>` or `--epoch <n>` overrides the default target epoch (`epochAt(now) - 1`).
+
+Test plan:
+
+```bash
+pnpm -C foid_fun typecheck
+pnpm -C foid_fun smoke:board
+DRY_RUN=1 pnpm -C foid_fun worker:finalize
+pnpm -C foid_fun worker:finalize
+```
 
 ## Project layout
 

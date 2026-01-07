@@ -12,11 +12,12 @@ foid.fun is a ritual-driven on-chain game where showing up creates value. each d
 4. [environment variables](#environment-variables)
 5. [available scripts](#available-scripts)
 6. [how it works (3 steps)](#how-it-works-3-steps)
-7. [value props (benefit → proof)](#value-props-benefit--proof)
-8. [positioning (partners / investors)](#positioning-partners--investors)
-9. [objection crushers (mini-faq)](#objection-crushers-mini-faq)
-10. [social blurbs (high-conversion)](#social-blurbs-high-conversion)
-11. [feature tour](#feature-tour)
+7. [blended execution + loreboardvm](#blended-execution--loreboardvm)
+8. [value props (benefit → proof)](#value-props-benefit--proof)
+9. [positioning (partners / investors)](#positioning-partners--investors)
+10. [objection crushers (mini-faq)](#objection-crushers-mini-faq)
+11. [social blurbs (high-conversion)](#social-blurbs-high-conversion)
+12. [feature tour](#feature-tour)
     - [global chrome](#global-chrome)
     - [landing dashboard `/`](#landing-dashboard-)
     - [foid mommy terminal](#foid-mommy-terminal)
@@ -25,9 +26,9 @@ foid.fun is a ritual-driven on-chain game where showing up creates value. each d
     - [foid factory + vanity grind `/foidfactory`](#foid-factory--vanity-grind-foidfactory)
     - [foidswap router `/foidswap`](#foidswap-router-foidswap)
     - [single pair amm inspector `/amm`](#single-pair-amm-inspector-amm)
-12. [daily prayer → transaction flow](#daily-prayer--transaction-flow)
-13. [folder structure](#folder-structure)
-14. [troubleshooting](#troubleshooting)
+13. [daily prayer → transaction flow](#daily-prayer--transaction-flow)
+14. [folder structure](#folder-structure)
+15. [troubleshooting](#troubleshooting)
 
 ---
 
@@ -95,6 +96,7 @@ RainbowKit will prompt you to add/switch to Fluent Testnet the first time you co
 | `NEXT_PUBLIC_TOKEN1_NAME`, `NEXT_PUBLIC_TOKEN1_SYMBOL` | Metadata overrides | ⛭ |
 | `NEXT_PUBLIC_WETH` | WETH9 contract for wrapper page | ⛭ (fallback baked in) |
 | `NEXT_PUBLIC_FOID_FACTORY` | Vanity deploy factory (CREATE2) | ✅ |
+| `NEXT_PUBLIC_LOREBOARD_VM_ADDRESS` | Loreboard VM wrapper address for blended winner selection | ⛭ |
 | `NEXT_PUBLIC_FLUENT_SCAN_BASE` | Explorer base for vanity links | ⛭ |
 | `NEXT_PUBLIC_BLOCKSCOUT_API` | REST endpoint powering swap history | ⛭ |
 
@@ -113,11 +115,36 @@ RainbowKit will prompt you to add/switch to Fluent Testnet the first time you co
 
 ---
 
+## smoke test
+
+```bash
+pnpm smoke:board
+```
+
+Required env vars:
+- `NEXT_PUBLIC_FLUENT_RPC` or `FLUENT_RPC_URL`
+- `OPERATOR_PK`
+- `TREASURY_ADDRESS`
+- `NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS`
+- `NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS`
+
+---
+
 ## how it works (3 steps)
 
 1. **pray with foid mommy** — log a fast, private on-chain check-in (streak + mood recorded).
 2. **mint** — create a foid20 in the factory in seconds.
 3. **swap & evolve** — trade on foid swap; your activity and streak shape your future mifoid.
+
+---
+
+## blended execution + loreboardvm
+
+fluent supports **blended execution**: solidity contracts can call into rust/wasm modules in the same on-chain runtime. foid.fun uses this for the **loreboardvm**, a rust wasm engine that deterministically picks loreboard placements.
+
+- **what it does**: sorts candidate placements by bid-per-cell, then accepts non-overlapping rectangles against both the base board and newly accepted winners.
+- **how it's wired**: a thin solidity wrapper exposes `selectWinners(...)` for the wasm vm; the operator finalize flow calls it when `NEXT_PUBLIC_LOREBOARD_VM_ADDRESS` is set, otherwise it falls back to the js overlap checks.
+- **why it matters**: heavy selection logic runs on-chain with the same rules as the ui, giving a verifiable winner set.
 
 ---
 

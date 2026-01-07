@@ -14,9 +14,14 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "finalize": "ts-node --project tsconfig.scripts.json scripts/operatorFinalize.ts",
+    "smoke:board": "ts-node --project tsconfig.scripts.json scripts/smoke-board-flow.ts",
+    "worker:sync": "tsx scripts/loreboard-worker.ts sync",
+    "worker:finalize": "tsx scripts/loreboard-worker.ts finalize",
+    "worker:dry": "DRY_RUN=1 tsx scripts/loreboard-worker.ts finalize",
     "vm:smoke": "tsx scripts/loreboardVM-call.ts",
     "verify:latest": "tsx scripts/verify-latest-manifest.ts",
-    "demo:one": "pnpm vm:smoke && pnpm tsx scripts/e2e-step3.ts && pnpm verify:latest"
+    "demo:one": "pnpm vm:smoke && pnpm tsx scripts/e2e-step3.ts && pnpm verify:latest",
+    "e2e:board": "tsx scripts/e2e-step3-boardv1.ts"
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "2.1.6",

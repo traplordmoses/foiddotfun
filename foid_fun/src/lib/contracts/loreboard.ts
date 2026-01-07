@@ -1,27 +1,20 @@
 "use client";
 
 import { CID } from "multiformats/cid";
-import ABI from "@/abi/LoreBoardTreasury.json" assert { type: "json" };
+import ABI from "@/abi/LoreboardBoardV1.json" assert { type: "json" };
 import {
   Address,
   Hex,
   encodePacked,
+  decodeEventLog,
   isHex,
   keccak256,
 } from "viem";
 import { getWalletClient, publicClient } from "@/lib/viem";
 
-const LOREBOARD = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS as Address;
+const LOREBOARD = process.env.NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS as Address;
 
 export type Rect = { x: number; y: number; w: number; h: number };
-
-export const getCurrentEpoch = () =>
-  publicClient.readContract({
-    address: LOREBOARD,
-    abi: ABI as any,
-    functionName: "currentEpoch",
-    args: [],
-  }) as Promise<bigint>;
 
 export function hashCid(cid: string): Hex {
   return keccak256(CID.parse(cid).bytes);
@@ -41,7 +34,8 @@ export function computePlacementId(
   );
 }
 
-export const cellsOf = (r: Rect) => BigInt(r.w) * BigInt(r.h);
+export const cellsOf = (r: Rect) =>
+  BigInt(Math.ceil(r.w / 32)) * BigInt(Math.ceil(r.h / 32));
 
 export function prettyViemError(err: any): string {
   const msg = err?.shortMessage || err?.message || "tx failed";
@@ -63,20 +57,20 @@ export async function proposePlacement(opts: {
   const [bidder] = await wallet.getAddresses();
   if (!bidder) throw new Error("No wallet address");
 
-  const epoch = await getCurrentEpoch();
-  const cidHash = hashCid(opts.cid);
-  const id = computePlacementId(bidder, epoch, cidHash, opts.rect);
+  const normalizedCid = opts.cid
+    .trim()
+    .replace(/^ipfs:\/\//, "")
+    .replace(/^https?:\/\/[^/]+\//, "");
+  const cidBytes = new TextEncoder().encode(normalizedCid);
   const value = opts.bidPerCellWei * cellsOf(opts.rect);
 
   const args = [
-    id,
-    epoch,
-    cidHash,
     opts.rect.x,
     opts.rect.y,
     opts.rect.w,
     opts.rect.h,
     opts.bidPerCellWei,
+    cidBytes,
   ] as const;
 
   try {
@@ -99,6 +93,23 @@ export async function proposePlacement(opts: {
     });
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+    const log = receipt.logs.find(
+      (entry) => entry.address.toLowerCase() === LOREBOARD.toLowerCase()
+    );
+    if (!log) {
+      throw new Error("PlacementProposed event not found");
+    }
+    const decoded = decodeEventLog({
+      abi: ABI as any,
+      data: log.data,
+      topics: log.topics,
+      eventName: "PlacementProposed",
+    });
+    const { id, epoch, cidHash } = decoded.args as {
+      id: Hex;
+      epoch: number;
+      cidHash: Hex;
+    };
     return { txHash, receipt, id, epoch, cidHash };
   } catch (e: any) {
     throw new Error(prettyViemError(e));
