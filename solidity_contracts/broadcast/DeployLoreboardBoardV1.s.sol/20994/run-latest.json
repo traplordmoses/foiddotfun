@@ -8,7 +8,7 @@
       "function": null,
       "arguments": [
         "0x4A777d8650b3FA2419377F4ffeF0EF8007151536",
-        "0x6044C6d511DAf29B611E7134b79716Ead9d1e68e",
+        "0xEbf065A7ca3917BB5e669982e8C6954cC27A7075",
         "1730937600",
         "86400"
       ],
@@ -47,7 +47,7 @@
   "returns": {
     "board": {
       "internal_type": "contract LoreboardBoardV1",
-      "value": "0x16e1bB93fed8446AE4C62235F3892dB3d2306013"
+      "value": "0xE41B2D418C09Ea928E4F657ED2438f5D01472105"
     }
   },
   "timestamp": 1767763906224,

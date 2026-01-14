@@ -40,6 +40,17 @@ npm run dev
 
 Then open `http://localhost:3000` and connect a wallet on Fluent testnet (chain ID 20994).
 
+## VSCode TypeScript
+
+Use the workspace TypeScript version so scripts with JSON import assertions parse correctly.
+
+1. Command Palette → “TypeScript: Select TypeScript Version” → “Use Workspace Version”
+2. Command Palette → “TypeScript: Restart TS Server”
+
+Verify:
+- Command Palette → “TypeScript: Open TS Server Log” and confirm it references `node_modules/typescript/lib` in this repo, or
+- Hover a TypeScript diagnostic and confirm TS version is `5.6.3`.
+
 ## Environment variables
 
 This app is contract-address driven. See `.env.local.example` for the full list. The minimum set for most pages is:
@@ -61,14 +72,14 @@ Optional features (board/loreboard, AMM inspector, vanity factory, etc.) appear 
 - `npm run test` - vitest run
 - `npm run typecheck` - type checking
 - `npm run demo:one` - loreboard demo flow (uses pnpm in the script)
-- `pnpm tsx scripts/loreboard-worker.ts run` - summarize + finalize the prior epoch (VotingV2 flow)
+- `DOTENV_CONFIG_PATH=.env.local pnpm -C foid_fun exec tsx scripts/loreboard-worker.ts run` - summarize + finalize the prior epoch (VotingV2 flow)
 - `pnpm worker:sync` - summarize the prior epoch
 - `pnpm worker:finalize` - finalize the prior epoch
 - `pnpm worker:dry` - dry-run finalize without sending transactions
 
 ## Automating epochs
 
-The loreboard worker summarizes and finalizes placements using BoardV1 + VotingV2. It discovers proposals from `PlacementProposed`, checks quorum/majority via VotingV2, builds the manifest, and finalizes the epoch via Treasury + ManifestStore. Run it periodically (cron); it targets the previous time-derived epoch by default.
+The loreboard worker summarizes and finalizes placements using BoardV2 + VotingV2. It discovers proposals from `PlacementProposed`, checks quorum/majority via VotingV2, builds the manifest, and finalizes the epoch via Treasury + ManifestStore. Run it periodically (cron); it targets the previous time-derived epoch by default.
 
 Required env vars:
 
@@ -76,26 +87,51 @@ Required env vars:
 - `NEXT_PUBLIC_EPOCH_ZERO_UNIX`
 - `NEXT_PUBLIC_EPOCH_SECONDS`
 - `NEXT_PUBLIC_LOREBOARD_ADDRESS` (Treasury)
-- `NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS` or `LOREBOARD_BOARD_ADDRESS` (BoardV1)
+- `NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS` or `LOREBOARD_BOARD_ADDRESS` (BoardV2)
 - `NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS` or `LOREBOARD_VOTING_ADDRESS`
 - `NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS` (required for finalize)
 - `NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK` (start block for event scan)
 - `OPERATOR_KEY` or `OPERATOR_PK` (treasury finalize + manifest anchor)
 - `LOREBOARD_VOTING_ADMIN_PRIVATE_KEY` (optional, only if boardAdmin is not the Board or operator)
 - `WEB3_STORAGE_TOKEN` or `PINATA_JWT` (for IPFS upload)
+- `LOREBOARD_NFT` (optional, live loreboard NFT sync)
+
+Loreboard contract addresses are validated against the Fluent Testnet canonical deploy.
+If anything is missing or mismatched, scripts/app will throw with a hint to set
+`DOTENV_CONFIG_PATH=.env.local`.
+
+Canonical Fluent Testnet addresses:
+
+- Treasury: `0x4A777d8650b3FA2419377F4ffeF0EF8007151536`
+- Manifest Store: `0xeE469D8F9BB2Ace861AA689dE53c016871ad3D10`
+- Voting (LoreboardVotingV2): `0xEbf065A7ca3917BB5e669982e8C6954cC27A7075`
+- Board (BoardV2): `0xE41B2D418C09Ea928E4F657ED2438f5D01472105`
+- Operator EOA: `0x1a2a5E805342D5139111488C59d72832055A3e8F`
+- Voting power source: `0xCCf0ac9c66a68FCb8c438C697EdA87D9766f1Be5`
+- Loreboard VM wrapper: `0x4031762fB8b5d3fcA168AA6555FfC666ED500DaD`
+- Loreboard VM wasm: `0xBE0ec2117F36797DEf3ab10661464265b2E4df34`
 
 Worker commands:
 
 ```bash
 pnpm worker:sync
 pnpm worker:finalize
-pnpm tsx scripts/loreboard-worker.ts run
+DOTENV_CONFIG_PATH=.env.local pnpm -C foid_fun exec tsx scripts/loreboard-worker.ts run
 ```
 
 Flags:
 
 - `DRY_RUN=1` logs actions without sending transactions.
+- `SKIP_NFT_SYNC=1` disables the live NFT sync call.
 - `EPOCH=<n>` or `--epoch <n>` overrides the default target epoch (`epochAt(now) - 1`).
+
+Verify finalize relay (example for epoch 429):
+
+```bash
+DOTENV_CONFIG_PATH=.env.local DRY_RUN=1 pnpm -C foid_fun exec tsx scripts/loreboard-worker.ts finalize --epoch 429
+DOTENV_CONFIG_PATH=.env.local pnpm -C foid_fun exec tsx scripts/loreboard-worker.ts finalize --epoch 429
+DOTENV_CONFIG_PATH=.env.local pnpm -C foid_fun exec tsx scripts/loreboard-worker.ts sync --epoch 429
+```
 
 Test plan:
 

@@ -4,9 +4,8 @@ pragma solidity ^0.8.24;
 import "./LoreBoardTreasury.sol";
 import "./LoreboardVotingV2.sol";
 
-/// @notice On-chain Board entrypoint for permissionless proposals.
-/// @dev Optional: includes a relay for VotingV2 epoch finalization if you set VotingV2.boardAdmin = this board.
-contract LoreboardBoardV1 {
+/// @notice Board entrypoint + admin relay for voting finalization/config.
+contract LoreboardBoardV2 {
     uint32 public constant TILE = 32;
     uint32 public constant MAX_CELLS = 400;
 
@@ -16,11 +15,12 @@ contract LoreboardBoardV1 {
     uint64 public immutable epochZeroUnix;
     uint32 public immutable epochSeconds;
 
-    /// @notice Who is allowed to relay admin actions (epoch finalization) through this board.
-    /// @dev Defaults to deployer. Changeable.
-    address public workerAdmin;
+    /// @notice operator allowed to finalize epochs + manage voting config via this board.
+    address public operator;
 
     mapping(bytes32 => bytes) public cidOf;
+
+    event OperatorUpdated(address indexed oldOp, address indexed newOp);
 
     event PlacementProposed(
         bytes32 indexed id,
@@ -35,10 +35,8 @@ contract LoreboardBoardV1 {
         bytes32 cidHash
     );
 
-    event WorkerAdminUpdated(address indexed oldAdmin, address indexed newAdmin);
-
-    modifier onlyWorkerAdmin() {
-        require(msg.sender == workerAdmin, "Board: not worker admin");
+    modifier onlyOperator() {
+        require(msg.sender == operator, "Board: not operator");
         _;
     }
 
@@ -46,10 +44,12 @@ contract LoreboardBoardV1 {
         address _treasury,
         address _votingV2,
         uint64 _epochZeroUnix,
-        uint32 _epochSeconds
+        uint32 _epochSeconds,
+        address _operator
     ) {
         require(_treasury != address(0), "treasury=0");
         require(_votingV2 != address(0), "votingV2=0");
+        require(_operator != address(0), "operator=0");
         require(_epochSeconds > 0, "epochSeconds=0");
 
         treasury = LoreBoardTreasury(_treasury);
@@ -60,12 +60,35 @@ contract LoreboardBoardV1 {
 
         epochZeroUnix = _epochZeroUnix;
         epochSeconds = _epochSeconds;
-
-        workerAdmin = msg.sender;
-        emit WorkerAdminUpdated(address(0), msg.sender);
+        operator = _operator;
     }
 
-    // ----------------- Proposals -----------------
+    // ---------------- admin relay (this is what your worker needs) ----------------
+
+    /// @notice Worker calls this when board is voting admin.
+    function finalizeEpochInVoting(uint256 epochId) external onlyOperator {
+        votingV2.setEpochFinalized(epochId, true);
+    }
+
+    /// @notice Compatibility / manual control.
+    function setEpochFinalized(uint256 epochId, bool finalized_) external onlyOperator {
+        votingV2.setEpochFinalized(epochId, finalized_);
+    }
+
+    /// @notice Escape hatch: rotate voting admin if needed.
+    function setVotingBoardAdmin(address newAdmin) external onlyOperator {
+        votingV2.setBoardAdmin(newAdmin);
+    }
+
+    /// @notice Rotate operator (optional).
+    function setOperator(address newOp) external onlyOperator {
+        require(newOp != address(0), "operator=0");
+        address old = operator;
+        operator = newOp;
+        emit OperatorUpdated(old, newOp);
+    }
+
+    // ---------------- proposal flow (same as V1) ----------------
 
     function proposePlacement(
         int32 x,
@@ -86,17 +109,7 @@ contract LoreboardBoardV1 {
         epoch = votingV2.epochAt(voteEndsAt);
 
         bytes32 cidHash = keccak256(cidBytes);
-        id = keccak256(
-            abi.encodePacked(
-                msg.sender,
-                uint256(epoch),
-                cidHash,
-                x,
-                y,
-                w,
-                h
-            )
-        );
+        id = keccak256(abi.encodePacked(msg.sender, uint256(epoch), cidHash, x, y, w, h));
 
         uint256 required = uint256(bidPerCellWei) * uint256(cells);
         require(msg.value == required, "bad msg.value");
@@ -125,62 +138,8 @@ contract LoreboardBoardV1 {
 
         cidOf[id] = cidBytes;
 
-        emit PlacementProposed(
-            id,
-            msg.sender,
-            epoch,
-            x,
-            y,
-            w,
-            h,
-            cells,
-            bidPerCellWei,
-            cidHash
-        );
+        emit PlacementProposed(id, msg.sender, epoch, x, y, w, h, cells, bidPerCellWei, cidHash);
     }
-
-    // ----------------- Worker admin / relay -----------------
-
-    function setWorkerAdmin(address newAdmin) external onlyWorkerAdmin {
-        require(newAdmin != address(0), "Board: zero admin");
-        address old = workerAdmin;
-        workerAdmin = newAdmin;
-        emit WorkerAdminUpdated(old, newAdmin);
-    }
-
-    /// @notice Relay method your worker already expects (name matches your logs).
-    /// @dev Only works if VotingV2.boardAdmin == address(this).
-    function finalizeEpochInVoting(uint256 epochId) external onlyWorkerAdmin {
-        _requireEpochEnded(epochId);
-        votingV2.setEpochFinalized(epochId, true);
-    }
-
-    /// @notice More general relay (finalize or unfinalize).
-    /// @dev Only works if VotingV2.boardAdmin == address(this).
-    function setEpochFinalizedInVoting(uint256 epochId, bool finalized_) external onlyWorkerAdmin {
-        if (finalized_) _requireEpochEnded(epochId);
-        votingV2.setEpochFinalized(epochId, finalized_);
-    }
-
-    function _requireEpochEnded(uint256 epochId) internal view {
-        require(epochId <= type(uint32).max, "Board: epochId too large");
-        uint64 end = _epochEnd(uint32(epochId));
-        require(block.timestamp > end, "Board: epoch not ended");
-    }
-
-    function _epochStart(uint32 epochId) internal view returns (uint64) {
-        unchecked {
-            return uint64(uint256(epochZeroUnix) + uint256(epochId) * uint256(epochSeconds));
-        }
-    }
-
-    function _epochEnd(uint32 epochId) internal view returns (uint64) {
-        unchecked {
-            return uint64(uint256(_epochStart(epochId)) + uint256(epochSeconds) - 1);
-        }
-    }
-
-    // ----------------- Helpers -----------------
 
     function _cellsFor(uint32 w, uint32 h) internal pure returns (uint32) {
         uint256 cellsWide = (uint256(w) + TILE - 1) / TILE;

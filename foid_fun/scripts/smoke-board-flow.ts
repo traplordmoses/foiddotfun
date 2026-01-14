@@ -9,32 +9,58 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { uploadJSON } from "../src/lib/ipfs";
+import boardAbi from "../src/abi/LoreboardBoardV2.json" assert { type: "json" };
+import votingAbi from "../src/abi/loreboardVoting.json" assert { type: "json" };
+import treasuryAbi from "../src/abi/LoreBoardTreasury.json" assert { type: "json" };
+import { rectCells } from "../src/lib/grid";
+import { CANONICAL_ADDRESSES, requireCanonicalAddress } from "../src/config/canonical";
+import { normalizePk, requireEnv, resolveFirst, resolveRpcUrl } from "./lib/env";
 
-loadEnv({ path: ".env.local" });
+loadEnv({ path: process.env.DOTENV_CONFIG_PATH || ".env.local" });
 loadEnv();
 
-const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC || process.env.FLUENT_RPC_URL;
-const operatorPk = process.env.OPERATOR_PK;
-const boardAddress = process.env.NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS as
-  | `0x${string}`
-  | undefined;
-const votingAddress = process.env.NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS as
-  | `0x${string}`
-  | undefined;
-const treasuryAddress = process.env.TREASURY_ADDRESS as `0x${string}` | undefined;
+const rpc = resolveRpcUrl(process.env);
+const proposerPk = process.env.E2E_PROPOSER_PK || process.env.OPERATOR_PK;
+const voterPk = process.env.VOTER1_PK;
+const boardAddress = resolveFirst(process.env, [
+  "NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS",
+  "LOREBOARD_BOARD_ADDRESS",
+]) as `0x${string}` | undefined;
+const votingAddress = resolveFirst(process.env, [
+  "NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS",
+  "LOREBOARD_VOTING_ADDRESS",
+]) as `0x${string}` | undefined;
+const treasuryAddress = resolveFirst(process.env, [
+  "NEXT_PUBLIC_LOREBOARD_ADDRESS",
+  "TREASURY_ADDRESS",
+]) as `0x${string}` | undefined;
 
-if (!rpc) throw new Error("Missing NEXT_PUBLIC_FLUENT_RPC or FLUENT_RPC_URL");
-if (!operatorPk) throw new Error("Missing OPERATOR_PK");
-if (!boardAddress) throw new Error("Missing NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS");
-if (!votingAddress) throw new Error("Missing NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS");
-if (!treasuryAddress) throw new Error("Missing TREASURY_ADDRESS");
-
-const operatorKey = (operatorPk.startsWith("0x")
-  ? operatorPk
-  : `0x${operatorPk}`) as `0x${string}`;
-const board = boardAddress as `0x${string}`;
-const voting = votingAddress as `0x${string}`;
-const treasury = treasuryAddress as `0x${string}`;
+requireEnv(
+  "NEXT_PUBLIC_FLUENT_RPC/FLUENT_RPC_URL/NEXT_PUBLIC_RPC_URL/RPC_URL",
+  rpc
+);
+requireEnv("E2E_PROPOSER_PK or OPERATOR_PK", proposerPk);
+requireEnv("VOTER1_PK", voterPk);
+const proposerKey = normalizePk(proposerPk);
+const voterKey = normalizePk(voterPk);
+const board = requireCanonicalAddress({
+  label: "LOREBOARD_BOARD_ADDRESS",
+  envValue: boardAddress,
+  expected: CANONICAL_ADDRESSES.board,
+  envHint: "NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS or LOREBOARD_BOARD_ADDRESS",
+});
+const voting = requireCanonicalAddress({
+  label: "LOREBOARD_VOTING_ADDRESS",
+  envValue: votingAddress,
+  expected: CANONICAL_ADDRESSES.voting,
+  envHint: "NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS or LOREBOARD_VOTING_ADDRESS",
+});
+const treasury = requireCanonicalAddress({
+  label: "LOREBOARD_ADDRESS",
+  envValue: treasuryAddress,
+  expected: CANONICAL_ADDRESSES.treasury,
+  envHint: "NEXT_PUBLIC_LOREBOARD_ADDRESS or TREASURY_ADDRESS",
+});
 
 const fluentTestnet = defineChain({
   id: 20994,
@@ -42,98 +68,6 @@ const fluentTestnet = defineChain({
   nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [rpc] } },
 });
-
-const boardAbi = [
-  {
-    type: "function",
-    name: "proposePlacement",
-    stateMutability: "payable",
-    inputs: [
-      { name: "x", type: "int32" },
-      { name: "y", type: "int32" },
-      { name: "w", type: "uint32" },
-      { name: "h", type: "uint32" },
-      { name: "bidPerCellWei", type: "uint96" },
-      { name: "cidBytes", type: "bytes" },
-    ],
-    outputs: [
-      { name: "id", type: "bytes32" },
-      { name: "epoch", type: "uint32" },
-      { name: "cells", type: "uint32" },
-    ],
-  },
-  {
-    type: "function",
-    name: "cidOf",
-    stateMutability: "view",
-    inputs: [{ name: "", type: "bytes32" }],
-    outputs: [{ name: "", type: "bytes" }],
-  },
-  {
-    type: "event",
-    name: "PlacementProposed",
-    inputs: [
-      { name: "id", type: "bytes32", indexed: true },
-      { name: "bidder", type: "address", indexed: true },
-      { name: "epoch", type: "uint32", indexed: false },
-      { name: "x", type: "int32", indexed: false },
-      { name: "y", type: "int32", indexed: false },
-      { name: "w", type: "uint32", indexed: false },
-      { name: "h", type: "uint32", indexed: false },
-      { name: "cells", type: "uint32", indexed: false },
-      { name: "bidPerCellWei", type: "uint96", indexed: false },
-      { name: "cidHash", type: "bytes32", indexed: false },
-    ],
-  },
-] as const;
-
-const votingAbi = [
-  {
-    type: "function",
-    name: "voteOnPlacement",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "placementId", type: "bytes32" },
-      { name: "support", type: "bool" },
-    ],
-    outputs: [],
-  },
-  {
-    type: "function",
-    name: "getPlacementMeta",
-    stateMutability: "view",
-    inputs: [{ name: "placementId", type: "bytes32" }],
-    outputs: [
-      { name: "registeredAt", type: "uint64" },
-      { name: "voteEndsAt", type: "uint64" },
-      { name: "epochId", type: "uint32" },
-      { name: "exists", type: "bool" },
-    ],
-  },
-  {
-    type: "function",
-    name: "getPlacementVotes",
-    stateMutability: "view",
-    inputs: [
-      { name: "epochId", type: "uint256" },
-      { name: "placementId", type: "bytes32" },
-    ],
-    outputs: [
-      { name: "yesWeight", type: "uint256" },
-      { name: "noWeight", type: "uint256" },
-    ],
-  },
-] as const;
-
-const treasuryAbi = [
-  {
-    type: "function",
-    name: "baseFeePerCellWei",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ name: "", type: "uint96" }],
-  },
-] as const;
 
 function resolveSmokeNonce() {
   const envNonce = process.env.SMOKE_NONCE;
@@ -145,14 +79,20 @@ function resolveSmokeNonce() {
 }
 
 async function main() {
-  const account = privateKeyToAccount(operatorKey);
+  const proposerAccount = privateKeyToAccount(proposerKey);
+  const voterAccount = privateKeyToAccount(voterKey);
 
   const publicClient = createPublicClient({
     chain: fluentTestnet,
     transport: http(rpc),
   });
   const walletClient = createWalletClient({
-    account,
+    account: proposerAccount,
+    chain: fluentTestnet,
+    transport: http(rpc),
+  });
+  const voterWallet = createWalletClient({
+    account: voterAccount,
     chain: fluentTestnet,
     transport: http(rpc),
   });
@@ -165,6 +105,7 @@ async function main() {
   const bidPerCellWei = baseFeePerCellWei > 0n ? baseFeePerCellWei : 1n;
 
   const rect = { x: 0, y: 0, w: 32, h: 32 };
+  const cells = rectCells(rect);
   const nonce = resolveSmokeNonce();
   const payload = {
     tag: "SMOKE_BOARD",
@@ -175,7 +116,7 @@ async function main() {
   const cid = await uploadJSON(`smoke-board-${nonce}.json`, payload);
   const cidString = `ipfs://${cid}`;
   const cidBytes = new TextEncoder().encode(cidString);
-  const value = bidPerCellWei;
+  const value = bidPerCellWei * BigInt(cells);
 
   const proposeHash = await walletClient.writeContract({
     address: board,
@@ -202,13 +143,13 @@ async function main() {
   if (!proposeLog) throw new Error("PlacementProposed event not found");
 
   const decoded = decodeEventLog({
-    abi: boardAbi,
+    abi: boardAbi as any,
     data: proposeLog.data,
     topics: proposeLog.topics,
     eventName: "PlacementProposed",
   });
 
-  const { id, epoch, cells, cidHash } = decoded.args as {
+  const { id, epoch, cells: eventCells, cidHash } = decoded.args as {
     id: `0x${string}`;
     epoch: number;
     cells: number;
@@ -217,7 +158,7 @@ async function main() {
 
   const meta = (await publicClient.readContract({
     address: voting,
-    abi: votingAbi,
+    abi: votingAbi as any,
     functionName: "getPlacementMeta",
     args: [id],
   })) as readonly [bigint, bigint, number, boolean];
@@ -225,9 +166,9 @@ async function main() {
   const exists = meta[3];
   if (!exists) throw new Error("Voting placement not registered");
 
-  const voteHash = await walletClient.writeContract({
+  const voteHash = await voterWallet.writeContract({
     address: voting,
-    abi: votingAbi,
+    abi: votingAbi as any,
     functionName: "voteOnPlacement",
     args: [id, true],
   });
@@ -235,18 +176,24 @@ async function main() {
 
   const votes = (await publicClient.readContract({
     address: voting,
-    abi: votingAbi,
+    abi: votingAbi as any,
     functionName: "getPlacementVotes",
     args: [BigInt(epochId), id],
   })) as readonly [bigint, bigint];
 
-  if (votes[0] !== 1n || votes[1] !== 0n) {
+  const passesMajority = (await publicClient.readContract({
+    address: voting,
+    abi: votingAbi as any,
+    functionName: "passesMajority51",
+    args: [BigInt(epochId), id],
+  })) as boolean;
+  if (votes[0] <= 0n) {
     throw new Error(`Unexpected votes: yes=${votes[0]} no=${votes[1]}`);
   }
 
   const storedCid = (await publicClient.readContract({
     address: board,
-    abi: boardAbi,
+    abi: boardAbi as any,
     functionName: "cidOf",
     args: [id],
   })) as `0x${string}`;
@@ -258,8 +205,10 @@ async function main() {
   console.log("Smoke test OK");
   console.log("placementId", id);
   console.log("epoch", epochId);
-  console.log("cells", cells);
+  console.log("cells", eventCells);
   console.log("cidHash", cidHash);
+  console.log("votes yes/no:", votes[0].toString(), "/", votes[1].toString());
+  console.log("passesMajority51:", passesMajority);
   process.exit(0);
 }
 

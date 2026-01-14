@@ -32,6 +32,7 @@ import {
   LOREBOARD_VOTING_ADDRESS,
   loreboardVotingAbi,
 } from "@/contracts/loreboardVoting";
+import { CANONICAL_ADDRESSES, requireCanonicalAddress } from "@/config/canonical";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,15 +50,37 @@ const manifestStoreEnv =
 const loreboardVmEnv =
   process.env.NEXT_PUBLIC_LOREBOARD_VM_ADDRESS as `0x${string}` | undefined;
 
-if (!rpc) throw new Error("NEXT_PUBLIC_FLUENT_RPC is required");
-if (!treasuryEnv) throw new Error("NEXT_PUBLIC_LOREBOARD_ADDRESS is required");
-if (!operatorPk) throw new Error("OPERATOR_PK is required");
-if (!manifestStoreEnv)
+if (!rpc) {
   throw new Error(
-    "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS (or NEXT_PUBLIC_LOREBOARD_ANCHOR) is required"
+    "NEXT_PUBLIC_FLUENT_RPC is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
   );
-const treasury = treasuryEnv as `0x${string}`;
-const manifestStore = manifestStoreEnv as `0x${string}`;
+}
+if (!operatorPk) {
+  throw new Error(
+    "OPERATOR_PK is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
+  );
+}
+const treasury = requireCanonicalAddress({
+  label: "NEXT_PUBLIC_LOREBOARD_ADDRESS",
+  envValue: treasuryEnv,
+  expected: CANONICAL_ADDRESSES.treasury,
+  envHint: "NEXT_PUBLIC_LOREBOARD_ADDRESS",
+});
+const manifestStore = requireCanonicalAddress({
+  label: "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS",
+  envValue: manifestStoreEnv,
+  expected: CANONICAL_ADDRESSES.manifestStore,
+  envHint:
+    "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS (or NEXT_PUBLIC_LOREBOARD_ANCHOR/NEXT_PUBLIC_MANIFEST_STORE)",
+});
+const loreboardVm = loreboardVmEnv
+  ? requireCanonicalAddress({
+      label: "NEXT_PUBLIC_LOREBOARD_VM_ADDRESS",
+      envValue: loreboardVmEnv,
+      expected: CANONICAL_ADDRESSES.vmWrapper,
+      envHint: "NEXT_PUBLIC_LOREBOARD_VM_ADDRESS",
+    })
+  : undefined;
 
 const chain = defineChain({
   id: 20994,
@@ -85,7 +108,7 @@ const deployBlockEnv =
 
 if (!deployBlockEnv) {
   throw new Error(
-    "NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK (or NEXT_PUBLIC_DEPLOY_BLOCK) is required"
+    "NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK (or NEXT_PUBLIC_DEPLOY_BLOCK) is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
   );
 }
 
@@ -444,7 +467,7 @@ export async function POST(req: NextRequest) {
 
   let usedVm = false;
 
-  if (loreboardVmEnv) {
+  if (loreboardVm) {
     try {
       const baseInputs = nextAccepted.map((placement) => ({
         id: toBytes32Id(placement.id),
@@ -473,17 +496,17 @@ export async function POST(req: NextRequest) {
       });
 
       const [acceptedIds, rejectedIds] = (await publicClient.readContract({
-        address: loreboardVmEnv,
+        address: loreboardVm,
         abi: loreboardVmAbi as any,
         functionName: "selectWinners",
         args: [baseInputs, candidateInputs],
       })) as readonly [Hex32[], Hex32[]];
 
       console.log("[finalize] loreboard VM mode enabled", {
-        enabled: Boolean(loreboardVmEnv),
+        enabled: Boolean(loreboardVm),
         accepted: acceptedIds.length,
         rejected: rejectedIds.length,
-        address: loreboardVmEnv,
+        address: loreboardVm,
       });
 
       const byChainId = new Map<string, Proposal>();

@@ -1,16 +1,5 @@
-import { getAddress } from "viem";
+import { CANONICAL_ADDRESSES, requireCanonicalAddress } from "./canonical";
 
-function safeAddress(addr?: string | null): `0x${string}` | undefined {
-  if (!addr) return undefined;
-  try {
-    return getAddress(addr);
-  } catch (err) {
-    console.warn("[contracts] invalid address env", addr, err);
-    return undefined;
-  }
-}
-
-// Try multiple env keys so a single bad value doesn't brick the board.
 const manifestStoreCandidates = [
   process.env.NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS,
   process.env.NEXT_PUBLIC_LOREBOARD_ANCHOR,
@@ -18,6 +7,12 @@ const manifestStoreCandidates = [
   process.env.NEXT_PUBLIC_MANIFEST_STORE_ADDRESS,
 ];
 
-export const LOREBOARD_MANIFEST_STORE_ADDRESS = manifestStoreCandidates
-  .map((v) => safeAddress(v))
-  .find(Boolean);
+const manifestStoreEnv = manifestStoreCandidates.find((value) => value?.trim());
+
+export const LOREBOARD_MANIFEST_STORE_ADDRESS = requireCanonicalAddress({
+  label: "LOREBOARD_MANIFEST_STORE_ADDRESS",
+  envValue: manifestStoreEnv,
+  expected: CANONICAL_ADDRESSES.manifestStore,
+  envHint:
+    "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS (or NEXT_PUBLIC_LOREBOARD_ANCHOR/NEXT_PUBLIC_MANIFEST_STORE)",
+});

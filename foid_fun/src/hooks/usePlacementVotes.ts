@@ -1,4 +1,5 @@
 // src/hooks/usePlacementVotes.ts
+import { useMemo } from "react";
 import { useReadContract } from "wagmi";
 import {
   loreboardVotingAbi,
@@ -17,11 +18,40 @@ export function usePlacementVotes({
   placementId,
   enabled = true,
 }: UsePlacementVotesParams) {
+  const hasPlacementMeta = useMemo(
+    () =>
+      Array.isArray(loreboardVotingAbi) &&
+      loreboardVotingAbi.some(
+        (entry) =>
+          (entry as any)?.type === "function" &&
+          (entry as any)?.name === "getPlacementMeta"
+      ),
+    []
+  );
+
+  const { data: placementMeta } = useReadContract({
+    address: LOREBOARD_VOTING_ADDRESS,
+    abi: loreboardVotingAbi,
+    functionName: "getPlacementMeta",
+    args: [placementId],
+    query: {
+      enabled: enabled && hasPlacementMeta,
+    },
+  });
+
+  const derivedEpochId = useMemo(() => {
+    if (!placementMeta || !Array.isArray(placementMeta)) return epochId;
+    const epochFromMeta = placementMeta[2];
+    if (typeof epochFromMeta === "bigint") return epochFromMeta;
+    if (typeof epochFromMeta === "number") return BigInt(epochFromMeta);
+    return epochId;
+  }, [epochId, placementMeta]);
+
   const { data, isLoading, isError, refetch } = useReadContract({
     address: LOREBOARD_VOTING_ADDRESS,
     abi: loreboardVotingAbi,
     functionName: "getPlacementVotes",
-    args: [epochId, placementId],
+    args: [derivedEpochId, placementId],
     query: {
       enabled,
     },
@@ -31,7 +61,7 @@ export function usePlacementVotes({
     address: LOREBOARD_VOTING_ADDRESS,
     abi: loreboardVotingAbi,
     functionName: "meetsQuorum",
-    args: [epochId, placementId],
+    args: [derivedEpochId, placementId],
     query: {
       enabled,
     },
@@ -41,7 +71,7 @@ export function usePlacementVotes({
     address: LOREBOARD_VOTING_ADDRESS,
     abi: loreboardVotingAbi,
     functionName: "passesMajority51",
-    args: [epochId, placementId],
+    args: [derivedEpochId, placementId],
     query: {
       enabled,
     },

@@ -14,8 +14,8 @@ contract LoreboardVotingV2 {
     }
 
     struct PlacementMeta {
-        uint64 registeredAt;    // registration timestamp
-        uint64 voteEndsAt;      // registeredAt + voteWindowSeconds
+        uint64 registeredAt;     // registration timestamp
+        uint64 voteEndsAt;       // registeredAt + voteWindowSeconds
         uint32 placementEpochId; // epochAt(voteEndsAt)
         bool exists;
     }
@@ -26,21 +26,20 @@ contract LoreboardVotingV2 {
     IVotingPower public votingPowerSource;
 
     /// @notice Address allowed to finalize epochs + update config.
-    /// @dev Set to your Board contract once deployed.
+    /// @dev For option (1), set this to your worker EOA.
     address public boardAdmin;
 
     /// @notice Minimum total voting weight required for a placement to be valid.
     uint256 public minTotalWeightQuorum;
 
     /// @notice Epoch schedule params (time-derived, no manual configureEpoch).
-    uint64 public immutable epochZeroUnix;      // e.g. 1730937600
-    uint32 public immutable epochSeconds;       // e.g. 86400
-    uint32 public immutable voteWindowSeconds;  // e.g. 259200 (3 days)
+    uint64 public immutable epochZeroUnix;
+    uint32 public immutable epochSeconds;
+    uint32 public immutable voteWindowSeconds;
 
     // ----- State -----
 
     mapping(uint256 => EpochState) public epochs; // epochId -> state (finalized)
-
     mapping(bytes32 => PlacementMeta) public placements; // placementId -> meta
 
     /// @notice Whether a placement is pending (votable) in its derived epoch.
@@ -95,6 +94,8 @@ contract LoreboardVotingV2 {
         voteWindowSeconds = _voteWindowSeconds;
 
         emit QuorumUpdated(0, _minTotalWeightQuorum);
+        emit BoardAdminUpdated(address(0), _boardAdmin);
+        emit VotingPowerSourceUpdated(address(0), _votingPowerSource);
     }
 
     modifier onlyBoardAdmin() {
@@ -151,6 +152,9 @@ contract LoreboardVotingV2 {
     /// @notice Lock an epoch (prevents further voting reads/writes for that epoch).
     /// @dev Worker will call this after epochEnd(epochId) when settling.
     function setEpochFinalized(uint256 epochId, bool finalized_) external onlyBoardAdmin {
+        // idempotent: don't emit twice if already true
+        if (epochs[epochId].finalized == finalized_) return;
+
         epochs[epochId].finalized = finalized_;
         if (finalized_) emit EpochFinalized(epochId);
     }
@@ -201,7 +205,6 @@ contract LoreboardVotingV2 {
         require(uint256(pm.placementEpochId) == epochId, "LoreboardVoting: wrong epochId");
         require(isPendingPlacement[epochId][placementId], "LoreboardVoting: not pending");
 
-        // time gate = rolling window per placement
         require(!epochs[epochId].finalized, "LoreboardVoting: epoch finalized");
         require(block.timestamp >= pm.registeredAt, "LoreboardVoting: voting not started");
         require(block.timestamp <= pm.voteEndsAt, "LoreboardVoting: voting ended");

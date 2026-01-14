@@ -130,6 +130,33 @@ Required env vars:
 
 ---
 
+## loreboard epoch worker
+
+Required env vars (finalize):
+- `NEXT_PUBLIC_FLUENT_RPC` or `FLUENT_RPC_URL`
+- `NEXT_PUBLIC_LOREBOARD_ADDRESS` (treasury)
+- `NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS` or `LOREBOARD_BOARD_ADDRESS`
+- `NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS` or `LOREBOARD_VOTING_ADDRESS`
+- `NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS`
+- `OPERATOR_KEY` (real finalize only)
+
+Optional env vars:
+- `LOREBOARD_VOTING_ADMIN_PRIVATE_KEY` (for `setEpochFinalized`)
+- `DEPLOY_BLOCK` (preferred log scan start)
+- `LOOKBACK_BLOCKS` (clamped to `<=100000` when `DEPLOY_BLOCK` not set)
+- `EPOCH` (override target epoch)
+- `DRY_RUN=1`
+
+Commands:
+
+```bash
+pnpm -C foid_fun typecheck
+pnpm -C foid_fun e2e:board
+DRY_RUN=1 LOOKBACK_BLOCKS=100000 pnpm -C foid_fun worker:finalize -- 429
+```
+
+---
+
 ## how it works (3 steps)
 
 1. **pray with foid mommy** — log a fast, private on-chain check-in (streak + mood recorded).

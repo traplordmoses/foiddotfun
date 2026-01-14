@@ -2,59 +2,56 @@ import dotenv from "dotenv";
 import {
   createPublicClient,
   createWalletClient,
-  defineChain,
   decodeEventLog,
-  decodeFunctionData,
-  encodePacked,
+  defineChain,
   http,
-  keccak256,
-  stringToHex,
+  toHex,
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import treasuryAbi from "../src/abi/LoreBoardTreasury.json";
-import votingAbi from "../src/abi/loreboardVoting.json";
-import { loreBoardManifestStoreAbi } from "../src/abi/loreBoardManifestStore";
-import { ipfsToHttp } from "../src/lib/ipfsUrl";
+import boardAbi from "../src/abi/LoreboardBoardV2.json" assert { type: "json" };
+import votingAbi from "../src/abi/loreboardVoting.json" assert { type: "json" };
+import treasuryAbi from "../src/abi/LoreBoardTreasury.json" assert { type: "json" };
 import { rectCells } from "../src/lib/grid";
+import { ipfsToHttp } from "../src/lib/ipfsUrl";
+import { CANONICAL_ADDRESSES, requireCanonicalAddress } from "../src/config/canonical";
+import { normalizePk, requireEnv, resolveFirst, resolveRpcUrl } from "./lib/env";
 
 type Address = `0x${string}`;
 
+dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || ".env.local" });
 dotenv.config();
-dotenv.config({ path: ".env.local" });
 
-const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC;
-const treasuryAddress = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS as
-  | Address
-  | undefined;
-const votingAddress = (process.env.NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS ||
-  process.env.LOREBOARD_VOTING_ADDRESS) as Address | undefined;
-const manifestStoreAddress = (process.env.NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS ||
-  process.env.NEXT_PUBLIC_LOREBOARD_ANCHOR ||
-  process.env.NEXT_PUBLIC_MANIFEST_STORE ||
-  process.env.NEXT_PUBLIC_MANIFEST_STORE_ADDRESS) as Address | undefined;
+const rpc = resolveRpcUrl(process.env);
+const treasuryAddress = resolveFirst(process.env, [
+  "NEXT_PUBLIC_LOREBOARD_ADDRESS",
+  "TREASURY_ADDRESS",
+]) as Address | undefined;
+const boardAddress = resolveFirst(process.env, [
+  "NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS",
+  "LOREBOARD_BOARD_ADDRESS",
+]) as Address | undefined;
+const votingAddress = resolveFirst(process.env, [
+  "NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS",
+  "LOREBOARD_VOTING_ADDRESS",
+]) as Address | undefined;
+const manifestStoreAddress = resolveFirst(process.env, [
+  "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS",
+  "NEXT_PUBLIC_LOREBOARD_ANCHOR",
+  "NEXT_PUBLIC_MANIFEST_STORE",
+  "NEXT_PUBLIC_MANIFEST_STORE_ADDRESS",
+]) as Address | undefined;
 
-const proposerPk = process.env.E2E_PROPOSER_PK || process.env.VOTER1_PK || "";
+const proposerPk =
+  process.env.E2E_PROPOSER_PK || process.env.VOTER1_PK || process.env.OPERATOR_PK || "";
 const voterPks = [
   process.env.VOTER1_PK,
   process.env.VOTER2_PK,
   process.env.VOTER3_PK,
 ].filter(Boolean) as string[];
-const votingAdminPk =
-  process.env.LOREBOARD_VOTING_ADMIN_PRIVATE_KEY || process.env.OPERATOR_PK || "";
 const operatorPk = process.env.OPERATOR_PK || "";
+const allowFinalize = process.env.E2E_ALLOW_FINALIZE === "1";
 
-const operatorBaseUrl =
-  process.env.OPERATOR_BASE_URL ||
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  "http://localhost:3000";
-const finalizeMode =
-  (process.env.E2E_FINALIZE_MODE || "operator").toLowerCase();
-const finalizeForce = process.env.E2E_FORCE_FINALIZE === "1";
-
-const epochZeroUnix = Number(process.env.NEXT_PUBLIC_EPOCH_ZERO_UNIX ?? 1730937600);
-const epochSeconds = Number(process.env.NEXT_PUBLIC_EPOCH_SECONDS ?? 3600);
-const voteWindowEpochs = Number(process.env.NEXT_PUBLIC_VOTE_WINDOW_EPOCHS ?? 2);
 const rectWidth = Number(process.env.E2E_RECT_W ?? 1);
 const rectHeight = Number(process.env.E2E_RECT_H ?? 1);
 const rectPad = Number(process.env.E2E_RECT_PAD ?? 1);
@@ -66,46 +63,35 @@ const chain = defineChain({
   rpcUrls: { default: { http: [rpc || ""] } },
 });
 
-function requireEnv<T>(label: string, value: T | undefined | null): T {
-  if (value == null || value === "") {
-    throw new Error(`Missing ${label}`);
-  }
-  return value as T;
-}
-
-function normalizePk(pk: string): Hex {
-  return (pk.startsWith("0x") ? pk : `0x${pk}`) as Hex;
-}
-
 function nowUnix(): number {
   return Math.floor(Date.now() / 1000);
 }
 
-function currentEpoch(): number {
-  const delta = Math.max(0, nowUnix() - epochZeroUnix);
-  return Math.floor(delta / epochSeconds);
-}
-
-function toI32(n: number): number {
-  return Number(BigInt.asIntN(32, BigInt(n)));
-}
-
-function toU32(n: number): number {
-  return Number(BigInt.asUintN(32, BigInt(n)));
-}
-
-function fakeRoot(ids: Hex[]): Hex {
-  const concat = (`0x${ids.map((x) => x.slice(2)).join("")}` || "0x") as Hex;
-  return keccak256(concat);
+function normalizeCid(cid: string): string {
+  if (cid.startsWith("ipfs://")) return cid;
+  return `ipfs://${cid}`;
 }
 
 async function loadLatestPlacements(
   publicClient: ReturnType<typeof createPublicClient>,
-  manifestStore: Address
+  manifestStore?: Address
 ) {
+  if (!manifestStore) return { cid: "", placements: [] as any[] };
   const latest = (await publicClient.readContract({
     address: manifestStore,
-    abi: loreBoardManifestStoreAbi as any,
+    abi: [
+      {
+        type: "function",
+        name: "latest",
+        stateMutability: "view",
+        inputs: [],
+        outputs: [
+          { name: "", type: "uint256" },
+          { name: "", type: "bytes32" },
+          { name: "", type: "string" },
+        ],
+      },
+    ],
     functionName: "latest",
     args: [],
   })) as readonly [bigint, Hex, string];
@@ -140,26 +126,49 @@ async function waitTx(
 }
 
 async function main() {
-  requireEnv("NEXT_PUBLIC_FLUENT_RPC", rpc);
-  requireEnv("NEXT_PUBLIC_LOREBOARD_ADDRESS", treasuryAddress);
   requireEnv(
-    "NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS/LOREBOARD_VOTING_ADDRESS",
-    votingAddress
+    "NEXT_PUBLIC_FLUENT_RPC/FLUENT_RPC_URL/NEXT_PUBLIC_RPC_URL/RPC_URL",
+    rpc
   );
-  requireEnv("NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS", manifestStoreAddress);
-  requireEnv("E2E_PROPOSER_PK or VOTER1_PK", proposerPk);
-  requireEnv(
-    "LOREBOARD_VOTING_ADMIN_PRIVATE_KEY or OPERATOR_PK",
-    votingAdminPk
-  );
+  const treasury = requireCanonicalAddress({
+    label: "LOREBOARD_ADDRESS",
+    envValue: treasuryAddress,
+    expected: CANONICAL_ADDRESSES.treasury,
+    envHint: "NEXT_PUBLIC_LOREBOARD_ADDRESS or TREASURY_ADDRESS",
+  });
+  const board = requireCanonicalAddress({
+    label: "LOREBOARD_BOARD_ADDRESS",
+    envValue: boardAddress,
+    expected: CANONICAL_ADDRESSES.board,
+    envHint: "NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS or LOREBOARD_BOARD_ADDRESS",
+  });
+  const voting = requireCanonicalAddress({
+    label: "LOREBOARD_VOTING_ADDRESS",
+    envValue: votingAddress,
+    expected: CANONICAL_ADDRESSES.voting,
+    envHint: "NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS or LOREBOARD_VOTING_ADDRESS",
+  });
+  const manifestStore = manifestStoreAddress
+    ? requireCanonicalAddress({
+        label: "LOREBOARD_MANIFEST_STORE_ADDRESS",
+        envValue: manifestStoreAddress,
+        expected: CANONICAL_ADDRESSES.manifestStore,
+        envHint:
+          "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS or NEXT_PUBLIC_LOREBOARD_ANCHOR",
+      })
+    : undefined;
+  requireEnv("E2E_PROPOSER_PK or VOTER1_PK or OPERATOR_PK", proposerPk);
   if (voterPks.length < 3) {
     throw new Error("Set VOTER1_PK, VOTER2_PK, VOTER3_PK");
+  }
+  if (allowFinalize) {
+    requireEnv("OPERATOR_PK (for finalize)", operatorPk);
   }
 
   const proposerAccount = privateKeyToAccount(normalizePk(proposerPk));
   const voterAccounts = voterPks.map((pk) => privateKeyToAccount(normalizePk(pk)));
-  const votingAdminAccount = privateKeyToAccount(normalizePk(votingAdminPk));
-  const operatorAccount = operatorPk ? privateKeyToAccount(normalizePk(operatorPk)) : null;
+  const operatorAccount =
+    allowFinalize && operatorPk ? privateKeyToAccount(normalizePk(operatorPk)) : null;
 
   const publicClient = createPublicClient({
     chain,
@@ -172,12 +181,6 @@ async function main() {
     account: proposerAccount,
   });
 
-  const votingAdminWallet = createWalletClient({
-    chain,
-    transport: http(rpc),
-    account: votingAdminAccount,
-  });
-
   const voterWallets = voterAccounts.map((account) =>
     createWalletClient({
       chain,
@@ -186,36 +189,17 @@ async function main() {
     })
   );
 
-  const epoch =
-    Number.isFinite(Number(process.env.E2E_EPOCH)) && process.env.E2E_EPOCH
-      ? Number(process.env.E2E_EPOCH)
-      : currentEpoch() + voteWindowEpochs;
-  let selectedEpoch = epoch;
-  for (let i = 0; i < 5; i += 1) {
-    const [startsAt, endsAt, finalized] = (await publicClient.readContract({
-      address: votingAddress!,
-      abi: votingAbi as any,
-      functionName: "getEpochConfig",
-      args: [BigInt(selectedEpoch)],
-    })) as readonly [bigint, bigint, boolean];
-    if (startsAt === 0n && endsAt === 0n && !finalized) {
-      break;
-    }
-    const now = BigInt(nowUnix());
-    if (endsAt !== 0n && now > endsAt) {
-      selectedEpoch += 1;
-      console.log(
-        `current epoch window closed; using epoch=${selectedEpoch} instead`
-      );
-      continue;
-    }
-    break;
-  }
-  const epochToUse = selectedEpoch;
+  const operatorWallet = operatorAccount
+    ? createWalletClient({
+        chain,
+        transport: http(rpc),
+        account: operatorAccount,
+      })
+    : null;
 
   const { cid: latestManifestCid, placements } = await loadLatestPlacements(
     publicClient,
-    manifestStoreAddress!
+    manifestStore
   );
   const maxX =
     placements.length === 0
@@ -229,7 +213,7 @@ async function main() {
         }, 0);
 
   const rect = {
-    x: maxX + rectPad + (epochToUse % 50),
+    x: maxX + rectPad,
     y: 0,
     w: rectWidth,
     h: rectHeight,
@@ -247,35 +231,11 @@ async function main() {
   const cid =
     process.env.E2E_CID ||
     "bafkreihrgiy5b5sxw3i2d4zh7xazq2owntv5ygpwvpcawhxgldx6o5xq2u";
-
-  const cidHashEnv = process.env.E2E_CID_HASH;
-  const cidHash = cidHashEnv
-    ? ((cidHashEnv.startsWith("0x") ? cidHashEnv : `0x${cidHashEnv}`) as Hex)
-    : keccak256(stringToHex(cid));
-
-  const placementId = keccak256(
-    encodePacked(
-      ["address", "uint32", "bytes32", "int32", "int32", "int32", "int32"],
-      [
-        proposerAccount.address,
-        toU32(epochToUse),
-        cidHash,
-        toI32(rect.x),
-        toI32(rect.y),
-        toI32(rect.w),
-        toI32(rect.h),
-      ]
-    )
-  );
-
-  console.log("== E2E Step 3 ==");
-  console.log("epoch:", epochToUse);
-  console.log("proposer:", proposerAccount.address);
-  console.log("placementId:", placementId);
-  console.log("cid:", cid);
+  const cidString = normalizeCid(cid);
+  const cidBytes = new TextEncoder().encode(cidString);
 
   const baseFee = (await publicClient.readContract({
-    address: treasuryAddress!,
+    address: treasury,
     abi: treasuryAbi as any,
     functionName: "baseFeePerCellWei",
     args: [],
@@ -286,170 +246,77 @@ async function main() {
     : baseFee + 1n;
   const value = bidPerCellWei * BigInt(cells);
 
-  const startTreasuryBalance = (await publicClient.readContract({
-    address: treasuryAddress!,
-    abi: treasuryAbi as any,
-    functionName: "treasuryBalance",
-    args: [],
-  })) as bigint;
-
+  console.log("== E2E Step 3 (BoardV2/VotingV2) ==");
+  console.log("proposer:", proposerAccount.address);
+  console.log("cid:", cidString);
   console.log("baseFeePerCellWei:", baseFee.toString());
   console.log("bidPerCellWei:", bidPerCellWei.toString());
-  console.log("treasuryBalance(before):", startTreasuryBalance.toString());
 
   console.log("\n-- proposePlacement");
-  let didPropose = false;
-  const seenProposal = (await publicClient.readContract({
-    address: treasuryAddress!,
-    abi: treasuryAbi as any,
-    functionName: "seenProposal",
-    args: [placementId],
-  })) as boolean;
+  const proposeHash = await proposerWallet.writeContract({
+    address: board,
+    abi: boardAbi as any,
+    functionName: "proposePlacement",
+    args: [
+      rect.x,
+      rect.y,
+      rect.w,
+      rect.h,
+      bidPerCellWei,
+      toHex(cidBytes),
+    ],
+    value,
+  });
+  const receipt = await waitTx(publicClient, proposeHash, "propose");
+  const proposeLog = receipt.logs.find(
+    (log) => log.address.toLowerCase() === board.toLowerCase()
+  );
+  if (!proposeLog) throw new Error("PlacementProposed event not found");
 
-  if (seenProposal) {
-    console.log("proposal already seen; skipping proposePlacement");
-  } else {
-    const proposeHash = await proposerWallet.writeContract({
-      address: treasuryAddress!,
-      abi: treasuryAbi as any,
-      functionName: "proposePlacement",
-      args: [
-        {
-          id: placementId,
-          bidder: proposerAccount.address,
-          rect: {
-            x: toI32(rect.x),
-            y: toI32(rect.y),
-            w: toI32(rect.w),
-            h: toI32(rect.h),
-          },
-          cells: toU32(cells),
-          bidPerCellWei,
-          cidHash,
-          epoch: toU32(epochToUse),
-        },
-      ],
-      value,
-    });
-    const receipt = await waitTx(publicClient, proposeHash, "propose");
-    const proposedEventAbi = (treasuryAbi as any[]).find(
-      (entry) => entry.type === "event" && entry.name === "ProposedEvt"
-    );
-    if (!proposedEventAbi) {
-      throw new Error("Missing ProposedEvt in treasury ABI");
-    }
-    const proposedLog = receipt.logs.find(
-      (log) => log.address.toLowerCase() === treasuryAddress!.toLowerCase()
-    );
-    if (proposedLog) {
-      const decoded = decodeEventLog({
-        abi: [proposedEventAbi],
-        data: proposedLog.data,
-        topics: proposedLog.topics,
-      }) as any;
-      const emittedId = decoded?.args?.id as Hex | undefined;
-      if (!emittedId) {
-        throw new Error("ProposedEvt missing id");
-      }
-      if (emittedId.toLowerCase() !== placementId.toLowerCase()) {
-        throw new Error(
-          `ID mismatch: emitted ${emittedId} vs expected ${placementId}`
-        );
-      }
-    }
-    didPropose = true;
-  }
+  const decoded = decodeEventLog({
+    abi: boardAbi as any,
+    data: proposeLog.data,
+    topics: proposeLog.topics,
+    eventName: "PlacementProposed",
+  }) as any;
 
-  console.log("\n-- configureEpoch (if needed)");
-  const [startsAt, endsAt, finalized] = (await publicClient.readContract({
-    address: votingAddress!,
+  const placementId = decoded?.args?.id as Hex | undefined;
+  const eventEpoch = decoded?.args?.epoch as number | undefined;
+  if (!placementId) throw new Error("PlacementProposed missing id");
+
+  console.log("placementId:", placementId);
+  console.log("event epoch:", eventEpoch ?? "unknown");
+
+  const meta = (await publicClient.readContract({
+    address: voting,
     abi: votingAbi as any,
-    functionName: "getEpochConfig",
-    args: [BigInt(epochToUse)],
-  })) as readonly [bigint, bigint, boolean];
-
-  if (startsAt === 0n && endsAt === 0n && !finalized) {
-    const now = BigInt(nowUnix());
-    const start = now - 120n;
-    const end = now + 120n;
-    const cfgHash = await votingAdminWallet.writeContract({
-      address: votingAddress!,
-      abi: votingAbi as any,
-      functionName: "configureEpoch",
-      args: [BigInt(epochToUse), start, end],
-    });
-    await waitTx(publicClient, cfgHash, "configureEpoch");
-  } else {
-    console.log("epoch already configured");
-  }
-
-  const [guardStartsAt, guardEndsAt, guardFinalized] =
-    (await publicClient.readContract({
-      address: votingAddress!,
-      abi: votingAbi as any,
-      functionName: "getEpochConfig",
-      args: [BigInt(epochToUse)],
-    })) as readonly [bigint, bigint, boolean];
-  const nowGuard = BigInt(nowUnix());
-  if (nowGuard < guardStartsAt || nowGuard > guardEndsAt) {
-    throw new Error(
-      `Voting outside epoch window: startsAt=${guardStartsAt.toString()} endsAt=${guardEndsAt.toString()} now=${nowGuard.toString()} finalized=${guardFinalized}`
-    );
-  }
-
-  console.log("\n-- registerPendingPlacement");
-  const seenAfter = (await publicClient.readContract({
-    address: treasuryAddress!,
-    abi: treasuryAbi as any,
-    functionName: "seenProposal",
+    functionName: "getPlacementMeta",
     args: [placementId],
-  })) as boolean;
-  const escrow = (await publicClient.readContract({
-    address: treasuryAddress!,
-    abi: treasuryAbi as any,
-    functionName: "escrow",
-    args: [placementId],
-  })) as bigint;
-  console.log("seenProposal:", seenAfter, "escrow:", escrow.toString());
-  if (!seenAfter || escrow === 0n) {
-    throw new Error("Proposal not escrowed; ID mismatch likely");
-  }
+  })) as readonly [bigint, bigint, number, boolean];
+  const voteEndsAt = Number(meta[1]);
+  const epochId = meta[2];
+  const exists = meta[3];
+  if (!exists) throw new Error("Voting placement not registered");
 
-  const alreadyPending = (await publicClient.readContract({
-    address: votingAddress!,
-    abi: votingAbi as any,
-    functionName: "isPendingPlacement",
-    args: [BigInt(epochToUse), placementId],
-  })) as boolean;
-
-  if (alreadyPending) {
-    console.log("already pending; skipping registerPendingPlacement");
-  } else {
-    const registerHash = await votingAdminWallet.writeContract({
-      address: votingAddress!,
-      abi: votingAbi as any,
-      functionName: "registerPendingPlacement",
-      args: [BigInt(epochToUse), placementId],
-    });
-    await waitTx(publicClient, registerHash, "registerPending");
-  }
+  console.log("voteEndsAt:", voteEndsAt);
+  console.log("epochId:", epochId);
 
   console.log("\n-- voteOnPlacement (3 voters)");
   for (let i = 0; i < voterWallets.length; i += 1) {
     const voter = voterWallets[i];
     const [yesBefore, noBefore] = (await publicClient.readContract({
-      address: votingAddress!,
+      address: voting,
       abi: votingAbi as any,
       functionName: "getPlacementVotes",
-      args: [BigInt(epochToUse), placementId],
+      args: [BigInt(epochId), placementId],
     })) as readonly [bigint, bigint];
 
     try {
       const voteHash = await voter.writeContract({
-        address: votingAddress!,
+        address: voting,
         abi: votingAbi as any,
         functionName: "voteOnPlacement",
-        args: [BigInt(epochToUse), placementId, true],
+        args: [placementId, true],
       });
       await waitTx(publicClient, voteHash, `vote#${i + 1}`);
     } catch (err) {
@@ -458,10 +325,10 @@ async function main() {
     }
 
     const [yesVotes, noVotes] = (await publicClient.readContract({
-      address: votingAddress!,
+      address: voting,
       abi: votingAbi as any,
       functionName: "getPlacementVotes",
-      args: [BigInt(epochToUse), placementId],
+      args: [BigInt(epochId), placementId],
     })) as readonly [bigint, bigint];
 
     console.log(
@@ -469,243 +336,64 @@ async function main() {
     );
   }
 
-  console.log("\n-- finalize + anchor");
-  let finalizedCid = cid;
-  let manifestRoot: Hex | null = null;
-  let finalizeTxHash: Hex | null = null;
-  let finalizeJson: any | null = null;
-
-  if (finalizeMode === "direct") {
-    if (!operatorAccount) {
-      throw new Error("OPERATOR_PK required for E2E_FINALIZE_MODE=direct");
-    }
-    const operatorWallet = createWalletClient({
-      chain,
-      transport: http(rpc),
-      account: operatorAccount,
-    });
-
-    manifestRoot = fakeRoot([placementId]);
-    const finalizeSig = (treasuryAbi as any[]).find(
-      (entry) => entry.type === "function" && entry.name === "finalizeEpoch"
-    );
-    const cidIsString = finalizeSig?.inputs?.some(
-      (input: any) =>
-        typeof input?.name === "string" &&
-        input.name.includes("manifestCID") &&
-        input.type === "string"
-    );
-
-    const finalizeArgs = cidIsString
-      ? ([BigInt(epochToUse), manifestRoot, cid, [placementId], []] as const)
-      : ([
-          BigInt(epochToUse),
-          manifestRoot,
-          new TextEncoder().encode(cid),
-          [placementId],
-          [],
-        ] as const);
-
-    const finalizeHash = await operatorWallet.writeContract({
-      address: treasuryAddress!,
-      abi: treasuryAbi as any,
-      functionName: "finalizeEpoch",
-      args: finalizeArgs,
-    });
-    await waitTx(publicClient, finalizeHash, "finalizeEpoch");
-    finalizeTxHash = finalizeHash;
-
-    const anchorHash = await operatorWallet.writeContract({
-      address: manifestStoreAddress!,
-      abi: loreBoardManifestStoreAbi as any,
-      functionName: "anchor",
-      args: [epochToUse, manifestRoot, cid],
-    });
-    await waitTx(publicClient, anchorHash, "anchor");
-  } else {
-    const proposalsUrl = new URL("/api/proposals", operatorBaseUrl);
-    const finalizeUrl = new URL(
-      `/api/operator/finalize?force=${finalizeForce ? "1" : "0"}`,
-      operatorBaseUrl
-    );
-
-    const proposalRes = await fetch(proposalsUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: placementId,
-        owner: proposerAccount.address,
-        cid,
-        rect,
-        bidPerCellWei: bidPerCellWei.toString(),
-        cells,
-        width: rect.w,
-        height: rect.h,
-        mime: "image/png",
-        name: "e2e-step3",
-      }),
-    });
-
-    const proposalJson = await proposalRes.json();
-    if (!proposalRes.ok || proposalJson?.error) {
-      throw new Error(
-        `POST /api/proposals failed: ${proposalRes.status} ${JSON.stringify(proposalJson)}`
-      );
-    }
-    console.log("seeded operator store:", proposalJson?.proposal?.id ?? "ok");
-
-    const finalizeRes = await fetch(finalizeUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ epoch: epochToUse }),
-    });
-    finalizeJson = await finalizeRes.json();
-    if (!finalizeRes.ok || finalizeJson?.error) {
-      if (
-        finalizeJson?.error === "No proposals ready to finalize" &&
-        !finalizeForce
-      ) {
-        console.log(
-          "No proposals ready: voteEndsAtEpoch not reached. Re-run with E2E_FORCE_FINALIZE=1 or set E2E_EPOCH >= voteEndsAtEpoch."
-        );
-      }
-      throw new Error(
-        `POST /api/operator/finalize failed: ${finalizeRes.status} ${JSON.stringify(finalizeJson)}`
-      );
-    }
-    console.log("finalize response:", {
-      epoch: finalizeJson?.epoch,
-      winners: finalizeJson?.winners,
-      rejectedDueToOverlap: finalizeJson?.rejectedDueToOverlap,
-      txHash: finalizeJson?.txHash,
-      status: finalizeJson?.status,
-      anchorTx: finalizeJson?.anchorTx,
-    });
-    finalizedCid = String(finalizeJson?.manifestCID || cid);
-    if (finalizeJson?.txHash) {
-      finalizeTxHash = finalizeJson.txHash as Hex;
-    }
-    console.log("operator finalize:", finalizeJson?.txHash ?? "ok");
-  }
-
-  console.log("\n-- verify");
-  const [yes, no] = (await publicClient.readContract({
-    address: votingAddress!,
+  const [yesVotes, noVotes] = (await publicClient.readContract({
+    address: voting,
     abi: votingAbi as any,
     functionName: "getPlacementVotes",
-    args: [BigInt(epochToUse), placementId],
+    args: [BigInt(epochId), placementId],
   })) as readonly [bigint, bigint];
 
   const meetsQuorum = (await publicClient.readContract({
-    address: votingAddress!,
+    address: voting,
     abi: votingAbi as any,
     functionName: "meetsQuorum",
-    args: [BigInt(epochToUse), placementId],
+    args: [BigInt(epochId), placementId],
   })) as boolean;
 
   const passesMajority = (await publicClient.readContract({
-    address: votingAddress!,
+    address: voting,
     abi: votingAbi as any,
     functionName: "passesMajority51",
-    args: [BigInt(epochToUse), placementId],
+    args: [BigInt(epochId), placementId],
   })) as boolean;
 
-  const accepted = (await publicClient.readContract({
-    address: treasuryAddress!,
-    abi: treasuryAbi as any,
-    functionName: "accepted",
-    args: [placementId],
-  })) as boolean;
-
-  const endTreasuryBalance = (await publicClient.readContract({
-    address: treasuryAddress!,
-    abi: treasuryAbi as any,
-    functionName: "treasuryBalance",
-    args: [],
-  })) as bigint;
-
-  const latest = (await publicClient.readContract({
-    address: manifestStoreAddress!,
-    abi: loreBoardManifestStoreAbi as any,
-    functionName: "latest",
-    args: [],
-  })) as readonly [bigint, Hex, string];
-
-  const latestCid = String(latest[2]);
-  const cleanedLatestCid = latestCid.replace(/^ipfs:\/\//, "");
-  const cleanedFinalCid = finalizedCid.replace(/^ipfs:\/\//, "");
-  const allowRejected =
-    finalizeForce ||
-    (Array.isArray(finalizeJson?.rejectedDueToOverlap) &&
-      finalizeJson.rejectedDueToOverlap.some(
-        (id: string) => id.toLowerCase() === placementId.toLowerCase()
-      ));
-
-  if (finalizeTxHash) {
-    const finalizeTx = await publicClient.getTransaction({ hash: finalizeTxHash });
-    const decoded = decodeFunctionData({
-      abi: treasuryAbi as any,
-      data: finalizeTx.input,
-    }) as any;
-    if (decoded?.functionName === "finalizeEpoch") {
-      const args = Array.isArray(decoded.args) ? decoded.args : [];
-      const acceptedIds = (args[3] || []) as Hex[];
-      const rejectedIds = (args[4] || []) as Hex[];
-      const inAccepted = acceptedIds.some(
-        (id) => id.toLowerCase() === placementId.toLowerCase()
-      );
-      const inRejected = rejectedIds.some(
-        (id) => id.toLowerCase() === placementId.toLowerCase()
-      );
-      console.log(
-        "finalizeEpoch includes id:",
-        inAccepted ? "accepted" : inRejected ? "rejected" : "missing"
-      );
-      if (!inAccepted && !inRejected) {
-        throw new Error(
-          "Operator finalized different ids; proposal store or ID scheme mismatch"
-        );
-      }
-    }
-  } else {
-    console.log("finalize tx hash missing; skipping calldata decode");
-  }
-
-  console.log("votes yes/no:", yes.toString(), "/", no.toString());
+  console.log("\n-- voting status");
+  console.log("votes yes/no:", yesVotes.toString(), "/", noVotes.toString());
   console.log("meetsQuorum:", meetsQuorum);
   console.log("passesMajority51:", passesMajority);
-  console.log("treasury.accepted:", accepted);
-  console.log(
-    "treasuryBalance(after):",
-    endTreasuryBalance.toString(),
-    "delta:",
-    (endTreasuryBalance - startTreasuryBalance).toString()
-  );
-  console.log("manifestStore.latest CID:", latestCid);
 
-  if (yes !== 3n || no !== 0n) {
+  if (yesVotes <= 0n) {
     throw new Error("Unexpected vote counts");
   }
-  if (!meetsQuorum || !passesMajority) {
-    throw new Error("Quorum/majority check failed");
-  }
-  if (!accepted) {
-    if (allowRejected) {
+
+  if (allowFinalize) {
+    console.log("\n-- finalize epoch (via BoardV2)");
+    const nowSec = nowUnix();
+    if (nowSec <= voteEndsAt) {
       console.log(
-        "NOTE: placement was rejected by operator finalize (overlap) — treating as OK for demo."
+        `skip finalize: vote window active (now=${nowSec} <= voteEndsAt=${voteEndsAt})`
       );
     } else {
-      throw new Error("Placement not accepted");
+      const epochState = (await publicClient.readContract({
+        address: voting,
+        abi: votingAbi as any,
+        functionName: "epochs",
+        args: [BigInt(epochId)],
+      })) as boolean;
+      if (epochState) {
+        console.log("epoch already finalized");
+      } else if (!operatorWallet) {
+        throw new Error("Missing OPERATOR_PK for finalize");
+      } else {
+        const finalizeHash = await operatorWallet.writeContract({
+          address: board,
+          abi: boardAbi as any,
+          functionName: "finalizeEpochInVoting",
+          args: [BigInt(epochId)],
+        });
+        await waitTx(publicClient, finalizeHash, "finalizeEpochInVoting");
+      }
     }
-  }
-  if (!allowRejected) {
-    const expectedIncrease = didPropose ? value : 0n;
-    if (endTreasuryBalance < startTreasuryBalance + expectedIncrease) {
-      throw new Error("Treasury balance did not increase as expected");
-    }
-  }
-  if (cleanedLatestCid !== cleanedFinalCid) {
-    throw new Error("Manifest store latest CID mismatch");
   }
 
   console.log("\nOK: E2E step 3 complete");

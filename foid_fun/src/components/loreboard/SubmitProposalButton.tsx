@@ -4,12 +4,29 @@ import { useEffect, useMemo, useState } from "react";
 import { useAccount, useChainId } from "wagmi";
 import { writeContract } from "@wagmi/core";
 import { config } from "@/providers";
-import ABI from "@/abi/LoreboardBoardV1.json" assert { type: "json" };
+import ABI from "@/abi/LoreboardBoardV2.json" assert { type: "json" };
 import { decodeEventLog, keccak256, toHex } from "viem";
 import type { Rect } from "@/lib/contracts/loreboard";
 import { publicClient } from "@/lib/viem";
 
 const FLUENT_CHAIN_ID = 20994;
+
+const normalizeCidString = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      const parts = url.pathname.replace(/^\/+/, "").split("/");
+      const bare = parts.slice(parts[0] === "ipfs" ? 1 : 0).join("/");
+      return bare ? `ipfs://${bare}` : "";
+    } catch {
+      return trimmed;
+    }
+  }
+  if (trimmed.startsWith("ipfs://")) return trimmed;
+  return `ipfs://${trimmed}`;
+};
 
 type Props = {
   treasury: `0x${string}`;
@@ -50,22 +67,7 @@ export default function SubmitProposalButton({
     setCid(cidV1 ?? "");
   }, [cidV1]);
 
-  const cidBytes = useMemo(() => {
-    if (!cid) return "";
-    const trimmed = cid.trim();
-    if (!trimmed) return "";
-    if (/^https?:\/\//i.test(trimmed)) {
-      try {
-        const url = new URL(trimmed);
-        const parts = url.pathname.replace(/^\/+/, "").split("/");
-        return parts.slice(parts[0] === "ipfs" ? 1 : 0).join("/");
-      } catch {
-        return trimmed;
-      }
-    }
-    if (trimmed.startsWith("ipfs://")) return trimmed.slice("ipfs://".length);
-    return trimmed;
-  }, [cid]);
+  const cidBytes = useMemo(() => normalizeCidString(cid), [cid]);
 
   const cidHash = useMemo(() => {
     if (!cidBytes) return null;
@@ -112,21 +114,7 @@ export default function SubmitProposalButton({
       }
     }
 
-    const normalizedCid = (() => {
-      const trimmed = ensuredCid?.trim() ?? "";
-      if (!trimmed) return "";
-      if (trimmed.startsWith("ipfs://")) return trimmed.slice("ipfs://".length);
-      if (/^https?:\/\//i.test(trimmed)) {
-        try {
-          const url = new URL(trimmed);
-          const parts = url.pathname.replace(/^\/+/, "").split("/");
-          return parts.slice(parts[0] === "ipfs" ? 1 : 0).join("/");
-        } catch {
-          return trimmed;
-        }
-      }
-      return trimmed;
-    })();
+    const normalizedCid = normalizeCidString(ensuredCid ?? "");
 
     const ensuredCidHash = keccak256(
       toHex(new TextEncoder().encode(normalizedCid))
@@ -194,6 +182,7 @@ export default function SubmitProposalButton({
       const { id } = decoded.args as { id: `0x${string}` };
       onSubmitted?.({ txHash: hash, proposalId: id, cid: ensuredCid });
     } catch (e: any) {
+      console.error(e);
       setError(e?.shortMessage ?? e?.message ?? "tx failed");
     } finally {
       setPending(false);

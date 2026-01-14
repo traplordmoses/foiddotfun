@@ -153,6 +153,23 @@ type Ghost = {
 
 const snapDown = (v: number) => Math.max(TILE, Math.floor(v / TILE) * TILE);
 
+const normalizeCidString = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      const parts = url.pathname.replace(/^\/+/, "").split("/");
+      const bare = parts.slice(parts[0] === "ipfs" ? 1 : 0).join("/");
+      return bare ? `ipfs://${bare}` : "";
+    } catch {
+      return trimmed;
+    }
+  }
+  if (trimmed.startsWith("ipfs://")) return trimmed;
+  return `ipfs://${trimmed}`;
+};
+
 function capRectToMaxCells(r: Rect, maxCells: number): Rect {
   let w = snapDown(r.w);
   let h = snapDown(r.h);
@@ -2077,7 +2094,7 @@ export default function BoardPage() {
                 if (!cid) throw new Error("IPFS upload disabled.");
                 setCidFor(it.id, cid);
 
-                const normalizedCid = cid.replace(/^ipfs:\/\//, "");
+                const normalizedCid = normalizeCidString(cid);
                 const cidBytes = new TextEncoder().encode(normalizedCid);
 
                 setMessage(`Submitting ${it.name} on-chain...`);
@@ -2128,6 +2145,7 @@ export default function BoardPage() {
                 }
                 setMessage("Proposed on-chain ✓ and files uploaded to IPFS");
               } catch (e: any) {
+                console.error(e);
                 setMessage(String(e?.message ?? e));
               } finally {
                 setSubmittingProposals(false);

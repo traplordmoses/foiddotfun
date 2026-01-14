@@ -1,7 +1,7 @@
 "use client";
 
 import { CID } from "multiformats/cid";
-import ABI from "@/abi/LoreboardBoardV1.json" assert { type: "json" };
+import ABI from "@/abi/LoreboardBoardV2.json" assert { type: "json" };
 import {
   Address,
   Hex,
@@ -11,8 +11,14 @@ import {
   keccak256,
 } from "viem";
 import { getWalletClient, publicClient } from "@/lib/viem";
+import { CANONICAL_ADDRESSES, requireCanonicalAddress } from "@/config/canonical";
 
-const LOREBOARD = process.env.NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS as Address;
+const LOREBOARD = requireCanonicalAddress({
+  label: "NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS",
+  envValue: process.env.NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS,
+  expected: CANONICAL_ADDRESSES.board,
+  envHint: "NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS",
+}) as Address;
 
 export type Rect = { x: number; y: number; w: number; h: number };
 

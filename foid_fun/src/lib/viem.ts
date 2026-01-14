@@ -5,24 +5,49 @@ import {
   decodeEventLog,
   defineChain,
   http,
+  hexToBytes,
+  isHex,
+  toHex,
 } from "viem";
 import TreasuryAbi from "@/abi/LoreBoardTreasury.json";
-import BoardAbi from "@/abi/LoreboardBoardV1.json" assert { type: "json" };
+import BoardAbi from "@/abi/LoreboardBoardV2.json" assert { type: "json" };
+import { CANONICAL_ADDRESSES, requireCanonicalAddress } from "@/config/canonical";
 
-export const TREASURY = (process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS || "").toLowerCase() as `0x${string}`;
-export const BOARD = (process.env.NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS || "").toLowerCase() as `0x${string}`;
+const treasuryEnv = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS;
+const boardEnv = process.env.NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS;
+const rpcUrl = process.env.NEXT_PUBLIC_FLUENT_RPC;
+if (!rpcUrl) {
+  throw new Error(
+    "NEXT_PUBLIC_FLUENT_RPC is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
+  );
+}
+
+export const TREASURY = requireCanonicalAddress({
+  label: "NEXT_PUBLIC_LOREBOARD_ADDRESS",
+  envValue: treasuryEnv,
+  expected: CANONICAL_ADDRESSES.treasury,
+  envHint: "NEXT_PUBLIC_LOREBOARD_ADDRESS",
+}).toLowerCase() as `0x${string}`;
+
+export const BOARD = requireCanonicalAddress({
+  label: "NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS",
+  envValue: boardEnv,
+  expected: CANONICAL_ADDRESSES.board,
+  envHint: "NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS",
+}).toLowerCase() as `0x${string}`;
+
 export const DEPLOY_BLOCK = BigInt(process.env.NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK || "0");
 
 export const fluentTestnet = defineChain({
   id: 20994,
   name: "Fluent Testnet",
   nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-  rpcUrls: { default: { http: [process.env.NEXT_PUBLIC_FLUENT_RPC as string] } },
+  rpcUrls: { default: { http: [rpcUrl] } },
 });
 
 export const publicClient = createPublicClient({
   chain: fluentTestnet,
-  transport: http(process.env.NEXT_PUBLIC_FLUENT_RPC as string),
+  transport: http(rpcUrl),
 });
 
 export const TreasuryAbiTyped = TreasuryAbi as unknown as readonly any[];
@@ -38,16 +63,34 @@ export async function getWalletClient() {
 export async function writeProposePlacement(args: {
   bidder: `0x${string}`;
   rect: { x: number; y: number; w: number; h: number };
-  bidPerCellWei: bigint;
-  cidBytes: Uint8Array;
+  bidPerCellWei: bigint | number | string;
+  cidBytes: Uint8Array | string | { bytes: Uint8Array };
 }) {
+  const normalizeBigInt = (value: bigint | number | string): bigint => {
+    if (typeof value === "bigint") return value;
+    if (typeof value === "number") return BigInt(value);
+    return BigInt(value);
+  };
+
+  const normalizeBytes = (value: Uint8Array | string | { bytes: Uint8Array }): Uint8Array => {
+    if (value instanceof Uint8Array) return value;
+    if (typeof value === "string") {
+      if (isHex(value)) return hexToBytes(value);
+      return new TextEncoder().encode(value);
+    }
+    return value.bytes;
+  };
+
   const eth = (globalThis as any)?.ethereum;
   if (!eth) throw new Error("wallet not available");
   const walletClient = createWalletClient({ chain: fluentTestnet, transport: custom(eth) });
+  const bidPerCellWei = normalizeBigInt(args.bidPerCellWei);
+  const cidBytes = normalizeBytes(args.cidBytes);
+  const cidHex = toHex(cidBytes);
   const cellsWide = Math.ceil(args.rect.w / 32);
   const cellsHigh = Math.ceil(args.rect.h / 32);
   const cells = Math.max(1, cellsWide * cellsHigh);
-  const value = BigInt(cells) * args.bidPerCellWei;
+  const value = BigInt(cells) * bidPerCellWei;
 
   const txHash = await walletClient.writeContract({
     account: args.bidder,
@@ -59,8 +102,8 @@ export async function writeProposePlacement(args: {
       args.rect.y,
       args.rect.w,
       args.rect.h,
-      args.bidPerCellWei,
-      args.cidBytes,
+      bidPerCellWei,
+      cidHex,
     ],
     value,
   });

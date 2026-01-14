@@ -21,7 +21,8 @@
     "vm:smoke": "tsx scripts/loreboardVM-call.ts",
     "verify:latest": "tsx scripts/verify-latest-manifest.ts",
     "demo:one": "pnpm vm:smoke && pnpm tsx scripts/e2e-step3.ts && pnpm verify:latest",
-    "e2e:board": "tsx scripts/e2e-step3-boardv1.ts"
+    "e2e:board": "tsx scripts/e2e-step3-boardv1.ts",
+    "debug:receipt": "tsx scripts/debug-receipt-logs.ts"
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "2.1.6",

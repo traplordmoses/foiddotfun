@@ -216,7 +216,7 @@ async function main() {
 
   const value = bidPerCellWei * BigInt(cells);
 
-  console.log("== E2E Step 3 (BoardV1 + VotingV2) ==");
+  console.log("== E2E Step 3 (BoardV2 + VotingV2) ==");
   console.log("proposer:", proposerAccount.address);
   console.log("rect:", rect);
   console.log("cells:", cells);
@@ -232,9 +232,19 @@ async function main() {
     value,
   });
 
+  console.log("proposeTx:", proposeHash);
+
   const receipt = await publicClient.waitForTransactionReceipt({
     hash: proposeHash,
   });
+
+  console.log("proposeBlock:", receipt.blockNumber);
+  for (const log of receipt.logs) {
+    console.log("receiptLog:", {
+      address: log.address,
+      topic0: log.topics[0],
+    });
+  }
 
   const proposeLog = receipt.logs.find(
     (entry) => entry.address.toLowerCase() === boardAddress!.toLowerCase()
@@ -305,7 +315,7 @@ async function main() {
     throw new Error("Unexpected vote counts");
   }
 
-  console.log("\nOK: BoardV1 + VotingV2 flow complete");
+  console.log("\nOK: BoardV2 + VotingV2 flow complete");
 }
 
 main().catch((err) => {

@@ -1,5 +1,5 @@
 // src/hooks/useVoteOnPlacement.ts
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import {
   LOREBOARD_VOTING_ADDRESS,
@@ -19,6 +19,18 @@ const isBytes32Hex = (value?: string): value is PlacementId =>
 
 export function useVoteOnPlacement({ epochId, placementId }: UseVoteOnPlacementParams) {
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
+  const hasShortVote = useMemo(
+    () =>
+      Array.isArray(loreboardVotingAbi) &&
+      loreboardVotingAbi.some(
+        (entry) =>
+          (entry as any)?.type === "function" &&
+          (entry as any)?.name === "voteOnPlacement" &&
+          Array.isArray((entry as any)?.inputs) &&
+          (entry as any).inputs.length === 2
+      ),
+    []
+  );
 
   const {
     writeContractAsync,
@@ -35,33 +47,51 @@ export function useVoteOnPlacement({ epochId, placementId }: UseVoteOnPlacementP
   });
 
   const voteOnChain = useCallback(async (support: boolean) => {
-    if (epochId === undefined || !isBytes32Hex(placementId)) {
+    if (!isBytes32Hex(placementId)) {
       throw new Error(
-        "Missing chainId bytes32 or epochId; propose response didn't include it or UI didn't persist it."
+        "Missing chainId bytes32; propose response didn't include it or UI didn't persist it."
       );
     }
 
-    const epochNumber = typeof epochId === "bigint" ? Number(epochId) : epochId;
-    if (!Number.isFinite(epochNumber)) {
+    const epochNumber =
+      epochId === undefined
+        ? undefined
+        : typeof epochId === "bigint"
+        ? Number(epochId)
+        : epochId;
+    if (epochNumber !== undefined && !Number.isFinite(epochNumber)) {
       throw new Error("Invalid epochId");
     }
+
+    const bootstrapPayload = hasShortVote
+      ? { placementId }
+      : { epochId: epochNumber ?? 0, placementId };
 
     const bootstrapRes = await fetch("/api/voting/bootstrap", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ epochId: epochNumber, placementId }),
+      body: JSON.stringify(bootstrapPayload),
     });
     if (!bootstrapRes.ok) {
       const body = await bootstrapRes.json().catch(() => ({}));
       throw new Error(body?.error ?? "Failed to bootstrap epoch/placement");
     }
 
-    const hash = await writeContractAsync({
-      address: LOREBOARD_VOTING_ADDRESS,
-      abi: loreboardVotingAbi,
-      functionName: "voteOnPlacement",
-      args: [BigInt(epochNumber), placementId, support],
-    });
+    const hash = await writeContractAsync(
+      hasShortVote
+        ? {
+            address: LOREBOARD_VOTING_ADDRESS,
+            abi: loreboardVotingAbi,
+            functionName: "voteOnPlacement",
+            args: [placementId, support],
+          }
+        : {
+            address: LOREBOARD_VOTING_ADDRESS,
+            abi: loreboardVotingAbi,
+            functionName: "voteOnPlacement",
+            args: [BigInt(epochNumber ?? 0), placementId, support],
+          }
+    );
     setTxHash(hash);
     return hash;
   }, [epochId, placementId, writeContractAsync]);
