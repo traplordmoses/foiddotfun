@@ -1,11 +1,10 @@
 import "./globals.css";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Providers } from "@/providers";
-import Nav from "@/components/Nav";
-import { ConnectBar } from "@/components/ConnectBar";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import SfxInitializer from "@/components/SfxInitializer";
 import FairyDustCursor from "@/components/FairyDustCursor";
+import AppChrome from "@/components/AppChrome";
 
 // app/layout.tsx (or wherever your metadata lives)
 export const metadata = {
@@ -29,20 +28,20 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="theme-color" content="#0e0f2b" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap"
+          rel="stylesheet"
+        />
       </head>
-      <body className="relative h-full min-h-screen bg-black font-secondary">
+      <body className="relative h-full min-h-screen font-secondary">
         <AnimatedBackground />
         <div className="scene-tint" />
         <Providers>
           <SfxInitializer />
           <FairyDustCursor />
-          <div className="relative z-10 pt-[env(safe-area-inset-top)]">
-            <Nav />
-            <div className="mx-auto max-w-7xl px-4">
-              <ConnectBar />
-              {children}
-            </div>
-          </div>
+          <AppChrome>{children}</AppChrome>
         </Providers>
       </body>
     </html>
