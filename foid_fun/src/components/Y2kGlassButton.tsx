@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ReactNode, useState, MouseEvent } from "react";
+import useAeroSounds from "./useAeroSounds";
 
 function prettyLabel(raw: string) {
   return raw.replaceAll("_", " ");
@@ -23,6 +24,7 @@ export default function Y2kGlassButton({
   const text = prettyLabel(label);
   const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
   const [isHovered, setIsHovered] = useState(false);
+  const { playHover, playClick } = useAeroSounds();
 
   const handleMouseMove = (e: MouseEvent<HTMLAnchorElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -32,14 +34,24 @@ export default function Y2kGlassButton({
     });
   };
 
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    playHover();
+  };
+
+  const handleClick = () => {
+    playClick();
+  };
+
   const isPrimary = variant === "pink";
 
   return (
     <Link
       href={href}
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setIsHovered(false)}
       onMouseMove={handleMouseMove}
+      onClick={handleClick}
       className={[
         "group relative block w-full",
         "h-[78px] rounded-[26px]",
@@ -59,16 +71,16 @@ export default function Y2kGlassButton({
               rgba(200, 70, 130, 0.55) 75%,
               rgba(170, 60, 120, 0.6) 100%)`
           : `linear-gradient(135deg, 
-              rgba(230, 190, 210, 0.45) 0%, 
-              rgba(210, 160, 190, 0.4) 25%,
-              rgba(190, 140, 170, 0.45) 50%,
-              rgba(170, 120, 150, 0.5) 75%,
-              rgba(150, 100, 140, 0.55) 100%)`,
+              rgba(240, 200, 220, 0.5) 0%, 
+              rgba(220, 170, 195, 0.45) 25%,
+              rgba(200, 150, 175, 0.5) 50%,
+              rgba(185, 135, 160, 0.55) 75%,
+              rgba(170, 120, 150, 0.6) 100%)`,
         backdropFilter: "blur(24px) saturate(1.3)",
         WebkitBackdropFilter: "blur(24px) saturate(1.3)",
-        border: `1px solid ${isPrimary 
-          ? "rgba(255, 210, 230, 0.5)" 
-          : "rgba(230, 200, 220, 0.45)"}`,
+        border: `1px solid ${
+          isPrimary ? "rgba(255, 210, 230, 0.5)" : "rgba(255, 220, 235, 0.5)"
+        }`,
         boxShadow: isHovered
           ? `
               0 12px 40px rgba(200, 100, 150, 0.45),
@@ -85,7 +97,6 @@ export default function Y2kGlassButton({
             `,
       }}
     >
-      {/* Top liquid surface reflection - the key Frutiger Aero look */}
       <span
         className="pointer-events-none absolute top-0 left-0 right-0 h-[45%] rounded-t-[25px]"
         style={{
@@ -97,11 +108,12 @@ export default function Y2kGlassButton({
         }}
       />
 
-      {/* Dynamic light refraction following mouse - like light through water */}
       <span
         className="pointer-events-none absolute inset-0 rounded-[25px] transition-opacity duration-200"
         style={{
-          background: `radial-gradient(ellipse 70% 90% at ${mousePos.x * 100}% ${mousePos.y * 100}%, 
+          background: `radial-gradient(ellipse 70% 90% at ${mousePos.x * 100}% ${
+            mousePos.y * 100
+          }%, 
             rgba(255, 255, 255, 0.5) 0%, 
             rgba(255, 230, 245, 0.25) 35%,
             transparent 65%)`,
@@ -109,7 +121,6 @@ export default function Y2kGlassButton({
         }}
       />
 
-      {/* Inner glass rim */}
       <span
         className="pointer-events-none absolute inset-[2px] rounded-[24px]"
         style={{
@@ -118,7 +129,6 @@ export default function Y2kGlassButton({
         }}
       />
 
-      {/* Caustic light effect at bottom - like light patterns in water */}
       <span
         className="pointer-events-none absolute bottom-0 left-[15%] right-[15%] h-[30%] rounded-b-[24px]"
         style={{
@@ -128,7 +138,6 @@ export default function Y2kGlassButton({
         }}
       />
 
-      {/* Shimmer sweep on hover */}
       <span
         className={[
           "pointer-events-none absolute -inset-y-10 left-[-70%] w-[60%]",
@@ -143,7 +152,6 @@ export default function Y2kGlassButton({
         }}
       />
 
-      {/* Subtle bubble highlights */}
       <span
         className="pointer-events-none absolute left-[12%] top-[22%] w-3 h-3 rounded-full"
         style={{
@@ -164,7 +172,6 @@ export default function Y2kGlassButton({
         }}
       />
 
-      {/* Edge highlight - right side refraction */}
       <span
         className="pointer-events-none absolute right-0 top-4 bottom-4 w-[2px]"
         style={{
@@ -202,16 +209,30 @@ export default function Y2kGlassButton({
             "select-none truncate",
           ].join(" ")}
           style={{
-            color: isPrimary ? "rgba(175, 255, 225, 0.95)" : "rgba(60, 35, 50, 0.9)",
-            textShadow: isPrimary
-              ? "0 0 18px rgba(120,255,220,0.35), 0 2px 0 rgba(0,0,0,0.2)"
-              : "0 1px 1px rgba(255, 255, 255, 0.5)",
+            color: "rgba(175, 255, 225, 0.95)",
+            textShadow: "0 0 18px rgba(120,255,220,0.35), 0 2px 0 rgba(0,0,0,0.22)",
           }}
         >
           {text}
         </div>
       </div>
 
+      <span
+        className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full"
+        style={{
+          background: `
+            radial-gradient(circle at 30% 30%, rgba(255,255,255,0.5) 0%, transparent 55%),
+            radial-gradient(circle at 70% 70%, rgba(255,180,220,0.25) 0%, transparent 50%),
+            linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,200,220,0.12) 100%)
+          `,
+          border: "1px solid rgba(255,255,255,0.28)",
+          boxShadow: `
+            inset 0 2px 4px rgba(255,255,255,0.35),
+            inset 0 -1px 3px rgba(200,100,150,0.15),
+            0 8px 20px rgba(0,0,0,0.12)
+          `,
+        }}
+      />
     </Link>
   );
 }

@@ -2,6 +2,7 @@ import "./globals.css";
 import type { ReactNode } from "react";
 import { Providers } from "@/providers";
 import AnimatedBackground from "@/components/AnimatedBackground";
+import FloatingElements from "@/components/FloatingElements";
 import SfxInitializer from "@/components/SfxInitializer";
 import FairyDustCursor from "@/components/FairyDustCursor";
 import AppChrome from "@/components/AppChrome";
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body className="relative h-full min-h-screen font-secondary">
         <AnimatedBackground />
+        <FloatingElements />
         <div className="scene-tint" />
         <Providers>
           <SfxInitializer />

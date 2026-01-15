@@ -296,971 +296,611 @@
 }
 
 @layer components {
+  /* =====================================================
+     LIQUID GLASS SYSTEM - True Transparency
+     Replace your vista-window styles with these
+     ===================================================== */
+
+  /* =====================================================
+     LIQUID GLASS SYSTEM - Fixed Sizing
+     Replace your vista-window and foid-title styles in globals.css
+     ===================================================== */
+
+  /* ===== LIQUID GLASS WINDOW ===== */
   .vista-window {
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
-    padding: 1.3rem 1.5rem 1.6rem;
-    border-radius: 1.875rem;
-    background: var(--vista-pane);
-    border: 1px solid var(--vista-border);
+    gap: 0;
+    padding: 0;
+    border-radius: 18px;
+
+    /* Liquid glass */
+    background: rgba(60, 130, 180, 0.35);
+    backdrop-filter: blur(24px) saturate(1.3);
+    -webkit-backdrop-filter: blur(24px) saturate(1.3);
+
+    /* Border */
+    border: 1px solid rgba(255, 255, 255, 0.25);
+
+    /* Shadow */
     box-shadow:
-      var(--vista-shadow),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.1),
-      inset 0 -1px 0 rgba(8, 34, 80, 0.5);
-    color: var(--vista-text);
-    backdrop-filter: blur(32px) saturate(1.5);
-    -webkit-backdrop-filter: blur(32px) saturate(1.5);
-    isolation: isolate;
+      0 20px 50px rgba(0, 40, 80, 0.35),
+      0 8px 20px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+
+    color: rgba(255, 255, 255, 0.95);
     overflow: hidden;
+    isolation: isolate;
+
+    transition:
+      transform 0.3s ease,
+      box-shadow 0.3s ease,
+      border-color 0.3s ease;
   }
 
+  .vista-window:hover {
+    border-color: rgba(255, 255, 255, 0.35);
+    box-shadow:
+      0 24px 60px rgba(0, 60, 120, 0.4),
+      0 10px 25px rgba(0, 0, 0, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      0 0 50px rgba(100, 180, 255, 0.12);
+  }
+
+  /* Top shine */
   .vista-window::before {
     content: "";
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 45%;
+    border-radius: 18px 18px 0 0;
+    background: linear-gradient(180deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.04) 50%,
+      transparent 100%);
     pointer-events: none;
-    border-radius: inherit;
-    background:
-      linear-gradient(180deg, rgba(140, 220, 255, 0.12), rgba(110, 210, 255, 0.06) 50%, rgba(110, 120, 255, 0.12)),
-      linear-gradient(135deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.06) 48%, rgba(255, 255, 255, 0) 70%),
-      linear-gradient(110deg, rgba(255, 120, 210, 0.1) 0%, rgba(120, 230, 255, 0.1) 46%, rgba(120, 255, 200, 0.08) 70%, transparent 100%);
-    opacity: 0.85;
+    z-index: 1;
   }
 
   .vista-window::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image: var(--vista-clipart);
-    opacity: 0.18;
-    mix-blend-mode: screen;
-    animation: vista-glitter 18s linear infinite;
+    display: none;
   }
 
+  .vista-window--compact {
+    gap: 0;
+  }
+
+  .vista-window--media .vista-window__body {
+    padding: 6px;
+  }
+
+  /* Image container inside media window */
+  .vista-window--media .vista-window__body > div {
+    padding: 6px !important;
+  }
+
+  /* ===== TITLEBAR - Compact & Sleek ===== */
   .vista-window__titlebar {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 10px 12px;
-    margin: -1.3rem -1.5rem 0;
-    min-height: 44px;
-    background: #50acec;
+    gap: 10px;
+    padding: 8px 12px;
+    min-height: 40px;
+
+    /* Bright blue glass */
+    background: linear-gradient(180deg,
+      rgba(95, 175, 235, 0.95) 0%,
+      rgba(65, 145, 215, 0.92) 50%,
+      rgba(45, 125, 195, 0.95) 100%);
+
+    border-bottom: 1px solid rgba(0, 50, 100, 0.25);
     box-shadow:
-      inset 0 1px 0 var(--vista-titlebar-border),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-      0 6px 16px rgba(11, 56, 122, 0.4);
-    border-bottom: 1px solid rgba(0, 32, 74, 0.58);
-    color: #f6fbff;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-size: 0.8rem;
+      inset 0 1px 0 rgba(255, 255, 255, 0.45),
+      inset 0 2px 3px rgba(255, 255, 255, 0.15),
+      0 1px 4px rgba(0, 40, 80, 0.2);
+
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 11px;
     font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     z-index: 2;
-    overflow: hidden;
   }
 
+  /* Titlebar shine */
   .vista-window__titlebar::before {
     content: "";
     position: absolute;
-    inset: 0;
+    top: 1px;
+    left: 10%;
+    right: 10%;
+    height: 35%;
+    border-radius: 0 0 50% 50%;
+    background: linear-gradient(180deg,
+      rgba(255, 255, 255, 0.45) 0%,
+      rgba(255, 255, 255, 0.1) 100%);
     pointer-events: none;
-    background: linear-gradient(90deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.06) 32%, rgba(255, 255, 255, 0.18) 68%, rgba(255, 255, 255, 0.1));
-    opacity: 0.65;
-    mix-blend-mode: screen;
   }
 
   .vista-window__titlebar::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.58), transparent 60%);
-    opacity: 0.78;
+    display: none;
   }
 
-  /* =========================
-     FOID: unified titlebars
-     ========================= */
-  .vista-window .vista-window__titlebar {
-    height: 56px;
-    padding: 10px 14px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: #50acec;
-    border-bottom: 1px solid rgba(255,255,255,0.14);
-    backdrop-filter: blur(22px) saturate(1.35);
-    -webkit-backdrop-filter: blur(22px) saturate(1.35);
-  }
-
-  .vista-window--compact .vista-window__titlebar {
-    height: 56px;
-    padding: 10px 14px;
-  }
-
-  .vista-window .vista-window__controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    height: 24px;
-  }
-
-  .vista-window .vista-window__title {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 12px;
-    line-height: 1;
-    letter-spacing: 0.26em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.8);
-    text-shadow: 0 1px 0 rgba(0,0,0,0.25);
-  }
-
-  .vista-window .vista-window__titlebar > .ml-auto {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-  }
-
+  /* ===== WINDOW CONTROLS - Compact Animated Orbs ===== */
   .vista-window__controls {
-    height: 24px;
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 6px;
+    z-index: 3;
   }
 
   .vista-window__control {
-    width: 0.75rem;
-    height: 0.75rem;
-    border-radius: 9999px;
+    position: relative;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    cursor: pointer;
+
+    animation: controlPulse 3s ease-in-out infinite;
+
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.68),
-      0 0 0 1px rgba(0, 32, 72, 0.35),
-      0 4px 8px rgba(0, 0, 0, 0.3);
-  }
+      inset 0 2px 2px rgba(255, 255, 255, 0.5),
+      inset 0 -1px 2px rgba(0, 0, 0, 0.15),
+      0 1px 4px rgba(0, 0, 0, 0.25),
+      0 0 6px var(--control-glow, transparent);
 
-  .vista-window__control--minimize {
-    background: var(--vista-control-blue);
-  }
-
-  .vista-window__control--restore {
-    background: var(--vista-control-green);
+    transition:
+      transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 0.2s ease;
   }
 
   .vista-window__control--close {
-    background: var(--vista-control-red);
+    background: linear-gradient(180deg, #ff7a8a 0%, #ff4d5e 50%, #e8354a 100%);
+    --control-glow: rgba(255, 77, 94, 0.4);
   }
 
+  .vista-window__control--minimize {
+    background: linear-gradient(180deg, #7ab8ff 0%, #4a9eff 50%, #3085e8 100%);
+    --control-glow: rgba(74, 158, 255, 0.4);
+  }
+
+  .vista-window__control--restore {
+    background: linear-gradient(180deg, #8aeba5 0%, #4ade80 50%, #30c060 100%);
+    --control-glow: rgba(74, 222, 128, 0.4);
+  }
+
+  .vista-window__control::before {
+    content: "";
+    position: absolute;
+    top: 1px;
+    left: 20%;
+    right: 20%;
+    height: 35%;
+    border-radius: 50%;
+    background: linear-gradient(180deg,
+      rgba(255, 255, 255, 0.75) 0%,
+      rgba(255, 255, 255, 0.2) 100%);
+    pointer-events: none;
+  }
+
+  .vista-window__control:hover {
+    transform: scale(1.25);
+    animation: controlHoverPulse 0.5s ease-in-out infinite;
+    box-shadow:
+      inset 0 2px 2px rgba(255, 255, 255, 0.6),
+      inset 0 -1px 2px rgba(0, 0, 0, 0.15),
+      0 2px 6px rgba(0, 0, 0, 0.3),
+      0 0 14px var(--control-glow),
+      0 0 20px var(--control-glow);
+  }
+
+  .vista-window__control:active {
+    transform: scale(0.9);
+    animation: none;
+  }
+
+  @keyframes controlPulse {
+    0%, 100% {
+      box-shadow:
+        inset 0 2px 2px rgba(255, 255, 255, 0.5),
+        inset 0 -1px 2px rgba(0, 0, 0, 0.15),
+        0 1px 4px rgba(0, 0, 0, 0.25),
+        0 0 5px var(--control-glow, transparent);
+    }
+    50% {
+      box-shadow:
+        inset 0 2px 2px rgba(255, 255, 255, 0.6),
+        inset 0 -1px 2px rgba(0, 0, 0, 0.15),
+        0 1px 4px rgba(0, 0, 0, 0.25),
+        0 0 10px var(--control-glow, transparent);
+    }
+  }
+
+  @keyframes controlHoverPulse {
+    0%, 100% { transform: scale(1.25); }
+    50% { transform: scale(1.3); }
+  }
+
+  /* ===== WINDOW TITLE ===== */
   .vista-window__title {
-    position: relative;
     display: flex;
     align-items: center;
-    gap: 0.55rem;
-    flex: 1 1 auto;
-    font-size: 12px;
-    line-height: 1;
-    letter-spacing: 0.22em;
+    gap: 6px;
+    flex: 1;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.95);
     text-shadow:
-      0 1px 0 rgba(0, 0, 0, 0.4),
-      0 0 6px rgba(255, 255, 255, 0.35);
+      0 1px 2px rgba(0, 40, 80, 0.35),
+      0 0 8px rgba(255, 255, 255, 0.15);
   }
 
   .vista-window__title > span[aria-hidden="true"] {
-    font-size: 1.1rem;
-    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35));
+    font-size: 14px;
   }
 
-  .vista-window__badge {
+  /* Make the icon container smaller */
+  .vista-window__title .inline-flex {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  .vista-window__title .inline-flex img {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  /* ===== WINDOW BODY ===== */
+  .vista-window__body {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+
+    background: rgba(30, 80, 130, 0.2);
+
+    box-shadow:
+      inset 0 1px 6px rgba(0, 30, 60, 0.25);
+
+    color: rgba(255, 255, 255, 0.92);
+    z-index: 1;
+    min-height: 0;
+  }
+
+  .vista-window__body--flush {
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .vista-window__body::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 8%;
+    right: 8%;
+    height: 1px;
+    background: linear-gradient(90deg,
+      transparent,
+      rgba(150, 210, 255, 0.25) 50%,
+      transparent);
+    pointer-events: none;
+  }
+
+  /* =====================================================
+     RIGHT PANEL CONTENT SPACING
+     ===================================================== */
+
+  /* Right panel body - use flexbox to distribute space */
+  .vista-window--compact .vista-window__body {
+    padding: 14px;
+    gap: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Button container - centered between titlebar and music */
+  .vista-window--compact .launcher-buttons {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 10px 6px 14px;
+  }
+
+  /* Button gap */
+  .vista-window--compact .launcher-buttons .flex.flex-col.gap-4 {
+    gap: 26px;
+  }
+
+  /* Music panel area - pinned to bottom */
+  .vista-window--compact .launcher-music {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* =====================================================
+     FOID TITLE BANNER
+     ===================================================== */
+
+  .foid-title {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.3rem 0.6rem;
-    border-radius: 999px;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(168, 244, 255, 0.9));
-    color: #104b86;
-    font-size: 0.8rem;
+    padding: 10px 26px;
+    border-radius: 9999px;
+
+    background: rgba(70, 140, 195, 0.45);
+    backdrop-filter: blur(28px) saturate(1.3);
+    -webkit-backdrop-filter: blur(28px) saturate(1.3);
+
+    border: 1px solid rgba(255, 255, 255, 0.35);
+
     box-shadow:
-      0 12px 22px rgba(0, 0, 0, 0.35),
-      inset 0 1px 0 rgba(255, 255, 255, 0.75);
-    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
-    animation: vista-badge-pulse 7s ease-in-out infinite;
-    transition: transform 160ms ease, box-shadow 160ms ease;
-  }
+      0 16px 45px rgba(0, 70, 140, 0.4),
+      0 6px 16px rgba(0, 0, 0, 0.18),
+      0 0 70px rgba(100, 180, 255, 0.22),
+      0 0 100px rgba(170, 100, 255, 0.12);
 
-  .vista-window__badge:hover {
-    transform: translateY(-1px);
-    box-shadow:
-      0 14px 26px rgba(0, 0, 0, 0.38),
-      inset 0 1px 0 rgba(255, 255, 255, 0.82);
-  }
-
-  .vista-window__body {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    color: var(--vista-text);
-    text-shadow:
-      0 1px 1px rgba(0, 0, 0, 0.38),
-      0 0 18px rgba(8, 48, 96, 0.52);
-  }
-
-  .vista-window__body p {
-    color: var(--vista-text-soft);
-    letter-spacing: 0.01em;
-  }
-
-  .vista-window__body strong,
-  .vista-window__body b {
-    color: #d9f6ff;
-  }
-
-  .vista-window__body ol {
-    list-style: decimal;
-    padding-left: 1.35rem;
-    color: var(--vista-text-soft);
-  }
-
-  .vista-window__body ol li {
-    padding-left: 0.15rem;
-  }
-
-  .vista-window__body--flush {
-    padding: 0;
-  }
-
-  .vista-window__body--flush {
-    border: 0 !important;
-    box-shadow: none !important;
-    background: transparent !important;
-    padding: 0 !important;
-  }
-
-  .vista-window--media .vista-window__body {
-    padding: 0;
-    overflow: hidden;
-    border-radius: inherit;
-    box-shadow: inset 0 0 0 1px rgba(175, 230, 255, 0.22);
-  }
-
-  .vista-window--media img,
-  .vista-window--media picture,
-  .vista-window--media video {
-    display: block;
-    width: 100%;
-    height: auto;
-  }
-
-  .vista-window--terminal .vista-window__body {
-    padding: 0;
-    flex: 1 1 auto;
-  }
-
-  .vista-window--terminal .frutiger-terminal {
-    border-radius: 0.85rem;
-    border: 1px solid rgba(132, 222, 255, 0.28);
-    background:
-      radial-gradient(140% 100% at 15% -10%, rgba(175, 242, 255, 0.18), transparent 70%),
-      linear-gradient(195deg, rgba(10, 38, 70, 0.95), rgba(3, 14, 32, 0.98));
-    box-shadow:
-      inset 0 0 28px rgba(0, 12, 24, 0.9),
-      0 16px 32px rgba(0, 0, 0, 0.4);
-  }
-
-  .vista-window--compact {
-    padding: 1.2rem 1.4rem 1.45rem;
-  }
-
-  .vista-window--compact .vista-window__titlebar {
-    margin: -1.2rem -1.4rem 0.9rem;
-  }
-
-  .vista-window--compact .vista-window__titlebar {
-    min-height: 44px;
-    padding: 10px 12px;
-  }
-
-  .vista-window--compact .vista-window__body {
-    gap: 0.75rem;
-  }
-
-  .vista-window--frosted {
-    background: var(--vista-pane-alt);
-  }
-
-  .vista-window--hero {
-    gap: 1.4rem;
-  }
-
-  .vista-window--hero .vista-window__body {
-    align-items: center;
-    text-align: center;
-  }
-
-  .vista-window--hero p {
-    max-width: 32ch;
-    color: rgba(226, 244, 255, 0.9);
-  }
-
-  .vista-window--hero .vista-window__badge {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(180, 255, 250, 0.78));
-    color: #0e4d84;
-  }
-
-  .vista-window--info .vista-window__body {
-    gap: 0.85rem;
-  }
-
-  .vista-window--info ol {
-    display: grid;
-    gap: 0.45rem;
-  }
-
-  .vista-window__footer {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-    color: rgba(210, 236, 255, 0.78);
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-  }
-
-  .vista-window__footer::before {
-    content: "";
-    flex: 1;
-    height: 1px;
-    border-radius: 999px;
-    background: linear-gradient(90deg, transparent, rgba(173, 230, 255, 0.45), transparent);
-  }
-
-  .vista-window__footer::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    border-radius: 999px;
-    background: linear-gradient(90deg, transparent, rgba(173, 230, 255, 0.45), transparent);
-  }
-
-  @keyframes vista-glitter {
-    0% {
-      transform: translate3d(0, 0, 0);
-      opacity: 0.22;
-    }
-    50% {
-      transform: translate3d(14px, -10px, 0);
-      opacity: 0.3;
-    }
-    100% {
-      transform: translate3d(-12px, 12px, 0);
-      opacity: 0.22;
-    }
-  }
-
-  @keyframes vista-badge-pulse {
-    0%,
-    100% {
-      transform: translateY(0) scale(1);
-      box-shadow:
-        0 10px 20px rgba(0, 0, 0, 0.35),
-        inset 0 1px 0 rgba(255, 255, 255, 0.75);
-    }
-    50% {
-      transform: translateY(-2px) scale(1.08);
-      box-shadow:
-        0 16px 24px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    }
-  }
-
-  /* ===== common anims ===== */
-@keyframes popIn { 0%{ transform:scale(.8); opacity:0 } 60%{ transform:scale(1.05) } 100%{ transform:scale(1); opacity:1 } }
-@keyframes fadeOut { to { opacity:0; transform:translateY(6px) scale(.98) } }
-@media (prefers-reduced-motion: reduce){
-  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
-}
-
-
-  @media (prefers-reduced-motion: reduce) {
-    .vista-window::after {
-      animation: none;
-    }
-  }
-
-  .vista-window a {
-    color: #c1e8ff;
-  }
-
-  .vista-window a:hover {
-    color: #fff;
-  }
-
-  .vista-window h1,
-  .vista-window h2,
-  .vista-window h3 {
-    color: #f9fcff;
-    text-shadow:
-      0 2px 8px rgba(0, 40, 92, 0.48),
-      0 1px 0 rgba(255, 255, 255, 0.3);
-  }
-
-  .vista-window h3 {
-    font-size: 0.82rem;
-    letter-spacing: 0.35em;
-  }
-
-  .vista-window .text-foid-mint {
-    color: #9efbca;
-  }
-
-  .vista-window .text-foid-candy {
-    color: #ffd5f6;
-  }
-
-  .vista-window .text-white\/75 {
-    color: rgba(228, 244, 255, 0.8);
-  }
-
-  .vista-window .text-white\/85 {
-    color: rgba(236, 249, 255, 0.88);
-  }
-
-  .vista-window .text-white\/90 {
-    color: rgba(242, 252, 255, 0.92);
-  }
-
-  .vista-window .text-foid-mint\/80 {
-    color: rgba(170, 255, 214, 0.9);
-  }
-
-  .vista-window__stats {
-    margin-top: 0.85rem;
-    padding-top: 0.85rem;
-    border-top: 1px solid rgba(182, 234, 255, 0.22);
-    box-shadow: inset 0 1px 0 rgba(10, 32, 64, 0.28);
-  }
-
-  /* Legacy glass styles retained for reference
-  .foid-glass,
-  .card {
-    background:
-      linear-gradient(160deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.08) 100%),
-      linear-gradient(140deg, rgba(8, 26, 52, 0.18) 0%, rgba(8, 26, 52, 0.05) 100%);
-    border: 1px solid var(--outline);
-    border-radius: 1.5rem;
-    box-shadow:
-      0 18px 55px rgba(6, 46, 86, 0.32),
-      0 0 0 1px rgba(0, 208, 255, 0.12),
-      inset 0 1px 0 rgba(255, 255, 255, 0.24);
-    backdrop-filter: blur(var(--blur)) saturate(1.15);
-    position: relative;
-    overflow: hidden;
+    overflow: visible;
     isolation: isolate;
+    animation: titleFloat 5s ease-in-out infinite;
   }
 
-  .foid-glass::before,
-  .card::before {
+  /* Aurora glow */
+  .foid-title::before {
     content: "";
     position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(180deg, rgba(14, 15, 43, 0.58), rgba(14, 15, 43, 0.18));
-    opacity: 0.42;
-    mix-blend-mode: multiply;
-    transition: opacity 240ms ease;
-  }
-
-  .foid-glass:hover::before,
-  .card:hover::before {
-    opacity: 0.55;
-  }
-
-  .foid-glass > *,
-  .card > * {
-    position: relative;
-    z-index: 1;
-  }
-
-  .card {
-    padding: 1.5rem;
-  }
-  */
-
-  .frutiger-terminal {
-    position: relative;
-    border-radius: inherit;
-    overflow: hidden;
+    inset: -45px -70px;
+    border-radius: 50%;
     background:
-      radial-gradient(120% 160% at 50% -30%, rgba(120, 230, 255, 0.32), transparent 68%),
-      linear-gradient(188deg, rgba(8, 44, 88, 0.88), rgba(4, 18, 36, 0.94));
-    border: 1px solid rgba(116, 226, 255, 0.28);
+      radial-gradient(ellipse 50% 50% at 25% 50%,
+        rgba(100, 200, 255, 0.4) 0%,
+        transparent 60%),
+      radial-gradient(ellipse 40% 40% at 75% 50%,
+        rgba(200, 100, 255, 0.35) 0%,
+        transparent 60%),
+      radial-gradient(ellipse 50% 35% at 50% 75%,
+        rgba(255, 150, 200, 0.28) 0%,
+        transparent 60%);
+    filter: blur(32px);
+    opacity: 0.85;
+    z-index: -1;
+    animation: auroraShift 7s ease-in-out infinite;
+  }
+
+  /* Left orb */
+  .foid-title::after {
+    content: "";
+    position: absolute;
+    left: -26px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+
+    background:
+      radial-gradient(circle at 30% 30%,
+        rgba(255, 255, 255, 0.95) 0%,
+        rgba(255, 255, 255, 0.5) 20%,
+        transparent 50%),
+      radial-gradient(circle at 50% 50%,
+        rgba(150, 220, 255, 0.4) 0%,
+        rgba(100, 180, 255, 0.2) 50%,
+        transparent 70%);
+
+    border: 1px solid rgba(255, 255, 255, 0.35);
     box-shadow:
-      inset 0 0 32px rgba(2, 12, 28, 0.92),
-      inset 0 0 0 1px rgba(0, 206, 255, 0.2);
-    color: rgba(220, 244, 255, 0.94);
-    isolation: isolate;
-    backdrop-filter: blur(6px) saturate(1.2);
-    -webkit-backdrop-filter: blur(6px) saturate(1.2);
+      0 0 22px rgba(100, 200, 255, 0.5),
+      inset 0 0 12px rgba(255, 255, 255, 0.3);
+
+    animation: orbBobble 3s ease-in-out infinite;
   }
 
-  .frutiger-terminal::before {
-    content: "";
+  .foid-title__rim {
+    display: none !important;
+  }
+
+  .foid-title__highlight {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    border-radius: 9999px 9999px 100% 100%;
+    background: linear-gradient(180deg,
+      rgba(255, 255, 255, 0.25) 0%,
+      rgba(255, 255, 255, 0.08) 40%,
+      transparent 100%);
     pointer-events: none;
-    background: linear-gradient(180deg, rgba(120, 230, 255, 0.28), transparent 65%);
-    mix-blend-mode: screen;
-    opacity: 0.8;
   }
 
-  .frutiger-terminal::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      repeating-linear-gradient(
-        to bottom,
-        rgba(255, 255, 255, 0.045),
-        rgba(255, 255, 255, 0.045) 1px,
-        transparent 1px,
-        transparent 3px
-      );
-    opacity: 0.16;
-    mix-blend-mode: overlay;
-  }
-
-  .frutiger-terminal .terminal,
-  #foid-terminal {
-    font-family: "VT323", ui-monospace, monospace !important;
-    font-size: clamp(19px, 18px + 0.4vw, 22px);
-    color: rgba(223, 246, 255, 0.94);
-    text-shadow:
-      0 0 3px rgba(114, 225, 255, 0.85),
-      0 0 12px rgba(143, 170, 242, 0.28);
-  }
-
-  .frutiger-terminal .terminal {
-    background: transparent !important;
-  }
-
-  .scene-tint {
-    position: fixed;
-    inset: 0;
-    z-index: -12;
-    background: linear-gradient(180deg, rgba(14, 18, 52, 0.58), rgba(11, 46, 78, 0.28));
-  }
-
-  .foid-background {
-    position: fixed;
-    inset: 0;
-    z-index: 0;          /* was -11 */
-    pointer-events: none;
-    overflow: hidden;
-    isolation: isolate;  /* keep halftone blending inside this stack */
-  }
-
-
-  .foid-background--fallback {
-    background:
-      radial-gradient(circle at 20% 20%, rgba(0, 208, 255, 0.32), transparent 55%),
-      radial-gradient(circle at 80% 30%, rgba(255, 105, 180, 0.22), transparent 60%),
-      linear-gradient(180deg, rgba(7, 12, 32, 0.92), rgba(9, 28, 58, 0.86));
-  }
-
-  .foid-bg-layer {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  will-change: transform;
-}
-
-
-  .foid-bg-layer--gl {
-    z-index: 0;
-    filter: saturate(1.16) brightness(1.08);
-  }
-
-  .foid-bg-layer--fx {
-    z-index: 1;
-    mix-blend-mode: screen;
-  }
-
-  /* Halftone layer (top-most print look) */
-  .foid-bg-layer--halftone {
-  z-index: 3;                 /* was 2 */
-  mix-blend-mode: multiply;
-  opacity: 0.35;              /* was 0.22 */
-  pointer-events: none;
-}
-
-
-  /* Legacy CRT container, replaced by .frutiger-terminal
-  .crt {
-    position: relative;
-    border-radius: 18px;
-    overflow: hidden;
-    background:
-      radial-gradient(120% 120% at 50% 0%, rgba(114, 225, 255, 0.18) 0%, rgba(14, 15, 43, 0.92) 68%),
-      linear-gradient(180deg, rgba(11, 46, 78, 0.8), rgba(8, 20, 41, 0.96));
-    border: 1px solid rgba(114, 225, 255, 0.26);
-    box-shadow:
-      inset 0 0 24px rgba(4, 19, 36, 0.9),
-      0 12px 40px rgba(0, 208, 255, 0.2);
-    padding: 22px 24px;
-  }
-
-  .crt .terminal,
-  #foid-terminal {
-    font-family: "VT323", ui-monospace, monospace !important;
-    font-size: 22px;
-    color: #dff6ff;
-    text-shadow:
-      0 0 3px rgba(114, 225, 255, 0.85),
-      0 0 12px rgba(143, 170, 242, 0.35);
-  }
-
-  .crt .terminal {
-    background: transparent !important;
-  }
-
-  .crt::before,
-  .crt::after {
+  .foid-title__haze {
     display: none;
   }
-  */
 
-  .flicker {
-    animation: crt-flicker 2.4s infinite steps(1, end);
+  .foid-title__spec {
+    display: none;
   }
 
-  @keyframes crt-flicker {
-    0% {
-      opacity: 0.98;
-    }
-    10% {
-      opacity: 1;
-    }
-    20% {
-      opacity: 0.99;
-    }
-    30% {
-      opacity: 1;
-    }
-    40% {
-      opacity: 0.985;
-    }
-    100% {
-      opacity: 1;
-    }
+  .foid-title__sweep {
+    position: absolute;
+    inset: -50% -30%;
+    background: linear-gradient(110deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.32) 48%,
+      rgba(255, 255, 255, 0.12) 52%,
+      transparent 70%);
+    transform: translateX(-55%) rotate(8deg);
+    opacity: 0;
+    animation: sweepAcross 6s ease-in-out infinite;
+    pointer-events: none;
   }
 
-  .terminal .cursor {
-    background: var(--glow-aqua) !important;
+  .foid-title__text {
+    position: relative;
+    font-family: var(--font-display, "Orbitron", sans-serif);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: clamp(20px, 2.8vw + 10px, 38px);
+    line-height: 1;
+    z-index: 2;
+
+    background: linear-gradient(180deg,
+      #ffffff 0%,
+      #d5f0ff 35%,
+      #95d5ff 70%,
+      #75b8ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+
+    filter: drop-shadow(0 0 14px rgba(120, 200, 255, 0.45))
+      drop-shadow(0 1px 2px rgba(0, 40, 80, 0.25));
   }
 
-  .terminal .prompt {
-    color: var(--glow-aqua) !important;
-  }
+  /* Right orb */
+  .foid-title__orb-right {
+    position: absolute;
+    right: -20px;
+    top: 28%;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
 
-  .terminal .clipboard,
-  .terminal textarea.clipboard,
-  textarea.clipboard {
-    position: absolute !important;
-    left: -9999px !important;
-    top: auto !important;
-    width: 1px !important;
-    height: 1px !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-    border: 0 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    background: transparent !important;
-    color: transparent !important;
-    resize: none !important;
-  }
+    background:
+      radial-gradient(circle at 30% 30%,
+        rgba(255, 255, 255, 0.9) 0%,
+        rgba(255, 255, 255, 0.4) 25%,
+        transparent 50%),
+      radial-gradient(circle at 50% 50%,
+        rgba(180, 220, 255, 0.3) 0%,
+        transparent 60%);
 
-  .terminal span.clipboard,
-  span.clipboard {
-    display: none !important;
-    position: absolute !important;
-    width: 1px !important;
-    height: 1px !important;
-    overflow: hidden !important;
-    clip: rect(0 0 0 0) !important;
-    clip-path: inset(50%) !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-  }
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 16px rgba(100, 200, 255, 0.4);
 
-  .terminal .cmd {
-    padding-left: 0 !important;
-  }
-
-  .terminal .terminal-hidden,
-  .terminal .terminal-font-forcer {
-    display: none !important;
-  }
-}
-
-/* =====================================================
-   FOID TITLE - LIQUID GLASS BANNER
-   Replace your existing .foid-title styles with these
-   ===================================================== */
-
-.foid-title {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  padding: 1rem 2.5rem;
-  border-radius: 999px;
-
-  /* Liquid glass body */
-  background:
-    linear-gradient(135deg,
-      rgba(255, 255, 255, 0.28) 0%,
-      rgba(200, 230, 255, 0.18) 25%,
-      rgba(120, 190, 230, 0.22) 50%,
-      rgba(60, 140, 200, 0.28) 75%,
-      rgba(40, 100, 160, 0.32) 100%);
-
-  border: 1px solid rgba(255, 255, 255, 0.35);
-
-  box-shadow:
-    0 12px 40px rgba(0, 100, 150, 0.4),
-    0 4px 16px rgba(0, 150, 200, 0.25),
-    inset 0 2px 4px rgba(255, 255, 255, 0.45),
-    inset 0 -4px 10px rgba(0, 50, 100, 0.2),
-    0 0 60px rgba(100, 200, 255, 0.2);
-
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  overflow: visible;
-  isolation: isolate;
-  animation: foidTitlePulse 4s ease-in-out infinite;
-}
-
-/* Top surface reflection - the key liquid glass look */
-.foid-title__highlight {
-  position: absolute;
-  top: 0;
-  left: 10%;
-  right: 10%;
-  height: 50%;
-  border-radius: 999px 999px 50% 50%;
-  pointer-events: none;
-  background: linear-gradient(180deg,
-    rgba(255, 255, 255, 0.5) 0%,
-    rgba(255, 255, 255, 0.25) 40%,
-    rgba(255, 255, 255, 0.05) 70%,
-    transparent 100%);
-  opacity: 0.9;
-}
-
-/* Inner glass rim */
-.foid-title__rim {
-  position: absolute;
-  inset: 2px;
-  border-radius: 999px;
-  pointer-events: none;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: inset 0 0 30px rgba(100, 200, 255, 0.1);
-}
-
-/* Soft mid haze for depth */
-.foid-title__haze {
-  position: absolute;
-  left: 15%;
-  right: 15%;
-  top: 40%;
-  height: 30%;
-  border-radius: 999px;
-  pointer-events: none;
-  background: radial-gradient(120% 100% at 50% 40%,
-    rgba(255, 255, 255, 0.12) 0%,
-    transparent 70%);
-  opacity: 0.8;
-}
-
-/* Bottom caustic light effect */
-.foid-title__spec {
-  position: absolute;
-  left: 20%;
-  right: 20%;
-  bottom: 8px;
-  height: 25%;
-  border-radius: 999px;
-  pointer-events: none;
-  background: radial-gradient(ellipse 100% 100% at 50% 100%,
-    rgba(150, 220, 255, 0.2) 0%,
-    transparent 70%);
-}
-
-/* Light sweep animation */
-.foid-title__sweep {
-  position: absolute;
-  inset: -50% -25%;
-  background: linear-gradient(
-    110deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.35) 45%,
-    rgba(255, 255, 255, 0.15) 55%,
-    transparent 70%
-  );
-  transform: translateX(-50%) rotate(8deg);
-  mix-blend-mode: screen;
-  opacity: 0;
-  animation: foidTitleSweep 5s ease-in-out infinite;
-  pointer-events: none;
-}
-
-/* Main text with icy gradient */
-.foid-title__text {
-  position: relative;
-  font-family: var(--font-display);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.22em;
-  font-size: clamp(22px, 4vw, 40px);
-  line-height: 1;
-
-  /* Icy blue-white gradient */
-  background: linear-gradient(180deg,
-    #ffffff 0%,
-    #e8f4ff 25%,
-    #b0d8ff 55%,
-    #80c0ff 100%);
-  background-size: 100% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-
-  /* Glow effect */
-  filter: drop-shadow(0 0 20px rgba(150, 210, 255, 0.4))
-          drop-shadow(0 2px 4px rgba(0, 50, 100, 0.3));
-}
-
-/* Floating orb decorations - left */
-.foid-title::before {
-  content: "";
-  position: absolute;
-  left: -20px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 30%,
-      rgba(255, 255, 255, 0.7) 0%,
-      rgba(150, 220, 255, 0.4) 40%,
-      rgba(100, 180, 220, 0.2) 100%);
-  box-shadow:
-    inset 0 0 12px rgba(255, 255, 255, 0.5),
-    0 0 20px rgba(100, 200, 255, 0.4);
-  animation: foidOrbBobble 3s ease-in-out infinite;
-}
-
-/* Floating orb decorations - right */
-.foid-title::after {
-  content: "";
-  position: absolute;
-  right: -14px;
-  top: 30%;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 30%,
-      rgba(255, 255, 255, 0.6) 0%,
-      rgba(180, 230, 255, 0.35) 45%,
-      rgba(100, 180, 220, 0.15) 100%);
-  box-shadow:
-    inset 0 0 8px rgba(255, 255, 255, 0.4),
-    0 0 15px rgba(100, 200, 255, 0.3);
-  animation: foidOrbBobble 2.5s ease-in-out infinite 0.5s;
-}
-
-/* XL variant for homepage */
-.foid-title--xl {
-  padding: 1.2rem 3rem;
-}
-
-.foid-title--xl .foid-title__text {
-  font-size: clamp(26px, 5vw, 44px);
-}
-
-/* Animations */
-@keyframes foidTitleSweep {
-  0%, 50%   { transform: translateX(-55%) rotate(8deg); opacity: 0; }
-  60%       { opacity: 0.9; }
-  80%       { transform: translateX(55%) rotate(8deg); opacity: 0.6; }
-  100%      { transform: translateX(65%) rotate(8deg); opacity: 0; }
-}
-
-@keyframes foidOrbBobble {
-  0%, 100% { transform: translateY(-50%) translateX(0); }
-  50%      { transform: translateY(calc(-50% - 8px)) translateX(3px); }
-}
-
-/* Pulsing outer glow */
-@keyframes foidTitlePulse {
-  0%, 100% { box-shadow:
-    0 12px 40px rgba(0, 100, 150, 0.4),
-    0 4px 16px rgba(0, 150, 200, 0.25),
-    inset 0 2px 4px rgba(255, 255, 255, 0.45),
-    inset 0 -4px 10px rgba(0, 50, 100, 0.2),
-    0 0 60px rgba(100, 200, 255, 0.2);
-  }
-  50% { box-shadow:
-    0 14px 45px rgba(0, 100, 150, 0.5),
-    0 6px 20px rgba(0, 150, 200, 0.3),
-    inset 0 2px 4px rgba(255, 255, 255, 0.45),
-    inset 0 -4px 10px rgba(0, 50, 100, 0.2),
-    0 0 80px rgba(100, 200, 255, 0.3);
-  }
-}
-
-/* Responsive adjustments */
-@media (max-width: 640px) {
-  .foid-title {
-    padding: 0.8rem 1.8rem;
-  }
-
-  .foid-title::before {
-    width: 20px;
-    height: 20px;
-    left: -12px;
-  }
-
-  .foid-title::after {
-    width: 14px;
-    height: 14px;
-    right: -8px;
+    animation: orbBobble 2.5s ease-in-out infinite 0.5s;
   }
 
   .foid-title--xl {
-    padding: 0.9rem 2rem;
+    padding: 12px 32px;
   }
-}
 
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .foid-title,
-  .foid-title__sweep,
-  .foid-title::before,
-  .foid-title::after {
-    animation: none !important;
+  .foid-title--xl .foid-title__text {
+    font-size: clamp(22px, 3vw + 12px, 42px);
+  }
+
+  /* ===== ANIMATIONS ===== */
+  @keyframes titleFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+
+  @keyframes auroraShift {
+    0%, 100% {
+      transform: scale(1) rotate(0deg);
+      opacity: 0.85;
+    }
+    33% {
+      transform: scale(1.05) rotate(2deg);
+      opacity: 0.95;
+    }
+    66% {
+      transform: scale(0.97) rotate(-2deg);
+      opacity: 0.75;
+    }
+  }
+
+  @keyframes orbBobble {
+    0%, 100% { transform: translateY(-50%) translateX(0); }
+    50% { transform: translateY(calc(-50% - 7px)) translateX(3px); }
+  }
+
+  @keyframes sweepAcross {
+    0%, 42% { transform: translateX(-55%) rotate(8deg); opacity: 0; }
+    52% { opacity: 0.8; }
+    72% { transform: translateX(55%) rotate(8deg); opacity: 0.45; }
+    100% { transform: translateX(65%) rotate(8deg); opacity: 0; }
+  }
+
+  /* ===== Y2K GLASS BUTTON REFINEMENTS ===== */
+  /* Slightly smaller height for better proportion */
+  .vista-window--compact .group.relative.block.w-full {
+    height: 70px !important;
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 768px) {
+    .vista-window {
+      border-radius: 14px;
+    }
+
+    .vista-window__titlebar {
+      padding: 7px 10px;
+      min-height: 36px;
+      gap: 8px;
+    }
+
+    .vista-window__control {
+      width: 10px;
+      height: 10px;
+    }
+
+    .vista-window__title {
+      font-size: 10px;
+    }
+
+    .vista-window__body {
+      padding: 10px;
+    }
+
+    .foid-title {
+      padding: 8px 20px;
+    }
+
+    .foid-title::after {
+      width: 26px;
+      height: 26px;
+      left: -20px;
+    }
+
+    .foid-title--xl {
+      padding: 9px 24px;
+    }
+  }
+
+  /* ===== REDUCED MOTION ===== */
+  @media (prefers-reduced-motion: reduce) {
+    .vista-window,
+    .vista-window__control,
+    .foid-title,
+    .foid-title::before,
+    .foid-title::after,
+    .foid-title__sweep,
+    .foid-title__orb-right {
+      animation: none !important;
+    }
+  }
+
+  /* ===== FALLBACK ===== */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .vista-window {
+      background: rgba(40, 100, 160, 0.92);
+    }
+
+    .foid-title {
+      background: rgba(50, 120, 180, 0.95);
+    }
   }
 }
 
