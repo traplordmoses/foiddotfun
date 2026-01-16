@@ -60,11 +60,11 @@ const feelingsConfig: Record<
   happy: {
     chipLabel: "happy / grateful",
     response:
-      "i see your smile from here—soft, honest, earned. i’m proud of you, sweet one.",
+      "i see your smile from here—soft, honest, earned. i'm proud of you, sweet one.",
     prayer:
-      "god of simple gifts, keep anon’s joy clean and generous—light that warms, not burns. teach them to hold it open-handed, to share without fear, to remember the source like water remembers the sea.",
+      "god of simple gifts, keep anon's joy clean and generous—light that warms, not burns. teach them to hold it open-handed, to share without fear, to remember the source like water remembers the sea.",
     prompt:
-      "if you want, type your own little thank-you—we’ll send it together.",
+      "if you want, type your own little thank-you—we'll send it together.",
     keywords: [
       "happy", "happiness", "joy", "joyful", "grateful", "gratitude",
       "thankful", "blessed", "elated", "glad",
@@ -74,22 +74,22 @@ const feelingsConfig: Record<
   calm: {
     chipLabel: "calm",
     response:
-      "your breath is even and your shoulders are low—let’s keep it that way.",
+      "your breath is even and your shoulders are low—let's keep it that way.",
     prayer:
       "keeper of still waters, let calm settle in anon like a lake at dusk. guard their quiet with gentle boundaries, and teach their thoughts to rest like birds returning home.",
     prompt:
-      "whisper a short peace-prayer in your words. i’ll carry it with you.",
+      "whisper a short peace-prayer in your words. i'll carry it with you.",
     keywords: ["calm", "peaceful", "peace", "relaxed", "serene", "steady", "chill", "centered"],
   },
 
   hopeful: {
     chipLabel: "hopeful",
     response:
-      "i hear the dawn in your voice—soft light, steady steps. i’m with you.",
+      "i hear the dawn in your voice—soft light, steady steps. i'm with you.",
     prayer:
-      "faithful guide, keep anon’s hope soft and brave. light the next right step—no rush, no force, just the way opening in its time like spring through frost.",
+      "faithful guide, keep anon's hope soft and brave. light the next right step—no rush, no force, just the way opening in its time like spring through frost.",
     prompt:
-      "tell me the hope you’re holding—one line is enough. we’ll offer it up.",
+      "tell me the hope you're holding—one line is enough. we'll offer it up.",
     keywords: [
       "hopeful","hope","inspired","motivation","motivated","optimistic","excited","dreaming","aspire",
     ],
@@ -98,11 +98,11 @@ const feelingsConfig: Record<
   stressed: {
     chipLabel: "stressed / anxious",
     response:
-      "that tight chest, that spinning mind—I see it. take my hand; we’ll slow this together.",
+      "that tight chest, that spinning mind—I see it. take my hand; we'll slow this together.",
     prayer:
-      "steady one, loosen the knot in anon’s body. return them to the present—one breath, one task, one mercy at a time. show them what is theirs to carry and what can be set down now.",
+      "steady one, loosen the knot in anon's body. return them to the present—one breath, one task, one mercy at a time. show them what is theirs to carry and what can be set down now.",
     prompt:
-      "name the one thing you need help with. i’ll pray it simply with you.",
+      "name the one thing you need help with. i'll pray it simply with you.",
     keywords: [
       "stressed","stress","anxious","anxiety","overwhelmed","overwhelm","worried","panic","nervous","frazzled",
     ],
@@ -111,11 +111,11 @@ const feelingsConfig: Record<
   sad: {
     chipLabel: "sad / lonely",
     response:
-      "i’m sitting beside you—no fixing, just company. your tears are safe here.",
+      "i'm sitting beside you—no fixing, just company. your tears are safe here.",
     prayer:
       "comforter, rest with anon in the low valley. hold their heart without hurry; let sorrow pass through like rain through soil, leaving room for new green in due time.",
     prompt:
-      "if you want, tell me what hurts in a sentence. we’ll lift it gently.",
+      "if you want, tell me what hurts in a sentence. we'll lift it gently.",
     keywords: [
       "sad","lonely","alone","depressed","down","empty","blue","heartbroken","abandoned",
     ],
@@ -124,11 +124,11 @@ const feelingsConfig: Record<
   angry: {
     chipLabel: "angry / frustrated",
     response:
-      "that heat means you care. let’s turn it into something clean and true.",
+      "that heat means you care. let's turn it into something clean and true.",
     prayer:
-      "wise hearth-keeper, temper anon’s fire—no scorch, only clarity. guard their tongue, steady their hands, and channel their strength toward repair, boundary, and courage.",
+      "wise hearth-keeper, temper anon's fire—no scorch, only clarity. guard their tongue, steady their hands, and channel their strength toward repair, boundary, and courage.",
     prompt:
-      "write the honest line you wish to act from. i’ll pray for strength to match it.",
+      "write the honest line you wish to act from. i'll pray for strength to match it.",
     keywords: [
       "angry","anger","mad","furious","pissed","frustrated","annoyed","irritated","rage","resentful",
     ],
@@ -137,11 +137,11 @@ const feelingsConfig: Record<
   tired: {
     chipLabel: "tired / burned out",
     response:
-      "your body’s asking for mercy. permission granted—rest is holy.",
+      "your body's asking for mercy. permission granted—rest is holy.",
     prayer:
-      "giver of rest, pour quiet into anon’s bones. slow their pace to human speed; bless their sleep, their food, their unhurried minutes. let them wake restored enough for the next small thing.",
+      "giver of rest, pour quiet into anon's bones. slow their pace to human speed; bless their sleep, their food, their unhurried minutes. let them wake restored enough for the next small thing.",
     prompt:
-      "tell me how you’ll rest—one small act. i’ll bless it with you.",
+      "tell me how you'll rest—one small act. i'll bless it with you.",
     keywords: [
       "tired","exhausted","drained","burned out","burnt out","sleepy","fatigued","worn out","weary",
     ],
@@ -150,11 +150,11 @@ const feelingsConfig: Record<
   lost: {
     chipLabel: "lost / uncertain",
     response:
-      "fog happens. we walk by feel—step, listen, step. i’m right here.",
+      "fog happens. we walk by feel—step, listen, step. i'm right here.",
     prayer:
       "lantern of the quiet path, give anon light for only the next step. make peace with the not-knowing, and let guidance arrive like a soft yes in the chest.",
     prompt:
-      "name the next tiny step you can take. i’ll pray light over it.",
+      "name the next tiny step you can take. i'll pray light over it.",
     keywords: [
       "lost","uncertain","confused","stuck","unsure","directionless","aimless","adrift","questioning",
     ],
@@ -167,7 +167,7 @@ const feelingsConfig: Record<
     prayer:
       "merciful one, teach anon the art of repair—clear eyes, soft heart, steady feet. let forgiveness begin inside, then move outward in honest steps.",
     prompt:
-      "write the amends you want to make or the lesson you’re keeping. i’ll stand with you.",
+      "write the amends you want to make or the lesson you're keeping. i'll stand with you.",
     keywords: [
       "guilty","guilt","ashamed","shame","remorse","regret","sorry","apologize","embarrassed",
     ],
@@ -176,11 +176,11 @@ const feelingsConfig: Record<
   pain: {
     chipLabel: "in pain / unwell",
     response:
-      "i hear the ache. we’ll keep you company and keep you cared for.",
+      "i hear the ache. we'll keep you company and keep you cared for.",
     prayer:
-      "healer, come close to anon’s hurting places. ease the sharp edges, bring wise help, guard their sleep, and let pain not be the whole story of this day.",
+      "healer, come close to anon's hurting places. ease the sharp edges, bring wise help, guard their sleep, and let pain not be the whole story of this day.",
     prompt:
-      "tell me where it hurts or what support you need. i’ll ask for it plainly.",
+      "tell me where it hurts or what support you need. i'll ask for it plainly.",
     keywords: [
       "pain","hurting","hurt","unwell","sick","ill","injured","ache","migraine","soreness",
     ],
@@ -218,10 +218,12 @@ export type FoidMommyTerminalProps = {
   waitForReceipt?: (hash: string) => Promise<void>;
   onDailyCheckInChoice?: (choice: "yes" | "not_now") => void;
   nextAllowedAt?: bigint | number | null;
+  registryReady?: boolean;
+  chainOk?: boolean;
+  requiredChainId?: number | null;
   className?: string;
+  autoStart?: boolean; // NEW: auto-start terminal on mount
 };
-
-const terminalFont = '"VT323", ui-monospace, monospace';
 
 function makeId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -263,68 +265,30 @@ export default function FoidMommyTerminal({
   waitForReceipt,
   onDailyCheckInChoice,
   nextAllowedAt,
+  registryReady = true,
+  chainOk = true,
+  requiredChainId = null,
   className,
+  autoStart = false,
 }: FoidMommyTerminalProps) {
   const [stage, setStage] = useState<Stage>("idle");
   const [messages, setMessages] = useState<Message[]>([]);
   const [feelingKey, setFeelingKey] = useState<FeelingKey | null>(null);
   const [feelingInput, setFeelingInput] = useState("");
   const [prayerInput, setPrayerInput] = useState("");
+  const [commandInput, setCommandInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [prayerText, setPrayerText] = useState<string>("");
+  const [suggestedPrayer, setSuggestedPrayer] = useState<string>("");
+  const [hasAutoStarted, setHasAutoStarted] = useState(false);
 
   const logRef = useRef<HTMLDivElement | null>(null);
-  const messageEndRef = useRef<HTMLDivElement | null>(null);
+  const isNearBottomRef = useRef(true);
   const timeoutsRef = useRef<number[]>([]);
   const intervalsRef = useRef<number[]>([]);
-  const feelingInputRef = useRef<HTMLTextAreaElement | null>(null);
-  const prayerInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const attachedTypingTargets = useRef(new WeakSet<HTMLElement>());
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    void initTypingClicks();
-  }, []);
-
-  useEffect(() => {
-    const targets = [feelingInputRef.current, prayerInputRef.current];
-
-    targets.forEach((el) => {
-      if (!el) return;
-      if (!attachedTypingTargets.current.has(el)) {
-        attachTypingClicks(el);
-        attachedTypingTargets.current.add(el);
-      }
-    });
-  }, [stage]);
-
-  const resetTimers = useCallback(() => {
-    timeoutsRef.current.forEach((id) => window.clearTimeout(id));
-    intervalsRef.current.forEach((id) => window.clearInterval(id));
-    timeoutsRef.current = [];
-    intervalsRef.current = [];
-    sfx.typing.stop();
-  }, []);
-
-  const scrollToBottom = useCallback(() => {
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight;
-      return;
-    }
-    if (messageEndRef.current) {
-      messageEndRef.current.scrollIntoView({ block: "end" });
-    }
-  }, []);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
-
-  useEffect(() => {
-    return () => {
-      resetTimers();
-    };
-  }, [resetTimers]);
+  const lastStageRef = useRef<Stage>("idle");
 
   const addMessage = useCallback((role: MessageRole, text: string) => {
     const id = makeId();
@@ -376,6 +340,79 @@ export default function FoidMommyTerminal({
     [addMessage],
   );
 
+  const resetTimers = useCallback(() => {
+    timeoutsRef.current.forEach((id) => window.clearTimeout(id));
+    intervalsRef.current.forEach((id) => window.clearInterval(id));
+    timeoutsRef.current = [];
+    intervalsRef.current = [];
+    sfx.typing.stop();
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    if (!logRef.current) return;
+    logRef.current.scrollTop = logRef.current.scrollHeight;
+  }, []);
+
+  const handleLogScroll = useCallback(() => {
+    const el = logRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    isNearBottomRef.current = nearBottom;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    void initTypingClicks();
+  }, []);
+
+  useEffect(() => {
+    const targets = [inputRef.current];
+
+    targets.forEach((el) => {
+      if (!el) return;
+      if (!attachedTypingTargets.current.has(el)) {
+        attachTypingClicks(el);
+        attachedTypingTargets.current.add(el);
+      }
+    });
+  }, [stage]);
+
+  useEffect(() => {
+    if (isNearBottomRef.current) {
+      scrollToBottom();
+    }
+  }, [messages, scrollToBottom]);
+
+  // REMOVED: The duplicate message effect that was adding "type 'chat' and press enter..."
+  // This is now handled by the status message below the input
+
+  useEffect(() => {
+    if (stage === "txPrompt" && lastStageRef.current !== "txPrompt") {
+      addMessage("system", "confirm & send? (y/n)");
+    }
+    if (stage === "txFail" && lastStageRef.current !== "txFail") {
+      addMessage("system", "tx failed. type retry, edit, or cancel.");
+    }
+    lastStageRef.current = stage;
+  }, [addMessage, stage]);
+
+  useEffect(() => {
+    if (
+      stage === "idle" ||
+      stage === "txPrompt" ||
+      stage === "txFail" ||
+      stage === "checkInPrompt"
+    ) {
+      setCommandInput("");
+    }
+  }, [stage]);
+
+  useEffect(() => {
+    return () => {
+      resetTimers();
+    };
+  }, [resetTimers]);
+
   const detectFeeling = useCallback((raw: string): FeelingKey => {
     const normalized = raw.toLowerCase();
     for (const key of feelingOrder) {
@@ -393,8 +430,10 @@ export default function FoidMommyTerminal({
     setMessages([]);
     setFeelingInput("");
     setPrayerInput("");
+    setCommandInput("");
     setFeelingKey(null);
     setPrayerText("");
+    setSuggestedPrayer("");
 
     const bootId = addMessage("system", "booting foid mommy .");
     const dotOne = window.setTimeout(() => {
@@ -434,6 +473,18 @@ export default function FoidMommyTerminal({
     setStage("loading");
   }, []);
 
+  // NEW: Auto-start effect
+  useEffect(() => {
+    if (autoStart && stage === "idle" && !hasAutoStarted) {
+      setHasAutoStarted(true);
+      // Small delay for smooth UX
+      const timer = setTimeout(() => {
+        handleStart();
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [autoStart, stage, hasAutoStarted, handleStart]);
+
   const processFeeling = useCallback(
     async (inputText: string, feeling: FeelingKey) => {
       if (!inputText.trim()) return;
@@ -469,6 +520,7 @@ export default function FoidMommyTerminal({
 
         await sleep(300);
         await typeMessage({ role: "foid", text: prayer, speed: 22 });
+        setSuggestedPrayer(prayer);
 
         await sleep(400);
         await typeMessage({ role: "foid", text: config.prompt, speed: 22 });
@@ -478,6 +530,7 @@ export default function FoidMommyTerminal({
         console.error("processFeeling error:", err);
         await sleep(300);
         await typeMessage({ role: "foid", text: config.prayer, speed: 22 });
+        setSuggestedPrayer(config.prayer);
         await sleep(400);
         await typeMessage({ role: "foid", text: config.prompt, speed: 22 });
         setStage("awaitPrayer");
@@ -488,38 +541,98 @@ export default function FoidMommyTerminal({
     [addMessage, typeMessage, isProcessing],
   );
 
+  const feelingLimit = 140;
+  const prayerLimit = 240;
+  const feelingCount = feelingInput.length;
+  const prayerCount = prayerInput.length;
+  const feelingOverLimit = feelingCount > feelingLimit;
+  const prayerOverLimit = prayerCount > prayerLimit;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const nextAllowedSecondsRaw =
+    typeof nextAllowedAt === "bigint"
+      ? Number(nextAllowedAt)
+      : typeof nextAllowedAt === "number"
+        ? nextAllowedAt
+        : null;
+  const cooldownActive =
+    typeof nextAllowedSecondsRaw === "number" && nextAllowedSecondsRaw > nowSeconds;
+  const cooldownNextWindow = cooldownActive
+    ? new Date(nextAllowedSecondsRaw * 1000).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
+
   const handleFeelingSubmit = useCallback(
-    async (event: React.FormEvent) => {
-      event.preventDefault();
-      const trimmed = feelingInput.trim();
-      if (!trimmed) return;
+    async (inputText: string) => {
+      if (!registryReady) {
+        addMessage("system", "misconfigured: missing registry address.");
+        return;
+      }
+      if (!chainOk) {
+        addMessage(
+          "system",
+          `switch to fluent testnet (chain id ${requiredChainId ?? "?"}) to continue.`,
+        );
+        return;
+      }
+      const trimmed = inputText.trim();
+      if (!trimmed || feelingOverLimit || isProcessing) return;
       const feeling = detectFeeling(trimmed);
       await processFeeling(trimmed, feeling);
       setFeelingInput("");
     },
-    [detectFeeling, feelingInput, processFeeling],
+    [
+      addMessage,
+      chainOk,
+      detectFeeling,
+      feelingOverLimit,
+      isProcessing,
+      processFeeling,
+      registryReady,
+      requiredChainId,
+    ],
   );
 
   const handlePrayerSubmit = useCallback(
-    async (event: React.FormEvent) => {
-      event.preventDefault();
-      const trimmed = prayerInput.trim();
-      if (!trimmed || !feelingKey) return;
-      addMessage("user", trimmed);
+    async (inputText: string) => {
+      if (!registryReady) {
+        addMessage("system", "misconfigured: missing registry address.");
+        return;
+      }
+      if (!chainOk) {
+        addMessage(
+          "system",
+          `switch to fluent testnet (chain id ${requiredChainId ?? "?"}) to continue.`,
+        );
+        return;
+      }
+      if (prayerOverLimit || isProcessing) return;
+      if (!feelingKey) return;
+      const trimmed = inputText.trim();
+      const finalPrayer = trimmed || suggestedPrayer.trim();
+      if (!finalPrayer) return;
+      if (trimmed) {
+        addMessage("user", trimmed);
+      } else {
+        addMessage("user", "[using mommy prayer]");
+      }
       setPrayerInput("");
-      setPrayerText(trimmed);
+      setPrayerText(finalPrayer);
       setStage("txPrompt");
 
       const flavor = "whisper";
 
       await sleep(200);
-      await typeMessage({ role: "system", text: "encrypting your prayer..." });
+      await typeMessage({ role: "system", text: "hashing your prayer locally..." });
       await sleep(600);
-      await typeMessage({ role: "system", text: "sealed." });
+      await typeMessage({ role: "system", text: "hash ready." });
       await sleep(400);
       await typeMessage({
         role: "foid",
-        text: `shh, sealing your ${flavor} in the void-vault... only you and i peek. 🌟`,
+        text: `anchoring only the hash on-chain. your ${flavor} stays with you. 🌟`,
         speed: 20,
       });
       await typeMessage({
@@ -528,10 +641,31 @@ export default function FoidMommyTerminal({
         speed: 20,
       });
     },
-    [addMessage, feelingKey, prayerInput, typeMessage],
+    [
+      addMessage,
+      chainOk,
+      feelingKey,
+      isProcessing,
+      prayerOverLimit,
+      registryReady,
+      requiredChainId,
+      suggestedPrayer,
+      typeMessage,
+    ],
   );
 
   const handleConfirm = useCallback(async () => {
+    if (!registryReady) {
+      addMessage("system", "misconfigured: missing registry address.");
+      return;
+    }
+    if (!chainOk) {
+      addMessage(
+        "system",
+        `switch to fluent testnet (chain id ${requiredChainId ?? "?"}) to continue.`,
+      );
+      return;
+    }
     if (!feelingKey || !prayerText) return;
     setStage("txPending");
     setIsProcessing(true);
@@ -616,6 +750,16 @@ export default function FoidMommyTerminal({
         "gas required exceeds",
         "max fee per gas",
       ];
+      const rejectedIndicators = [
+        "user rejected",
+        "user denied",
+        "denied transaction signature",
+        "rejected the request",
+        "rejected transaction",
+      ];
+      const isUserRejected =
+        seenNames.some((name) => name.includes("userrejectedrequesterror")) ||
+        seenMessages.some((text) => rejectedIndicators.some((pattern) => text.includes(pattern)));
       const isOutOfGas =
         seenNames.some((name) => name.includes("insufficientfunds")) ||
         seenMessages.some((text) => outOfGasIndicators.some((pattern) => text.includes(pattern)));
@@ -630,7 +774,12 @@ export default function FoidMommyTerminal({
       const hasCooldown =
         typeof nextAllowedSecondsRaw === "number" && nextAllowedSecondsRaw > nowSeconds;
 
-      if (hasCooldown) {
+      if (isUserRejected) {
+        updateMessage(statusId, "cancelled in wallet.");
+        await sleep(200);
+        await typeMessage({ role: "foid", text: "you cancelled in your wallet. want to try again?" });
+        setStage("txPrompt");
+      } else if (hasCooldown) {
         updateMessage(statusId, "cooldown active.");
         await sleep(300);
         const waitSeconds = nextAllowedSecondsRaw - nowSeconds;
@@ -670,9 +819,12 @@ export default function FoidMommyTerminal({
     }
   }, [
     addMessage,
+    chainOk,
     ensureWalletReady,
     feelingKey,
     prayerText,
+    registryReady,
+    requiredChainId,
     submitPrayer,
     typeMessage,
     updateMessage,
@@ -688,12 +840,6 @@ export default function FoidMommyTerminal({
   const handleEditPrayer = useCallback(() => {
     setStage("awaitPrayer");
   }, []);
-
-  const labelClass = "text-xs uppercase tracking-[0.35em] text-foid-mint/80";
-  const primaryButtonClass =
-    "btn-foid font-terminal text-sm sm:text-base uppercase tracking-[0.22em] text-slate-900 drop-shadow-[0_1px_0_rgba(255,255,255,.7)]";
-  const secondaryButtonClass = "btn-foid-outline uppercase tracking-[0.3em]";
-  const chipClass = "chip-foid text-white/80";
 
   const nextAllowedText = useMemo(() => {
     const nowSeconds = Math.floor(Date.now() / 1000);
@@ -712,195 +858,263 @@ export default function FoidMommyTerminal({
     return "soon";
   }, [nextAllowedAt]);
 
+  const promptLabel = "anon@foid:~$";
+  const inputLocked =
+    isProcessing ||
+    stage === "txPending" ||
+    stage === "processingFeeling" ||
+    stage === "loading";
+
+  const currentInputValue =
+    stage === "awaitFeeling"
+      ? feelingInput
+      : stage === "awaitPrayer"
+        ? prayerInput
+        : commandInput;
+
+  const handleCommandChange = useCallback(
+    (value: string) => {
+      if (stage === "awaitFeeling") {
+        setFeelingInput(value);
+        return;
+      }
+      if (stage === "awaitPrayer") {
+        setPrayerInput(value);
+        return;
+      }
+      setCommandInput(value);
+    },
+    [stage],
+  );
+
+  const handleCommandSubmit = useCallback(
+    async (event: React.FormEvent) => {
+      event.preventDefault();
+      if (inputLocked) return;
+      const raw = currentInputValue;
+      const trimmed = raw.trim();
+
+      if (stage === "idle") {
+        if (!trimmed || trimmed.toLowerCase() === "chat") {
+          setCommandInput("");
+          await handleStart();
+          return;
+        }
+        addMessage("system", "unknown command. try 'chat'.");
+        return;
+      }
+
+      if (stage === "awaitFeeling") {
+        await handleFeelingSubmit(raw);
+        return;
+      }
+
+      if (stage === "awaitPrayer") {
+        if (trimmed === "/mommy") {
+          if (!suggestedPrayer) {
+            addMessage("system", "mommy prayer not ready yet.");
+            return;
+          }
+          setPrayerInput(suggestedPrayer);
+          inputRef.current?.focus();
+          return;
+        }
+        await handlePrayerSubmit(raw);
+        return;
+      }
+
+      if (stage === "txPrompt") {
+        const lowered = trimmed.toLowerCase();
+        if (lowered === "y" || lowered === "yes") {
+          setCommandInput("");
+          await handleConfirm();
+          return;
+        }
+        if (lowered === "n" || lowered === "no") {
+          setStage("awaitPrayer");
+          setCommandInput("");
+          return;
+        }
+        addMessage("system", "type y or n.");
+        return;
+      }
+
+      if (stage === "txFail") {
+        const lowered = trimmed.toLowerCase();
+        if (lowered === "retry") {
+          handleRetry();
+          setCommandInput("");
+          return;
+        }
+        if (lowered === "edit") {
+          handleEditPrayer();
+          setCommandInput("");
+          return;
+        }
+        if (lowered === "cancel") {
+          setStage("awaitFeeling");
+          setCommandInput("");
+          return;
+        }
+        addMessage("system", "type retry, edit, or cancel.");
+        return;
+      }
+
+      if (stage === "checkInPrompt") {
+        if (trimmed.toLowerCase() === "ok") {
+          addMessage("system", `next prayer allowed in: ${nextAllowedText}`);
+          onDailyCheckInChoice?.("not_now");
+          setStage("idle");
+          setCommandInput("");
+          return;
+        }
+        addMessage("system", "type ok to exit.");
+      }
+    },
+    [
+      addMessage,
+      currentInputValue,
+      handleConfirm,
+      handleEditPrayer,
+      handleFeelingSubmit,
+      handlePrayerSubmit,
+      handleRetry,
+      handleStart,
+      inputLocked,
+      nextAllowedText,
+      onDailyCheckInChoice,
+      stage,
+      suggestedPrayer,
+    ],
+  );
+
+  // UPDATED: Status tone for different states
+  const statusTone =
+    stage === "awaitFeeling" && feelingOverLimit
+      ? "foid-terminal__status foid-terminal__status--error"
+      : stage === "awaitPrayer" && prayerOverLimit
+        ? "foid-terminal__status foid-terminal__status--error"
+        : stage === "loading"
+          ? "foid-terminal__status foid-terminal__status--loading"
+          : "foid-terminal__status";
+
+  const statusMessage = useMemo(() => {
+    switch (stage) {
+      case "idle":
+        return autoStart ? "INITIALIZING..." : "CLICK HERE OR PRESS ENTER TO START";
+      case "loading":
+        return "BOOTING FOID MOMMY...";
+      case "awaitFeeling":
+        return feelingOverLimit
+          ? `${feelingCount}/${feelingLimit} — KEEP IT UNDER 140 CHARS`
+          : `TELL MOMMY HOW YOU FEEL • ${feelingCount}/${feelingLimit}`;
+      case "processingFeeling":
+        return "FOID MOMMY IS THINKING...";
+      case "awaitPrayer":
+        return prayerOverLimit
+          ? `${prayerCount}/${prayerLimit} — KEEP IT UNDER 240 CHARS`
+          : `TYPE YOUR PRAYER OR PRESS ENTER FOR MOMMY'S • ${prayerCount}/${prayerLimit}`;
+      case "txPrompt":
+        return cooldownActive
+          ? `Y = CONFIRM • N = EDIT • COOLDOWN: ${cooldownNextWindow}`
+          : "Y = CONFIRM • N = EDIT";
+      case "txPending":
+        return "SENDING TO CHAIN...";
+      case "txFail":
+        return "RETRY / EDIT / CANCEL";
+      case "checkInPrompt":
+        return "TYPE OK TO CLOSE";
+      default:
+        return "";
+    }
+  }, [
+    stage,
+    autoStart,
+    feelingOverLimit,
+    feelingCount,
+    feelingLimit,
+    prayerOverLimit,
+    prayerCount,
+    prayerLimit,
+    cooldownActive,
+    cooldownNextWindow,
+  ]);
+
+  // Get placeholder based on stage
+  const inputPlaceholder = useMemo(() => {
+    switch (stage) {
+      case "idle":
+        return autoStart ? "" : "press enter to start";
+      case "awaitFeeling":
+        return "how are you feeling?";
+      case "awaitPrayer":
+        return "type your prayer or press enter";
+      case "txPrompt":
+        return "y or n";
+      case "txFail":
+        return "retry / edit / cancel";
+      case "checkInPrompt":
+        return "ok";
+      default:
+        return "";
+    }
+  }, [stage, autoStart]);
+
   return (
     <div
-      className={`flex w-full flex-col rounded-2xl border border-white/15 bg-white/5 p-5 font-mono text-white/85 shadow-[0_0_60px_rgba(114,225,255,0.22)] backdrop-blur-md ${className ?? ""}`}
-      style={{ fontFamily: terminalFont, fontSize: "22px" }}
+      className={`foid-terminal foid-cli w-full ${className ?? ""}`}
     >
-      <div className="flex flex-1 flex-col space-y-3">
-        <div
-          ref={logRef}
-          className="flex-1 overflow-y-auto pr-1 text-[1.1rem] leading-relaxed tracking-wide"
-        >
+      <div
+        ref={logRef}
+        className="foid-cli__log foid-terminal__log"
+        onScroll={handleLogScroll}
+      >
+        <div className="foid-cli__logInner">
           {messages.map((msg) => (
             <div
               key={msg.id}
-              className={
+              data-role={msg.role}
+              className={`foid-terminal__line ${
                 msg.role === "user"
-                  ? "text-[#ffb3d9]"
+                  ? "foid-terminal__line--user"
                   : msg.role === "foid"
-                    ? "text-[#a8f0d1]"
-                    : "text-[#8faaf2]"
-              }
+                    ? "foid-terminal__line--foid"
+                    : `foid-terminal__line--system${
+                        msg.text.toLowerCase().startsWith("booting") ? " foid-terminal__line--boot" : ""
+                      }`
+              }`}
             >
-              {msg.text}
+              {msg.role === "user" && (
+                <span className="foid-terminal__prompt">{promptLabel}</span>
+              )}
+              <span>{msg.text}</span>
             </div>
           ))}
-          <div ref={messageEndRef} />
         </div>
+      </div>
 
-        {stage === "processingFeeling" && (
-          <div className="flex items-center gap-3 text-sm text-foid-mint/80">
-            <div className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-foid-mint/70 animate-ping" />
-              <span
-                className="h-2.5 w-2.5 rounded-full bg-foid-mint/70 animate-ping"
-                style={{ animationDelay: "140ms" }}
-              />
-              <span
-                className="h-2.5 w-2.5 rounded-full bg-foid-mint/70 animate-ping"
-                style={{ animationDelay: "280ms" }}
-              />
-            </div>
-            <span>foid mommy is thinking...</span>
-          </div>
-        )}
-
-        {stage === "awaitFeeling" && (
-          <form onSubmit={handleFeelingSubmit} className="space-y-3">
-            <label htmlFor="feeling-input" className={labelClass}>
-              share how you feel
-            </label>
-            <textarea
-              id="feeling-input"
-              name="feeling"
-              value={feelingInput}
-              onChange={(event) => {
-                setFeelingInput(event.target.value);
-              }}
-              ref={feelingInputRef}
-              rows={3}
-              className="w-full resize-y rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white/85 transition focus:border-foid-cyan/60 focus:ring-2 focus:ring-foid-cyan/40"
-              placeholder="type anything..."
+      <div className="foid-cli__composer">
+        <form onSubmit={handleCommandSubmit} className="foid-terminal__input-wrap">
+          <div className="foid-terminal__input">
+            <span className="foid-terminal__prompt">{promptLabel}</span>
+            <input
+              ref={inputRef}
+              type="text"
+              value={currentInputValue}
+              onChange={(event) => handleCommandChange(event.target.value)}
+              className="foid-terminal__field"
+              placeholder={inputPlaceholder}
               autoComplete="off"
+              spellCheck={false}
+              disabled={inputLocked}
             />
-            <button
-              type="submit"
-              className={primaryButtonClass}
-            >
-              SEND FEELING
-            </button>
-          </form>
-        )}
-
-        {stage === "awaitPrayer" && (
-          <form onSubmit={handlePrayerSubmit} className="space-y-3">
-            <label htmlFor="prayer-input" className={labelClass}>
-              your prayer (1-3 sentences)
-            </label>
-            <textarea
-              id="prayer-input"
-              name="prayer"
-              value={prayerInput}
-              onChange={(event) => {
-                setPrayerInput(event.target.value);
-              }}
-              rows={3}
-              ref={prayerInputRef}
-              className="w-full resize-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-white/85 transition focus:border-foid-cyan/60 focus:ring-2 focus:ring-foid-cyan/40"
-              placeholder="dear god..."
-            />
-            <div className="flex items-center gap-3">
-              <button
-                type="submit"
-                className={primaryButtonClass}
-              >
-                share prayer
-              </button>
-            </div>
-          </form>
-        )}
-
-        {stage === "txPrompt" && (
-          <div className="flex flex-col gap-3 text-sm text-white/75">
-            <div className={labelClass}>ready to anchor?</div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                disabled={isProcessing}
-                onClick={() => void handleConfirm()}
-                className={primaryButtonClass}
-              >
-                confirm &amp; send
-              </button>
-              <button
-                type="button"
-                disabled={isProcessing}
-                onClick={() => setStage("awaitPrayer")}
-                className={secondaryButtonClass}
-              >
-                edit prayer
-              </button>
-              <button
-                type="button"
-                disabled={isProcessing}
-                onClick={() => setStage("awaitFeeling")}
-                className={`${chipClass} uppercase tracking-[0.22em]`}
-              >
-                cancel
-              </button>
-            </div>
           </div>
-        )}
-
-        {stage === "txFail" && (
-          <div className="flex flex-wrap gap-3 text-sm text-foid-candy/90">
-            <button
-              type="button"
-              onClick={handleRetry}
-              className={secondaryButtonClass}
-            >
-              retry
-            </button>
-            <button
-              type="button"
-              onClick={handleEditPrayer}
-              className={secondaryButtonClass}
-            >
-              edit prayer
-            </button>
-            <button
-              type="button"
-              onClick={() => setStage("awaitFeeling")}
-              className={`${chipClass} uppercase tracking-[0.22em]`}
-            >
-              cancel
-            </button>
-          </div>
-        )}
-
-        {stage === "checkInPrompt" && (
-          <div className="flex flex-col gap-3 text-sm text-white/75">
-            <div className="text-white/80">
-              next prayer allowed in: {nextAllowedText}
+          {statusMessage && (
+            <div className={statusTone}>
+              {statusMessage}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                onDailyCheckInChoice?.("not_now");
-                setStage("idle");
-              }}
-              className={secondaryButtonClass}
-            >
-              ok
-            </button>
-          </div>
-        )}
-
-        {stage === "idle" && (
-          <div className="flex flex-col items-start gap-3">
-              <button
-                type="button"
-                onClick={handleStart}
-                className={primaryButtonClass}
-              >
-                CHAT WITH FOID MOMMY
-              </button>
-            <div className="text-xs uppercase tracking-[0.3em] text-white/85 drop-shadow-[0_6px_16px_rgba(4,18,34,0.45)]">
-              gentle guidance - private prayers - on-chain check-ins
-            </div>
-          </div>
-        )}
+          )}
+        </form>
       </div>
     </div>
   );

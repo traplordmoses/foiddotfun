@@ -50,7 +50,6 @@ const PrayerRegistryAbi = [
     stateMutability: "nonpayable",
     inputs: [
       { name: "prayer_hash", type: "bytes32" },
-      { name: "score", type: "uint16" },
       { name: "label", type: "uint8" },
     ],
     outputs: [
@@ -67,7 +66,7 @@ const PrayerRegistryAbi = [
   },
 ] as const;
 
-const PrayerMirrorAbi = [
+const PrayerMirrorAbiLegacy = [
   {
     type: "function",
     name: "get",
@@ -78,7 +77,23 @@ const PrayerMirrorAbi = [
       { name: "longest", type: "uint32" },
       { name: "total", type: "uint32" },
       { name: "milestones", type: "uint32" },
-      { name: "score", type: "uint16" },
+      { name: "legacyMetric", type: "uint16" },
+      { name: "prayerHash", type: "bytes32" },
+    ],
+  },
+] as const;
+
+const PrayerMirrorAbiLite = [
+  {
+    type: "function",
+    name: "get",
+    stateMutability: "view",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [
+      { name: "streak", type: "uint32" },
+      { name: "longest", type: "uint32" },
+      { name: "total", type: "uint32" },
+      { name: "milestones", type: "uint32" },
       { name: "prayerHash", type: "bytes32" },
     ],
   },
@@ -110,6 +125,12 @@ function formatDurationShort(seconds: number) {
   return parts.join(" ");
 }
 
+function shortHash(hash?: string) {
+  if (!hash) return "–";
+  if (hash.length <= 10) return hash;
+  return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
+}
+
 export default function PrayersClient() {
   const { address, isConnected, chainId } = useAccount();
   const { writeContractAsync } = useWriteContract();
@@ -124,9 +145,18 @@ export default function PrayersClient() {
   const nextRef = useRef<(() => Promise<unknown>) | null>(null);
   const registryRef = useRef<Hex | undefined>(REGISTRY);
 
-  const { data: snap, refetch: refetchSnap } = useReadContract({
+  const { data: snapLegacy, refetch: refetchSnapLegacy } = useReadContract({
     address: (MIRROR ?? "0x0000000000000000000000000000000000000000") as Hex,
-    abi: PrayerMirrorAbi,
+    abi: PrayerMirrorAbiLegacy,
+    functionName: "get",
+    args: [((address ?? "0x0000000000000000000000000000000000000000") as Hex)],
+    chainId: FLUENT_CHAIN_ID,
+    query: { enabled: Boolean(address && MIRROR && FLUENT_CHAIN_ID) },
+  });
+
+  const { data: snapLite, refetch: refetchSnapLite } = useReadContract({
+    address: (MIRROR ?? "0x0000000000000000000000000000000000000000") as Hex,
+    abi: PrayerMirrorAbiLite,
     functionName: "get",
     args: [((address ?? "0x0000000000000000000000000000000000000000") as Hex)],
     chainId: FLUENT_CHAIN_ID,
@@ -142,15 +172,33 @@ export default function PrayersClient() {
     query: { enabled: Boolean(address && REGISTRY && FLUENT_CHAIN_ID) },
   });
 
-  useEffect(() => { snapRef.current = refetchSnap; }, [refetchSnap]);
+  useEffect(() => {
+    snapRef.current = async () => {
+      await Promise.allSettled([
+        refetchSnapLegacy({ throwOnError: false, cancelRefetch: false }),
+        refetchSnapLite({ throwOnError: false, cancelRefetch: false }),
+      ]);
+    };
+  }, [refetchSnapLegacy, refetchSnapLite]);
   useEffect(() => { nextRef.current = refetchNext; }, [refetchNext]);
   useEffect(() => { registryRef.current = REGISTRY as Hex | undefined; }, [REGISTRY]);
 
   useEffect(() => {
     if (!address || !FLUENT_CHAIN_ID) return;
-    if (MIRROR) void refetchSnap({ throwOnError: false, cancelRefetch: false });
+    if (MIRROR) {
+      void refetchSnapLegacy({ throwOnError: false, cancelRefetch: false });
+      void refetchSnapLite({ throwOnError: false, cancelRefetch: false });
+    }
     if (REGISTRY) void refetchNext({ throwOnError: false, cancelRefetch: false });
-  }, [MIRROR, REGISTRY, address, FLUENT_CHAIN_ID, refetchNext, refetchSnap]);
+  }, [
+    MIRROR,
+    REGISTRY,
+    address,
+    FLUENT_CHAIN_ID,
+    refetchNext,
+    refetchSnapLegacy,
+    refetchSnapLite,
+  ]);
 
   const ensureWalletReady = useCallback(async () => {
     if (!isConnected || !address) throw new Error("please connect your wallet before anchoring your prayer.");
@@ -169,7 +217,7 @@ export default function PrayersClient() {
       address: registryAddress,
       abi: PrayerRegistryAbi,
       functionName: "checkIn",
-      args: [prayerHash, 72, label],
+      args: [prayerHash, label],
     });
 
     return { txHash };
@@ -183,6 +231,15 @@ export default function PrayersClient() {
     if (nextRef.current) tasks.push(nextRef.current());
     if (tasks.length) await Promise.allSettled(tasks);
   }, [publicClient]);
+
+  const snap = snapLegacy ?? snapLite;
+  const snapValues = snap as readonly unknown[] | undefined;
+  const prayerHash =
+    snapValues && snapValues.length > 4
+      ? (snapValues.length > 5 ? snapValues[5] : snapValues[4])
+      : undefined;
+  const formattedPrayerHash =
+    typeof prayerHash === "string" ? shortHash(prayerHash) : "–";
 
   return (
     <main className="relative isolate min-h-screen bg-foid-bg text-white/90">
@@ -265,15 +322,15 @@ export default function PrayersClient() {
                       {snap?.[3]?.toString?.() ?? (address ? 0 : "–")}
                     </b>
                   </div>
+                  <div>
+                    prayer hash:{" "}
+                    <b className="text-foid-mint">
+                      {formattedPrayerHash}
+                    </b>
+                  </div>
                 </div>
 
                 <div className="space-y-1 py-2">
-                  <div>
-                    score:{" "}
-                    <b className="text-foid-mint">
-                      {snap?.[4]?.toString?.() ?? (address ? 0 : "–")}
-                    </b>
-                  </div>
                   <div>chain: {FLUENT_CHAIN_ID ?? "?"}</div>
                   <div>
                     next allowed in:{" "}

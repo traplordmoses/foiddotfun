@@ -71,7 +71,7 @@ const faqItems = [
   {
     question: "what happens if i miss a day?",
     answer:
-      "your streak resets, but your lifetime score stays. show up again to rebuild momentum.",
+      "your streak resets, but your lifetime total stays. show up again to rebuild momentum.",
   },
   {
     question: "when can i mint my mifoid?",
@@ -86,7 +86,7 @@ const faqItems = [
   {
     question: "is my prayer private?",
     answer:
-      "yes. prayers are encrypted client-side before sending; the chain stores ciphertext/hashed data only. explorers show encoded bytes, not plain text.",
+      "yes. your prayer is hashed locally, and only the hash is anchored on-chain. the text itself never goes on-chain.",
   },
   {
     question: "can i edit or delete a prayer?",

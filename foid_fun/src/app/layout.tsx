@@ -1,11 +1,11 @@
 import "./globals.css";
 import type { ReactNode } from "react";
+import { JetBrains_Mono } from "next/font/google";
 import { Providers } from "@/providers";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import FloatingElements from "@/components/FloatingElements";
 import SfxInitializer from "@/components/SfxInitializer";
 import FairyDustCursor from "@/components/FairyDustCursor";
-import AppChrome from "@/components/AppChrome";
 
 // app/layout.tsx (or wherever your metadata lives)
 export const metadata = {
@@ -23,6 +23,13 @@ export const metadata = {
   manifest: "/site.webmanifest", // optional, if you use a PWA manifest
 };
 
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-terminal",
+  fallback: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas"],
+});
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className="h-full">
@@ -36,14 +43,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           rel="stylesheet"
         />
       </head>
-      <body className="relative h-full min-h-screen font-secondary">
+      <body className={`relative h-full min-h-screen font-secondary ${jetbrainsMono.variable}`}>
         <AnimatedBackground />
         <FloatingElements />
         <div className="scene-tint" />
         <Providers>
           <SfxInitializer />
           <FairyDustCursor />
-          <AppChrome>{children}</AppChrome>
+          {children}
         </Providers>
       </body>
     </html>

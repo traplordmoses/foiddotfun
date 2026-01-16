@@ -15,7 +15,7 @@ const PrayerMirrorAbi = [
       { name: "longest", type: "uint32" },
       { name: "total", type: "uint32" },
       { name: "milestones", type: "uint32" },
-      { name: "score", type: "uint16" },
+      { name: "legacyMetric", type: "uint16" },
       { name: "prayerHash", type: "bytes32" },
     ],
   },

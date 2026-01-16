@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useAccount, usePublicClient, useReadContract, useWriteContract } from "wagmi";
+import TopTabs from "@/app/(components)/TopTabs";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAccount, usePublicClient, useReadContract, useWriteContract, useDisconnect, useConnect } from "wagmi";
 import { keccak256, stringToBytes, type Hex, type Hash } from "viem";
 import FoidMommyTerminal, {
   FEELING_LABELS,
@@ -48,7 +49,6 @@ const PrayerRegistryAbi = [
     stateMutability: "nonpayable",
     inputs: [
       { name: "prayer_hash", type: "bytes32" },
-      { name: "score", type: "uint16" },
       { name: "label", type: "uint8" },
     ],
     outputs: [
@@ -65,7 +65,7 @@ const PrayerRegistryAbi = [
   },
 ] as const;
 
-const PrayerMirrorAbi = [
+const PrayerMirrorAbiLegacy = [
   {
     type: "function",
     name: "get",
@@ -76,7 +76,23 @@ const PrayerMirrorAbi = [
       { name: "longest", type: "uint32" },
       { name: "total", type: "uint32" },
       { name: "milestones", type: "uint32" },
-      { name: "score", type: "uint16" },
+      { name: "legacyMetric", type: "uint16" },
+      { name: "prayerHash", type: "bytes32" },
+    ],
+  },
+] as const;
+
+const PrayerMirrorAbiLite = [
+  {
+    type: "function",
+    name: "get",
+    stateMutability: "view",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [
+      { name: "streak", type: "uint32" },
+      { name: "longest", type: "uint32" },
+      { name: "total", type: "uint32" },
+      { name: "milestones", type: "uint32" },
       { name: "prayerHash", type: "bytes32" },
     ],
   },
@@ -109,23 +125,138 @@ function formatDurationShort(seconds: number) {
   return parts.join(" ");
 }
 
+function shortHash(hash?: string) {
+  if (!hash) return "–";
+  if (hash.length <= 10) return hash;
+  return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
+}
+
+/* --- Status Indicator --- */
+function StatusIndicator({ connected }: { connected: boolean }) {
+  return (
+    <div className="pray-status-indicator">
+      <span className={`pray-status-dot ${connected ? "pray-status-dot--online" : "pray-status-dot--offline"}`} />
+      <span className="pray-status-text">{connected ? "CONNECTED" : "DISCONNECTED"}</span>
+    </div>
+  );
+}
+
+/* --- Clean Wallet Dropdown --- */
+function WalletDropdown({ 
+  address, 
+  isOpen, 
+  onToggle, 
+  onDisconnect,
+  onSwitchWallet 
+}: { 
+  address: string | undefined;
+  isOpen: boolean;
+  onToggle: () => void;
+  onDisconnect: () => void;
+  onSwitchWallet: () => void;
+}) {
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
+
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const menuWidth = Math.max(rect.width, 180);
+      setMenuPosition({
+        top: rect.bottom + 6,
+        left: rect.right - menuWidth,
+        width: menuWidth,
+      });
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
+          buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
+        if (isOpen) onToggle();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen, onToggle]);
+
+  return (
+    <>
+      <button 
+        ref={buttonRef}
+        type="button"
+        className="pray-wallet-pill"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
+      >
+        <span className="pray-wallet-pill__label">WALLET</span>
+        <span className="pray-wallet-pill__address">{address ? shortHash(address) : "—"}</span>
+        <svg 
+          className={`pray-wallet-chevron ${isOpen ? "pray-wallet-chevron--open" : ""}`} 
+          width="10" 
+          height="6" 
+          viewBox="0 0 10 6" 
+          fill="none"
+        >
+          <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      
+      {isOpen && (
+        <div 
+          ref={dropdownRef}
+          className="pray-wallet-menu"
+          style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, width: menuPosition.width }}
+        >
+          <button type="button" className="pray-wallet-menu__item" onClick={() => { onSwitchWallet(); onToggle(); }}>
+            Switch Wallet
+          </button>
+          <button type="button" className="pray-wallet-menu__item pray-wallet-menu__item--danger" onClick={() => { onDisconnect(); onToggle(); }}>
+            Disconnect
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function PrayPage() {
   const { address, isConnected, chainId } = useAccount();
   const { writeContractAsync } = useWriteContract();
+  const { disconnect } = useDisconnect();
+  const { connect, connectors } = useConnect();
+  const [mobileTab, setMobileTab] = useState<"terminal" | "manual" | "stats">("terminal");
+  const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
 
   const env = useMemo(resolveEnv, []);
   const REGISTRY = env.registry;
   const MIRROR = env.mirror;
   const FLUENT_CHAIN_ID = env.chainId;
+  const missingRegistry = !REGISTRY;
+  const missingMirror = !MIRROR;
+  const walletDisconnected = !isConnected || !address;
+  const wrongChain = Boolean(isConnected && chainId && FLUENT_CHAIN_ID && chainId !== FLUENT_CHAIN_ID);
 
   const publicClient = usePublicClient();
   const snapRef = useRef<(() => Promise<unknown>) | null>(null);
   const nextRef = useRef<(() => Promise<unknown>) | null>(null);
   const registryRef = useRef<Hex | undefined>(REGISTRY);
 
-  const { data: snap, refetch: refetchSnap } = useReadContract({
+  const { data: snapLegacy, refetch: refetchSnapLegacy } = useReadContract({
     address: (MIRROR ?? "0x0000000000000000000000000000000000000000") as Hex,
-    abi: PrayerMirrorAbi,
+    abi: PrayerMirrorAbiLegacy,
+    functionName: "get",
+    args: [((address ?? "0x0000000000000000000000000000000000000000") as Hex)],
+    chainId: FLUENT_CHAIN_ID,
+    query: { enabled: Boolean(address && MIRROR && FLUENT_CHAIN_ID) },
+  });
+
+  const { data: snapLite, refetch: refetchSnapLite } = useReadContract({
+    address: (MIRROR ?? "0x0000000000000000000000000000000000000000") as Hex,
+    abi: PrayerMirrorAbiLite,
     functionName: "get",
     args: [((address ?? "0x0000000000000000000000000000000000000000") as Hex)],
     chainId: FLUENT_CHAIN_ID,
@@ -141,15 +272,25 @@ export default function PrayPage() {
     query: { enabled: Boolean(address && REGISTRY && FLUENT_CHAIN_ID) },
   });
 
-  useEffect(() => { snapRef.current = refetchSnap; }, [refetchSnap]);
+  useEffect(() => {
+    snapRef.current = async () => {
+      await Promise.allSettled([
+        refetchSnapLegacy({ throwOnError: false, cancelRefetch: false }),
+        refetchSnapLite({ throwOnError: false, cancelRefetch: false }),
+      ]);
+    };
+  }, [refetchSnapLegacy, refetchSnapLite]);
   useEffect(() => { nextRef.current = refetchNext; }, [refetchNext]);
   useEffect(() => { registryRef.current = REGISTRY as Hex | undefined; }, [REGISTRY]);
   useEffect(() => {
     if (!address || !FLUENT_CHAIN_ID) return;
-    if (MIRROR) void refetchSnap({ throwOnError: false, cancelRefetch: false });
+    if (MIRROR) {
+      void refetchSnapLegacy({ throwOnError: false, cancelRefetch: false });
+      void refetchSnapLite({ throwOnError: false, cancelRefetch: false });
+    }
     if (!REGISTRY) return;
     void refetchNext({ throwOnError: false, cancelRefetch: false });
-  }, [MIRROR, REGISTRY, address, FLUENT_CHAIN_ID, refetchNext, refetchSnap]);
+  }, [MIRROR, REGISTRY, address, FLUENT_CHAIN_ID, refetchNext, refetchSnapLegacy, refetchSnapLite]);
 
   const ensureWalletReady = useCallback(async () => {
     if (!isConnected || !address) throw new Error("please connect your wallet before anchoring your prayer.");
@@ -167,7 +308,7 @@ export default function PrayPage() {
       address: registryAddress,
       abi: PrayerRegistryAbi,
       functionName: "checkIn",
-      args: [prayerHash, 72, label],
+      args: [prayerHash, label],
     });
     return { txHash };
   }, [writeContractAsync]);
@@ -180,45 +321,30 @@ export default function PrayPage() {
     if (tasks.length) await Promise.allSettled(tasks);
   }, [publicClient]);
 
-  return (
-    <main className="relative min-h-screen bg-foid-bg text-white/90">
-      <div className="pointer-events-none fixed inset-0 z-0 vignette" />
-      <div className="relative z-10 mx-auto w-full max-w-[1200px] px-6 lg:px-8 py-8 lg:py-10 space-y-6">
-        <div className="vista-window vista-window--terminal w-full flex flex-col">
-          <div className="vista-window__titlebar">
-            <div className="vista-window__controls" aria-hidden="true">
-              <span className="vista-window__control vista-window__control--minimize" />
-              <span className="vista-window__control vista-window__control--restore" />
-              <span className="vista-window__control vista-window__control--close" />
-            </div>
-            <span className="vista-window__title">
-              <span aria-hidden="true">💾</span> foid_mommy_terminal.exe
-            </span>
-            <span className="vista-window__badge" aria-hidden="true">
-              <Image
-                src="/icons/skull.png"
-                alt=""
-                width={20}
-                height={20}
-                className="h-5 w-5 rounded-full"
-              />
-            </span>
-          </div>
-          <div className="vista-window__body vista-window__body--flush mt-3">
-            <div className="frutiger-terminal flicker w-full p-5 sm:p-6">
-              <FoidMommyTerminal
-                className="w-full"
-                ensureWalletReady={ensureWalletReady}
-                submitPrayer={submitPrayer}
-                waitForReceipt={waitForReceipt}
-                nextAllowedAt={nextAllowed as bigint | undefined}
-              />
-            </div>
-          </div>
-        </div>
+  const handleSwitchWallet = useCallback(() => {
+    disconnect();
+    setTimeout(() => {
+      const connector = connectors[0];
+      if (connector) connect({ connector });
+    }, 100);
+  }, [disconnect, connect, connectors]);
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[60%_40%]">
-          <div className="vista-window vista-window--info vista-window--frosted w-full">
+  const snap = snapLegacy ?? snapLite;
+  const snapValues = snap as readonly unknown[] | undefined;
+  const prayerHash = snapValues && snapValues.length > 4 ? (snapValues.length > 5 ? snapValues[5] : snapValues[4]) : undefined;
+  const formattedPrayerHash = typeof prayerHash === "string" ? shortHash(prayerHash) : "–";
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const nextAllowedSecondsRaw = typeof nextAllowed === "bigint" ? Number(nextAllowed) : typeof nextAllowed === "number" ? nextAllowed : null;
+  const cooldownActive = typeof nextAllowedSecondsRaw === "number" && nextAllowedSecondsRaw > nowSeconds;
+  const nextWindowLabel = cooldownActive ? new Date(nextAllowedSecondsRaw * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+
+  return (
+    <main className="relative pray-dashboard bg-transparent text-white/90">
+      <div className="pointer-events-none fixed inset-0 z-0 vignette" />
+      <div className="pray-shell">
+        <div className="pray-grid">
+          <div className="vista-window vista-window--terminal w-full flex flex-col pray-panel pray-panel--main">
+            {/* Titlebar */}
             <div className="vista-window__titlebar">
               <div className="vista-window__controls" aria-hidden="true">
                 <span className="vista-window__control vista-window__control--minimize" />
@@ -226,121 +352,473 @@ export default function PrayPage() {
                 <span className="vista-window__control vista-window__control--close" />
               </div>
               <span className="vista-window__title">
-                <span aria-hidden="true">📄</span> foid_mommy_manual.txt
+                <Image src="/foidmommy.gif" alt="" width={24} height={24} className="inline-block h-6 w-6 align-middle mr-2" />
+                FOID_MOMMY_PRAY.EXE
               </span>
-              <span className="vista-window__badge" aria-hidden="true">
-                <Image
-                  src="/icons/monarch.png"
-                  alt=""
-                  width={20}
-                  height={20}
-                  className="h-5 w-5 rounded-full"
+              
+              <TopTabs
+                items={[
+                  { label: "HOME", href: "/" },
+                ]}
+              />
+              
+              <div className="vista-window__meta">
+                <StatusIndicator connected={isConnected} />
+                <div className="pray-chain-pill">
+                  <span className="pray-chain-pill__label">CHAIN</span>
+                  <span className="pray-chain-pill__value">{FLUENT_CHAIN_ID ?? "?"}</span>
+                </div>
+                <WalletDropdown
+                  address={address}
+                  isOpen={walletDropdownOpen}
+                  onToggle={() => setWalletDropdownOpen(!walletDropdownOpen)}
+                  onDisconnect={() => disconnect()}
+                  onSwitchWallet={handleSwitchWallet}
                 />
-              </span>
-            </div>
-            <div className="vista-window__body space-y-6">
-              <div className="space-y-4 text-sm">
-                <h3 className="text-xs uppercase tracking-[0.5em] text-foid-mint/80">foid mommy</h3>
-                <p>
-                  foid mommy is a super-simple daily check-in game on-chain: every time you “pray,” it logs your streak,
-                  and the more consistent you are, the bigger your mifoid’s boobs will be at launch (tge = token generation event).
-                </p>
-                <div className="space-y-4">
-                  <div>
-                    <span className="font-semibold uppercase tracking-[0.35em] text-foid-mint/80">how to start</span>
-                    <ol className="mt-2 list-decimal space-y-1 pl-5 text-foid-mint/85">
-                      <li>connect your wallet → switch to the fluent network (if asked).</li>
-                      <li>click “chat with foid mommy.” the retro terminal opens.</li>
-                      <li>foid mommy asks “how are you feeling?” pick a mood or type it.</li>
-                      <li>foid mommy shows a short prayer. type your own prayer (optional).</li>
-                      <li>click “send prayer.” your wallet pops up—confirm the transaction.</li>
-                      <li>done. your streak number ticks up. come back in ~24h and do it again.</li>
-                    </ol>
-                  </div>
-                  <div>
-                    <span className="font-semibold uppercase tracking-[0.35em] text-foid-mint/80">daily rules</span>
-                    <ol className="mt-2 list-decimal space-y-1 pl-5 text-foid-mint/85">
-                      <li>1 prayer = 1 day’s check-in.</li>
-                      <li>wait ~24 hours before the next one (too early won’t count).</li>
-                      <li>higher streak = your mifoid has bigger boobs.</li>
-                    </ol>
-                  </div>
-                  <div>
-                    <span className="font-semibold uppercase tracking-[0.35em] text-foid-mint/80">privacy note</span>
-                    <p className="mt-2 text-foid-mint/85">
-                      prayers are encrypted and written on-chain; what you type isn’t publicly readable.
-                    </p>
-                  </div>
-                  <div>
-                    <span className="font-semibold uppercase tracking-[0.35em] text-foid-mint/80">why it matters</span>
-                    <p className="mt-2 text-foid-mint/85">
-                      show up daily → grow your streak → your mifoid has exclusive traits at tge.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              {/* stats removed from here */}
-            </div>
-          </div>
-
-          <div className="vista-window vista-window--compact w-full">
-            <div className="vista-window__titlebar">
-              <span className="vista-window__title">your prayers</span>
-            </div>
-            <div className="vista-window__body font-terminal text-xs sm:text-[13px] leading-snug">
-              <div className="divide-y divide-white/12 rounded-lg border border-white/10 bg-white/5 text-white/95">
-                <div className="space-y-1 pb-2">
-                  <div>
-                    prayer streak:{" "}
-                    <b className="text-foid-mint">
-                      {snap?.[0]?.toString?.() ?? (address ? 0 : "–")}
-                    </b>
-                  </div>
-                  <div>
-                    longest prayer streak:{" "}
-                    <b className="text-foid-mint">
-                      {snap?.[1]?.toString?.() ?? (address ? 0 : "–")}
-                    </b>
-                  </div>
-                  <div>
-                    total prayers:{" "}
-                    <b className="text-foid-mint">
-                      {snap?.[2]?.toString?.() ?? (address ? 0 : "–")}
-                    </b>
-                  </div>
-                  <div>
-                    milestones:{" "}
-                    <b className="text-foid-mint">
-                      {snap?.[3]?.toString?.() ?? (address ? 0 : "–")}
-                    </b>
-                  </div>
-                </div>
-                <div className="space-y-1 py-2">
-                  <div>
-                    score:{" "}
-                    <b className="text-foid-mint">
-                      {snap?.[4]?.toString?.() ?? (address ? 0 : "–")}
-                    </b>
-                  </div>
-                  <div>chain: {FLUENT_CHAIN_ID ?? "?"}</div>
-                  <div>
-                    next allowed in:{" "}
-                    {formatDurationShort(
-                      secondsLeft(Math.floor(Date.now() / 1000), nextAllowed as bigint | undefined),
-                    )}
-                  </div>
-                </div>
-
-                {!address && (
-                  <div className="pt-2 text-xs uppercase tracking-[0.32em] text-white/70">
-                    connect your wallet to start logging prayers.
+                {(missingRegistry || wrongChain || missingMirror) && (
+                  <div className="pray-warnings">
+                    {missingRegistry && <span className="pray-warning pray-warning--error">missing registry</span>}
+                    {wrongChain && <span className="pray-warning pray-warning--mint">wrong chain {FLUENT_CHAIN_ID ?? "?"}</span>}
+                    {missingMirror && <span className="pray-warning pray-warning--error">mirror missing</span>}
                   </div>
                 )}
+              </div>
+              <span className="vista-window__badge" aria-hidden="true">
+                <Image src="/icons/skull.png" alt="" width={20} height={20} className="h-5 w-5 rounded-full" />
+              </span>
+            </div>
+            <div className="vista-window__body vista-window__body--flush mt-2 pray-panel__body">
+              <div className="pray-mobile-tabs" role="tablist" aria-label="Prayer panels">
+                <button type="button" role="tab" aria-selected={mobileTab === "terminal"} className={`pray-tab ${mobileTab === "terminal" ? "is-active" : ""}`} onClick={() => setMobileTab("terminal")}>Terminal</button>
+                <button type="button" role="tab" aria-selected={mobileTab === "manual"} className={`pray-tab ${mobileTab === "manual" ? "is-active" : ""}`} onClick={() => setMobileTab("manual")}>Manual</button>
+                <button type="button" role="tab" aria-selected={mobileTab === "stats"} className={`pray-tab ${mobileTab === "stats" ? "is-active" : ""}`} onClick={() => setMobileTab("stats")}>Stats</button>
+              </div>
+
+              <div className="pray-main-grid">
+                {/* Terminal pane */}
+                <div className={`pray-pane pray-pane--terminal pray-liquid-glass-terminal ${mobileTab === "terminal" ? "" : "pray-pane--mobile-hidden"}`}>
+                  <svg className="pray-bracket pray-bracket--tl" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M2 22V2H22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  <svg className="pray-bracket pray-bracket--tr" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M22 22V2H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  <svg className="pray-bracket pray-bracket--bl" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M2 2V22H22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  <svg className="pray-bracket pray-bracket--br" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M22 2V22H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  
+                  <div className="frutiger-terminal flicker w-full flex min-h-0 flex-1 flex-col">
+                    <FoidMommyTerminal
+                      className="w-full h-full min-h-0"
+                      ensureWalletReady={ensureWalletReady}
+                      submitPrayer={submitPrayer}
+                      waitForReceipt={waitForReceipt}
+                      nextAllowedAt={nextAllowed as bigint | undefined}
+                      registryReady={!missingRegistry}
+                      chainOk={!wrongChain}
+                      requiredChainId={FLUENT_CHAIN_ID}
+                      autoStart={true}
+                    />
+                  </div>
+                </div>
+
+                {/* Manual pane - no header */}
+                <div className={`pray-pane pray-pane--manual pray-pane--panel ${mobileTab === "manual" ? "" : "pray-pane--mobile-hidden"}`}>
+                  <div className="pray-pane__body pray-pane__body--no-header">
+                    <div className="pray-scroll space-y-4 text-sm">
+                      <h3 className="pray-manual__hero">F O I D &nbsp;&nbsp; M O M M Y</h3>
+                      <span className="pray-manual__label">WELCOME TO FOID_MOMMY_TERMINAL.EXE</span>
+                      <p className="pray-manual__intro">
+                        <span className="block">foid_mommy_terminal.exe is a daily on-chain ritual. tell foid mommy how you're feeling, she'll listen and construct a prayer. submit your prayer on-chain, so your proof of prayer is recorded. your message is private. it's hashed locally and only the hash is anchored on-chain. show up each day to build your streak. the more you pray, the bigger your mifoid’s boobs will be.</span>
+                      </p>
+                      <div className="pray-manual__section">
+                        <span className="pray-manual__label">HOW TO USE</span>
+                        <ol className="pray-manual__list">
+                          <li><span>1.</span> 1. type a prayer in the terminal</li>
+                          <li><span>2.</span> 2. foid mommy listens and constructs a prayer</li>
+                          <li><span>3.</span> 3. submit your prayer, for your proof of prayer</li>
+                        </ol>
+                      </div>
+                      <div className="pray-manual__section">
+                        <span className="pray-manual__label">DAILY RULES</span>
+                        <p className="pray-manual__text">you can only pray once every 24 hours.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stats pane */}
+                <div className={`pray-pane pray-pane--stats pray-pane--panel ${mobileTab === "stats" ? "" : "pray-pane--mobile-hidden"}`}>
+                  <div className="pray-pane__title">YOUR PRAYERS</div>
+                  <div className="pray-pane__body font-terminal text-xs sm:text-[13px] leading-snug">
+                    <div className="pray-scroll">
+                      <div className="pray-stats-grid">
+                        <div className="pray-stats-cell">
+                          <span className="pray-stats-cell__label">CURRENT STREAK</span>
+                          <span className="pray-stats-cell__value pray-stats-cell__value--primary">{snap?.[0]?.toString?.() ?? (address ? "0" : "–")}</span>
+                        </div>
+                        <div className="pray-stats-cell">
+                          <span className="pray-stats-cell__label">LONGEST STREAK</span>
+                          <span className="pray-stats-cell__value">{snap?.[1]?.toString?.() ?? (address ? "0" : "–")}</span>
+                        </div>
+                        <div className="pray-stats-cell">
+                          <span className="pray-stats-cell__label">TOTAL PRAYERS</span>
+                          <span className="pray-stats-cell__value">{snap?.[2]?.toString?.() ?? (address ? "0" : "–")}</span>
+                        </div>
+                        <div className="pray-stats-cell">
+                          <span className="pray-stats-cell__label">MILESTONES</span>
+                          <span className="pray-stats-cell__value">{snap?.[3]?.toString?.() ?? (address ? "0" : "–")}</span>
+                        </div>
+                      </div>
+                      <div className="pray-chain-info">
+                        <div className="pray-chain-info__row"><span className="pray-chain-info__label">prayer hash</span><span className="pray-chain-info__value pray-chain-info__value--hash">{formattedPrayerHash}</span></div>
+                        <div className="pray-chain-info__row"><span className="pray-chain-info__label">chain</span><span className="pray-chain-info__value">{FLUENT_CHAIN_ID ?? "?"}</span></div>
+                        <div className="pray-chain-info__row"><span className="pray-chain-info__label">next allowed in</span><span className={`pray-chain-info__value ${!cooldownActive ? "pray-chain-info__value--ready" : ""}`}>{formatDurationShort(secondsLeft(Math.floor(Date.now() / 1000), nextAllowed as bigint | undefined))}</span></div>
+                        {cooldownActive && <div className="pray-chain-info__row"><span className="pray-chain-info__label">next window</span><span className="pray-chain-info__value">{nextWindowLabel}</span></div>}
+                      </div>
+                      {missingMirror && <div className="pray-stats-notice">stats unavailable (mirror not set).</div>}
+                      {walletDisconnected && <div className="pray-stats-notice">connect your wallet to start logging prayers.</div>}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Enhanced styles */}
+      <style jsx>{`
+        /* Navigation Tabs */
+        :global(.pray-nav-tabs) {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-left: 8px;
+          margin-right: auto;
+          margin-top: 2px;
+        }
+        
+        :global(.pray-nav-tab) {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 30px;
+          padding: 5px 12px;
+          font-size: 9px;
+          font-weight: 500;
+          letter-spacing: 0.08em;
+          color: rgba(255, 255, 255, 0.5);
+          background: linear-gradient(180deg, rgba(14, 28, 36, 0.92), rgba(8, 16, 22, 0.75));
+          border: 1px solid rgba(0, 255, 213, 0.18);
+          border-bottom: none;
+          border-radius: 9px;
+          text-decoration: none;
+          transition: all 0.15s ease;
+          position: relative;
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.14),
+            inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+            0 4px 10px rgba(0, 0, 0, 0.22);
+        }
+        
+        :global(.pray-nav-tab:hover) {
+          color: rgba(255, 255, 255, 0.8);
+          background: linear-gradient(180deg, rgba(18, 38, 48, 0.95), rgba(10, 20, 28, 0.8));
+          border-color: rgba(0, 255, 213, 0.28);
+        }
+
+        :global(.pray-nav-tab:focus-visible) {
+          outline: 2px solid rgba(0, 255, 213, 0.6);
+          outline-offset: 2px;
+          box-shadow: 0 0 0 2px rgba(0, 255, 213, 0.2);
+        }
+        
+        :global(.pray-nav-tab--active) {
+          color: rgba(255, 255, 255, 0.95);
+          background: linear-gradient(180deg, rgba(28, 60, 72, 0.98), rgba(10, 20, 28, 0.9));
+          border-color: rgba(0, 255, 213, 0.4);
+          text-shadow: 0 0 10px rgba(0, 255, 213, 0.45);
+        }
+        
+        :global(.pray-nav-tab--active)::after {
+          content: '';
+          position: absolute;
+          bottom: -1px;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: #00ffd5;
+          box-shadow: 0 0 8px rgba(0, 255, 213, 0.6);
+        }
+
+        /* Global overrides */
+        :global(.pray-dashboard) { background: transparent !important; }
+        :global(.vignette) {
+          background-color: transparent !important;
+          background-image: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.55) 100%) !important;
+          opacity: 0.85;
+        }
+        
+        /* Terminal pane */
+        .pray-liquid-glass-terminal {
+          position: relative;
+          background: transparent !important;
+          border-radius: 12px;
+          overflow: hidden;
+          padding: 28px;
+          border: none !important;
+          box-shadow: none !important;
+        }
+        
+        .pray-liquid-glass-terminal::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 12px;
+          padding: 1px;
+          background: linear-gradient(135deg, rgba(0,255,213,0.3) 0%, rgba(0,180,200,0.1) 25%, rgba(0,255,255,0.15) 50%, rgba(0,180,200,0.1) 75%, rgba(0,255,213,0.3) 100%);
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
+        }
+        
+        .pray-liquid-glass-terminal :global(.frutiger-terminal) {
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          padding: 20px 24px;
+        }
+        
+        .pray-liquid-glass-terminal :global(.frutiger-terminal *) { border-color: transparent; }
+        
+        /* Input styling with spacing fix */
+        .pray-liquid-glass-terminal :global(.foid-terminal__prompt) { margin-right: 12px; }
+        .pray-liquid-glass-terminal :global(.foid-terminal__field) { padding-left: 8px; }
+        .pray-liquid-glass-terminal :global(.foid-terminal__input) {
+          border: 1px solid rgba(0, 255, 213, 0.3) !important;
+          background: rgba(0, 20, 30, 0.4) !important;
+        }
+        
+        /* Status indicator */
+        .pray-status-indicator { display: flex; align-items: center; gap: 8px; }
+        .pray-status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .pray-status-dot--online {
+          background: #00ffd5;
+          box-shadow: 0 0 10px rgba(0, 255, 213, 0.8), 0 0 20px rgba(0, 255, 213, 0.4);
+          animation: pray-pulse 2s ease-in-out infinite;
+        }
+        .pray-status-dot--offline { background: #ff4757; box-shadow: 0 0 8px rgba(255, 71, 87, 0.6); }
+        .pray-status-text { font-size: 11px; letter-spacing: 0.08em; color: rgba(255, 255, 255, 0.7); }
+        @keyframes pray-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        
+        /* Chain pill */
+        .pray-chain-pill {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 4px 12px;
+          background: rgba(0, 180, 200, 0.2);
+          border: 1px solid rgba(0, 255, 255, 0.25);
+          border-radius: 6px;
+        }
+        .pray-chain-pill__label { font-size: 9px; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.5); }
+        .pray-chain-pill__value {
+          font-size: 13px;
+          font-weight: 600;
+          font-family: var(--font-mono, monospace);
+          color: #00ffd5;
+          text-shadow: 0 0 10px rgba(0, 255, 213, 0.5);
+        }
+        
+        /* Clean Wallet Dropdown */
+        .pray-wallet-pill {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 12px;
+          background: rgba(0, 180, 200, 0.15);
+          border: 1px solid rgba(0, 255, 255, 0.2);
+          border-radius: 6px;
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.7);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .pray-wallet-pill:hover { background: rgba(0, 200, 220, 0.25); border-color: rgba(0, 255, 213, 0.4); }
+        .pray-wallet-pill__label { font-size: 9px; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.5); }
+        .pray-wallet-pill__address { font-family: var(--font-mono, monospace); color: #00ffd5; }
+        .pray-wallet-chevron { color: rgba(255, 255, 255, 0.5); transition: transform 0.2s ease; }
+        .pray-wallet-chevron--open { transform: rotate(180deg); }
+        
+        :global(.pray-wallet-menu) {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          background: linear-gradient(180deg, rgba(18, 30, 40, 0.98), rgba(10, 18, 26, 0.96));
+          backdrop-filter: blur(16px);
+          border: 1px solid rgba(0, 255, 213, 0.25);
+          border-radius: 10px;
+          padding: 8px;
+          z-index: 9999;
+          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 255, 213, 0.12);
+          animation: pray-dropdown-enter 0.12s ease-out;
+        }
+        @keyframes pray-dropdown-enter { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        
+        :global(.pray-wallet-menu__item) {
+          display: block;
+          width: 100%;
+          padding: 10px 12px;
+          background: rgba(0, 255, 213, 0.08);
+          border: 1px solid rgba(0, 255, 213, 0.18);
+          border-radius: 8px;
+          color: rgba(255, 255, 255, 0.9);
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          cursor: pointer;
+          transition: all 0.12s ease;
+          text-align: left;
+        }
+        :global(.pray-wallet-menu__item:hover) {
+          background: rgba(0, 255, 213, 0.16);
+          border-color: rgba(0, 255, 213, 0.35);
+          color: #eafffb;
+        }
+        :global(.pray-wallet-menu__item--danger) {
+          background: rgba(255, 71, 87, 0.12);
+          border-color: rgba(255, 71, 87, 0.3);
+          color: #ffd7db;
+        }
+        :global(.pray-wallet-menu__item--danger:hover) {
+          background: rgba(255, 71, 87, 0.2);
+          border-color: rgba(255, 71, 87, 0.5);
+          color: #ffe5e8;
+        }
+        
+        /* Corner brackets */
+        .pray-bracket {
+          position: absolute;
+          color: rgba(0, 255, 213, 0.4);
+          z-index: 10;
+          pointer-events: none;
+          filter: drop-shadow(0 0 4px rgba(0, 255, 213, 0.4));
+        }
+        .pray-bracket--tl { top: 18px; left: 18px; }
+        .pray-bracket--tr { top: 18px; right: 18px; }
+        .pray-bracket--bl { bottom: 18px; left: 18px; }
+        .pray-bracket--br { bottom: 18px; right: 18px; }
+        
+        /* Manual pane - no header */
+        .pray-pane__body--no-header { padding-top: 0; }
+        .pray-manual__hero {
+          font-size: 18px;
+          font-weight: 700;
+          letter-spacing: 0.25em;
+          color: #00ffd5;
+          text-shadow: 0 0 20px rgba(0, 255, 213, 0.5);
+          margin-bottom: 10px;
+        }
+        .pray-manual__intro {
+          font-size: 12px;
+          line-height: 1.6;
+          color: rgba(255, 255, 255, 0.75);
+          padding-bottom: 10px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .pray-manual__section { margin-bottom: 10px; }
+        .pray-manual__label {
+          display: block;
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.18em;
+          color: #00ffd5;
+          margin-bottom: 5px;
+          opacity: 0.9;
+        }
+        .pray-manual__list { list-style: none; padding: 0; margin: 0; }
+        .pray-manual__list li {
+          display: flex;
+          gap: 6px;
+          font-size: 11px;
+          line-height: 1.45;
+          color: rgba(255, 255, 255, 0.7);
+          padding: 2px 0;
+        }
+        .pray-manual__list li span { color: rgba(0, 255, 213, 0.6); font-weight: 600; min-width: 16px; }
+        .pray-manual__text { font-size: 11px; line-height: 1.45; color: rgba(255, 255, 255, 0.65); }
+        
+        /* Stats grid */
+        .pray-stats-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 1px;
+          background: rgba(0, 255, 255, 0.08);
+          border-radius: 8px;
+          overflow: hidden;
+          margin-bottom: 16px;
+        }
+        .pray-stats-cell {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          padding: 14px 16px;
+          background: rgba(0, 20, 35, 0.5);
+          backdrop-filter: blur(4px);
+          transition: background 0.2s ease;
+        }
+        .pray-stats-cell:hover { background: rgba(0, 40, 55, 0.6); }
+        .pray-stats-cell__label { font-size: 9px; font-weight: 500; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.45); }
+        .pray-stats-cell__value {
+          font-size: 28px;
+          font-weight: 700;
+          font-family: var(--font-mono, monospace);
+          color: #00ffd5;
+          text-shadow: 0 0 16px rgba(0, 255, 213, 0.5);
+          line-height: 1;
+        }
+        .pray-stats-cell__value--primary { color: #00ff88; text-shadow: 0 0 16px rgba(0, 255, 136, 0.6); }
+        
+        /* Chain info */
+        .pray-chain-info { display: flex; flex-direction: column; }
+        .pray-chain-info__row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 10px 0;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .pray-chain-info__row:last-child { border-bottom: none; }
+        .pray-chain-info__label { font-size: 11px; color: rgba(255, 255, 255, 0.45); }
+        .pray-chain-info__value { font-size: 12px; font-family: var(--font-mono, monospace); color: rgba(255, 255, 255, 0.8); }
+        .pray-chain-info__value--hash { color: #00ffd5; }
+        .pray-chain-info__value--ready { color: #00ff88; text-shadow: 0 0 8px rgba(0, 255, 136, 0.5); }
+        
+        .pray-stats-notice {
+          margin-top: 14px;
+          padding: 12px;
+          font-size: 10px;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          color: rgba(255, 255, 255, 0.4);
+          text-align: center;
+          border: 1px dashed rgba(255, 255, 255, 0.1);
+          border-radius: 6px;
+          background: rgba(0, 0, 0, 0.15);
+        }
+
+        /* Glass backdrops */
+        .pray-liquid-glass-terminal :global(.frutiger-terminal) {
+          background: rgba(5, 12, 18, 0.55) !important;
+          backdrop-filter: blur(14px) saturate(140%);
+        }
+        .pray-pane--panel {
+          background: rgba(5, 12, 18, 0.55) !important;
+          backdrop-filter: blur(14px) saturate(140%);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+          padding: 16px;
+        }
+        .pray-pane--panel > * { background: transparent !important; }
+        .pray-main-grid { padding: 16px; gap: 20px; }
+      `}</style>
     </main>
   );
 }
