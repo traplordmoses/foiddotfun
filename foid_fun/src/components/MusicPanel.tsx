@@ -509,18 +509,21 @@ const ensureVisualizer = useCallback(() => {
     return (
       <div
         {...rest}
-        className={`rounded-xl bg-white/85 text-black px-3 py-2 shadow-sm ${className}`}
+        className={`prism-music-panel-compact ${className}`}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.4em] text-white/70">
+          <SpeakerIcon className="h-4 w-4 text-foid-cyan" />
+          <span className="flex-1 truncate">NOW PLAYING</span>
+          <span className="max-w-[120px] truncate text-[11px] font-mono text-foid-mint">{currentTrackName}</span>
+        </div>
+
+        <div className="mt-3 flex items-center gap-2">
           <button
             onClick={toggle}
-            className="rounded px-2 py-1 bg-white/90 text-xs font-semibold border border-black/10"
+            className="prism-music-panel-compact__button"
           >
             {isPlaying ? "Pause" : "Play"}
           </button>
-          <div className="text-xs opacity-80 truncate max-w-[120px]">
-            {currentTrackName}
-          </div>
           <input
             type="range"
             min={0}
@@ -528,16 +531,17 @@ const ensureVisualizer = useCallback(() => {
             step={0.01}
             value={volume}
             onChange={(e) => setVolume(Number(e.target.value))}
-            className="w-24"
+            className="prism-music-panel-compact__slider flex-1"
             aria-label="Volume"
           />
           <button
             onClick={next}
-            className="rounded px-2 py-1 bg-white/70 text-xs font-semibold border border-black/10"
+            className="prism-music-panel-compact__button"
           >
             Next
           </button>
         </div>
+
         {audioElements}
       </div>
     );

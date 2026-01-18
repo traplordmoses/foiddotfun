@@ -1001,7 +1001,9 @@ export default function FoidMommyTerminal({
   const statusMessage = useMemo(() => {
     switch (stage) {
       case "idle":
-        return autoStart ? "INITIALIZING..." : "CLICK HERE OR PRESS ENTER TO START";
+        return autoStart
+          ? "PRESS ENTER TO START"
+          : "CLICK HERE OR PRESS ENTER TO START";
       case "loading":
         return "BOOTING FOID MOMMY...";
       case "awaitFeeling":

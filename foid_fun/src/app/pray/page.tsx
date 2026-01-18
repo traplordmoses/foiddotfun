@@ -230,6 +230,7 @@ export default function PrayPage() {
   const { connect, connectors } = useConnect();
   const [mobileTab, setMobileTab] = useState<"terminal" | "manual" | "stats">("terminal");
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
+  const [nowSeconds, setNowSeconds] = useState<number | null>(null);
 
   const env = useMemo(resolveEnv, []);
   const REGISTRY = env.registry;
@@ -292,6 +293,13 @@ export default function PrayPage() {
     void refetchNext({ throwOnError: false, cancelRefetch: false });
   }, [MIRROR, REGISTRY, address, FLUENT_CHAIN_ID, refetchNext, refetchSnapLegacy, refetchSnapLite]);
 
+  useEffect(() => {
+    const updateNow = () => setNowSeconds(Math.floor(Date.now() / 1000));
+    updateNow();
+    const interval = setInterval(updateNow, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const ensureWalletReady = useCallback(async () => {
     if (!isConnected || !address) throw new Error("please connect your wallet before anchoring your prayer.");
     if (FLUENT_CHAIN_ID && chainId && chainId !== FLUENT_CHAIN_ID) {
@@ -333,10 +341,12 @@ export default function PrayPage() {
   const snapValues = snap as readonly unknown[] | undefined;
   const prayerHash = snapValues && snapValues.length > 4 ? (snapValues.length > 5 ? snapValues[5] : snapValues[4]) : undefined;
   const formattedPrayerHash = typeof prayerHash === "string" ? shortHash(prayerHash) : "–";
-  const nowSeconds = Math.floor(Date.now() / 1000);
+  const canRenderTime = nowSeconds !== null;
   const nextAllowedSecondsRaw = typeof nextAllowed === "bigint" ? Number(nextAllowed) : typeof nextAllowed === "number" ? nextAllowed : null;
-  const cooldownActive = typeof nextAllowedSecondsRaw === "number" && nextAllowedSecondsRaw > nowSeconds;
-  const nextWindowLabel = cooldownActive ? new Date(nextAllowedSecondsRaw * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+  const cooldownActive = canRenderTime && typeof nextAllowedSecondsRaw === "number" && nextAllowedSecondsRaw > nowSeconds;
+  const nextWindowLabel = cooldownActive
+    ? new Date(nextAllowedSecondsRaw * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "";
 
   return (
     <main className="relative pray-dashboard bg-transparent text-white/90">
@@ -468,7 +478,7 @@ export default function PrayPage() {
                       <div className="pray-chain-info">
                         <div className="pray-chain-info__row"><span className="pray-chain-info__label">prayer hash</span><span className="pray-chain-info__value pray-chain-info__value--hash">{formattedPrayerHash}</span></div>
                         <div className="pray-chain-info__row"><span className="pray-chain-info__label">chain</span><span className="pray-chain-info__value">{FLUENT_CHAIN_ID ?? "?"}</span></div>
-                        <div className="pray-chain-info__row"><span className="pray-chain-info__label">next allowed in</span><span className={`pray-chain-info__value ${!cooldownActive ? "pray-chain-info__value--ready" : ""}`}>{formatDurationShort(secondsLeft(Math.floor(Date.now() / 1000), nextAllowed as bigint | undefined))}</span></div>
+                        <div className="pray-chain-info__row"><span className="pray-chain-info__label">next allowed in</span><span className={`pray-chain-info__value ${!cooldownActive ? "pray-chain-info__value--ready" : ""}`}>{canRenderTime ? formatDurationShort(secondsLeft(nowSeconds, nextAllowed as bigint | undefined)) : "—"}</span></div>
                         {cooldownActive && <div className="pray-chain-info__row"><span className="pray-chain-info__label">next window</span><span className="pray-chain-info__value">{nextWindowLabel}</span></div>}
                       </div>
                       {missingMirror && <div className="pray-stats-notice">stats unavailable (mirror not set).</div>}

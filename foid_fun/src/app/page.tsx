@@ -151,7 +151,7 @@ export default function LandingPage() {
               <div className="launcher-buttons px-4 pt-2 pb-2">
                 <div className="flex flex-col gap-4">
                   <Y2kGlassButton
-                    href="/foid-mommy-terminal"
+                    href="/pray"
                     label="FOID_MOMMY_TERMINAL.EXE"
                   />
                   <Y2kGlassButton href="/board" label="LOREBOARD.APP" />

@@ -32,7 +32,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className="h-full">
+    <html lang="en" suppressHydrationWarning className="h-full overflow-hidden">
       <head>
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="theme-color" content="#0e0f2b" />
@@ -43,7 +43,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           rel="stylesheet"
         />
       </head>
-      <body className={`relative h-full min-h-screen font-secondary ${jetbrainsMono.variable}`}>
+      <body className={`relative h-full min-h-screen overflow-hidden font-secondary ${jetbrainsMono.variable}`}>
         <AnimatedBackground />
         <FloatingElements />
         <div className="scene-tint" />

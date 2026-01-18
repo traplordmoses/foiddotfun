@@ -1,4 +1,6 @@
-// /src/app/board/page.tsx
+// /src/app/board/page.tsx - REDESIGNED v3
+// Single seamless container matching foid_mommy_terminal.exe
+// Features: Wallet dropdown, iPod music player, terminal chat with status, infinite smooth zoom
 "use client";
 
 import React, {
@@ -7,9 +9,12 @@ import React, {
   useRef,
   useState,
   useEffect,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 import dynamic from "next/dynamic";
-import { useAccount, useChainId, useSwitchChain } from "wagmi";
+import Link from "next/link";
+import Image from "next/image";
+import { useAccount, useChainId, useSwitchChain, useDisconnect, useConnect } from "wagmi";
 import { useBoard } from "@/state/board";
 import type { PendingItem } from "@/state/board";
 import { TILE, snapRect, rectCells, hasOverlap, type Rect } from "@/lib/grid";
@@ -34,70 +39,39 @@ import { resolveEpochConfig, currentEpoch } from "@/lib/epoch";
 import sfx from "@/lib/sfx";
 import type { FinalizedPlacement } from "@/lib/types";
 import { getLatestNormalized } from "@/lib/manifest";
-import {
-  getManifest,
-  proposePlacement,
-  listProposals,
-} from "@/lib/api";
+import { listProposals } from "@/lib/api";
 import type { ProposalSummary } from "@/lib/api";
 import { writeProposePlacement } from "@/lib/viem";
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
+import TopTabs from "@/app/(components)/TopTabs";
 
-const MusicPanel = dynamic(() => import("@/components/MusicPanel"), {
-  ssr: false,
-});
-const ChatDock = dynamic(() => import("@/components/ChatDock"), {
-  ssr: false,
-});
+const MusicPanel = dynamic(() => import("@/components/MusicPanel"), { ssr: false });
+const ChatDock = dynamic(() => import("@/components/ChatDock"), { ssr: false });
 
-function display(value: unknown): string {
-  if (value === null || value === undefined) return "—";
-  if (typeof value === "bigint") return value.toString();
-  if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return String(value);
-  }
-  try {
-    const json = JSON.stringify(value);
-    if (json === "{}") return "[object]";
-    return json;
-  } catch {
-    return "[object]";
-  }
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+function shortHash(hash?: string) {
+  if (!hash) return "–";
+  if (hash.length <= 10) return hash;
+  return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
 }
 
 const isBytes32Hex = (value?: string): value is `0x${string}` =>
   typeof value === "string" && /^0x[0-9a-fA-F]{64}$/.test(value);
 
-const votersCountFrom = (voters: unknown): number => {
-  if (Array.isArray(voters)) return voters.length;
-  if (voters && typeof voters === "object") {
-    return Object.keys(voters as Record<string, boolean>).length;
-  }
-  return Number.isFinite(Number(voters)) ? Number(voters) : 0;
-};
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const BASE_FEE_PER_CELL_WEI =
-  BigInt(process.env.NEXT_PUBLIC_BASE_FEE_PER_CELL_WEI ?? "0");
-
+const BASE_FEE_PER_CELL_WEI = BigInt(process.env.NEXT_PUBLIC_BASE_FEE_PER_CELL_WEI ?? "0");
 const MAX_CELLS_PER_RECT: number = Number(
-  process.env.NEXT_PUBLIC_MAX_CELLS_PER_RECT ??
-    process.env.MAX_CELLS_PER_RECT ??
-    "400"
+  process.env.NEXT_PUBLIC_MAX_CELLS_PER_RECT ?? process.env.MAX_CELLS_PER_RECT ?? "400"
 );
 
-const OWNER_DEMO =
-  "0xDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF"; // TODO: replace with connected wallet
-
-const GRID_MULTIPLIER = 8; // fake “infinite” backdrop multiplier
+const GRID_MULTIPLIER = 8;
 const STAGE_CANVAS_W = VIRTUAL_CANVAS_W * GRID_MULTIPLIER;
 const STAGE_CANVAS_H = VIRTUAL_CANVAS_H * GRID_MULTIPLIER;
 const STAGE_PAD_X = (STAGE_CANVAS_W - VIRTUAL_CANVAS_W) / 2;
@@ -105,19 +79,14 @@ const STAGE_PAD_Y = (STAGE_CANVAS_H - VIRTUAL_CANVAS_H) / 2;
 const GRID_RADIUS_X = Math.floor(WORLD_MAX_X / TILE);
 const GRID_RADIUS_Y = Math.floor(WORLD_MAX_Y / TILE);
 
-const DEV_UI = process.env.NEXT_PUBLIC_DEV_TOOLS === "1";
-const LATEST_EPOCH_HINT = 0; // 0 = ask backend for the true latest epoch
 const BOARD_PASSWORD = process.env.NEXT_PUBLIC_BOARD_PASSWORD ?? "";
 const CARD_BORDER = "rgba(82, 255, 201, 0.45)";
 const CARD_SHADOW = "0 14px 28px rgba(0,0,0,.32), 0 0 0 1px rgba(82,255,201,.28)";
 const FLUENT_CHAIN_ID = 20994;
 
-const BoardLockBadge: React.FC<{ unlocked?: boolean }> = ({ unlocked }) => (
-  <span className="inline-flex items-center gap-1 rounded-full border border-white/25 bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/80 align-middle">
-    <span className="text-[13px]">{unlocked ? "🔓" : "🔒"}</span>
-    <span>{unlocked ? "dev access" : "beta lock"}</span>
-  </span>
-);
+// Zoom limits - extended for infinite feel
+const MIN_SCALE = 0.02;
+const MAX_SCALE = 50;
 
 const toStageRect = (rect: Rect): Rect => {
   const boardRect = worldToContractRect(rect);
@@ -129,27 +98,282 @@ const toStageRect = (rect: Rect): Rect => {
   };
 };
 
-// ---------------------------------------------------------------------------
-// Types for local drag/ghost
-// ---------------------------------------------------------------------------
+// ============================================================================
+// TYPES
+// ============================================================================
 
 type DropPos = { x: number; y: number };
-type DragMeta = {
-  w: number;
-  h: number;
-  mime: "image/png" | "image/jpeg" | null;
-};
+type DragMeta = { w: number; h: number; mime: "image/png" | "image/jpeg" | null };
 type GhostStatus = "ok" | "overlap" | "oversize" | "invalid";
-type Ghost = {
-  rect: Rect;
-  cells: number;
-  status: GhostStatus;
-  totalWei: bigint;
-};
+type Ghost = { rect: Rect; cells: number; status: GhostStatus; totalWei: bigint };
+type StatusMessage = { id: string; text: string; type: "info" | "success" | "error" | "system"; timestamp: Date };
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+// ============================================================================
+// WALLET DROPDOWN COMPONENT
+// ============================================================================
+
+function WalletDropdown({ 
+  address, 
+  isOpen, 
+  onToggle, 
+  onDisconnect,
+  onSwitchWallet 
+}: { 
+  address: string | undefined;
+  isOpen: boolean;
+  onToggle: () => void;
+  onDisconnect: () => void;
+  onSwitchWallet: () => void;
+}) {
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
+
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const menuWidth = Math.max(rect.width, 180);
+      setMenuPosition({
+        top: rect.bottom + 6,
+        left: rect.right - menuWidth,
+        width: menuWidth,
+      });
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
+          buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
+        if (isOpen) onToggle();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen, onToggle]);
+
+  return (
+    <>
+      <button 
+        ref={buttonRef}
+        type="button"
+        className="board-wallet-pill"
+        onClick={onToggle}
+      >
+        <span className="board-wallet-pill__label">WALLET</span>
+        <span className="board-wallet-pill__address">{address ? shortHash(address) : "—"}</span>
+        <svg 
+          className={`board-wallet-chevron ${isOpen ? "board-wallet-chevron--open" : ""}`} 
+          width="10" 
+          height="6" 
+          viewBox="0 0 10 6" 
+          fill="none"
+        >
+          <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      
+      {isOpen && (
+        <div 
+          ref={dropdownRef}
+          className="board-wallet-menu"
+          style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, width: menuPosition.width, zIndex: 9999 }}
+        >
+          <button type="button" className="board-wallet-menu__item" onClick={() => { onSwitchWallet(); onToggle(); }}>
+            Switch Wallet
+          </button>
+          <button type="button" className="board-wallet-menu__item board-wallet-menu__item--danger" onClick={() => { onDisconnect(); onToggle(); }}>
+            Disconnect
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ============================================================================
+// STATUS INDICATOR
+// ============================================================================
+
+function StatusIndicator({ connected }: { connected: boolean }) {
+  return (
+    <div className="board-status-indicator">
+      <span className={`board-status-dot ${connected ? "board-status-dot--online" : "board-status-dot--offline"}`} />
+      <span className="board-status-text">{connected ? "CONNECTED" : "DISCONNECTED"}</span>
+    </div>
+  );
+}
+
+// ============================================================================
+// TERMINAL CHAT WITH STATUS
+// ============================================================================
+
+function TerminalChat({ statusMessages }: { statusMessages: StatusMessage[] }) {
+  const [input, setInput] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [statusMessages]);
+
+  const formatTime = (date: Date) => date.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div className="terminal-chat">
+      <div ref={scrollRef} className="terminal-chat__messages">
+        {statusMessages.map((msg) => (
+          <div key={msg.id} className={`terminal-chat__line terminal-chat__line--${msg.type}`}>
+            <span className="terminal-chat__time">{formatTime(msg.timestamp)}</span>
+            <span className={msg.type === "system" ? "terminal-chat__system" : "terminal-chat__user"}>
+              {msg.type === "system" ? "SYSTEM" : "milady"}
+            </span>
+            <span className="terminal-chat__text">{msg.text}</span>
+          </div>
+        ))}
+      </div>
+      <div className="terminal-chat__input-row">
+        <span className="terminal-chat__prompt">&gt;</span>
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="type here..."
+          className="terminal-chat__input"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Y2K GLASS ACTION BUTTON
+// ============================================================================
+
+function Y2kActionButton({
+  onClick,
+  label,
+  disabled = false,
+  variant = "primary",
+}: {
+  onClick: () => void;
+  label: string;
+  disabled?: boolean;
+  variant?: "primary" | "secondary";
+}) {
+  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseMove = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMousePos({ x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height });
+  };
+
+  const isPrimary = variant === "primary";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onMouseMove={handleMouseMove}
+      className={`y2k-btn ${disabled ? "y2k-btn--disabled" : ""}`}
+      style={{
+        background: isPrimary
+          ? "linear-gradient(135deg, rgba(255,170,200,0.55), rgba(255,120,170,0.45), rgba(230,90,150,0.5), rgba(200,70,130,0.55), rgba(170,60,120,0.6))"
+          : "linear-gradient(135deg, rgba(100,200,180,0.5), rgba(80,180,160,0.45), rgba(60,160,140,0.5), rgba(50,140,120,0.55))",
+      }}
+    >
+      <span className="y2k-btn__reflection" />
+      {isHovered && !disabled && (
+        <span
+          className="y2k-btn__highlight"
+          style={{
+            background: `radial-gradient(ellipse 70% 90% at ${mousePos.x * 100}% ${mousePos.y * 100}%, rgba(255,255,255,0.5) 0%, transparent 65%)`,
+          }}
+        />
+      )}
+      <span className="y2k-btn__label">{label}</span>
+    </button>
+  );
+}
+
+// ============================================================================
+// VOTING ITEM
+// ============================================================================
+
+function VotingItem({ proposal, addStatus }: { proposal: ProposalSummary; addStatus: (msg: string, type: StatusMessage["type"]) => void }) {
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const { switchChainAsync, isPending: switchingChain } = useSwitchChain();
+
+  const computedSecondsLeft = useMemo(() => {
+    const { enabled, epochSec } = resolveEpochConfig();
+    if (!enabled || epochSec <= 0) return null;
+    const nowEpoch = currentEpoch();
+    const epochsDiff = proposal.voteEndsAtEpoch - nowEpoch;
+    return epochsDiff <= 0 ? 0 : Math.max(0, epochsDiff * epochSec);
+  }, [proposal.voteEndsAtEpoch]);
+
+  const hasEpoch = typeof proposal.epochSubmitted === "number";
+  const epochCfg = resolveEpochConfig();
+  const isPending = proposal.status === "proposed" && epochCfg.enabled && computedSecondsLeft !== null && computedSecondsLeft > 0;
+  const placementId = isBytes32Hex(proposal.chainId) ? proposal.chainId : isBytes32Hex(proposal.placementId) ? proposal.placementId : undefined;
+  const epochId = proposal.epochSubmitted ?? 0;
+  const queryEnabled = isPending && hasEpoch && isBytes32Hex(placementId);
+  const epochBigInt = BigInt(epochId || 0);
+
+  const { yes, no, isLoading: votesLoading, refetch: refetchVotes } = usePlacementVotes({
+    epochId: epochBigInt,
+    placementId: (placementId ?? "0x") as `0x${string}`,
+    enabled: queryEnabled,
+  });
+
+  const { vote, isWriting, isConfirming, isConfirmed } = useVoteOnPlacement({ epochId: epochBigInt, placementId });
+
+  useEffect(() => { if (isConfirmed) refetchVotes(); }, [isConfirmed, refetchVotes]);
+
+  const wrongChain = Boolean(chainId && chainId !== FLUENT_CHAIN_ID);
+  const isVoting = isWriting || isConfirming;
+  const canVote = isPending && queryEnabled && !!address && isConnected && !isVoting && !votesLoading && !switchingChain;
+
+  const onVoteClick = async (support: boolean) => {
+    if (!queryEnabled || !address) return;
+    if (wrongChain) { try { await switchChainAsync?.({ chainId: FLUENT_CHAIN_ID }); } catch { return; } }
+    try {
+      addStatus(`Voting ${support ? "YES" : "NO"}...`, "info");
+      await vote(support);
+      await refetchVotes();
+      addStatus("Vote submitted ✓", "success");
+    } catch (err) {
+      addStatus(`Vote failed: ${(err as Error)?.message || "error"}`, "error");
+    }
+  };
+
+  const displayYes = queryEnabled ? yes : BigInt(proposal.yes ?? 0);
+  const displayNo = queryEnabled ? no : BigInt(proposal.no ?? 0);
+
+  return (
+    <div className="voting-item">
+      <div className="voting-item__thumb">
+        {proposal.cid && <img src={cidToHttpUrl(proposal.cid)} alt="" />}
+      </div>
+      <div className="voting-item__info">
+        <span>{proposal.cells} cells</span>
+        <span>{computedSecondsLeft !== null ? `${Math.floor(computedSecondsLeft / 60)}m` : "—"}</span>
+      </div>
+      <span className="voting-item__counts">{displayYes.toString()}↑ {displayNo.toString()}↓</span>
+      <div className="voting-item__btns">
+        <button onClick={() => onVoteClick(true)} disabled={!canVote} className="voting-item__yes" type="button">✓</button>
+        <button onClick={() => onVoteClick(false)} disabled={!canVote} className="voting-item__no" type="button">✕</button>
+      </div>
+    </div>
+  );
+}
+// ============================================================================
+// UTILITY FUNCTIONS (continued from part 1)
+// ============================================================================
 
 const snapDown = (v: number) => Math.max(TILE, Math.floor(v / TILE) * TILE);
 
@@ -162,9 +386,7 @@ const normalizeCidString = (value: string): string => {
       const parts = url.pathname.replace(/^\/+/, "").split("/");
       const bare = parts.slice(parts[0] === "ipfs" ? 1 : 0).join("/");
       return bare ? `ipfs://${bare}` : "";
-    } catch {
-      return trimmed;
-    }
+    } catch { return trimmed; }
   }
   if (trimmed.startsWith("ipfs://")) return trimmed;
   return `ipfs://${trimmed}`;
@@ -173,103 +395,49 @@ const normalizeCidString = (value: string): string => {
 function capRectToMaxCells(r: Rect, maxCells: number): Rect {
   let w = snapDown(r.w);
   let h = snapDown(r.h);
-
   let cells = Math.max(1, Math.floor((w / TILE) * (h / TILE)));
   if (cells <= maxCells) return { ...r, w, h };
-
   const scale = Math.sqrt(maxCells / cells);
   w = snapDown(w * scale);
   h = snapDown(h * scale);
-
   if (w < TILE) w = TILE;
   if (h < TILE) h = TILE;
-
   while (Math.floor((w / TILE) * (h / TILE)) > maxCells) {
     if (w >= h) w = snapDown(w - TILE);
     else h = snapDown(h - TILE);
     if (w < TILE) w = TILE;
     if (h < TILE) h = TILE;
   }
-
   return { ...r, w, h };
 }
 
-/**
- * Optional helper: downscale a too-large image so it fits within MAX_CELLS_PER_RECT
- * (keeps you moving even without a crop UI yet).
- */
-async function downscaleToMaxCells(
-  file: File,
-  maxCells: number,
-  tileSize = TILE,
-  outputMime: "image/jpeg" | "image/png" = "image/jpeg",
-  quality = 0.9
-): Promise<File> {
+async function downscaleToMaxCells(file: File, maxCells: number, tileSize = TILE): Promise<File> {
   const url = URL.createObjectURL(file);
   const img = await new Promise<HTMLImageElement>((res, rej) => {
-    const i = new Image();
-    i.onload = () => res(i);
-    i.onerror = rej;
-    i.src = url;
+    const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url;
   });
-
   try {
-    const w0 = img.naturalWidth;
-    const h0 = img.naturalHeight;
+    const { naturalWidth: w0, naturalHeight: h0 } = img;
     const maxPx = maxCells * tileSize * tileSize;
-    const area0 = w0 * h0;
-
-    if (area0 <= maxPx) return file;
-
-    const scale = Math.sqrt(maxPx / area0);
+    if (w0 * h0 <= maxPx) return file;
+    const scale = Math.sqrt(maxPx / (w0 * h0));
     const w1 = Math.max(tileSize, Math.floor(w0 * scale));
     const h1 = Math.max(tileSize, Math.floor(h0 * scale));
-
     const canvas = document.createElement("canvas");
-    canvas.width = w1;
-    canvas.height = h1;
+    canvas.width = w1; canvas.height = h1;
     const ctx = canvas.getContext("2d")!;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(img, 0, 0, w1, h1);
-
-    const blob: Blob = await new Promise((resolve) =>
-      canvas.toBlob(
-        (b) => resolve(b || new Blob()),
-        outputMime,
-        outputMime === "image/jpeg" ? quality : undefined
-      )
-    );
-
-    const nameBase = file.name.replace(/\.(png|jpg|jpeg)$/i, "");
-    const ext = outputMime === "image/jpeg" ? "jpg" : "png";
-    return new File([blob], `${nameBase}.resized.${ext}`, { type: outputMime });
-  } finally {
-    URL.revokeObjectURL(url);
-  }
+    const blob: Blob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b || new Blob()), "image/jpeg", 0.9));
+    return new File([blob], file.name.replace(/\.(png|jpg|jpeg)$/i, ".resized.jpg"), { type: "image/jpeg" });
+  } finally { URL.revokeObjectURL(url); }
 }
 
 function tryNextGateway(el: HTMLImageElement, cid?: string) {
   if (!cid) return;
   const urls = ipfsToHttp(cid);
-  if (!urls.length) return;
-  const currentIdx = Number(el.dataset.gatewayIndex ?? "-1");
-  const nextIdx = currentIdx + 1;
-  if (nextIdx >= urls.length) return;
-  el.src = urls[nextIdx];
-  el.dataset.gatewayIndex = String(nextIdx);
-}
-
-async function fetchManifestFromCid(cid: string) {
-  const urls = ipfsToHttp(cid);
-  for (const u of urls) {
-    try {
-      const res = await fetch(u, { cache: "no-store" });
-      if (res.ok) return await res.json();
-    } catch {
-      /* try next gateway */
-    }
-  }
-  return null;
+  const idx = Number(el.dataset.gatewayIndex ?? "-1") + 1;
+  if (idx < urls.length) { el.src = urls[idx]; el.dataset.gatewayIndex = String(idx); }
 }
 
 async function getPendingBytes(p: PendingItem): Promise<ArrayBuffer> {
@@ -278,578 +446,152 @@ async function getPendingBytes(p: PendingItem): Promise<ArrayBuffer> {
   return res.arrayBuffer();
 }
 
-async function lockPendingAndPropose(p: PendingItem) {
-  // 1) ensure CID (upload only when locking)
-  let cid = p.cid;
-  if (!cid) {
-    try {
-      const blob = await fetch(p.previewUrl).then((r) => r.blob());
-      // Re-wrap into a File to keep the name/type
-      const file = new File([blob], p.name, { type: p.mime });
-      const uploaded = await uploadImage(
-        p.name,
-        file,
-        p.mime as "image/png" | "image/jpeg"
-      );
-      if (!uploaded) {
-        throw new Error("IPFS upload disabled.");
-      }
-      cid = uploaded;
-    } catch (e: any) {
-      throw new Error(String(e?.message ?? "IPFS upload failed"));
-    }
-  }
-  if (!cid) throw new Error("CID unavailable");
-
-  // 2) compute bid (base + tip)
-  const bidPerCellWei = (BASE_FEE_PER_CELL_WEI + p.tipPerCellWei).toString();
-
-  // 3) call /api/propose
-  await proposePlacement({
-    id: p.id,
-    owner: OWNER_DEMO, // replace with connected wallet if available
-    cid,
-    name: p.name,
-    mime: p.mime as "image/png" | "image/jpeg",
-    rect: p.rect,
-    width: p.width,
-    height: p.height,
-    bidPerCellWei,
-  });
-
-  return cid;
-}
-
 const asWorldRect = (value: any) => {
   const src = value?.rect ?? value ?? {};
-  return {
-    x: Number(src.x ?? 0),
-    y: Number(src.y ?? 0),
-    w: Number(src.w ?? src.width ?? 0),
-    h: Number(src.h ?? src.height ?? 0),
-  };
+  return { x: Number(src.x ?? 0), y: Number(src.y ?? 0), w: Number(src.w ?? src.width ?? 0), h: Number(src.h ?? src.height ?? 0) };
 };
 
 const normalizePlacements = (list: any[]): FinalizedPlacement[] =>
   list.map((p: any) => {
-    const { rect, ...rest } = p ?? {};
-    const coerced = asWorldRect(rect ?? p);
-    return {
-      ...rest,
-      x: coerced.x,
-      y: coerced.y,
-      w: coerced.w,
-      h: coerced.h,
-      cells: Number(p?.cells ?? 1),
-    } as FinalizedPlacement;
+    const coerced = asWorldRect(p?.rect ?? p);
+    return { ...p, x: coerced.x, y: coerced.y, w: coerced.w, h: coerced.h, cells: Number(p?.cells ?? 1) } as FinalizedPlacement;
   });
 
 const normalizeProposals = (list: ProposalSummary[] | undefined): ProposalSummary[] =>
   (list ?? []).map((p) => {
     const rect = asWorldRect(p.rect ?? p);
-    const placementId = isBytes32Hex(p.chainId)
-      ? p.chainId
-      : isBytes32Hex(p.placementId)
-      ? p.placementId
-      : undefined;
-    const epochId = typeof p.epochSubmitted === "number" ? p.epochSubmitted : 0;
-    return {
-      ...p,
-      rect,
-      placementId,
-      epochId,
-    };
+    const placementId = isBytes32Hex(p.chainId) ? p.chainId : isBytes32Hex(p.placementId) ? p.placementId : undefined;
+    return { ...p, rect, placementId, epochId: p.epochSubmitted ?? 0 };
   });
 
-const computeProposalSecondsLeft = (proposal: ProposalSummary): number | null => {
-  const { enabled, epochSec } = resolveEpochConfig();
-  if (!enabled || epochSec <= 0) return null;
-  const nowEpoch = currentEpoch();
-  const epochsDiff = proposal.voteEndsAtEpoch - nowEpoch;
-  if (epochsDiff <= 0) return 0;
-  return Math.max(0, epochsDiff * epochSec);
-};
-
-type ProposalCardProps = {
-  proposal: ProposalSummary;
-};
-
-function ProposalCard({ proposal }: ProposalCardProps) {
-  const { address, isConnected } = useAccount();
-  const chainId = useChainId();
-  const { switchChainAsync, isPending: switchingChain } = useSwitchChain();
-
-  const computedSecondsLeft = computeProposalSecondsLeft(proposal);
-  const hasEpoch =
-    typeof proposal.epochSubmitted === "number" && !Number.isNaN(proposal.epochSubmitted);
-  const hasChainId = isBytes32Hex(proposal.chainId);
-  const epochCfg = resolveEpochConfig();
-  const isPending =
-    proposal.status === "proposed" &&
-    epochCfg.enabled &&
-    computedSecondsLeft !== null &&
-    computedSecondsLeft > 0;
-  const placementId = isBytes32Hex(proposal.chainId)
-    ? proposal.chainId
-    : isBytes32Hex(proposal.placementId)
-    ? proposal.placementId
-    : undefined;
-  const epochId = proposal.epochSubmitted ?? 0;
-  const hasPlacementId = isBytes32Hex(placementId);
-  const queryEnabled = isPending && hasEpoch && hasPlacementId;
-  const epochBigInt = BigInt(epochId || 0);
-  const chainIdLabel = hasPlacementId
-    ? `${placementId!.slice(0, 6)}…${placementId!.slice(-4)}`
-    : "—";
-
-  const {
-    yes,
-    no,
-    total,
-    pctYes,
-    meetsQuorum,
-    passesMajority51,
-    isLoading: votesLoading,
-    refetch: refetchVotes,
-  } = usePlacementVotes({
-    epochId: epochBigInt,
-    placementId: (placementId ?? "0x") as `0x${string}`,
-    enabled: queryEnabled,
-  });
-
-  const {
-    vote,
-    isWriting,
-    isConfirming,
-    isConfirmed,
-    error,
-  } = useVoteOnPlacement({
-    epochId: epochBigInt,
-    placementId,
-  });
-
-  useEffect(() => {
-    if (isConfirmed) {
-      refetchVotes();
-    }
-  }, [isConfirmed, refetchVotes]);
-
-  const wrongChain = Boolean(chainId && chainId !== FLUENT_CHAIN_ID);
-  const isVoting = isWriting || isConfirming;
-  const canOnchainVote =
-    isPending &&
-    queryEnabled &&
-    !!address &&
-    isConnected &&
-    !isVoting &&
-    !votesLoading &&
-    !switchingChain;
-
-  const voteLabel = (() => {
-    if (!hasEpoch || !hasChainId) return "No epoch/ID";
-    if (!epochCfg.enabled) return "Epoch config disabled";
-    if (!isConnected) return "Connect wallet";
-    if (wrongChain) return "Switch to Fluent";
-    if (isVoting) return "Voting...";
-    if (isConfirmed) return "Voted";
-    return null;
-  })();
-
-  const onVoteClick = async (support: boolean) => {
-    if (!queryEnabled || !address) return;
-    if (wrongChain) {
-      try {
-        await switchChainAsync?.({ chainId: FLUENT_CHAIN_ID });
-      } catch {
-        return;
-      }
-    }
-    try {
-      await vote(support);
-      await refetchVotes();
-    } catch (err) {
-      console.error("on-chain vote failed", err);
-    }
-  };
-
-  const fallbackYes = BigInt(Number.isFinite(proposal.yes) ? proposal.yes : 0);
-  const fallbackNo = BigInt(Number.isFinite(proposal.no) ? proposal.no : 0);
-  const fallbackTotal = fallbackYes + fallbackNo;
-  const displayYes = queryEnabled ? yes : fallbackYes;
-  const displayNo = queryEnabled ? no : fallbackNo;
-  const displayTotal = queryEnabled ? total : fallbackTotal;
-  const onchainStatusLabel = votesLoading
-    ? "…"
-    : `Yes ${displayYes.toString()} · No ${displayNo.toString()} · Total ${displayTotal.toString()}`;
-  const votersCount = votersCountFrom(proposal.voters);
-
-  return (
-    <div className="border border-white/10 rounded-lg p-2">
-      <div className="flex justify-between">
-        <span>
-          {display(proposal.cells)} cells · bid {display(proposal.bidPerCellWei)}
-          /cell
-        </span>
-        <span>{display(Math.round(Number(proposal.percentYes ?? 0) * 100))}% yes</span>
-      </div>
-      <div className="flex justify-between mt-1">
-        <span>chain {chainIdLabel}</span>
-        <span>epoch {display(proposal.epochSubmitted)}</span>
-      </div>
-      <div className="flex justify-between mt-1">
-        <span>{votersCount} voters</span>
-        <span>
-          {proposal.status === "proposed"
-            ? epochCfg.enabled && computedSecondsLeft !== null
-              ? `${display(computedSecondsLeft)}s left`
-              : "epoch disabled"
-            : display(proposal.status)}
-        </span>
-      </div>
-      <div className="mt-1 text-[11px] text-white/80">{onchainStatusLabel}</div>
-      <div className="mt-2 flex gap-2">
-        <button
-          className="px-2 py-1 rounded bg-white/80 text-black disabled:opacity-50"
-          disabled={!canOnchainVote}
-          type="button"
-          onClick={() => onVoteClick(true)}
-        >
-          {voteLabel ?? "Yes"}
-        </button>
-        <button
-          className="px-2 py-1 rounded bg-white/10 text-white disabled:opacity-50"
-          disabled={!canOnchainVote}
-          type="button"
-          onClick={() => onVoteClick(false)}
-        >
-          {voteLabel ?? "No"}
-        </button>
-      </div>
-
-      {isPending && hasPlacementId && total > 0n && (
-        <p className="mt-1 text-[10px] text-white/60">
-          {(pctYes * 100).toFixed(0)}% yes
-        </p>
-      )}
-
-      {process.env.NODE_ENV !== "production" && (
-        <pre className="mt-2 text-[10px] text-white/60 whitespace-pre-wrap">
-          epochCfg={JSON.stringify(epochCfg)}
-          {"\n"}currentEpoch={currentEpoch()}
-          {"\n"}proposalEpoch={proposal.epochSubmitted ?? null}
-          {"\n"}voteEndsAtEpoch={proposal.voteEndsAtEpoch ?? null}
-          {"\n"}chainId={proposal.chainId ?? null}
-        </pre>
-      )}
-
-      {!epochCfg.enabled && (
-        <div className="mt-2 text-[10px] text-amber-200/90">
-          Epoch config disabled: set NEXT_PUBLIC_EPOCH_ZERO_UNIX + NEXT_PUBLIC_EPOCH_SECONDS
-        </div>
-      )}
-
-      {isPending && hasPlacementId && !votesLoading && (
-        <p className="mt-1 text-[10px] text-white/50">
-          {meetsQuorum ? "Quorum met" : "Quorum not met"} ·{" "}
-          {passesMajority51 ? "Passes 51%" : "Below 51%"}
-        </p>
-      )}
-
-      {isPending && hasPlacementId && error && (
-        <div className="mt-1 text-[10px] text-rose-200">
-          {(error as any)?.shortMessage ?? (error as any)?.message ?? "On-chain vote failed"}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
+// ============================================================================
+// MAIN BOARD PAGE COMPONENT
+// ============================================================================
 
 export default function BoardPage() {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
 
   const pending = useBoard((s) => s.pending);
   const addPending = useBoard((s) => s.addPending);
   const removePending = useBoard((s) => s.removePending);
-  const setTipFor = useBoard((s) => s.setTipFor);
   const setRect = useBoard((s) => s.setRect);
-  const setFitMode = useBoard((s) => s.setFitMode);
   const clearBoardState = useBoard((s) => s.clearAll);
   const setCidFor = useBoard((s) => s.setCidFor);
 
-  // --- simple password gate ---
+  // Wallet
+  const { address, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
+  const { connect, connectors } = useConnect();
+  const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
+  const handleSwitchWallet = useCallback(() => {
+    disconnect();
+    setTimeout(() => { const c = connectors[0]; if (c) connect({ connector: c }); }, 100);
+  }, [disconnect, connect, connectors]);
+
+  // Password gate
   const [unlocked, setUnlocked] = useState(false);
   const [pwInput, setPwInput] = useState("");
   const [pwError, setPwError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem("mifoid-board-unlocked");
-    if (stored === "1") {
-      setUnlocked(true);
-    }
+    if (typeof window !== "undefined" && window.localStorage.getItem("mifoid-board-unlocked") === "1") setUnlocked(true);
   }, []);
 
-  const handleUnlock = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!BOARD_PASSWORD) {
-        setPwError(
-          "Missing NEXT_PUBLIC_BOARD_PASSWORD – set it in your env to use this gate."
-        );
-        return;
-      }
-      if (pwInput.trim() === BOARD_PASSWORD) {
-        setUnlocked(true);
-        setPwError(null);
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem("mifoid-board-unlocked", "1");
-        }
-        try {
-          sfx.unlock?.();
-        } catch {
-          /* noop */
-        }
-      } else {
-        setPwError("incorrect password");
-      }
-    },
-    [pwInput]
-  );
+  const handleUnlock = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    if (!BOARD_PASSWORD) { setPwError("Missing password config"); return; }
+    if (pwInput.trim() === BOARD_PASSWORD) {
+      setUnlocked(true); setPwError(null);
+      window.localStorage?.setItem("mifoid-board-unlocked", "1");
+      sfx.unlock?.();
+    } else setPwError("incorrect password");
+  }, [pwInput]);
 
-  // pan/zoom
+  // Pan/zoom - smooth infinite
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const stageRef = useRef<HTMLDivElement | null>(null);
-  const [draggingBoard, setDraggingBoard] = useState(false);
-  const boardDragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
-
-  // space-to-pan
   const [spaceDown, setSpaceDown] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
+  const [draggingBoard, setDraggingBoard] = useState(false);
   const panStartRef = useRef({ x: 0, y: 0 });
   const panOriginRef = useRef({ x: 0, y: 0 });
+  const boardDragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
+  // Status messages
+  const [statusMessages, setStatusMessages] = useState<StatusMessage[]>([
+    { id: "init", text: "Welcome to RemiliaLoreboard. Happy posting.", type: "system", timestamp: new Date() }
+  ]);
+  const addStatus = useCallback((text: string, type: StatusMessage["type"] = "info") => {
+    setStatusMessages(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, text, type, timestamp: new Date() }]);
+  }, []);
+
+  // UI state
   const [dragOver, setDragOver] = useState(false);
-  const [message, setMessage] = useState<string>(
-    "Drop a PNG/JPG on the board or click to upload."
-  );
   const [busy, setBusy] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const [devCid, setDevCid] = useState("");
-  const [devW, setDevW] = useState(200);
-  const [devH, setDevH] = useState(200);
-  const [devX, setDevX] = useState(0);
-  const [devY, setDevY] = useState(0);
-  const [finalizing, setFinalizing] = useState(false);
-  const [finalizeResult, setFinalizeResult] = useState<string | null>(null);
-  const [latestDebug, setLatestDebug] = useState<string | null>(null);
   const [submittingProposals, setSubmittingProposals] = useState(false);
-  const zoomToRect = useCallback(
-    (r: Rect, padding = 32) => {
-      const el = containerRef.current;
-      if (!el) return;
-      const viewW = el.clientWidth || 1;
-      const viewH = el.clientHeight || 1;
-      const stageRect = toStageRect(r);
-      const targetW = stageRect.w + padding * 2;
-      const targetH = stageRect.h + padding * 2;
-      const s = Math.max(0.25, Math.min(4, Math.min(viewW / targetW, viewH / targetH)));
-      const x = (viewW - stageRect.w * s) / 2 - stageRect.x * s;
-      const y = (viewH - stageRect.h * s) / 2 - stageRect.y * s;
-      setScale(s);
-      setPan({ x, y });
-    },
-    []
-  );
 
-  // ---- Epoch (hydration-safe) ----
+  // Epoch
   const { enabled, index: epochIdx, remainingMs } = useEpochCountdown();
   const fmtCountdown = useMemo(() => {
     if (!enabled) return "—";
     const s = Math.floor(remainingMs / 1000);
-    const hh = String(Math.floor(s / 3600)).padStart(2, "0");
-    const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
-    const ss = String(s % 60).padStart(2, "0");
-    return `T-${hh}:${mm}:${ss}`;
+    return `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
   }, [enabled, remainingMs]);
-  const epochLabel = enabled ? " #" + epochIdx : "";
 
-  // ======== Finalized + proposals state ========
+  // Board data
   const [placed, setPlaced] = useState<FinalizedPlacement[]>([]);
   const [placedEpoch, setPlacedEpoch] = useState<number | null>(null);
-  // start by showing whatever you consider "latest" on-chain
   const [viewEpoch, setViewEpoch] = useState<number | null>(null);
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
-  const [viewMode, setViewMode] = useState<"latest" | "fixed">("latest");
+  const [viewMode] = useState<"latest" | "fixed">("latest");
   const [activePlacement, setActivePlacement] = useState<Placement | null>(null);
-  const {
-    manifest: latestManifest,
-    epoch: latestManifestEpoch,
-    loading: latestManifestLoading,
-    error: latestManifestError,
-  } = useLatestManifestFromChain();
+
+  const { manifest: latestManifest, epoch: latestManifestEpoch, loading: latestManifestLoading, error: latestManifestError } = useLatestManifestFromChain();
   const latestFallbackTried = useRef(false);
-
-  const handleFinalizeClick = useCallback(async () => {
-    try {
-      setFinalizing(true);
-      setFinalizeResult(null);
-
-      const res = await fetch("/api/operator/finalize?force=1", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setFinalizeResult(`Error: ${json?.error ?? res.statusText}`);
-        return;
-      }
-
-      const parsedEpoch =
-        typeof json?.epoch === "number"
-          ? json.epoch
-          : Number(json?.epoch ?? LATEST_EPOCH_HINT);
-      const epoch = Number.isFinite(parsedEpoch)
-        ? parsedEpoch
-        : 0;
-
-      const winnersCount =
-        json?.winners ??
-        (Array.isArray(json?.accepted) ? json.accepted.length : "—");
-      const txHash = json?.txHash ?? "n/a";
-      const manifestRoot = json?.manifestRoot ?? "n/a";
-
-      const overlapRejected = Array.isArray(json?.rejectedDueToOverlap)
-        ? json.rejectedDueToOverlap.length
-        : 0;
-
-      const manifestCidResp: string | undefined =
-        json?.manifestCID ?? json?.manifestCid ?? json?.manifest;
-      let latestEpochValue: number | null =
-        typeof json?.epoch === "number"
-          ? json.epoch
-          : Number.isFinite(Number(json?.epoch))
-          ? Number(json?.epoch)
-          : null;
-
-      let placements: FinalizedPlacement[] = [];
-
-      if (manifestCidResp) {
-        const manifestRaw = await fetchManifestFromCid(
-          manifestCidResp.replace(/^ipfs:\/\//, "")
-        );
-        if (manifestRaw) {
-          placements = normalizePlacements(manifestRaw?.placements ?? manifestRaw?.winners ?? []);
-        }
-      }
-
-      if (!placements.length) {
-        const latest = await getLatestNormalized();
-        placements = normalizePlacements(latest.manifest?.placements ?? []);
-        latestEpochValue =
-          typeof latest.epoch === "number" ? latest.epoch : latestEpochValue;
-      }
-
-      setPlaced(placements);
-      setPlacedEpoch(latestEpochValue);
-      setViewEpoch(latestEpochValue);
-      setViewMode("latest");
-      clearBoardState?.();
-
-      try {
-        const { proposals } = await listProposals();
-        setProposals(normalizeProposals(proposals ?? []));
-      } catch {
-        /* ignore */
-      }
-
-      let msg = `Finalized epoch ${epoch} • winners=${winnersCount} • tx=${txHash} • manifest=${manifestRoot}`;
-      if (overlapRejected > 0) {
-        msg += ` • ${overlapRejected} proposal(s) rejected for overlapping existing memes`;
-      }
-      setFinalizeResult(msg);
-
-      document
-        .querySelector("#referendum")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } catch (e: any) {
-      setFinalizeResult(`Error: ${e?.message ?? "Unknown error"}`);
-    } finally {
-      setFinalizing(false);
-    }
-  }, [
-    clearBoardState,
-    setPlaced,
-    setPlacedEpoch,
-    setViewEpoch,
-    setProposals,
-    setViewMode,
-  ]);
-
-  // ---- Ghost for DnD ----
   const ghostMetaRef = useRef<DragMeta | null>(null);
   const [ghost, setGhost] = useState<Ghost | null>(null);
 
   const storedRectFor = useCallback((p: PendingItem) => p.rect, []);
 
-  const screenToWorld = useCallback(
-    (clientX: number, clientY: number): DropPos => {
-      const el = containerRef.current;
-      if (!el) return { x: 0, y: 0 };
-      const r = el.getBoundingClientRect();
-      const stageX = (clientX - r.left - pan.x) / scale;
-      const stageY = (clientY - r.top - pan.y) / scale;
-      const boardX = stageX - STAGE_PAD_X;
-      const boardY = stageY - STAGE_PAD_Y;
-      const worldX = boardX - BOARD_OFFSET_X;
-      const worldY = boardY - BOARD_OFFSET_Y;
-      const gridX = Math.round(worldX / TILE);
-      const gridY = Math.round(worldY / TILE);
-      const clampedGridX = Math.max(-GRID_RADIUS_X, Math.min(GRID_RADIUS_X, gridX));
-      const clampedGridY = Math.max(-GRID_RADIUS_Y, Math.min(GRID_RADIUS_Y, gridY));
-      return {
-        x: clampedGridX * TILE,
-        y: clampedGridY * TILE,
-      };
-    },
-    [pan, scale]
-  );
+  const zoomToRect = useCallback((r: Rect, padding = 32) => {
+    const el = containerRef.current;
+    if (!el) return;
+    const viewW = el.clientWidth || 1, viewH = el.clientHeight || 1;
+    const stageRect = toStageRect(r);
+    const s = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Math.min(viewW / (stageRect.w + padding * 2), viewH / (stageRect.h + padding * 2))));
+    setScale(s);
+    setPan({ x: (viewW - stageRect.w * s) / 2 - stageRect.x * s, y: (viewH - stageRect.h * s) / 2 - stageRect.y * s });
+  }, []);
+
+  const screenToWorld = useCallback((clientX: number, clientY: number): DropPos => {
+    const el = containerRef.current;
+    if (!el) return { x: 0, y: 0 };
+    const r = el.getBoundingClientRect();
+    const stageX = (clientX - r.left - pan.x) / scale;
+    const stageY = (clientY - r.top - pan.y) / scale;
+    const worldX = stageX - STAGE_PAD_X - BOARD_OFFSET_X;
+    const worldY = stageY - STAGE_PAD_Y - BOARD_OFFSET_Y;
+    const gridX = Math.max(-GRID_RADIUS_X, Math.min(GRID_RADIUS_X, Math.round(worldX / TILE)));
+    const gridY = Math.max(-GRID_RADIUS_Y, Math.min(GRID_RADIUS_Y, Math.round(worldY / TILE)));
+    return { x: gridX * TILE, y: gridY * TILE };
+  }, [pan, scale]);
 
   const onPickClick = useCallback(() => fileInputRef.current?.click(), []);
 
-  const getDropPos = useCallback(
-    (clientX: number, clientY: number) => screenToWorld(clientX, clientY),
-    [screenToWorld]
-  );
-
+  // Keyboard
   useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
-        e.preventDefault();
-        setSpaceDown(true);
-      }
-    };
-    const up = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
-        setSpaceDown(false);
-      }
-    };
+    const down = (e: KeyboardEvent) => { if (e.code === "Space") { e.preventDefault(); setSpaceDown(true); } };
+    const up = (e: KeyboardEvent) => { if (e.code === "Space") setSpaceDown(false); };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
-    return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-    };
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
   }, []);
 
+  // Pan handlers
   const onContainerPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
-    const interactive = (e.target as HTMLElement).closest(
-      "figure,button,input,textarea,select,label"
-    );
+    const interactive = (e.target as HTMLElement).closest("figure,button,input,textarea,select,label");
     if (spaceDown) {
       e.preventDefault();
       panStartRef.current = { x: e.clientX, y: e.clientY };
@@ -860,187 +602,106 @@ export default function BoardPage() {
     }
     if (interactive) return;
     e.preventDefault();
-    boardDragStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      panX: pan.x,
-      panY: pan.y,
-    };
+    boardDragStartRef.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
     setDraggingBoard(true);
     (e.currentTarget as Element).setPointerCapture?.((e as any).pointerId);
   };
 
+  // Smooth infinite zoom
   const onCanvasWheel: React.WheelEventHandler<HTMLDivElement> = (e) => {
     if (e.shiftKey) return;
     e.preventDefault();
     const el = containerRef.current;
     if (!el) return;
-    const factor = Math.exp(-e.deltaY * 0.001);
-    const nextScale = Math.min(4, Math.max(0.25, scale * factor));
+    const factor = Math.exp(-e.deltaY * 0.003);
+    const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * factor));
     const r = el.getBoundingClientRect();
-    const cx = e.clientX - r.left;
-    const cy = e.clientY - r.top;
-    const wx = (cx - pan.x) / scale;
-    const wy = (cy - pan.y) / scale;
+    const cx = e.clientX - r.left, cy = e.clientY - r.top;
+    const wx = (cx - pan.x) / scale, wy = (cy - pan.y) / scale;
     setScale(nextScale);
-    setPan({
-      x: cx - wx * nextScale,
-      y: cy - wy * nextScale,
-    });
+    setPan({ x: cx - wx * nextScale, y: cy - wy * nextScale });
   };
 
   useEffect(() => {
     if (!isPanning) return;
     const onMove = (ev: PointerEvent) => {
-      const dx = ev.clientX - panStartRef.current.x;
-      const dy = ev.clientY - panStartRef.current.y;
-      setPan({
-        x: panOriginRef.current.x + dx,
-        y: panOriginRef.current.y + dy,
-      });
+      setPan({ x: panOriginRef.current.x + ev.clientX - panStartRef.current.x, y: panOriginRef.current.y + ev.clientY - panStartRef.current.y });
     };
     const onUp = () => setIsPanning(false);
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp, { once: true });
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
+    return () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
   }, [isPanning]);
 
-  useEffect(() => {
-    if (!spaceDown) setIsPanning(false);
-  }, [spaceDown]);
+  useEffect(() => { if (!spaceDown) setIsPanning(false); }, [spaceDown]);
 
   useEffect(() => {
     if (!draggingBoard) return;
     const onMove = (ev: PointerEvent) => {
-      const dx = ev.clientX - boardDragStartRef.current.x;
-      const dy = ev.clientY - boardDragStartRef.current.y;
-      setPan({
-        x: boardDragStartRef.current.panX + dx,
-        y: boardDragStartRef.current.panY + dy,
-      });
+      setPan({ x: boardDragStartRef.current.panX + ev.clientX - boardDragStartRef.current.x, y: boardDragStartRef.current.panY + ev.clientY - boardDragStartRef.current.y });
     };
     const onUp = () => setDraggingBoard(false);
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp, { once: true });
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
+    return () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
   }, [draggingBoard]);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const x = (r.width - STAGE_CANVAS_W) / 2;
-    const y = (r.height - STAGE_CANVAS_H) / 2;
-    setPan({ x, y });
+    setPan({ x: (r.width - STAGE_CANVAS_W) / 2, y: (r.height - STAGE_CANVAS_H) / 2 });
   }, []);
 
   async function getImageSize(file: File): Promise<{ w: number; h: number }> {
     try {
-      // @ts-ignore
       const bmp = await (globalThis as any).createImageBitmap?.(file);
-      if (bmp) {
-        const w = bmp.width,
-          h = bmp.height;
-        bmp.close?.();
-        return { w, h };
-      }
+      if (bmp) { const w = bmp.width, h = bmp.height; bmp.close?.(); return { w, h }; }
     } catch {}
     const url = URL.createObjectURL(file);
     try {
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const i = new Image();
-        i.onload = () => resolve(i);
-        i.onerror = reject;
-        i.src = url;
-      });
+      const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
       return { w: img.naturalWidth, h: img.naturalHeight };
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+    } finally { URL.revokeObjectURL(url); }
   }
 
   const primeGhostMetaFromEvent = useCallback(async (e: React.DragEvent) => {
     if (ghostMetaRef.current) return ghostMetaRef.current;
     const items = e.dataTransfer?.items;
-    if (!items || items.length === 0) return null;
-
+    if (!items?.length) return null;
     let file: File | null = null;
-    for (const it of Array.from(items)) {
-      if (it.kind === "file") {
-        const f = it.getAsFile();
-        if (f) {
-          file = f;
-          break;
-        }
-      }
-    }
+    for (const it of Array.from(items)) { if (it.kind === "file") { file = it.getAsFile(); if (file) break; } }
     if (!file) return null;
-
     const kind = await sniffImageType(file);
     const mime = kind ? mimeFromType(kind) : null;
-    if (!mime) {
-      ghostMetaRef.current = { w: TILE, h: TILE, mime: null };
-      return ghostMetaRef.current;
-    }
+    if (!mime) { ghostMetaRef.current = { w: TILE, h: TILE, mime: null }; return ghostMetaRef.current; }
     const { w, h } = await getImageSize(file);
     ghostMetaRef.current = { w, h, mime };
     return ghostMetaRef.current;
   }, []);
 
-  const refreshGhostAt = useCallback(
-    (pos: DropPos) => {
-      const meta = ghostMetaRef.current;
-      if (!meta) {
-        setGhost(null);
-        return;
-      }
+  const refreshGhostAt = useCallback((pos: DropPos) => {
+    const meta = ghostMetaRef.current;
+    if (!meta) { setGhost(null); return; }
+    if (!meta.mime) {
+      setGhost({ rect: snapRect({ x: pos.x, y: pos.y, w: TILE, h: TILE }), cells: 1, status: "invalid", totalWei: 0n });
+      return;
+    }
+    const rect = snapRect({ x: pos.x, y: pos.y, w: meta.w, h: meta.h });
+    const cells = rectCells(rect);
+    let status: GhostStatus = "ok";
+    const placedRects = placed.map((pl) => ({ x: pl.x, y: pl.y, w: pl.w, h: pl.h }));
+    if (cells > MAX_CELLS_PER_RECT) status = "oversize";
+    else if (hasOverlap(rect, placedRects) || hasOverlap(rect, pending.map(storedRectFor))) status = "overlap";
+    setGhost({ rect, cells, status, totalWei: BigInt(cells) * BASE_FEE_PER_CELL_WEI });
+  }, [pending, placed, storedRectFor]);
 
-      if (!meta.mime) {
-        const rect = snapRect({ x: pos.x, y: pos.y, w: TILE, h: TILE });
-        const cells = rectCells(rect);
-        setGhost({ rect, cells, status: "invalid", totalWei: 0n });
-        return;
-      }
-
-      const rect = snapRect({ x: pos.x, y: pos.y, w: meta.w, h: meta.h });
-      const cells = rectCells(rect);
-
-      let status: GhostStatus = "ok";
-
-      const placedRects = placed.map((pl) => ({
-        x: pl.x,
-        y: pl.y,
-        w: pl.w,
-        h: pl.h,
-      }));
-
-      if (cells > MAX_CELLS_PER_RECT) {
-        status = "oversize";
-      } else if (hasOverlap(rect, placedRects)) {
-        status = "overlap";
-      } else if (hasOverlap(rect, pending.map((p) => storedRectFor(p)))) {
-        status = "overlap";
-      }
-
-      const totalWei = BigInt(cells) * BASE_FEE_PER_CELL_WEI;
-      setGhost({ rect, cells, status, totalWei });
-    },
-    [pending, placed, storedRectFor]
-  );
-
-  // ---- DnD ----
   const onDragOver: React.DragEventHandler<HTMLDivElement> = async (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
     await primeGhostMetaFromEvent(e);
     setDragOver(true);
-    refreshGhostAt(getDropPos(e.clientX, e.clientY));
+    refreshGhostAt(screenToWorld(e.clientX, e.clientY));
   };
 
   const onDragEnter: React.DragEventHandler<HTMLDivElement> = async (e) => {
@@ -1050,151 +711,74 @@ export default function BoardPage() {
   };
 
   const onDragLeave: React.DragEventHandler<HTMLDivElement> = (e) => {
-    if (e.currentTarget === e.target) {
-      setDragOver(false);
-      setGhost(null);
-      ghostMetaRef.current = null;
-    }
+    if (e.currentTarget === e.target) { setDragOver(false); setGhost(null); ghostMetaRef.current = null; }
   };
 
-  const clampToCanvas = useCallback((r: Rect): Rect => {
-    // allow symmetric placement around 0,0 instead of clamping to only +x/+y
-    const minX = -WORLD_MAX_X;
-    const maxX = WORLD_MAX_X - r.w;
-    const minY = -WORLD_MAX_Y;
-    const maxY = WORLD_MAX_Y - r.h;
+  const clampToCanvas = useCallback((r: Rect): Rect => ({
+    x: Math.min(Math.max(r.x, -WORLD_MAX_X), WORLD_MAX_X - r.w),
+    y: Math.min(Math.max(r.y, -WORLD_MAX_Y), WORLD_MAX_Y - r.h),
+    w: r.w, h: r.h,
+  }), []);
 
-    return {
-      x: Math.min(Math.max(r.x, minX), maxX),
-      y: Math.min(Math.max(r.y, minY), maxY),
-      w: r.w,
-      h: r.h,
-    };
-  }, []);
+  const handleSingleFile = useCallback(async (file: File, pos?: DropPos) => {
+    addStatus("Processing image...", "info");
+    setBusy(true);
+    try {
+      let workingFile = file;
+      let kind = await sniffImageType(workingFile);
+      if (!kind) { addStatus("Only PNG or JPG allowed.", "error"); return; }
+      let mime = mimeFromType(kind) as "image/png" | "image/jpeg";
+      let { w, h } = await getImageSize(workingFile);
+      let rect = snapRect({ x: pos?.x ?? 0, y: pos?.y ?? 0, w, h });
+      let cells = rectCells(rect);
 
-  const handleSingleFile = useCallback(
-    async (file: File, pos?: DropPos) => {
-      setMessage("");
-      setBusy(true);
-      try {
-        let workingFile = file;
-        let kind = await sniffImageType(workingFile);
-        if (!kind) {
-          setMessage("Only PNG or JPG allowed.");
-          return;
-        }
-
-        let mime = mimeFromType(kind) as "image/png" | "image/jpeg";
-
-        // 1) measure original image
-        let { w, h } = await getImageSize(workingFile);
-
-        // initial rect at drop position, snapped to grid
-        let rect = snapRect({
-          x: pos?.x ?? 0,
-          y: pos?.y ?? 0,
-          w,
-          h,
-        });
-
-        let cells = rectCells(rect);
-
-        // 2) if huge, downscale the image once toward the cell cap
-        if (cells > MAX_CELLS_PER_RECT) {
-          const resized = await downscaleToMaxCells(
-            workingFile,
-            MAX_CELLS_PER_RECT,
-            TILE,
-            "image/jpeg",
-            0.9
-          );
-          workingFile = resized;
-
-          kind = await sniffImageType(resized);
-          mime = kind
-            ? (mimeFromType(kind) as "image/png" | "image/jpeg")
-            : ("image/jpeg" as const);
-
-          const size2 = await getImageSize(resized);
-          rect = snapRect({
-            x: pos?.x ?? 0,
-            y: pos?.y ?? 0,
-            w: size2.w,
-            h: size2.h,
-          });
-          cells = rectCells(rect);
-        }
-
-        // 3) Force the rect underneath the cell cap and keep it on the canvas
-        rect = capRectToMaxCells(rect, MAX_CELLS_PER_RECT);
-        rect = clampToCanvas(rect);
-        const cellsNow = rectCells(rect);
-
-        const previewUrl = URL.createObjectURL(workingFile);
-
-        addPending({
-          name: workingFile.name,
-          mime,
-          width: rect.w,
-          height: rect.h,
-          rect,
-          cells: cellsNow,
-          tipPerCellWei: 0n,
-          previewUrl,
-          cid: undefined,
-          fitMode: "contain",
-        });
-
-        setMessage('Set size/position, then click "Lock" on the piece to propose.');
-      } finally {
-        setBusy(false);
-        setGhost(null);
-        ghostMetaRef.current = null;
+      if (cells > MAX_CELLS_PER_RECT) {
+        workingFile = await downscaleToMaxCells(workingFile, MAX_CELLS_PER_RECT, TILE);
+        kind = await sniffImageType(workingFile);
+        mime = kind ? (mimeFromType(kind) as "image/png" | "image/jpeg") : "image/jpeg";
+        const size2 = await getImageSize(workingFile);
+        rect = snapRect({ x: pos?.x ?? 0, y: pos?.y ?? 0, w: size2.w, h: size2.h });
+        cells = rectCells(rect);
       }
-    },
-    [addPending, clampToCanvas]
-  );
 
-  const handleFiles = useCallback(
-    async (files: FileList | null, pos?: DropPos) => {
-      if (!files || files.length === 0) return;
-      await handleSingleFile(files[0], pos);
-    },
-    [handleSingleFile]
-  );
+      rect = clampToCanvas(capRectToMaxCells(rect, MAX_CELLS_PER_RECT));
+      addPending({
+        name: workingFile.name, mime, width: rect.w, height: rect.h, rect, cells: rectCells(rect),
+        tipPerCellWei: 0n, previewUrl: URL.createObjectURL(workingFile), cid: undefined, fitMode: "contain",
+      });
+      addStatus(`Image added: ${workingFile.name}`, "success");
+    } finally { setBusy(false); setGhost(null); ghostMetaRef.current = null; }
+  }, [addPending, clampToCanvas, addStatus]);
+
+  const handleFiles = useCallback(async (files: FileList | null, pos?: DropPos) => {
+    if (files?.length) await handleSingleFile(files[0], pos);
+  }, [handleSingleFile]);
 
   const onDrop: React.DragEventHandler<HTMLDivElement> = async (e) => {
     e.preventDefault();
     setDragOver(false);
-    await handleFiles(
-      e.dataTransfer?.files ?? null,
-      getDropPos(e.clientX, e.clientY)
-    );
+    await handleFiles(e.dataTransfer?.files ?? null, screenToWorld(e.clientX, e.clientY));
   };
 
   const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const input = e.currentTarget;
-
-    let pos: DropPos | undefined;
     const el = containerRef.current;
+    let pos: DropPos | undefined;
     if (el) {
       const r = el.getBoundingClientRect();
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
-      pos = screenToWorld(cx, cy);
+      pos = screenToWorld(r.left + r.width / 2, r.top + r.height / 2);
     }
-
     await handleFiles(input.files ?? null, pos);
     input.value = "";
   };
 
-  // ======== MOVE / RESIZE ========
+  // Move/resize
   const [activeId, setActiveId] = useState<string | null>(null);
   const [liveRect, setLiveRect] = useState<Rect | null>(null);
   const liveRectRef = useRef<Rect | null>(null);
   const startRectRef = useRef<Rect | null>(null);
-  const startPtRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const aspectRef = useRef<number>(1);
+  const startPtRef = useRef({ x: 0, y: 0 });
+  const aspectRef = useRef(1);
 
   const snap = (v: number) => Math.round(v / TILE) * TILE;
 
@@ -1204,32 +788,17 @@ export default function BoardPage() {
     startRectRef.current = { ...storedRectFor(p) };
     startPtRef.current = { x: e.clientX, y: e.clientY };
     (e.currentTarget as Element).setPointerCapture?.((e as any).pointerId);
-
     const onMove = (ev: PointerEvent) => {
       if (!startRectRef.current) return;
-      const dx = (ev.clientX - startPtRef.current.x) / scale;
-      const dy = (ev.clientY - startPtRef.current.y) / scale;
-      const next = clampToCanvas({
-        x: snap(startRectRef.current.x + dx),
-        y: snap(startRectRef.current.y + dy),
-        w: startRectRef.current.w,
-        h: startRectRef.current.h,
-      });
-      setLiveRect(next);
-      setRect(p.id, next);
-      liveRectRef.current = next;
+      const dx = (ev.clientX - startPtRef.current.x) / scale, dy = (ev.clientY - startPtRef.current.y) / scale;
+      const next = clampToCanvas({ x: snap(startRectRef.current.x + dx), y: snap(startRectRef.current.y + dy), w: startRectRef.current.w, h: startRectRef.current.h });
+      setLiveRect(next); setRect(p.id, next); liveRectRef.current = next;
     };
-
     const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      const finalRect = liveRectRef.current ?? startRectRef.current!;
-      setRect(p.id, finalRect);
-      setLiveRect(null);
-      liveRectRef.current = null;
-      setActiveId(null);
+      window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp);
+      setRect(p.id, liveRectRef.current ?? startRectRef.current!);
+      setLiveRect(null); liveRectRef.current = null; setActiveId(null);
     };
-
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp, { once: true });
   };
@@ -1241,276 +810,103 @@ export default function BoardPage() {
     startPtRef.current = { x: e.clientX, y: e.clientY };
     aspectRef.current = Math.max(1e-6, p.width / p.height);
     (e.currentTarget as Element).setPointerCapture?.((e as any).pointerId);
-
     const onMove = (ev: PointerEvent) => {
       if (!startRectRef.current) return;
-      const dx = (ev.clientX - startPtRef.current.x) / scale;
-      const dy = (ev.clientY - startPtRef.current.y) / scale;
-
-      const keepAspect = !ev.altKey;
-      let w = startRectRef.current.w + dx;
-      let h = keepAspect ? w / aspectRef.current : startRectRef.current.h + dy;
-
-      w = snapDown(w);
-      h = snapDown(h);
-
-      let next = capRectToMaxCells(
-        { x: startRectRef.current.x, y: startRectRef.current.y, w, h },
-        MAX_CELLS_PER_RECT
-      );
-
-      next = clampToCanvas(next);
-
-      setLiveRect(next);
-      setRect(p.id, next);
-      liveRectRef.current = next;
+      const dx = (ev.clientX - startPtRef.current.x) / scale, dy = (ev.clientY - startPtRef.current.y) / scale;
+      let w = startRectRef.current.w + dx, h = ev.altKey ? startRectRef.current.h + dy : w / aspectRef.current;
+      w = snapDown(w); h = snapDown(h);
+      let next = clampToCanvas(capRectToMaxCells({ x: startRectRef.current.x, y: startRectRef.current.y, w, h }, MAX_CELLS_PER_RECT));
+      setLiveRect(next); setRect(p.id, next); liveRectRef.current = next;
     };
-
     const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      const finalRect = liveRectRef.current ?? startRectRef.current!;
-      setRect(p.id, finalRect);
-      setLiveRect(null);
-      liveRectRef.current = null;
-      setActiveId(null);
+      window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp);
+      setRect(p.id, liveRectRef.current ?? startRectRef.current!);
+      setLiveRect(null); liveRectRef.current = null; setActiveId(null);
     };
-
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp, { once: true });
   };
 
-  // ---- Visuals ----
+  // Grid background
   const gridSize = `${TILE}px ${TILE}px`;
-  const gridBg = useMemo(() => {
-    const mesh = [
-      "linear-gradient(to right, rgba(255,255,255,.07) 1px, transparent 1px)",
-      "linear-gradient(to bottom, rgba(255,255,255,.07) 1px, transparent 1px)",
-      "linear-gradient(to right, rgba(63,221,255,.06) 1px, transparent 1px)",
-      "linear-gradient(to bottom, rgba(63,221,255,.06) 1px, transparent 1px)",
-    ].join(", ");
-    const scanlines =
-      "linear-gradient(to bottom, rgba(255,255,255,.045) 1px, rgba(0,0,0,0) 1px)";
-    return `${mesh}, ${scanlines}`;
-  }, []);
+  const gridBg = useMemo(() => [
+    "linear-gradient(to right, rgba(255,255,255,.07) 1px, transparent 1px)",
+    "linear-gradient(to bottom, rgba(255,255,255,.07) 1px, transparent 1px)",
+    "linear-gradient(to right, rgba(63,221,255,.06) 1px, transparent 1px)",
+    "linear-gradient(to bottom, rgba(63,221,255,.06) 1px, transparent 1px)",
+    "linear-gradient(to bottom, rgba(255,255,255,.045) 1px, transparent 1px)",
+  ].join(", "), []);
   const gridSizes = `${gridSize}, ${gridSize}, ${gridSize}, ${gridSize}, 100% 6px`;
 
-  // Resolve the rect we should render for an item (live drag > override > original)
-  const renderRectFor = useCallback(
-    (p: PendingItem): Rect => {
-      if (activeId === p.id && liveRect) return liveRect;
-      return p.rect;
-    },
-    [activeId, liveRect]
-  );
+  const renderRectFor = useCallback((p: PendingItem): Rect => (activeId === p.id && liveRect) ? liveRect : p.rect, [activeId, liveRect]);
 
-  // Derive "view" items reflecting move/resize overrides
   const items = pending.map((p) => {
     const r = renderRectFor(p);
     const cellsNow = rectCells(r);
-    const totalNow =
-      BigInt(cellsNow) * (BASE_FEE_PER_CELL_WEI + p.tipPerCellWei);
-    return { ...p, rect: r, cells: cellsNow, totalWei: totalNow };
+    return { ...p, rect: r, cells: cellsNow, totalWei: BigInt(cellsNow) * (BASE_FEE_PER_CELL_WEI + p.tipPerCellWei) };
   });
 
-  const totalWei = items.reduce((acc, p) => acc + p.totalWei, 0n);
   const currentEpochView = viewMode === "fixed" ? viewEpoch : placedEpoch;
-  const canStepPrev =
-    typeof currentEpochView === "number" && Number.isFinite(currentEpochView) && currentEpochView > 0;
-  const canStepNext =
-    typeof placedEpoch === "number" &&
-    typeof currentEpochView === "number" &&
-    Number.isFinite(placedEpoch) &&
-    Number.isFinite(currentEpochView) &&
-    currentEpochView < placedEpoch;
 
-  // ---- load manifest ----
+  // Load manifest
   useEffect(() => {
-    if (!unlocked || viewMode !== "latest") {
-      latestFallbackTried.current = false;
-      return;
-    }
+    if (!unlocked || viewMode !== "latest") { latestFallbackTried.current = false; return; }
     let alive = true;
-
-    const applyPlacements = (placements: FinalizedPlacement[], epochValue: number | null) => {
+    const apply = (placements: FinalizedPlacement[], epochValue: number | null) => {
       if (!alive) return;
-      setPlaced(placements);
-      setPlacedEpoch(epochValue);
-      setViewEpoch(epochValue);
-
+      setPlaced(placements); setPlacedEpoch(epochValue); setViewEpoch(epochValue);
       if (placements.length) {
         const last = placements[placements.length - 1];
         zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
       }
     };
-
-    const loadFallbackLatest = async () => {
+    const loadFallback = async () => {
       if (latestFallbackTried.current) return;
       latestFallbackTried.current = true;
       try {
         const latest = await getLatestNormalized();
         if (!alive) return;
-
-        if (DEV_UI) {
-          setLatestDebug(JSON.stringify(latest, null, 2));
-        } else {
-          setLatestDebug(null);
-        }
-
-        const placements: FinalizedPlacement[] = normalizePlacements(
-          latest.manifest?.placements ?? []
-        );
-        const epochValue =
-          typeof latest.epoch === "number" ? latest.epoch : null;
-
-        applyPlacements(placements, epochValue);
+        apply(normalizePlacements(latest.manifest?.placements ?? []), typeof latest.epoch === "number" ? latest.epoch : null);
       } catch (e: any) {
         if (!alive) return;
-        setPlaced([]);
-        setPlacedEpoch(null);
-        setViewEpoch(null);
-        setLatestDebug(null);
-        setMessage(String(e?.message ?? "Failed to load manifest"));
+        setPlaced([]); setPlacedEpoch(null); setViewEpoch(null);
+        addStatus(String(e?.message ?? "Failed to load"), "error");
       }
     };
-
     if (latestManifestLoading) return;
-
-    if (latestManifestError) {
-      void loadFallbackLatest();
-      return;
-    }
-
+    if (latestManifestError) { void loadFallback(); return; }
     if (latestManifest?.placements) {
-      const placements: FinalizedPlacement[] = normalizePlacements(
-        latestManifest.placements
-      );
-      const epochValue =
-        typeof latestManifestEpoch === "number"
-          ? latestManifestEpoch
-          : typeof latestManifest.epoch === "number"
-          ? latestManifest.epoch
-          : null;
-
-      if (
-        placedEpoch != null &&
-        epochValue != null &&
-        epochValue < placedEpoch
-      ) {
-        return;
-      }
-
-      if (DEV_UI) {
-        setLatestDebug(JSON.stringify(latestManifest, null, 2));
-      } else {
-        setLatestDebug(null);
-      }
-
-      applyPlacements(placements, epochValue);
+      const placements = normalizePlacements(latestManifest.placements);
+      const epochValue = typeof latestManifestEpoch === "number" ? latestManifestEpoch : typeof latestManifest.epoch === "number" ? latestManifest.epoch : null;
+      if (placedEpoch != null && epochValue != null && epochValue < placedEpoch) return;
+      apply(placements, epochValue);
       latestFallbackTried.current = false;
       return;
     }
+    void loadFallback();
+    return () => { alive = false; };
+  }, [unlocked, viewMode, latestManifest, latestManifestEpoch, latestManifestLoading, latestManifestError, zoomToRect, placedEpoch, addStatus]);
 
-    void loadFallbackLatest();
-
-    return () => {
-      alive = false;
-    };
-  }, [
-    unlocked,
-    viewMode,
-    latestManifest,
-    latestManifestEpoch,
-    latestManifestLoading,
-    latestManifestError,
-    zoomToRect,
-    placedEpoch,
-  ]);
-
-  useEffect(() => {
-    if (!unlocked || viewMode !== "fixed") return;
-    let alive = true;
-
-    const load = async () => {
-      try {
-        if (viewEpoch == null || viewEpoch < 0) {
-          setPlaced([]);
-          setPlacedEpoch(null);
-          return;
-        }
-
-        const man = await getManifest(viewEpoch as any);
-        if (!alive) return;
-
-        if (DEV_UI) {
-          setLatestDebug(JSON.stringify(man, null, 2));
-        } else {
-          setLatestDebug(null);
-        }
-
-        const placements: FinalizedPlacement[] = normalizePlacements(
-          man.manifest?.placements ?? []
-        );
-        setPlaced(placements);
-
-        const epochValue =
-          typeof man.epoch === "number" ? man.epoch : viewEpoch;
-        setPlacedEpoch(typeof man.epoch === "number" ? man.epoch : null);
-        setViewEpoch(epochValue);
-
-        if (placements.length) {
-          const last = placements[placements.length - 1];
-          zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
-        }
-      } catch (e: any) {
-        if (!alive) return;
-        setPlaced([]);
-        setPlacedEpoch(null);
-        setLatestDebug(null);
-        console.error("LATEST_LOAD_FAIL", e);
-        setMessage(String(e?.message ?? "Failed to load manifest"));
-      }
-    };
-
-    load();
-
-    return () => {
-      alive = false;
-    };
-  }, [viewEpoch, viewMode, zoomToRect, unlocked]);
-
+  // Load proposals
   useEffect(() => {
     if (!unlocked) return;
     let alive = true;
-
     const tick = async () => {
-      try {
-        const { proposals } = await listProposals();
-        if (alive) setProposals(normalizeProposals(proposals));
-      } catch {
-        if (alive) setProposals([]);
-      }
+      try { const { proposals } = await listProposals(); if (alive) setProposals(normalizeProposals(proposals)); }
+      catch { if (alive) setProposals([]); }
     };
-
     tick();
     const t = setInterval(tick, 2000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
+    return () => { alive = false; clearInterval(t); };
   }, [unlocked]);
 
+  // Arrow keys
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (
-        !activeId ||
-        !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)
-      ) {
-        return;
-      }
+      if (!activeId || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) return;
       const target = pending.find((x) => x.id === activeId);
       if (!target) return;
-      const step = e.shiftKey ? TILE : Math.max(1, Math.floor(TILE / 4));
+      const step = e.shiftKey ? TILE : Math.floor(TILE / 4);
       let { x, y, w, h } = target.rect;
       if (e.key === "ArrowLeft") x -= step;
       if (e.key === "ArrowRight") x += step;
@@ -1525,831 +921,429 @@ export default function BoardPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [activeId, pending, clampToCanvas, setRect]);
 
+  // Submit
+  const handleSubmitProposals = async () => {
+    if (submittingProposals || !items.length) return;
+    setSubmittingProposals(true);
+    addStatus("Preparing submissions...", "info");
+    try {
+      const placedRects = placed.map((pl) => ({ x: pl.x, y: pl.y, w: pl.w, h: pl.h }));
+      const pendingRects = items.map((it) => ({ name: it.name, rect: { ...it.rect } }));
+      const overlapNames: string[] = [];
+      pendingRects.forEach((c, idx) => {
+        const peers = pendingRects.filter((_, j) => j !== idx).map((r) => r.rect);
+        if (hasOverlap(c.rect, placedRects) || hasOverlap(c.rect, peers)) overlapNames.push(c.name);
+      });
+      if (overlapNames.length) throw new Error(`Overlap: ${overlapNames.join(", ")}`);
+
+      const eth = (globalThis as any)?.ethereum;
+      if (!eth) throw new Error("No wallet");
+      const [account] = await eth.request({ method: "eth_requestAccounts" });
+
+      for (const it of items) {
+        addStatus(`Uploading ${it.name}...`, "info");
+        const bytes = await getPendingBytes(it);
+        const bidPerCellWei = BASE_FEE_PER_CELL_WEI + it.tipPerCellWei;
+        const onChainRect = worldToContractRect(it.rect);
+        const file = new File([bytes], it.name, { type: it.mime });
+        const cid = await uploadImage(it.name, file, it.mime);
+        if (!cid) throw new Error("IPFS upload disabled");
+        setCidFor(it.id, cid);
+
+        addStatus(`Submitting ${it.name}...`, "info");
+        const normalizedCid = normalizeCidString(cid);
+        const onChain = await writeProposePlacement({
+          bidder: account as `0x${string}`,
+          rect: onChainRect,
+          bidPerCellWei,
+          cidBytes: new TextEncoder().encode(normalizedCid),
+        });
+
+        const res = await fetch("/api/proposals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: onChain.placementId, owner: account, cid: normalizedCid, name: it.name, mime: it.mime,
+            rect: it.rect, width: it.width, height: it.height,
+            bidPerCellWei: bidPerCellWei.toString(), cells: onChain.cells, filename: it.name,
+          }),
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Failed");
+        addStatus(`${it.name} submitted ✓`, "success");
+      }
+
+      clearBoardState?.();
+      try { const { proposals } = await listProposals(); setProposals(normalizeProposals(proposals)); } catch {}
+      addStatus("All proposals submitted!", "success");
+    } catch (e: any) {
+      addStatus(String(e?.message ?? e), "error");
+    } finally {
+      setSubmittingProposals(false);
+    }
+  };
+
+  // Password gate UI
   if (!unlocked) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center px-4">
-        <div className="relative max-w-sm w-full rounded-3xl border border-white/20 bg-gradient-to-b from-white/15 via-white/5 to-white/0 backdrop-blur-xl p-6 shadow-[0_18px_60px_rgba(0,0,0,.55)]">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300/90 via-sky-400/90 to-blue-500/90 shadow-[0_0_0_1px_rgba(255,255,255,.6),0_16px_30px_rgba(0,0,0,.5)]">
-            <span className="text-2xl">🔒</span>
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="vista-window max-w-sm w-full">
+          <div className="vista-window__titlebar">
+            <div className="vista-window__controls">
+              <div className="vista-window__control vista-window__control--close" />
+              <div className="vista-window__control vista-window__control--minimize" />
+              <div className="vista-window__control vista-window__control--restore" />
+            </div>
+            <div className="vista-window__title"><span>🔒</span><span>LOREBOARD.APP</span></div>
           </div>
-
-          <h1 className="text-lg font-semibold text-white text-center">
-            Mifoid Loreboard
-          </h1>
-          <p className="mt-1 text-xs text-white/70 text-center">
-            this board is still in beta. enter the access word to continue.
-          </p>
-
-          <form onSubmit={handleUnlock} className="mt-4 space-y-3">
-            <label className="block text-xs text-white/75">
-              access password
-              <input
-                type="password"
-                className="mt-1 w-full rounded-xl border border-white/25 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none focus:border-cyan-300/80 focus:ring-1 focus:ring-cyan-300/80"
-                placeholder="••••••••"
-                value={pwInput}
-                onChange={(e) => setPwInput(e.currentTarget.value)}
-              />
-            </label>
-
-            {pwError && (
-              <p className="text-[11px] text-rose-300/90">{pwError}</p>
-            )}
-
-            <button
-              type="submit"
-              className="mt-1 w-full rounded-xl px-4 py-2 text-sm font-semibold bg-cyan-300/95 text-black hover:bg-cyan-200 transition shadow-[0_10px_30px_rgba(0,0,0,.6)]"
-            >
-              unlock board
-            </button>
-
-            <p className="mt-2 text-[10px] text-white/50 text-center">
-              tip: set{" "}
-              <code className="font-mono text-[10px]">
-                NEXT_PUBLIC_BOARD_PASSWORD
-              </code>{" "}
-              in your env.
-            </p>
-          </form>
+          <div className="vista-window__body p-6">
+            <h1 className="text-lg font-primary font-semibold text-white text-center mb-1">Mifoid Loreboard</h1>
+            <p className="text-xs text-white/70 text-center mb-4">Beta access required.</p>
+            <form onSubmit={handleUnlock} className="space-y-3">
+              <input type="password" className="w-full" placeholder="••••••••" value={pwInput} onChange={(e) => setPwInput(e.currentTarget.value)} />
+              {pwError && <p className="text-[11px] text-foid-candy">{pwError}</p>}
+              <button type="submit" className="frutiger-button w-full">Unlock Board</button>
+            </form>
+          </div>
         </div>
       </div>
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
+  const pendingVotes = proposals.filter((p) => p.status === "proposed");
+  // ============================================================================
+  // MAIN RENDER
+  // ============================================================================
 
   return (
-    <div className="relative z-10 max-w-7xl mx-auto px-4 py-6 grid gap-6 grid-cols-1 md:grid-cols-[minmax(0,1fr)_340px]">
-      {/* Canvas */}
-      <div
-        ref={containerRef}
-        className="relative min-w-0 rounded-2xl border border-white/20 overflow-hidden select-none"
-        onClick={() => sfx.unlock()}
-        onPointerDown={onContainerPointerDown}
-        onDragOver={onDragOver}
-        onDragEnter={onDragEnter}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        onWheel={onCanvasWheel}
-        style={{
-          cursor: spaceDown ? (isPanning ? "grabbing" : "grab") : "default",
-          backgroundColor: "rgba(14,15,43,0.7)",
-          minHeight: "70vh",
-          paddingBottom: "2rem",
-          touchAction: "none",
-        }}
-      >
-        <div
-          ref={stageRef}
-          className="absolute top-0 left-0"
-          style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
-            transformOrigin: "0 0",
-            backgroundImage: gridBg,
-            backgroundSize: gridSizes,
-            backgroundBlendMode: "screen",
-            width: STAGE_CANVAS_W,
-            height: STAGE_CANVAS_H,
-            boxShadow: "inset 0 0 80px rgba(0,0,0,.42)",
-          }}
-        >
-        {/* finalized placements (bottom layer) */}
-        {placed.map((p) => {
-          const stageRect = toStageRect({
-            x: p.x,
-            y: p.y,
-            w: p.w,
-            h: p.h,
-          });
-          const placementForCard: Placement = {
-            id: p.id,
-            cid: p.cid,
-            x: stageRect.x,
-            y: stageRect.y,
-            width: stageRect.w,
-            height: stageRect.h,
-            name: (p as any)?.name,
-            proposer: p.owner as `0x${string}` | undefined,
-            epochId: currentEpochView ?? placedEpoch ?? null,
-          };
-          return (
-            <PlacementCard
-              key={p.id}
-              placement={placementForCard}
-              onOpen={setActivePlacement}
-              frameStyle={{
-                border: `1px solid ${CARD_BORDER}`,
-                boxShadow: CARD_SHADOW,
-                background: "rgba(8,18,36,0.35)",
-              }}
-            />
-          );
-        })}
-
-        {/* ghost preview */}
-        {ghost ? (() => {
-          const stageRect = toStageRect(ghost.rect);
-          return (
-          <div
-            className="absolute rounded-md pointer-events-none"
-            style={{
-              left: stageRect.x,
-              top: stageRect.y,
-              width: stageRect.w,
-              height: stageRect.h,
-              outlineWidth: 2,
-              outlineStyle: "dashed",
-              outlineColor:
-                ghost.status === "ok"
-                  ? "rgba(72, 255, 171, 0.9)"
-                  : ghost.status === "invalid"
-                  ? "rgba(255, 71, 87, 0.9)"
-                  : "rgba(255, 184, 0, 0.9)",
-              background:
-                ghost.status === "ok"
-                  ? "rgba(72, 255, 171, 0.08)"
-                  : ghost.status === "invalid"
-                  ? "rgba(255, 71, 87, 0.08)"
-                  : "rgba(255, 184, 0, 0.08)",
-              zIndex: 3,
-            }}
-          >
-            <div className="absolute left-1 top-1 text-[11px] px-2 py-1 rounded-md bg-black/60 text-white border border-white/20 flex items-center gap-2">
-              <span>{ghost.cells} cells</span>
-              <span>·</span>
-              <span title={ghost.totalWei.toString() + " wei"}>
-                {formatEth(ghost.totalWei)} ETH
-              </span>
-              {ghost.status !== "ok" && (
-                <>
-                  <span>·</span>
-                  <span>
-                    {ghost.status === "overlap"
-                      ? "overlap"
-                      : ghost.status === "oversize"
-                      ? "too large"
-                      : "invalid type"}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        );
-        })() : null}
-
-        {/* proposals (top of accepted layer, dashed while voting) */}
-        {proposals
-          .filter((p) => p.status === "proposed")
-          .map((p) => {
-            const stageRect = toStageRect(p.rect);
-            return (
-            <figure
-              key={p.id}
-              className="absolute pointer-events-none foid-fade-in"
-              style={{
-                left: stageRect.x,
-                top: stageRect.y,
-                width: stageRect.w,
-                height: stageRect.h,
-                zIndex: 2,
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={cidToHttpUrl(p.cid)}
-                alt={p.name}
-                referrerPolicy="no-referrer"
-                className="w-full h-full rounded-md object-contain"
-              draggable={false}
-              data-gateway-index="0"
-              onError={(e) => tryNextGateway(e.currentTarget, p.cid)}
-              style={{
-                outlineWidth: 2,
-                outlineStyle: "solid",
-                outlineColor: CARD_BORDER,
-                background: "rgba(8,18,36,0.4)",
-                boxShadow: CARD_SHADOW,
-                borderRadius: 12,
-                transition: "transform 140ms ease, box-shadow 140ms ease",
-              }}
-            />
-
-              <figcaption className="absolute left-1 top-1 text-[11px] px-2 py-1 rounded-md bg-black/60 text-white border border-white/20 flex items-center gap-2">
-                <span>{display(p.cells)} cells</span>
-                <span>·</span>
-                <span>bid {display(p.bidPerCellWei)}/cell</span>
-                <span>·</span>
-                <span>{display(Math.round(Number(p.percentYes ?? 0) * 100))}% yes</span>
-                <span>·</span>
-                <span>{votersCountFrom(p.voters)} voters</span>
-                <span>·</span>
-                <span>{display(computeProposalSecondsLeft(p))}s left</span>
-              </figcaption>
-            </figure>
-          );
-          })}
-
-        {/* pending items (top layer) */}
-        {items.map((p) => {
-          const r = renderRectFor(p);
-          const stageRect = toStageRect(r);
-          const cellsNow = rectCells(r);
-          const totalNow =
-            BigInt(cellsNow) * (BASE_FEE_PER_CELL_WEI + p.tipPerCellWei);
-
-          return (
-            <figure
-              key={p.id}
-              className="absolute"
-              style={{
-                left: stageRect.x,
-                top: stageRect.y,
-                width: stageRect.w,
-                height: stageRect.h,
-                zIndex: 3,
-              }}
-            >
-              {/* image */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={p.previewUrl}
-                alt={p.name}
-                referrerPolicy="no-referrer"
-                className={`w-full h-full rounded-md ${
-                  p.fitMode === "cover" ? "object-cover" : "object-contain"
-                }`}
-                draggable={false}
-                data-gateway-index="-1"
-                onError={(e) => tryNextGateway(e.currentTarget, p.cid)}
-              />
-              {/* MOVE handle */}
-              <button
-                className="absolute left-1 top-1 h-7 px-2 rounded-md bg-black/60 text-white border border-white/20 cursor-move"
-                onPointerDown={beginMove(p)}
-                title="Move"
-                type="button"
-              >
-                ⠿
-              </button>
-
-              {/* RESIZE handle */}
-              <button
-                className="absolute right-1 bottom-1 h-7 w-7 rounded-md bg-black/60 text-white border border-white/20 cursor-se-resize"
-                onPointerDown={beginResize(p)}
-                title="Resize (Shift = free)"
-                type="button"
-              >
-                ↘︎
-              </button>
-
-              {/* badge */}
-              <figcaption className="absolute left-10 top-1 text-[11px] px-2 py-1 rounded-md bg-black/60 text-white border border-white/20 flex items-center gap-2">
-                <span>{cellsNow} cells</span>
-                <span>·</span>
-                <span title={totalNow.toString() + " wei"}>
-                  {formatEth(totalNow)} ETH
-                </span>
-              </figcaption>
-
-              {/* duplicate */}
-              <button
-                onClick={() => {
-                  const offset = TILE;
-                  const rect = clampToCanvas({
-                    x: r.x + offset,
-                    y: r.y + offset,
-                    w: r.w,
-                    h: r.h,
-                  });
-                  const cells = rectCells(rect);
-                  const dupe = addPending({
-                    name: `${p.name}-copy`,
-                    mime: p.mime,
-                    width: p.width,
-                    height: p.height,
-                    rect,
-                    cells,
-                    tipPerCellWei: p.tipPerCellWei,
-                    previewUrl: p.previewUrl,
-                    cid: p.cid,
-                    fitMode: p.fitMode,
-                  });
-                }}
-                className="absolute top-1 h-7 w-7 rounded-md bg-black/60 text-white border border-white/20 hover:bg-black/70 right-[4.5rem]"
-                title="Duplicate"
-                type="button"
-              >
-                ⧉
-              </button>
-
-              {/* remove */}
-              <button
-                onClick={() => {
-                  if (p.previewUrl.startsWith("blob:")) {
-                    try {
-                      URL.revokeObjectURL(p.previewUrl);
-                    } catch {}
-                  }
-                  removePending(p.id);
-                }}
-                className="absolute right-10 top-1 h-7 w-7 rounded-md bg-black/60 text-white border border-white/20 hover:bg-black/70"
-                title="Remove"
-                type="button"
-              >
-                ×
-              </button>
-
-              {/* tip + fit/fill */}
-              <div className="absolute left-1 bottom-10 flex items-center gap-2 text-[11px]">
-                <label className="px-2 py-1 rounded-md bg-black/60 text-white border border-white/20">
-                  tip / cell (wei)
-                </label>
-                <input
-                  className="px-2 py-1 rounded-md bg-white/80 text-black w-40 outline-none"
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={p.tipPerCellWei.toString()}
-                  onChange={(e) => {
-                    const v = e.currentTarget.value.trim();
-                    const next =
-                      v === "" ? 0n : BigInt(Math.max(0, Number(v)));
-                    setTipFor(p.id, next);
-                  }}
-                />
-
-                <div className="ml-2 flex rounded-md overflow-hidden border border-white/20">
-                  <button
-                    className={`px-2 py-1 ${
-                      p.fitMode !== "cover"
-                        ? "bg-white/80 text-black"
-                        : "bg-black/50 text-white"
-                    }`}
-                    onClick={() => setFitMode(p.id, "contain")}
-                    title="Fit"
-                    type="button"
-                  >
-                    Fit
-                  </button>
-                  <button
-                    className={`px-2 py-1 ${
-                      p.fitMode === "cover"
-                        ? "bg-white/80 text-black"
-                        : "bg-black/50 text-white"
-                    }`}
-                    onClick={() => setFitMode(p.id, "cover")}
-                    title="Fill (crop)"
-                    type="button"
-                  >
-                    Fill
-                  </button>
-                </div>
-              </div>
-            </figure>
-          );
-        })}
-        </div>
-
-        {/* hint */}
-        {!items.length && !busy && !ghost && placed.length === 0 && (
-          <div className="pointer-events-none absolute inset-0 grid place-items-center">
-            <div className="backdrop-blur-md bg-white/8 px-4 py-2 rounded-xl border border-white/15 text-white/85 text-sm">
-              Drop a PNG/JPG onto the board — or click “pick an image”
-            </div>
-          </div>
-        )}
-
-        {/* drag overlay */}
-        {dragOver && (
-          <div className="absolute inset-0 border-4 border-cyan-300/70 rounded-2xl pointer-events-none" />
-        )}
+    <main className="board-page">
+      {/* Vignette overlay */}
+      <div className="pointer-events-none fixed inset-0 z-0 board-vignette" />
+      
+      {/* Floating particles */}
+      <div className="board-particles">
+        {[...Array(20)].map((_, i) => (
+          <span key={i} className="board-particle" style={{
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+            animationDelay: `${Math.random() * 5}s`,
+            animationDuration: `${8 + Math.random() * 12}s`,
+          }} />
+        ))}
       </div>
 
-      {/* Right rail */}
-      <aside className="w-full self-start">
-        <div className="rounded-2xl border border-white/15 bg-white/6 backdrop-blur-md p-5 text-white/90 shadow-[0_8px_30px_rgba(0,0,0,.18)] space-y-4">
-          <h2 className="font-semibold text-lg tracking-tight text-white">
-            Mifoid Loreboard
-          </h2>
-          <div className="grid grid-cols-2 gap-3 text-sm text-white/80">
-            <div className="space-y-1">
-              <div className="text-white/60 text-xs uppercase tracking-[0.08em]">Base fee</div>
-              <div className="text-white font-medium">{BASE_FEE_PER_CELL_WEI.toString()} wei</div>
+      <div className="board-shell">
+        {/* Single seamless window */}
+        <div className="vista-window vista-window--terminal board-window">
+          {/* Titlebar - EXACT match to pray page */}
+          <div className="vista-window__titlebar">
+            <div className="vista-window__controls" aria-hidden="true">
+              <span className="vista-window__control vista-window__control--minimize" />
+              <span className="vista-window__control vista-window__control--restore" />
+              <span className="vista-window__control vista-window__control--close" />
             </div>
-            <div className="space-y-1">
-              <div className="text-white/60 text-xs uppercase tracking-[0.08em]">Max size</div>
-              <div className="text-white font-medium">{MAX_CELLS_PER_RECT} cells</div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <button
-              onClick={onPickClick}
-              className="w-full rounded-xl px-4 py-3 bg-gradient-to-r from-cyan-300 via-emerald-300 to-cyan-400 text-black font-semibold transform-gpu transition duration-150 ease-out hover:brightness-105 hover:-translate-y-[1px] hover:scale-[1.015] shadow-[0_10px_30px_rgba(0,0,0,.35)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 focus-visible:shadow-[0_0_0_8px_rgba(34,211,238,0.18)]"
-              type="button"
-            >
-              pick an image (propose)
-            </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/png,image/jpeg"
-            className="hidden"
-            onChange={onFileChange}
-          />
-
-          {DEV_UI && (
-            <div className="p-3 rounded-xl border border-white/15 bg-white/5 text-xs text-white/80 space-y-2">
-              <div className="text-white font-semibold text-sm">Add finalized by CID (dev)</div>
-              <input
-                className="w-full px-2 py-1 rounded bg-white/80 text-black text-sm"
-                placeholder="ipfs://... or CID"
-                value={devCid}
-                onChange={(e) => setDevCid(e.currentTarget.value.trim())}
-              />
-              <div className="grid grid-cols-4 gap-2">
-                <input
-                  className="px-2 py-1 rounded bg-white/80 text-black text-sm"
-                  type="number"
-                  value={devW}
-                  onChange={(e) => setDevW(Number(e.currentTarget.value) || TILE)}
-                  placeholder="w"
-                />
-                <input
-                  className="px-2 py-1 rounded bg-white/80 text-black text-sm"
-                  type="number"
-                  value={devH}
-                  onChange={(e) => setDevH(Number(e.currentTarget.value) || TILE)}
-                  placeholder="h"
-                />
-                <input
-                  className="px-2 py-1 rounded bg-white/80 text-black text-sm"
-                  type="number"
-                  value={devX}
-                  onChange={(e) => setDevX(Number(e.currentTarget.value) || 0)}
-                  placeholder="x"
-                />
-                <input
-                  className="px-2 py-1 rounded bg-white/80 text-black text-sm"
-                  type="number"
-                  value={devY}
-                  onChange={(e) => setDevY(Number(e.currentTarget.value) || 0)}
-                  placeholder="y"
-                />
+            <span className="vista-window__title">
+              <Image src="/foidmommy.gif" alt="" width={24} height={24} className="inline-block h-6 w-6 align-middle mr-2" unoptimized />
+              MIFOID_LOREBOARD.APP
+            </span>
+            
+            {/* Use TopTabs exactly like pray page */}
+            <TopTabs items={[{ label: "HOME", href: "/" }]} />
+            
+            <div className="vista-window__meta">
+              <StatusIndicator connected={isConnected} />
+              <div className="board-chain-pill">
+                <span className="board-chain-pill__label">CHAIN</span>
+                <span className="board-chain-pill__value">{FLUENT_CHAIN_ID}</span>
               </div>
-              <button
-                className="w-full rounded-md px-3 py-2 bg-white/80 text-black font-semibold"
-                type="button"
-                onClick={() => {
-                  if (!devCid) return;
-                  const capped = capRectToMaxCells(
-                    { x: devX, y: devY, w: devW, h: devH },
-                    MAX_CELLS_PER_RECT
-                  );
-                  const rect = clampToCanvas(capped);
-                  const cells = rectCells(rect);
-                  setPlaced((prev) => [
-                    ...prev,
-                    {
-                      id: `dev:${Date.now()}`,
-                      owner: "0xdev",
-                      cid: devCid.replace(/^ipfs:\/\//, ""),
-                      x: rect.x,
-                      y: rect.y,
-                      w: rect.w,
-                      h: rect.h,
-                      cells,
-                    },
-                  ]);
-                  zoomToRect(rect);
-                }}
-              >
-                Add to board
-              </button>
-
-              {latestDebug && (
-                <pre className="mt-3 max-h-56 overflow-auto rounded-lg bg-black/40 p-2 text-[11px] leading-tight text-white/70 whitespace-pre-wrap">
-                  {latestDebug}
-                </pre>
-              )}
-            </div>
-          )}
-
-          <button
-            className="mt-2 w-full rounded-xl px-4 py-2 bg-cyan-300/90 text-black font-semibold disabled:opacity-50 transform-gpu transition duration-150 ease-out hover:-translate-y-[1px] hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300/80 focus-visible:shadow-[0_0_0_6px_rgba(34,211,238,0.18)]"
-            disabled={!items.length || submittingProposals}
-            type="button"
-            aria-live="polite"
-            onClick={async () => {
-    if (submittingProposals) return;
-    setSubmittingProposals(true);
-    setMessage("Preparing submissions...");
-    try {
-      // PRE-FLIGHT: reject overlaps with finalized board
-      const placedRects = placed.map((pl) => ({
-        x: pl.x,
-        y: pl.y,
-        w: pl.w,
-        h: pl.h,
-      }));
-      const pendingRects = items.map((it) => ({
-        name: it.name,
-        rect: { ...it.rect },
-      }));
-
-      const overlapNames: string[] = [];
-      pendingRects.forEach((candidate, idx) => {
-        const peers = pendingRects
-          .filter((_, j) => j !== idx)
-          .map((r) => r.rect);
-        if (hasOverlap(candidate.rect, placedRects) || hasOverlap(candidate.rect, peers)) {
-          overlapNames.push(candidate.name);
-        }
-      });
-
-      if (overlapNames.length > 0) {
-        throw new Error(
-          `These pieces overlap existing memes on the board: ${overlapNames.join(
-            ", "
-          )}. Move them or resize so they don't overlap, then try again.`
-        );
-      }
-
-      // 1) ensure wallet (MetaMask pop)
-      const eth = (globalThis as any)?.ethereum;
-      if (!eth) throw new Error("No wallet detected");
-      const [account] = await eth.request({ method: "eth_requestAccounts" });
-
-              for (const it of items) {
-                setMessage(`Submitting ${it.name} on-chain...`);
-                const bytes = await getPendingBytes(it);
-                const bidPerCellWei = BASE_FEE_PER_CELL_WEI + it.tipPerCellWei;
-                const onChainRect = worldToContractRect(it.rect);
-
-                setMessage(`Uploading ${it.name} to IPFS...`);
-                const file = new File([bytes], it.name, { type: it.mime });
-                const cid = await uploadImage(it.name, file, it.mime);
-                if (!cid) throw new Error("IPFS upload disabled.");
-                setCidFor(it.id, cid);
-
-                const normalizedCid = normalizeCidString(cid);
-                const cidBytes = new TextEncoder().encode(normalizedCid);
-
-                setMessage(`Submitting ${it.name} on-chain...`);
-                const onChain = await writeProposePlacement({
-                  bidder: account as `0x${string}`,
-                  rect: {
-                    x: onChainRect.x,
-                    y: onChainRect.y,
-                    w: onChainRect.w,
-                    h: onChainRect.h,
-                  },
-                  bidPerCellWei,
-                  cidBytes,
-                });
-
-                const id = onChain.placementId;
-
-                  setMessage(`Saving ${it.name} to operator store...`);
-                  const res = await fetch("/api/proposals", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      id,
-                      owner: account,
-                      cid: normalizedCid,
-                      name: it.name,
-                      mime: it.mime,
-                      rect: it.rect,
-                      width: it.width,
-                      height: it.height,
-                      bidPerCellWei: bidPerCellWei.toString(),
-                      cells: onChain.cells,
-                      filename: it.name,
-                    }),
-                  });
-                  if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    throw new Error(err?.error ?? "Failed to persist proposal");
-                  }
-                }
-
-                clearBoardState?.();
-                try {
-                  const { proposals } = await listProposals();
-                  setProposals(normalizeProposals(proposals));
-                } catch {
-                  /* ignore */
-                }
-                setMessage("Proposed on-chain ✓ and files uploaded to IPFS");
-              } catch (e: any) {
-                console.error(e);
-                setMessage(String(e?.message ?? e));
-              } finally {
-                setSubmittingProposals(false);
-              }
-            }}
-          >
-            {submittingProposals ? "Submitting..." : "Submit proposal(s)"}
-          </button>
-
-            <button
-              className="w-full rounded-xl px-4 py-2 border border-white/25 bg-white/10 text-white font-semibold hover:bg-white/14 disabled:opacity-60 transform-gpu transition duration-150 ease-out hover:-translate-y-[1px] hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300/80 focus-visible:shadow-[0_0_0_6px_rgba(34,211,238,0.16)]"
-              type="button"
-              disabled={finalizing}
-              onClick={handleFinalizeClick}
-            >
-              {finalizing ? "Finalizing..." : "Finalize epoch (dev)"}
-            </button>
-          </div>
-          {finalizeResult && (
-            <p className="mt-1 text-xs text-foid-mint/80">{finalizeResult}</p>
-          )}
-
-          <div className="mt-4 rounded-2xl border border-white/15 bg-white/6 backdrop-blur-md p-4 text-white/85">
-            <div className="flex items-center gap-3">
-              <button
-              className="px-3 py-2 text-sm rounded border border-white/20 bg-white/10 disabled:opacity-50 transform-gpu transition duration-150 ease-out hover:-translate-y-[1px] hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 focus-visible:shadow-[0_0_0_6px_rgba(34,211,238,0.16)]"
-              disabled={!canStepPrev}
-              onClick={() => {
-                if (!canStepPrev) return;
-                const base =
-                    typeof currentEpochView === "number"
-                      ? currentEpochView
-                      : placedEpoch ?? 0;
-                  const target = Math.max(0, base - 1);
-                  setViewMode("fixed");
-                  setViewEpoch(target);
-                }}
-              >
-                ◀ Prev
-              </button>
-              <button
-                className="px-3 py-2 text-sm rounded border border-white/20 bg-white/10 transform-gpu transition duration-150 ease-out hover:-translate-y-[1px] hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 focus-visible:shadow-[0_0_0_6px_rgba(34,211,238,0.16)]"
-                onClick={() => {
-                  setViewMode("latest");
-                  setViewEpoch(placedEpoch);
-                }}
-              >
-                Latest
-              </button>
-              <button
-                className="px-3 py-2 text-sm rounded border border-white/20 bg-white/10 disabled:opacity-50 transform-gpu transition duration-150 ease-out hover:-translate-y-[1px] hover:scale-[1.01] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 focus-visible:shadow-[0_0_0_6px_rgba(34,211,238,0.16)]"
-                disabled={!canStepNext}
-                onClick={() => {
-                  if (!canStepNext || placedEpoch == null) return;
-                  const base =
-                    typeof currentEpochView === "number"
-                      ? currentEpochView
-                      : placedEpoch;
-                  const target = Math.min(placedEpoch, base + 1);
-                  setViewMode("fixed");
-                  setViewEpoch(target);
-                }}
-              >
-                Next ▶
-              </button>
-              <div className="ml-auto text-sm">
-                Viewing epoch{" "}
-                {viewMode === "latest"
-                  ? placedEpoch ?? "—"
-                  : currentEpochView ?? "—"}
-              </div>
-            </div>
-          </div>
-
-          <div
-            id="referendum"
-            className="mt-4 rounded-2xl border border-white/15 bg-white/6 backdrop-blur-md p-4 text-white/85"
-          >
-            <h3 className="font-semibold mb-2">Referendum</h3>
-            <p className="text-xs text-white/70 -mt-1 mb-2">
-              Passing rule: ≥51% yes &amp; quorum (demo env-configured)
-            </p>
-            <div className="space-y-2 text-xs max-h-48 overflow-auto">
-              {proposals.length === 0 && (
-                <div className="text-white/60">No proposals yet.</div>
-              )}
-              {proposals.map((p) => (
-                <ProposalCard
-                  key={p.id}
-                  proposal={p}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="text-xs text-white/70">
-            {busy ? "uploading / processing..." : message}
-          </div>
-        </div>
-
-        {/* Epoch + Totals */}
-        <div className="mt-4 rounded-2xl border border-white/15 bg-white/6 backdrop-blur-md p-4 text-white/85 space-y-3">
-          <div className="rounded-xl border border-white/15 bg-white/8 px-3 py-3 shadow-[0_8px_24px_rgba(0,0,0,.18)]">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold uppercase tracking-[0.08em] text-white/75">
-                Epoch {epochLabel || "—"}
-              </div>
-              <div
-                className="text-xl tabular-nums font-semibold text-white"
-                suppressHydrationWarning
-                title="Countdown"
-              >
-                {fmtCountdown}
-              </div>
-            </div>
-            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-cyan-300 via-emerald-300 to-cyan-400"
-                style={{
-                  width: enabled ? `${Math.min(100, Math.max(0, 100 - (remainingMs / (enabled ? remainingMs + 1 : 1)) * 100))}%` : "100%",
-                  transition: "width 0.6s ease",
-                }}
+              <WalletDropdown
+                address={address}
+                isOpen={walletDropdownOpen}
+                onToggle={() => setWalletDropdownOpen(!walletDropdownOpen)}
+                onDisconnect={() => disconnect()}
+                onSwitchWallet={handleSwitchWallet}
               />
             </div>
+            <span className="vista-window__badge" aria-hidden="true">
+              <Image src="/icons/skull.png" alt="" width={20} height={20} className="h-5 w-5 rounded-full" />
+            </span>
           </div>
 
-          {/* Total + Submit (client) */}
-          <div className="rounded-xl border border-white/15 bg-white/5 p-3 text-white/80">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold">Total</span>
-              <span className="text-lg tabular-nums text-white">{formatEth(totalWei)} ETH</span>
-            </div>
+          {/* Main content - mt-3 for spacing below titlebar */}
+          <div className="vista-window__body vista-window__body--flush mt-3 board-body">
+            <div className="board-grid">
+              {/* Canvas */}
+              <div className="board-canvas-wrap">
+                <div
+                  ref={containerRef}
+                  className="board-canvas"
+                  onPointerDown={onContainerPointerDown}
+                  onDragOver={onDragOver}
+                  onDragEnter={onDragEnter}
+                  onDragLeave={onDragLeave}
+                  onDrop={onDrop}
+                  onWheel={onCanvasWheel}
+                  style={{ cursor: spaceDown ? (isPanning ? "grabbing" : "grab") : "default" }}
+                >
+                  <div
+                    ref={stageRef}
+                    className="board-stage"
+                    style={{
+                      transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+                      transformOrigin: "0 0",
+                      backgroundImage: gridBg,
+                      backgroundSize: gridSizes,
+                      width: STAGE_CANVAS_W,
+                      height: STAGE_CANVAS_H,
+                    }}
+                  >
+                    {/* Finalized */}
+                    {placed.map((p) => {
+                      const sr = toStageRect({ x: p.x, y: p.y, w: p.w, h: p.h });
+                      return (
+                        <PlacementCard
+                          key={p.id}
+                          placement={{ id: p.id, cid: p.cid, x: sr.x, y: sr.y, width: sr.w, height: sr.h, proposer: p.owner as `0x${string}`, epochId: currentEpochView ?? placedEpoch }}
+                          onOpen={setActivePlacement}
+                          frameStyle={{ border: `1px solid ${CARD_BORDER}`, boxShadow: CARD_SHADOW, background: "rgba(8,18,36,0.35)" }}
+                        />
+                      );
+                    })}
 
-            <button
-              className="mt-3 w-full rounded-xl px-4 py-2 bg-foid-mint/90 text-black font-semibold disabled:opacity-50"
-              disabled={!items.length}
-              type="button"
-              onClick={() => {
-                const payload = {
-                  epoch: enabled ? epochIdx : null,
-                  items: items.map((p) => ({
-                    cid: p.cid,
-                    name: p.name,
-                    mime: p.mime,
-                    rect: p.rect, // adjusted
-                    fitMode: p.fitMode ?? "contain",
-                    tipPerCellWei: p.tipPerCellWei.toString(),
-                    cells: p.cells, // adjusted
-                  })),
-                  totalWei: totalWei.toString(),
-                };
-                console.log("SUBMIT_PAYLOAD", payload);
-                // TODO: replace with writeContract(...) when ready
-              }}
-            >
-              Log payload (dev)
-            </button>
+                    {/* Ghost */}
+                    {ghost && (() => {
+                      const sr = toStageRect(ghost.rect);
+                      const color = ghost.status === "ok" ? "rgba(72,255,171,0.9)" : ghost.status === "invalid" ? "rgba(255,71,87,0.9)" : "rgba(255,184,0,0.9)";
+                      return (
+                        <div className="board-ghost" style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h, outlineColor: color, background: color.replace("0.9", "0.08") }}>
+                          <span className="board-ghost__label">{ghost.cells} cells · {formatEth(ghost.totalWei)} ETH</span>
+                        </div>
+                      );
+                    })()}
 
-            <button
-              className="mt-2 w-full rounded-xl px-4 py-2 bg-white/10 text-white font-medium hover:bg-white/15"
-              type="button"
-              onClick={() => clearBoardState?.()}
-            >
-              Clear board
-            </button>
+                    {/* Proposals */}
+                    {proposals.filter((p) => p.status === "proposed").map((p) => {
+                      const sr = toStageRect(p.rect);
+                      return (
+                        <figure key={p.id} className="board-proposal" style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h }}>
+                          <img src={cidToHttpUrl(p.cid)} alt={p.name} className="board-proposal__img" draggable={false} onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
+                        </figure>
+                      );
+                    })}
 
-            <div className="mt-3 text-xs text-white/70">
-              {placedEpoch != null
-                ? `Showing finalized epoch #${placedEpoch}`
-                : "No finalized epochs yet."}
+                    {/* Pending */}
+                    {items.map((p) => {
+                      const sr = toStageRect(renderRectFor(p));
+                      return (
+                        <figure key={p.id} className="board-pending" style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h }}>
+                          <img src={p.previewUrl} alt={p.name} className="board-pending__img" draggable={false} />
+                          <button className="board-pending__move" onPointerDown={beginMove(p)} type="button">⠿</button>
+                          <button className="board-pending__resize" onPointerDown={beginResize(p)} type="button">↘</button>
+                          <button className="board-pending__remove" onClick={() => { URL.revokeObjectURL(p.previewUrl); removePending(p.id); }} type="button">×</button>
+                          <span className="board-pending__info">{p.cells} cells · {formatEth(p.totalWei)} ETH</span>
+                        </figure>
+                      );
+                    })}
+                  </div>
+
+                  {!items.length && !busy && !ghost && !placed.length && (
+                    <div className="board-hint">DROP IMAGE TO PROPOSE</div>
+                  )}
+                  {dragOver && <div className="board-dragover" />}
+                </div>
+              </div>
+
+              {/* Sidebar */}
+              <div className="board-sidebar">
+                {/* Epoch */}
+                <div className="board-section">
+                  <div className="board-section__header">
+                    <span className="board-section__dot" />
+                    <span className="board-section__title">EPOCH</span>
+                  </div>
+                  <div className="board-epoch">
+                    <span className="board-epoch__num">#{enabled ? epochIdx : "—"}</span>
+                    <span className="board-epoch__time">{fmtCountdown}</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="board-section">
+                  <div className="board-section__header">
+                    <span className="board-section__dot" />
+                    <span className="board-section__title">ACTIONS</span>
+                    <span className="board-section__sub">{formatEth(BASE_FEE_PER_CELL_WEI)} ETH/cell</span>
+                  </div>
+                  <div className="board-actions">
+                    <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" />
+                    <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={onFileChange} />
+                    <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "SUBMITTING..." : "SUBMIT PROPOSAL"} disabled={!items.length || submittingProposals} variant="secondary" />
+                  </div>
+                </div>
+
+                {/* Voting */}
+                {pendingVotes.length > 0 && (
+                  <div className="board-section">
+                    <div className="board-section__header">
+                      <span className="board-section__dot" />
+                      <span className="board-section__title">VOTING</span>
+                    </div>
+                    <div className="board-voting">
+                      {pendingVotes.map((p) => <VotingItem key={p.id} proposal={p} addStatus={addStatus} />)}
+                    </div>
+                  </div>
+                )}
+
+                {/* Music - using actual MusicPanel component */}
+                <div className="board-section">
+                  <div className="board-section__header">
+                    <span className="board-section__dot" />
+                    <span className="board-section__title">MUSIC</span>
+                  </div>
+                  <MusicPanel />
+                </div>
+
+                {/* Chat */}
+                <div className="board-section board-section--flex">
+                  <div className="board-section__header">
+                    <span className="board-section__dot" />
+                    <span className="board-section__title">CHAT</span>
+                  </div>
+                  <TerminalChat statusMessages={statusMessages} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Chat trigger under Epoch card */}
-        <button
-          className="mt-3 w-full rounded-xl px-4 py-2 bg-white/10 text-white hover:bg-white/15"
-          type="button"
-          onClick={() => setShowChat((v) => !v)}
-        >
-          {showChat ? "Close chat.exe" : "Open chat.exe"}
-        </button>
-      </aside>
-      {/* chat/media section below the board; pushes layout down */}
-      {showChat && (
-        <div className="md:col-span-2 col-span-1 mt-4 rounded-2xl border border-white/15 bg-white/6 backdrop-blur-md p-4">
-          <div className="grid gap-4 md:grid-cols-[1fr_360px]">
-            <div className="rounded-xl border border-white/10 p-3 min-h-[320px]">
-              {/* drop your actual chat UI inside ChatDock */}
-              <ChatDock />
-            </div>
-            <div className="rounded-xl border border-white/10 p-3">
-              <MusicPanel />
-            </div>
-          </div>
-        </div>
-      )}
+      {activePlacement && <PlacementModal placement={activePlacement} onClose={() => setActivePlacement(null)} />}
 
-      {activePlacement && (
-        <PlacementModal
-          placement={activePlacement}
-          onClose={() => setActivePlacement(null)}
-        />
-      )}
-    </div>
+      <style jsx>{`
+        /* Layout - more padding and spacing */
+        .board-page { position: fixed; inset: 0; background: transparent; overflow: hidden; }
+        .board-shell { display: flex; flex-direction: column; height: 100vh; padding: 12px; }
+        .board-window { flex: 1; display: flex; flex-direction: column; min-height: 0; margin: 4px; }
+        .board-body { flex: 1; min-height: 0; padding: 16px; }
+        .board-grid { display: grid; grid-template-columns: 1fr 320px; gap: 16px; height: 100%; }
+
+        /* Vignette */
+        .board-vignette { background: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.55) 100%); opacity: 0.85; }
+        
+        /* Particles */
+        .board-particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+        :global(.board-particle) { position: absolute; width: 4px; height: 4px; background: rgba(0, 255, 213, 0.3); border-radius: 50%; animation: float-particle linear infinite; filter: blur(1px); }
+        @keyframes float-particle { 0% { transform: translateY(0) translateX(0); opacity: 0; } 10% { opacity: 0.6; } 90% { opacity: 0.6; } 100% { transform: translateY(-100vh) translateX(50px); opacity: 0; } }
+
+        /* Status - matching pray page */
+        :global(.board-status-indicator) { display: flex; align-items: center; gap: 8px; }
+        :global(.board-status-dot) { width: 8px; height: 8px; border-radius: 50%; }
+        :global(.board-status-dot--online) { background: #00ffd5; box-shadow: 0 0 10px rgba(0,255,213,0.8), 0 0 20px rgba(0,255,213,0.4); animation: pulse 2s ease-in-out infinite; }
+        :global(.board-status-dot--offline) { background: #ff4757; box-shadow: 0 0 8px rgba(255,71,87,0.6); }
+        :global(.board-status-text) { font-size: 11px; letter-spacing: 0.08em; color: rgba(255,255,255,0.7); }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+        /* Chain - matching pray page */
+        .board-chain-pill { display: flex; flex-direction: column; align-items: center; padding: 4px 12px; background: rgba(0,180,200,0.2); border: 1px solid rgba(0,255,255,0.25); border-radius: 6px; }
+        .board-chain-pill__label { font-size: 9px; letter-spacing: 0.1em; color: rgba(255,255,255,0.5); }
+        .board-chain-pill__value { font-size: 13px; font-weight: 600; font-family: var(--font-mono); color: #00ffd5; text-shadow: 0 0 10px rgba(0,255,213,0.5); }
+
+        /* Wallet */
+        :global(.board-wallet-pill) { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: rgba(0,180,200,0.15); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; font-size: 11px; color: rgba(255,255,255,0.7); cursor: pointer; transition: all 0.2s; }
+        :global(.board-wallet-pill:hover) { background: rgba(0,200,220,0.25); border-color: rgba(0,255,213,0.4); }
+        :global(.board-wallet-pill__label) { font-size: 9px; letter-spacing: 0.1em; color: rgba(255,255,255,0.5); }
+        :global(.board-wallet-pill__address) { font-family: var(--font-mono); color: #00ffd5; }
+        :global(.board-wallet-chevron) { color: rgba(255,255,255,0.5); transition: transform 0.2s; }
+        :global(.board-wallet-chevron--open) { transform: rotate(180deg); }
+        :global(.board-wallet-menu) { display: flex; flex-direction: column; gap: 6px; background: linear-gradient(180deg, rgba(18,30,40,0.98), rgba(10,18,26,0.96)); backdrop-filter: blur(16px); border: 1px solid rgba(0,255,213,0.25); border-radius: 10px; padding: 8px; box-shadow: 0 12px 36px rgba(0,0,0,0.45); animation: dropdown 0.12s ease-out; }
+        @keyframes dropdown { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        :global(.board-wallet-menu__item) { display: block; width: 100%; padding: 10px 12px; background: rgba(0,255,213,0.08); border: 1px solid rgba(0,255,213,0.18); border-radius: 8px; color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: all 0.12s; text-align: left; }
+        :global(.board-wallet-menu__item:hover) { background: rgba(0,255,213,0.16); border-color: rgba(0,255,213,0.35); }
+        :global(.board-wallet-menu__item--danger) { background: rgba(255,71,87,0.12); border-color: rgba(255,71,87,0.3); color: #ffd7db; }
+        :global(.board-wallet-menu__item--danger:hover) { background: rgba(255,71,87,0.2); border-color: rgba(255,71,87,0.5); }
+
+        /* Canvas */
+        .board-canvas-wrap { position: relative; border-radius: 12px; overflow: hidden; background: rgba(5,12,18,0.55); backdrop-filter: blur(14px); border: 1px solid rgba(0,255,213,0.2); }
+        .board-canvas { position: relative; width: 100%; height: 100%; overflow: hidden; background: rgba(5,15,30,0.9); touch-action: none; }
+        .board-stage { position: absolute; background-blend-mode: screen; box-shadow: inset 0 0 80px rgba(0,0,0,0.42); }
+        .board-hint { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+        .board-hint::after { content: 'DROP IMAGE TO PROPOSE'; backdrop-filter: blur(12px); background: rgba(255,255,255,0.08); padding: 12px 24px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); font-size: 13px; font-family: var(--font-terminal); letter-spacing: 0.1em; }
+        .board-dragover { position: absolute; inset: 0; border: 4px solid rgba(0,208,255,0.7); border-radius: 12px; pointer-events: none; }
+
+        /* Ghost */
+        .board-ghost { position: absolute; border-radius: 8px; pointer-events: none; outline: 2px dashed; z-index: 3; }
+        .board-ghost__label { position: absolute; left: 4px; top: 4px; font-size: 11px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.2); }
+
+        /* Proposal */
+        .board-proposal { position: absolute; pointer-events: none; z-index: 2; animation: fadeIn 0.3s; }
+        .board-proposal__img { width: 100%; height: 100%; border-radius: 12px; object-fit: contain; outline: 2px dashed rgba(255,200,100,0.8); background: rgba(8,18,36,0.4); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Pending */
+        .board-pending { position: absolute; z-index: 3; }
+        .board-pending__img { width: 100%; height: 100%; border-radius: 8px; border: 2px solid rgba(0,208,255,0.8); box-shadow: 0 0 20px rgba(0,208,255,0.4); object-fit: contain; }
+        .board-pending__move, .board-pending__resize, .board-pending__remove { position: absolute; height: 28px; border-radius: 6px; background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.2); font-size: 12px; cursor: pointer; }
+        .board-pending__move { left: 4px; top: 4px; width: 32px; cursor: move; }
+        .board-pending__resize { right: 4px; bottom: 4px; width: 28px; cursor: se-resize; }
+        .board-pending__remove { right: 4px; top: 4px; width: 28px; }
+        .board-pending__remove:hover { background: rgba(255,71,87,0.5); }
+        .board-pending__info { position: absolute; left: 40px; top: 4px; font-size: 10px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.7); color: white; border: 1px solid rgba(255,255,255,0.2); }
+
+        /* Sidebar - more padding and spacing */
+        .board-sidebar { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding: 4px; }
+        .board-section { background: rgba(5,12,18,0.55); backdrop-filter: blur(14px); border-radius: 12px; padding: 14px; border: 1px solid rgba(0,255,213,0.15); }
+        .board-section--flex { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+        .board-section__header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .board-section__dot { width: 8px; height: 8px; border-radius: 50%; background: #00ffd5; box-shadow: 0 0 8px rgba(0,255,213,0.6); }
+        .board-section__title { font-size: 11px; font-weight: 600; letter-spacing: 0.15em; color: #00ffd5; }
+        .board-section__sub { margin-left: auto; font-size: 10px; color: rgba(255,255,255,0.5); }
+
+        /* Epoch - slightly smaller for fit */
+        .board-epoch { display: flex; align-items: baseline; justify-content: space-between; padding: 4px 0; }
+        .board-epoch__num { font-size: 26px; font-weight: 700; font-family: var(--font-mono); color: #00ffd5; text-shadow: 0 0 16px rgba(0,255,213,0.5); }
+        .board-epoch__time { font-size: 20px; font-weight: 600; font-family: var(--font-mono); color: #00ff88; text-shadow: 0 0 12px rgba(0,255,136,0.5); }
+
+        /* Actions */
+        .board-actions { display: flex; flex-direction: column; gap: 10px; }
+
+        /* Y2K Button */
+        :global(.y2k-btn) { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 48px; border-radius: 16px; border: 1px solid rgba(255,210,230,0.5); overflow: hidden; backdrop-filter: blur(24px); cursor: pointer; transition: all 0.3s; }
+        :global(.y2k-btn:hover) { transform: scale(1.02); }
+        :global(.y2k-btn--disabled) { opacity: 0.5; cursor: not-allowed; }
+        :global(.y2k-btn--disabled:hover) { transform: none; }
+        :global(.y2k-btn__reflection) { position: absolute; top: 0; left: 0; right: 0; height: 45%; border-radius: 15px 15px 0 0; background: linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.3) 35%, rgba(255,255,255,0.1) 60%, transparent 100%); pointer-events: none; }
+        :global(.y2k-btn__highlight) { position: absolute; inset: 0; border-radius: 15px; pointer-events: none; }
+        :global(.y2k-btn__label) { position: relative; z-index: 1; font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(175,255,225,0.95); text-shadow: 0 0 14px rgba(120,255,220,0.35), 0 2px 0 rgba(0,0,0,0.2); }
+
+        /* Voting */
+        .board-voting { display: flex; flex-direction: column; gap: 6px; max-height: 100px; overflow-y: auto; }
+        :global(.voting-item) { display: flex; align-items: center; gap: 6px; padding: 5px; background: rgba(0,0,0,0.2); border-radius: 6px; }
+        :global(.voting-item__thumb) { width: 28px; height: 28px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.1); }
+        :global(.voting-item__thumb img) { width: 100%; height: 100%; object-fit: cover; }
+        :global(.voting-item__info) { display: flex; flex-direction: column; font-size: 9px; color: rgba(255,255,255,0.7); }
+        :global(.voting-item__counts) { margin-left: auto; font-size: 9px; color: rgba(255,255,255,0.5); }
+        :global(.voting-item__btns) { display: flex; gap: 4px; }
+        :global(.voting-item__yes), :global(.voting-item__no) { width: 22px; height: 22px; border-radius: 50%; border: 1px solid; font-size: 10px; cursor: pointer; transition: all 0.15s; background: transparent; }
+        :global(.voting-item__yes) { border-color: rgba(0,255,136,0.5); color: #00ff88; }
+        :global(.voting-item__yes:hover:not(:disabled)) { background: rgba(0,255,136,0.2); }
+        :global(.voting-item__no) { border-color: rgba(255,71,87,0.5); color: #ff4757; }
+        :global(.voting-item__no:hover:not(:disabled)) { background: rgba(255,71,87,0.2); }
+        :global(.voting-item__yes:disabled), :global(.voting-item__no:disabled) { opacity: 0.4; cursor: not-allowed; }
+
+        /* Terminal Chat - SMALLER text for spaciousness */
+        :global(.terminal-chat) { flex: 1; display: flex; flex-direction: column; min-height: 0; background: rgba(15,8,25,0.85); border-radius: 8px; overflow: hidden; font-family: var(--font-terminal); }
+        :global(.terminal-chat__messages) { flex: 1; min-height: 0; overflow-y: auto; padding: 10px; font-size: 9px; line-height: 1.5; }
+        :global(.terminal-chat__line) { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 3px; }
+        :global(.terminal-chat__time) { color: rgba(255,255,255,0.35); font-size: 8px; }
+        :global(.terminal-chat__user) { color: #00ffd5; font-weight: 600; background: rgba(0,255,213,0.12); padding: 1px 4px; border-radius: 2px; font-size: 8px; }
+        :global(.terminal-chat__system) { color: #ffcc00; font-weight: 600; font-style: italic; font-size: 8px; }
+        :global(.terminal-chat__text) { color: rgba(255,255,255,0.85); font-size: 9px; }
+        :global(.terminal-chat__line--success .terminal-chat__text) { color: #00ff88; }
+        :global(.terminal-chat__line--error .terminal-chat__text) { color: #ff4757; }
+        :global(.terminal-chat__input-row) { display: flex; align-items: center; padding: 6px 10px; border-top: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.35); }
+        :global(.terminal-chat__prompt) { color: #00ffd5; margin-right: 6px; font-weight: 600; font-size: 10px; }
+        :global(.terminal-chat__input) { flex: 1; background: transparent; border: none; outline: none; color: white; font-family: inherit; font-size: 9px; }
+        :global(.terminal-chat__input::placeholder) { color: rgba(255,255,255,0.25); }
+      `}</style>
+    </main>
   );
 }
