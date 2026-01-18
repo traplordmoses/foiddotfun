@@ -23,6 +23,74 @@ const TRACKS: Track[] = Array.from({ length: 23 }, (_, i) => {
 
 const CROSSFADE_SECONDS = 2;
 
+type MusicPanelState = {
+  currentTrackName: string;
+  progress: number;
+  elapsed: number;
+  duration: number;
+  isPlaying: boolean;
+  needsInteraction: boolean;
+  shuffle: boolean;
+  repeat: boolean;
+  volume: number;
+};
+
+type MusicPanelController = {
+  getState: () => MusicPanelState;
+  subscribe: (listener: () => void) => () => void;
+  toggle: () => void;
+  play: () => Promise<void>;
+  pause: () => void;
+  next: () => void;
+  prev: () => void;
+  toggleShuffle: () => void;
+  toggleRepeat: () => void;
+  setVolume: (value: number) => void;
+  adjustVolume: (delta: number) => void;
+  getVolume: () => number;
+};
+
+let musicPanelState: MusicPanelState = {
+  currentTrackName: TRACKS[0]?.name ?? "—",
+  progress: 0,
+  elapsed: 0,
+  duration: 0,
+  isPlaying: false,
+  needsInteraction: true,
+  shuffle: false,
+  repeat: false,
+  volume: 0.5,
+};
+
+const listeners = new Set<() => void>();
+
+const notifyListeners = () => {
+  listeners.forEach((fn) => fn());
+};
+
+const broadcastMusicState = (partial: Partial<MusicPanelState>) => {
+  musicPanelState = { ...musicPanelState, ...partial };
+  notifyListeners();
+};
+
+export const musicPanelController: MusicPanelController = {
+  getState: () => musicPanelState,
+  subscribe: (listener) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  },
+  toggle: () => {},
+  play: () => Promise.resolve(),
+  pause: () => {},
+  next: () => {},
+  prev: () => {},
+  toggleShuffle: () => {},
+  toggleRepeat: () => {},
+  setVolume: () => {},
+  adjustVolume: () => {},
+  getVolume: () => 0.5,
+};
+
 export type MusicPanelProps = React.HTMLAttributes<HTMLDivElement> & {
   compact?: boolean;
 };
@@ -47,7 +115,12 @@ export default function MusicPanel({
   const [isPlaying, setIsPlayingState] = useState(false);
   const [needsInteraction, setNeedsInteraction] = useState(false);
   const [volume, setVolume] = useState(0.5);
+  const [progress, setProgress] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [showVol, setShowVol] = useState(false);
+  const [shuffle, setShuffleState] = useState(false);
+  const [repeat, setRepeatState] = useState(false);
 
   const currentTrackRef = useRef(0);
   const setCurrentTrackIndex = useCallback((value: number) => {
@@ -60,6 +133,16 @@ export default function MusicPanel({
     isPlayingRef.current = value;
     setIsPlayingState(value);
   }, []);
+
+  useEffect(() => {
+    shuffleRef.current = shuffle;
+  }, [shuffle]);
+
+  useEffect(() => {
+    repeatRef.current = repeat;
+  }, [repeat]);
+  const shuffleRef = useRef(shuffle);
+  const repeatRef = useRef(repeat);
 
   type Slot = 0 | 1;
 
@@ -316,6 +399,14 @@ const ensureVisualizer = useCallback(() => {
     }
   }, [pause, play]);
 
+  const toggleShuffle = useCallback(() => {
+    setShuffleState((prev) => !prev);
+  }, []);
+
+  const toggleRepeat = useCallback(() => {
+    setRepeatState((prev) => !prev);
+  }, []);
+
   const crossfadeTo = useCallback(
     async (nextIndex: number, shouldAutoplay?: boolean) => {
       const playTarget = shouldAutoplay ?? isPlayingRef.current;
@@ -406,8 +497,19 @@ const ensureVisualizer = useCallback(() => {
     [ensureAudioGraph, ensureVisualizer, loadTrackIntoSlot, ensureSlotWired, setIsPlaying, setCurrentTrackIndex, loadRandomPreset],
   );
 
+  const getNextIndex = useCallback(() => {
+    if (shuffleRef.current && TRACKS.length > 1) {
+      let next = Math.floor(Math.random() * TRACKS.length);
+      if (next === currentTrackRef.current) {
+        next = (next + 1) % TRACKS.length;
+      }
+      return next;
+    }
+    return (currentTrackRef.current + 1) % TRACKS.length;
+  }, []);
+
   const next = useCallback(() => {
-    const nextIndex = (currentTrackRef.current + 1) % TRACKS.length;
+    const nextIndex = getNextIndex();
     void crossfadeTo(nextIndex);
   }, [crossfadeTo]);
 
@@ -466,10 +568,18 @@ const ensureVisualizer = useCallback(() => {
   const handleEnded = useCallback(
     (slot: Slot) => {
       if (slot !== activeSlotRef.current) return;
-      const nextIndex = (currentTrackRef.current + 1) % TRACKS.length;
+      if (repeatRef.current) {
+        const audio = audioRefs.current[slot];
+        if (audio) {
+          audio.currentTime = 0;
+          void audio.play().catch(() => setNeedsInteraction(true));
+        }
+        return;
+      }
+      const nextIndex = getNextIndex();
       void crossfadeTo(nextIndex, true);
     },
-    [crossfadeTo],
+    [crossfadeTo, getNextIndex],
   );
 
   const handleUserStart = useCallback(async () => {
@@ -482,8 +592,56 @@ const ensureVisualizer = useCallback(() => {
     }
   }, [play]);
 
+  const handleTimeUpdate = useCallback((slot: Slot) => {
+    const audio = audioRefs.current[slot];
+    if (!audio) return;
+    const current = audio.currentTime;
+    const total = audio.duration;
+    setProgress(total > 0 ? Math.min(1, Math.max(0, current / total)) : 0);
+    setElapsed(Number.isFinite(current) ? current : 0);
+  }, []);
+
+  const handleLoadedMetadata = useCallback((slot: Slot) => {
+    const audio = audioRefs.current[slot];
+    if (audio && Number.isFinite(audio.duration)) {
+      setDuration(audio.duration);
+    }
+  }, []);
+
   const track = TRACKS[currentTrackIndex];
   const currentTrackName = track?.name ?? "—";
+
+  useEffect(() => {
+    broadcastMusicState({
+      currentTrackName,
+      isPlaying,
+      progress,
+      elapsed,
+      duration,
+      needsInteraction,
+      shuffle,
+      repeat,
+      volume,
+    });
+  }, [currentTrackName, isPlaying, progress, elapsed, duration, needsInteraction, shuffle, repeat, volume]);
+
+  useEffect(() => {
+    musicPanelController.toggle = toggle;
+    musicPanelController.play = play;
+    musicPanelController.pause = pause;
+    musicPanelController.next = next;
+    musicPanelController.prev = prev;
+    musicPanelController.toggleShuffle = toggleShuffle;
+    musicPanelController.toggleRepeat = toggleRepeat;
+    musicPanelController.setVolume = (value: number) => {
+      const clamped = Math.min(1, Math.max(0, value));
+      setVolume(clamped);
+    };
+    musicPanelController.adjustVolume = (delta: number) => {
+      setVolume((prev) => Math.min(1, Math.max(0, prev + delta)));
+    };
+    musicPanelController.getVolume = () => volumeRef.current;
+  }, [toggle, play, pause, next, prev, toggleShuffle, toggleRepeat, setVolume]);
 
   const audioElements = (
     <>
@@ -499,6 +657,8 @@ const ensureVisualizer = useCallback(() => {
             const anyPlaying = audioRefs.current.some((audio) => audio && !audio.paused);
             if (!anyPlaying) setIsPlaying(false);
           }}
+          onTimeUpdate={() => handleTimeUpdate(slot as Slot)}
+          onLoadedMetadata={() => handleLoadedMetadata(slot as Slot)}
           className="hidden"
         />
       ))}

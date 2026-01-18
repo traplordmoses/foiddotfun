@@ -12,8 +12,7 @@ import React, {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
-import Image from "next/image";
+import NextImage from "next/image";
 import { useAccount, useChainId, useSwitchChain, useDisconnect, useConnect } from "wagmi";
 import { useBoard } from "@/state/board";
 import type { PendingItem } from "@/state/board";
@@ -42,12 +41,12 @@ import { getLatestNormalized } from "@/lib/manifest";
 import { listProposals } from "@/lib/api";
 import type { ProposalSummary } from "@/lib/api";
 import { writeProposePlacement } from "@/lib/viem";
+import { musicPanelController } from "@/components/MusicPanel";
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import TopTabs from "@/app/(components)/TopTabs";
 
-const MusicPanel = dynamic(() => import("@/components/MusicPanel"), { ssr: false });
-const ChatDock = dynamic(() => import("@/components/ChatDock"), { ssr: false });
+const MusicPanelLogic = dynamic(() => import("@/components/MusicPanel"), { ssr: false });
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -58,6 +57,12 @@ function shortHash(hash?: string) {
   if (hash.length <= 10) return hash;
   return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
 }
+
+const formatTrackTime = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
 
 const isBytes32Hex = (value?: string): value is `0x${string}` =>
   typeof value === "string" && /^0x[0-9a-fA-F]{64}$/.test(value);
@@ -201,6 +206,116 @@ function StatusIndicator({ connected }: { connected: boolean }) {
       <span className={`board-status-dot ${connected ? "board-status-dot--online" : "board-status-dot--offline"}`} />
       <span className="board-status-text">{connected ? "CONNECTED" : "DISCONNECTED"}</span>
     </div>
+  );
+}
+
+function IPodMusicPlayer() {
+  const [state, setState] = useState(musicPanelController.getState());
+
+  useEffect(() => {
+    const unsubscribe = musicPanelController.subscribe(() => setState(musicPanelController.getState()));
+    return unsubscribe;
+  }, []);
+
+  const {
+    currentTrackName,
+    isPlaying,
+    progress,
+    elapsed,
+    duration,
+    shuffle,
+    repeat,
+    needsInteraction,
+    volume,
+  } = state;
+
+  const progressPercent = Number.isFinite(progress) ? Math.min(1, Math.max(0, progress)) : 0;
+  const volumeLabel = Math.round((volume ?? 0) * 100);
+
+  const handleToggle = () => musicPanelController.toggle();
+  const handleNext = () => musicPanelController.next();
+  const handlePrev = () => musicPanelController.prev();
+  const handleShuffle = () => musicPanelController.toggleShuffle();
+  const handleRepeat = () => musicPanelController.toggleRepeat();
+  const increaseVolume = () => musicPanelController.adjustVolume(0.08);
+  const decreaseVolume = () => musicPanelController.adjustVolume(-0.08);
+
+  return (
+    <>
+      <div className="ipod-music-panel-logic" aria-hidden="true">
+        <MusicPanelLogic />
+      </div>
+      <div className="ipod-player">
+        <div className="ipod-wheel">
+          <button className="ipod-wheel__vol" type="button" onClick={increaseVolume} title="Volume up">
+            +
+          </button>
+          <div className="ipod-wheel__ring">
+            <button
+              className="ipod-wheel__btn ipod-wheel__btn--prev"
+              type="button"
+              onClick={handlePrev}
+              title="Previous"
+            >
+              ⏮
+            </button>
+            <button
+              className="ipod-wheel__center"
+              type="button"
+              onClick={handleToggle}
+              title={isPlaying ? "Pause" : "Play"}
+            >
+              {isPlaying ? "⏸" : "▶"}
+            </button>
+            <button
+              className="ipod-wheel__btn ipod-wheel__btn--next"
+              type="button"
+              onClick={handleNext}
+              title="Next"
+            >
+              ⏭
+            </button>
+          </div>
+          <button className="ipod-wheel__vol" type="button" onClick={decreaseVolume} title="Volume down">
+            −
+          </button>
+        </div>
+        <div className="ipod-display">
+          <div className="ipod-display__track" title={currentTrackName}>
+            {currentTrackName}
+          </div>
+          <div className="ipod-display__bar">
+            <div className="ipod-display__fill" style={{ width: `${progressPercent * 100}%` }} />
+            <div className="ipod-display__knob" style={{ left: `${progressPercent * 100}%` }} />
+          </div>
+          <div className="ipod-display__meta">
+            <button
+              className={`ipod-display__shuffle ${shuffle ? "ipod-display__shuffle--active" : ""}`}
+              onClick={handleShuffle}
+              type="button"
+              title="Shuffle"
+            >
+              🔀
+            </button>
+            <span className="ipod-display__time">
+              {formatTrackTime(elapsed)} / {formatTrackTime(duration)}
+            </span>
+            <button
+              className={`ipod-display__repeat ${repeat ? "ipod-display__repeat--active" : ""}`}
+              onClick={handleRepeat}
+              type="button"
+              title="Repeat"
+            >
+              🔁
+            </button>
+            <span className="ipod-display__volume" aria-label="Volume level">
+              {volumeLabel}%
+            </span>
+          </div>
+          {needsInteraction && <div className="ipod-display__hint">Tap wheel to start</div>}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -1042,7 +1157,7 @@ export default function BoardPage() {
               <span className="vista-window__control vista-window__control--close" />
             </div>
             <span className="vista-window__title">
-              <Image src="/foidmommy.gif" alt="" width={24} height={24} className="inline-block h-6 w-6 align-middle mr-2" unoptimized />
+              <NextImage src="/foidmommy.gif" alt="" width={24} height={24} className="inline-block h-6 w-6 align-middle mr-2" unoptimized />
               MIFOID_LOREBOARD.APP
             </span>
             
@@ -1064,7 +1179,7 @@ export default function BoardPage() {
               />
             </div>
             <span className="vista-window__badge" aria-hidden="true">
-              <Image src="/icons/skull.png" alt="" width={20} height={20} className="h-5 w-5 rounded-full" />
+              <NextImage src="/icons/skull.png" alt="" width={20} height={20} className="h-5 w-5 rounded-full" />
             </span>
           </div>
 
@@ -1193,13 +1308,9 @@ export default function BoardPage() {
                   </div>
                 )}
 
-                {/* Music - using actual MusicPanel component */}
-                <div className="board-section">
-                  <div className="board-section__header">
-                    <span className="board-section__dot" />
-                    <span className="board-section__title">MUSIC</span>
-                  </div>
-                  <MusicPanel />
+                {/* Music - iPod-style player */}
+                <div className="board-section board-section--music">
+                  <IPodMusicPlayer />
                 </div>
 
                 {/* Chat */}
@@ -1291,6 +1402,7 @@ export default function BoardPage() {
         /* Sidebar - more padding and spacing */
         .board-sidebar { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding: 4px; }
         .board-section { background: rgba(5,12,18,0.55); backdrop-filter: blur(14px); border-radius: 12px; padding: 14px; border: 1px solid rgba(0,255,213,0.15); }
+        .board-section--music { padding: 8px; }
         .board-section--flex { flex: 1; min-height: 0; display: flex; flex-direction: column; }
         .board-section__header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
         .board-section__dot { width: 8px; height: 8px; border-radius: 50%; background: #00ffd5; box-shadow: 0 0 8px rgba(0,255,213,0.6); }
@@ -1343,6 +1455,188 @@ export default function BoardPage() {
         :global(.terminal-chat__prompt) { color: #00ffd5; margin-right: 6px; font-weight: 600; font-size: 10px; }
         :global(.terminal-chat__input) { flex: 1; background: transparent; border: none; outline: none; color: white; font-family: inherit; font-size: 9px; }
         :global(.terminal-chat__input::placeholder) { color: rgba(255,255,255,0.25); }
+
+        /* iPod Music Player */
+        :global(.ipod-player) {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 10px;
+          background: linear-gradient(180deg, rgba(235,235,242,0.96), rgba(205,205,220,0.9));
+          border-radius: 22px;
+          box-shadow: 0 6px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.6);
+        }
+
+        :global(.ipod-wheel) {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+        }
+
+        :global(.ipod-wheel__vol) {
+          width: 24px;
+          height: 14px;
+          font-size: 12px;
+          color: rgba(0,0,0,0.4);
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          transition: color 0.15s;
+        }
+        :global(.ipod-wheel__vol:hover) { color: rgba(0,0,0,0.7); }
+
+        :global(.ipod-wheel__ring) {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 70px;
+          height: 70px;
+          background: linear-gradient(180deg, #f0f0f4, #d8d8e0);
+          border-radius: 50%;
+          box-shadow:
+            inset 0 3px 6px rgba(0,0,0,0.12),
+            0 2px 4px rgba(255,255,255,0.5),
+            0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        :global(.ipod-wheel__btn) {
+          position: absolute;
+          width: 22px;
+          height: 22px;
+          font-size: 10px;
+          color: rgba(0,0,0,0.5);
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          transition: color 0.15s;
+        }
+        :global(.ipod-wheel__btn:hover) { color: rgba(0,0,0,0.8); }
+
+        :global(.ipod-wheel__btn--prev) { left: 4px; }
+        :global(.ipod-wheel__btn--next) { right: 4px; }
+
+        :global(.ipod-wheel__center) {
+          width: 34px;
+          height: 34px;
+          background: linear-gradient(180deg, #fafafa, #e8e8f0);
+          border-radius: 50%;
+          border: none;
+          font-size: 14px;
+          color: rgba(0,0,0,0.6);
+          cursor: pointer;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.8);
+          transition: all 0.15s;
+        }
+        :global(.ipod-wheel__center:hover) { background: linear-gradient(180deg, #fff, #f0f0f8); }
+
+        :global(.ipod-display) {
+          flex: 1;
+          padding: 8px 12px;
+          background: linear-gradient(
+            180deg,
+            rgba(255, 220, 235, 0.92),
+            rgba(255, 205, 228, 0.88)
+          );
+          border-radius: 14px;
+          box-shadow: inset 0 2px 4px rgba(0,0,0,0.08), 0 1px 0 rgba(255,255,255,0.55);
+        }
+
+        :global(.ipod-display__track) {
+          font-size: 11px;
+          font-weight: 500;
+          color: rgba(0,0,0,0.7);
+          margin-bottom: 6px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        :global(.ipod-display__bar) {
+          position: relative;
+          height: 5px;
+          background: rgba(0,0,0,0.1);
+          border-radius: 3px;
+          margin-bottom: 6px;
+        }
+
+        :global(.ipod-display__fill) {
+          position: absolute;
+          left: 0;
+          top: 0;
+          height: 100%;
+          background: linear-gradient(90deg, rgba(0,0,0,0.18), rgba(0,0,0,0.28));
+          border-radius: 3px;
+        }
+
+        :global(.ipod-display__knob) {
+          position: absolute;
+          top: 50%;
+          width: 12px;
+          height: 12px;
+          background: white;
+          border-radius: 50%;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+          transform: translate(-50%, -50%);
+        }
+
+        :global(.ipod-display__meta) {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          justify-content: space-between;
+        }
+
+        :global(.ipod-display__time) {
+          font-family: var(--font-mono);
+          font-size: 11px;
+          color: rgba(0,0,0,0.5);
+          flex: 1;
+          text-align: center;
+        }
+
+        :global(.ipod-display__volume) {
+          font-size: 10px;
+          font-family: var(--font-mono);
+          color: rgba(0,0,0,0.55);
+          padding-left: 6px;
+          letter-spacing: 0.15em;
+        }
+
+        :global(.ipod-display__shuffle),
+        :global(.ipod-display__repeat) {
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: 12px;
+          opacity: 0.55;
+          transition: opacity 0.15s;
+          padding: 2px;
+        }
+        :global(.ipod-display__shuffle:hover),
+        :global(.ipod-display__repeat:hover) { opacity: 0.85; }
+        :global(.ipod-display__shuffle--active),
+        :global(.ipod-display__repeat--active) { opacity: 1; color: #1d1d1d; }
+
+        :global(.ipod-display__hint) {
+          margin-top: 6px;
+          font-size: 9px;
+          color: rgba(0,0,0,0.6);
+          text-align: center;
+          letter-spacing: 0.2em;
+        }
+
+        :global(.ipod-music-panel-logic) {
+          position: absolute;
+          width: 0;
+          height: 0;
+          opacity: 0;
+          pointer-events: none;
+          overflow: hidden;
+        }
       `}</style>
     </main>
   );
