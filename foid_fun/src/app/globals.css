@@ -624,6 +624,10 @@
     min-height: 0;
   }
 
+  .vista-window--enhanced .vista-window__body {
+    box-shadow: none;
+  }
+
   .vista-window__body--flush {
     padding: 0 !important;
     background: transparent !important;

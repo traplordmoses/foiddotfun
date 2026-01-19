@@ -1126,12 +1126,12 @@ export default function BoardPage() {
         ))}
       </div>
 
-      <div className="board-shell pray-shell">
+      <div className="board-shell">
         <div className="pray-grid">
           {/* Single seamless window */}
           <div className="vista-window vista-window--terminal w-full flex flex-col pray-panel pray-panel--main board-window">
             <AppTitlebar
-              title="MIFO!D_LOREBOARD.APP"
+              title="MIFOID_LOREBOARD.APP"
               chainId={FLUENT_CHAIN_ID}
               connected={isConnected}
               address={address}
@@ -1330,9 +1330,31 @@ export default function BoardPage() {
           --foid-warm: rgba(255, 165, 82, 0.22);
           --board-border: 1px solid var(--foid-glass-border);
         }
-        .board-shell { display: flex; flex-direction: column; height: 100vh; padding: 16px; position: relative; z-index: 1; }
+        .board-shell {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-start;
+          min-height: 100vh;
+          padding: clamp(12px, 3vw, 24px);
+          position: relative;
+          z-index: 1;
+          overflow: hidden;
+        }
 
-        .board-window { flex: 1; display: flex; flex-direction: column; min-height: 0; margin: 8px; }
+        /* expand board window to full viewport while keeping safe margins */
+        .board-window {
+          width: min(1800px, calc(100vw - clamp(24px, 4vw, 40px)));
+          height: min(1050px, calc(100vh - clamp(24px, 4vw, 40px)));
+          max-width: 100%;
+          max-height: 100%;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          margin: 0;
+          box-shadow: none !important;
+          border: none !important;
+        }
         .board-body { flex: 1; min-height: 0; padding: 18px; }
         .board-grid {
           display: grid;
@@ -1379,31 +1401,8 @@ export default function BoardPage() {
 
 
         /* Canvas */
-        .board-canvas-wrap {
-          position: relative;
-          border-radius: var(--board-radius-lg);
-          border: var(--board-border);
-          overflow: hidden;
-          background:
-            radial-gradient(circle at 15% 15%, rgba(255, 255, 255, 0.18), transparent 45%),
-            linear-gradient(145deg, rgba(12, 34, 54, 0.8), rgba(6, 14, 30, 0.95)),
-            var(--foid-panel);
-          backdrop-filter: blur(14px) saturate(140%);
-        }
-        .board-canvas-wrap::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          border-radius: var(--board-radius-lg);
-          padding: 1px;
-          background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.45), var(--foid-glass-highlight) 30%, rgba(255, 255, 255, 0.05) 38%, rgba(255, 255, 255, 0) 55%, rgba(255, 255, 255, 0.15) 78%, rgba(255, 255, 255, 0.35) 100%);
-          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          -webkit-mask-composite: xor;
-          mask-composite: exclude;
-          pointer-events: none;
-          z-index: 1;
-        }
+        .board-canvas-wrap { border: none; }
+        .board-canvas-wrap::before { display: none; } 
         .board-canvas {
           position: relative;
           width: 100%;
@@ -1462,7 +1461,7 @@ export default function BoardPage() {
         @media (prefers-reduced-motion: reduce) {
           .board-hint-bottom { animation: none; }
         }
-        .board-stage { position: absolute; background-blend-mode: screen; box-shadow: inset 0 0 80px rgba(0,0,0,0.42); }
+        .board-stage { position: absolute; background-blend-mode: screen; box-shadow: none; }
         .board-hint { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
         .board-hint__primary, .board-hint__sub {
           display: block;
@@ -1558,12 +1557,8 @@ export default function BoardPage() {
             0 20px 40px rgba(0, 0, 0, 0.45);
         }
         .board-sidebar::after {
-          content: "";
-          position: absolute;
-          inset: 8px;
-          border-radius: calc(var(--board-radius-lg) - 6px);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          pointer-events: none;
+          content: none !important;
+          display: none !important;
         }
         .board-section {
           position: relative;

@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import TopTabs from "@/app/(components)/TopTabs";
 
 export type AppTitlebarWarning = {
@@ -127,6 +128,18 @@ export default function AppTitlebar({
   onSwitchWallet,
   warnings,
 }: AppTitlebarProps) {
+  const pathname = usePathname();
+
+  const tabItems = useMemo(() => {
+    const items = [{ label: "HOME", href: "/" }];
+    if (pathname?.startsWith("/pray")) {
+      items.push({ label: "board", href: "/board" });
+    } else {
+      items.push({ label: "pray", href: "/pray" });
+    }
+    return items;
+  }, [pathname]);
+
   return (
     <>
       <div className="vista-window__titlebar">
@@ -139,17 +152,9 @@ export default function AppTitlebar({
           <Image src="/foidmommy.gif" alt="" width={24} height={24} className="inline-block h-6 w-6 align-middle mr-2" />
           {title}
         </span>
-        <TopTabs
-          items={[
-            { label: "HOME", href: "/" },
-          ]}
-        />
+        <TopTabs items={tabItems} />
         <div className="vista-window__meta">
           <StatusIndicator connected={connected} />
-          <div className="pray-chain-pill">
-            <span className="pray-chain-pill__label">CHAIN</span>
-            <span className="pray-chain-pill__value">{chainId ?? "?"}</span>
-          </div>
           <WalletDropdown
             address={address}
             isOpen={isWalletDropdownOpen}

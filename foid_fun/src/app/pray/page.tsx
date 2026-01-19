@@ -434,90 +434,87 @@ export default function PrayPage() {
         .pray-status-text { font-size: 11px; letter-spacing: 0.08em; color: rgba(255, 255, 255, 0.7); }
         @keyframes pray-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
         
-        /* Chain pill */
-        .pray-chain-pill {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 4px 12px;
-          background: rgba(0, 180, 200, 0.2);
-          border: 1px solid rgba(0, 255, 255, 0.25);
-          border-radius: 6px;
-        }
-        .pray-chain-pill__label { font-size: 9px; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.5); }
-        .pray-chain-pill__value {
-          font-size: 13px;
-          font-weight: 600;
-          font-family: var(--font-mono, monospace);
-          color: #00ffd5;
-          text-shadow: 0 0 10px rgba(0, 255, 213, 0.5);
-        }
-        
         /* Clean Wallet Dropdown */
         .pray-wallet-pill {
           display: flex;
           align-items: center;
-          gap: 8px;
-          padding: 6px 12px;
-          background: rgba(0, 180, 200, 0.15);
-          border: 1px solid rgba(0, 255, 255, 0.2);
-          border-radius: 6px;
-          font-size: 11px;
-          color: rgba(255, 255, 255, 0.7);
+          gap: 6px;
+          padding: 4px 10px;
+          background: linear-gradient(180deg, rgba(233, 221, 80, 0.95), rgba(214, 180, 52, 0.95));
+          border: 1px solid rgba(26, 26, 26, 0.6);
+          border-radius: 9px;
+          min-height: 28px;
+          font-size: 9px;
+          font-weight: 600;
+          letter-spacing: 0.12em;
+          color: #1a1a1a;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: border-color 0.2s ease, transform 0.2s ease;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 4px 10px rgba(0, 0, 0, 0.25);
         }
-        .pray-wallet-pill:hover { background: rgba(0, 200, 220, 0.25); border-color: rgba(0, 255, 213, 0.4); }
-        .pray-wallet-pill__label { font-size: 9px; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.5); }
-        .pray-wallet-pill__address { font-family: var(--font-mono, monospace); color: #00ffd5; }
-        .pray-wallet-chevron { color: rgba(255, 255, 255, 0.5); transition: transform 0.2s ease; }
+        .pray-wallet-pill:hover {
+          border-color: rgba(26, 26, 26, 0.8);
+          transform: translateY(-1px);
+        }
+        .pray-wallet-pill__label {
+          font-size: 8px;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+        }
+        .pray-wallet-pill__address {
+          font-size: 10px;
+          font-family: var(--font-mono, monospace);
+          color: #0f0f0f;
+        }
+        .pray-wallet-chevron {
+          color: #0f0f0f;
+          transition: transform 0.2s ease;
+        }
         .pray-wallet-chevron--open { transform: rotate(180deg); }
         
         :global(.pray-wallet-menu) {
           display: flex;
           flex-direction: column;
           gap: 6px;
-          background: linear-gradient(180deg, rgba(18, 30, 40, 0.98), rgba(10, 18, 26, 0.96));
-          backdrop-filter: blur(16px);
-          border: 1px solid rgba(0, 255, 213, 0.25);
+          background: linear-gradient(180deg, rgba(233, 221, 80, 0.95), rgba(214, 180, 52, 0.95));
+          border: 1px solid rgba(26, 26, 26, 0.6);
           border-radius: 10px;
           padding: 8px;
           z-index: 9999;
-          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 255, 213, 0.12);
-          animation: pray-dropdown-enter 0.12s ease-out;
+          box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(26, 26, 26, 0.35);
+          animation: pray-dropdown-enter 0.16s ease-out;
         }
-        @keyframes pray-dropdown-enter { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-        
+        @keyframes pray-dropdown-enter { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
         :global(.pray-wallet-menu__item) {
           display: block;
           width: 100%;
-          padding: 10px 12px;
-          background: rgba(0, 255, 213, 0.08);
-          border: 1px solid rgba(0, 255, 213, 0.18);
-          border-radius: 8px;
-          color: rgba(255, 255, 255, 0.9);
-          font-size: 13px;
+          padding: 8px 10px;
+          background: #fff0d8;
+          border: 1px solid rgba(26, 26, 26, 0.25);
+          border-radius: 6px;
+          color: #1a1a1a;
+          font-size: 11px;
           font-weight: 600;
           letter-spacing: 0.08em;
           text-transform: uppercase;
           cursor: pointer;
-          transition: all 0.12s ease;
+          transition: border-color 0.12s ease, background 0.12s ease;
           text-align: left;
         }
         :global(.pray-wallet-menu__item:hover) {
-          background: rgba(0, 255, 213, 0.16);
-          border-color: rgba(0, 255, 213, 0.35);
-          color: #eafffb;
+          background: #ffefaf;
+          border-color: rgba(26, 26, 26, 0.5);
         }
         :global(.pray-wallet-menu__item--danger) {
-          background: rgba(255, 71, 87, 0.12);
-          border-color: rgba(255, 71, 87, 0.3);
-          color: #ffd7db;
+          background: #ffd7db;
+          border-color: rgba(26, 26, 26, 0.3);
+          color: #1a1a1a;
         }
         :global(.pray-wallet-menu__item--danger:hover) {
-          background: rgba(255, 71, 87, 0.2);
-          border-color: rgba(255, 71, 87, 0.5);
-          color: #ffe5e8;
+          background: #ff7a89;
+          border-color: rgba(26, 26, 26, 0.5);
+          color: #1a1a1a;
         }
         
         /* Corner brackets */
