@@ -133,7 +133,6 @@ function IPodMusicPlayer() {
     duration,
     shuffle,
     repeat,
-    needsInteraction,
     volume,
   } = state;
 
@@ -189,38 +188,45 @@ function IPodMusicPlayer() {
           </button>
         </div>
         <div className="ipod-display">
-          <div className="ipod-display__track" title={currentTrackName}>
-            {currentTrackName}
+          <div className="ipod-display__content">
+            <div className="ipod-display__track" title={currentTrackName}>
+              {currentTrackName}
+            </div>
+            <div className="ipod-display__bar">
+              <div className="ipod-display__fill" style={{ width: `${progressPercent * 100}%` }} />
+              <div className="ipod-display__knob" style={{ left: `${progressPercent * 100}%` }} />
+            </div>
+            <div className="ipod-display__meta">
+              <div className="ipod-display__meta-side">
+                <button
+                  className={`ipod-display__shuffle ${shuffle ? "ipod-display__shuffle--active" : ""}`}
+                  onClick={handleShuffle}
+                  type="button"
+                  title="Shuffle"
+                >
+                  🔀
+                </button>
+              </div>
+              <div className="ipod-display__meta-center">
+                <span className="ipod-display__time">
+                  {formatTrackTime(elapsed)} / {formatTrackTime(duration)}
+                </span>
+              </div>
+              <div className="ipod-display__meta-side ipod-display__meta-side--right">
+                <button
+                  className={`ipod-display__repeat ${repeat ? "ipod-display__repeat--active" : ""}`}
+                  onClick={handleRepeat}
+                  type="button"
+                  title="Repeat"
+                >
+                  🔁
+                </button>
+                <span className="ipod-display__volume" aria-label="Volume level">
+                  {volumeLabel}%
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="ipod-display__bar">
-            <div className="ipod-display__fill" style={{ width: `${progressPercent * 100}%` }} />
-            <div className="ipod-display__knob" style={{ left: `${progressPercent * 100}%` }} />
-          </div>
-          <div className="ipod-display__meta">
-            <button
-              className={`ipod-display__shuffle ${shuffle ? "ipod-display__shuffle--active" : ""}`}
-              onClick={handleShuffle}
-              type="button"
-              title="Shuffle"
-            >
-              🔀
-            </button>
-            <span className="ipod-display__time">
-              {formatTrackTime(elapsed)} / {formatTrackTime(duration)}
-            </span>
-            <button
-              className={`ipod-display__repeat ${repeat ? "ipod-display__repeat--active" : ""}`}
-              onClick={handleRepeat}
-              type="button"
-              title="Repeat"
-            >
-              🔁
-            </button>
-            <span className="ipod-display__volume" aria-label="Volume level">
-              {volumeLabel}%
-            </span>
-          </div>
-          {needsInteraction && <div className="ipod-display__hint">Tap wheel to start</div>}
         </div>
       </div>
     </>
@@ -1239,13 +1245,13 @@ export default function BoardPage() {
               <div className="board-sidebar">
                 {/* Epoch */}
                 <div className="board-section board-section--epoch">
-                  <div className="board-section__header">
+                  <div className="board-section__header board-section__header--epoch">
                     <span className="board-section__dot" />
                     <span className="board-section__title">EPOCH</span>
-                  </div>
-                  <div className="board-epoch">
-                    <span className="board-epoch__num">#{enabled ? epochIdx : "—"}</span>
-                    <span className="board-epoch__time">{fmtCountdown}</span>
+                    <div className="board-epoch">
+                      <span className="board-epoch__num">#{enabled ? epochIdx : "—"}</span>
+                      <span className="board-epoch__time">{fmtCountdown}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -1261,28 +1267,21 @@ export default function BoardPage() {
                     <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={onFileChange} />
                     <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "SUBMITTING..." : "SUBMIT PROPOSAL"} disabled={!items.length || submittingProposals} variant="secondary" />
                   </div>
-                </div>
-
-                {/* Voting */}
-                {pendingVotes.length > 0 && (
-                  <div className="board-section">
-                    <div className="board-section__header">
-                      <span className="board-section__dot" />
-                      <span className="board-section__title">VOTING</span>
+                  {pendingVotes.length > 0 && (
+                    <div className="board-actions__voting">
+                      <div className="board-section__header board-section__header--compact">
+                        <span className="board-section__dot" />
+                        <span className="board-section__title">VOTING</span>
+                      </div>
+                      <div className="board-voting">
+                        {pendingVotes.map((p) => <VotingItem key={p.id} proposal={p} addStatus={addStatus} />)}
+                      </div>
                     </div>
-                    <div className="board-voting">
-                      {pendingVotes.map((p) => <VotingItem key={p.id} proposal={p} addStatus={addStatus} />)}
-                    </div>
-                  </div>
-                )}
-
-                {/* Music - iPod-style player */}
-                <div className="board-section board-section--music">
-                  <IPodMusicPlayer />
+                  )}
                 </div>
 
                 {/* Chat */}
-                <div className="board-section board-section--flex">
+                <div className="board-section board-section--chat">
                   <div className="board-section__header">
                     <span className="board-section__dot" />
                     <span className="board-section__title">CHAT</span>
@@ -1294,6 +1293,11 @@ export default function BoardPage() {
                     </span>
                   </div>
                   <TerminalChat statusMessages={statusMessages} onSend={handleChatSend} />
+                </div>
+
+                {/* Music - iPod-style player */}
+                <div className="board-section board-section--music">
+                  <IPodMusicPlayer />
                 </div>
               </div> {/* board-sidebar */}
             </div> {/* board-grid */}
@@ -1534,12 +1538,12 @@ export default function BoardPage() {
           position: relative;
           display: grid;
           grid-template-columns: 1fr;
-          grid-template-rows: repeat(4, auto) minmax(0, 1fr);
-          gap: 12px;
+          grid-template-rows: auto auto auto 1fr;
+          gap: 16px;
           height: 100%;
           min-height: 0;
           overflow: hidden;
-          padding: 12px;
+          padding: 16px;
           border-radius: var(--board-radius-lg);
           border: var(--board-border);
           background:
@@ -1575,19 +1579,7 @@ export default function BoardPage() {
             0 0 16px rgba(116, 255, 235, 0.18),
             inset 0 1px 0 rgba(255, 255, 255, 0.08),
             inset 0 -1px 0 rgba(0, 0, 0, 0.35);
-          padding: 14px;
-        }
-        .board-section--actions {
-          padding: 8px 10px;
-        }
-        .board-section--actions .board-section__header {
-          margin-bottom: 6px;
-        }
-        .board-section--epoch {
-          padding: 8px 10px;
-        }
-        .board-section--epoch .board-section__header {
-          margin-bottom: 8px;
+          padding: 16px;
         }
         .board-section:not(:last-child)::after {
           content: "";
@@ -1598,33 +1590,51 @@ export default function BoardPage() {
           height: 1px;
           background: rgba(255, 255, 255, 0.08);
         }
-        .board-section--music {
-          padding: 8px;
-          max-height: 120px;
-          overflow: hidden;
+        .board-section--epoch {
+          padding: 10px 12px;
         }
-        .board-section--flex {
-          grid-row: 5 / 6;
-          flex: 1;
-          min-height: 0;
+        .board-section--epoch .board-section__header {
+          margin-bottom: 0;
+          gap: 6px;
+        }
+        .board-section--music {
+          padding: 10px 12px;
+        }
+        .board-section__header--compact {
+          margin-bottom: 6px;
+          gap: 6px;
+        }
+        .board-actions__voting {
+          margin-top: 12px;
           display: flex;
           flex-direction: column;
+          gap: 6px;
+        }
+        .board-section--chat {
+          grid-row: 4 / 5;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
           overflow: hidden;
+        }
+        .board-section--chat :global(.terminal-chat) {
+          flex: 1;
+          min-height: 0;
         }
         .board-section__header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
         .board-section__chip {
           margin-left: auto;
-          padding: 2px 10px;
+          padding: 1px 8px;
           border-radius: 999px;
-          border: 1px solid rgba(255, 210, 235, 0.65);
-          background: linear-gradient(135deg, rgba(255, 210, 225, 0.35), rgba(255, 150, 195, 0.25));
-          color: rgba(190, 255, 235, 0.95);
-          font-size: 9px;
-          letter-spacing: 0.12em;
+          border: 1px solid rgba(255, 210, 235, 0.45);
+          background: linear-gradient(135deg, rgba(255, 210, 225, 0.25), rgba(255, 150, 195, 0.2));
+          color: rgba(190, 255, 235, 0.9);
+          font-size: 8px;
+          letter-spacing: 0.08em;
           font-family: var(--font-mono);
           text-transform: uppercase;
-          box-shadow: 0 0 8px rgba(255, 150, 190, 0.4);
-          backdrop-filter: blur(18px);
+          box-shadow: 0 0 6px rgba(255, 150, 190, 0.3);
+          backdrop-filter: blur(12px);
         }
         .board-section__status {
           margin-left: auto;
@@ -1656,21 +1666,25 @@ export default function BoardPage() {
         .board-section__title { font-size: 10px; font-weight: 600; letter-spacing: 0.18em; color: var(--foid-accent); text-shadow: 0 0 12px var(--foid-accent-soft); opacity: 0.92; }
         .board-section__sub { margin-left: auto; font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 0.05em; }
 
-        /* Epoch - slightly smaller for fit */
-        .board-epoch { display: flex; align-items: baseline; justify-content: space-between; padding: 4px 0; }
-        .board-epoch__num {
-          font-size: 22px;
-          font-weight: 700;
-          font-family: var(--font-mono);
-          color: var(--foid-accent);
-          text-shadow: 0 0 16px rgba(0, 255, 213, 0.45);
+        .board-epoch {
+          display: inline-flex;
+          align-items: baseline;
+          gap: 6px;
+          margin-left: auto;
         }
-        .board-epoch__time {
-          font-size: 16px;
+        .board-section--epoch .board-epoch__num {
+          font-size: 10px;
           font-weight: 600;
           font-family: var(--font-mono);
-          color: var(--foid-accent-soft);
-          text-shadow: 0 0 12px rgba(0, 255, 213, 0.28);
+          letter-spacing: 0.2em;
+          color: var(--foid-accent);
+        }
+        .board-section--epoch .board-epoch__time {
+          font-size: 10px;
+          font-weight: 500;
+          font-family: var(--font-mono);
+          letter-spacing: 0.18em;
+          color: rgba(255, 255, 255, 0.65);
         }
 
         /* Actions */
@@ -1965,14 +1979,16 @@ export default function BoardPage() {
           border: none;
           cursor: pointer;
           transition: color 0.15s, transform 0.15s;
+          top: 50%;
+          transform: translateY(-50%);
         }
         :global(.ipod-wheel__btn:hover) {
           color: rgba(20, 40, 60, 1);
-          transform: scale(1.05);
+          transform: translateY(-50%) scale(1.05);
         }
 
-        :global(.ipod-wheel__btn--prev) { left: 4px; }
-        :global(.ipod-wheel__btn--next) { right: 4px; }
+        :global(.ipod-wheel__btn--prev) { left: -4px; }
+        :global(.ipod-wheel__btn--next) { right: -4px; }
 
         :global(.ipod-wheel__center) {
           width: 24px;
@@ -1990,7 +2006,7 @@ export default function BoardPage() {
 
         :global(.ipod-display) {
           flex: 1;
-          padding: 4px 8px;
+          padding: 6px 10px;
           background: linear-gradient(
             180deg,
             rgba(14, 26, 48, 0.95),
@@ -2003,25 +2019,35 @@ export default function BoardPage() {
             0 1px 0 rgba(255, 255, 255, 0.2);
         }
 
+        :global(.ipod-display__content) {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+        }
+
         :global(.ipod-display__track) {
+          width: 100%;
           font-size: 9px;
           font-weight: 700;
           color: rgba(190, 255, 235, 0.9);
-          margin-bottom: 4px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
           text-transform: uppercase;
           letter-spacing: 0.08em;
+          text-align: center;
           text-shadow: 0 0 10px rgba(140, 255, 220, 0.6);
         }
 
         :global(.ipod-display__bar) {
           position: relative;
+          width: min(100%, 240px);
           height: 5px;
           background: rgba(255, 255, 255, 0.08);
           border-radius: 3px;
-          margin-bottom: 4px;
           box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.35);
         }
 
@@ -2054,10 +2080,28 @@ export default function BoardPage() {
         }
 
         :global(.ipod-display__meta) {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 14px;
+        }
+
+        :global(.ipod-display__meta-side) {
           display: flex;
           align-items: center;
           gap: 6px;
-          justify-content: space-between;
+          flex: none;
+        }
+
+        :global(.ipod-display__meta-side--right) {
+          justify-content: flex-end;
+        }
+
+        :global(.ipod-display__meta-center) {
+          flex: 1;
+          display: flex;
+          justify-content: center;
         }
 
         :global(.ipod-display__time) {
@@ -2073,8 +2117,7 @@ export default function BoardPage() {
           font-size: 8px;
           font-family: var(--font-mono);
           color: rgba(200, 255, 245, 0.9);
-          padding-left: 6px;
-          letter-spacing: 0.15em;
+          letter-spacing: 0.2em;
         }
 
         :global(.ipod-display__shuffle),
@@ -2099,14 +2142,6 @@ export default function BoardPage() {
           outline: 2px solid var(--foid-accent);
           outline-offset: 3px;
           box-shadow: 0 0 12px var(--foid-glow);
-        }
-
-        :global(.ipod-display__hint) {
-          margin-top: 6px;
-          font-size: 9px;
-          color: rgba(0,0,0,0.6);
-          text-align: center;
-          letter-spacing: 0.2em;
         }
 
         :global(.ipod-music-panel-logic) {

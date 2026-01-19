@@ -190,37 +190,35 @@ export default function AppTitlebar({
           font-size: 9px;
           font-weight: 500;
           letter-spacing: 0.08em;
-          color: rgba(255, 255, 255, 0.5);
-          background: linear-gradient(180deg, rgba(14, 28, 36, 0.92), rgba(8, 16, 22, 0.75));
-          border: 1px solid rgba(0, 255, 213, 0.18);
+          color: #1a1a1a;
+          background: linear-gradient(180deg, rgba(233, 221, 80, 0.95), rgba(214, 180, 52, 0.95));
+          border: 1px solid rgba(26, 26, 26, 0.4);
           border-bottom: none;
           border-radius: 9px;
           text-decoration: none;
           transition: all 0.15s ease;
           position: relative;
           box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.14),
-            inset 0 -1px 0 rgba(0, 0, 0, 0.2),
-            0 4px 10px rgba(0, 0, 0, 0.22);
+            inset 0 1px 0 rgba(255, 255, 255, 0.5),
+            0 4px 10px rgba(0, 0, 0, 0.25);
         }
 
         :global(.pray-nav-tab:hover) {
-          color: rgba(255, 255, 255, 0.8);
-          background: linear-gradient(180deg, rgba(18, 38, 48, 0.95), rgba(10, 20, 28, 0.8));
-          border-color: rgba(0, 255, 213, 0.28);
+          color: #0f0f0f;
+          background: linear-gradient(180deg, rgba(253, 232, 120, 0.97), rgba(233, 221, 80, 0.98));
+          border-color: rgba(26, 26, 26, 0.6);
         }
 
         :global(.pray-nav-tab:focus-visible) {
-          outline: 2px solid rgba(0, 255, 213, 0.6);
+          outline: 2px solid rgba(26, 26, 26, 0.6);
           outline-offset: 2px;
-          box-shadow: 0 0 0 2px rgba(0, 255, 213, 0.2);
+          box-shadow: 0 0 0 2px rgba(26, 26, 26, 0.2);
         }
 
         :global(.pray-nav-tab--active) {
-          color: rgba(255, 255, 255, 0.95);
-          background: linear-gradient(180deg, rgba(28, 60, 72, 0.98), rgba(10, 20, 28, 0.9));
-          border-color: rgba(0, 255, 213, 0.4);
-          text-shadow: 0 0 10px rgba(0, 255, 213, 0.45);
+          color: #1a1a1a;
+          background: linear-gradient(180deg, rgba(26, 26, 26, 1), rgba(20, 20, 20, 0.95));
+          border-color: rgba(26, 26, 26, 0.8);
         }
 
         :global(.pray-nav-tab--active)::after {
@@ -230,8 +228,8 @@ export default function AppTitlebar({
           left: 0;
           right: 0;
           height: 2px;
-          background: #00ffd5;
-          box-shadow: 0 0 8px rgba(0, 255, 213, 0.6);
+          background: #e9dd50;
+          box-shadow: 0 0 8px rgba(233, 221, 80, 0.6);
         }
       `}</style>
     </>

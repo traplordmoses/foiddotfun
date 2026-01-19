@@ -641,8 +641,8 @@ const ensureVisualizer = useCallback(() => {
   }
 
   return (
-    <div {...rest} className={`relative rounded-3xl bg-gradient-to-b from-[#98c4ff]/30 to-[#2a5aa0]/40 p-4 backdrop-blur-sm shadow-lg ${className}`}>
-      <div className="mb-3 flex items-center justify-center rounded-2xl border border-white/25 bg-[rgba(10,25,55,.55)] px-3 py-1.5 backdrop-blur">
+    <div {...rest} className={`relative rounded-3xl bg-gradient-to-b from-[#98c4ff]/30 to-[#2a5aa0]/40 p-3 backdrop-blur-sm shadow-lg ${className}`}>
+      <div className="mb-2 flex items-center justify-center rounded-2xl border border-white/25 bg-[rgba(10,25,55,.55)] px-2 py-1 backdrop-blur">
         <div
           className="text-emerald-100 drop-shadow select-none text-center"
           style={{
@@ -657,7 +657,7 @@ const ensureVisualizer = useCallback(() => {
         </div>
       </div>
 
-      <div ref={vizBoxRef} className="relative overflow-hidden rounded-3xl border border-white/15 bg-white/5 h-[260px] sm:h-[300px]">
+      <div ref={vizBoxRef} className="relative overflow-hidden rounded-3xl border border-white/15 bg-white/5 h-[160px] sm:h-[200px]">
         {/* make sure slider clicks aren’t eaten */}
         <canvas
           ref={canvasRef}
@@ -666,7 +666,7 @@ const ensureVisualizer = useCallback(() => {
         />
         {audioElements}
       </div>
-        <div className="mt-4">
+        <div className="mt-3">
          <div
             className="
               relative mx-auto w-[88%] max-w-[460px]
@@ -676,25 +676,25 @@ const ensureVisualizer = useCallback(() => {
           >
             {/* CENTERED TRANSPORT (fixed width so the lane math is stable) */}
           <div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-4 z-10"
-            style={{ width: 184 }} /* 3x(44px) + two 16px gaps */
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-20 z-30 pointer-events-auto"
+            style={{ width: 360 }} /* extra breathing room between larger controls */
           >
 
               <button
                 onClick={prev}
-                className="h-11 w-11 rounded-xl bg-white/20 text-white/90 hover:bg-white/30 font-semibold"
+                className="h-14 w-14 rounded-xl bg-white/20 text-white/90 hover:bg-white/30 font-semibold pointer-events-auto z-40"
                 aria-label="Previous"
               >‹‹</button>
 
               <button
                 onClick={toggle}
-                className="h-11 w-11 rounded-xl bg-white/30 text-white hover:bg-white/40 font-bold"
+                className="h-14 w-14 rounded-xl bg-white/30 text-white hover:bg-white/40 font-bold pointer-events-auto z-40"
                 aria-label={isPlaying ? 'Pause' : 'Play'}
               >{isPlaying ? '❚❚' : '►'}</button>
 
               <button
                 onClick={next}
-                className="h-11 w-11 rounded-xl bg-white/20 text-white/90 hover:bg-white/30 font-semibold"
+                className="h-14 w-14 rounded-xl bg-white/20 text-white/90 hover:bg-white/30 font-semibold pointer-events-auto z-40"
                 aria-label="Next"
               >››</button>
             </div>
