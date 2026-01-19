@@ -279,9 +279,6 @@ export default function AnimatedBackground() {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    let parallaxFrame: number | null = null;
-    let targetX = 0;
-    let targetY = 0;
 
     const detectMobile = () => {
       if (typeof window === "undefined") return false;
@@ -396,34 +393,12 @@ export default function AnimatedBackground() {
       }
     };
 
-    const applyParallax = () => {
-      parallaxFrame = null;
-      if (!container) return;
-      container.style.transform = `translate3d(${targetX}px, ${targetY}px, 0)`;
-    };
-
-    const onPointerMove = (e: PointerEvent) => {
-      if (detectMobile()) return;
-      const cx = window.innerWidth / 2;
-      const cy = window.innerHeight / 2;
-      const dx = (e.clientX - cx) / cx;
-      const dy = (e.clientY - cy) / cy;
-      targetX = dx * 8;
-      targetY = dy * 8;
-      if (parallaxFrame == null) {
-        parallaxFrame = requestAnimationFrame(applyParallax);
-      }
-    };
-
     scheduleInit();
-    window.addEventListener("pointermove", onPointerMove, { passive: true });
 
     return () => {
       disposed = true;
       if (idleHandle !== null) cancelIdle?.(idleHandle);
       if (timeoutHandle !== null) window.clearTimeout(timeoutHandle);
-      if (parallaxFrame != null) cancelAnimationFrame(parallaxFrame);
-      window.removeEventListener("pointermove", onPointerMove);
       glCleanup?.();
       fxCleanup?.();
       htCleanup?.();

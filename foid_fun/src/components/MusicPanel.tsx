@@ -642,22 +642,7 @@ const ensureVisualizer = useCallback(() => {
 
   return (
     <div {...rest} className={`relative rounded-3xl bg-gradient-to-b from-[#98c4ff]/30 to-[#2a5aa0]/40 p-3 backdrop-blur-sm shadow-lg ${className}`}>
-      <div className="mb-2 flex items-center justify-center rounded-2xl border border-white/25 bg-[rgba(10,25,55,.55)] px-2 py-1 backdrop-blur">
-        <div
-          className="text-emerald-100 drop-shadow select-none text-center"
-          style={{
-            /* responsive size that shrinks on narrow panes */
-            fontSize: 'clamp(0.68rem, 1.4vw, 0.85rem)',
-            letterSpacing: '0.2em',          // a touch tighter so long names fit
-            lineHeight: 1,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {track.name.toUpperCase()}
-        </div>
-      </div>
-
-      <div ref={vizBoxRef} className="relative overflow-hidden rounded-3xl border border-white/15 bg-white/5 h-[160px] sm:h-[200px]">
+      <div ref={vizBoxRef} className="relative overflow-hidden rounded-3xl border border-white/15 bg-white/5 w-full h-full">
         {/* make sure slider clicks aren’t eaten */}
         <canvas
           ref={canvasRef}

@@ -295,9 +295,9 @@ export default function EnterGate({
                 <stop offset="100%" stopColor="#c0dde8" stopOpacity="0.03" />
               </linearGradient>
               <linearGradient id="smokedGlassTop" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#0a1218" stopOpacity="0.18" />
-                <stop offset="40%" stopColor="#080e14" stopOpacity="0.22" />
-                <stop offset="100%" stopColor="#050a0e" stopOpacity="0.28" />
+                <stop offset="0%" stopColor="#FFF56C" stopOpacity="0.35" />
+                <stop offset="40%" stopColor="#FFE044" stopOpacity="0.4" />
+                <stop offset="100%" stopColor="#FFD123" stopOpacity="0.5" />
               </linearGradient>
               <linearGradient id="innerShadowBottom" x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" stopColor="#000000" stopOpacity="0" />
@@ -454,8 +454,10 @@ export default function EnterGate({
                 fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif"
                 fontSize="28"
                 fontWeight="400"
-                fill="#ffffff"
-                fillOpacity="0.92"
+                fill="#fff9d2"
+                fillOpacity="0.95"
+                stroke="rgba(0, 0, 0, 0.35)"
+                strokeWidth="0.5"
                 textAnchor="middle"
                 dominantBaseline="middle"
                 filter="url(#textGlow)"
@@ -469,8 +471,10 @@ export default function EnterGate({
                 fontSize="28"
                 fontWeight="400"
                 letterSpacing="0.5"
-                fill="#ffffff"
-                fillOpacity="0.92"
+                fill="#fff9d2"
+                fillOpacity="0.95"
+                stroke="rgba(0, 0, 0, 0.35)"
+                strokeWidth="0.5"
                 textAnchor="middle"
                 dominantBaseline="middle"
                 filter="url(#textGlow)"
@@ -631,9 +635,9 @@ export default function EnterGate({
         .enter-label {
           font-size: 11px;
           letter-spacing: 4px;
-          color: rgba(200, 230, 255, 0.7);
+          color: #ffe462;
           text-transform: uppercase;
-          text-shadow: 0 0 10px rgba(100, 200, 255, 0.5);
+          text-shadow: 0 0 12px rgba(255, 228, 98, 0.8);
           opacity: 0;
           animation: labelFadeIn 1s ease-out 1.5s forwards;
         }

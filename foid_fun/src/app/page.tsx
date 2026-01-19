@@ -3,6 +3,7 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
+import CompactMusicPlayer from "@/components/CompactMusicPlayer";
 import Y2kGlassButton from "@/components/Y2kGlassButton";
 
 const MusicPanel = dynamic(() => import("@/components/MusicPanel"), {
@@ -122,68 +123,119 @@ export default function LandingPage() {
           </section>
 
           {/* launcher */}
-          <aside className="vista-window vista-window--compact flex min-h-0 flex-col overflow-hidden max-h-[640px] lg:max-h-[720px] w-full">
-            <div className="vista-window__titlebar">
-              <div className="vista-window__controls" aria-hidden="true">
-                <span className="vista-window__control vista-window__control--minimize" />
-                <span className="vista-window__control vista-window__control--restore" />
-                <span className="vista-window__control vista-window__control--close" />
-              </div>
+            <aside className="vista-window vista-window--compact flex min-h-0 flex-col overflow-hidden max-h-[640px] lg:max-h-[720px] w-full foid-right-panel">
+              <div className="vista-window__titlebar">
+                <div className="vista-window__controls" aria-hidden="true">
+                  <span className="vista-window__control vista-window__control--minimize" />
+                  <span className="vista-window__control vista-window__control--restore" />
+                  <span className="vista-window__control vista-window__control--close" />
+                </div>
 
-              <span className="vista-window__title text-[12px]">
-                <span
-                  aria-hidden="true"
-                  className="inline-flex h-[40px] w-[40px] items-center justify-center"
-                >
-                  <Image
-                    src="/foidmommy.gif"
-                    alt=""
-                    width={40}
-                    height={40}
-                    className="block"
-                  />
-                </span>{" "}
-                foid.fun
-              </span>
-            </div>
-            <div className="vista-window__body flex flex-1 min-h-0 flex-col">
-              {/* buttons */}
-              <div className="launcher-buttons px-4 pt-2 pb-2">
-                <div className="flex flex-col gap-4">
-                  <Y2kGlassButton
-                    href="/pray"
-                    label="FOID_MOMMY_TERMINAL.EXE"
-                  />
-                  <Y2kGlassButton href="/board" label="LOREBOARD.APP" />
+                <span className="vista-window__title text-[12px]">
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex h-[40px] w-[40px] items-center justify-center"
+                  >
+                    <Image
+                      src="/foidmommy.gif"
+                      alt=""
+                      width={40}
+                      height={40}
+                      className="block"
+                    />
+                  </span>{" "}
+                  foid.fun
+                </span>
+              </div>
+            <div className="vista-window__body flex flex-1 min-h-0 flex-col overflow-hidden">
+              <div className="flex flex-1 min-h-0 flex-col px-6 pt-6 pb-1">
+                <div className="mx-auto flex h-full w-full max-w-[360px] flex-1 flex-col gap-3 items-stretch">
+                  {/* buttons */}
+                  <div className="launcher-buttons flex flex-col gap-3">
+                    <Y2kGlassButton
+                      href="/pray"
+                      label="FOID_MOMMY_TERMINAL.EXE"
+                    />
+                    <Y2kGlassButton href="/board" label="LOREBOARD.APP" />
+                  </div>
+
+                  <div
+                    ref={musicRef}
+                    className="launcher-music flex flex-col gap-4 mt-3"
+                  >
+                    {musicPanelReady ? (
+                      <>
+                        <div className="w-full">
+                          <MusicPanel className="home-music-panel h-[320px] w-full" />
+                        </div>
+                        <div className="home-ipod-frame">
+                          <CompactMusicPlayer mountLogic={false} />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex min-h-[220px] w-full flex-col items-center justify-center gap-3 text-center text-xs text-white/55">
+                        <p className="text-white/40">music loads after the launcher.</p>
+                        <button
+                          type="button"
+                          onClick={loadMusicPanelNow}
+                          className="rounded-full border border-white/20 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.3em] text-white/65 transition hover:bg-white/10 hover:border-white/30"
+                        >
+                          load
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              {/* music: render ONLY the player (no extra frame) */}
-              <div className="launcher-music flex min-h-0 flex-col">
-                <div ref={musicRef} className="min-h-0 flex flex-col justify-end overflow-hidden">
-                  {musicPanelReady ? (
-                    <div className="w-full origin-bottom scale-[0.95]">
-                      <MusicPanel />
-                    </div>
-                  ) : (
-                    <div className="flex min-h-[150px] w-full flex-col items-center justify-center gap-3 px-4 text-center text-xs text-white/55">
-                      <p className="text-white/40">music loads after the launcher.</p>
-                      <button
-                        type="button"
-                        onClick={loadMusicPanelNow}
-                        className="rounded-full border border-white/20 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.3em] text-white/65 transition hover:bg-white/10 hover:border-white/30"
-                      >
-                        load
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {/* removed the “fits @ 100%” footer entirely */}
             </div>
-          </aside>
+            </aside>
         </div>
       </div>
+      <style jsx>{`
+        :global(.foid-right-panel .vista-window__body) {
+          padding: 0;
+        }
+
+        :global(.foid-right-panel .launcher-buttons),
+        :global(.foid-right-panel .launcher-music) {
+          padding: 0;
+        }
+
+        :global(.foid-right-panel .launcher-music) {
+          flex: 0 0 auto;
+        }
+
+        :global(.foid-right-panel .launcher-buttons) {
+          flex: 0 0 auto;
+        }
+
+        :global(.home-music-panel) :global(.mt-3) {
+          display: none;
+        }
+
+        :global(.home-music-panel) {
+          padding: 0 !important;
+          border-radius: 28px;
+          background: transparent;
+          box-shadow: none;
+        }
+
+        :global(.home-ipod-frame) {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          border-radius: 30px;
+          padding: 0;
+          border: none;
+          background: transparent;
+          box-shadow: none;
+        }
+
+        :global(.home-ipod-frame) :global(.ipod-player) {
+          width: 100%;
+          border-radius: 26px;
+        }
+      `}</style>
     </main>
   );
 }
