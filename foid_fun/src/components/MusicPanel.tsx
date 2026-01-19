@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import butterchurnModule from "butterchurn";
 import * as butterchurnPresets from "butterchurn-presets";
+import { broadcastMusicState, musicPanelController } from "@/components/musicPanelController";
 
 const butterchurn: any = (butterchurnModule as any).default ?? butterchurnModule;
 const getAllPresets = () => butterchurnPresets.getPresets();
@@ -22,74 +23,6 @@ const TRACKS: Track[] = Array.from({ length: 23 }, (_, i) => {
 });
 
 const CROSSFADE_SECONDS = 2;
-
-type MusicPanelState = {
-  currentTrackName: string;
-  progress: number;
-  elapsed: number;
-  duration: number;
-  isPlaying: boolean;
-  needsInteraction: boolean;
-  shuffle: boolean;
-  repeat: boolean;
-  volume: number;
-};
-
-type MusicPanelController = {
-  getState: () => MusicPanelState;
-  subscribe: (listener: () => void) => () => void;
-  toggle: () => void;
-  play: () => Promise<void>;
-  pause: () => void;
-  next: () => void;
-  prev: () => void;
-  toggleShuffle: () => void;
-  toggleRepeat: () => void;
-  setVolume: (value: number) => void;
-  adjustVolume: (delta: number) => void;
-  getVolume: () => number;
-};
-
-let musicPanelState: MusicPanelState = {
-  currentTrackName: TRACKS[0]?.name ?? "—",
-  progress: 0,
-  elapsed: 0,
-  duration: 0,
-  isPlaying: false,
-  needsInteraction: true,
-  shuffle: false,
-  repeat: false,
-  volume: 0.5,
-};
-
-const listeners = new Set<() => void>();
-
-const notifyListeners = () => {
-  listeners.forEach((fn) => fn());
-};
-
-const broadcastMusicState = (partial: Partial<MusicPanelState>) => {
-  musicPanelState = { ...musicPanelState, ...partial };
-  notifyListeners();
-};
-
-export const musicPanelController: MusicPanelController = {
-  getState: () => musicPanelState,
-  subscribe: (listener) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  },
-  toggle: () => {},
-  play: () => Promise.resolve(),
-  pause: () => {},
-  next: () => {},
-  prev: () => {},
-  toggleShuffle: () => {},
-  toggleRepeat: () => {},
-  setVolume: () => {},
-  adjustVolume: () => {},
-  getVolume: () => 0.5,
-};
 
 export type MusicPanelProps = React.HTMLAttributes<HTMLDivElement> & {
   compact?: boolean;

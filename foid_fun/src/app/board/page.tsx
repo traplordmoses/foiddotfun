@@ -9,6 +9,7 @@ import React, {
   useRef,
   useState,
   useEffect,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useAccount, useChainId, useSwitchChain, useDisconnect, useConnect } from "wagmi";
@@ -40,7 +41,7 @@ import { listProposals } from "@/lib/api";
 import type { ProposalSummary } from "@/lib/api";
 import { writeProposePlacement } from "@/lib/viem";
 import dynamic from "next/dynamic";
-import { musicPanelController } from "@/components/MusicPanel";
+import { musicPanelController } from "@/components/musicPanelController";
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
@@ -104,7 +105,17 @@ type DropPos = { x: number; y: number };
 type DragMeta = { w: number; h: number; mime: "image/png" | "image/jpeg" | null };
 type GhostStatus = "ok" | "overlap" | "oversize" | "invalid";
 type Ghost = { rect: Rect; cells: number; status: GhostStatus; totalWei: bigint };
-type StatusMessage = { id: string; text: string; type: "info" | "success" | "error" | "system"; timestamp: Date };
+type StatusMessage = {
+  id: string;
+  text: string;
+  type: "info" | "success" | "error" | "system";
+  timestamp: Date;
+  variant?: "chat";
+  user?: string;
+};
+
+const formatShortAddress = (value?: string) =>
+  value ? `${value.slice(0, 6)}…${value.slice(-4)}` : "anon";
 
 function IPodMusicPlayer() {
   const [state, setState] = useState(musicPanelController.getState());
@@ -220,28 +231,63 @@ function IPodMusicPlayer() {
 // TERMINAL CHAT WITH STATUS
 // ============================================================================
 
-function TerminalChat({ statusMessages }: { statusMessages: StatusMessage[] }) {
+function TerminalChat({
+  statusMessages,
+  onSend,
+}: {
+  statusMessages: StatusMessage[];
+  onSend?: (text: string) => void | Promise<void>;
+}) {
   const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [statusMessages]);
 
-  const formatTime = (date: Date) => date.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+  const formatTime = (date: Date) =>
+    date.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+
+  const handleSend = useCallback(async () => {
+    if (!onSend) return;
+    const trimmed = input.trim();
+    if (!trimmed || isSending) return;
+    setIsSending(true);
+    setInput("");
+    try {
+      await onSend(trimmed);
+    } catch (err) {
+      console.error("TerminalChat send failed", err);
+    } finally {
+      setIsSending(false);
+    }
+  }, [input, isSending, onSend]);
+
+  const handleKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void handleSend();
+    }
+  };
 
   return (
     <div className="terminal-chat">
       <div ref={scrollRef} className="terminal-chat__messages">
-        {statusMessages.map((msg) => (
-          <div key={msg.id} className={`terminal-chat__line terminal-chat__line--${msg.type}`}>
-            <span className="terminal-chat__time">{formatTime(msg.timestamp)}</span>
-            <span className={msg.type === "system" ? "terminal-chat__system" : "terminal-chat__user"}>
-              {msg.type === "system" ? "SYSTEM" : "milady"}
-            </span>
-            <span className="terminal-chat__text">{msg.text}</span>
-          </div>
-        ))}
+        {statusMessages.map((msg) => {
+          const isChat = msg.variant === "chat";
+          const isSystem = msg.type === "system" && !isChat;
+          const lineClass = isChat ? "terminal-chat__line--chat" : `terminal-chat__line--${msg.type}`;
+          const labelClass = isSystem ? "terminal-chat__system" : "terminal-chat__user";
+          const labelText = isSystem ? "SYSTEM" : isChat ? "mifoid" : "milady";
+          return (
+            <div key={msg.id} className={`terminal-chat__line ${lineClass}`}>
+              <span className="terminal-chat__time">{formatTime(msg.timestamp)}</span>
+              <span className={labelClass}>{labelText}</span>
+              <span className="terminal-chat__text">{msg.text}</span>
+            </div>
+          );
+        })}
       </div>
       <div className="terminal-chat__input-row">
         <span className="terminal-chat__prompt">&gt;</span>
@@ -249,9 +295,18 @@ function TerminalChat({ statusMessages }: { statusMessages: StatusMessage[] }) {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="type here..."
           className="terminal-chat__input"
         />
+        <button
+          type="button"
+          className="terminal-chat__send"
+          onClick={() => void handleSend()}
+          disabled={isSending || !input.trim() || !onSend}
+        >
+          SEND
+        </button>
       </div>
     </div>
   );
@@ -528,11 +583,26 @@ export default function BoardPage() {
 
   // Status messages
   const [statusMessages, setStatusMessages] = useState<StatusMessage[]>([
-    { id: "init", text: "Welcome to RemiliaLoreboard. Happy posting.", type: "system", timestamp: new Date() }
+    { id: "init", text: "welcome to the mifoid loreboard!", type: "system", timestamp: new Date() }
   ]);
   const addStatus = useCallback((text: string, type: StatusMessage["type"] = "info") => {
     setStatusMessages(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, text, type, timestamp: new Date() }]);
   }, []);
+  const handleChatSend = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setStatusMessages((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-${Math.random()}`,
+        text: trimmed,
+        type: "info",
+        timestamp: new Date(),
+        variant: "chat",
+        user: formatShortAddress(address),
+      },
+    ]);
+  }, [address]);
 
   // UI state
   const [dragOver, setDragOver] = useState(false);
@@ -989,6 +1059,17 @@ export default function BoardPage() {
     }
   };
 
+  const boardParticles = useMemo(
+    () =>
+      Array.from({ length: 20 }).map(() => ({
+        left: Math.random() * 100,
+        top: Math.random() * 100,
+        delay: Math.random() * 5,
+        duration: 8 + Math.random() * 12,
+      })),
+    [],
+  );
+
   // Password gate UI
   if (!unlocked) {
     return (
@@ -1025,13 +1106,17 @@ export default function BoardPage() {
     <main className="board-page">
       {/* Floating particles */}
       <div className="board-particles">
-        {[...Array(20)].map((_, i) => (
-          <span key={i} className="board-particle" style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            animationDelay: `${Math.random() * 5}s`,
-            animationDuration: `${8 + Math.random() * 12}s`,
-          }} />
+        {boardParticles.map((cfg, i) => (
+          <span
+            key={i}
+            className="board-particle"
+            style={{
+              left: `${cfg.left}%`,
+              top: `${cfg.top}%`,
+              animationDelay: `${cfg.delay}s`,
+              animationDuration: `${cfg.duration}s`,
+            }}
+          />
         ))}
       </div>
 
@@ -1055,18 +1140,18 @@ export default function BoardPage() {
               <div className="board-grid">
               {/* Canvas */}
               <div className="board-canvas-wrap">
-                <div
-                  ref={containerRef}
-                  className="board-canvas"
-                  onPointerDown={onContainerPointerDown}
-                  onDragOver={onDragOver}
-                  onDragEnter={onDragEnter}
-                  onDragLeave={onDragLeave}
-                  onDrop={onDrop}
-                  onWheel={onCanvasWheel}
-                  style={{ cursor: spaceDown ? (isPanning ? "grabbing" : "grab") : "default" }}
-                >
                   <div
+                    ref={containerRef}
+                    className="board-canvas"
+                    onPointerDown={onContainerPointerDown}
+                    onDragOver={onDragOver}
+                    onDragEnter={onDragEnter}
+                    onDragLeave={onDragLeave}
+                    onDrop={onDrop}
+                    onWheel={onCanvasWheel}
+                    style={{ cursor: spaceDown ? (isPanning ? "grabbing" : "grab") : "default" }}
+                  >
+                    <div
                     ref={stageRef}
                     className="board-stage"
                     style={{
@@ -1077,16 +1162,23 @@ export default function BoardPage() {
                       width: STAGE_CANVAS_W,
                       height: STAGE_CANVAS_H,
                     }}
-                  >
-                    {/* Finalized */}
+                    >
+                      {/* Finalized */}
                     {placed.map((p) => {
                       const sr = toStageRect({ x: p.x, y: p.y, w: p.w, h: p.h });
+                      const isActive = activePlacement?.id === p.id;
                       return (
                         <PlacementCard
                           key={p.id}
                           placement={{ id: p.id, cid: p.cid, x: sr.x, y: sr.y, width: sr.w, height: sr.h, proposer: p.owner as `0x${string}`, epochId: currentEpochView ?? placedEpoch }}
                           onOpen={setActivePlacement}
-                          frameStyle={{ border: `1px solid ${CARD_BORDER}`, boxShadow: CARD_SHADOW, background: "rgba(8,18,36,0.35)" }}
+                          frameStyle={{
+                            border: `1px solid ${isActive ? "rgba(0,255,213,0.95)" : CARD_BORDER}`,
+                            boxShadow: isActive
+                              ? "0 0 18px rgba(0,255,213,0.6), 0 0 42px rgba(0,255,213,0.25)"
+                              : CARD_SHADOW,
+                            background: "rgba(8,18,36,0.35)",
+                          }}
                         />
                       );
                     })}
@@ -1125,10 +1217,18 @@ export default function BoardPage() {
                         </figure>
                       );
                     })}
-                  </div>
+                    </div>
+                    <div className="board-hud">
+                      <span>ZOOM: {Math.round(scale * 100)}%</span>
+                      <span>PAN: {Math.round(pan.x)}, {Math.round(pan.y)}</span>
+                      <span>MODE: {spaceDown ? "PAN" : "PLACE"}</span>
+                    </div>
 
                   {!items.length && !busy && !ghost && !placed.length && (
-                    <div className="board-hint">DROP IMAGE TO PROPOSE</div>
+                    <div className="board-hint">
+                      <span className="board-hint__primary">DROP IMAGE TO PROPOSE</span>
+                      <span className="board-hint__sub">space + drag to pan • scroll to zoom</span>
+                    </div>
                   )}
                   {dragOver && <div className="board-dragover" />}
                 </div>
@@ -1153,9 +1253,12 @@ export default function BoardPage() {
                   <div className="board-section__header">
                     <span className="board-section__dot" />
                     <span className="board-section__title">ACTIONS</span>
-                    <span className="board-section__sub">{formatEth(BASE_FEE_PER_CELL_WEI)} ETH/cell</span>
                   </div>
                   <div className="board-actions">
+                    <div className="board-price-pill">
+                      <span className="board-price-pill__label">PRICE / CELL</span>
+                      <span className="board-price-pill__value">{formatEth(BASE_FEE_PER_CELL_WEI)} ETH</span>
+                    </div>
                     <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" />
                     <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={onFileChange} />
                     <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "SUBMITTING..." : "SUBMIT PROPOSAL"} disabled={!items.length || submittingProposals} variant="secondary" />
@@ -1186,7 +1289,7 @@ export default function BoardPage() {
                     <span className="board-section__dot" />
                     <span className="board-section__title">CHAT</span>
                   </div>
-                  <TerminalChat statusMessages={statusMessages} />
+                  <TerminalChat statusMessages={statusMessages} onSend={handleChatSend} />
                 </div>
               </div> {/* board-sidebar */}
             </div> {/* board-grid */}
@@ -1199,26 +1302,42 @@ export default function BoardPage() {
 
       <style jsx>{`
         /* Layout - more padding and spacing */
-        .board-page { position: fixed; inset: 0; background: transparent !important; overflow: hidden; }
-        .board-shell { display: flex; flex-direction: column; height: 100vh; padding: 12px; }
+        .board-page {
+          position: fixed;
+          inset: 0;
+          background: transparent !important;
+          overflow: hidden;
+          --board-radius-lg: 12px;
+          --board-radius-md: 8px;
+          --board-border: 1px solid rgba(0, 255, 213, 0.15);
+        }
+        .board-shell { display: flex; flex-direction: column; height: 100vh; padding: 16px; position: relative; z-index: 1; }
 
-        .board-window { flex: 1; display: flex; flex-direction: column; min-height: 0; margin: 4px; }
-        .board-body { flex: 1; min-height: 0; padding: 16px; }
+        .board-window { flex: 1; display: flex; flex-direction: column; min-height: 0; margin: 8px; }
+        .board-body { flex: 1; min-height: 0; padding: 18px; }
         .board-grid {
           display: grid;
           grid-template-columns: 1fr 320px;
-          gap: 16px;
+          gap: 18px;
+          padding: 14px;
+          box-sizing: border-box;
           height: 100%;
           background:
             linear-gradient(
               to right,
-              rgba(255,255,255,0.06) 1px,
+              rgba(255,255,255,0.03) 1px,
               transparent 1px
             ),
             linear-gradient(
               to bottom,
-              rgba(255,255,255,0.06) 1px,
+              rgba(255,255,255,0.03) 1px,
               transparent 1px
+            ),
+            linear-gradient(
+              180deg,
+              rgba(255,255,255,0.15) 0%,
+              rgba(255,255,255,0) 35%,
+              rgba(255,255,255,0) 100%
             );
         }
 
@@ -1231,18 +1350,84 @@ export default function BoardPage() {
         
         /* Particles */
         .board-particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-        :global(.board-particle) { position: absolute; width: 4px; height: 4px; background: rgba(0, 255, 213, 0.3); border-radius: 50%; animation: float-particle linear infinite; filter: blur(1px); }
+        :global(.board-particle) { position: absolute; width: 4px; height: 4px; background: rgba(0, 255, 213, 0.22); border-radius: 50%; animation: float-particle linear infinite; filter: blur(1px); }
         @keyframes float-particle { 0% { transform: translateY(0) translateX(0); opacity: 0; } 10% { opacity: 0.6; } 90% { opacity: 0.6; } 100% { transform: translateY(-100vh) translateX(50px); opacity: 0; } }
 
 
         /* Canvas */
-        .board-canvas-wrap { position: relative; border-radius: 12px; overflow: hidden; background: rgba(8,18,36,0.45); backdrop-filter: blur(14px) saturate(140%); }
-        .board-canvas-wrap::before { content: ''; position: absolute; inset: 0; border-radius: 12px; padding: 1px; background: linear-gradient(135deg, rgba(0,255,213,0.3) 0%, rgba(0,180,200,0.1) 25%, rgba(0,255,255,0.15) 50%, rgba(0,180,200,0.1) 75%, rgba(0,255,213,0.3) 100%); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; z-index: 1; }
+        .board-canvas-wrap { position: relative; border-radius: var(--board-radius-lg); overflow: hidden; background: rgba(8,18,36,0.45); backdrop-filter: blur(14px) saturate(140%); }
+        .board-canvas-wrap::before { content: ''; position: absolute; inset: 0; border-radius: var(--board-radius-lg); padding: 1px; background: linear-gradient(135deg, rgba(0,255,213,0.3) 0%, rgba(0,180,200,0.1) 25%, rgba(0,255,255,0.15) 50%, rgba(0,180,200,0.1) 75%, rgba(0,255,213,0.3) 100%); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; z-index: 1; }
         .board-canvas { position: relative; width: 100%; height: 100%; overflow: hidden; background: rgba(8,18,36,0.70); touch-action: none; }
+        .board-hud {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          padding: 6px 10px;
+          border-radius: 10px;
+          border: 1px solid rgba(0, 255, 213, 0.35);
+          background: rgba(0, 10, 25, 0.65);
+          color: #cdfbff;
+          font-size: 10px;
+          font-family: var(--font-mono);
+          letter-spacing: 0.15em;
+          text-transform: uppercase;
+          box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+          pointer-events: none;
+        }
         .board-stage { position: absolute; background-blend-mode: screen; box-shadow: inset 0 0 80px rgba(0,0,0,0.42); }
         .board-hint { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
-        .board-hint::after { content: 'DROP IMAGE TO PROPOSE'; backdrop-filter: blur(12px); background: rgba(255,255,255,0.08); padding: 12px 24px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); font-size: 13px; font-family: var(--font-terminal); letter-spacing: 0.1em; }
-        .board-dragover { position: absolute; inset: 0; border: 4px solid rgba(0,208,255,0.7); border-radius: 12px; pointer-events: none; }
+        .board-hint__primary, .board-hint__sub {
+          display: block;
+          text-align: center;
+          font-family: var(--font-terminal);
+          letter-spacing: 0.2em;
+        }
+        .board-hint__primary {
+          font-size: 12px;
+          padding: 12px 28px 6px;
+          border-radius: 16px;
+          border: 1px solid rgba(255,255,255,0.25);
+          background: rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.95);
+          text-shadow: 0 0 8px rgba(0,0,0,0.6);
+        }
+        .board-hint__sub {
+          font-size: 10px;
+          letter-spacing: 0.08em;
+          color: rgba(255,255,255,0.6);
+          margin-top: 8px;
+        }
+        .board-dragover {
+          position: absolute;
+          inset: 0;
+          border-radius: 14px;
+          pointer-events: none;
+          background: rgba(0, 210, 255, 0.08);
+          box-shadow:
+            0 0 20px rgba(0, 210, 255, 0.6),
+            inset 0 0 28px rgba(0, 210, 255, 0.35);
+          animation: dragGlow 3s ease-in-out infinite;
+        }
+        .board-dragover::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          background: linear-gradient(120deg, transparent 20%, rgba(255,255,255,0.25) 50%, transparent 80%);
+          opacity: 0.35;
+          animation: dragShimmer 4s linear infinite;
+        }
+        @keyframes dragGlow {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.02); }
+        }
+        @keyframes dragShimmer {
+          0% { transform: translateX(-60%); }
+          100% { transform: translateX(60%); }
+        }
 
         /* Ghost */
         .board-ghost { position: absolute; border-radius: 8px; pointer-events: none; outline: 2px dashed; z-index: 3; }
@@ -1264,17 +1449,50 @@ export default function BoardPage() {
         .board-pending__info { position: absolute; left: 40px; top: 4px; font-size: 10px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.7); color: white; border: 1px solid rgba(255,255,255,0.2); }
 
         /* Sidebar - more padding and spacing */
-        .board-sidebar { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding: 4px; }
+        .board-sidebar {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          overflow-y: auto;
+          padding: 12px;
+          border-radius: var(--board-radius-lg);
+          border: var(--board-border);
+          background: linear-gradient(180deg, rgba(6, 10, 18, 0.92), rgba(8, 18, 30, 0.8));
+          backdrop-filter: blur(24px) saturate(140%);
+          box-shadow:
+            inset 0 0 25px rgba(255, 255, 255, 0.08),
+            inset 0 0 40px rgba(0, 255, 213, 0.05),
+            0 20px 40px rgba(0, 0, 0, 0.45);
+        }
+        .board-sidebar::after {
+          content: "";
+          position: absolute;
+          inset: 8px;
+          border-radius: calc(var(--board-radius-lg) - 6px);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          pointer-events: none;
+        }
         .board-section {
-          border-radius: 12px;
-          border: 1px solid rgba(0,255,213,0.2);
+          position: relative;
+          border-radius: var(--board-radius-md);
+          border: var(--board-border);
           background: rgba(5, 12, 18, 0.55);
           backdrop-filter: blur(14px) saturate(140%);
           box-shadow:
-            0 18px 36px rgba(0,0,0,0.4),
-            inset 0 1px 0 rgba(255, 255, 255, 0.06),
-            inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+            0 12px 28px rgba(0, 0, 0, 0.32),
+            inset 0 1px 0 rgba(255, 255, 255, 0.04),
+            inset 0 -1px 0 rgba(0, 0, 0, 0.25);
           padding: 14px;
+        }
+        .board-section:not(:last-child)::after {
+          content: "";
+          position: absolute;
+          left: 12px;
+          right: 12px;
+          bottom: 0;
+          height: 1px;
+          background: rgba(255, 255, 255, 0.08);
         }
         .board-section--music { padding: 8px; }
         .board-section--flex { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -1290,8 +1508,26 @@ export default function BoardPage() {
 
         /* Actions */
         .board-actions { display: flex; flex-direction: column; gap: 10px; }
+        .board-price-pill {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 4px 10px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: rgba(255, 255, 255, 0.04);
+          box-shadow: inset 0 0 14px rgba(255, 255, 255, 0.08);
+          font-size: 10px;
+          font-family: var(--font-mono);
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+        }
+        .board-price-pill__value {
+          color: #7fffff;
+          font-weight: 700;
+        }
 
-        /* Y2K Button - Vibrant Yellow #fffb32 */
+        /* Y2K Button - luminous lemon with cyan rim */
         :global(.y2k-btn) {
           position: relative;
           display: flex;
@@ -1300,46 +1536,71 @@ export default function BoardPage() {
           width: 100%;
           height: 48px;
           border-radius: 16px;
-          border: 2px solid rgba(255, 251, 50, 0.8);
-          background: linear-gradient(180deg, #fffb32 0%, #e6e22d 50%, #fffb32 100%);
+          border: 2px solid rgba(255, 255, 255, 0.4);
+          background: linear-gradient(180deg, rgba(32,195,245,0.95) 0%, rgba(20,152,213,0.9) 50%, rgba(8,112,163,0.9) 100%);
           overflow: hidden;
           cursor: pointer;
-          transition: all 0.3s;
+          transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
           box-shadow:
-            0 0 20px rgba(255, 251, 50, 0.4),
-            0 0 40px rgba(255, 251, 50, 0.2),
-            inset 0 1px 0 rgba(255, 255, 255, 0.6);
+            0 18px 26px rgba(0, 0, 0, 0.35),
+            0 8px 18px rgba(0, 0, 0, 0.25),
+            inset 0 1px 0 rgba(255, 255, 255, 0.7),
+            inset 0 -4px 10px rgba(255, 255, 255, 0.3),
+            inset 0 0 0 1px rgba(0, 208, 255, 0.18);
+        }
+        :global(.y2k-btn::after) {
+          content: "";
+          position: absolute;
+          inset: 8px 0 30% 0;
+          border-radius: 12px;
+          background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0));
+          opacity: 0.5;
+          pointer-events: none;
         }
         :global(.y2k-btn:hover) {
-          transform: scale(1.02);
-          border-color: rgba(255, 251, 50, 1);
+          transform: translateY(-1px) scale(1.01);
+          border-color: rgba(255, 255, 255, 0.9);
           box-shadow:
-            0 0 30px rgba(255, 251, 50, 0.6),
-            0 0 60px rgba(255, 251, 50, 0.3),
-            inset 0 1px 0 rgba(255, 255, 255, 0.7);
+            0 26px 36px rgba(0, 0, 0, 0.35),
+            0 12px 24px rgba(0, 0, 0, 0.25),
+            0 0 26px rgba(45, 240, 255, 0.35),
+            inset 0 1px 0 rgba(255, 255, 255, 0.9),
+            inset 0 -6px 14px rgba(255, 255, 255, 0.45),
+            inset 0 0 0 1px rgba(0, 208, 255, 0.25);
         }
-        :global(.y2k-btn--disabled) { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
-        :global(.y2k-btn--disabled:hover) { transform: none; box-shadow: none; }
+        :global(.y2k-btn:focus-visible) {
+          outline: 2px solid rgba(0, 255, 213, 0.9);
+          outline-offset: 3px;
+        }
+        :global(.y2k-btn--disabled) {
+          opacity: 0.45;
+          cursor: not-allowed;
+          box-shadow: none;
+        }
+        :global(.y2k-btn--disabled:hover) {
+          transform: none;
+          box-shadow: none;
+        }
         :global(.y2k-btn__reflection) {
           position: absolute;
           top: 0;
           left: 0;
           right: 0;
-          height: 45%;
+          height: 46%;
           border-radius: 14px 14px 0 0;
-          background: linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 35%, rgba(255,255,255,0.15) 60%, transparent 100%);
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%);
           pointer-events: none;
         }
         :global(.y2k-btn__highlight) { position: absolute; inset: 0; border-radius: 14px; pointer-events: none; }
         :global(.y2k-btn__label) {
           position: relative;
-          z-index: 1;
+          z-index: 2;
           font-size: 11px;
           font-weight: 700;
           letter-spacing: 0.18em;
           text-transform: uppercase;
-          color: #1a1a00;
-          text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+          color: #e6fbff;
+          text-shadow: 0 1px 4px rgba(8, 64, 96, 0.7);
         }
 
         /* Voting */
@@ -1356,9 +1617,35 @@ export default function BoardPage() {
         :global(.voting-item__no) { border-color: rgba(255,71,87,0.5); color: #ff4757; }
         :global(.voting-item__no:hover:not(:disabled)) { background: rgba(255,71,87,0.2); }
         :global(.voting-item__yes:disabled), :global(.voting-item__no:disabled) { opacity: 0.4; cursor: not-allowed; }
+        :global(.voting-item__yes:focus-visible), :global(.voting-item__no:focus-visible) {
+          outline: 2px solid rgba(0,255,213,0.85);
+          outline-offset: 3px;
+        }
 
         /* Terminal Chat - SMALLER text for spaciousness */
-        :global(.terminal-chat) { flex: 1; display: flex; flex-direction: column; min-height: 0; background: rgba(15,8,25,0.85); border-radius: 8px; overflow: hidden; font-family: var(--font-terminal); }
+        :global(.terminal-chat) {
+          position: relative;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          background: rgba(4, 15, 25, 0.92);
+          border-radius: var(--board-radius-md);
+          border: 1px solid rgba(0, 255, 213, 0.12);
+          overflow: hidden;
+          font-family: var(--font-terminal);
+          box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.08);
+        }
+        :global(.terminal-chat::before) {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 25%);
+          pointer-events: none;
+          opacity: 0.2;
+          mix-blend-mode: screen;
+        }
         :global(.terminal-chat__messages) { flex: 1; min-height: 0; overflow-y: auto; padding: 10px; font-size: 9px; line-height: 1.5; }
         :global(.terminal-chat__line) { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 3px; }
         :global(.terminal-chat__time) { color: rgba(255,255,255,0.35); font-size: 8px; }
@@ -1367,11 +1654,44 @@ export default function BoardPage() {
         :global(.terminal-chat__text) { color: rgba(255,255,255,0.85); font-size: 9px; }
         :global(.terminal-chat__line--success .terminal-chat__text) { color: #00ff88; }
         :global(.terminal-chat__line--error .terminal-chat__text) { color: #ff4757; }
-        :global(.terminal-chat__input-row) { display: flex; align-items: center; padding: 8px 10px; border-top: 1px solid rgba(0,255,213,0.15); background: rgba(0,20,30,0.5); }
+        :global(.terminal-chat__input-row) { display: flex; align-items: center; padding: 8px 10px; gap: 8px; border-top: 1px solid rgba(0,255,213,0.08); background: rgba(0, 12, 26, 0.45); }
         :global(.terminal-chat__prompt) { color: #00ffd5; margin-right: 8px; font-weight: 600; font-size: 11px; text-shadow: 0 0 8px rgba(0,255,213,0.5); }
         :global(.terminal-chat__input) { flex: 1; background: rgba(0,20,30,0.4); border: 1px solid rgba(0,255,213,0.3); border-radius: 4px; outline: none; color: white; font-family: inherit; font-size: 10px; padding: 6px 10px; transition: border-color 0.2s, box-shadow 0.2s; }
         :global(.terminal-chat__input:focus) { border-color: rgba(0,255,213,0.5); box-shadow: 0 0 10px rgba(0,255,213,0.2); }
+        :global(.terminal-chat__input:focus-visible) {
+          outline: 2px solid rgba(0,255,213,0.8);
+          outline-offset: 3px;
+        }
         :global(.terminal-chat__input::placeholder) { color: rgba(255,255,255,0.35); }
+        :global(.terminal-chat__line--chat .terminal-chat__text) { color: #ccffd8; }
+        :global(.terminal-chat__send) {
+          padding: 5px 12px;
+          border-radius: 6px;
+          border: 1px solid rgba(0,255,213,0.35);
+          background: rgba(0,255,213,0.08);
+          color: #00ffd5;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          cursor: pointer;
+          transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
+        }
+        :global(.terminal-chat__send:hover:not(:disabled)) {
+          background: rgba(0,255,213,0.16);
+          box-shadow: 0 0 12px rgba(0,255,213,0.25);
+          transform: translateY(-1px);
+        }
+        :global(.terminal-chat__send:disabled) {
+          opacity: 0.35;
+          cursor: not-allowed;
+          box-shadow: none;
+          transform: none;
+        }
+        :global(.terminal-chat__send:focus-visible) {
+          outline: 2px solid rgba(0,255,213,0.8);
+          outline-offset: 3px;
+        }
 
         /* iPod Music Player */
         :global(.ipod-player) {
@@ -1537,6 +1857,15 @@ export default function BoardPage() {
         :global(.ipod-display__repeat:hover) { opacity: 0.85; }
         :global(.ipod-display__shuffle--active),
         :global(.ipod-display__repeat--active) { opacity: 1; color: #1d1d1d; }
+        :global(.ipod-wheel__vol:focus-visible),
+        :global(.ipod-wheel__btn:focus-visible),
+        :global(.ipod-wheel__center:focus-visible),
+        :global(.ipod-display__shuffle:focus-visible),
+        :global(.ipod-display__repeat:focus-visible) {
+          outline: 2px solid rgba(0,255,213,0.9);
+          outline-offset: 3px;
+          box-shadow: 0 0 12px rgba(0,255,213,0.35);
+        }
 
         :global(.ipod-display__hint) {
           margin-top: 6px;
