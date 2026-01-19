@@ -79,8 +79,8 @@ const GRID_RADIUS_X = Math.floor(WORLD_MAX_X / TILE);
 const GRID_RADIUS_Y = Math.floor(WORLD_MAX_Y / TILE);
 
 const BOARD_PASSWORD = process.env.NEXT_PUBLIC_BOARD_PASSWORD ?? "";
-const CARD_BORDER = "rgba(82, 255, 201, 0.45)";
-const CARD_SHADOW = "0 14px 28px rgba(0,0,0,.32), 0 0 0 1px rgba(82,255,201,.28)";
+const CARD_BORDER = "rgba(116, 255, 235, 0.55)";
+const CARD_SHADOW = "0 14px 32px rgba(0, 6, 22, 0.45), 0 0 0 1px rgba(116,255,235,0.3)";
 const FLUENT_CHAIN_ID = 20994;
 
 // Zoom limits - extended for infinite feel
@@ -1254,7 +1254,7 @@ export default function BoardPage() {
                   <div className="board-section__header">
                     <span className="board-section__dot" />
                     <span className="board-section__title">ACTIONS</span>
-                    <span className="board-section__chip">{formatEth(BASE_FEE_PER_CELL_WEI)} ETH/cell</span>
+                    <span className="board-section__chip">ETH/CELL: {formatEth(BASE_FEE_PER_CELL_WEI)}</span>
                   </div>
                   <div className="board-actions">
                     <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" />
@@ -1313,16 +1313,16 @@ export default function BoardPage() {
           overflow: hidden;
           --board-radius-lg: 14px;
           --board-radius-md: 12px;
-          --foid-bg-deepest: #050b12;
-          --foid-panel: rgba(8, 18, 28, 0.62);
-          --foid-panel-strong: rgba(5, 12, 20, 0.72);
-          --foid-glass-highlight: rgba(255, 255, 255, 0.12);
-          --foid-glass-border: rgba(120, 235, 255, 0.18);
-          --foid-accent: rgba(0, 255, 213, 0.95);
-          --foid-accent-soft: rgba(0, 255, 213, 0.18);
-          --foid-glow: rgba(0, 255, 213, 0.14);
-          --foid-text: rgba(255, 255, 255, 0.85);
-          --foid-text-dim: rgba(255, 255, 255, 0.6);
+          --foid-bg-deepest: #030b12;
+          --foid-panel: rgba(12, 28, 44, 0.58);
+          --foid-panel-strong: rgba(6, 14, 28, 0.78);
+          --foid-glass-highlight: rgba(255, 255, 255, 0.16);
+          --foid-glass-border: rgba(116, 255, 235, 0.25);
+          --foid-accent: rgba(116, 255, 235, 0.95);
+          --foid-accent-soft: rgba(116, 255, 235, 0.28);
+          --foid-glow: rgba(116, 255, 235, 0.2);
+          --foid-text: rgba(255, 255, 255, 0.92);
+          --foid-text-dim: rgba(255, 255, 255, 0.65);
           --foid-warm: rgba(255, 165, 82, 0.22);
           --board-border: 1px solid var(--foid-glass-border);
         }
@@ -1340,19 +1340,24 @@ export default function BoardPage() {
           background:
             linear-gradient(
               to right,
-              rgba(255,255,255,0.03) 1px,
+              rgba(140, 235, 255, 0.07) 1px,
               transparent 1px
             ),
             linear-gradient(
               to bottom,
-              rgba(255,255,255,0.03) 1px,
+              rgba(140, 235, 255, 0.07) 1px,
               transparent 1px
             ),
             linear-gradient(
               180deg,
-              rgba(255,255,255,0.15) 0%,
-              rgba(255,255,255,0) 35%,
-              rgba(255,255,255,0) 100%
+              rgba(92, 191, 232, 0.18) 0%,
+              rgba(8, 18, 30, 0.45) 55%,
+              rgba(5, 10, 22, 0.8) 100%
+            ),
+            linear-gradient(
+              180deg,
+              rgba(255, 255, 255, 0.05) 0%,
+              rgba(255, 255, 255, 0) 65%
             );
         }
 
@@ -1376,7 +1381,8 @@ export default function BoardPage() {
           border: var(--board-border);
           overflow: hidden;
           background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 40%),
+            radial-gradient(circle at 15% 15%, rgba(255, 255, 255, 0.18), transparent 45%),
+            linear-gradient(145deg, rgba(12, 34, 54, 0.8), rgba(6, 14, 30, 0.95)),
             var(--foid-panel);
           backdrop-filter: blur(14px) saturate(140%);
         }
@@ -1400,7 +1406,8 @@ export default function BoardPage() {
           height: 100%;
           overflow: hidden;
           background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 35%),
+            radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.12), transparent 45%),
+            linear-gradient(180deg, rgba(22, 70, 104, 0.72), rgba(8, 18, 34, 0.9)),
             var(--foid-panel-strong);
           touch-action: none;
         }
@@ -1525,23 +1532,25 @@ export default function BoardPage() {
         /* Sidebar - more padding and spacing */
         .board-sidebar {
           position: relative;
-          display: flex;
-          flex-direction: column;
+          display: grid;
+          grid-template-columns: 1fr;
+          grid-template-rows: repeat(4, auto) minmax(0, 1fr);
           gap: 12px;
           height: 100%;
           min-height: 0;
-          overflow-y: hidden;
+          overflow: hidden;
           padding: 12px;
           border-radius: var(--board-radius-lg);
           border: var(--board-border);
           background:
             linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 40%),
-            linear-gradient(180deg, rgba(8, 16, 24, 0.94), rgba(4, 10, 18, 0.85)),
+            linear-gradient(180deg, rgba(6, 26, 46, 0.92), rgba(2, 10, 20, 0.95)),
+            linear-gradient(180deg, rgba(32, 108, 146, 0.25), rgba(4, 12, 20, 0.7)),
             var(--foid-bg-deepest);
           backdrop-filter: blur(24px) saturate(140%);
           box-shadow:
             inset 0 0 25px rgba(255, 255, 255, 0.06),
-            inset 0 0 40px rgba(0, 255, 213, 0.05),
+            inset 0 0 40px rgba(116, 255, 235, 0.08),
             0 20px 40px rgba(0, 0, 0, 0.45);
         }
         .board-sidebar::after {
@@ -1557,23 +1566,25 @@ export default function BoardPage() {
           border-radius: var(--board-radius-md);
           border: var(--board-border);
           background:
+            linear-gradient(180deg, rgba(12, 58, 80, 0.45), rgba(8, 18, 32, 0.75)),
             linear-gradient(180deg, var(--foid-glass-highlight), rgba(255, 255, 255, 0) 40%),
             var(--foid-panel);
           backdrop-filter: blur(14px) saturate(140%);
           box-shadow:
-            0 12px 28px rgba(0, 0, 0, 0.45),
-            inset 0 1px 0 rgba(255, 255, 255, 0.06),
+            0 12px 28px rgba(1, 10, 20, 0.45),
+            0 0 16px rgba(116, 255, 235, 0.18),
+            inset 0 1px 0 rgba(255, 255, 255, 0.08),
             inset 0 -1px 0 rgba(0, 0, 0, 0.35);
           padding: 14px;
         }
         .board-section--actions {
-          padding: 10px;
+          padding: 8px 10px;
         }
         .board-section--actions .board-section__header {
-          margin-bottom: 8px;
+          margin-bottom: 6px;
         }
         .board-section--epoch {
-          padding: 12px;
+          padding: 8px 10px;
         }
         .board-section--epoch .board-section__header {
           margin-bottom: 8px;
@@ -1587,20 +1598,33 @@ export default function BoardPage() {
           height: 1px;
           background: rgba(255, 255, 255, 0.08);
         }
-        .board-section--music { padding: 8px; }
-        .board-section--flex { flex: 1; min-height: 260px; display: flex; flex-direction: column; }
+        .board-section--music {
+          padding: 8px;
+          max-height: 120px;
+          overflow: hidden;
+        }
+        .board-section--flex {
+          grid-row: 5 / 6;
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
         .board-section__header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
         .board-section__chip {
           margin-left: auto;
-          padding: 4px 8px;
+          padding: 2px 10px;
           border-radius: 999px;
-          border: 1px solid var(--foid-accent-soft);
-          background: var(--foid-accent-soft);
-          color: var(--foid-accent);
-          font-size: 10px;
+          border: 1px solid rgba(255, 210, 235, 0.65);
+          background: linear-gradient(135deg, rgba(255, 210, 225, 0.35), rgba(255, 150, 195, 0.25));
+          color: rgba(190, 255, 235, 0.95);
+          font-size: 9px;
           letter-spacing: 0.12em;
           font-family: var(--font-mono);
           text-transform: uppercase;
+          box-shadow: 0 0 8px rgba(255, 150, 190, 0.4);
+          backdrop-filter: blur(18px);
         }
         .board-section__status {
           margin-left: auto;
@@ -1650,9 +1674,9 @@ export default function BoardPage() {
         }
 
         /* Actions */
-        .board-actions { display: flex; flex-direction: column; gap: 8px; }
+        .board-actions { display: flex; flex-direction: column; gap: 6px; }
 
-        /* Y2K Button - luminous lemon with cyan rim */
+        /* Y2K Button - pink glass pill */
         :global(.y2k-btn) {
           position: relative;
           display: flex;
@@ -1661,48 +1685,57 @@ export default function BoardPage() {
           width: 100%;
           height: 44px;
           border-radius: 14px;
-          border: 2px solid var(--foid-accent-soft);
-          background:
-            linear-gradient(180deg, rgba(225, 255, 255, 0.95) 0%, rgba(184, 248, 255, 0.9) 40%, rgba(62, 224, 255, 0.75) 100%);
+          border: 1px solid rgba(255, 210, 235, 0.7);
+          background: linear-gradient(
+            135deg,
+            rgba(255, 210, 225, 0.65) 0%,
+            rgba(255, 150, 195, 0.55) 40%,
+            rgba(235, 105, 165, 0.55) 70%,
+            rgba(200, 75, 140, 0.68) 100%
+          );
           overflow: hidden;
           cursor: pointer;
           transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
           box-shadow:
-            0 12px 18px rgba(0, 0, 0, 0.28),
-            0 6px 12px rgba(0, 0, 0, 0.2),
-            inset 0 1px 0 rgba(255, 255, 255, 0.7),
-            inset 0 -3px 6px rgba(255, 255, 255, 0.35),
-            inset 0 0 0 1px var(--foid-accent-soft);
+            0 18px 36px rgba(0, 10, 30, 0.28),
+            0 0 32px rgba(255, 150, 190, 0.25),
+            inset 0 1px 0 rgba(255, 255, 255, 0.6),
+            inset 0 -8px 18px rgba(0, 0, 0, 0.22);
         }
         :global(.y2k-btn::after) {
           content: "";
           position: absolute;
           inset: 8px 0 30% 0;
           border-radius: 12px;
-          background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0));
-          opacity: 0.5;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0));
+          opacity: 0.55;
           pointer-events: none;
         }
         :global(.y2k-btn:hover) {
-          border-color: var(--foid-accent);
+          border-color: rgba(255, 255, 255, 0.9);
           box-shadow:
-            0 18px 30px rgba(0, 162, 188, 0.35),
+            0 20px 40px rgba(0, 5, 25, 0.4),
+            0 0 38px rgba(255, 190, 220, 0.45),
             inset 0 1px 0 rgba(255, 255, 255, 0.92),
-            inset 0 -5px 10px rgba(255, 255, 255, 0.35),
-            0 0 18px rgba(59, 225, 255, 0.55);
+            inset 0 -10px 20px rgba(255, 255, 255, 0.35);
         }
         :global(.y2k-btn:focus-visible) {
-          outline: 2px solid var(--foid-accent);
+          outline: 2px solid rgba(160, 255, 240, 0.85);
           outline-offset: 3px;
         }
         :global(.y2k-btn--disabled) {
-          opacity: 0.45;
+          opacity: 0.55;
           cursor: not-allowed;
-          box-shadow: none;
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.35),
+            inset 0 -8px 18px rgba(0, 0, 0, 0.2);
         }
         :global(.y2k-btn--disabled:hover) {
           transform: none;
-          box-shadow: none;
+          border-color: rgba(255, 255, 255, 0.7);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.35),
+            inset 0 -8px 18px rgba(0, 0, 0, 0.2);
         }
         :global(.y2k-btn__reflection) {
           position: absolute;
@@ -1711,7 +1744,7 @@ export default function BoardPage() {
           right: 0;
           height: 46%;
           border-radius: 14px 14px 0 0;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.5) 50%, transparent 100%);
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.45) 35%, transparent 100%);
           pointer-events: none;
         }
         :global(.y2k-btn__highlight) { position: absolute; inset: 0; border-radius: 14px; pointer-events: none; }
@@ -1722,8 +1755,8 @@ export default function BoardPage() {
           font-weight: 700;
           letter-spacing: 0.18em;
           text-transform: uppercase;
-          color: #e6fbff;
-          text-shadow: 0 1px 4px rgba(8, 64, 96, 0.7);
+          color: rgba(190, 255, 235, 0.95);
+          text-shadow: 0 0 18px rgba(140, 255, 220, 0.55), 0 2px 0 rgba(0, 0, 0, 0.45);
         }
         :global(.y2k-btn--secondary) {
           background:
@@ -1769,22 +1802,25 @@ export default function BoardPage() {
           flex-direction: column;
           min-height: 0;
           background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 30%),
+            linear-gradient(180deg, rgba(16, 36, 55, 0.92), rgba(6, 14, 24, 0.9)),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 40%),
             var(--foid-panel-strong);
           border-radius: var(--board-radius-md);
           border: var(--board-border);
           overflow: hidden;
           font-family: var(--font-terminal);
-          box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.08);
+          box-shadow:
+            inset 0 2px 6px rgba(255, 255, 255, 0.08),
+            0 0 20px rgba(116, 255, 235, 0.12);
         }
         :global(.terminal-chat::before) {
           content: "";
           position: absolute;
           inset: 0;
           border-radius: inherit;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 25%);
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 35%);
           pointer-events: none;
-          opacity: 0.2;
+          opacity: 0.18;
           mix-blend-mode: screen;
         }
         :global(.terminal-chat::after) {
@@ -1793,10 +1829,10 @@ export default function BoardPage() {
           inset: 0;
           border-radius: inherit;
           background-image:
-            linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+            linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
           background-size: 100% 3px, 3px 100%;
-          opacity: 0.15;
+          opacity: 0.08;
           pointer-events: none;
           mix-blend-mode: screen;
           z-index: 0;
@@ -1809,9 +1845,9 @@ export default function BoardPage() {
         :global(.terminal-chat__text) { color: rgba(255,255,255,0.85); font-size: 9px; }
         :global(.terminal-chat__line--success .terminal-chat__text) { color: var(--foid-accent); }
         :global(.terminal-chat__line--error .terminal-chat__text) { color: #ff4757; }
-        :global(.terminal-chat__input-row) { display: flex; align-items: center; padding: 8px 10px; gap: 8px; border-top: 1px solid var(--foid-accent-soft); background: rgba(0, 12, 26, 0.45); }
+        :global(.terminal-chat__input-row) { display: flex; align-items: center; padding: 8px 10px; gap: 8px; border-top: 1px solid var(--foid-accent-soft); background: rgba(5, 15, 26, 0.58); }
         :global(.terminal-chat__prompt) { color: var(--foid-accent); margin-right: 8px; font-weight: 600; font-size: 11px; text-shadow: 0 0 8px var(--foid-glow); }
-        :global(.terminal-chat__input) { flex: 1; background: rgba(0,20,30,0.4); border: 1px solid var(--foid-accent-soft); border-radius: 4px; outline: none; color: white; font-family: inherit; font-size: 10px; padding: 6px 10px; transition: border-color 0.2s, box-shadow 0.2s; }
+        :global(.terminal-chat__input) { flex: 1; background: rgba(11,24,38,0.55); border: 1px solid var(--foid-accent-soft); border-radius: 4px; outline: none; color: white; font-family: inherit; font-size: 10px; padding: 6px 10px; transition: border-color 0.2s, box-shadow 0.2s; }
         :global(.terminal-chat__input:focus) { border-color: var(--foid-accent); box-shadow: 0 0 10px var(--foid-glow); }
         :global(.terminal-chat__input:focus-visible) {
           outline: 2px solid var(--foid-accent);
@@ -1856,10 +1892,22 @@ export default function BoardPage() {
           align-items: center;
           gap: 4px;
           padding: 4px 6px;
-          background: linear-gradient(180deg, rgba(212, 255, 255, 0.85), rgba(138, 229, 255, 0.75));
           border-radius: var(--board-radius-md);
-          border: var(--board-border);
-          box-shadow: 0 6px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.6);
+          border: 1px solid rgba(255, 210, 235, 0.65);
+          position: relative;
+          overflow: hidden;
+          background: radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.9), transparent 55%),
+            linear-gradient(
+              145deg,
+              rgba(255, 210, 225, 0.65) 0%,
+              rgba(255, 150, 195, 0.55) 45%,
+              rgba(200, 75, 140, 0.72) 100%
+            );
+          box-shadow:
+            0 14px 28px rgba(0, 10, 30, 0.28),
+            0 0 30px rgba(255, 150, 190, 0.25),
+            inset 0 1px 0 rgba(255, 255, 255, 0.45),
+            inset 0 -3px 8px rgba(0, 0, 0, 0.25);
         }
 
         :global(.ipod-wheel) {
@@ -1873,13 +1921,17 @@ export default function BoardPage() {
           width: 24px;
           height: 14px;
           font-size: 12px;
-          color: rgba(0,0,0,0.4);
+          color: rgba(18, 38, 62, 0.8);
+          text-shadow: 0 0 6px rgba(38, 196, 255, 0.35);
           background: transparent;
           border: none;
           cursor: pointer;
-          transition: color 0.15s;
+          transition: color 0.15s, transform 0.15s;
         }
-        :global(.ipod-wheel__vol:hover) { color: rgba(0,0,0,0.7); }
+        :global(.ipod-wheel__vol:hover) {
+          color: rgba(18, 38, 62, 1);
+          transform: translateY(-1px);
+        }
 
         :global(.ipod-wheel__ring) {
           position: relative;
@@ -1888,12 +1940,18 @@ export default function BoardPage() {
           justify-content: center;
           width: 52px;
           height: 52px;
-          background: linear-gradient(180deg, #f0f0f4, #d8d8e0);
+          background: linear-gradient(
+            180deg,
+            rgba(224, 242, 255, 0.95),
+            rgba(192, 219, 255, 0.85),
+            rgba(164, 199, 255, 0.8)
+          );
           border-radius: 50%;
+          border: 1px solid rgba(255, 255, 255, 0.6);
           box-shadow:
-            inset 0 3px 6px rgba(0,0,0,0.12),
-            0 2px 4px rgba(255,255,255,0.5),
-            0 4px 8px rgba(0,0,0,0.1);
+            inset 0 3px 6px rgba(0, 0, 0, 0.15),
+            0 2px 6px rgba(0, 0, 0, 0.15),
+            0 0 12px rgba(165, 220, 255, 0.45);
         }
 
         :global(.ipod-wheel__btn) {
@@ -1901,13 +1959,17 @@ export default function BoardPage() {
           width: 22px;
           height: 22px;
           font-size: 10px;
-          color: rgba(0,0,0,0.5);
+          color: rgba(20, 40, 60, 0.7);
+          text-shadow: 0 0 6px rgba(31, 162, 255, 0.4);
           background: transparent;
           border: none;
           cursor: pointer;
-          transition: color 0.15s;
+          transition: color 0.15s, transform 0.15s;
         }
-        :global(.ipod-wheel__btn:hover) { color: rgba(0,0,0,0.8); }
+        :global(.ipod-wheel__btn:hover) {
+          color: rgba(20, 40, 60, 1);
+          transform: scale(1.05);
+        }
 
         :global(.ipod-wheel__btn--prev) { left: 4px; }
         :global(.ipod-wheel__btn--next) { right: 4px; }
@@ -1915,48 +1977,52 @@ export default function BoardPage() {
         :global(.ipod-wheel__center) {
           width: 24px;
           height: 24px;
-          background: linear-gradient(180deg, #fafafa, #e8e8f0);
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(220, 230, 255, 0.8));
           border-radius: 50%;
           border: none;
           font-size: 14px;
-          color: rgba(0,0,0,0.6);
+          color: rgba(12, 32, 54, 0.9);
           cursor: pointer;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.8);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8);
           transition: all 0.15s;
         }
-        :global(.ipod-wheel__center:hover) { background: linear-gradient(180deg, #fff, #f0f0f8); }
+        :global(.ipod-wheel__center:hover) { background: linear-gradient(180deg, #fff, rgba(220, 235, 255, 0.95)); }
 
         :global(.ipod-display) {
           flex: 1;
           padding: 4px 8px;
           background: linear-gradient(
             180deg,
-            rgba(210, 255, 255, 0.85),
-            rgba(160, 235, 255, 0.75)
+            rgba(14, 26, 48, 0.95),
+            rgba(8, 18, 34, 0.95)
           );
           border-radius: var(--board-radius-md);
-          border: var(--board-border);
-          box-shadow: inset 0 2px 4px rgba(0,0,0,0.08), 0 1px 0 rgba(255,255,255,0.55);
+          border: 1px solid rgba(255, 255, 255, 0.25);
+          box-shadow:
+            inset 0 2px 4px rgba(255, 255, 255, 0.08),
+            0 1px 0 rgba(255, 255, 255, 0.2);
         }
 
         :global(.ipod-display__track) {
           font-size: 9px;
-          font-weight: 500;
-          color: rgba(0,0,0,0.7);
+          font-weight: 700;
+          color: rgba(190, 255, 235, 0.9);
           margin-bottom: 4px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
           text-transform: uppercase;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.08em;
+          text-shadow: 0 0 10px rgba(140, 255, 220, 0.6);
         }
 
         :global(.ipod-display__bar) {
           position: relative;
           height: 5px;
-          background: rgba(0,0,0,0.1);
+          background: rgba(255, 255, 255, 0.08);
           border-radius: 3px;
           margin-bottom: 4px;
+          box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.35);
         }
 
         :global(.ipod-display__fill) {
@@ -1964,8 +2030,13 @@ export default function BoardPage() {
           left: 0;
           top: 0;
           height: 100%;
-          background: linear-gradient(90deg, rgba(0,0,0,0.18), rgba(0,0,0,0.28));
+          background: linear-gradient(
+            90deg,
+            rgba(116, 255, 238, 0.95),
+            rgba(84, 219, 255, 0.9)
+          );
           border-radius: 3px;
+          box-shadow: 0 0 8px rgba(84, 219, 255, 0.6);
         }
 
         :global(.ipod-display__knob) {
@@ -1973,9 +2044,12 @@ export default function BoardPage() {
           top: 50%;
           width: 12px;
           height: 12px;
-          background: white;
+          background: rgba(255, 255, 255, 0.95);
+          border: 1px solid rgba(84, 219, 255, 0.8);
           border-radius: 50%;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+          box-shadow:
+            0 1px 4px rgba(0, 0, 0, 0.35),
+            inset 0 1px 0 rgba(255, 255, 255, 0.8);
           transform: translate(-50%, -50%);
         }
 
@@ -1989,15 +2063,16 @@ export default function BoardPage() {
         :global(.ipod-display__time) {
           font-family: var(--font-mono);
           font-size: 8px;
-          color: rgba(0,0,0,0.5);
+          color: rgba(200, 255, 245, 0.9);
           flex: 1;
           text-align: center;
+          text-shadow: 0 0 6px rgba(32, 180, 200, 0.5);
         }
 
         :global(.ipod-display__volume) {
           font-size: 8px;
           font-family: var(--font-mono);
-          color: rgba(0,0,0,0.55);
+          color: rgba(200, 255, 245, 0.9);
           padding-left: 6px;
           letter-spacing: 0.15em;
         }
