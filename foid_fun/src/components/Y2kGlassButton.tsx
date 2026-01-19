@@ -15,6 +15,60 @@ type Props = {
   variant?: "pink" | "secondary";
 };
 
+const baseStyle = {
+  backdropFilter: "blur(24px) saturate(1.3)",
+  WebkitBackdropFilter: "blur(24px) saturate(1.3)",
+};
+
+const primaryStyle = {
+  background: `linear-gradient(135deg,
+    rgba(255, 210, 225, 0.62) 0%,
+    rgba(255, 150, 195, 0.52) 28%,
+    rgba(235, 105, 165, 0.55) 55%,
+    rgba(200, 75, 140, 0.62) 78%,
+    rgba(170, 55, 120, 0.68) 100%
+  )`,
+  border: "1px solid rgba(255, 210, 235, 0.6)",
+};
+
+const secondaryStyle = {
+  background: `linear-gradient(135deg,
+    rgba(245, 235, 242, 0.52) 0%,
+    rgba(225, 210, 224, 0.48) 30%,
+    rgba(205, 190, 208, 0.52) 60%,
+    rgba(185, 170, 192, 0.58) 100%
+  )`,
+  border: "1px solid rgba(255, 255, 255, 0.55)",
+};
+
+const idleShadowPrimary = `
+  0 14px 30px rgba(0, 10, 30, 0.28),
+  0 0 34px rgba(255, 150, 190, 0.18),
+  inset 0 1px 0 rgba(255, 255, 255, 0.45),
+  inset 0 -10px 18px rgba(0, 0, 0, 0.16)
+`;
+
+const hoverShadowPrimary = `
+  0 18px 44px rgba(0, 10, 30, 0.35),
+  0 0 56px rgba(255, 150, 190, 0.26),
+  inset 0 1px 0 rgba(255, 255, 255, 0.45),
+  inset 0 -10px 18px rgba(0, 0, 0, 0.16)
+`;
+
+const idleShadowSecondary = `
+  0 12px 26px rgba(0, 10, 30, 0.24),
+  0 0 30px rgba(180, 200, 230, 0.15),
+  inset 0 1px 0 rgba(255, 255, 255, 0.45),
+  inset 0 -8px 16px rgba(0, 0, 0, 0.12)
+`;
+
+const hoverShadowSecondary = `
+  0 16px 38px rgba(0, 10, 30, 0.3),
+  0 0 46px rgba(200, 210, 245, 0.22),
+  inset 0 1px 0 rgba(255, 255, 255, 0.45),
+  inset 0 -8px 16px rgba(0, 0, 0, 0.12)
+`;
+
 export default function Y2kGlassButton({
   href,
   label,
@@ -44,6 +98,10 @@ export default function Y2kGlassButton({
   };
 
   const isPrimary = variant === "pink";
+  const variantStyle = isPrimary ? primaryStyle : secondaryStyle;
+  const idleShadow = isPrimary ? idleShadowPrimary : idleShadowSecondary;
+  const hoverShadow = isPrimary ? hoverShadowPrimary : hoverShadowSecondary;
+  const currentShadow = isHovered ? hoverShadow : idleShadow;
 
   return (
     <Link
@@ -60,50 +118,22 @@ export default function Y2kGlassButton({
         "flex items-center justify-center",
         "transform-gpu transition-all duration-300 ease-out",
         "hover:scale-[1.02] active:scale-[0.99]",
+        "hover:-translate-y-[2px] active:translate-y-[1px]",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70",
       ].join(" ")}
       style={{
-        background: isPrimary
-          ? `linear-gradient(135deg, 
-              rgba(255, 170, 200, 0.55) 0%, 
-              rgba(255, 120, 170, 0.45) 25%,
-              rgba(230, 90, 150, 0.5) 50%,
-              rgba(200, 70, 130, 0.55) 75%,
-              rgba(170, 60, 120, 0.6) 100%)`
-          : `linear-gradient(135deg, 
-              rgba(240, 200, 220, 0.5) 0%, 
-              rgba(220, 170, 195, 0.45) 25%,
-              rgba(200, 150, 175, 0.5) 50%,
-              rgba(185, 135, 160, 0.55) 75%,
-              rgba(170, 120, 150, 0.6) 100%)`,
-        backdropFilter: "blur(24px) saturate(1.3)",
-        WebkitBackdropFilter: "blur(24px) saturate(1.3)",
-        border: `1px solid ${
-          isPrimary ? "rgba(255, 210, 230, 0.5)" : "rgba(255, 220, 235, 0.5)"
-        }`,
-        boxShadow: isHovered
-          ? `
-              0 12px 40px rgba(200, 100, 150, 0.45),
-              0 6px 20px rgba(255, 150, 180, 0.35),
-              inset 0 2px 4px rgba(255, 255, 255, 0.45),
-              inset 0 -3px 10px rgba(150, 50, 100, 0.25),
-              0 0 50px rgba(255, 150, 180, 0.25)
-            `
-          : `
-              0 8px 28px rgba(150, 80, 120, 0.35),
-              0 4px 12px rgba(200, 100, 150, 0.25),
-              inset 0 2px 4px rgba(255, 255, 255, 0.35),
-              inset 0 -3px 8px rgba(100, 40, 80, 0.2)
-            `,
+        ...baseStyle,
+        ...variantStyle,
+        boxShadow: currentShadow,
       }}
     >
       <span
-        className="pointer-events-none absolute top-0 left-0 right-0 h-[45%] rounded-t-[25px]"
+        className="pointer-events-none absolute top-0 left-0 right-0 h-[42%] rounded-t-[25px]"
         style={{
           background: `linear-gradient(180deg, 
-            rgba(255, 255, 255, 0.55) 0%, 
-            rgba(255, 255, 255, 0.3) 35%,
-            rgba(255, 255, 255, 0.1) 60%,
+            rgba(255, 255, 255, 0.6) 0%, 
+            rgba(255, 255, 255, 0.35) 35%,
+            rgba(255, 255, 255, 0.15) 60%,
             transparent 100%)`,
         }}
       />
@@ -114,9 +144,9 @@ export default function Y2kGlassButton({
           background: `radial-gradient(ellipse 70% 90% at ${mousePos.x * 100}% ${
             mousePos.y * 100
           }%, 
-            rgba(255, 255, 255, 0.5) 0%, 
-            rgba(255, 230, 245, 0.25) 35%,
-            transparent 65%)`,
+            rgba(255, 255, 255, 0.42) 0%, 
+            rgba(255, 230, 242, 0.25) 30%,
+            transparent 55%)`,
           opacity: isHovered ? 1 : 0,
         }}
       />
@@ -124,8 +154,9 @@ export default function Y2kGlassButton({
       <span
         className="pointer-events-none absolute inset-[2px] rounded-[24px]"
         style={{
-          border: "1px solid rgba(255, 255, 255, 0.2)",
-          boxShadow: "inset 0 0 25px rgba(255, 210, 230, 0.15)",
+          border: "1px solid rgba(255, 255, 255, 0.35)",
+          boxShadow:
+            "inset 0 0 28px rgba(255, 255, 255, 0.25), inset 0 -2px 10px rgba(255, 255, 255, 0.18)",
         }}
       />
 
@@ -156,10 +187,10 @@ export default function Y2kGlassButton({
         className="pointer-events-none absolute left-[12%] top-[22%] w-3 h-3 rounded-full"
         style={{
           background: `radial-gradient(circle at 30% 30%, 
-            rgba(255, 255, 255, 0.6) 0%, 
+            rgba(255, 255, 255, 0.55) 0%, 
             rgba(255, 255, 255, 0.2) 50%,
             transparent 70%)`,
-          opacity: 0.7,
+          opacity: 0.65,
         }}
       />
       <span
@@ -168,7 +199,7 @@ export default function Y2kGlassButton({
           background: `radial-gradient(circle at 30% 30%, 
             rgba(255, 255, 255, 0.5) 0%, 
             transparent 60%)`,
-          opacity: 0.6,
+          opacity: 0.55,
         }}
       />
 
@@ -209,8 +240,8 @@ export default function Y2kGlassButton({
             "select-none truncate",
           ].join(" ")}
           style={{
-            color: "rgba(175, 255, 225, 0.95)",
-            textShadow: "0 0 18px rgba(120,255,220,0.35), 0 2px 0 rgba(0,0,0,0.22)",
+            color: "rgba(190, 255, 235, 0.95)",
+            textShadow: "0 0 20px rgba(140,255,220,0.45), 0 2px 0 rgba(0,0,0,0.38)",
           }}
         >
           {text}

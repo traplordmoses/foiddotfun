@@ -11,8 +11,6 @@ import React, {
   useEffect,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import dynamic from "next/dynamic";
-import NextImage from "next/image";
 import { useAccount, useChainId, useSwitchChain, useDisconnect, useConnect } from "wagmi";
 import { useBoard } from "@/state/board";
 import type { PendingItem } from "@/state/board";
@@ -41,22 +39,17 @@ import { getLatestNormalized } from "@/lib/manifest";
 import { listProposals } from "@/lib/api";
 import type { ProposalSummary } from "@/lib/api";
 import { writeProposePlacement } from "@/lib/viem";
+import dynamic from "next/dynamic";
 import { musicPanelController } from "@/components/MusicPanel";
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
-import TopTabs from "@/app/(components)/TopTabs";
+import AppTitlebar from "@/app/(components)/AppTitlebar";
 
 const MusicPanelLogic = dynamic(() => import("@/components/MusicPanel"), { ssr: false });
 
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-
-function shortHash(hash?: string) {
-  if (!hash) return "–";
-  if (hash.length <= 10) return hash;
-  return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
-}
 
 const formatTrackTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -112,102 +105,6 @@ type DragMeta = { w: number; h: number; mime: "image/png" | "image/jpeg" | null 
 type GhostStatus = "ok" | "overlap" | "oversize" | "invalid";
 type Ghost = { rect: Rect; cells: number; status: GhostStatus; totalWei: bigint };
 type StatusMessage = { id: string; text: string; type: "info" | "success" | "error" | "system"; timestamp: Date };
-
-// ============================================================================
-// WALLET DROPDOWN COMPONENT
-// ============================================================================
-
-function WalletDropdown({ 
-  address, 
-  isOpen, 
-  onToggle, 
-  onDisconnect,
-  onSwitchWallet 
-}: { 
-  address: string | undefined;
-  isOpen: boolean;
-  onToggle: () => void;
-  onDisconnect: () => void;
-  onSwitchWallet: () => void;
-}) {
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
-
-  useEffect(() => {
-    if (isOpen && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const menuWidth = Math.max(rect.width, 180);
-      setMenuPosition({
-        top: rect.bottom + 6,
-        left: rect.right - menuWidth,
-        width: menuWidth,
-      });
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
-          buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
-        if (isOpen) onToggle();
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen, onToggle]);
-
-  return (
-    <>
-      <button 
-        ref={buttonRef}
-        type="button"
-        className="board-wallet-pill"
-        onClick={onToggle}
-      >
-        <span className="board-wallet-pill__label">WALLET</span>
-        <span className="board-wallet-pill__address">{address ? shortHash(address) : "—"}</span>
-        <svg 
-          className={`board-wallet-chevron ${isOpen ? "board-wallet-chevron--open" : ""}`} 
-          width="10" 
-          height="6" 
-          viewBox="0 0 10 6" 
-          fill="none"
-        >
-          <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
-      
-      {isOpen && (
-        <div 
-          ref={dropdownRef}
-          className="board-wallet-menu"
-          style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, width: menuPosition.width, zIndex: 9999 }}
-        >
-          <button type="button" className="board-wallet-menu__item" onClick={() => { onSwitchWallet(); onToggle(); }}>
-            Switch Wallet
-          </button>
-          <button type="button" className="board-wallet-menu__item board-wallet-menu__item--danger" onClick={() => { onDisconnect(); onToggle(); }}>
-            Disconnect
-          </button>
-        </div>
-      )}
-    </>
-  );
-}
-
-// ============================================================================
-// STATUS INDICATOR
-// ============================================================================
-
-function StatusIndicator({ connected }: { connected: boolean }) {
-  return (
-    <div className="board-status-indicator">
-      <span className={`board-status-dot ${connected ? "board-status-dot--online" : "board-status-dot--offline"}`} />
-      <span className="board-status-text">{connected ? "CONNECTED" : "DISCONNECTED"}</span>
-    </div>
-  );
-}
 
 function IPodMusicPlayer() {
   const [state, setState] = useState(musicPanelController.getState());
@@ -394,11 +291,6 @@ function Y2kActionButton({
       onMouseLeave={() => setIsHovered(false)}
       onMouseMove={handleMouseMove}
       className={`y2k-btn ${disabled ? "y2k-btn--disabled" : ""}`}
-      style={{
-        background: isPrimary
-          ? "linear-gradient(135deg, rgba(255,170,200,0.55), rgba(255,120,170,0.45), rgba(230,90,150,0.5), rgba(200,70,130,0.55), rgba(170,60,120,0.6))"
-          : "linear-gradient(135deg, rgba(100,200,180,0.5), rgba(80,180,160,0.45), rgba(60,160,140,0.5), rgba(50,140,120,0.55))",
-      }}
     >
       <span className="y2k-btn__reflection" />
       {isHovered && !disabled && (
@@ -1131,9 +1023,6 @@ export default function BoardPage() {
 
   return (
     <main className="board-page">
-      {/* Vignette overlay */}
-      <div className="pointer-events-none fixed inset-0 z-0 board-vignette" />
-      
       {/* Floating particles */}
       <div className="board-particles">
         {[...Array(20)].map((_, i) => (
@@ -1146,46 +1035,24 @@ export default function BoardPage() {
         ))}
       </div>
 
-      <div className="board-shell">
-        {/* Single seamless window */}
-        <div className="vista-window vista-window--terminal board-window">
-          {/* Titlebar - EXACT match to pray page */}
-          <div className="vista-window__titlebar">
-            <div className="vista-window__controls" aria-hidden="true">
-              <span className="vista-window__control vista-window__control--minimize" />
-              <span className="vista-window__control vista-window__control--restore" />
-              <span className="vista-window__control vista-window__control--close" />
-            </div>
-            <span className="vista-window__title">
-              <NextImage src="/foidmommy.gif" alt="" width={24} height={24} className="inline-block h-6 w-6 align-middle mr-2" unoptimized />
-              MIFOID_LOREBOARD.APP
-            </span>
-            
-            {/* Use TopTabs exactly like pray page */}
-            <TopTabs items={[{ label: "HOME", href: "/" }]} />
-            
-            <div className="vista-window__meta">
-              <StatusIndicator connected={isConnected} />
-              <div className="board-chain-pill">
-                <span className="board-chain-pill__label">CHAIN</span>
-                <span className="board-chain-pill__value">{FLUENT_CHAIN_ID}</span>
-              </div>
-              <WalletDropdown
-                address={address}
-                isOpen={walletDropdownOpen}
-                onToggle={() => setWalletDropdownOpen(!walletDropdownOpen)}
-                onDisconnect={() => disconnect()}
-                onSwitchWallet={handleSwitchWallet}
-              />
-            </div>
-            <span className="vista-window__badge" aria-hidden="true">
-              <NextImage src="/icons/skull.png" alt="" width={20} height={20} className="h-5 w-5 rounded-full" />
-            </span>
-          </div>
+      <div className="board-shell pray-shell">
+        <div className="pray-grid">
+          {/* Single seamless window */}
+          <div className="vista-window vista-window--terminal w-full flex flex-col pray-panel pray-panel--main board-window">
+            <AppTitlebar
+              title="MIFO!D_LOREBOARD.APP"
+              chainId={FLUENT_CHAIN_ID}
+              connected={isConnected}
+              address={address}
+              isWalletDropdownOpen={walletDropdownOpen}
+              onToggleWallet={() => setWalletDropdownOpen((prev) => !prev)}
+              onDisconnect={() => disconnect()}
+              onSwitchWallet={handleSwitchWallet}
+            />
 
-          {/* Main content - mt-3 for spacing below titlebar */}
-          <div className="vista-window__body vista-window__body--flush mt-3 board-body">
-            <div className="board-grid">
+            {/* Main content - align with pray spacing */}
+            <div className="vista-window__body vista-window__body--flush mt-2 pray-panel__body board-body">
+              <div className="board-grid">
               {/* Canvas */}
               <div className="board-canvas-wrap">
                 <div
@@ -1321,60 +1188,57 @@ export default function BoardPage() {
                   </div>
                   <TerminalChat statusMessages={statusMessages} />
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+              </div> {/* board-sidebar */}
+            </div> {/* board-grid */}
+          </div> {/* vista-window__body */}
+        </div> {/* board-window */}
+      </div> {/* pray-grid */}
+    </div> {/* board-shell */}
 
-      {activePlacement && <PlacementModal placement={activePlacement} onClose={() => setActivePlacement(null)} />}
+    {activePlacement && <PlacementModal placement={activePlacement} onClose={() => setActivePlacement(null)} />}
 
       <style jsx>{`
         /* Layout - more padding and spacing */
-        .board-page { position: fixed; inset: 0; background: transparent; overflow: hidden; }
+        .board-page { position: fixed; inset: 0; background: transparent !important; overflow: hidden; }
         .board-shell { display: flex; flex-direction: column; height: 100vh; padding: 12px; }
+
         .board-window { flex: 1; display: flex; flex-direction: column; min-height: 0; margin: 4px; }
         .board-body { flex: 1; min-height: 0; padding: 16px; }
-        .board-grid { display: grid; grid-template-columns: 1fr 320px; gap: 16px; height: 100%; }
+        .board-grid {
+          display: grid;
+          grid-template-columns: 1fr 320px;
+          gap: 16px;
+          height: 100%;
+          background:
+            linear-gradient(
+              to right,
+              rgba(255,255,255,0.06) 1px,
+              transparent 1px
+            ),
+            linear-gradient(
+              to bottom,
+              rgba(255,255,255,0.06) 1px,
+              transparent 1px
+            );
+        }
 
-        /* Vignette */
-        .board-vignette { background: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.55) 100%); opacity: 0.85; }
+        /* Vignette - matching pray page */
+        :global(.vignette) {
+          background-color: transparent !important;
+          background-image: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.35) 100%) !important;
+          opacity: 0.55;
+        }
         
         /* Particles */
         .board-particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
         :global(.board-particle) { position: absolute; width: 4px; height: 4px; background: rgba(0, 255, 213, 0.3); border-radius: 50%; animation: float-particle linear infinite; filter: blur(1px); }
         @keyframes float-particle { 0% { transform: translateY(0) translateX(0); opacity: 0; } 10% { opacity: 0.6; } 90% { opacity: 0.6; } 100% { transform: translateY(-100vh) translateX(50px); opacity: 0; } }
 
-        /* Status - matching pray page */
-        :global(.board-status-indicator) { display: flex; align-items: center; gap: 8px; }
-        :global(.board-status-dot) { width: 8px; height: 8px; border-radius: 50%; }
-        :global(.board-status-dot--online) { background: #00ffd5; box-shadow: 0 0 10px rgba(0,255,213,0.8), 0 0 20px rgba(0,255,213,0.4); animation: pulse 2s ease-in-out infinite; }
-        :global(.board-status-dot--offline) { background: #ff4757; box-shadow: 0 0 8px rgba(255,71,87,0.6); }
-        :global(.board-status-text) { font-size: 11px; letter-spacing: 0.08em; color: rgba(255,255,255,0.7); }
-        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
-
-        /* Chain - matching pray page */
-        .board-chain-pill { display: flex; flex-direction: column; align-items: center; padding: 4px 12px; background: rgba(0,180,200,0.2); border: 1px solid rgba(0,255,255,0.25); border-radius: 6px; }
-        .board-chain-pill__label { font-size: 9px; letter-spacing: 0.1em; color: rgba(255,255,255,0.5); }
-        .board-chain-pill__value { font-size: 13px; font-weight: 600; font-family: var(--font-mono); color: #00ffd5; text-shadow: 0 0 10px rgba(0,255,213,0.5); }
-
-        /* Wallet */
-        :global(.board-wallet-pill) { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: rgba(0,180,200,0.15); border: 1px solid rgba(0,255,255,0.2); border-radius: 6px; font-size: 11px; color: rgba(255,255,255,0.7); cursor: pointer; transition: all 0.2s; }
-        :global(.board-wallet-pill:hover) { background: rgba(0,200,220,0.25); border-color: rgba(0,255,213,0.4); }
-        :global(.board-wallet-pill__label) { font-size: 9px; letter-spacing: 0.1em; color: rgba(255,255,255,0.5); }
-        :global(.board-wallet-pill__address) { font-family: var(--font-mono); color: #00ffd5; }
-        :global(.board-wallet-chevron) { color: rgba(255,255,255,0.5); transition: transform 0.2s; }
-        :global(.board-wallet-chevron--open) { transform: rotate(180deg); }
-        :global(.board-wallet-menu) { display: flex; flex-direction: column; gap: 6px; background: linear-gradient(180deg, rgba(18,30,40,0.98), rgba(10,18,26,0.96)); backdrop-filter: blur(16px); border: 1px solid rgba(0,255,213,0.25); border-radius: 10px; padding: 8px; box-shadow: 0 12px 36px rgba(0,0,0,0.45); animation: dropdown 0.12s ease-out; }
-        @keyframes dropdown { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-        :global(.board-wallet-menu__item) { display: block; width: 100%; padding: 10px 12px; background: rgba(0,255,213,0.08); border: 1px solid rgba(0,255,213,0.18); border-radius: 8px; color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: all 0.12s; text-align: left; }
-        :global(.board-wallet-menu__item:hover) { background: rgba(0,255,213,0.16); border-color: rgba(0,255,213,0.35); }
-        :global(.board-wallet-menu__item--danger) { background: rgba(255,71,87,0.12); border-color: rgba(255,71,87,0.3); color: #ffd7db; }
-        :global(.board-wallet-menu__item--danger:hover) { background: rgba(255,71,87,0.2); border-color: rgba(255,71,87,0.5); }
 
         /* Canvas */
-        .board-canvas-wrap { position: relative; border-radius: 12px; overflow: hidden; background: rgba(5,12,18,0.55); backdrop-filter: blur(14px); border: 1px solid rgba(0,255,213,0.2); }
-        .board-canvas { position: relative; width: 100%; height: 100%; overflow: hidden; background: rgba(5,15,30,0.9); touch-action: none; }
+        .board-canvas-wrap { position: relative; border-radius: 12px; overflow: hidden; background: rgba(8,18,36,0.45); backdrop-filter: blur(14px) saturate(140%); }
+        .board-canvas-wrap::before { content: ''; position: absolute; inset: 0; border-radius: 12px; padding: 1px; background: linear-gradient(135deg, rgba(0,255,213,0.3) 0%, rgba(0,180,200,0.1) 25%, rgba(0,255,255,0.15) 50%, rgba(0,180,200,0.1) 75%, rgba(0,255,213,0.3) 100%); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; z-index: 1; }
+        .board-canvas { position: relative; width: 100%; height: 100%; overflow: hidden; background: rgba(8,18,36,0.70); touch-action: none; }
         .board-stage { position: absolute; background-blend-mode: screen; box-shadow: inset 0 0 80px rgba(0,0,0,0.42); }
         .board-hint { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
         .board-hint::after { content: 'DROP IMAGE TO PROPOSE'; backdrop-filter: blur(12px); background: rgba(255,255,255,0.08); padding: 12px 24px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.85); font-size: 13px; font-family: var(--font-terminal); letter-spacing: 0.1em; }
@@ -1401,13 +1265,23 @@ export default function BoardPage() {
 
         /* Sidebar - more padding and spacing */
         .board-sidebar { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding: 4px; }
-        .board-section { background: rgba(5,12,18,0.55); backdrop-filter: blur(14px); border-radius: 12px; padding: 14px; border: 1px solid rgba(0,255,213,0.15); }
+        .board-section {
+          border-radius: 12px;
+          border: 1px solid rgba(0,255,213,0.2);
+          background: rgba(5, 12, 18, 0.55);
+          backdrop-filter: blur(14px) saturate(140%);
+          box-shadow:
+            0 18px 36px rgba(0,0,0,0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06),
+            inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+          padding: 14px;
+        }
         .board-section--music { padding: 8px; }
         .board-section--flex { flex: 1; min-height: 0; display: flex; flex-direction: column; }
         .board-section__header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-        .board-section__dot { width: 8px; height: 8px; border-radius: 50%; background: #00ffd5; box-shadow: 0 0 8px rgba(0,255,213,0.6); }
-        .board-section__title { font-size: 11px; font-weight: 600; letter-spacing: 0.15em; color: #00ffd5; }
-        .board-section__sub { margin-left: auto; font-size: 10px; color: rgba(255,255,255,0.5); }
+        .board-section__dot { width: 8px; height: 8px; border-radius: 50%; background: #00ffd5; box-shadow: 0 0 8px rgba(0,255,213,0.6), 0 0 16px rgba(0,255,213,0.3); animation: pulse 2s ease-in-out infinite; }
+        .board-section__title { font-size: 10px; font-weight: 600; letter-spacing: 0.18em; color: #00ffd5; text-shadow: 0 0 10px rgba(0,255,213,0.45); opacity: 0.9; }
+        .board-section__sub { margin-left: auto; font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 0.05em; }
 
         /* Epoch - slightly smaller for fit */
         .board-epoch { display: flex; align-items: baseline; justify-content: space-between; padding: 4px 0; }
@@ -1417,14 +1291,56 @@ export default function BoardPage() {
         /* Actions */
         .board-actions { display: flex; flex-direction: column; gap: 10px; }
 
-        /* Y2K Button */
-        :global(.y2k-btn) { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 48px; border-radius: 16px; border: 1px solid rgba(255,210,230,0.5); overflow: hidden; backdrop-filter: blur(24px); cursor: pointer; transition: all 0.3s; }
-        :global(.y2k-btn:hover) { transform: scale(1.02); }
-        :global(.y2k-btn--disabled) { opacity: 0.5; cursor: not-allowed; }
-        :global(.y2k-btn--disabled:hover) { transform: none; }
-        :global(.y2k-btn__reflection) { position: absolute; top: 0; left: 0; right: 0; height: 45%; border-radius: 15px 15px 0 0; background: linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.3) 35%, rgba(255,255,255,0.1) 60%, transparent 100%); pointer-events: none; }
-        :global(.y2k-btn__highlight) { position: absolute; inset: 0; border-radius: 15px; pointer-events: none; }
-        :global(.y2k-btn__label) { position: relative; z-index: 1; font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(175,255,225,0.95); text-shadow: 0 0 14px rgba(120,255,220,0.35), 0 2px 0 rgba(0,0,0,0.2); }
+        /* Y2K Button - Vibrant Yellow #fffb32 */
+        :global(.y2k-btn) {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 48px;
+          border-radius: 16px;
+          border: 2px solid rgba(255, 251, 50, 0.8);
+          background: linear-gradient(180deg, #fffb32 0%, #e6e22d 50%, #fffb32 100%);
+          overflow: hidden;
+          cursor: pointer;
+          transition: all 0.3s;
+          box-shadow:
+            0 0 20px rgba(255, 251, 50, 0.4),
+            0 0 40px rgba(255, 251, 50, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        }
+        :global(.y2k-btn:hover) {
+          transform: scale(1.02);
+          border-color: rgba(255, 251, 50, 1);
+          box-shadow:
+            0 0 30px rgba(255, 251, 50, 0.6),
+            0 0 60px rgba(255, 251, 50, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.7);
+        }
+        :global(.y2k-btn--disabled) { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+        :global(.y2k-btn--disabled:hover) { transform: none; box-shadow: none; }
+        :global(.y2k-btn__reflection) {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 45%;
+          border-radius: 14px 14px 0 0;
+          background: linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 35%, rgba(255,255,255,0.15) 60%, transparent 100%);
+          pointer-events: none;
+        }
+        :global(.y2k-btn__highlight) { position: absolute; inset: 0; border-radius: 14px; pointer-events: none; }
+        :global(.y2k-btn__label) {
+          position: relative;
+          z-index: 1;
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: #1a1a00;
+          text-shadow: 0 1px 0 rgba(255,255,255,0.5);
+        }
 
         /* Voting */
         .board-voting { display: flex; flex-direction: column; gap: 6px; max-height: 100px; overflow-y: auto; }
@@ -1451,10 +1367,11 @@ export default function BoardPage() {
         :global(.terminal-chat__text) { color: rgba(255,255,255,0.85); font-size: 9px; }
         :global(.terminal-chat__line--success .terminal-chat__text) { color: #00ff88; }
         :global(.terminal-chat__line--error .terminal-chat__text) { color: #ff4757; }
-        :global(.terminal-chat__input-row) { display: flex; align-items: center; padding: 6px 10px; border-top: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.35); }
-        :global(.terminal-chat__prompt) { color: #00ffd5; margin-right: 6px; font-weight: 600; font-size: 10px; }
-        :global(.terminal-chat__input) { flex: 1; background: transparent; border: none; outline: none; color: white; font-family: inherit; font-size: 9px; }
-        :global(.terminal-chat__input::placeholder) { color: rgba(255,255,255,0.25); }
+        :global(.terminal-chat__input-row) { display: flex; align-items: center; padding: 8px 10px; border-top: 1px solid rgba(0,255,213,0.15); background: rgba(0,20,30,0.5); }
+        :global(.terminal-chat__prompt) { color: #00ffd5; margin-right: 8px; font-weight: 600; font-size: 11px; text-shadow: 0 0 8px rgba(0,255,213,0.5); }
+        :global(.terminal-chat__input) { flex: 1; background: rgba(0,20,30,0.4); border: 1px solid rgba(0,255,213,0.3); border-radius: 4px; outline: none; color: white; font-family: inherit; font-size: 10px; padding: 6px 10px; transition: border-color 0.2s, box-shadow 0.2s; }
+        :global(.terminal-chat__input:focus) { border-color: rgba(0,255,213,0.5); box-shadow: 0 0 10px rgba(0,255,213,0.2); }
+        :global(.terminal-chat__input::placeholder) { color: rgba(255,255,255,0.35); }
 
         /* iPod Music Player */
         :global(.ipod-player) {
