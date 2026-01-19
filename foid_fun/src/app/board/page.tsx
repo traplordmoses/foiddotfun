@@ -345,7 +345,7 @@ function Y2kActionButton({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onMouseMove={handleMouseMove}
-      className={`y2k-btn ${disabled ? "y2k-btn--disabled" : ""}`}
+      className={`y2k-btn ${variant === "secondary" ? "y2k-btn--secondary" : ""} ${disabled ? "y2k-btn--disabled" : ""}`}
     >
       <span className="y2k-btn__reflection" />
       {isHovered && !disabled && (
@@ -1223,6 +1223,7 @@ export default function BoardPage() {
                       <span>PAN: {Math.round(pan.x)}, {Math.round(pan.y)}</span>
                       <span>MODE: {spaceDown ? "PAN" : "PLACE"}</span>
                     </div>
+                    <div className="board-hint-bottom" role="note">scroll to zoom • hold space to pan</div>
 
                   {!items.length && !busy && !ghost && !placed.length && (
                     <div className="board-hint">
@@ -1237,7 +1238,7 @@ export default function BoardPage() {
               {/* Sidebar */}
               <div className="board-sidebar">
                 {/* Epoch */}
-                <div className="board-section">
+                <div className="board-section board-section--epoch">
                   <div className="board-section__header">
                     <span className="board-section__dot" />
                     <span className="board-section__title">EPOCH</span>
@@ -1249,16 +1250,13 @@ export default function BoardPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="board-section">
+                <div className="board-section board-section--actions">
                   <div className="board-section__header">
                     <span className="board-section__dot" />
                     <span className="board-section__title">ACTIONS</span>
+                    <span className="board-section__chip">{formatEth(BASE_FEE_PER_CELL_WEI)} ETH/cell</span>
                   </div>
                   <div className="board-actions">
-                    <div className="board-price-pill">
-                      <span className="board-price-pill__label">PRICE / CELL</span>
-                      <span className="board-price-pill__value">{formatEth(BASE_FEE_PER_CELL_WEI)} ETH</span>
-                    </div>
                     <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" />
                     <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={onFileChange} />
                     <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "SUBMITTING..." : "SUBMIT PROPOSAL"} disabled={!items.length || submittingProposals} variant="secondary" />
@@ -1288,6 +1286,12 @@ export default function BoardPage() {
                   <div className="board-section__header">
                     <span className="board-section__dot" />
                     <span className="board-section__title">CHAT</span>
+                    <span
+                      className="board-section__status"
+                      data-status={isConnected ? "online" : "offline"}
+                    >
+                      {isConnected ? "online" : "offline"}
+                    </span>
                   </div>
                   <TerminalChat statusMessages={statusMessages} onSend={handleChatSend} />
                 </div>
@@ -1307,9 +1311,20 @@ export default function BoardPage() {
           inset: 0;
           background: transparent !important;
           overflow: hidden;
-          --board-radius-lg: 12px;
-          --board-radius-md: 8px;
-          --board-border: 1px solid rgba(0, 255, 213, 0.15);
+          --board-radius-lg: 14px;
+          --board-radius-md: 12px;
+          --foid-bg-deepest: #050b12;
+          --foid-panel: rgba(8, 18, 28, 0.62);
+          --foid-panel-strong: rgba(5, 12, 20, 0.72);
+          --foid-glass-highlight: rgba(255, 255, 255, 0.12);
+          --foid-glass-border: rgba(120, 235, 255, 0.18);
+          --foid-accent: rgba(0, 255, 213, 0.95);
+          --foid-accent-soft: rgba(0, 255, 213, 0.18);
+          --foid-glow: rgba(0, 255, 213, 0.14);
+          --foid-text: rgba(255, 255, 255, 0.85);
+          --foid-text-dim: rgba(255, 255, 255, 0.6);
+          --foid-warm: rgba(255, 165, 82, 0.22);
+          --board-border: 1px solid var(--foid-glass-border);
         }
         .board-shell { display: flex; flex-direction: column; height: 100vh; padding: 16px; position: relative; z-index: 1; }
 
@@ -1355,27 +1370,86 @@ export default function BoardPage() {
 
 
         /* Canvas */
-        .board-canvas-wrap { position: relative; border-radius: var(--board-radius-lg); overflow: hidden; background: rgba(8,18,36,0.45); backdrop-filter: blur(14px) saturate(140%); }
-        .board-canvas-wrap::before { content: ''; position: absolute; inset: 0; border-radius: var(--board-radius-lg); padding: 1px; background: linear-gradient(135deg, rgba(0,255,213,0.3) 0%, rgba(0,180,200,0.1) 25%, rgba(0,255,255,0.15) 50%, rgba(0,180,200,0.1) 75%, rgba(0,255,213,0.3) 100%); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; z-index: 1; }
-        .board-canvas { position: relative; width: 100%; height: 100%; overflow: hidden; background: rgba(8,18,36,0.70); touch-action: none; }
+        .board-canvas-wrap {
+          position: relative;
+          border-radius: var(--board-radius-lg);
+          border: var(--board-border);
+          overflow: hidden;
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 40%),
+            var(--foid-panel);
+          backdrop-filter: blur(14px) saturate(140%);
+        }
+        .board-canvas-wrap::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: var(--board-radius-lg);
+          padding: 1px;
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.45), var(--foid-glass-highlight) 30%, rgba(255, 255, 255, 0.05) 38%, rgba(255, 255, 255, 0) 55%, rgba(255, 255, 255, 0.15) 78%, rgba(255, 255, 255, 0.35) 100%);
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
+          z-index: 1;
+        }
+        .board-canvas {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 35%),
+            var(--foid-panel-strong);
+          touch-action: none;
+        }
         .board-hud {
           position: absolute;
-          top: 10px;
-          right: 10px;
+          top: 12px;
+          right: 12px;
           display: flex;
           flex-direction: column;
           gap: 2px;
           padding: 6px 10px;
-          border-radius: 10px;
-          border: 1px solid rgba(0, 255, 213, 0.35);
-          background: rgba(0, 10, 25, 0.65);
-          color: #cdfbff;
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 35%),
+            var(--foid-panel-strong);
+          backdrop-filter: blur(14px);
+          color: var(--foid-text);
           font-size: 10px;
           font-family: var(--font-mono);
-          letter-spacing: 0.15em;
+          letter-spacing: 0.18em;
           text-transform: uppercase;
-          box-shadow: 0 8px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+          box-shadow: inset 0 0 14px rgba(0,0,0,0.6);
           pointer-events: none;
+        }
+        .board-hint-bottom {
+          position: absolute;
+          left: 12px;
+          bottom: 12px;
+          padding: 4px 10px;
+          border-radius: 10px;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(5, 12, 18, 0.6);
+          color: var(--foid-text-dim);
+          font-size: 9px;
+          font-family: var(--font-mono);
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          box-shadow: inset 0 0 12px rgba(0,0,0,0.6);
+          animation: boardHintFade 4s ease forwards;
+          pointer-events: none;
+        }
+        @keyframes boardHintFade {
+          0% { opacity: 1; }
+          60% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .board-hint-bottom { animation: none; }
         }
         .board-stage { position: absolute; background-blend-mode: screen; box-shadow: inset 0 0 80px rgba(0,0,0,0.42); }
         .board-hint { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
@@ -1389,15 +1463,15 @@ export default function BoardPage() {
           font-size: 12px;
           padding: 12px 28px 6px;
           border-radius: 16px;
-          border: 1px solid rgba(255,255,255,0.25);
-          background: rgba(255,255,255,0.08);
-          color: rgba(255,255,255,0.95);
+          border: 1px solid var(--foid-glass-border);
+          background: rgba(255,255,255,0.05);
+          color: var(--foid-text);
           text-shadow: 0 0 8px rgba(0,0,0,0.6);
         }
         .board-hint__sub {
           font-size: 10px;
           letter-spacing: 0.08em;
-          color: rgba(255,255,255,0.6);
+          color: var(--foid-text-dim);
           margin-top: 8px;
         }
         .board-dragover {
@@ -1405,10 +1479,10 @@ export default function BoardPage() {
           inset: 0;
           border-radius: 14px;
           pointer-events: none;
-          background: rgba(0, 210, 255, 0.08);
+          background: rgba(0, 255, 213, 0.08);
           box-shadow:
-            0 0 20px rgba(0, 210, 255, 0.6),
-            inset 0 0 28px rgba(0, 210, 255, 0.35);
+            0 0 20px rgba(0, 255, 213, 0.45),
+            inset 0 0 28px rgba(0, 255, 213, 0.3);
           animation: dragGlow 3s ease-in-out infinite;
         }
         .board-dragover::before {
@@ -1454,14 +1528,19 @@ export default function BoardPage() {
           display: flex;
           flex-direction: column;
           gap: 12px;
-          overflow-y: auto;
+          height: 100%;
+          min-height: 0;
+          overflow-y: hidden;
           padding: 12px;
           border-radius: var(--board-radius-lg);
           border: var(--board-border);
-          background: linear-gradient(180deg, rgba(6, 10, 18, 0.92), rgba(8, 18, 30, 0.8));
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 40%),
+            linear-gradient(180deg, rgba(8, 16, 24, 0.94), rgba(4, 10, 18, 0.85)),
+            var(--foid-bg-deepest);
           backdrop-filter: blur(24px) saturate(140%);
           box-shadow:
-            inset 0 0 25px rgba(255, 255, 255, 0.08),
+            inset 0 0 25px rgba(255, 255, 255, 0.06),
             inset 0 0 40px rgba(0, 255, 213, 0.05),
             0 20px 40px rgba(0, 0, 0, 0.45);
         }
@@ -1470,20 +1549,34 @@ export default function BoardPage() {
           position: absolute;
           inset: 8px;
           border-radius: calc(var(--board-radius-lg) - 6px);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.06);
           pointer-events: none;
         }
         .board-section {
           position: relative;
           border-radius: var(--board-radius-md);
           border: var(--board-border);
-          background: rgba(5, 12, 18, 0.55);
+          background:
+            linear-gradient(180deg, var(--foid-glass-highlight), rgba(255, 255, 255, 0) 40%),
+            var(--foid-panel);
           backdrop-filter: blur(14px) saturate(140%);
           box-shadow:
-            0 12px 28px rgba(0, 0, 0, 0.32),
-            inset 0 1px 0 rgba(255, 255, 255, 0.04),
-            inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+            0 12px 28px rgba(0, 0, 0, 0.45),
+            inset 0 1px 0 rgba(255, 255, 255, 0.06),
+            inset 0 -1px 0 rgba(0, 0, 0, 0.35);
           padding: 14px;
+        }
+        .board-section--actions {
+          padding: 10px;
+        }
+        .board-section--actions .board-section__header {
+          margin-bottom: 8px;
+        }
+        .board-section--epoch {
+          padding: 12px;
+        }
+        .board-section--epoch .board-section__header {
+          margin-bottom: 8px;
         }
         .board-section:not(:last-child)::after {
           content: "";
@@ -1495,37 +1588,69 @@ export default function BoardPage() {
           background: rgba(255, 255, 255, 0.08);
         }
         .board-section--music { padding: 8px; }
-        .board-section--flex { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+        .board-section--flex { flex: 1; min-height: 260px; display: flex; flex-direction: column; }
         .board-section__header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-        .board-section__dot { width: 8px; height: 8px; border-radius: 50%; background: #00ffd5; box-shadow: 0 0 8px rgba(0,255,213,0.6), 0 0 16px rgba(0,255,213,0.3); animation: pulse 2s ease-in-out infinite; }
-        .board-section__title { font-size: 10px; font-weight: 600; letter-spacing: 0.18em; color: #00ffd5; text-shadow: 0 0 10px rgba(0,255,213,0.45); opacity: 0.9; }
+        .board-section__chip {
+          margin-left: auto;
+          padding: 4px 8px;
+          border-radius: 999px;
+          border: 1px solid var(--foid-accent-soft);
+          background: var(--foid-accent-soft);
+          color: var(--foid-accent);
+          font-size: 10px;
+          letter-spacing: 0.12em;
+          font-family: var(--font-mono);
+          text-transform: uppercase;
+        }
+        .board-section__status {
+          margin-left: auto;
+          padding: 2px 8px;
+          border-radius: 999px;
+          border: 1px solid var(--foid-glass-border);
+          background: rgba(0, 12, 20, 0.6);
+          color: var(--foid-accent);
+          font-size: 9px;
+          font-family: var(--font-mono);
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .board-section__status::before {
+          content: "";
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: currentColor;
+        }
+        .board-section__status[data-status="offline"] {
+          color: var(--foid-text-dim);
+          border-color: rgba(255, 255, 255, 0.1);
+        }
+        .board-section__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--foid-accent); box-shadow: 0 0 8px var(--foid-glow), 0 0 16px var(--foid-accent-soft); animation: pulse 2s ease-in-out infinite; }
+        .board-section__title { font-size: 10px; font-weight: 600; letter-spacing: 0.18em; color: var(--foid-accent); text-shadow: 0 0 12px var(--foid-accent-soft); opacity: 0.92; }
         .board-section__sub { margin-left: auto; font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 0.05em; }
 
         /* Epoch - slightly smaller for fit */
         .board-epoch { display: flex; align-items: baseline; justify-content: space-between; padding: 4px 0; }
-        .board-epoch__num { font-size: 26px; font-weight: 700; font-family: var(--font-mono); color: #00ffd5; text-shadow: 0 0 16px rgba(0,255,213,0.5); }
-        .board-epoch__time { font-size: 20px; font-weight: 600; font-family: var(--font-mono); color: #00ff88; text-shadow: 0 0 12px rgba(0,255,136,0.5); }
+        .board-epoch__num {
+          font-size: 22px;
+          font-weight: 700;
+          font-family: var(--font-mono);
+          color: var(--foid-accent);
+          text-shadow: 0 0 16px rgba(0, 255, 213, 0.45);
+        }
+        .board-epoch__time {
+          font-size: 16px;
+          font-weight: 600;
+          font-family: var(--font-mono);
+          color: var(--foid-accent-soft);
+          text-shadow: 0 0 12px rgba(0, 255, 213, 0.28);
+        }
 
         /* Actions */
-        .board-actions { display: flex; flex-direction: column; gap: 10px; }
-        .board-price-pill {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 4px 10px;
-          border-radius: 999px;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          background: rgba(255, 255, 255, 0.04);
-          box-shadow: inset 0 0 14px rgba(255, 255, 255, 0.08);
-          font-size: 10px;
-          font-family: var(--font-mono);
-          letter-spacing: 0.2em;
-          text-transform: uppercase;
-        }
-        .board-price-pill__value {
-          color: #7fffff;
-          font-weight: 700;
-        }
+        .board-actions { display: flex; flex-direction: column; gap: 8px; }
 
         /* Y2K Button - luminous lemon with cyan rim */
         :global(.y2k-btn) {
@@ -1534,19 +1659,20 @@ export default function BoardPage() {
           align-items: center;
           justify-content: center;
           width: 100%;
-          height: 48px;
-          border-radius: 16px;
-          border: 2px solid rgba(255, 255, 255, 0.4);
-          background: linear-gradient(180deg, rgba(32,195,245,0.95) 0%, rgba(20,152,213,0.9) 50%, rgba(8,112,163,0.9) 100%);
+          height: 44px;
+          border-radius: 14px;
+          border: 2px solid var(--foid-accent-soft);
+          background:
+            linear-gradient(180deg, rgba(225, 255, 255, 0.95) 0%, rgba(184, 248, 255, 0.9) 40%, rgba(62, 224, 255, 0.75) 100%);
           overflow: hidden;
           cursor: pointer;
           transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
           box-shadow:
-            0 18px 26px rgba(0, 0, 0, 0.35),
-            0 8px 18px rgba(0, 0, 0, 0.25),
+            0 12px 18px rgba(0, 0, 0, 0.28),
+            0 6px 12px rgba(0, 0, 0, 0.2),
             inset 0 1px 0 rgba(255, 255, 255, 0.7),
-            inset 0 -4px 10px rgba(255, 255, 255, 0.3),
-            inset 0 0 0 1px rgba(0, 208, 255, 0.18);
+            inset 0 -3px 6px rgba(255, 255, 255, 0.35),
+            inset 0 0 0 1px var(--foid-accent-soft);
         }
         :global(.y2k-btn::after) {
           content: "";
@@ -1558,18 +1684,15 @@ export default function BoardPage() {
           pointer-events: none;
         }
         :global(.y2k-btn:hover) {
-          transform: translateY(-1px) scale(1.01);
-          border-color: rgba(255, 255, 255, 0.9);
+          border-color: var(--foid-accent);
           box-shadow:
-            0 26px 36px rgba(0, 0, 0, 0.35),
-            0 12px 24px rgba(0, 0, 0, 0.25),
-            0 0 26px rgba(45, 240, 255, 0.35),
-            inset 0 1px 0 rgba(255, 255, 255, 0.9),
-            inset 0 -6px 14px rgba(255, 255, 255, 0.45),
-            inset 0 0 0 1px rgba(0, 208, 255, 0.25);
+            0 18px 30px rgba(0, 162, 188, 0.35),
+            inset 0 1px 0 rgba(255, 255, 255, 0.92),
+            inset 0 -5px 10px rgba(255, 255, 255, 0.35),
+            0 0 18px rgba(59, 225, 255, 0.55);
         }
         :global(.y2k-btn:focus-visible) {
-          outline: 2px solid rgba(0, 255, 213, 0.9);
+          outline: 2px solid var(--foid-accent);
           outline-offset: 3px;
         }
         :global(.y2k-btn--disabled) {
@@ -1602,9 +1725,25 @@ export default function BoardPage() {
           color: #e6fbff;
           text-shadow: 0 1px 4px rgba(8, 64, 96, 0.7);
         }
+        :global(.y2k-btn--secondary) {
+          background:
+            linear-gradient(180deg, rgba(12, 44, 59, 0.95) 0%, rgba(8, 25, 40, 0.95) 70%, rgba(8, 25, 40, 0.9) 100%);
+          border: 2px solid var(--foid-accent-soft);
+          box-shadow:
+            0 8px 16px rgba(0, 0, 0, 0.22),
+            inset 0 1px 0 rgba(255, 255, 255, 0.4),
+            inset 0 -3px 6px rgba(255, 255, 255, 0.2);
+        }
+        :global(.y2k-btn--secondary:hover) {
+          box-shadow:
+            0 10px 20px rgba(0, 0, 0, 0.24),
+            inset 0 1px 0 rgba(255, 255, 255, 0.45),
+            inset 0 -3px 6px rgba(255, 255, 255, 0.25),
+            0 0 18px rgba(0, 255, 213, 0.35);
+        }
 
         /* Voting */
-        .board-voting { display: flex; flex-direction: column; gap: 6px; max-height: 100px; overflow-y: auto; }
+        .board-voting { display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; }
         :global(.voting-item) { display: flex; align-items: center; gap: 6px; padding: 5px; background: rgba(0,0,0,0.2); border-radius: 6px; }
         :global(.voting-item__thumb) { width: 28px; height: 28px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.1); }
         :global(.voting-item__thumb img) { width: 100%; height: 100%; object-fit: cover; }
@@ -1612,13 +1751,13 @@ export default function BoardPage() {
         :global(.voting-item__counts) { margin-left: auto; font-size: 9px; color: rgba(255,255,255,0.5); }
         :global(.voting-item__btns) { display: flex; gap: 4px; }
         :global(.voting-item__yes), :global(.voting-item__no) { width: 22px; height: 22px; border-radius: 50%; border: 1px solid; font-size: 10px; cursor: pointer; transition: all 0.15s; background: transparent; }
-        :global(.voting-item__yes) { border-color: rgba(0,255,136,0.5); color: #00ff88; }
-        :global(.voting-item__yes:hover:not(:disabled)) { background: rgba(0,255,136,0.2); }
+        :global(.voting-item__yes) { border-color: var(--foid-accent-soft); color: var(--foid-accent); }
+        :global(.voting-item__yes:hover:not(:disabled)) { background: var(--foid-accent-soft); }
         :global(.voting-item__no) { border-color: rgba(255,71,87,0.5); color: #ff4757; }
         :global(.voting-item__no:hover:not(:disabled)) { background: rgba(255,71,87,0.2); }
         :global(.voting-item__yes:disabled), :global(.voting-item__no:disabled) { opacity: 0.4; cursor: not-allowed; }
         :global(.voting-item__yes:focus-visible), :global(.voting-item__no:focus-visible) {
-          outline: 2px solid rgba(0,255,213,0.85);
+          outline: 2px solid var(--foid-accent);
           outline-offset: 3px;
         }
 
@@ -1629,9 +1768,11 @@ export default function BoardPage() {
           display: flex;
           flex-direction: column;
           min-height: 0;
-          background: rgba(4, 15, 25, 0.92);
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) 30%),
+            var(--foid-panel-strong);
           border-radius: var(--board-radius-md);
-          border: 1px solid rgba(0, 255, 213, 0.12);
+          border: var(--board-border);
           overflow: hidden;
           font-family: var(--font-terminal);
           box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.08);
@@ -1646,20 +1787,34 @@ export default function BoardPage() {
           opacity: 0.2;
           mix-blend-mode: screen;
         }
+        :global(.terminal-chat::after) {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          background-image:
+            linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+          background-size: 100% 3px, 3px 100%;
+          opacity: 0.15;
+          pointer-events: none;
+          mix-blend-mode: screen;
+          z-index: 0;
+        }
         :global(.terminal-chat__messages) { flex: 1; min-height: 0; overflow-y: auto; padding: 10px; font-size: 9px; line-height: 1.5; }
         :global(.terminal-chat__line) { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 3px; }
         :global(.terminal-chat__time) { color: rgba(255,255,255,0.35); font-size: 8px; }
-        :global(.terminal-chat__user) { color: #00ffd5; font-weight: 600; background: rgba(0,255,213,0.12); padding: 1px 4px; border-radius: 2px; font-size: 8px; }
+        :global(.terminal-chat__user) { color: var(--foid-accent); font-weight: 600; background: var(--foid-accent-soft); padding: 1px 4px; border-radius: 2px; font-size: 8px; }
         :global(.terminal-chat__system) { color: #ffcc00; font-weight: 600; font-style: italic; font-size: 8px; }
         :global(.terminal-chat__text) { color: rgba(255,255,255,0.85); font-size: 9px; }
-        :global(.terminal-chat__line--success .terminal-chat__text) { color: #00ff88; }
+        :global(.terminal-chat__line--success .terminal-chat__text) { color: var(--foid-accent); }
         :global(.terminal-chat__line--error .terminal-chat__text) { color: #ff4757; }
-        :global(.terminal-chat__input-row) { display: flex; align-items: center; padding: 8px 10px; gap: 8px; border-top: 1px solid rgba(0,255,213,0.08); background: rgba(0, 12, 26, 0.45); }
-        :global(.terminal-chat__prompt) { color: #00ffd5; margin-right: 8px; font-weight: 600; font-size: 11px; text-shadow: 0 0 8px rgba(0,255,213,0.5); }
-        :global(.terminal-chat__input) { flex: 1; background: rgba(0,20,30,0.4); border: 1px solid rgba(0,255,213,0.3); border-radius: 4px; outline: none; color: white; font-family: inherit; font-size: 10px; padding: 6px 10px; transition: border-color 0.2s, box-shadow 0.2s; }
-        :global(.terminal-chat__input:focus) { border-color: rgba(0,255,213,0.5); box-shadow: 0 0 10px rgba(0,255,213,0.2); }
+        :global(.terminal-chat__input-row) { display: flex; align-items: center; padding: 8px 10px; gap: 8px; border-top: 1px solid var(--foid-accent-soft); background: rgba(0, 12, 26, 0.45); }
+        :global(.terminal-chat__prompt) { color: var(--foid-accent); margin-right: 8px; font-weight: 600; font-size: 11px; text-shadow: 0 0 8px var(--foid-glow); }
+        :global(.terminal-chat__input) { flex: 1; background: rgba(0,20,30,0.4); border: 1px solid var(--foid-accent-soft); border-radius: 4px; outline: none; color: white; font-family: inherit; font-size: 10px; padding: 6px 10px; transition: border-color 0.2s, box-shadow 0.2s; }
+        :global(.terminal-chat__input:focus) { border-color: var(--foid-accent); box-shadow: 0 0 10px var(--foid-glow); }
         :global(.terminal-chat__input:focus-visible) {
-          outline: 2px solid rgba(0,255,213,0.8);
+          outline: 2px solid var(--foid-accent);
           outline-offset: 3px;
         }
         :global(.terminal-chat__input::placeholder) { color: rgba(255,255,255,0.35); }
@@ -1667,9 +1822,9 @@ export default function BoardPage() {
         :global(.terminal-chat__send) {
           padding: 5px 12px;
           border-radius: 6px;
-          border: 1px solid rgba(0,255,213,0.35);
-          background: rgba(0,255,213,0.08);
-          color: #00ffd5;
+          border: 1px solid var(--foid-accent-soft);
+          background: var(--foid-accent-soft);
+          color: var(--foid-accent);
           font-size: 9px;
           font-weight: 700;
           letter-spacing: 0.2em;
@@ -1678,8 +1833,10 @@ export default function BoardPage() {
           transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
         }
         :global(.terminal-chat__send:hover:not(:disabled)) {
-          background: rgba(0,255,213,0.16);
-          box-shadow: 0 0 12px rgba(0,255,213,0.25);
+          background: var(--foid-accent);
+          box-shadow:
+            0 0 10px var(--foid-accent-soft),
+            0 0 18px var(--foid-warm);
           transform: translateY(-1px);
         }
         :global(.terminal-chat__send:disabled) {
@@ -1689,7 +1846,7 @@ export default function BoardPage() {
           transform: none;
         }
         :global(.terminal-chat__send:focus-visible) {
-          outline: 2px solid rgba(0,255,213,0.8);
+          outline: 2px solid var(--foid-accent);
           outline-offset: 3px;
         }
 
@@ -1697,10 +1854,11 @@ export default function BoardPage() {
         :global(.ipod-player) {
           display: flex;
           align-items: center;
-          gap: 10px;
-          padding: 8px 10px;
-          background: linear-gradient(180deg, rgba(235,235,242,0.96), rgba(205,205,220,0.9));
-          border-radius: 22px;
+          gap: 4px;
+          padding: 4px 6px;
+          background: linear-gradient(180deg, rgba(212, 255, 255, 0.85), rgba(138, 229, 255, 0.75));
+          border-radius: var(--board-radius-md);
+          border: var(--board-border);
           box-shadow: 0 6px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.6);
         }
 
@@ -1728,8 +1886,8 @@ export default function BoardPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 70px;
-          height: 70px;
+          width: 52px;
+          height: 52px;
           background: linear-gradient(180deg, #f0f0f4, #d8d8e0);
           border-radius: 50%;
           box-shadow:
@@ -1755,8 +1913,8 @@ export default function BoardPage() {
         :global(.ipod-wheel__btn--next) { right: 4px; }
 
         :global(.ipod-wheel__center) {
-          width: 34px;
-          height: 34px;
+          width: 24px;
+          height: 24px;
           background: linear-gradient(180deg, #fafafa, #e8e8f0);
           border-radius: 50%;
           border: none;
@@ -1770,21 +1928,22 @@ export default function BoardPage() {
 
         :global(.ipod-display) {
           flex: 1;
-          padding: 8px 12px;
+          padding: 4px 8px;
           background: linear-gradient(
             180deg,
-            rgba(255, 220, 235, 0.92),
-            rgba(255, 205, 228, 0.88)
+            rgba(210, 255, 255, 0.85),
+            rgba(160, 235, 255, 0.75)
           );
-          border-radius: 14px;
+          border-radius: var(--board-radius-md);
+          border: var(--board-border);
           box-shadow: inset 0 2px 4px rgba(0,0,0,0.08), 0 1px 0 rgba(255,255,255,0.55);
         }
 
         :global(.ipod-display__track) {
-          font-size: 11px;
+          font-size: 9px;
           font-weight: 500;
           color: rgba(0,0,0,0.7);
-          margin-bottom: 6px;
+          margin-bottom: 4px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -1797,7 +1956,7 @@ export default function BoardPage() {
           height: 5px;
           background: rgba(0,0,0,0.1);
           border-radius: 3px;
-          margin-bottom: 6px;
+          margin-bottom: 4px;
         }
 
         :global(.ipod-display__fill) {
@@ -1829,14 +1988,14 @@ export default function BoardPage() {
 
         :global(.ipod-display__time) {
           font-family: var(--font-mono);
-          font-size: 11px;
+          font-size: 8px;
           color: rgba(0,0,0,0.5);
           flex: 1;
           text-align: center;
         }
 
         :global(.ipod-display__volume) {
-          font-size: 10px;
+          font-size: 8px;
           font-family: var(--font-mono);
           color: rgba(0,0,0,0.55);
           padding-left: 6px;
@@ -1862,9 +2021,9 @@ export default function BoardPage() {
         :global(.ipod-wheel__center:focus-visible),
         :global(.ipod-display__shuffle:focus-visible),
         :global(.ipod-display__repeat:focus-visible) {
-          outline: 2px solid rgba(0,255,213,0.9);
+          outline: 2px solid var(--foid-accent);
           outline-offset: 3px;
-          box-shadow: 0 0 12px rgba(0,255,213,0.35);
+          box-shadow: 0 0 12px var(--foid-glow);
         }
 
         :global(.ipod-display__hint) {
