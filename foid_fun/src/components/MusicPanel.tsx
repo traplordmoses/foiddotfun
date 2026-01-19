@@ -464,19 +464,12 @@ const ensureVisualizer = useCallback(() => {
 
     await loadTrackIntoSlot(activeSlotRef.current, currentTrackRef.current);
     setCurrentTrackIndex(currentTrackRef.current);
-
-    try {
-      await play();
-    } catch {
-      // likely requires a user gesture; play already flagged interaction state
-    }
   }, [
     ensureAudioGraph,
     ensureSlotWired,
     ensureVisualizer,
     loadTrackIntoSlot,
     setCurrentTrackIndex,
-    play,
   ]);
 
   const registerAudio = useCallback(
