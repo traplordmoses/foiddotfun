@@ -8,10 +8,8 @@ type NavLink = { href: string; label: string };
 const LINKS: NavLink[] = [
   { href: "/", label: "Dashboard" },
   { href: "/about", label: "About" },
-  { href: "/wFOID", label: "wFOID" },
-  { href: "/wETH", label: "wETH" },
-  { href: "/foidswap", label: "FoidSwap" },
-  { href: "/foidfactory", label: "FoidFactory" },
+  { href: "/pray", label: "Prayer Terminal" },
+  { href: "/board", label: "Loreboard" },
 ];
 
 export default function Nav() {

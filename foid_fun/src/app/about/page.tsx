@@ -7,19 +7,19 @@ import { CONTRACT_ADDRESSES, NETWORK_DETAILS } from "../(components)/contracts";
 
 const appTiles = [
   {
-    href: "/foidfactory",
-    title: "foid factory (launchpad)",
-    body: "spin up a token + pool in minutes.",
+    href: "/pray",
+    title: "prayer terminal",
+    body: "tell foid mommy how you feel, anchor the hash on-chain, and track streak + mood receipts.",
   },
   {
-    href: "/foidswap",
-    title: "foid swap (amm + router)",
-    body: "constant-product pools, 0.3% per hop, auto-routing across multiple pairs.",
+    href: "/board",
+    title: "loreboard canvas",
+    body: "drop placements, vote, and watch deterministic manifests lock in the culture.",
   },
   {
-    href: "/launchpad",
-    title: "foid name service (fns)",
-    body: "human-readable .foid names for sending/receiving (teaser/alpha).",
+    href: "/about#mifoid",
+    title: "MiFOID identity",
+    body: "signals from the ritual terminal and loreboard will shape the traits of the future MiFOID avatars.",
   },
 ] as const;
 
@@ -42,12 +42,12 @@ const faqItems = [
   {
     question: "what is foid.fun?",
     answer:
-      "a ritual-driven on-chain game. you check in daily (“pray with foid mommy”), mint foid20 tokens, swap them, and eventually mint a mifoid whose traits are shaped by how you showed up.",
+      "a ritual-driven on-chain game that pairs daily prayers with the loreboard so the culture behind future MiFOID identities stays transparent.",
   },
   {
     question: "how do i start?",
     answer:
-      "connect an evm wallet, hit pray with mommy, and your encrypted check-in records streak + mood. then mint a foid20 in the factory and trade it instantly on foid swap.",
+      "connect an evm wallet, hit the prayer terminal so foid mommy can hash your check-in, then watch the loreboard placements settle—consistency grows your signal for the future MiFOID.",
   },
   {
     question: "which wallets work?",
@@ -61,27 +61,27 @@ const faqItems = [
   {
     question: "what is a mifoid?",
     answer:
-      "your on-chain avatar. its traits are influenced by your streak, mood tags, and in-app actions like minting or swapping.",
+      "your on-chain avatar. its traits are influenced by streaks, mood tags, and activity across the ritual + loreboard surfaces.",
   },
   {
     question: "how do traits get decided?",
     answer:
-      "inputs include consecutive days checked-in, variability of moods, and activity across the factory/swap. the exact trait mapping will be published at mint time so it stays fair and auditable.",
+      "prayers and loreboard placements feed the worker and board hooks, so the manifest + analytics keep the signal ready for whatever mint rules land next.",
   },
   {
-    question: "what happens if i miss a day?",
+    question: "what is the loreboard manifest?",
     answer:
-      "your streak resets, but your lifetime total stays. show up again to rebuild momentum.",
+      "every epoch the worker finalizes placements, uploads the deterministic manifest to IPFS, and `/api/status` keeps the latest CID handy for the client.",
   },
   {
     question: "when can i mint my mifoid?",
     answer:
-      "season 1 is coming soon—current check-ins already count. the dashboard will surface countdown + eligibility.",
+      "season 1 is coming soon—showing up now fills the signal pool, and the dashboard will surface the countdown + eligibility once minting opens.",
   },
   {
     question: "can i game it by spamming wallets?",
     answer:
-      "one streak per address. anti-abuse checks run at mint time; consistent participation beats churn.",
+      "one streak per address. the worker enforces quorum/majority, so consistent participation beats churn and prevents single-wallet abuse.",
   },
   {
     question: "is my prayer private?",
@@ -96,31 +96,11 @@ const faqItems = [
   {
     question: "do you ask for unlimited approvals?",
     answer:
-      "we request the minimum allowances needed for minting or swapping. always read prompts before you sign.",
+      "we request the minimum allowances needed for the ritual writes or board votes. always read prompts before you sign.",
   },
   {
     question: "are the contracts open + verifiable?",
     answer: "yes. check the contracts section on this page for addresses and explorer links.",
-  },
-  {
-    question: "what is wfoid?",
-    answer:
-      "the site’s native helper token—a dev tool with a clean UI so you can inspect balances, allowances, and contract flows. it’s for demos and testing.",
-  },
-  {
-    question: "what is weth here?",
-    answer:
-      "wrap or unwrap eth ↔ weth directly on the page so you can trade on foid swap and provide liquidity.",
-  },
-  {
-    question: "what is foid swap?",
-    answer:
-      "a uniswap v2-style router on fluent. pick tokens, set slippage, swap. it shows route, minimum received, and fees in real time.",
-  },
-  {
-    question: "what is foidfactory?",
-    answer:
-      "a one-click foid20 token minter. every token deployed via the site ends with f01d / F01d thanks to deterministic deployment.",
   },
   {
     question: "why fluent?",
@@ -135,7 +115,7 @@ const faqItems = [
   {
     question: "gas fees?",
     answer:
-      "testnet gas is minimal. use the fluent faucet to fund your wallet. swaps, mints, and prayers are designed to stay lightweight.",
+      "testnet gas is minimal. use the fluent faucet to fund your wallet. rituals and board votes are designed to stay lightweight.",
   },
   {
     question: "my wallet won’t connect.",
@@ -145,7 +125,7 @@ const faqItems = [
   {
     question: "tx failed / stuck pending.",
     answer:
-      "confirm you’re on fluent testnet, have testnet gas, and slippage isn’t too tight. retry with a fresh nonce if your wallet supports it.",
+      "confirm you’re on fluent testnet, have testnet gas, and the base fee isn’t spiking. retries with a fresh nonce or a faster gas setting usually clears hiccups.",
   },
   {
     question: "my streak didn’t update.",
@@ -153,9 +133,9 @@ const faqItems = [
       "streaks roll over at 00:00 utc. if you checked in near reset, it may apply to the next day. the dashboard shows the latest recorded day.",
   },
   {
-    question: "i minted a foid20—now what?",
+    question: "how can i watch the board settle?",
     answer:
-      "view it on the explorer, then create a pool or trade it on foid swap. share the vanity address (ending in f01d / F01d) so others can find it.",
+      "open the loreboard page to view placements and check `/api/status` for the current manifest CID; the worker scripts (`scripts/loreboard-worker.ts`) finalize epochs and archive results to IPFS.",
   },
   {
     question: "safety & disclaimers?",
@@ -195,10 +175,28 @@ export default function AboutPage() {
               what is foid.fun
             </h1>
             <p className="mx-auto mt-4 max-w-3xl text-base text-white/75 sm:text-lg">
-              foid.fun is a ritual-driven on-chain game. each day, you pray with foid mommy—a quick, private on-chain
-              check-in that tracks your streak and mood. then you can mint a foid20 in the factory and trade instantly on
-              foid swap. your consistency and choices shape the type of mifoid you’ll mint, so showing up actually changes
-              outcomes. simple loop: show up → mint → swap → evolve. fast, playful, and fully on-chain.
+              foid.fun is a ritual-driven on-chain game. each day, you pray with foid mommy—a private check-in that tracks
+              streaks and mood, the loreboard listens and curates placements, and those signals will seed future MiFOID
+              avatars. the loop: show up → pray → vote → let the board carry your pulse. fast, playful, and fully
+              on-chain.
+            </p>
+          </div>
+        </section>
+
+        <section id="mifoid" className="mx-auto max-w-6xl">
+          <div className="foid-glass rounded-3xl p-8 text-white/90">
+            <div className="mb-6 flex flex-col gap-2">
+              <h2 className="text-sm uppercase tracking-[0.45em] text-foid-mint/75">MiFOID identity</h2>
+              <p className="text-2xl font-semibold text-white">signal pooling</p>
+            </div>
+            <p className="text-base text-white/75 sm:text-lg">
+              the ritual terminal and loreboard feed the manifest and worker logs, creating a transparent provenance trail
+              for future MiFOID avatars. each epoch&apos;s placements, streak tallies, and votes stay public so operators can
+              stitch the metadata once minting opens.
+            </p>
+            <p className="mt-3 text-sm text-white/60">
+              keep an eye on `/api/status`, the manifest CID, and `scripts/loreboard-worker.ts` to see how epochs finalize
+              before the next MiFOID drop.
             </p>
           </div>
         </section>

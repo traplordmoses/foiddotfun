@@ -314,7 +314,13 @@ export default function PrayPage() {
                       <h3 className="pray-manual__hero">F O I D &nbsp;&nbsp; M O M M Y</h3>
                       <span className="pray-manual__label">WELCOME TO FOID_MOMMY_TERMINAL.EXE</span>
                       <p className="pray-manual__intro">
-                        <span className="block">foid_mommy_terminal.exe is a daily on-chain ritual. tell foid mommy how you're feeling, she'll listen and construct a prayer. submit your prayer on-chain, so your proof of prayer is recorded. your message is private. it's hashed locally and only the hash is anchored on-chain. show up each day to build your streak. the more you pray, the bigger your mifoid’s boobs will be.</span>
+                        <span className="block">
+                          foid_mommy_terminal.exe is a daily on-chain ritual. tell foid mommy how you&apos;re feeling,
+                          she&apos;ll listen and construct a prayer. submit your prayer on-chain, so your proof of prayer
+                          is recorded. your message is private. it&apos;s hashed locally and only the hash is anchored
+                          on-chain. show up each day to build your streak. the more you pray, the bigger your mifoid&apos;s
+                          boobs will be.
+                        </span>
                       </p>
                       <div className="pray-manual__section">
                         <span className="pray-manual__label">HOW TO USE</span>

@@ -1,433 +1,65 @@
-# foid.fun ritual control panel
+# FOID Foundation Technical Overview
 
-foid.fun is a ritual-driven on-chain game where showing up creates value. each day you pray with foid mommy—a quick, encrypted check-in that locks your streak and mood on chain. with one click, mint your own foid20, then trade instantly on foid swap. your consistency and choices directly influence the kind of mifoid you mint next—so participation isn’t fluff, it’s the mechanic. no spreadsheets, no grind; just speed, privacy, and verifiable state. show up today, and your mifoid shows up for you.
+FOID Foundation is the on-chain ritual + culture + identity stack running on Fluent testnet. This repo is the control panel: the ritual terminal, board surface, canonical APIs, and operators work together so the system can collect devotion, curate placements, and someday mint MiFOIDs whose traits chronicle that participation.
 
----
+## Project summary
+1. **Ritual (Foid Mommy)** – daily prayers that produce hash receipts, streaks, and gaze-worthy oracle responses. Implemented in `src/app/pray/page.tsx` + `src/app/prayers/prayers-client.tsx` via the client-side `FoidMommyTerminal`, and powered by `src/app/api/foid-mommy/route.ts` (OpenAI prayer voice) plus the `PrayerRegistry`/`PrayerMirror` contracts (hash storage + snapshot reads).
+2. **Culture curation (Loreboard)** – permissionless placements, voting, and deterministic epoch manifests. The board UI lives in `src/app/board/page.tsx` with helpers in `state/board.ts`, `lib/grid.ts`, `lib/boardSpace.ts`, and the `PlacementCard`/`PlacementModal` components, while the Next.js APIs (`/api/proposals`, `/api/propose`, `/api/vote`, `/api/status`, `/api/manifest`, etc.) hide RPC complexity from the UI.
+3. **Identity/web of provenance (MiFOIDs + FOID20s)** – future NFTs whose traits use ritual and loreboard signals. The `LaunchpadForm` component plus `src/app/api/vanity-deploy/route.ts` already grind deterministic `…f01d` addresses, so the infrastructure to mint season-zero identity NFTs is in place.
 
-## table of contents
+The control panel purposefully splits trust boundaries:
+* **Permissionless participation** – proposing (`writeProposePlacement` + `/api/propose`), voting (`/api/vote` + VotingV2 reads), and manifest reads (`/api/status`, `/api/manifest`) are open to anyone with a wallet.
+* **Guarded settlement** – treasury finalization, manifest anchoring, and worker decisions require operator keys/owners, preventing griefing or double-finalization.
+* **Deterministic compute** – winner selection leans on gblend/Rust+WASM helpers (`scripts/loreboardVM-call.ts`, `lib/winnerSelection.ts`) so contracts and the worker agree on placement order.
 
-1. [tech stack](#tech-stack)
-2. [requirements](#requirements)
-3. [quick start](#quick-start)
-4. [environment variables](#environment-variables)
-5. [available scripts](#available-scripts)
-6. [how it works (3 steps)](#how-it-works-3-steps)
-7. [blended execution + loreboardvm](#blended-execution--loreboardvm)
-8. [value props (benefit → proof)](#value-props-benefit--proof)
-9. [positioning (partners / investors)](#positioning-partners--investors)
-10. [objection crushers (mini-faq)](#objection-crushers-mini-faq)
-11. [social blurbs (high-conversion)](#social-blurbs-high-conversion)
-12. [feature tour](#feature-tour)
-    - [global chrome](#global-chrome)
-    - [landing dashboard `/`](#landing-dashboard-)
-    - [foid mommy terminal](#foid-mommy-terminal)
-    - [wfoid control panel `/wfoid`](#wfoid-control-panel-wfoid)
-    - [weth wrapper `/weth`](#weth-wrapper-weth)
-    - [foid factory + vanity grind `/foidfactory`](#foid-factory--vanity-grind-foidfactory)
-    - [foidswap router `/foidswap`](#foidswap-router-foidswap)
-    - [single pair amm inspector `/amm`](#single-pair-amm-inspector-amm)
-13. [daily prayer → transaction flow](#daily-prayer--transaction-flow)
-14. [folder structure](#folder-structure)
-15. [troubleshooting](#troubleshooting)
+## Key components
 
----
+### 1. Foid Mommy (ritual loop)
+- **Client**: `FoidMommyTerminal` (`src/app/(components)/FoidMommyTerminal.tsx`) types feelings, animates chat, and dispatches `PrayerRegistry.checkIn` writes via `wagmi` hooks in `src/app/pray/page.tsx`.
+- **AI companion**: `src/app/api/foid-mommy/route.ts` sends the mood + text to `gpt-4o-mini` so the returned prayer feels like a gentle oracle before the hashed receipt is minted.
+- **State**: streak/next-allowed stats arrive from `PrayerMirror.get` via the hooks in `src/app/pray/page.tsx`, and the terminal celebrates success with `toast`, `sfx`, and `typingClicks`.
 
-## tech stack
+### 2. Loreboard (culture canvas)
+- **Board UI**: `src/app/board/page.tsx` is a zoomable canvas that wires `useBoard` (`state/board.ts`), `grid` math, and `boardSpace` helpers to translate between `x,y,w,h` and contract rectangles.
+- **Placements**: `PlacementCard`, `PlacementModal`, `TerminalChat`, and `CompactMusicPlayer` components display IPFS-backed visuals, chat-style status, and energy-sending UI.
+- **API surface**: `/api/proposals`, `/api/propose`, `/api/vote`, `/api/manifest`, `/api/status`, `/api/cid-by-id`, `/api/mempool`, `/api/ipfs-upload` and their helpers in `src/lib/api.ts` keep the DOM client from speaking directly to Fluent RPC.
+- **Contract writes**: `writeProposePlacement` in `src/lib/viem.ts` targets `LoreboardBoardV2`, encodes placement geometry + CID bytes, and handles the escrow value math that mirrors on-chain invariants.
 
-- **Next.js 14 (App Router)** + **React 18**
-- **TypeScript** with strict mode
-- **Tailwind CSS** + custom dreamcore utility classes
-- **wagmi v2** + **viem** for EVM interaction
-- **RainbowKit** for wallet onboarding
-- **shadcn/ui** building blocks
-- **Three.js/WebGL + Canvas** for the animated caustic background
+### 3. MiFOIDs / FOID20 tooling (identity layer)
+- **FOID20 launchpad**: `src/components/LaunchpadForm.tsx` lets you mint FOID20 tokens with max supply caps and vanity salts, and `src/app/api/vanity-deploy/route.ts` grinds salts until addresses end with `f01d`. These signals feed future MiFOID mint rules.
+- **Signal plumbing**: `state/board.ts` and the board hooks (`usePlacementVotes`, `useVoteOnPlacement`) keep analytic data ready for trait calculations that will eventually inform MiFOID metadata.
 
----
+## On-chain architecture
 
-## requirements
-
-- Node.js **18.17+** or **20+**
-- npm **9+**
-- An EVM wallet (RainbowKit compatible) with access to **Fluent Testnet (chain ID 20994)**
-- Contract deployments for Wrapped FOID, registry, AMM pair(s), WETH9, and vanity factory
-
----
-
-## quick start
-
-```bash
-# 1. Install dependencies
-npm install
-
-# 2. Configure environment variables
-cp .env.local.example .env.local
-# edit values to match your deployments
-
-# 3. Start the dev server
-npm run dev
-
-# 4. Open the app
-open http://localhost:3000
-```
-
-RainbowKit will prompt you to add/switch to Fluent Testnet the first time you connect.
-
----
-
-## environment variables
-
-| Variable | Description | Required |
-| --- | --- | --- |
-| `NEXT_PUBLIC_RPC` | HTTPS RPC endpoint for Fluent Testnet | ✅ |
-| `NEXT_PUBLIC_RPC_URL` | Legacy alias for RPC (back-compat) | ⛭ |
-| `NEXT_PUBLIC_CHAIN_ID` | Numeric chain ID (default `20994`) | ✅ |
-| `NEXT_PUBLIC_CHAIN_NAME` | Friendly network label | ⛭ |
-| `NEXT_PUBLIC_BLOCK_EXPLORER` | Explorer base URL (no trailing slash) | ✅ |
-| `NEXT_PUBLIC_IPFS_GATEWAY_BASE` | Preferred IPFS gateway prefix for CID rendering | ⛭ |
-| `NEXT_PUBLIC_BOARD_PASSWORD` | Optional password gate for `/board` (leave blank to disable) | ⛭ |
-| `NEXT_PUBLIC_WFOID` / `NEXT_PUBLIC_TOKEN0` | Wrapped FOID address | ✅ |
-| `NEXT_PUBLIC_REGISTRY` | Attestor registry contract | ✅ |
-| `NEXT_PUBLIC_ROUTER` | Uniswap-style router for `/foidswap` | ✅ |
-| `NEXT_PUBLIC_FACTORY` | Pair factory (swap) + fallback for vanity | ✅ |
-| `NEXT_PUBLIC_PAIR` | Existing pair to seed swap UI | ⛭ |
-| `NEXT_PUBLIC_AMM` | Simple AMM contract for `/amm` | ⛭ (defaults provided) |
-| `NEXT_PUBLIC_TOKEN_A` / `NEXT_PUBLIC_TOKEN_B` | Tokens shown in swap UI | ✅ |
-| `NEXT_PUBLIC_TOKEN0_NAME`, `NEXT_PUBLIC_TOKEN0_SYMBOL` | Metadata overrides | ⛭ |
-| `NEXT_PUBLIC_TOKEN1_NAME`, `NEXT_PUBLIC_TOKEN1_SYMBOL` | Metadata overrides | ⛭ |
-| `NEXT_PUBLIC_WETH` | WETH9 contract for wrapper page | ⛭ (fallback baked in) |
-| `NEXT_PUBLIC_FOID_FACTORY` | Vanity deploy factory (CREATE2) | ✅ |
-| `NEXT_PUBLIC_LOREBOARD_VM_ADDRESS` | Loreboard VM wrapper address for blended winner selection | ⛭ |
-| `NEXT_PUBLIC_FLUENT_SCAN_BASE` | Explorer base for vanity links | ⛭ |
-| `NEXT_PUBLIC_BLOCKSCOUT_API` | REST endpoint powering swap history | ⛭ |
-
-> Optional fields hide their UI blocks if absent.
-
----
-
-## available scripts
-
-| Command | Purpose |
+| Layer | Files & Notes |
 | --- | --- |
-| `npm run dev` | Start Next.js dev server with hot reload |
-| `npm run build` | Create a production build (used in CI) |
-| `npm start` | Serve the compiled build (`.next/standalone`) |
-| `npm run lint` | Run ESLint rules |
+| **LoreboardBoardV2 (Board entrypoint)** | `src/lib/viem.ts`, `src/app/api/propose/route.ts`, `scripts/e2e-step3-boardv1.ts` – validates geometry, computes placement IDs, enforces escrow value, stores `cidOf`, and emits `PlacementProposed` for the worker’s log scan. |
+| **LoreboardVotingV2** | `src/lib/contracts/loreboard.ts` + canonical address guard in `src/config/canonical.ts` – tracks vote windows, quorum/majority checks, and the `boardAdmin` field (currently Board contract). |
+| **LoreBoardTreasury** | `src/app/api/operator/finalize/route.ts`, `scripts/loreboard-worker.ts` – holds escrow, enforces base fee per cell, finalizes epochs, refunds rejects, and emits `Finalized` logs that `manifestStore` and clients consume. |
+| **LoreBoardManifestStore** | `src/lib/manifestStore.ts`, `src/app/api/status/route.ts`, `src/app/api/manifest/route.ts` – anchors `epoch → (manifestRoot, manifestCID)` and surfaces the “latest” pointer without re-scanning logs. |
 
----
+All read/write code continually asserts the Fluent canonical addresses (`src/config/canonical.ts`) via `requireCanonicalAddress`, so misconfigured deployments fail fast.
 
-## smoke test
+## Automation & operators
 
-```bash
-pnpm smoke:board
-```
+- **Worker**: `scripts/loreboard-worker.ts` scans `DeploymentBlock`-bounded logs (chunked to avoid Fluent’s 100k block limit), checks `voteEndsAt`, `isPending`, and VotingV2 tallies, sorts deterministic manifests, uploads to IPFS (`lib/ipfs.ts`), and calls Treasury.finalizeEpoch + ManifestStore.anchor (+ optional VotingV2.setEpochFinalized). `scripts/lib/workerConfig.ts` centralizes RPC, operator keys, and canonical addresses for all worker helpers.
+- **Operator API**: `/api/operator/finalize` (`src/app/api/operator/finalize/route.ts`) reuses the worker’s logic so the UI can inspect readiness or manually replay finalization when operators are near the terminal.
+- **Deterministic compute**: `scripts/loreboardVM-call.ts` + `lib/winnerSelection.ts` show how gblend/Rust+WASM selection can plug into the worker, letting the async pipeline fall back to JS overlap checks when necessary.
+- **Supporting scripts**: `scripts/loreboard-diagnose.ts`, `scripts/finalizeEpoch.ts`, `scripts/verify-latest-manifest.ts`, `scripts/dumpManifest.ts`, `scripts/smoke-board-flow.ts` provide diagnostics, smoke-tests, and manifest audits.
 
-Required env vars:
-- `NEXT_PUBLIC_FLUENT_RPC` or `FLUENT_RPC_URL`
-- `OPERATOR_PK`
-- `TREASURY_ADDRESS`
-- `NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS`
-- `NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS`
+## Trust model
 
----
+* **Permissionless surfaces** – Board propose + Voting vote + manifest reads are open. Anyone can submit placements, vote, and watch where the board settles because the Next APIs wrap those RPC invocations.
+* **Guarded settlement** – Treasury.finalizeEpoch and ManifestStore.anchor live in operator-owned code paths (see `src/app/api/operator/finalize/route.ts`), so only an operator key can release funds, anchor manifests, or mark epochs as canonical.
+* **BoardAdmin decision** – VotingV2’s `boardAdmin` is set to the Board contract address (captured by `src/config/contracts.ts`). If you want a permissionless relayer later, add a Board relay method (e.g., `finalizeVotingEpoch`) or switch the admin to a multisig/EOA.
 
-## loreboard epoch worker
+## System flows
 
-Required env vars (finalize):
-- `NEXT_PUBLIC_FLUENT_RPC` or `FLUENT_RPC_URL`
-- `NEXT_PUBLIC_LOREBOARD_ADDRESS` (treasury)
-- `NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS` or `LOREBOARD_BOARD_ADDRESS`
-- `NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS` or `LOREBOARD_VOTING_ADDRESS`
-- `NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS`
-- `OPERATOR_KEY` (real finalize only)
+1. **Proposal**: Client `writeProposePlacement` → Board contract (via `src/lib/viem.ts`) → `PlacementProposed` → Treasury escrow + Voting registration. (`Propose` API ensures geometry/tip invariants before RPC.)  
+2. **Voting**: Voters hit `/api/vote` (which keeps off the RPC path), VotingV2 tallies yes/no weights, and hooks (`usePlacementVotes`) surface quorum/majority to the UI.  
+3. **Settlement**: Worker (`scripts/loreboard-worker.ts`) discovers placements, applies `meetsQuorum`/`passesMajority51`, builds deterministic manifest (optionally via gblend), uploads to IPFS, and calls Treasury/ManifestStore (+ optional Voting finalization).  
+4. **Rendering**: Clients call `/api/status` → `latestManifestCID`, fetch IPFS JSON, and render placements through `PlacementCard` on the canonical board canvas.
 
-Optional env vars:
-- `LOREBOARD_VOTING_ADMIN_PRIVATE_KEY` (for `setEpochFinalized`)
-- `DEPLOY_BLOCK` (preferred log scan start)
-- `LOOKBACK_BLOCKS` (clamped to `<=100000` when `DEPLOY_BLOCK` not set)
-- `EPOCH` (override target epoch)
-- `DRY_RUN=1`
+## Vision
 
-Commands:
-
-```bash
-pnpm -C foid_fun typecheck
-pnpm -C foid_fun e2e:board
-DRY_RUN=1 LOOKBACK_BLOCKS=100000 pnpm -C foid_fun worker:finalize -- 429
-```
-
----
-
-## how it works (3 steps)
-
-1. **pray with foid mommy** — log a fast, private on-chain check-in (streak + mood recorded).
-2. **mint** — create a foid20 in the factory in seconds.
-3. **swap & evolve** — trade on foid swap; your activity and streak shape your future mifoid.
-
----
-
-## blended execution + loreboardvm
-
-fluent supports **blended execution**: solidity contracts can call into rust/wasm modules in the same on-chain runtime. foid.fun uses this for the **loreboardvm**, a rust wasm engine that deterministically picks loreboard placements.
-
-- **what it does**: sorts candidate placements by bid-per-cell, then accepts non-overlapping rectangles against both the base board and newly accepted winners.
-- **how it's wired**: a thin solidity wrapper exposes `selectWinners(...)` for the wasm vm; the operator finalize flow calls it when `NEXT_PUBLIC_LOREBOARD_VM_ADDRESS` is set, otherwise it falls back to the js overlap checks.
-- **why it matters**: heavy selection logic runs on-chain with the same rules as the ui, giving a verifiable winner set.
-
----
-
-## value props (benefit → proof)
-
-| Benefit | Proof |
-| --- | --- |
-| ritual first | streak + mood change outcomes (your mifoid traits aren’t random) |
-| create fast | one-click foid20 minting; no setup, no code |
-| liquid by default | swap immediately on foid swap |
-| private by design | encrypted daily check-ins, verifiable on chain |
-| progression you feel | daily actions → different mifoid types |
-
----
-
-## positioning (partners / investors)
-
-for crypto-native users who want speed, play, and real on-chain state, foid.fun is a ritual game layer: a daily, encrypted check-in that powers instant token creation and swapping, culminating in mifoids whose traits are programmatically shaped by participation.
-
----
-
-## objection crushers (mini-faq)
-
-- **why daily?** because your presence is the game: streaks + mood are inputs to your mifoid.
-- **why on chain?** permanence and provability—your ritual has receipts.
-- **what do i get now?** immediate minting (foid20), instant trading (foid swap), and tangible progression toward your mifoid.
-
----
-
-## social blurbs (high-conversion)
-
-- the game already started. pray today, mint soon—your streak decides your mifoid. `foid.fun`
-- your ritual mints your avatar. encrypted check-ins → different mifoid traits. `foid.fun`
-- pray. mint. swap. evolve your mifoid. `foid.fun`
-
----
-
-## faq
-
-### getting started
-
-- **what is foid.fun?**  
-  a ritual-driven on-chain game. you check in daily (“pray with foid mommy”), mint foid20 tokens, swap them, and eventually mint a mifoid whose traits are shaped by how you showed up.
-
-- **how do i start?**  
-  connect an evm wallet → hit `pray with mommy` → your encrypted check-in records streak + mood → mint a foid20 in the factory → trade on foid swap.
-
-- **which wallets work?**  
-  most evm wallets (we test with metamask and rabby). make sure you’re on fluent testnet.
-
-- **is this mainnet?**  
-  no—alpha on fluent testnet. tokens here have no financial value. it’s a live prototype of the game loop.
-
-### mifoids & progression
-
-- **what is a mifoid?**  
-  your on-chain avatar. its traits are influenced by your streak, mood tags, and in-app actions (e.g., minting, swapping).
-
-- **how do traits get decided?**  
-  inputs include: consecutive days checked-in, variability of moods, and activity across factory/swap. exact trait mapping will be published at mint time to keep it fair and auditable.
-
-- **what happens if i miss a day?**  
-  your streak resets, but your lifetime score remains. showing up again rebuilds momentum.
-
-- **when can i mint my mifoid?**  
-  season 1 is coming soon—your current check-ins already count. the dashboard will show a countdown + eligibility.
-
-- **can i game it by spamming wallets?**  
-  one streak per address. anti-abuse checks run at mint time; consistent participation beats churn.
-
-### privacy & security
-
-- **is my prayer private?**  
-  yes. the text you submit is encrypted client-side before it’s sent; the chain stores ciphertext/hashed data—not plain text. you can verify on the explorer that only encoded bytes are saved.
-
-- **can i edit or delete a prayer?**  
-  no. on-chain records are immutable. if you make a mistake, submit a new check-in next day.
-
-- **do you ask for unlimited approvals?**  
-  we request the minimum approvals needed for minting/swaps. always review prompts before you sign.
-
-- **are the contracts open + verifiable?**  
-  yes. see the contracts page for addresses and explorers.
-
-### tokens & dapps
-
-- **what is wfoid?**  
-  the site’s native helper token—a dev tool with a simple ui so you can interact with the contract (read/write, allowances). it’s for demos and testing.
-
-- **what is weth here?**  
-  wrap/un-wrap eth ↔ weth directly on the page so you can trade on foid swap and provide liquidity.
-
-- **what is foid swap?**  
-  a clean uniswap v2 fork on fluent. pick tokens, set slippage, swap. it shows route, min received, and fees.
-
-- **what is foidfactory?**  
-  a one-click foid20 token minter. every token deployed via the site has a vanity contract ending in `f01d` / `F01d` (we use deterministic deployment to guarantee the suffix).
-
-### fluent network
-
-- **why fluent?**  
-  speed, low fees, dev-friendly ux—perfect for daily rituals with verifiable on-chain state.
-
-- **how do i add fluent testnet?**  
-  click “add network” in your wallet or follow our why fluent page instructions (rpc, chain id, explorer, faucet).
-
-- **gas fees?**  
-  testnet gas is minimal; use the faucet to fund your wallet. swaps/mints/check-ins are designed to be lightweight.
-
-### troubleshooting
-
-- **my wallet won’t connect.**  
-  refresh, switch networks, or re-enable the site in your wallet. if that fails, clear cache and reconnect.
-
-- **tx failed / stuck pending.**  
-  check you’re on fluent testnet, have testnet gas, and your slippage isn’t too tight. try again with a fresh nonce if your wallet allows.
-
-- **my streak didn’t update.**  
-  streaks roll over at 00:00 utc by default. if you checked in near reset, it may apply to the next day. the dashboard shows your latest recorded day.
-
-- **i minted a foid20—now what?**  
-  view it on the explorer, then create a pool or trade it on foid swap. share the address (ending in `f01d` / `F01d`) so friends can find it.
-
-### safety & disclaimers
-
-- alpha software on testnet; tokens have no financial value.
-- always verify contract addresses on the contracts page.
-- never sign transactions you don’t understand.
-
----
-
-## feature tour
-
-### global chrome
-
-- **AnimatedBackground**: full-screen WebGL caustics + 2D bubble/glitter canvas with `prefers-reduced-motion` support.
-- **Scene tint & glass panels**: `foid-glass` utility gives aqua-glass cards, high-contrast outlines, and bloom.
-- **Navigation**: desktop pill menu + mobile drawer. Active route uses gradient chip.
-- **ConnectBar**: dual-CTA bar with Fluent explorer link and RainbowKit connect button styled to match the theme.
-- **NetworkGate**: wraps each feature page; blocks interaction until the wallet is on Fluent Testnet and provides switch prompts.
-
-### landing dashboard `/`
-
-your ritual mints your avatar. chat with foid mommy, log an encrypted daily check-in, and watch your on-chain score + streak climb. jump into the dapps (factory, swap, weth, wfoid), read why fluent, browse contracts, and hit the faq.
-
-- pray daily → streak + mood feed your future mifoid
-- see live on-chain score, streak, and last check-in
-- quick launch to all dapps
-- learn the stack: why fluent, what we deployed, how it works
-
-**cta:** `pray with mommy →` • alt: `open dapps →`
-
-### foid mommy terminal
-
-- **Stage 1 – Feeling selection**: type how you feel or tap a mood chip. Keyword detection maps to emotion decks.
-- **Stage 2 – Mommy response**: warm reflection + absurd-poetic prayer + prompt: `sweet one, whisper your own prayer back, and let's share it with god.`
-- **Stage 3 – Prayer entry**: textarea prefilled with `dear god...` for 1–3 sentence entries.
-- **Stage 4 – Encryption & tx prompt**: terminal “seals” the message, then requests blockchain confirmation.
-- **Stage 5 – Transaction**: if successful, the terminal marks the streak, thanks you, and shows cooldown.
-
-Fail-safes: crisis keyword override for safety, `prefers-reduced-motion` handling, and cooldown messaging to enforce once-per-period rituals.
-
-### wfoid control panel `/wfoid`
-
-wfoid is the native helper token. right now it’s a dev tool with a clean ui to interact with the contract.
-
-- inspect balances & allowances
-- run simple read/write calls to understand the contract flow
-- built for testing + demos (not financial advice)
-
-**cta:** `open wfoid tools →`
-
-### weth wrapper `/weth`
-
-wrap eth to trade. convert native eth ↔ weth directly on the page so you can use foid swap and lp pools.
-
-- connect wallet, enter amount, wrap/un-wrap in seconds
-- see live balance + tx receipts
-- one click to jump into swap with your new weth
-
-**cta:** `wrap eth →`
-
-### foid factory + vanity grind `/foidfactory`
-
-mint a foid20 in seconds. no code, no hassle—deploy a token with a vanity suffix.
-
-- set name, symbol, supply → deploy
-- every token minted here ends with `f01d` / `F01d`
-- optional: jump to foid swap to create a pool and trade
-
-### foidswap router `/foidswap`
-
-swap any token on fluent. a clean uniswap v2 fork ui with fast routes and instant feedback.
-
-- pick tokens, set slippage, review route, swap
-- shows price impact, min received, and fees
-- designed for speed and clarity; works great with foid20s
-
-**cta:** `open swap →`
-
-### single pair amm inspector `/amm`
-
-advanced tooling for the simple amm contract supplied in the repo.
-
-- displays reserves, lp token supply, and price impact calculations
-- provides swap simulation, mint/burn lp, and decoded events (Sync/Mint/Burn/Swap)
-- useful for debugging test deployments when you want to see raw on-chain data
-
---- 
-
-## daily prayer → transaction flow
-
-1. connect wallet from the top navigation.
-2. tell mommy how you feel. the system chooses an emotion deck using keyword heuristics.
-3. receive mirror + poetic prayer generated from the deck.
-4. respond with your own prayer in the textarea (prefilled `dear god...`).
-5. the app encrypts and “seals” your prayer, then asks for wallet confirmation.
-6. sign the transaction; once mined, the UI acknowledges anchoring and presents hydration/breathing reminders.
-7. cooldown messaging prevents duplicate submissions.
-
----
-
-## folder structure
-
-```
-foid_fun/
-├── README.md                # you're reading it
-├── public/                  # static assets (noise textures, icons)
-├── src/
-│   ├── app/
-│   │   ├── (components)/    # shared UI + feature modules
-│   │   ├── api/vanity-deploy/route.ts  # CREATE2 helper endpoint
-│   │   ├── foidfactory/     # vanity launchpad page
-│   │   ├── foidswap/        # swap/liquidity dashboard
-│   │   ├── wFOID/           # token management page
-│   │   ├── wETH/            # wrap/unwrap interface
-│   │   ├── amm/             # AMM inspector
-│   │   └── page.tsx         # landing dashboard
-│   ├── abis/                # contract ABIs consumed by viem
-│   ├── components/          # reusable primitives (ConnectBar, TxButton, StatCard…)
-│   ├── lib/contracts.ts     # contract addresses + helper exports
-│   └── providers.tsx        # wagmi + RainbowKit providers
-├── tailwind.config.js       # design tokens
-└── postcss.config.js
-```
-
----
-
-## troubleshooting
-
-- **wallet stuck on wrong network**: the NetworkGate banner includes a one-click “switch to fluent testnet” button; ensure your wallet supports dynamic network switching.
-- **vanity grind never finishes**: confirm `NEXT_PUBLIC_FOID_FACTORY` is set and the factory bytecode is available. the API iterates until it finds a salt; large supply numbers require more iterations but finish quickly.
-- **missing configuration warning on swap**: verify `NEXT_PUBLIC_ROUTER`, `NEXT_PUBLIC_FACTORY`, `NEXT_PUBLIC_TOKEN_A`, and `NEXT_PUBLIC_TOKEN_B`. the UI hides controls until all required contracts are valid addresses.
-- **build warning about `pino-pretty`**: optional dependency used by WalletConnect logger; safe to ignore as noted by Next.js.
-- **high motion sensitivity**: the animated background respects `prefers-reduced-motion`. enable the os-level setting to disable animation.
-
----
-
-nurture your token garden, grind that `…f01d` vanity deploy, and send a prayer every time you drop new on-chain magic. dream on. ✨
+This repo is the “control panel” for FOID Foundation’s promise: keep ritual accessible, culture curation transparent, and identity traceable. Each component—from `FoidMommyTerminal`’s soft AI prayers to the Worker’s chunked log scans—serves that threading. The README’s wiring above matches the current files, so when you update the rituals, Loreboard rules, or identity mint plans, align the narrative here too.

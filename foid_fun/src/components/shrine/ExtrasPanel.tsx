@@ -9,12 +9,10 @@ interface ExtrasPanelProps {
 }
 
 const EXTRAS_LINKS = [
-  { href: "/foidswap", label: "FoidSwap", description: "Trade tokens" },
-  { href: "/foidfactory", label: "FoidFactory", description: "Create tokens" },
-  { href: "/wFOID", label: "wFOID", description: "Wrap native FOID" },
-  { href: "/wETH", label: "wETH", description: "Wrap ETH" },
-  { href: "/amm", label: "AMM Inspector", description: "Debug AMM" },
-  { href: "/about", label: "About", description: "Learn more" },
+  { href: "/", label: "Dashboard", description: "Launcher + music" },
+  { href: "/pray", label: "Prayer Terminal", description: "Daily ritual" },
+  { href: "/board", label: "Loreboard", description: "Culture canvas" },
+  { href: "/about", label: "About", description: "Project notes" },
   {
     href: "https://github.com/traplordmoses/foiddotfun",
     label: "GitHub",

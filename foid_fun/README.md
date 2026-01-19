@@ -1,16 +1,14 @@
 # foid.fun control panel
 
-foid.fun is a ritual-driven on-chain game and tooling hub on Fluent testnet. The app combines a daily encrypted check-in flow ("pray with foid mommy") with token creation, swaps, and supporting dapp tools. Your streak and activity feed into the evolution of a future on-chain avatar (mifoid), while the rest of the UI makes it fast to mint, trade, and inspect contracts.
+foid.fun is a ritual-driven on-chain game and tooling hub on Fluent testnet. The app pairs a daily encrypted check-in flow ("pray with foid mommy") with the loreboard canvas and canonical APIs. Your streak and activity feed a living manifest that will shape future MiFOID avatars, while the UI keeps the ritual loop fast and expressive.
 
 ## What this project includes
 
-- **Daily ritual terminal** to submit an encrypted check-in and track streaks.
-- **Foid factory** to mint a new foid20 token with a vanity suffix.
-- **Foid swap** to trade tokens and manage liquidity.
-- **wFOID and wETH tools** for wrapping, balances, allowances, and basic admin actions.
-- **Bridge router UI** to burn for redemption and mint from attestations.
-- **AMM inspector** for debugging a single-pair AMM contract.
-- **Board/Loreboard pages** for on-chain voting and manifest verification flows.
+- **Daily ritual terminal** to submit an encrypted check-in and track streaks + mood.
+- **Loreboard canvas** for placements, voting, and manifest verification each epoch.
+- **MiFOID identity signaling** where prayers and board data feed the provenance of future avatars.
+- **API surface** (`/api/propose`, `/api/vote`, `/api/status`, `/api/manifest`, `/api/operator/finalize`, etc.) that keeps the UI off the raw RPC path.
+- **Worker + operator scripts** that finalize epochs, upload manifests to IPFS, and optionally sync loreboard NFTs.
 
 ## Tech stack
 
@@ -53,15 +51,20 @@ Verify:
 
 ## Environment variables
 
-This app is contract-address driven. See `.env.local.example` for the full list. The minimum set for most pages is:
+This app is contract-address driven. See `.env.local.example` for the full list. The minimum set for the ritual + loreboard experience is:
 
 - `NEXT_PUBLIC_RPC` and `NEXT_PUBLIC_CHAIN_ID`
 - `NEXT_PUBLIC_BLOCK_EXPLORER`
-- `NEXT_PUBLIC_FACTORY`, `NEXT_PUBLIC_ROUTER`
-- `NEXT_PUBLIC_TOKEN_A`, `NEXT_PUBLIC_TOKEN_B`
-- `NEXT_PUBLIC_WFOID`, `NEXT_PUBLIC_REGISTRY`, `NEXT_PUBLIC_BRIDGE`
+- `NEXT_PUBLIC_LOREBOARD_ADDRESS`
+- `NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS` (or `LOREBOARD_BOARD_ADDRESS`)
+- `NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS` (or `LOREBOARD_VOTING_ADDRESS`)
+- `NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS`
+- `NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK`
+- `OPERATOR_KEY` or `OPERATOR_PK`
+- `WEB3_STORAGE_TOKEN` or `PINATA_JWT` (for IPFS uploads)
+- `LOREBOARD_NFT` (optional, live NFT sync)
 
-Optional features (board/loreboard, AMM inspector, vanity factory, etc.) appear only when their related vars are configured.
+Legacy variables that powered the retired swap/factory tooling (like `NEXT_PUBLIC_FACTORY`, `NEXT_PUBLIC_ROUTER`, `NEXT_PUBLIC_TOKEN_A/B`, `NEXT_PUBLIC_WFOID`, and `NEXT_PUBLIC_REGISTRY`) remain in `.env.local.example` for historical reference but are not needed by the core ritual + loreboard loop.
 
 ## Scripts
 
