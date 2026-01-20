@@ -260,14 +260,16 @@ export default function PrayPage() {
     : "";
 
   return (
-    <main className="relative pray-dashboard bg-transparent text-white/90">
+    <main className="pray-page relative pray-dashboard bg-transparent text-white/90">
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
-      <div className="pray-shell">
-        <div className="pray-grid">
-          <div className="vista-window vista-window--terminal w-full flex flex-col pray-panel pray-panel--main">
+      <div className="pray-page__shell">
+        <div className="pray-shell">
+          <div className="pray-grid">
+            <div className="pray-window-frame">
+              <div className="vista-window vista-window--terminal w-full flex flex-col pray-panel pray-panel--main">
           {/* Titlebar */}
           <AppTitlebar
-            title="FOID_MOMMY_PRAY.EXE"
+            title="FOID_MOMMY_TERMINAL.EXE"
             chainId={FLUENT_CHAIN_ID}
             connected={isConnected}
             address={address}
@@ -377,14 +379,78 @@ export default function PrayPage() {
           </div>
         </div>
       </div>
+    </div>
+  </div>
 
       {/* Enhanced styles */}
       <style jsx>{`
         :global(.pray-dashboard) { background: transparent !important; }
+        .pray-page {
+          position: fixed;
+          inset: 0;
+          min-height: 100vh;
+          height: 100vh;
+          background: transparent;
+          overflow: hidden;
+          z-index: 0;
+        }
+        .pray-page__shell {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-start;
+          min-height: 100vh;
+          padding: clamp(12px, 3vw, 24px);
+          position: relative;
+          width: 100%;
+          z-index: 1;
+        }
+        .pray-window-frame {
+          width: min(1800px, calc(100vw - clamp(24px, 4vw, 40px)));
+          height: min(1050px, calc(100vh - clamp(24px, 4vw, 40px)));
+          max-width: 100%;
+          max-height: 100%;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+        }
+        .pray-window-frame > .vista-window {
+          border: none !important;
+          box-shadow: none !important;
+          width: 100%;
+          height: 100%;
+          background: rgba(6, 10, 18, 0.8);
+        }
+        .pray-window-frame .vista-window__body {
+          background:
+            linear-gradient(
+              to right,
+              rgba(140, 235, 255, 0.07) 1px,
+              transparent 1px
+            ),
+            linear-gradient(
+              to bottom,
+              rgba(140, 235, 255, 0.07) 1px,
+              transparent 1px
+            ),
+            linear-gradient(
+              180deg,
+              rgba(92, 191, 232, 0.16) 0%,
+              rgba(8, 18, 30, 0.6) 55%,
+              rgba(5, 10, 22, 0.9) 100%
+            ),
+            linear-gradient(
+              180deg,
+              rgba(255, 255, 255, 0.05) 0%,
+              rgba(255, 255, 255, 0) 65%
+            );
+          box-shadow: none;
+        }
         :global(.vignette) {
           background-color: transparent !important;
-          background-image: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.55) 100%) !important;
-          opacity: 0.85;
+          background-image: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.35) 100%) !important;
+          opacity: 0.55;
         }
         
         /* Terminal pane */
@@ -404,7 +470,7 @@ export default function PrayPage() {
           inset: 0;
           border-radius: 12px;
           padding: 1px;
-          background: linear-gradient(135deg, rgba(0,255,213,0.3) 0%, rgba(0,180,200,0.1) 25%, rgba(0,255,255,0.15) 50%, rgba(0,180,200,0.1) 75%, rgba(0,255,213,0.3) 100%);
+          background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(255, 255, 255, 0.02) 60%, rgba(255, 255, 255, 0.08) 100%);
           -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
           -webkit-mask-composite: xor;
           mask-composite: exclude;

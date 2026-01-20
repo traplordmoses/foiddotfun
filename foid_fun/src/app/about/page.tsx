@@ -1,345 +1,377 @@
-"use client";
+ "use client";
 
-import Link from "next/link";
 import { useCallback, useState } from "react";
-import { toast } from "react-hot-toast";
-import { CONTRACT_ADDRESSES, NETWORK_DETAILS } from "../(components)/contracts";
+import AppTitlebar from "@/app/(components)/AppTitlebar";
+import Y2kGlassButton from "@/components/Y2kGlassButton";
+import { useAccount, useChainId, useConnect, useDisconnect } from "wagmi";
 
-const appTiles = [
-  {
-    href: "/pray",
-    title: "prayer terminal",
-    body: "tell foid mommy how you feel, anchor the hash on-chain, and track streak + mood receipts.",
-  },
-  {
-    href: "/board",
-    title: "loreboard canvas",
-    body: "drop placements, vote, and watch deterministic manifests lock in the culture.",
-  },
-  {
-    href: "/about#mifoid",
-    title: "MiFOID identity",
-    body: "signals from the ritual terminal and loreboard will shape the traits of the future MiFOID avatars.",
-  },
-] as const;
+const bubbleConfigs = [
+  { top: "6%", left: "10%", size: 220, duration: "32s", delay: "-4s" },
+  { top: "18%", left: "72%", size: 160, duration: "28s", delay: "-9s" },
+  { top: "48%", left: "8%", size: 260, duration: "34s", delay: "-3s" },
+  { top: "62%", left: "70%", size: 180, duration: "30s", delay: "-7s" },
+  { top: "36%", left: "46%", size: 240, duration: "33s", delay: "-11s" },
+  { top: "82%", left: "32%", size: 150, duration: "26s", delay: "-2s" },
+];
 
-const valueProps = [
-  {
-    title: "blended execution (evm + wasm + svm)",
-    body: "fluent lets contracts from different VMs interoperate on one chain, on shared state--no bridges. solidity and rust can call each other inside one app, enabling simpler architectures and new design space.",
-  },
-  {
-    title: "zk-powered l2 security",
-    body: "fluent is an ethereum l2 with a zkvm for verifiable execution. you keep ethereum settlement security while proving execution succinctly at high throughput.",
-  },
-  {
-    title: "dev ergonomics, familiar tools",
-    body: "ship today with evm compatibility (solidity/vyper), then extend with rust/wasm when you're ready--the fluentbase sdk bridges types and shared state so both paths feel native. less friction, more composability.",
-  },
-] as const;
+const profileCTAs = [
+  { label: "OPEN LOREBOARD", href: "/board", variant: "pink" as const },
+  { label: "OPEN PRAY TERMINAL", href: "/pray", variant: "secondary" as const },
+];
 
-const faqItems = [
+type InfoCard = {
+  title: string;
+  body: string;
+  highlights?: string[];
+};
+
+const row1Cards: InfoCard[] = [
   {
-    question: "what is foid.fun?",
-    answer:
-      "a ritual-driven on-chain game that pairs daily prayers with the loreboard so the culture behind future MiFOID identities stays transparent.",
+    title: "Loreboard",
+    body: "The infinite manifest of proposals, intents, and meme museum drops. Every piece stakes placement, story, and a micro escrow before entering the epoch vote.",
+    highlights: [
+      "Intent definitions keep spam out and ritual sincerity in.",
+      "51%+ approval seals each submission into the canon.",
+    ],
   },
   {
-    question: "how do i start?",
-    answer:
-      "connect an evm wallet, hit the prayer terminal so foid mommy can hash your check-in, then watch the loreboard placements settle—consistency grows your signal for the future MiFOID.",
+    title: "Foid Mommy",
+    body: "A ritual terminal where prayers stay intimate while proofs settle on-chain. Submit, hash, and breathe — streaks and oracles nudge you back with gentle pressure.",
+    highlights: [
+      "Submit private prayers while hashing proof for the registry.",
+      "Streaks, oracle feeds, and heartfelt artifacts keep the energy active.",
+    ],
   },
   {
-    question: "which wallets work?",
-    answer: "most evm wallets (we test with metamask and rabby). make sure you’re on fluent testnet.",
+    title: "MiFOIDs",
+    body: "AI avatar tokens that evolve with every epoch. Traits unlock gating, governance cues, and secret channels as you keep showing up.",
+    highlights: [
+      "Traits track prayers, votes, and participation.",
+      "Evolutions unlock access, rituals, and new storylines.",
+    ],
+  },
+];
+
+const row2Cards: InfoCard[] = [
+  {
+    title: "Why this matters",
+    body: "Culture lives fast, but the void profile keeps it steady with prayer, lore, and votes archived on-chain. Every ritual builds proof so nothing slips into vapor.",
+    highlights: ["The canon is shared, resilient, and always available for the crew."],
   },
   {
-    question: "is this mainnet?",
-    answer:
-      "no—this is an alpha on fluent testnet. tokens here have no financial value. it’s a live prototype of the game loop.",
+    title: "Built on Fluent + Contracts",
+    body: "Fluent-native contracts lock micro-escrow, canonization gates, and private proof delivery. The stack keeps rituals verifiable without shouting into the void.",
+    highlights: [
+      "Micro-escrow keeps spam out while honoring intent.",
+      "Smart contracts anchor manifests, proofs, and staking.",
+    ],
   },
-  {
-    question: "what is a mifoid?",
-    answer:
-      "your on-chain avatar. its traits are influenced by streaks, mood tags, and activity across the ritual + loreboard surfaces.",
-  },
-  {
-    question: "how do traits get decided?",
-    answer:
-      "prayers and loreboard placements feed the worker and board hooks, so the manifest + analytics keep the signal ready for whatever mint rules land next.",
-  },
-  {
-    question: "what is the loreboard manifest?",
-    answer:
-      "every epoch the worker finalizes placements, uploads the deterministic manifest to IPFS, and `/api/status` keeps the latest CID handy for the client.",
-  },
-  {
-    question: "when can i mint my mifoid?",
-    answer:
-      "season 1 is coming soon—showing up now fills the signal pool, and the dashboard will surface the countdown + eligibility once minting opens.",
-  },
-  {
-    question: "can i game it by spamming wallets?",
-    answer:
-      "one streak per address. the worker enforces quorum/majority, so consistent participation beats churn and prevents single-wallet abuse.",
-  },
-  {
-    question: "is my prayer private?",
-    answer:
-      "yes. your prayer is hashed locally, and only the hash is anchored on-chain. the text itself never goes on-chain.",
-  },
-  {
-    question: "can i edit or delete a prayer?",
-    answer:
-      "no. on-chain records are immutable. if you make a mistake, submit a new check-in the next day.",
-  },
-  {
-    question: "do you ask for unlimited approvals?",
-    answer:
-      "we request the minimum allowances needed for the ritual writes or board votes. always read prompts before you sign.",
-  },
-  {
-    question: "are the contracts open + verifiable?",
-    answer: "yes. check the contracts section on this page for addresses and explorer links.",
-  },
-  {
-    question: "why fluent?",
-    answer:
-      "speed, low fees, and dev-friendly UX—ideal for daily rituals with verifiable on-chain state.",
-  },
-  {
-    question: "how do i add fluent testnet?",
-    answer:
-      "click “add network” when prompted or manually add: rpc https://rpc.testnet.fluent.xyz, chain id 20994, symbol ETH, explorer https://testnet.fluentscan.xyz.",
-  },
-  {
-    question: "gas fees?",
-    answer:
-      "testnet gas is minimal. use the fluent faucet to fund your wallet. rituals and board votes are designed to stay lightweight.",
-  },
-  {
-    question: "my wallet won’t connect.",
-    answer:
-      "refresh the page, switch networks, or re-enable the site in your wallet. if that fails, clear cache and reconnect.",
-  },
-  {
-    question: "tx failed / stuck pending.",
-    answer:
-      "confirm you’re on fluent testnet, have testnet gas, and the base fee isn’t spiking. retries with a fresh nonce or a faster gas setting usually clears hiccups.",
-  },
-  {
-    question: "my streak didn’t update.",
-    answer:
-      "streaks roll over at 00:00 utc. if you checked in near reset, it may apply to the next day. the dashboard shows the latest recorded day.",
-  },
-  {
-    question: "how can i watch the board settle?",
-    answer:
-      "open the loreboard page to view placements and check `/api/status` for the current manifest CID; the worker scripts (`scripts/loreboard-worker.ts`) finalize epochs and archive results to IPFS.",
-  },
-  {
-    question: "safety & disclaimers?",
-    answer:
-      "alpha software on testnet—tokens have no financial value. always verify contract addresses and never sign transactions you don’t understand.",
-  },
-] as const;
+];
+
+const canonizationSteps = [
+  "Propose a piece with intent, placement, and escrow.",
+  "Vote through the epoch while sharing reflections with the crew.",
+  "Canonize the approved drop and let the manifest breathe.",
+];
+
+function InfoCard({ data }: { data: InfoCard }) {
+  return (
+    <article className="info-card">
+      <p className="info-card__title">{data.title}</p>
+      <p className="info-card__body">{data.body}</p>
+      {data.highlights && (
+        <ul className="info-card__list">
+          {data.highlights.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      )}
+    </article>
+  );
+}
+
+function CanonizationStrip({ steps }: { steps: string[] }) {
+  return (
+    <div className="canonization-strip">
+      <span className="canonization-strip__label">Canonization in 3 steps</span>
+      <div className="canonization-strip__steps">
+        {steps.map((step, index) => (
+          <span key={`${step}-${index}`}>
+            <span className="canonization-strip__index">{String(index + 1).padStart(2, "0")}</span>
+            {step}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function AboutPage() {
-  const [faqOpen, setFaqOpen] = useState<number | null>(null);
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
+  const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
 
-  const toggleFaq = useCallback((index: number) => {
-    setFaqOpen((prev) => (prev === index ? null : index));
-  }, []);
-
-  const copyToClipboard = useCallback(async (value: string, label: string) => {
-    if (typeof navigator === "undefined" || !navigator.clipboard) {
-      toast.error("Clipboard unavailable.");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success(label);
-    } catch (error: any) {
-      toast.error(error?.message ?? "Copy failed.");
-    }
-  }, []);
+  const handleSwitchWallet = useCallback(() => {
+    disconnect();
+    setTimeout(() => {
+      const preferred = connectors.find((connector) => connector.ready) ?? connectors[0];
+      if (preferred) {
+        connect({ connector: preferred });
+      }
+    }, 120);
+  }, [connect, connectors, disconnect]);
 
   return (
-    <main className="relative isolate min-h-screen pb-24 text-white/90">
-      <div className="pointer-events-none fixed inset-0 z-0 vignette" />
+    <main
+      className="relative min-h-screen w-full overflow-hidden px-4 py-8 text-white"
+      style={{ fontFamily: '"Inter", var(--font-ui)', letterSpacing: "0.01em" }}
+    >
+      <div className="absolute inset-0 pointer-events-none" aria-hidden>
+        {bubbleConfigs.map((bubble, index) => (
+          <div
+            key={`bubble-${index}`}
+            className="bubble"
+            style={{
+              top: bubble.top,
+              left: bubble.left,
+              width: bubble.size,
+              height: bubble.size,
+              animationDuration: bubble.duration,
+              animationDelay: bubble.delay,
+            }}
+          />
+        ))}
+      </div>
 
-      <div className="relative z-10 space-y-16 px-6 pt-24">
-        <section className="mx-auto max-w-5xl">
-          <div className="foid-glass rounded-3xl px-8 py-10 text-center shadow-[0_24px_80px_rgba(11,46,78,0.45)]">
-            <h1 className="text-4xl font-semibold tracking-[0.35em] text-white drop-shadow-[0_12px_30px_rgba(0,208,255,0.25)] sm:text-5xl">
-              what is foid.fun
-            </h1>
-            <p className="mx-auto mt-4 max-w-3xl text-base text-white/75 sm:text-lg">
-              foid.fun is a ritual-driven on-chain game. each day, you pray with foid mommy—a private check-in that tracks
-              streaks and mood, the loreboard listens and curates placements, and those signals will seed future MiFOID
-              avatars. the loop: show up → pray → vote → let the board carry your pulse. fast, playful, and fully
-              on-chain.
-            </p>
-          </div>
-        </section>
+      <div className="relative z-10 mx-auto w-full max-w-[1400px]">
+        <section className="vista-window vista-window--enhanced">
+          <AppTitlebar
+            title="FOID_PROFILE.EXE"
+            chainId={chainId}
+            connected={isConnected}
+            address={address}
+            isWalletDropdownOpen={walletDropdownOpen}
+            onToggleWallet={() => setWalletDropdownOpen((prev) => !prev)}
+            onDisconnect={() => disconnect()}
+            onSwitchWallet={handleSwitchWallet}
+          />
 
-        <section id="mifoid" className="mx-auto max-w-6xl">
-          <div className="foid-glass rounded-3xl p-8 text-white/90">
-            <div className="mb-6 flex flex-col gap-2">
-              <h2 className="text-sm uppercase tracking-[0.45em] text-foid-mint/75">MiFOID identity</h2>
-              <p className="text-2xl font-semibold text-white">signal pooling</p>
-            </div>
-            <p className="text-base text-white/75 sm:text-lg">
-              the ritual terminal and loreboard feed the manifest and worker logs, creating a transparent provenance trail
-              for future MiFOID avatars. each epoch&apos;s placements, streak tallies, and votes stay public so operators can
-              stitch the metadata once minting opens.
-            </p>
-            <p className="mt-3 text-sm text-white/60">
-              keep an eye on `/api/status`, the manifest CID, and `scripts/loreboard-worker.ts` to see how epochs finalize
-              before the next MiFOID drop.
-            </p>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-6xl">
-          <div className="foid-glass rounded-3xl p-8 text-white/90">
-            <div className="mb-6 flex flex-col gap-2">
-              <h2 className="text-sm uppercase tracking-[0.45em] text-foid-mint/75">launch suite</h2>
-              <p className="text-2xl font-semibold text-white">three apps, zero friction.</p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-3">
-              {appTiles.map((tile) => (
-                <Link
-                  key={tile.title}
-                  href={tile.href}
-                  className="group foid-glass flex h-full flex-col justify-between gap-4 rounded-2xl p-6 transition hover:shadow-[0_0_35px_rgba(114,225,255,0.25)]"
-                >
-                  <div className="space-y-3">
-                    <div className="flex justify-end text-xs uppercase tracking-[0.4em] text-white/55 transition group-hover:text-white/80">
-                      <span>enter -&gt;</span>
+          <div
+            className="vista-window__body flex flex-col gap-5 p-5 sm:p-6"
+            style={{
+              height: "min(760px, calc(100vh - 145px))",
+              minHeight: "0",
+            }}
+          >
+            <div className="flex flex-1 gap-5 overflow-hidden" style={{ minHeight: 0 }}>
+              <aside className="profile-column flex-shrink-0">
+                <div className="profile-panel">
+                  <div className="profile-avatar" aria-hidden="true" />
+                  <div className="space-y-1">
+                    <p className="profile-subtitle">void profile</p>
+                    <h1 className="profile-name">foid foundation</h1>
+                    <p className="profile-handle">@sloshlord</p>
+                  </div>
+                  <p className="profile-bio">
+                    On-chain culture OS for memes, rituals, and soft spirituality. We archive devotion, votes, and lore so ephemeral beauty feels eternal.
+                  </p>
+                  <div className="flex flex-col gap-4">
+                    {profileCTAs.map((cta) => (
+                      <Y2kGlassButton key={cta.label} href={cta.href} label={cta.label} variant={cta.variant} />
+                    ))}
+                    <div className="w-full max-w-[180px]">
+                      <Y2kGlassButton href="/docs" label="DOCS" variant="secondary" />
                     </div>
-                    <h3 className="text-2xl font-bold text-white drop-shadow-[0_2px_12px_rgba(0,208,255,0.18)]">
-                      {tile.title}
-                    </h3>
-                    <p className="text-sm text-white/75">{tile.body}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-6xl">
-          <div className="foid-glass rounded-3xl p-8 text-white/90">
-            <div className="mb-6 flex flex-col gap-2">
-              <h2 className="text-sm uppercase tracking-[0.45em] text-foid-mint/75">why choose fluent</h2>
-              <p className="text-2xl font-semibold text-white">three signals builders care about.</p>
-            </div>
-            <div className="grid gap-6 md:grid-cols-3">
-              {valueProps.map((prop) => (
-                <div
-                  key={prop.title}
-                  className="foid-glass flex h-full flex-col justify-between gap-4 rounded-2xl p-6 shadow-[0_0_32px_rgba(143,170,242,0.22)]"
-                >
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-semibold text-white drop-shadow-[0_2px_12px_rgba(0,208,255,0.18)]">
-                      {prop.title}
-                    </h3>
-                    <p className="text-sm text-white/75">{prop.body}</p>
-                  </div>
-                  <div className="flex items-center justify-between text-xs uppercase tracking-[0.35em] text-white/60">
-                    <Link
-                      href="https://docs.fluent.xyz"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="transition hover:text-white/85"
-                    >
-                      docs.fluent.xyz
-                    </Link>
-                    <span>+1</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
+              </aside>
 
-        <section className="mx-auto max-w-6xl">
-          <div className="foid-glass rounded-3xl p-8 text-white/90">
-            <div className="mb-6 flex flex-col gap-2">
-              <h2 className="text-sm uppercase tracking-[0.45em] text-foid-mint/75">contracts</h2>
-              <p className="text-2xl font-semibold text-white">copy, paste, ship.</p>
-            </div>
-            <ul className="space-y-4 text-white/85">
-              {CONTRACT_ADDRESSES.map((contract) => (
-                <li
-                  key={contract.label}
-                  className="foid-glass flex flex-col gap-3 rounded-2xl p-5 shadow-[0_0_30px_rgba(0,208,255,0.16)] sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold uppercase tracking-[0.35em] text-foid-mint/80">
-                      {contract.label}
-                    </p>
-                    <p className="font-mono text-xs uppercase tracking-[0.25em] text-white/60">
-                      {contract.address}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs uppercase tracking-[0.35em] text-white/60">
-                    <button
-                      type="button"
-                      onClick={() => void copyToClipboard(contract.address, `${contract.label} copied.`)}
-                      className="transition hover:text-white"
-                    >
-                      copy
-                    </button>
-                    <span className="hidden h-3 w-px bg-white/25 sm:block" />
-                    <a
-                      href={`${NETWORK_DETAILS.explorer}/address/${contract.address}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="transition hover:text-white"
-                    >
-                      view -&gt;
-                    </a>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
+              <section className="flex flex-1 flex-col gap-5 overflow-hidden" style={{ minHeight: 0 }}>
+                <div className="grid gap-5 md:grid-cols-3">
+                  {row1Cards.map((card) => (
+                    <InfoCard key={card.title} data={card} />
+                  ))}
+                </div>
 
-        <section className="mx-auto max-w-6xl">
-          <div className="foid-glass rounded-3xl p-8 text-white/90">
-            <div className="mb-6 flex flex-col gap-2">
-              <h2 className="text-sm uppercase tracking-[0.45em] text-foid-mint/75">faq</h2>
-              <p className="text-2xl font-semibold text-white">questions, answered.</p>
-            </div>
-            <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-2">
-              {faqItems.map((item, index) => {
-                const open = faqOpen === index;
-                return (
-                  <div key={item.question} className="foid-glass rounded-2xl">
-                    <button
-                      type="button"
-                      onClick={() => toggleFaq(index)}
-                      className="flex w-full items-center justify-between px-5 py-3 text-left text-xs uppercase tracking-[0.45em] text-white/75 transition hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-foid-cyan/60"
-                      aria-expanded={open}
-                    >
-                      <span>{item.question}</span>
-                      <span className="text-lg leading-none text-foid-mint/80">{open ? "--" : "+"}</span>
-                    </button>
-                    {open && (
-                      <div className="px-5 pb-4 text-[0.7rem] uppercase tracking-[0.25em] text-white/60">
-                        {item.answer}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                <div className="grid gap-5 md:grid-cols-2">
+                  {row2Cards.map((card) => (
+                    <InfoCard key={card.title} data={card} />
+                  ))}
+                </div>
+
+                <CanonizationStrip steps={canonizationSteps} />
+              </section>
             </div>
           </div>
         </section>
       </div>
+
+      <style jsx global>{`
+        .profile-column {
+          width: min(340px, 100%);
+          flex-shrink: 0;
+        }
+
+        .profile-panel {
+          border-radius: 22px;
+          border: 1px solid rgba(255, 255, 255, 0.25);
+          background: linear-gradient(180deg, rgba(5, 7, 15, 0.95), rgba(10, 12, 24, 0.95));
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+          padding: 2rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+
+        .profile-avatar {
+          width: 120px;
+          height: 120px;
+          border-radius: 999px;
+          border: 2px solid rgba(255, 255, 255, 0.45);
+          background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9), rgba(255, 200, 230, 0.25) 60%, rgba(14, 10, 30, 0.8) 100%);
+          box-shadow: inset 0 1px 8px rgba(255, 255, 255, 0.45), 0 8px 20px rgba(0, 0, 0, 0.45);
+        }
+
+        .profile-subtitle {
+          text-transform: uppercase;
+          letter-spacing: 0.45em;
+          font-size: 0.65rem;
+          color: rgba(208, 255, 255, 0.9);
+        }
+
+        .profile-name {
+          font-family: "Rajdhani", "Inter", var(--font-ui);
+          text-transform: lowercase;
+          font-size: clamp(2rem, 2vw, 2.25rem);
+          letter-spacing: 0.15em;
+          color: #ffe7ff;
+          text-shadow: 0 0 8px rgba(255, 196, 235, 0.45);
+          margin: 0;
+        }
+
+        .profile-handle {
+          font-size: 0.85rem;
+          color: rgba(255, 255, 255, 0.7);
+          margin: 0;
+        }
+
+        .profile-bio {
+          margin: 0;
+          font-size: 0.95rem;
+          line-height: 1.6;
+          color: rgba(255, 255, 255, 0.85);
+          letter-spacing: 0.02em;
+        }
+
+        .info-card {
+          border-radius: 20px;
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          background: rgba(8, 10, 20, 0.85);
+          box-shadow: 0 16px 30px rgba(0, 0, 0, 0.45);
+          padding: 1.8rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.8rem;
+          min-height: 220px;
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
+        }
+
+        .info-card__title {
+          font-family: "Rajdhani", "Inter", var(--font-ui);
+          letter-spacing: 0.25em;
+          font-size: 0.75rem;
+          text-transform: uppercase;
+          color: rgba(212, 255, 255, 0.95);
+          text-shadow: 0 0 6px rgba(208, 240, 255, 0.6);
+          margin: 0;
+        }
+
+        .info-card__body {
+          margin: 0;
+          font-size: 0.95rem;
+          line-height: 1.55;
+          color: rgba(255, 255, 255, 0.82);
+          letter-spacing: 0.01em;
+        }
+
+        .info-card__list {
+          margin: 0;
+          padding-left: 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+          font-size: 0.85rem;
+          letter-spacing: 0.02em;
+          color: rgba(255, 255, 255, 0.75);
+        }
+
+        .info-card__list li::marker {
+          color: #fff0ff;
+        }
+
+        .canonization-strip {
+          border-radius: 16px;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: rgba(12, 14, 24, 0.85);
+          padding: 0.75rem 1rem;
+          font-size: 0.65rem;
+          text-transform: uppercase;
+          letter-spacing: 0.3em;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .canonization-strip__label {
+          color: rgba(255, 255, 255, 0.65);
+        }
+
+        .canonization-strip__steps {
+          display: flex;
+          flex: 1;
+          gap: 1rem;
+          flex-wrap: wrap;
+          color: rgba(255, 255, 255, 0.75);
+          letter-spacing: 0.15em;
+        }
+
+        .canonization-strip__index {
+          color: #00ffd5;
+          margin-right: 0.35rem;
+        }
+
+        .bubble {
+          position: absolute;
+          border-radius: 50%;
+          pointer-events: none;
+          background: radial-gradient(circle, rgba(0, 255, 213, 0.45), rgba(0, 128, 255, 0.05) 70%, transparent 100%);
+          opacity: 0.35;
+          filter: blur(0px);
+          animation-name: float;
+          animation-timing-function: ease-in-out;
+          animation-iteration-count: infinite;
+        }
+
+        @keyframes float {
+          0% {
+            transform: translate3d(0, 0, 0) scale(1);
+            opacity: 0.35;
+          }
+          50% {
+            transform: translate3d(10px, -40px, 0) scale(1.05);
+            opacity: 0.65;
+          }
+          100% {
+            transform: translate3d(-15px, -90px, 0) scale(1);
+            opacity: 0.3;
+          }
+        }
+      `}</style>
     </main>
   );
 }

@@ -1,65 +1,154 @@
-# FOID Foundation Technical Overview
+# foid.fun control panel
 
-FOID Foundation is the on-chain ritual + culture + identity stack running on Fluent testnet. This repo is the control panel: the ritual terminal, board surface, canonical APIs, and operators work together so the system can collect devotion, curate placements, and someday mint MiFOIDs whose traits chronicle that participation.
+foid.fun is the control panel for FOID Foundation’s altar: it pairs the daily ritual terminal with the loreboard canvas, canonical APIs, and the worker/automation that anchors epochs on Fluent testnet. The site, Next.js APIs, scripts, and Rust-backed VM helpers together keep prayer hashes private, culture contributions composable, and identity provenance traceable.
 
-## Project summary
-1. **Ritual (Foid Mommy)** – daily prayers that produce hash receipts, streaks, and gaze-worthy oracle responses. Implemented in `src/app/pray/page.tsx` + `src/app/prayers/prayers-client.tsx` via the client-side `FoidMommyTerminal`, and powered by `src/app/api/foid-mommy/route.ts` (OpenAI prayer voice) plus the `PrayerRegistry`/`PrayerMirror` contracts (hash storage + snapshot reads).
-2. **Culture curation (Loreboard)** – permissionless placements, voting, and deterministic epoch manifests. The board UI lives in `src/app/board/page.tsx` with helpers in `state/board.ts`, `lib/grid.ts`, `lib/boardSpace.ts`, and the `PlacementCard`/`PlacementModal` components, while the Next.js APIs (`/api/proposals`, `/api/propose`, `/api/vote`, `/api/status`, `/api/manifest`, etc.) hide RPC complexity from the UI.
-3. **Identity/web of provenance (MiFOIDs + FOID20s)** – future NFTs whose traits use ritual and loreboard signals. The `LaunchpadForm` component plus `src/app/api/vanity-deploy/route.ts` already grind deterministic `…f01d` addresses, so the infrastructure to mint season-zero identity NFTs is in place.
+## Universe & lore
 
-The control panel purposefully splits trust boundaries:
-* **Permissionless participation** – proposing (`writeProposePlacement` + `/api/propose`), voting (`/api/vote` + VotingV2 reads), and manifest reads (`/api/status`, `/api/manifest`) are open to anyone with a wallet.
-* **Guarded settlement** – treasury finalization, manifest anchoring, and worker decisions require operator keys/owners, preventing griefing or double-finalization.
-* **Deterministic compute** – winner selection leans on gblend/Rust+WASM helpers (`scripts/loreboardVM-call.ts`, `lib/winnerSelection.ts`) so contracts and the worker agree on placement order.
+- **FOIDs** are reclaimed android avatars—fictional shells anyone can pilot by holding a MiFOID. In this universe, “foids can’t vote, but foid owners do,” so the humans behind the wallets become the governance agents.
+- **FOID Foundation** is the curator/steward of ritual and canon: the museum/cult that keeps the loreboard honest, the prayer terminal protected, and governance experiments rooted in trust while staying open to permissionless entry.
+- The tagline “culture, ritual, identity on chain” still guides the work: ceremonies happen in Foid Mommy, culture is shaped in the loreboard, and membership is surfaced through MiFOID traits.
 
-## Key components
+## Product stack
 
-### 1. Foid Mommy (ritual loop)
-- **Client**: `FoidMommyTerminal` (`src/app/(components)/FoidMommyTerminal.tsx`) types feelings, animates chat, and dispatches `PrayerRegistry.checkIn` writes via `wagmi` hooks in `src/app/pray/page.tsx`.
-- **AI companion**: `src/app/api/foid-mommy/route.ts` sends the mood + text to `gpt-4o-mini` so the returned prayer feels like a gentle oracle before the hashed receipt is minted.
-- **State**: streak/next-allowed stats arrive from `PrayerMirror.get` via the hooks in `src/app/pray/page.tsx`, and the terminal celebrates success with `toast`, `sfx`, and `typingClicks`.
+### 1. Ritual — Foid Mommy Terminal
 
-### 2. Loreboard (culture canvas)
-- **Board UI**: `src/app/board/page.tsx` is a zoomable canvas that wires `useBoard` (`state/board.ts`), `grid` math, and `boardSpace` helpers to translate between `x,y,w,h` and contract rectangles.
-- **Placements**: `PlacementCard`, `PlacementModal`, `TerminalChat`, and `CompactMusicPlayer` components display IPFS-backed visuals, chat-style status, and energy-sending UI.
-- **API surface**: `/api/proposals`, `/api/propose`, `/api/vote`, `/api/manifest`, `/api/status`, `/api/cid-by-id`, `/api/mempool`, `/api/ipfs-upload` and their helpers in `src/lib/api.ts` keep the DOM client from speaking directly to Fluent RPC.
-- **Contract writes**: `writeProposePlacement` in `src/lib/viem.ts` targets `LoreboardBoardV2`, encodes placement geometry + CID bytes, and handles the escrow value math that mirrors on-chain invariants.
+- The terminal (see `src/app/pray/page.tsx` + `src/app/(components)/FoidMommyTerminal.tsx`) lets you type how you feel, watch the animated terminal, and send a prayer once every 24 hours.
+- Prayers are hashed locally (`keccak256`) and submitted through `PrayerRegistry.checkIn`, while `PrayerMirror` reads deliver streak/total stats. The UI pulls these vaults via `wagmi`/`viem` hooks, shows the next cooldown window, and spawns `FoidMommyTerminal` chat plus audio cues (`useAeroSounds`).
+- An OpenAI-backed API (`src/app/api/foid-mommy/route.ts`) crafts the oracle response so the ritual stays soft, empathetic, and grounded; only the hash is anchored on chain, keeping raw text private.
 
-### 3. MiFOIDs / FOID20 tooling (identity layer)
-- **FOID20 launchpad**: `src/components/LaunchpadForm.tsx` lets you mint FOID20 tokens with max supply caps and vanity salts, and `src/app/api/vanity-deploy/route.ts` grinds salts until addresses end with `f01d`. These signals feed future MiFOID mint rules.
-- **Signal plumbing**: `state/board.ts` and the board hooks (`usePlacementVotes`, `useVoteOnPlacement`) keep analytic data ready for trait calculations that will eventually inform MiFOID metadata.
+### 2. Culture canvas — Loreboard.app
 
-## On-chain architecture
+- The board page (`src/app/board/page.tsx`) is a zoomable canvas with terminal chat, music player, pending queue, and the `PlacementCard`/`PlacementModal` components; it wires `useEpochCountdown`, `useLatestManifestFromChain`, `usePlacementVotes`, and `useVoteOnPlacement` to keep community insights synced.
+- Placement geometry is normalized by `src/lib/grid.ts` and `src/lib/boardSpace.ts`, while the zustand store (`src/state/board.ts`) keeps pending tiles, tips, and local storage so you can drop, size, and bid before writing on chain.
+- API helpers (`src/lib/api.ts`) power Next endpoints such as `/api/propose`, `/api/vote`, `/api/status`, `/api/manifest`, `/api/proposals`, `/api/place`, `/api/mempool`, `/api/ipfs-upload`, and `/api/operator/finalize`, shielding the UI from raw RPC chatter while mirroring on-chain invariants (grid math, base-fee per cell, escrow math, cid sizing).
+- Contract writes go through `src/lib/viem.ts`’s `writeProposePlacement`, which enforces Tile=32 planes, caps max cells, and treats `bidPerCellWei` + cells the same way the Solidity entrypoint expects; Helpers like `scripts/e2e-step3-boardv1.ts`, `scripts/propose.ts`, and `scripts/smoke-board-flow.ts` mirror this flow for debugging.
 
-| Layer | Files & Notes |
-| --- | --- |
-| **LoreboardBoardV2 (Board entrypoint)** | `src/lib/viem.ts`, `src/app/api/propose/route.ts`, `scripts/e2e-step3-boardv1.ts` – validates geometry, computes placement IDs, enforces escrow value, stores `cidOf`, and emits `PlacementProposed` for the worker’s log scan. |
-| **LoreboardVotingV2** | `src/lib/contracts/loreboard.ts` + canonical address guard in `src/config/canonical.ts` – tracks vote windows, quorum/majority checks, and the `boardAdmin` field (currently Board contract). |
-| **LoreBoardTreasury** | `src/app/api/operator/finalize/route.ts`, `scripts/loreboard-worker.ts` – holds escrow, enforces base fee per cell, finalizes epochs, refunds rejects, and emits `Finalized` logs that `manifestStore` and clients consume. |
-| **LoreBoardManifestStore** | `src/lib/manifestStore.ts`, `src/app/api/status/route.ts`, `src/app/api/manifest/route.ts` – anchors `epoch → (manifestRoot, manifestCID)` and surfaces the “latest” pointer without re-scanning logs. |
+### 3. Identity — MiFOIDs + FOID20 tooling
 
-All read/write code continually asserts the Fluent canonical addresses (`src/config/canonical.ts`) via `requireCanonicalAddress`, so misconfigured deployments fail fast.
+- MiFOIDs are the identity NFTs whose provenance eventually tells the story of your devotion, loreboard contributions, and governance weight. Early tooling lives in `src/components/LaunchpadForm.tsx`, which drives the FOID20 factory and mints tokens whose addresses end with `f01d`.
+- Vanity salt grinding is handled by `/api/vanity-deploy` (`src/app/api/vanity-deploy/route.ts`), so the UI can preview deterministic bodies before sending transactions.
+- As the ritual streaks and loreboard signals accumulate, they’ll feed MiFOID trait rules (streaks, vote history, board contributions, provenance “body count”) and later surfaces such as FoidBoardNFTs (future ERC-721 + ERC-4906) or gated identity experiences.
 
-## Automation & operators
+## Governance & on-chain architecture
 
-- **Worker**: `scripts/loreboard-worker.ts` scans `DeploymentBlock`-bounded logs (chunked to avoid Fluent’s 100k block limit), checks `voteEndsAt`, `isPending`, and VotingV2 tallies, sorts deterministic manifests, uploads to IPFS (`lib/ipfs.ts`), and calls Treasury.finalizeEpoch + ManifestStore.anchor (+ optional VotingV2.setEpochFinalized). `scripts/lib/workerConfig.ts` centralizes RPC, operator keys, and canonical addresses for all worker helpers.
-- **Operator API**: `/api/operator/finalize` (`src/app/api/operator/finalize/route.ts`) reuses the worker’s logic so the UI can inspect readiness or manually replay finalization when operators are near the terminal.
-- **Deterministic compute**: `scripts/loreboardVM-call.ts` + `lib/winnerSelection.ts` show how gblend/Rust+WASM selection can plug into the worker, letting the async pipeline fall back to JS overlap checks when necessary.
-- **Supporting scripts**: `scripts/loreboard-diagnose.ts`, `scripts/finalizeEpoch.ts`, `scripts/verify-latest-manifest.ts`, `scripts/dumpManifest.ts`, `scripts/smoke-board-flow.ts` provide diagnostics, smoke-tests, and manifest audits.
+- Permissionless entry lies in `LoreboardBoardV2`/`LoreboardVotingV2`: BoardV2 validate proposals (`PlacementProposed`, escrow math, cid storage) while VotingV2 tracks epochs, vote windows, quorum, and majority flags. The addresses are gated by `src/config/canonical.ts`, so misconfigurations fail fast, and all reads/writes funnel through `src/lib/viem.ts` + `src/lib/manifestStore.ts`.
+- Guarded settlement lives in `LoreBoardTreasury`, `LoreBoardManifestStore`, and the worker scripts (`scripts/loreboard-worker.ts`, `scripts/operatorFinalize.ts`, `scripts/finalizeEpoch.ts`). Only the operator key can finalize epochs, anchor manifests, and refund losers. Manifest state is described by `src/lib/manifest.ts` + `src/lib/manifestStore.ts`, while `src/lib/winnerSelection.ts` shows how gblend/Rust can mirror the deterministic winner selection used by the worker.
+- On-chain read helpers (`src/lib/events.ts`, `src/lib/epoch.ts`, `src/lib/manifest.ts`, `src/lib/boardSpace.ts`) feed the frontend with canonical data for `PlacementCard`, stats dashboards, and manifest rendering.
 
-## Trust model
+## Automation & worker flow
 
-* **Permissionless surfaces** – Board propose + Voting vote + manifest reads are open. Anyone can submit placements, vote, and watch where the board settles because the Next APIs wrap those RPC invocations.
-* **Guarded settlement** – Treasury.finalizeEpoch and ManifestStore.anchor live in operator-owned code paths (see `src/app/api/operator/finalize/route.ts`), so only an operator key can release funds, anchor manifests, or mark epochs as canonical.
-* **BoardAdmin decision** – VotingV2’s `boardAdmin` is set to the Board contract address (captured by `src/config/contracts.ts`). If you want a permissionless relayer later, add a Board relay method (e.g., `finalizeVotingEpoch`) or switch the admin to a multisig/EOA.
+- `scripts/loreboard-worker.ts` is the cron-friendly pipeline: it scans logs since `NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK`, filters placements by `voteEndsAt < now` and `isPending`, computes deterministic manifests (optionally with `scripts/loreboardVM-call.ts` calling the gblend VM at `NEXT_PUBLIC_LOREBOARD_VM_ADDRESS`/`LOREBOARD_VM_ADDRESS`), uploads JSON to IPFS, calls Treasury.finalizeEpoch + ManifestStore.anchor, and (if reachable) sets VotingV2’s epoch finalization.
+- Worker helpers (`scripts/lib/workerConfig.ts`, `scripts/lib/logScan.ts`, `scripts/lib/finalize.ts`) centralize RPC, canonical addresses, epoch math, and chunked log scanning (Fluent’s 100k block cap). Supporting tooling (`scripts/loreboard-diagnose.ts`, `scripts/loreboard-rpc-smoke.ts`, `scripts/dumpManifest.ts`, `scripts/verify-latest-manifest.ts`) give operators transparency before they run `pnpm worker:finalize`.
+- gblend’s Rust module sits under `blended/loreboardvm`; `scripts/loreboardVM-call.ts` demonstrates how to ping the WASM helper so the worker and UI share deterministic overlap resolution without brittle Solidity loops.
+- Worker commands (`pnpm worker:sync`, `pnpm worker:finalize`, `pnpm worker:dry`, `DOTENV_CONFIG_PATH=.env.local pnpm -C foid_fun exec tsx scripts/loreboard-worker.ts run`) require `OPERATOR_KEY/PK`, canonical addresses, the epoch cadence (`NEXT_PUBLIC_EPOCH_ZERO_UNIX`, `NEXT_PUBLIC_EPOCH_SECONDS`), the Fluent RPC URL, IPFS token, and optionally `LOREBOARD_VOTING_ADMIN_PRIVATE_KEY` if boardAdmin is not callable.
 
-## System flows
+## Roadmap & priorities
 
-1. **Proposal**: Client `writeProposePlacement` → Board contract (via `src/lib/viem.ts`) → `PlacementProposed` → Treasury escrow + Voting registration. (`Propose` API ensures geometry/tip invariants before RPC.)  
-2. **Voting**: Voters hit `/api/vote` (which keeps off the RPC path), VotingV2 tallies yes/no weights, and hooks (`usePlacementVotes`) surface quorum/majority to the UI.  
-3. **Settlement**: Worker (`scripts/loreboard-worker.ts`) discovers placements, applies `meetsQuorum`/`passesMajority51`, builds deterministic manifest (optionally via gblend), uploads to IPFS, and calls Treasury/ManifestStore (+ optional Voting finalization).  
-4. **Rendering**: Clients call `/api/status` → `latestManifestCID`, fetch IPFS JSON, and render placements through `PlacementCard` on the canonical board canvas.
+1. Ship loreboard finalization as a standalone product: user proposals + votes → canonical manifest → IPFS root → UI renders board. Worker automation and diagnostics already cover discovery, base fee, voting checks, manifest builds, and logging.
+2. Run the Foid Mommy campaign with the terminal as a retention loop so streaks, hashes, and devotion signatures feed the loreboard narrative and MiFOID metrics.
+3. Surface MiFOIDs (and later FoidBoardNFTs) as the identity layer that encodes prayers, placements, and provenance, then experiment with optional futarchy modules that let the community bet on beliefs.
 
-## Vision
+## Quick start
 
-This repo is the “control panel” for FOID Foundation’s promise: keep ritual accessible, culture curation transparent, and identity traceable. Each component—from `FoidMommyTerminal`’s soft AI prayers to the Worker’s chunked log scans—serves that threading. The README’s wiring above matches the current files, so when you update the rituals, Loreboard rules, or identity mint plans, align the narrative here too.
+1. Install dependencies (Node 20.x):
+
+```bash
+npm install
+```
+
+2. Configure environment:
+
+```bash
+cp .env.local.example .env.local
+```
+
+3. Run the dev server:
+
+```bash
+npm run dev
+```
+
+Then open `http://localhost:3000` and connect a wallet on Fluent testnet (chain ID 20994).
+
+## VSCode TypeScript
+
+Use the workspace TypeScript version so scripts with JSON import assertions parse correctly.
+
+1. Command Palette → “TypeScript: Select TypeScript Version” → “Use Workspace Version”
+2. Command Palette → “TypeScript: Restart TS Server”
+
+Verify:
+- Command Palette → “TypeScript: Open TS Server Log” and confirm it references `node_modules/typescript/lib` in this repo, or
+- Hover a TypeScript diagnostic and confirm TS version is `5.6.3`.
+
+## Environment variables
+
+This app is contract-address driven. See `.env.local.example` for the full list. The minimum set for the ritual + loreboard experience is:
+
+- `NEXT_PUBLIC_RPC` and `NEXT_PUBLIC_CHAIN_ID`
+- `NEXT_PUBLIC_FLUENT_RPC`
+- `NEXT_PUBLIC_BLOCK_EXPLORER`
+- `NEXT_PUBLIC_LOREBOARD_ADDRESS`
+- `NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS` (or `LOREBOARD_BOARD_ADDRESS`)
+- `NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS` (or `LOREBOARD_VOTING_ADDRESS`)
+- `NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS`
+- `NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK`
+- `NEXT_PUBLIC_EPOCH_ZERO_UNIX`
+- `NEXT_PUBLIC_EPOCH_SECONDS`
+- `NEXT_PUBLIC_LOREBOARD_VM_ADDRESS` (or `LOREBOARD_VM_ADDRESS` if you call the gblend VM)
+- `WEB3_STORAGE_TOKEN` or `PINATA_JWT` (for IPFS uploads)
+- `LOREBOARD_NFT` (optional, live NFT sync)
+- `OPERATOR_KEY` or `OPERATOR_PK`
+- `LOREBOARD_VOTING_ADMIN_PRIVATE_KEY` (only if VotingV2’s boardAdmin isn’t callable)
+
+Legacy variables that powered the retired swap/factory tooling (like `NEXT_PUBLIC_FACTORY`, `NEXT_PUBLIC_ROUTER`, `NEXT_PUBLIC_TOKEN_A/B`, `NEXT_PUBLIC_WFOID`, and `NEXT_PUBLIC_REGISTRY`) remain in `.env.local.example` for historical reference but are not needed by the core ritual + loreboard loop.
+
+## Scripts
+
+- `npm run dev` - start local dev server
+- `npm run build` - production build
+- `npm start` - run production server
+- `npm run lint` - lint
+- `npm run test` - vitest run
+- `npm run typecheck` - type checking
+- `npm run demo:one` - loreboard demo flow (uses pnpm in the script)
+- `DOTENV_CONFIG_PATH=.env.local pnpm -C foid_fun exec tsx scripts/loreboard-worker.ts run` - summarize + finalize the prior epoch (VotingV2 flow)
+- `pnpm worker:sync` - summarize the prior epoch
+- `pnpm worker:finalize` - finalize the prior epoch
+- `pnpm worker:dry` - dry-run finalize without sending transactions
+
+Worker commands:
+
+```bash
+pnpm worker:sync
+pnpm worker:finalize
+DOTENV_CONFIG_PATH=.env.local pnpm -C foid_fun exec tsx scripts/loreboard-worker.ts run
+```
+
+Flags:
+
+- `DRY_RUN=1` logs actions without sending transactions.
+- `SKIP_NFT_SYNC=1` disables the live NFT sync call.
+- `EPOCH=<n>` or `--epoch <n>` overrides the default target epoch (`epochAt(now) - 1`).
+
+Test plan:
+
+```bash
+pnpm -C foid_fun typecheck
+pnpm -C foid_fun smoke:board
+DRY_RUN=1 pnpm -C foid_fun worker:finalize
+pnpm -C foid_fun worker:finalize
+```
+
+## Project layout
+
+- `src/app` - Next.js routes and pages
+- `src/components` - UI building blocks
+- `src/lib` - contract helpers, utilities
+- `src/abis` - contract ABIs
+- `scripts` - operators, loreboard, and demo scripts
+
+## Notes
+
+- This is testnet software. Verify contract addresses before signing any transaction.
+- Some pages are gated by contract roles; the UI hides admin actions unless your wallet has permission.

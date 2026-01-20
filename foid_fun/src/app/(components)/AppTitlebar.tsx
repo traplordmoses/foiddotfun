@@ -137,6 +137,7 @@ export default function AppTitlebar({
     } else {
       items.push({ label: "pray", href: "/pray" });
     }
+    items.push({ label: "ABOUT", href: "/about" });
     return items;
   }, [pathname]);
 

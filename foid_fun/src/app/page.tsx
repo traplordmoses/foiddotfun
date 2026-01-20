@@ -117,6 +117,60 @@ export default function LandingPage() {
                     className="object-cover"
                     style={{ objectPosition: "50% 35%" }}
                   />
+                  {/* meme-style overlay text (SVG stroke for consistent outline) */}
+                  <div className="foid-meme-overlay" aria-hidden="true">
+                    <svg
+                      className="foid-meme-topsvg"
+                      viewBox="0 0 1000 140"
+                      preserveAspectRatio="xMidYMin meet"
+                    >
+                      <text
+                        className="foid-meme-toptext"
+                        x="500"
+                        y="52"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        textLength="940"
+                        lengthAdjust="spacingAndGlyphs"
+                      >
+                        AN ONCHAIN FUNNEL FOR MEMES AND CULTURE
+                      </text>
+                    </svg>
+
+                    <svg
+                      className="foid-meme-bottomsvg"
+                      viewBox="0 0 1000 240"
+                      preserveAspectRatio="xMidYMax meet"
+                    >
+                      <text
+                        className="foid-meme-bottext"
+                        x="500"
+                        y="70"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                      >
+                        FOID_MOMMY_TERMINAL.EXE: PRAY WITH FOID MOMMY. DAILY. FOREVER
+                      </text>
+                      <text
+                        className="foid-meme-bottext"
+                        x="500"
+                        y="130"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                      >
+                        LOREBOARD.APP: SHARE MEMES. VOTE TO PRESERVE. CANONIZE CULTURE
+                      </text>
+                      <text
+                        className="foid-meme-bottext"
+                        x="500"
+                        y="190"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                      >
+                        MIFOID NFT: MINT YOUR AI GIRLFRIEND. YOUR VIRTUAL FOID
+                      </text>
+                    </svg>
+                  </div>
                 </div>
               </div>
             </div>
@@ -234,6 +288,78 @@ export default function LandingPage() {
         :global(.home-ipod-frame) :global(.ipod-player) {
           width: 100%;
           border-radius: 26px;
+        }
+
+        :global(.foid-meme-overlay) {
+          pointer-events: none;
+          position: absolute;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding: 4px;
+        }
+
+        :global(.foid-meme-topsvg),
+        :global(.foid-meme-bottomsvg) {
+          width: 100%;
+          height: auto;
+        }
+
+        :global(.foid-meme-topsvg) {
+          margin-top: 0;
+          filter:
+            drop-shadow(0 6px 0 rgba(0, 0, 0, 0.55))
+            drop-shadow(0 16px 30px rgba(0, 0, 0, 0.4));
+        }
+
+        :global(.foid-meme-bottomsvg) {
+          margin-bottom: 0;
+          filter:
+            drop-shadow(0 5px 0 rgba(0, 0, 0, 0.55))
+            drop-shadow(0 14px 26px rgba(0, 0, 0, 0.4));
+        }
+
+        /* Top meme text */
+        :global(.foid-meme-toptext) {
+          font-family: Impact, Haettenschweiler, "Arial Black", "Anton", system-ui, sans-serif;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+          font-size: clamp(36px, 3.2vw, 60px);
+
+          fill: rgba(255, 255, 255, 0.98);
+          stroke: rgba(0, 0, 0, 0.95);
+          stroke-width: 6px;
+          paint-order: stroke fill;
+          stroke-linejoin: round;
+        }
+
+        /* Bottom meme text: make it taller / not cropped + thinner outline */
+        :global(.foid-meme-bottext) {
+          font-family: Impact, Haettenschweiler, "Arial Black", "Anton", system-ui, sans-serif;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.01em;
+          font-size: clamp(24px, 2vw, 36px);
+
+          fill: rgba(255, 255, 255, 0.98);
+          stroke: rgba(0, 0, 0, 0.95);
+          stroke-width: 6px;
+          paint-order: stroke fill;
+          stroke-linejoin: round;
+        }
+
+        @media (max-width: 640px) {
+          :global(.foid-meme-overlay) {
+            padding: 8px;
+          }
+          :global(.foid-meme-toptext) {
+            stroke-width: 16px;
+          }
+          :global(.foid-meme-bottext) {
+            stroke-width: 6px;
+          }
         }
       `}</style>
     </main>
