@@ -2712,3 +2712,56 @@
     }
   }
 }
+
+.aboutPane {
+  /* enable container-based scaling so the same rules fit on different screen heights */
+  container-type: size;
+  --abt-h1: clamp(44px, 10cqh, 66px);
+  --abt-sub: clamp(13px, 2.6cqh, 16px);
+  --abt-body: clamp(12px, 2.2cqh, 14px);
+  --abt-gap: clamp(10px, 2.0cqh, 18px);
+  --abt-pgap: clamp(8px, 1.4cqh, 14px);
+}
+
+@supports not (font-size: 1cqh) {
+  .aboutPane {
+    --abt-h1: clamp(44px, 5.2vw, 66px);
+    --abt-sub: clamp(13px, 1.2vw, 16px);
+    --abt-body: clamp(12px, 1.05vw, 14px);
+    --abt-gap: 14px;
+    --abt-pgap: 12px;
+  }
+}
+
+.aboutTitle {
+  font-size: var(--abt-h1);
+  line-height: 0.96;
+  letter-spacing: 0.22em;
+  text-wrap: balance;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.aboutSub {
+  font-size: var(--abt-sub);
+  line-height: 1.35;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.82);
+  text-wrap: pretty;
+}
+
+.aboutBody {
+  font-size: var(--abt-body);
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.84);
+  text-wrap: pretty;
+}
+
+.aboutBody p + p {
+  margin-top: var(--abt-pgap);
+}
+
+.aboutStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--abt-gap);
+}
