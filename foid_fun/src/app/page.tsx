@@ -63,10 +63,10 @@ export default function LandingPage() {
   const loadMusicPanelNow = useCallback(() => setMusicPanelReady(true), []);
 
   return (
-    <main className="relative isolate min-h-screen bg-foid-bg text-white/90 overflow-hidden">
+    <main className="relative isolate min-h-[100svh] bg-foid-bg text-white/90 overflow-x-hidden overflow-y-auto lg:overflow-hidden">
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
 
-      <div className="relative z-10 mx-auto flex h-screen w-full max-w-[1200px] flex-col px-5 py-5 lg:px-8 lg:py-6">
+      <div className="relative z-10 mx-auto flex min-h-[100svh] w-full max-w-[1200px] flex-col px-5 py-5 lg:h-screen lg:px-8 lg:py-6">
         {/* title */}
         <div className="mb-4 flex items-center justify-center">
           <span className="foid-title foid-title--xl">
@@ -78,7 +78,7 @@ export default function LandingPage() {
 
         <div className="grid flex-1 min-h-0 grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr] lg:items-stretch">
           {/* hero */}
-          <section className="vista-window vista-window--media flex min-h-0 flex-col overflow-hidden max-h-[640px] lg:max-h-[720px] w-full">
+          <section className="vista-window vista-window--media flex min-h-[360px] sm:min-h-[420px] lg:min-h-0 flex-col overflow-hidden max-h-[520px] sm:max-h-[640px] lg:max-h-[720px] w-full">
             <div className="vista-window__titlebar">
               <div className="vista-window__controls" aria-hidden="true">
                 <span className="vista-window__control vista-window__control--minimize" />
@@ -177,7 +177,7 @@ export default function LandingPage() {
           </section>
 
           {/* launcher */}
-            <aside className="vista-window vista-window--compact flex min-h-0 flex-col overflow-hidden max-h-[640px] lg:max-h-[720px] w-full foid-right-panel">
+            <aside className="vista-window vista-window--compact flex min-h-[360px] sm:min-h-[420px] lg:min-h-0 flex-col overflow-hidden max-h-[520px] sm:max-h-[640px] lg:max-h-[720px] w-full foid-right-panel">
               <div className="vista-window__titlebar">
                 <div className="vista-window__controls" aria-hidden="true">
                   <span className="vista-window__control vista-window__control--minimize" />
@@ -202,7 +202,7 @@ export default function LandingPage() {
                 </span>
               </div>
             <div className="vista-window__body flex flex-1 min-h-0 flex-col overflow-hidden">
-              <div className="flex flex-1 min-h-0 flex-col px-6 pt-6 pb-1">
+              <div className="flex flex-1 min-h-0 flex-col px-4 pt-4 pb-2 sm:px-6 sm:pt-6 sm:pb-1">
                 <div className="mx-auto flex h-full w-full max-w-[360px] flex-1 flex-col gap-3 items-stretch">
                   {/* buttons */}
                   <div className="launcher-buttons flex flex-col gap-3">
@@ -220,7 +220,7 @@ export default function LandingPage() {
                     {musicPanelReady ? (
                       <>
                         <div className="w-full">
-                          <MusicPanel className="home-music-panel h-[320px] w-full" />
+                          <MusicPanel className="home-music-panel h-[220px] sm:h-[320px] w-full" />
                         </div>
                         <div className="home-ipod-frame">
                           <CompactMusicPlayer mountLogic={false} />
@@ -278,6 +278,7 @@ export default function LandingPage() {
           width: 100%;
           display: flex;
           justify-content: center;
+          margin-top: -6px;
           border-radius: 30px;
           padding: 0;
           border: none;
@@ -341,7 +342,7 @@ export default function LandingPage() {
           font-weight: 900;
           text-transform: uppercase;
           letter-spacing: 0.01em;
-          font-size: clamp(24px, 2vw, 36px);
+          font-size: clamp(28px, 2.2vw, 40px);
 
           fill: rgba(255, 255, 255, 0.98);
           stroke: rgba(0, 0, 0, 0.95);

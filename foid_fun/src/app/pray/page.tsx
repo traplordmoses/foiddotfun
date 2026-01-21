@@ -713,6 +713,56 @@ export default function PrayPage() {
         }
         .pray-pane--panel > * { background: transparent !important; }
         .pray-main-grid { padding: 16px; gap: 20px; }
+
+        @media (max-width: 1024px) {
+          :global(.pray-dashboard) {
+            height: auto;
+            min-height: 100svh;
+            overflow: visible;
+          }
+          .pray-page {
+            position: relative;
+            height: auto;
+            min-height: 100svh;
+            overflow: visible;
+          }
+          .pray-page__shell {
+            padding: clamp(10px, 4vw, 16px);
+          }
+          .pray-window-frame {
+            width: 100%;
+            height: auto;
+            min-height: 0;
+          }
+          .pray-window-frame > .vista-window {
+            height: auto;
+            min-height: 0;
+          }
+          .pray-panel__body {
+            overflow: visible;
+          }
+          .pray-liquid-glass-terminal {
+            padding: 18px;
+          }
+          .pray-liquid-glass-terminal :global(.frutiger-terminal) {
+            padding: 14px 16px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .pray-liquid-glass-terminal {
+            padding: 14px;
+          }
+          .pray-liquid-glass-terminal :global(.frutiger-terminal) {
+            padding: 12px;
+          }
+          .pray-bracket {
+            display: none;
+          }
+          .pray-stats-cell__value {
+            font-size: 22px;
+          }
+        }
       `}</style>
     </main>
   );

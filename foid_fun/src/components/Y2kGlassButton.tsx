@@ -112,9 +112,9 @@ export default function Y2kGlassButton({
       onClick={handleClick}
       className={[
         "group relative block w-full",
-        "min-h-[78px] rounded-[26px]",
+        "min-h-[64px] sm:min-h-[78px] rounded-[26px]",
         "overflow-hidden",
-        "px-6 py-3",
+        "px-4 py-2 sm:px-6 sm:py-3",
         "flex items-center justify-center",
         "transform-gpu transition-all duration-300 ease-out",
         "hover:scale-[1.02] active:scale-[0.99]",
@@ -216,7 +216,7 @@ export default function Y2kGlassButton({
 
       {icon ? (
         <span
-          className="absolute left-4 top-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full"
+          className="absolute left-3 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-full sm:left-4 sm:h-9 sm:w-9"
           style={{
             background: `
               radial-gradient(circle at 30% 30%, rgba(255,255,255,0.35), transparent 60%),
@@ -236,7 +236,7 @@ export default function Y2kGlassButton({
           className={[
             "mx-auto text-center",
             "text-[14px] sm:text-[15px]",
-            "font-black uppercase tracking-[0.22em] leading-snug",
+            "font-black uppercase tracking-[0.18em] sm:tracking-[0.22em] leading-snug",
             "select-none whitespace-normal break-words",
           ].join(" ")}
           style={{
@@ -249,7 +249,7 @@ export default function Y2kGlassButton({
       </div>
 
       <span
-        className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full"
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full sm:right-4 sm:h-10 sm:w-10"
         style={{
           background: `
             radial-gradient(circle at 30% 30%, rgba(255,255,255,0.5) 0%, transparent 55%),

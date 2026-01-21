@@ -1207,7 +1207,7 @@
   /* ===== Y2K GLASS BUTTON REFINEMENTS ===== */
   /* Slightly smaller height for better proportion */
   .vista-window--compact .group.relative.block.w-full {
-    height: 70px !important;
+    min-height: 70px;
   }
 
   /* ===== RESPONSIVE ===== */
@@ -1247,6 +1247,12 @@
 
     .foid-title--xl {
       padding: 9px 24px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .vista-window--compact .group.relative.block.w-full {
+      min-height: 62px;
     }
   }
 
