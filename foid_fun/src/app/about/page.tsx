@@ -137,7 +137,7 @@ const sections: Section[] = [
               <p className="aboutMiniCard__body">vote on proposals</p>
             </div>
             <div className="aboutMiniCard aboutGlassCard">
-              <p className="aboutMiniCard__title">preserve</p>
+              <p className="aboutMiniCard__title">cannonize</p>
               <p className="aboutMiniCard__body">winners are cannonized</p>
             </div>
           </div>
@@ -358,7 +358,7 @@ export default function AboutPage() {
 
       <section className="relative z-10 w-full">
         <div className="mx-auto w-full max-w-[min(94vw,1240px)]">
-          <div className="vista-window vista-window--terminal vista-window--enhanced h-[min(88vh,760px)] w-full">
+          <div className="vista-window vista-window--terminal vista-window--enhanced h-[min(68vh,600px)] w-full">
             <AppTitlebar
               title="FOID_ABOUT.EXE"
               chainId={chainId}

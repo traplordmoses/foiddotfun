@@ -131,10 +131,12 @@ export default function AppTitlebar({
   const pathname = usePathname();
 
   const tabItems = useMemo(() => {
+    const isPrayRoute = pathname === "/pray" || pathname.startsWith("/pray/");
+    const isBoardRoute = pathname === "/board" || pathname.startsWith("/board/");
     const items = [
       { label: "HOME", href: "/" },
-      { label: "PRAY", href: "/pray" },
-      { label: "BOARD", href: "/board" },
+      ...(isPrayRoute ? [] : [{ label: "PRAY", href: "/pray" }]),
+      ...(isBoardRoute ? [] : [{ label: "BOARD", href: "/board" }]),
     ];
     if (pathname !== "/about") {
       items.push({ label: "ABOUT", href: "/about" });
