@@ -40,21 +40,9 @@ export const dynamic = "force-dynamic";
 
 /* ---------- ENV & chain clients ---------- */
 
-type PublicClientType = ReturnType<typeof createPublicClient>;
-type WalletClientType = ReturnType<typeof createWalletClient>;
-
-type RuntimeConfig = {
-  publicClient: PublicClientType;
-  wallet: WalletClientType;
-  treasury: `0x${string}`;
-  manifestStore: `0x${string}`;
-  loreboardVm?: `0x${string}`;
-  deployBlock: bigint;
-};
-
 const loreBoardManifestStoreAbiTyped = loreBoardManifestStoreAbi as Abi;
 
-function getRuntimeConfig(): RuntimeConfig {
+const getRuntimeConfig = () => {
   const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC;
   const treasuryEnv = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS;
   const operatorPk = process.env.OPERATOR_PK;
@@ -139,7 +127,10 @@ function getRuntimeConfig(): RuntimeConfig {
     loreboardVm,
     deployBlock,
   };
-}
+};
+
+type RuntimeConfig = ReturnType<typeof getRuntimeConfig>;
+type PublicClientType = RuntimeConfig["publicClient"];
 
 type RawLog = Awaited<ReturnType<PublicClientType["getLogs"]>>[number];
 

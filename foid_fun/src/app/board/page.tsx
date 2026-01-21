@@ -715,7 +715,7 @@ export default function BoardPage() {
       let kind = await sniffImageType(workingFile);
       if (!kind) { addStatus("Only PNG or JPG allowed.", "error"); return; }
       let mime = mimeFromType(kind) as "image/png" | "image/jpeg";
-      let { w, h } = await getImageSize(workingFile);
+      const { w, h } = await getImageSize(workingFile);
       let rect = snapRect({ x: pos?.x ?? 0, y: pos?.y ?? 0, w, h });
       let cells = rectCells(rect);
 
