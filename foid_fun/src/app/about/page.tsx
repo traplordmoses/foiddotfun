@@ -123,7 +123,7 @@ const sections: Section[] = [
         <div className="grid gap-6">
           <GlassPanel>
             <p>
-              loreboard is a shared digital image board that expands infinitely over time. it’s a living canvas where anyone can propose images and place them on the grid.the community votes each epoch, and winners are canonized into a permanent manifest that is anchored onchain and backed by ipfs. it’s the canonical provenance layer for crypto memes, our “know your meme” equivalent. scroll epochs to watch culture evolve in public. it's not just a museum, it's collective world building. 
+              loreboard is a shared digital image board that expands infinitely over time. it’s a living canvas where anyone can propose images and place them on the grid.the community votes each epoch, and winners are canonized into a permanent manifest that is anchored onchain and backed by ipfs. it’s the canonical provenance layer for crypto memes, our “know your meme” equivalent. scroll epochs to watch culture evolve in public. it&apos;s not just a museum, it&apos;s collective world building.
             </p>
           </GlassPanel>
 
