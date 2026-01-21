@@ -927,7 +927,11 @@ export default function BoardPage() {
 
       const eth = (globalThis as { ethereum?: EthereumProvider }).ethereum;
       if (!eth) throw new Error("No wallet");
-      const [account] = await eth.request({ method: "eth_requestAccounts" });
+      const accounts = await eth.request({ method: "eth_requestAccounts" });
+      if (!Array.isArray(accounts) || accounts.length === 0) {
+        throw new Error("No wallet accounts available");
+      }
+      const account = accounts[0];
 
       for (const it of items) {
         addStatus(`Uploading ${it.name}...`, "info");
