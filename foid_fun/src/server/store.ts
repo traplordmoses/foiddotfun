@@ -7,7 +7,7 @@ type Store = {
   latestEpochFinalized: number;
 };
 
-const g = globalThis as any;
+const g = globalThis as { __MIFOID_STORE__?: Store };
 
 if (!g.__MIFOID_STORE__) {
   g.__MIFOID_STORE__ = {
@@ -17,7 +17,7 @@ if (!g.__MIFOID_STORE__) {
   } as Store;
 }
 
-const store: Store = g.__MIFOID_STORE__;
+const store: Store = g.__MIFOID_STORE__!;
 
 export default store;
 export { store }; // (optional named re-export)

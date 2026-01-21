@@ -33,8 +33,8 @@ export function contractToWorldRect(r: Rect): Rect {
 }
 
 export function clampWorldRect(r: Rect): Rect {
-  let w = Math.max(TILE, Math.min(r.w, VIRTUAL_CANVAS_W));
-  let h = Math.max(TILE, Math.min(r.h, VIRTUAL_CANVAS_H));
+  const w = Math.max(TILE, Math.min(r.w, VIRTUAL_CANVAS_W));
+  const h = Math.max(TILE, Math.min(r.h, VIRTUAL_CANVAS_H));
 
   const minX = WORLD_MIN_X;
   const minY = WORLD_MIN_Y;

@@ -62,8 +62,9 @@ export async function loadCidMap() {
   });
   const map = new Map<string, { cidHash: `0x${string}` }>();
   for (const l of logs) {
-    const a: any = (l as any).args;
-    map.set(a.id.toLowerCase(), { cidHash: a.cidHash });
+    const args = (l as { args?: { id?: string; cidHash?: `0x${string}` } }).args;
+    if (!args?.id || !args?.cidHash) continue;
+    map.set(args.id.toLowerCase(), { cidHash: args.cidHash });
   }
   return map;
 }

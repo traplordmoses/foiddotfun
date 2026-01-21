@@ -15,7 +15,7 @@ function bn(x: string) {
   }
 }
 
-export async function GET(req: Request) {
+export async function GET() {
   // For backwards-compat with your right-rail, we present "proposals still in voting"
   // as "mempool intents". We fabricate feePerCellWei/tipPerCellWei so
   // feePerCellWei + tipPerCellWei === bidPerCellWei.

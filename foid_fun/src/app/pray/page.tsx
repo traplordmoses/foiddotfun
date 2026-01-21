@@ -23,14 +23,21 @@ function resolveEnv(): { registry?: Hex; mirror?: Hex; chainId: number } {
       const chainParam = sp.get("chain");
       if (chainParam) chainId = Number(chainParam);
     }
-    const g: any = (globalThis as any) ?? {};
-    if (!registry && g.__ENV__?.NEXT_PUBLIC_FOIP_REGISTRY) registry = g.__ENV__.NEXT_PUBLIC_FOIP_REGISTRY;
-    if (!mirror && g.__ENV__?.NEXT_PUBLIC_FOIP_MIRROR) mirror = g.__ENV__.NEXT_PUBLIC_FOIP_MIRROR;
-    if (g.__ENV__?.NEXT_PUBLIC_FLUENT_CHAIN_ID && !Number.isNaN(Number(g.__ENV__.NEXT_PUBLIC_FLUENT_CHAIN_ID))) {
+    const g = globalThis as { __ENV__?: Record<string, string> };
+    if (!registry && g.__ENV__?.NEXT_PUBLIC_FOIP_REGISTRY) {
+      registry = g.__ENV__.NEXT_PUBLIC_FOIP_REGISTRY;
+    }
+    if (!mirror && g.__ENV__?.NEXT_PUBLIC_FOIP_MIRROR) {
+      mirror = g.__ENV__.NEXT_PUBLIC_FOIP_MIRROR;
+    }
+    if (
+      g.__ENV__?.NEXT_PUBLIC_FLUENT_CHAIN_ID &&
+      !Number.isNaN(Number(g.__ENV__.NEXT_PUBLIC_FLUENT_CHAIN_ID))
+    ) {
       chainId = Number(g.__ENV__.NEXT_PUBLIC_FLUENT_CHAIN_ID);
     }
-    if (typeof process !== "undefined" && (process as any).env) {
-      const env: any = (process as any).env;
+    if (typeof process !== "undefined") {
+      const env = process.env;
       if (!registry && env.NEXT_PUBLIC_FOIP_REGISTRY) registry = env.NEXT_PUBLIC_FOIP_REGISTRY;
       if (!mirror && env.NEXT_PUBLIC_FOIP_MIRROR) mirror = env.NEXT_PUBLIC_FOIP_MIRROR;
       if (env.NEXT_PUBLIC_FLUENT_CHAIN_ID && !Number.isNaN(Number(env.NEXT_PUBLIC_FLUENT_CHAIN_ID))) {

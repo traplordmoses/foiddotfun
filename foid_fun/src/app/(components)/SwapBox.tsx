@@ -11,6 +11,10 @@ const FLUENT_CHAIN_ID = 20994;
 const FLUENT_CHAIN_NAME = "Fluent Testnet";
 const RPC_URL = "https://rpc.testnet.fluent.xyz";
 
+type EthereumProvider = {
+  request: (args: { method: string; params?: readonly unknown[] }) => Promise<unknown>;
+};
+
 interface QuoteHop {
   from: string;
   to: string;
@@ -46,7 +50,7 @@ function useNetworkGate(expectedChainId: number) {
 
   const addNetwork = useCallback(async () => {
     if (typeof window === "undefined") return;
-    const ethereum = (window as typeof window & { ethereum?: any }).ethereum;
+    const ethereum = (window as { ethereum?: EthereumProvider }).ethereum;
     if (!ethereum) {
       setLastError("No injected wallet detected.");
       return;
@@ -68,8 +72,9 @@ function useNetworkGate(expectedChainId: number) {
         ],
       });
       toast.success("Fluent Testnet added.");
-    } catch (error: any) {
-      setLastError(error?.message ?? "Add network was cancelled.");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Add network was cancelled.";
+      setLastError(message);
     } finally {
       setIsSwitching(false);
     }
@@ -82,8 +87,9 @@ function useNetworkGate(expectedChainId: number) {
     try {
       await switchChainAsync({ chainId: expectedChainId });
       toast.success("Switched to Fluent Testnet.");
-    } catch (error: any) {
-      setLastError(error?.message ?? "Switch rejected.");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Switch rejected.";
+      setLastError(message);
     } finally {
       setIsSwitching(false);
     }
@@ -147,8 +153,9 @@ export function SwapBox() {
       setPasteValue(text);
       setFromToken(text);
       toast.success("Token address pasted.");
-    } catch (error: any) {
-      toast.error(error?.message ?? "Unable to read clipboard.");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unable to read clipboard.";
+      toast.error(message);
     } finally {
       setIsPasting(false);
     }

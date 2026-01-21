@@ -123,10 +123,10 @@ export async function resolveLatestManifestCid({
         return idxA > idxB ? -1 : 1;
       });
       const latestLog = sorted[0]!;
-      const args: any = latestLog.args ?? {};
+      const args = (latestLog as { args?: Record<string, unknown> }).args ?? {};
       epoch = Number(args.epoch ?? 0) || null;
-      cid = normalizeManifestCid(args.manifestCid ?? args.manifestCID ?? "");
-      manifestRoot = normalizeManifestRoot(args.manifestRoot ?? args.root ?? "");
+      cid = normalizeManifestCid(String(args.manifestCid ?? args.manifestCID ?? ""));
+      manifestRoot = normalizeManifestRoot(String(args.manifestRoot ?? args.root ?? ""));
       if (epoch && cid) {
         return {
           epoch,

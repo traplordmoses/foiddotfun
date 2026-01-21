@@ -9,27 +9,37 @@ import {
   isHex,
   toHex,
 } from "viem";
+import type { Abi } from "viem";
 import TreasuryAbi from "@/abi/LoreBoardTreasury.json";
 import BoardAbi from "@/abi/LoreboardBoardV2.json" assert { type: "json" };
-import { CANONICAL_ADDRESSES, requireCanonicalAddress } from "@/config/canonical";
+import {
+  CANONICAL_ADDRESSES,
+  CANONICAL_CHAIN,
+  requireCanonicalAddress,
+} from "@/config/canonical";
 
 const treasuryEnv = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS;
 const boardEnv = process.env.NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS;
-const rpcUrl = process.env.NEXT_PUBLIC_FLUENT_RPC;
-if (!rpcUrl) {
-  throw new Error(
-    "NEXT_PUBLIC_FLUENT_RPC is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
-  );
+const rpcUrl = process.env.NEXT_PUBLIC_FLUENT_RPC ?? CANONICAL_CHAIN.rpcUrl;
+
+function getCanonicalAddress(params: {
+  label: string;
+  envValue?: string | null;
+  expected: `0x${string}`;
+  envHint: string;
+}) {
+  if (!params.envValue?.trim()) return params.expected;
+  return requireCanonicalAddress(params);
 }
 
-export const TREASURY = requireCanonicalAddress({
+export const TREASURY = getCanonicalAddress({
   label: "NEXT_PUBLIC_LOREBOARD_ADDRESS",
   envValue: treasuryEnv,
   expected: CANONICAL_ADDRESSES.treasury,
   envHint: "NEXT_PUBLIC_LOREBOARD_ADDRESS",
 }).toLowerCase() as `0x${string}`;
 
-export const BOARD = requireCanonicalAddress({
+export const BOARD = getCanonicalAddress({
   label: "NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS",
   envValue: boardEnv,
   expected: CANONICAL_ADDRESSES.board,
@@ -50,11 +60,15 @@ export const publicClient = createPublicClient({
   transport: http(rpcUrl),
 });
 
-export const TreasuryAbiTyped = TreasuryAbi as unknown as readonly any[];
-export const BoardAbiTyped = BoardAbi as unknown as readonly any[];
+export const TreasuryAbiTyped = TreasuryAbi as Abi;
+export const BoardAbiTyped = BoardAbi as Abi;
+
+type EthereumProvider = {
+  request: (args: { method: string; params?: readonly unknown[] }) => Promise<unknown>;
+};
 
 export async function getWalletClient() {
-  const eth = (globalThis as any)?.ethereum;
+  const eth = (globalThis as { ethereum?: EthereumProvider }).ethereum;
   if (!eth) throw new Error("wallet not available");
   return createWalletClient({ chain: fluentTestnet, transport: custom(eth) });
 }
@@ -81,7 +95,7 @@ export async function writeProposePlacement(args: {
     return value.bytes;
   };
 
-  const eth = (globalThis as any)?.ethereum;
+  const eth = (globalThis as { ethereum?: EthereumProvider }).ethereum;
   if (!eth) throw new Error("wallet not available");
   const walletClient = createWalletClient({ chain: fluentTestnet, transport: custom(eth) });
   const bidPerCellWei = normalizeBigInt(args.bidPerCellWei);

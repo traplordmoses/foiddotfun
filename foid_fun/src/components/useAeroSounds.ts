@@ -9,6 +9,8 @@ interface AeroSounds {
   playWhoosh: () => void;
 }
 
+type AudioContextWindow = Window & { webkitAudioContext?: typeof AudioContext };
+
 export default function useAeroSounds(): AeroSounds {
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -18,7 +20,8 @@ export default function useAeroSounds(): AeroSounds {
     }
 
     if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = new (window.AudioContext ||
+        (window as AudioContextWindow).webkitAudioContext)();
     }
 
     if (audioContextRef.current.state === "suspended") {
@@ -64,7 +67,7 @@ export default function useAeroSounds(): AeroSounds {
 
       osc.start(now);
       osc.stop(now + 0.1);
-    } catch (e) {
+    } catch {
       // Silently fail if audio not supported.
     }
   }, [getContext]);
@@ -128,7 +131,7 @@ export default function useAeroSounds(): AeroSounds {
 
       osc3.start(now);
       osc3.stop(now + 0.1);
-    } catch (e) {
+    } catch {
       // Silently fail.
     }
   }, [getContext]);
@@ -166,7 +169,7 @@ export default function useAeroSounds(): AeroSounds {
         osc.start(startTime);
         osc.stop(startTime + 0.3);
       });
-    } catch (e) {
+    } catch {
       // Silently fail.
     }
   }, [getContext]);
@@ -225,7 +228,7 @@ export default function useAeroSounds(): AeroSounds {
 
       osc.start(now);
       osc.stop(now + 0.35);
-    } catch (e) {
+    } catch {
       // Silently fail.
     }
   }, [getContext]);

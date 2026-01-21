@@ -3,6 +3,7 @@
 type AudioContextConstructor =
   | typeof AudioContext
   | (typeof globalThis extends { webkitAudioContext: infer T } ? T : never);
+type AudioContextWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
 // IMPORTANT: make sure these files exist under /public
 // e.g. public/sfx/typing.wav, public/sfx/reward.wav, etc.
@@ -69,7 +70,7 @@ const isBrowser = typeof window !== "undefined";
 const audioContextSupported =
   isBrowser &&
   (typeof window.AudioContext === "function" ||
-    typeof (window as any).webkitAudioContext === "function");
+    typeof (window as AudioContextWindow).webkitAudioContext === "function");
 
 function clampVolume(value: number) {
   if (Number.isNaN(value)) return 0;
@@ -84,7 +85,7 @@ function ensureCtx(): AudioContext | null {
   }
   if (!ctx) {
     const Ctor: AudioContextConstructor =
-      window.AudioContext ?? (window as any).webkitAudioContext;
+      window.AudioContext ?? (window as AudioContextWindow).webkitAudioContext;
     ctx = new Ctor();
   }
   return ctx;
@@ -350,7 +351,7 @@ export const background = {
 
 export async function isUnlocked(): Promise<boolean> { return unlocked; }
 
-export default {
+const sfx = {
   init,
   unlock,
   playLoading,
@@ -361,3 +362,5 @@ export default {
   background,
   isUnlocked,
 };
+
+export default sfx;

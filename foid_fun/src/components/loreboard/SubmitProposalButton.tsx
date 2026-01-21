@@ -5,11 +5,12 @@ import { useAccount, useChainId } from "wagmi";
 import { writeContract } from "@wagmi/core";
 import { config } from "@/providers";
 import ABI from "@/abi/LoreboardBoardV2.json" assert { type: "json" };
-import { decodeEventLog, keccak256, toHex } from "viem";
+import { decodeEventLog, keccak256, toHex, type Abi } from "viem";
 import type { Rect } from "@/lib/contracts/loreboard";
 import { publicClient } from "@/lib/viem";
 
 const FLUENT_CHAIN_ID = 20994;
+const LoreboardAbi = ABI as Abi;
 
 const normalizeCidString = (value: string): string => {
   const trimmed = value.trim();
@@ -108,8 +109,9 @@ export default function SubmitProposalButton({
       try {
         ensuredCid = await prepareCid();
         setCid(ensuredCid);
-      } catch (e: any) {
-        setError(e?.message ?? "Failed to prepare CID");
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Failed to prepare CID";
+        setError(message);
         return;
       }
     }
@@ -146,25 +148,22 @@ export default function SubmitProposalButton({
     setTxHash(null);
 
     try {
-      const hash = await writeContract(
-        config,
-        {
-          account: bidder,
-          address: treasury,
-          abi: ABI as any,
-          functionName: "proposePlacement",
-          args: [
-            normalizedRect.x,
-            normalizedRect.y,
-            normalizedRect.w,
-            normalizedRect.h,
-            bidPerCellWei,
-            cidBytes,
-          ],
-          value,
-          chainId: FLUENT_CHAIN_ID,
-        } as any
-      );
+      const hash = await writeContract(config, {
+        account: bidder,
+        address: treasury,
+        abi: LoreboardAbi,
+        functionName: "proposePlacement",
+        args: [
+          normalizedRect.x,
+          normalizedRect.y,
+          normalizedRect.w,
+          normalizedRect.h,
+          bidPerCellWei,
+          cidBytes,
+        ],
+        value,
+        chainId: FLUENT_CHAIN_ID,
+      });
       setTxHash(hash);
       const receipt = await publicClient.waitForTransactionReceipt({
         hash: hash as `0x${string}`,
@@ -174,16 +173,26 @@ export default function SubmitProposalButton({
       );
       if (!log) throw new Error("PlacementProposed event not found");
       const decoded = decodeEventLog({
-        abi: ABI as any,
+        abi: LoreboardAbi,
         data: log.data,
         topics: log.topics,
         eventName: "PlacementProposed",
       });
       const { id } = decoded.args as { id: `0x${string}` };
       onSubmitted?.({ txHash: hash, proposalId: id, cid: ensuredCid });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setError(e?.shortMessage ?? e?.message ?? "tx failed");
+      const message =
+        typeof e === "object" && e !== null
+          ? (("shortMessage" in e && typeof (e as { shortMessage?: string }).shortMessage === "string"
+              ? (e as { shortMessage?: string }).shortMessage
+              : undefined) ??
+              ("message" in e && typeof (e as { message?: string }).message === "string"
+                ? (e as { message?: string }).message
+                : undefined) ??
+              "tx failed")
+          : "tx failed";
+      setError(message);
     } finally {
       setPending(false);
     }

@@ -63,7 +63,6 @@ function saveToStorage(state: DesktopState): void {
 
 export function useDesktopState() {
   const [state, setState] = useState<DesktopState>(DEFAULT_STATE);
-  const [highestZ, setHighestZ] = useState(10);
   const [mounted, setMounted] = useState(false);
 
   // Load from storage on mount
@@ -71,9 +70,6 @@ export function useDesktopState() {
     const stored = loadFromStorage();
     if (stored) {
       setState(stored);
-      // Find highest z-index
-      const maxZ = Math.max(...Object.values(stored).map((w) => w.zIndex));
-      setHighestZ(maxZ + 1);
     }
     setMounted(true);
   }, []);
@@ -88,7 +84,6 @@ export function useDesktopState() {
   const focusWindow = useCallback((id: WindowId) => {
     setState((prev) => {
       const newZ = Math.max(...Object.values(prev).map((w) => w.zIndex)) + 1;
-      setHighestZ(newZ + 1);
       return {
         ...prev,
         [id]: {
@@ -132,7 +127,6 @@ export function useDesktopState() {
   const openWindow = useCallback((id: WindowId) => {
     setState((prev) => {
       const newZ = Math.max(...Object.values(prev).map((w) => w.zIndex)) + 1;
-      setHighestZ(newZ + 1);
       return {
         ...prev,
         [id]: {

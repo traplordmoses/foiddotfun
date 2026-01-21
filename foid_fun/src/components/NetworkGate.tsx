@@ -14,6 +14,10 @@ interface NetworkGateProps {
   children: React.ReactNode;
 }
 
+type EthereumProvider = {
+  request: (args: { method: string; params?: readonly unknown[] }) => Promise<unknown>;
+};
+
 export function NetworkGate({ chainId, children }: NetworkGateProps) {
   const { chain, isConnected } = useAccount();
   const hookChainId = useChainId();
@@ -36,9 +40,9 @@ export function NetworkGate({ chainId, children }: NetworkGateProps) {
     const trySwitch = async () => {
       try {
         await switchChainAsync?.({ chainId });
-      } catch (err: any) {
+      } catch {
         if (typeof window === "undefined") return;
-        const ethereum = (window as typeof window & { ethereum?: any }).ethereum;
+        const ethereum = (window as { ethereum?: EthereumProvider }).ethereum;
         if (!ethereum || attemptedAdd) return;
 
         const addChainParams = {
@@ -82,7 +86,7 @@ export function NetworkGate({ chainId, children }: NetworkGateProps) {
             className="rounded-xl px-4 py-2 border border-fuchsia-500/60 text-fuchsia-300 hover:border-fuchsia-500 hover:text-fuchsia-100"
             onClick={() => {
               if (typeof window === "undefined") return;
-              const ethereum = (window as typeof window & { ethereum?: any }).ethereum;
+              const ethereum = (window as { ethereum?: EthereumProvider }).ethereum;
               if (!ethereum) return;
               ethereum.request({
                 method: "wallet_addEthereumChain",

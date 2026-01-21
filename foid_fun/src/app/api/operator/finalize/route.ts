@@ -7,6 +7,7 @@ import {
   keccak256,
   stringToHex,
 } from "viem";
+import type { Abi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { FINALIZED_EVENT } from "@/lib/events";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
@@ -39,82 +40,108 @@ export const dynamic = "force-dynamic";
 
 /* ---------- ENV & chain clients ---------- */
 
-const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC!;
-const treasuryEnv = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS;
-const operatorPk = process.env.OPERATOR_PK!;
-const manifestStoreEnv =
-  (process.env.NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS ||
-    process.env.NEXT_PUBLIC_LOREBOARD_ANCHOR ||
-    process.env.NEXT_PUBLIC_MANIFEST_STORE ||
-    process.env.NEXT_PUBLIC_MANIFEST_STORE_ADDRESS) as `0x${string}` | undefined;
-const loreboardVmEnv =
-  process.env.NEXT_PUBLIC_LOREBOARD_VM_ADDRESS as `0x${string}` | undefined;
+type PublicClientType = ReturnType<typeof createPublicClient>;
+type WalletClientType = ReturnType<typeof createWalletClient>;
 
-if (!rpc) {
-  throw new Error(
-    "NEXT_PUBLIC_FLUENT_RPC is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
+type RuntimeConfig = {
+  publicClient: PublicClientType;
+  wallet: WalletClientType;
+  treasury: `0x${string}`;
+  manifestStore: `0x${string}`;
+  loreboardVm?: `0x${string}`;
+  deployBlock: bigint;
+};
+
+const loreBoardManifestStoreAbiTyped = loreBoardManifestStoreAbi as Abi;
+
+function getRuntimeConfig(): RuntimeConfig {
+  const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC;
+  const treasuryEnv = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS;
+  const operatorPk = process.env.OPERATOR_PK;
+  const manifestStoreEnv =
+    (process.env.NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS ||
+      process.env.NEXT_PUBLIC_LOREBOARD_ANCHOR ||
+      process.env.NEXT_PUBLIC_MANIFEST_STORE ||
+      process.env.NEXT_PUBLIC_MANIFEST_STORE_ADDRESS) as `0x${string}` | undefined;
+  const loreboardVmEnv =
+    process.env.NEXT_PUBLIC_LOREBOARD_VM_ADDRESS as `0x${string}` | undefined;
+
+  if (!rpc) {
+    throw new Error(
+      "NEXT_PUBLIC_FLUENT_RPC is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
+    );
+  }
+  if (!operatorPk) {
+    throw new Error(
+      "OPERATOR_PK is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
+    );
+  }
+
+  const treasury = requireCanonicalAddress({
+    label: "NEXT_PUBLIC_LOREBOARD_ADDRESS",
+    envValue: treasuryEnv,
+    expected: CANONICAL_ADDRESSES.treasury,
+    envHint: "NEXT_PUBLIC_LOREBOARD_ADDRESS",
+  });
+  const manifestStore = requireCanonicalAddress({
+    label: "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS",
+    envValue: manifestStoreEnv,
+    expected: CANONICAL_ADDRESSES.manifestStore,
+    envHint:
+      "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS (or NEXT_PUBLIC_LOREBOARD_ANCHOR/NEXT_PUBLIC_MANIFEST_STORE)",
+  });
+  const loreboardVm = loreboardVmEnv
+    ? requireCanonicalAddress({
+        label: "NEXT_PUBLIC_LOREBOARD_VM_ADDRESS",
+        envValue: loreboardVmEnv,
+        expected: CANONICAL_ADDRESSES.vmWrapper,
+        envHint: "NEXT_PUBLIC_LOREBOARD_VM_ADDRESS",
+      })
+    : undefined;
+
+  const chain = defineChain({
+    id: 20994,
+    name: "Fluent Testnet",
+    nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+    rpcUrls: { default: { http: [rpc] } },
+  });
+
+  const operatorAccount = privateKeyToAccount(
+    operatorPk.startsWith("0x")
+      ? (operatorPk as `0x${string}`)
+      : (`0x${operatorPk}` as `0x${string}`)
   );
-}
-if (!operatorPk) {
-  throw new Error(
-    "OPERATOR_PK is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
-  );
-}
-const treasury = requireCanonicalAddress({
-  label: "NEXT_PUBLIC_LOREBOARD_ADDRESS",
-  envValue: treasuryEnv,
-  expected: CANONICAL_ADDRESSES.treasury,
-  envHint: "NEXT_PUBLIC_LOREBOARD_ADDRESS",
-});
-const manifestStore = requireCanonicalAddress({
-  label: "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS",
-  envValue: manifestStoreEnv,
-  expected: CANONICAL_ADDRESSES.manifestStore,
-  envHint:
-    "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS (or NEXT_PUBLIC_LOREBOARD_ANCHOR/NEXT_PUBLIC_MANIFEST_STORE)",
-});
-const loreboardVm = loreboardVmEnv
-  ? requireCanonicalAddress({
-      label: "NEXT_PUBLIC_LOREBOARD_VM_ADDRESS",
-      envValue: loreboardVmEnv,
-      expected: CANONICAL_ADDRESSES.vmWrapper,
-      envHint: "NEXT_PUBLIC_LOREBOARD_VM_ADDRESS",
-    })
-  : undefined;
 
-const chain = defineChain({
-  id: 20994,
-  name: "Fluent Testnet",
-  nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-  rpcUrls: { default: { http: [rpc] } },
-});
+  const publicClient = createPublicClient({ chain, transport: http(rpc) });
+  const wallet = createWalletClient({
+    chain,
+    transport: http(rpc),
+    account: operatorAccount,
+  });
 
-const operatorAccount = privateKeyToAccount(
-  operatorPk.startsWith("0x")
-    ? (operatorPk as `0x${string}`)
-    : (`0x${operatorPk}` as `0x${string}`)
-);
+  const deployBlockEnv =
+    process.env.NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK ??
+    process.env.NEXT_PUBLIC_DEPLOY_BLOCK;
 
-const publicClient = createPublicClient({ chain, transport: http(rpc) });
-const wallet = createWalletClient({
-  chain,
-  transport: http(rpc),
-  account: operatorAccount,
-});
+  if (!deployBlockEnv) {
+    throw new Error(
+      "NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK (or NEXT_PUBLIC_DEPLOY_BLOCK) is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
+    );
+  }
 
-const deployBlockEnv =
-  process.env.NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK ??
-  process.env.NEXT_PUBLIC_DEPLOY_BLOCK;
+  const deployBlock = BigInt(deployBlockEnv);
 
-if (!deployBlockEnv) {
-  throw new Error(
-    "NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK (or NEXT_PUBLIC_DEPLOY_BLOCK) is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
-  );
+  return {
+    publicClient,
+    wallet,
+    treasury,
+    manifestStore,
+    loreboardVm,
+    deployBlock,
+  };
 }
 
-const deployBlock = BigInt(deployBlockEnv);
-
-type RawLog = Awaited<ReturnType<typeof publicClient.getLogs>>[number];
+type RawLog = Awaited<ReturnType<PublicClientType["getLogs"]>>[number];
 
 type FinalizedLog = RawLog & {
   args: {
@@ -123,12 +150,21 @@ type FinalizedLog = RawLog & {
   };
 };
 
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null;
+}
+
 function isFinalizedLog(log: RawLog): log is FinalizedLog {
-  const args = (log as any)?.args;
-  return typeof args?.epoch === "bigint" && typeof args?.manifestCID === "string";
+  const args = (log as { args?: unknown })?.args;
+  if (!isRecord(args)) return false;
+  return typeof args.epoch === "bigint" && typeof args.manifestCID === "string";
 }
 
 async function getFinalizedLogs(
+  publicClient: PublicClientType,
+  treasury: `0x${string}`,
   fromBlock: bigint,
   toBlock: bigint,
   step = 90_000n
@@ -165,32 +201,42 @@ async function fetchManifestFromCid(cid: string) {
   return null;
 }
 
-function coerceRect(raw: any) {
-  const src = raw?.rect ?? raw ?? {};
-  const x = Number(src.x ?? 0);
-  const y = Number(src.y ?? 0);
-  const w = Number(src.w ?? src.width ?? 0);
-  const h = Number(src.h ?? src.height ?? 0);
+function coerceRect(raw: unknown) {
+  const src = isRecord(raw) ? raw : {};
+  const rect = isRecord(src.rect) ? src.rect : src;
+  const x = Number(rect.x ?? 0);
+  const y = Number(rect.y ?? 0);
+  const w = Number(rect.w ?? rect.width ?? 0);
+  const h = Number(rect.h ?? rect.height ?? 0);
   return { x, y, w, h };
 }
 
-function normalizeManifestPlacements(manifest: any): Placement[] {
-  const rows = manifest?.placements ?? manifest?.winners ?? [];
-  return rows.map((p: any): Placement => {
-    const rect = coerceRect(p);
+function normalizeManifestPlacements(manifest: unknown): Placement[] {
+  const manifestRecord = isRecord(manifest) ? manifest : {};
+  const rows = Array.isArray(manifestRecord.placements)
+    ? manifestRecord.placements
+    : Array.isArray(manifestRecord.winners)
+    ? manifestRecord.winners
+    : [];
+
+  return rows.map((row): Placement => {
+    const placement = isRecord(row) ? row : {};
+    const rect = coerceRect(placement);
+    const mime =
+      placement.mime === "image/jpeg" ? "image/jpeg" : "image/png";
     return {
-      id: String(p.id ?? ""),
-      owner: String(p.owner ?? ""),
+      id: String(placement.id ?? ""),
+      owner: String(placement.owner ?? ""),
       cid: String(
-        p.cid ?? manifest?.cid ?? manifest?.manifestCID ?? ""
+        placement.cid ?? manifestRecord.cid ?? manifestRecord.manifestCID ?? ""
       ),
-      name: String(p.name ?? p.filename ?? ""),
-      mime: (p.mime ?? "image/png") as "image/png" | "image/jpeg",
+      name: String(placement.name ?? placement.filename ?? ""),
+      mime,
       rect,
-      cells: Number(p.cells ?? 1),
-      bidPerCellWei: String(p.bidPerCellWei ?? "0"),
-      width: Number(p.width ?? rect.w ?? 0),
-      height: Number(p.height ?? rect.h ?? 0),
+      cells: Number(placement.cells ?? 1),
+      bidPerCellWei: String(placement.bidPerCellWei ?? "0"),
+      width: Number(placement.width ?? rect.w ?? 0),
+      height: Number(placement.height ?? rect.h ?? 0),
     };
   });
 }
@@ -198,6 +244,7 @@ function normalizeManifestPlacements(manifest: any): Placement[] {
 type BaseBoardSource = "manifest-store" | "logs" | "none";
 
 async function loadBaseBoardFromOnchain() {
+  const { publicClient, treasury, deployBlock } = getRuntimeConfig();
   const latestFromStore = await loadLatestFinalized();
   if (latestFromStore?.manifestCID) {
     const cid = latestFromStore.manifestCID.replace(/^ipfs:\/\//, "");
@@ -219,7 +266,12 @@ async function loadBaseBoardFromOnchain() {
   }
 
   const latestBlock = await publicClient.getBlockNumber();
-  const logs = await getFinalizedLogs(deployBlock, latestBlock);
+  const logs = await getFinalizedLogs(
+    publicClient,
+    treasury,
+    deployBlock,
+    latestBlock
+  );
 
   if (!logs.length) {
     console.log(
@@ -293,8 +345,8 @@ const finalizeAbi = [
       { name: "rejected", type: "bytes32[]" },
     ],
     outputs: [],
-  } as const,
-];
+  },
+] as const satisfies Abi;
 
 const loreboardVmAbi = [
   {
@@ -343,8 +395,8 @@ const loreboardVmAbi = [
       { name: "accepted", type: "bytes32[]" },
       { name: "rejected", type: "bytes32[]" },
     ],
-  } as const,
-];
+  },
+] as const satisfies Abi;
 
 type Hex32 = `0x${string}`;
 
@@ -368,7 +420,9 @@ const fakeRootFromIds = (ids: Hex32[]): Hex32 => {
 /* ---------- POST /api/operator/finalize ---------- */
 
 export async function POST(req: NextRequest) {
-  let body: any = null;
+  const { publicClient, wallet, treasury, manifestStore, loreboardVm } =
+    getRuntimeConfig();
+  let body: unknown = null;
   try {
     body = await req.json();
   } catch {
@@ -377,9 +431,10 @@ export async function POST(req: NextRequest) {
 
   const url = new URL(req.url);
   const force = url.searchParams.get("force") === "1";
+  const bodyRecord = isRecord(body) ? body : {};
   const epoch =
-    typeof body?.epoch === "number" && !Number.isNaN(body.epoch)
-      ? body.epoch
+    typeof bodyRecord.epoch === "number" && !Number.isNaN(bodyRecord.epoch)
+      ? bodyRecord.epoch
       : currentEpoch();
 
   const candidates = listProposals().filter(
@@ -497,7 +552,7 @@ export async function POST(req: NextRequest) {
 
       const [acceptedIds, rejectedIds] = (await publicClient.readContract({
         address: loreboardVm,
-        abi: loreboardVmAbi as any,
+        abi: loreboardVmAbi,
         functionName: "selectWinners",
         args: [baseInputs, candidateInputs],
       })) as readonly [Hex32[], Hex32[]];
@@ -659,7 +714,7 @@ export async function POST(req: NextRequest) {
 
   const txHash = await wallet.writeContract({
     address: treasury,
-    abi: finalizeAbi as any,
+    abi: finalizeAbi,
     functionName: "finalizeEpoch",
     args: [epoch, manifestRoot, cid!, acceptedIds, rejectedIds],
   });
@@ -686,7 +741,7 @@ export async function POST(req: NextRequest) {
 
   const anchorTx = await wallet.writeContract({
     address: manifestStore,
-    abi: loreBoardManifestStoreAbi as any,
+    abi: loreBoardManifestStoreAbiTyped,
     functionName: "anchor",
     args: [epoch, manifestRoot, cid],
   });

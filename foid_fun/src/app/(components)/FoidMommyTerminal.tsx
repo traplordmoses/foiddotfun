@@ -672,10 +672,11 @@ export default function FoidMommyTerminal({
 
     try {
       await ensureWalletReady();
-    } catch (error: any) {
+    } catch (error: unknown) {
       const message =
-        error?.message ??
-        "your wallet isn't ready yet. connect and make sure you're on fluent testnet.";
+        error instanceof Error
+          ? error.message
+          : "your wallet isn't ready yet. connect and make sure you're on fluent testnet.";
       await typeMessage({ role: "system", text: message });
       setStage("txPrompt");
       setIsProcessing(false);
@@ -713,7 +714,7 @@ export default function FoidMommyTerminal({
       setStage("checkInPrompt");
       setPrayerText("");
       setIsProcessing(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       window.clearTimeout(waitingTimer);
 
       const seenMessages: string[] = [];
@@ -722,12 +723,24 @@ export default function FoidMommyTerminal({
           seenMessages.push(value.toLowerCase());
         }
       };
-      collectMessage(error?.shortMessage);
-      collectMessage(error?.message);
-      collectMessage(error?.cause?.shortMessage);
-      collectMessage(error?.cause?.message);
-      collectMessage(error?.cause?.cause?.shortMessage);
-      collectMessage(error?.cause?.cause?.message);
+      const err = (typeof error === "object" && error !== null
+        ? (error as Record<string, unknown>)
+        : {});
+      const cause =
+        typeof err.cause === "object" && err.cause !== null
+          ? (err.cause as Record<string, unknown>)
+          : undefined;
+      const causeCause =
+        typeof cause?.cause === "object" && cause.cause !== null
+          ? (cause.cause as Record<string, unknown>)
+          : undefined;
+
+      collectMessage(err.shortMessage);
+      collectMessage(err.message);
+      collectMessage(cause?.shortMessage);
+      collectMessage(cause?.message);
+      collectMessage(causeCause?.shortMessage);
+      collectMessage(causeCause?.message);
 
       const seenNames: string[] = [];
       const collectName = (value: unknown) => {
@@ -735,9 +748,9 @@ export default function FoidMommyTerminal({
           seenNames.push(value.toLowerCase());
         }
       };
-      collectName(error?.name);
-      collectName(error?.cause?.name);
-      collectName(error?.cause?.cause?.name);
+      collectName(err.name);
+      collectName(cause?.name);
+      collectName(causeCause?.name);
 
       const outOfGasIndicators = [
         "insufficient funds",

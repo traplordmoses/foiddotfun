@@ -128,6 +128,7 @@ export default function AppTitlebar({
   onSwitchWallet,
   warnings,
 }: AppTitlebarProps) {
+  void chainId;
   const pathname = usePathname();
 
   const tabItems = useMemo(() => {

@@ -52,6 +52,13 @@ import CompactMusicPlayer from "@/components/CompactMusicPlayer";
 const isBytes32Hex = (value?: string): value is `0x${string}` =>
   typeof value === "string" && /^0x[0-9a-fA-F]{64}$/.test(value);
 
+type EthereumProvider = {
+  request: (args: { method: string; params?: readonly unknown[] }) => Promise<unknown>;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
@@ -216,8 +223,6 @@ function Y2kActionButton({
     setMousePos({ x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height });
   };
 
-  const isPrimary = variant === "primary";
-
   return (
     <button
       type="button"
@@ -300,7 +305,12 @@ function VotingItem({ proposal, addStatus }: { proposal: ProposalSummary; addSta
   return (
     <div className="voting-item">
       <div className="voting-item__thumb">
-        {proposal.cid && <img src={cidToHttpUrl(proposal.cid)} alt="" />}
+        {proposal.cid && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={cidToHttpUrl(proposal.cid)} alt="" />
+          </>
+        )}
       </div>
       <div className="voting-item__info">
         <span>{proposal.cells} cells</span>
@@ -338,7 +348,7 @@ const normalizeCidString = (value: string): string => {
 function capRectToMaxCells(r: Rect, maxCells: number): Rect {
   let w = snapDown(r.w);
   let h = snapDown(r.h);
-  let cells = Math.max(1, Math.floor((w / TILE) * (h / TILE)));
+  const cells = Math.max(1, Math.floor((w / TILE) * (h / TILE)));
   if (cells <= maxCells) return { ...r, w, h };
   const scale = Math.sqrt(maxCells / cells);
   w = snapDown(w * scale);
@@ -389,15 +399,29 @@ async function getPendingBytes(p: PendingItem): Promise<ArrayBuffer> {
   return res.arrayBuffer();
 }
 
-const asWorldRect = (value: any) => {
-  const src = value?.rect ?? value ?? {};
-  return { x: Number(src.x ?? 0), y: Number(src.y ?? 0), w: Number(src.w ?? src.width ?? 0), h: Number(src.h ?? src.height ?? 0) };
+const asWorldRect = (value: unknown) => {
+  const src = isRecord(value) ? value : {};
+  const rect = isRecord(src.rect) ? src.rect : src;
+  return {
+    x: Number(rect.x ?? 0),
+    y: Number(rect.y ?? 0),
+    w: Number(rect.w ?? rect.width ?? 0),
+    h: Number(rect.h ?? rect.height ?? 0),
+  };
 };
 
-const normalizePlacements = (list: any[]): FinalizedPlacement[] =>
-  list.map((p: any) => {
-    const coerced = asWorldRect(p?.rect ?? p);
-    return { ...p, x: coerced.x, y: coerced.y, w: coerced.w, h: coerced.h, cells: Number(p?.cells ?? 1) } as FinalizedPlacement;
+const normalizePlacements = (list: unknown[]): FinalizedPlacement[] =>
+  list.map((p) => {
+    const placement = isRecord(p) ? p : {};
+    const coerced = asWorldRect(placement.rect ?? placement);
+    return {
+      ...(placement as FinalizedPlacement),
+      x: coerced.x,
+      y: coerced.y,
+      w: coerced.w,
+      h: coerced.h,
+      cells: Number(placement.cells ?? 1),
+    };
   });
 
 const normalizeProposals = (list: ProposalSummary[] | undefined): ProposalSummary[] =>
@@ -555,14 +579,14 @@ export default function BoardPage() {
       panStartRef.current = { x: e.clientX, y: e.clientY };
       panOriginRef.current = { ...pan };
       setIsPanning(true);
-      (e.currentTarget as Element).setPointerCapture?.((e as any).pointerId);
+      e.currentTarget.setPointerCapture?.(e.pointerId);
       return;
     }
     if (interactive) return;
     e.preventDefault();
     boardDragStartRef.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
     setDraggingBoard(true);
-    (e.currentTarget as Element).setPointerCapture?.((e as any).pointerId);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
   };
 
   // Smooth infinite zoom
@@ -613,8 +637,13 @@ export default function BoardPage() {
 
   async function getImageSize(file: File): Promise<{ w: number; h: number }> {
     try {
-      const bmp = await (globalThis as any).createImageBitmap?.(file);
-      if (bmp) { const w = bmp.width, h = bmp.height; bmp.close?.(); return { w, h }; }
+      const createBitmap = typeof createImageBitmap === "function" ? createImageBitmap : null;
+      const bmp = createBitmap ? await createBitmap(file) : null;
+      if (bmp) {
+        const w = bmp.width, h = bmp.height;
+        bmp.close?.();
+        return { w, h };
+      }
     } catch {}
     const url = URL.createObjectURL(file);
     try {
@@ -745,7 +774,7 @@ export default function BoardPage() {
     setActiveId(p.id);
     startRectRef.current = { ...storedRectFor(p) };
     startPtRef.current = { x: e.clientX, y: e.clientY };
-    (e.currentTarget as Element).setPointerCapture?.((e as any).pointerId);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     const onMove = (ev: PointerEvent) => {
       if (!startRectRef.current) return;
       const dx = (ev.clientX - startPtRef.current.x) / scale, dy = (ev.clientY - startPtRef.current.y) / scale;
@@ -767,13 +796,13 @@ export default function BoardPage() {
     startRectRef.current = { ...storedRectFor(p) };
     startPtRef.current = { x: e.clientX, y: e.clientY };
     aspectRef.current = Math.max(1e-6, p.width / p.height);
-    (e.currentTarget as Element).setPointerCapture?.((e as any).pointerId);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     const onMove = (ev: PointerEvent) => {
       if (!startRectRef.current) return;
       const dx = (ev.clientX - startPtRef.current.x) / scale, dy = (ev.clientY - startPtRef.current.y) / scale;
       let w = startRectRef.current.w + dx, h = ev.altKey ? startRectRef.current.h + dy : w / aspectRef.current;
       w = snapDown(w); h = snapDown(h);
-      let next = clampToCanvas(capRectToMaxCells({ x: startRectRef.current.x, y: startRectRef.current.y, w, h }, MAX_CELLS_PER_RECT));
+      const next = clampToCanvas(capRectToMaxCells({ x: startRectRef.current.x, y: startRectRef.current.y, w, h }, MAX_CELLS_PER_RECT));
       setLiveRect(next); setRect(p.id, next); liveRectRef.current = next;
     };
     const onUp = () => {
@@ -825,10 +854,11 @@ export default function BoardPage() {
         const latest = await getLatestNormalized();
         if (!alive) return;
         apply(normalizePlacements(latest.manifest?.placements ?? []), typeof latest.epoch === "number" ? latest.epoch : null);
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (!alive) return;
         setPlaced([]); setPlacedEpoch(null); setViewEpoch(null);
-        addStatus(String(e?.message ?? "Failed to load"), "error");
+        const message = e instanceof Error ? e.message : "Failed to load";
+        addStatus(message, "error");
       }
     };
     if (latestManifestLoading) return;
@@ -865,7 +895,8 @@ export default function BoardPage() {
       const target = pending.find((x) => x.id === activeId);
       if (!target) return;
       const step = e.shiftKey ? TILE : Math.floor(TILE / 4);
-      let { x, y, w, h } = target.rect;
+      let { x, y } = target.rect;
+      const { w, h } = target.rect;
       if (e.key === "ArrowLeft") x -= step;
       if (e.key === "ArrowRight") x += step;
       if (e.key === "ArrowUp") y -= step;
@@ -894,7 +925,7 @@ export default function BoardPage() {
       });
       if (overlapNames.length) throw new Error(`Overlap: ${overlapNames.join(", ")}`);
 
-      const eth = (globalThis as any)?.ethereum;
+      const eth = (globalThis as { ethereum?: EthereumProvider }).ethereum;
       if (!eth) throw new Error("No wallet");
       const [account] = await eth.request({ method: "eth_requestAccounts" });
 
@@ -933,8 +964,9 @@ export default function BoardPage() {
       clearBoardState?.();
       try { const { proposals } = await listProposals(); setProposals(normalizeProposals(proposals)); } catch {}
       addStatus("All proposals submitted!", "success");
-    } catch (e: any) {
-      addStatus(String(e?.message ?? e), "error");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      addStatus(message, "error");
     } finally {
       setSubmittingProposals(false);
     }
@@ -1080,6 +1112,7 @@ export default function BoardPage() {
                       const sr = toStageRect(p.rect);
                       return (
                         <figure key={p.id} className="board-proposal" style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={cidToHttpUrl(p.cid)} alt={p.name} className="board-proposal__img" draggable={false} onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
                         </figure>
                       );
@@ -1090,6 +1123,7 @@ export default function BoardPage() {
                       const sr = toStageRect(renderRectFor(p));
                       return (
                         <figure key={p.id} className="board-pending" style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={p.previewUrl} alt={p.name} className="board-pending__img" draggable={false} />
                           <button className="board-pending__move" onPointerDown={beginMove(p)} type="button">⠿</button>
                           <button className="board-pending__resize" onPointerDown={beginResize(p)} type="button">↘</button>

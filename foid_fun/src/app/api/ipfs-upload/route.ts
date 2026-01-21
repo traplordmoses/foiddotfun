@@ -65,7 +65,8 @@ export async function POST(req: Request) {
       { error: "IPFS disabled (set WEB3_STORAGE_TOKEN or PINATA_JWT)" },
       { status: 501 }
     );
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Upload failed" }, { status: 500 });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Upload failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

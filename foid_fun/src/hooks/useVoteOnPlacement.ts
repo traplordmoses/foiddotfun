@@ -23,11 +23,15 @@ export function useVoteOnPlacement({ epochId, placementId }: UseVoteOnPlacementP
     () =>
       Array.isArray(loreboardVotingAbi) &&
       loreboardVotingAbi.some(
-        (entry) =>
-          (entry as any)?.type === "function" &&
-          (entry as any)?.name === "voteOnPlacement" &&
-          Array.isArray((entry as any)?.inputs) &&
-          (entry as any).inputs.length === 2
+        (entry) => {
+          const item = entry as { type?: string; name?: string; inputs?: unknown };
+          return (
+            item.type === "function" &&
+            item.name === "voteOnPlacement" &&
+            Array.isArray(item.inputs) &&
+            item.inputs.length === 2
+          );
+        }
       ),
     []
   );
@@ -94,7 +98,7 @@ export function useVoteOnPlacement({ epochId, placementId }: UseVoteOnPlacementP
     );
     setTxHash(hash);
     return hash;
-  }, [epochId, placementId, writeContractAsync]);
+  }, [epochId, placementId, writeContractAsync, hasShortVote]);
 
   return {
     vote: voteOnChain,

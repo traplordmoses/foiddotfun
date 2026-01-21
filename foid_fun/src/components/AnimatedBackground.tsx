@@ -351,7 +351,7 @@ export default function AnimatedBackground() {
           htCanvas.style.left = "0";
           htCanvas.style.zIndex = "2";
           htCanvas.style.pointerEvents = "none";
-          (htCanvas.style as any).mixBlendMode = "multiply";
+          htCanvas.style.mixBlendMode = "multiply";
           htCanvas.style.opacity = "0.35";
           container.appendChild(htCanvas);
           htCleanup = setupHalftone(htCanvas, glCanvas) || undefined;
@@ -367,10 +367,17 @@ export default function AnimatedBackground() {
     };
 
 
-    const reqIdle: any =
-      (typeof window !== "undefined" && (window as any).requestIdleCallback) || null;
-    const cancelIdle: any =
-      (typeof window !== "undefined" && (window as any).cancelIdleCallback) || null;
+    type IdleCallbackHandle = number;
+    type IdleCallback = (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void;
+    type IdleOptions = { timeout?: number };
+    type IdleWindow = Window & {
+      requestIdleCallback?: (callback: IdleCallback, options?: IdleOptions) => IdleCallbackHandle;
+      cancelIdleCallback?: (handle: IdleCallbackHandle) => void;
+    };
+
+    const idleWindow = typeof window !== "undefined" ? (window as IdleWindow) : undefined;
+    const reqIdle = idleWindow?.requestIdleCallback ?? null;
+    const cancelIdle = idleWindow?.cancelIdleCallback ?? null;
 
     let idleHandle: number | null = null;
     let timeoutHandle: number | null = null;
@@ -627,7 +634,7 @@ function setupFX(canvas: HTMLCanvasElement, opts?: LayerOptions): Cleanup | unde
   const caustics = document.createElement("canvas");
   caustics.width = CAUSTIC_SIZE; caustics.height = CAUSTIC_SIZE;
   const cctx = caustics.getContext("2d", { willReadFrequently: true })!;
-  let cimg = cctx.createImageData(CAUSTIC_SIZE, CAUSTIC_SIZE);
+  const cimg = cctx.createImageData(CAUSTIC_SIZE, CAUSTIC_SIZE);
 
   const WAVES = [
     { dir:[ 1.0, 0.30], freq: 8.5, speed: 0.80 },

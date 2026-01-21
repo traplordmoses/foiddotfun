@@ -5,8 +5,24 @@ import butterchurnModule from "butterchurn";
 import * as butterchurnPresets from "butterchurn-presets";
 import { broadcastMusicState, musicPanelController } from "@/components/musicPanelController";
 
-const butterchurn: any = (butterchurnModule as any).default ?? butterchurnModule;
-const getAllPresets = () => butterchurnPresets.getPresets();
+type PresetMap = Record<string, unknown>;
+type Visualizer = {
+  loadPreset: (preset: unknown, blendTime: number) => void;
+  render: () => void;
+  setRendererSize: (width: number, height: number) => void;
+};
+type ButterchurnModule = {
+  createVisualizer: (
+    audioCtx: AudioContext,
+    canvas: HTMLCanvasElement,
+    options: { width: number; height: number; pixelRatio: number },
+  ) => Visualizer;
+};
+
+const butterchurn =
+  ((butterchurnModule as { default?: ButterchurnModule }).default ??
+    butterchurnModule) as ButterchurnModule;
+const getAllPresets = () => butterchurnPresets.getPresets() as PresetMap;
 
 declare global { interface Window { webkitAudioContext?: typeof AudioContext } }
 
@@ -92,10 +108,10 @@ export default function MusicPanel({
   const gainRefs = useRef<[GainNode | null, GainNode | null]>([null, null]);
   const slotWiredRef = useRef<[boolean, boolean]>([false, false]);
 
-  const vizRef = useRef<any>(null);
+  const vizRef = useRef<Visualizer | null>(null);
   const rafRef = useRef<number | null>(null);
   const resizeHandlerRef = useRef<(() => void) | null>(null);
-  const presetsRef = useRef<{ keys: string[]; map: Record<string, any> } | null>(null);
+  const presetsRef = useRef<{ keys: string[]; map: PresetMap } | null>(null);
   const currentPresetIdxRef = useRef<number>(0);
 
   const vizReadyRef = useRef(false);
@@ -444,7 +460,7 @@ const ensureVisualizer = useCallback(() => {
   const next = useCallback(() => {
     const nextIndex = getNextIndex();
     void crossfadeTo(nextIndex);
-  }, [crossfadeTo]);
+  }, [crossfadeTo, getNextIndex]);
 
   const prev = useCallback(() => {
     const nextIndex = (currentTrackRef.current - 1 + TRACKS.length) % TRACKS.length;
@@ -507,16 +523,6 @@ const ensureVisualizer = useCallback(() => {
     },
     [crossfadeTo, getNextIndex],
   );
-
-  const handleUserStart = useCallback(async () => {
-    try { await acRef.current?.resume(); } catch {}
-    try {
-      await play();
-      setNeedsInteraction(false);
-    } catch {
-      // still waiting for user gesture
-    }
-  }, [play]);
 
   const handleTimeUpdate = useCallback((slot: Slot) => {
     const audio = audioRefs.current[slot];

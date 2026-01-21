@@ -16,6 +16,7 @@ type ProposeReq = {
   id?: string;
   owner: string;
   cid: string;
+  cidHash?: `0x${string}`;
   name?: string;
   mime?: "image/png" | "image/jpeg";
   rect: Rect;
@@ -94,7 +95,7 @@ export async function POST(req: Request) {
     chainId: normalizedId,
   } as Omit<Proposal, "yes" | "no" | "voters" | "status" | "createdAt">);
   const normalizedCid = cid.replace(/^ipfs:\/\//, "");
-  let cidHash = (body as any).cidHash as `0x${string}` | undefined;
+  let cidHash = body.cidHash;
   if (!cidHash || cidHash === "0x") {
     cidHash = (await fetchCidHash(normalizedCid)) ?? ("0x" as `0x${string}`);
   }

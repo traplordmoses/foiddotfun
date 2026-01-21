@@ -22,9 +22,10 @@ export function usePlacementVotes({
     () =>
       Array.isArray(loreboardVotingAbi) &&
       loreboardVotingAbi.some(
-        (entry) =>
-          (entry as any)?.type === "function" &&
-          (entry as any)?.name === "getPlacementMeta"
+        (entry) => {
+          const item = entry as { type?: string; name?: string };
+          return item.type === "function" && item.name === "getPlacementMeta";
+        }
       ),
     []
   );

@@ -5,6 +5,7 @@ import ABI from "@/abi/LoreboardBoardV2.json" assert { type: "json" };
 import {
   Address,
   Hex,
+  type Abi,
   encodePacked,
   decodeEventLog,
   isHex,
@@ -12,6 +13,8 @@ import {
 } from "viem";
 import { getWalletClient, publicClient } from "@/lib/viem";
 import { CANONICAL_ADDRESSES, requireCanonicalAddress } from "@/config/canonical";
+
+const LoreboardAbi = ABI as Abi;
 
 const LOREBOARD = requireCanonicalAddress({
   label: "NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS",
@@ -43,10 +46,19 @@ export function computePlacementId(
 export const cellsOf = (r: Rect) =>
   BigInt(Math.ceil(r.w / 32)) * BigInt(Math.ceil(r.h / 32));
 
-export function prettyViemError(err: any): string {
-  const msg = err?.shortMessage || err?.message || "tx failed";
-  const reason = err?.reason || /reason:\s*"?([^"]+)"?/.exec(msg)?.[1];
-  const data = err?.data || err?.cause?.data;
+type ViemErrorLike = {
+  shortMessage?: string;
+  message?: string;
+  reason?: string;
+  data?: unknown;
+  cause?: { data?: unknown };
+};
+
+export function prettyViemError(err: unknown): string {
+  const e = (typeof err === "object" && err !== null ? err : {}) as ViemErrorLike;
+  const msg = e.shortMessage || e.message || "tx failed";
+  const reason = e.reason || /reason:\s*"?([^"]+)"?/.exec(msg)?.[1];
+  const data = e.data || e.cause?.data;
   if (reason) return reason.trim();
   if (typeof data === "string" && isHex(data)) {
     return `${msg} (${data.slice(0, 10)}…)`;
@@ -82,7 +94,7 @@ export async function proposePlacement(opts: {
   try {
     await publicClient.simulateContract({
       address: LOREBOARD,
-      abi: ABI as any,
+      abi: LoreboardAbi,
       functionName: "proposePlacement",
       args,
       value,
@@ -91,7 +103,7 @@ export async function proposePlacement(opts: {
 
     const txHash = await wallet.writeContract({
       address: LOREBOARD,
-      abi: ABI as any,
+      abi: LoreboardAbi,
       functionName: "proposePlacement",
       args,
       value,
@@ -106,7 +118,7 @@ export async function proposePlacement(opts: {
       throw new Error("PlacementProposed event not found");
     }
     const decoded = decodeEventLog({
-      abi: ABI as any,
+      abi: LoreboardAbi,
       data: log.data,
       topics: log.topics,
       eventName: "PlacementProposed",
@@ -117,7 +129,7 @@ export async function proposePlacement(opts: {
       cidHash: Hex;
     };
     return { txHash, receipt, id, epoch, cidHash };
-  } catch (e: any) {
+  } catch (e: unknown) {
     throw new Error(prettyViemError(e));
   }
 }

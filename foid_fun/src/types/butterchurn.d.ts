@@ -4,10 +4,30 @@ import { useEffect, useRef, useCallback } from "react";
 import butterchurnModule from "butterchurn";
 import * as presetNS from "butterchurn-presets";
 
-const butterchurn: any = (butterchurnModule as any).default ?? butterchurnModule;
-const getAllPresets = () => {
-  const mod: any = (presetNS as any)?.getPresets ? presetNS : (presetNS as any).default;
-  return (mod as any).getPresets() as Record<string, any>;
+type PresetMap = Record<string, unknown>;
+type Visualizer = {
+  loadPreset: (preset: unknown, blendTime: number) => void;
+  render: () => void;
+  setRendererSize: (width: number, height: number) => void;
+};
+type ButterchurnModule = {
+  createVisualizer: (
+    audioCtx: AudioContext,
+    canvas: HTMLCanvasElement,
+    options: { width: number; height: number; pixelRatio: number }
+  ) => Visualizer;
+};
+
+const butterchurn =
+  ((butterchurnModule as { default?: ButterchurnModule }).default ??
+    butterchurnModule) as ButterchurnModule;
+const getAllPresets = (): PresetMap => {
+  const mod = presetNS as {
+    getPresets?: () => PresetMap;
+    default?: { getPresets?: () => PresetMap };
+  };
+  const getter = mod.getPresets ?? mod.default?.getPresets;
+  return getter ? getter() : {};
 };
 
 type Options = {
@@ -22,8 +42,8 @@ export function useButterchurn(
   audioCtxRef: React.RefObject<AudioContext | null>,
   { rotateMs = 20000, blendMs = 2000 }: Options = {}
 ) {
-  const visualizerRef = useRef<any>(null);
-  const presetsRef = useRef<{ keys: string[]; map: Record<string, any> } | null>(null);
+  const visualizerRef = useRef<Visualizer | null>(null);
+  const presetsRef = useRef<{ keys: string[]; map: PresetMap } | null>(null);
   const currentIdxRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null); // number (browser) fixes TS "never" error
 

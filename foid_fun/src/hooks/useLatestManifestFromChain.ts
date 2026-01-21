@@ -41,7 +41,7 @@ export function useLatestManifestFromChain(): State {
           abi: loreBoardManifestStoreAbi,
           functionName: "latest",
         });
-        const [epoch, _root, cid] = latest as readonly [bigint | number, `0x${string}`, string];
+        const [epoch, , cid] = latest as readonly [bigint | number, `0x${string}`, string];
 
         const epochNum = Number(epoch);
         const normalizedCid = cid.replace(/^ipfs:\/\//, "");
@@ -79,7 +79,7 @@ export function useLatestManifestFromChain(): State {
               finalizedAt: json?.finalizedAt,
             };
             break;
-          } catch (err: any) {
+          } catch (err: unknown) {
             lastError = err instanceof Error ? err : new Error(String(err));
           }
         }
@@ -96,7 +96,7 @@ export function useLatestManifestFromChain(): State {
             error: null,
           });
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error("load latest manifest failed", e);
         if (!cancelled) {
           setState((s) => ({

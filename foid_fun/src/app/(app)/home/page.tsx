@@ -17,6 +17,14 @@ const MusicPanel = dynamic(() => import("@/components/MusicPanel"), {
   ),
 });
 
+type IdleCallbackHandle = number;
+type IdleCallback = (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void;
+type IdleOptions = { timeout?: number };
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: IdleCallback, options?: IdleOptions) => IdleCallbackHandle;
+  cancelIdleCallback?: (handle: IdleCallbackHandle) => void;
+};
+
 export default function LandingPage() {
   const musicRef = useRef<HTMLDivElement | null>(null);
   const [musicPanelReady, setMusicPanelReady] = useState(false);
@@ -30,13 +38,14 @@ export default function LandingPage() {
       if (!cancelled) setMusicPanelReady(true);
     };
 
+    const idleWindow = window as IdleWindow;
     const idleCb =
-      (window as any).requestIdleCallback?.(enable, { timeout: 1400 }) ?? null;
+      idleWindow.requestIdleCallback?.(enable, { timeout: 1400 }) ?? null;
     const timeout = window.setTimeout(enable, 1600);
 
     return () => {
       cancelled = true;
-      if (idleCb !== null) (window as any).cancelIdleCallback?.(idleCb);
+      if (idleCb !== null) idleWindow.cancelIdleCallback?.(idleCb);
       window.clearTimeout(timeout);
     };
   }, [musicPanelReady]);

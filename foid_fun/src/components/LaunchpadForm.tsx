@@ -58,7 +58,7 @@ export function LaunchpadForm() {
     setVanitySalt(null);
     setVanityAddress(null);
     setVanityError(null);
-  }, [tokenName, symbol, maxSupply, recipient, connectedAddress]);
+  }, [tokenName, symbol, maxSupply, recipient, connectedAddress, vanityStatus]);
 
   const rawSupply = useMemo(() => {
     if (!maxSupply.trim()) return null;
@@ -168,8 +168,8 @@ export function LaunchpadForm() {
       setVanityStatus("ready");
       toast.success("f01d vanity address prepared.");
       return salt;
-    } catch (error: any) {
-      const message = error?.message ?? "Failed to grind vanity salt.";
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to grind vanity salt.";
       setVanityStatus("error");
       setVanityError(message);
       toast.error(message);
@@ -238,9 +238,9 @@ export function LaunchpadForm() {
       });
       setStatus("confirmed");
       toast.success("Token created on Fluent.");
-    } catch (error: any) {
+    } catch (error: unknown) {
       setStatus("idle");
-      const message = error?.message ?? "Deployment failed.";
+      const message = error instanceof Error ? error.message : "Deployment failed.";
       toast.error(message);
     }
   };
@@ -413,7 +413,7 @@ function parseTokenFromLogs(logs: readonly unknown[] | undefined) {
   if (!logs) return null;
   for (const log of logs) {
     try {
-      const parsed = EVENT_INTERFACE.parseLog(log as any);
+      const parsed = EVENT_INTERFACE.parseLog(log as { topics: string[]; data: string });
       if (parsed?.name === "TokenDeployed") {
         return (parsed.args?.token as string) ?? null;
       }

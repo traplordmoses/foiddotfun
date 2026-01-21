@@ -14,7 +14,7 @@ export function showBlessingBloom(options: ShowBlessingBloomOptions = {}) {
 
 export function showOverTheTopBlessingBloom(text: string, options: BloomOptions = {}) {
   const duration = options.duration ?? 5500;
-  spawn(<OverTheTopBlessingBloom text={text} centered />, duration);
+  spawn(<OverTheTopBlessingBloom text={text} />, duration);
 }
 
 /** Autoshrink text to fit its container so it never clips */
@@ -57,15 +57,15 @@ function useFitText(deps: React.DependencyList, cfg = { max: 120, min: 28, step:
 
 export default function OverTheTopBlessingBloom({
   text,
-  centered = true,
 }: {
   text: string;
-  centered?: boolean;
 }) {
   // Warm AudioContext to avoid first-sound lag on mobile
   useEffect(() => {
     try {
-      const A: any = (window as any).AudioContext || (window as any).webkitAudioContext;
+      const A =
+        window.AudioContext ||
+        (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (A) {
         const ctx = new A();
         ctx.close?.();

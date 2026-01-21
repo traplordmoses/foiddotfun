@@ -15,15 +15,13 @@ export function showHoloSticker(text?: string, options: StickerOptions = {}) {
 
 export function showOverTheTopHoloSticker(text: string, options: StickerOptions = {}) {
   const duration = options.duration ?? 5500;
-  spawn(<OverTheTopHoloSticker text={text} centered />, duration); // Always centered
+  spawn(<OverTheTopHoloSticker text={text} />, duration); // Always centered
 }
 
 export default function OverTheTopHoloSticker({
   text,
-  centered = true,
 }: {
   text: string;
-  centered?: boolean;
 }) {
   const containerClass = "fx-fullscreen";
   return (

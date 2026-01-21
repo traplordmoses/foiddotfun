@@ -3,6 +3,7 @@
 let ctx: AudioContext | null = null;
 let unlocked = false;
 const buffers: Record<string, AudioBuffer | undefined> = {};
+type AudioContextWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
 const FILES = {
   typing: "/sfx/typing.wav",
@@ -15,7 +16,7 @@ const TYPING_VOLUME = 0.4;
 function ensureCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
   if (!ctx) {
-    const Ctor = window.AudioContext || (window as any).webkitAudioContext;
+    const Ctor = window.AudioContext || (window as AudioContextWindow).webkitAudioContext;
     if (!Ctor) return null;
     ctx = new Ctor();
   }
@@ -57,8 +58,8 @@ function play(buf?: AudioBuffer, volume = TYPING_VOLUME, detuneRange = 40) {
   if (!ac) return;
   const src = ac.createBufferSource();
   src.buffer = buf;
-  if ((src as any).detune) {
-    (src as any).detune.value = (Math.random() * 2 - 1) * detuneRange;
+  if ("detune" in src) {
+    src.detune.value = (Math.random() * 2 - 1) * detuneRange;
   }
   const gain = ac.createGain();
   const amount = volume;

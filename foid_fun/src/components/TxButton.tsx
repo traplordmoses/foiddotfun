@@ -89,10 +89,20 @@ export function TxButton({
         ),
         { duration: 6000 },
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       toast.dismiss();
-      toast.error(err?.shortMessage || err?.message || "Transaction failed");
+      const message =
+        typeof err === "object" && err !== null
+          ? (("shortMessage" in err && typeof (err as { shortMessage?: string }).shortMessage === "string"
+              ? (err as { shortMessage?: string }).shortMessage
+              : undefined) ??
+              ("message" in err && typeof (err as { message?: string }).message === "string"
+                ? (err as { message?: string }).message
+                : undefined) ??
+              "Transaction failed")
+          : "Transaction failed";
+      toast.error(message);
     }
   };
 

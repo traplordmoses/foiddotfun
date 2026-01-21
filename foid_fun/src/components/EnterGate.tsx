@@ -8,6 +8,7 @@ const BOOT_STEPS = [15, 35, 50, 72, 88, 100];
 
 // Browser timers return numbers; avoid Node timer types leaking in via @types/node.
 type TimeoutId = number;
+type AudioContextWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
 type EnterGateProps = {
   destination?: string;
@@ -73,7 +74,7 @@ export default function EnterGate({
 
   const initAudio = useCallback(() => {
     if (audioRef.current) return audioRef.current;
-    const AudioContextCtor = window.AudioContext || (window as any).webkitAudioContext;
+    const AudioContextCtor = window.AudioContext || (window as AudioContextWindow).webkitAudioContext;
     audioRef.current = new AudioContextCtor();
     return audioRef.current;
   }, []);

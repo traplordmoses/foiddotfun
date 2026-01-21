@@ -1,9 +1,11 @@
 import { createPublicClient, http } from "viem";
+import { CANONICAL_CHAIN } from "@/config/canonical";
 import { cidToHttpUrl } from "./ipfsUrl";
 import { FINALIZED_EVENT } from "./events";
 
+const rpcUrl = process.env.NEXT_PUBLIC_FLUENT_RPC ?? CANONICAL_CHAIN.rpcUrl;
 const client = createPublicClient({
-  transport: http(process.env.NEXT_PUBLIC_FLUENT_RPC!),
+  transport: http(rpcUrl),
 });
 
 const MAX_RANGE = 100_000n;
@@ -34,8 +36,10 @@ export async function fetchLatestManifest(addr: `0x${string}`) {
   return null;
 }
 
-async function fetchManifestFromLog(log: any) {
-  const cid = (log.args as any).manifestCID as string;
+async function fetchManifestFromLog(log: unknown) {
+  const args = (log as { args?: { manifestCID?: string } }).args;
+  const cid = args?.manifestCID;
+  if (!cid) throw new Error("missing manifest cid");
   const url = cidToHttpUrl(cid);
   if (!url) throw new Error("invalid manifest cid");
   const res = await fetch(url, { cache: "no-store" });

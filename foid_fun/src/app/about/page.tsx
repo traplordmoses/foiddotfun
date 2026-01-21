@@ -24,15 +24,6 @@ type BubbleConfig = {
   delay: string;
 };
 
-function SectionCallout({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="aboutCallout aboutGlassCard w-full">
-      <p className="aboutCallout__title">{title}</p>
-      <div className="aboutCallout__body about-prose mt-3">{children}</div>
-    </div>
-  );
-}
-
 function GlassPanel({ children }: { children: ReactNode }) {
   return (
     <div className="aboutPanel about-prose aboutGlassCard font-normal">

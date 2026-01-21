@@ -4,7 +4,7 @@ import type { Rect } from "@/lib/grid";
 import { rectCells } from "@/lib/grid";
 
 
-function asJson<T = any>(res: Response): Promise<T> {
+function asJson<T = unknown>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json() as Promise<T>;
 }
@@ -69,7 +69,7 @@ export async function getManifest(
 ): Promise<{
   epoch: number | null;
   manifestCID: string | null;
-  manifest: { placements: any[] } | null;
+  manifest: { placements: unknown[] } | null;
 }> {
   const url =
     epoch === "latest"
@@ -89,7 +89,7 @@ export async function getMempool(epoch?: number) {
     count: number;
     pendingCells: number;
     baseFeePerCellWei: string;
-    intents: any[];
+    intents: unknown[];
   }>(res);
 }
 

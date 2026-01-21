@@ -40,6 +40,6 @@ class _ProposalStore {
 }
 
 // HMR-safe singleton (Next.js dev)
-const g = globalThis as any;
+const g = globalThis as { __proposalStore?: _ProposalStore };
 export const ProposalStore: _ProposalStore =
   g.__proposalStore ?? (g.__proposalStore = new _ProposalStore());

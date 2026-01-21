@@ -18,7 +18,7 @@ export type Manifest = {
   cid?: string; // optional IPFS CID of manifest.json
 };
 
-let manifestsByEpoch = new Map<number, Manifest>();
+const manifestsByEpoch = new Map<number, Manifest>();
 let latestEpoch: number | null = null;
 
 export function setManifest(m: Manifest) {
