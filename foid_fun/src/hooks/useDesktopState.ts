@@ -140,7 +140,6 @@ export function useDesktopState() {
 
   const resetLayout = useCallback(() => {
     setState(DEFAULT_STATE);
-    setHighestZ(10);
   }, []);
 
   return {

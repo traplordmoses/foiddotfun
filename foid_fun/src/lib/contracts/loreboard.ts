@@ -123,7 +123,11 @@ export async function proposePlacement(opts: {
       topics: log.topics,
       eventName: "PlacementProposed",
     });
-    const { id, epoch, cidHash } = decoded.args as {
+    const decodedArgs = decoded.args;
+    if (!decodedArgs) {
+      throw new Error("PlacementProposed event args missing");
+    }
+    const { id, epoch, cidHash } = decodedArgs as unknown as {
       id: Hex;
       epoch: number;
       cidHash: Hex;

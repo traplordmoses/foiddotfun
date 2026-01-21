@@ -177,11 +177,19 @@ export default function SubmitProposalButton({
         topics: log.topics,
         eventName: "PlacementProposed",
       });
-      const args = decoded.args as Record<string, unknown>;
-      if (typeof args.id !== "string") {
+      const eventArgs = decoded.args;
+      if (
+        typeof eventArgs !== "object" ||
+        eventArgs === null ||
+        !("id" in eventArgs)
+      ) {
         throw new Error("Placement event missing id");
       }
-      const id = args.id as `0x${string}`;
+      const idValue = (eventArgs as Record<string, unknown>).id;
+      if (typeof idValue !== "string") {
+        throw new Error("Placement event id is not a string");
+      }
+      const id = idValue as `0x${string}`;
       onSubmitted?.({ txHash: hash, proposalId: id, cid: ensuredCid });
     } catch (e: unknown) {
       console.error(e);
