@@ -1,12 +1,17 @@
 // src/app/api/foid-mommy/route.ts
 import OpenAI from "openai";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(req: Request) {
   try {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ error: "Missing OPENAI_API_KEY" }),
+        { status: 500, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    const client = new OpenAI({ apiKey });
     const { feelingKey, feelingText } = await req.json();
 
     const moodLabel = feelingKey ?? "unknown";
