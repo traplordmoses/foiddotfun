@@ -7,21 +7,17 @@ const { join, dirname } = require("node:path");
 
 const PNPM_LOCK = "pnpm-lock.yaml";
 const NPM_LOCK = "package-lock.json";
-const execPath = process.env.npm_execpath || "";
-const usingPnpm = execPath.includes("pnpm");
-const preferredLock = usingPnpm ? PNPM_LOCK : NPM_LOCK;
-const fallbackLock = usingPnpm ? NPM_LOCK : PNPM_LOCK;
-const LOCKFILE = existsSync(preferredLock)
-  ? preferredLock
-  : existsSync(fallbackLock)
-    ? fallbackLock
-    : null;
+const hasPnpmLock = existsSync(PNPM_LOCK);
+const hasNpmLock = existsSync(NPM_LOCK);
+const usingPnpm = hasPnpmLock;
+const LOCKFILE = usingPnpm ? PNPM_LOCK : hasNpmLock ? NPM_LOCK : null;
 const HASH_PATH = join(
   "node_modules",
-  LOCKFILE === PNPM_LOCK ? ".pnpm-lock.hash" : ".npm-lock.hash"
+  usingPnpm ? ".pnpm-lock.hash" : ".npm-lock.hash"
 );
-const installCmd =
-  LOCKFILE === PNPM_LOCK ? "pnpm install --frozen-lockfile" : "npm ci";
+const installCmd = usingPnpm
+  ? "corepack enable && pnpm install --frozen-lockfile"
+  : "npm ci";
 
 const getMissingDeps = () => {
   try {
