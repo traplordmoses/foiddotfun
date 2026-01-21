@@ -662,8 +662,8 @@ export default function FoidMommyTerminal({
         ? (error as Record<string, unknown>)
         : {});
       const cause =
-        typeof err.cause === "object" && cause.cause !== null
-          ? (cause.cause as Record<string, unknown>)
+        typeof err.cause === "object" && err.cause !== null
+          ? (err.cause as Record<string, unknown>)
           : undefined;
       const causeCause =
         typeof cause?.cause === "object" && cause.cause !== null
