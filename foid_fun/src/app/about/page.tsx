@@ -263,17 +263,12 @@ export default function AboutPage() {
   const initialSection = sections[0].id;
   const [activeSection, setActiveSection] = useState(initialSection);
   const [selectedSection, setSelectedSection] = useState(initialSection);
-  const [isFading, setIsFading] = useState(false);
-  const fadeTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [extraBubbles, setExtraBubbles] = useState<BubbleConfig[]>([]);
   const extraBubbleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
-      if (fadeTimeout.current) {
-        clearTimeout(fadeTimeout.current);
-      }
       if (extraBubbleTimer.current) {
         clearTimeout(extraBubbleTimer.current);
       }
@@ -309,20 +304,11 @@ export default function AboutPage() {
     (sectionId: string) => {
       if (selectedSection === sectionId) return;
       setSelectedSection(sectionId);
-      if (activeSection === sectionId) return;
-      setIsFading(true);
-      if (fadeTimeout.current) {
-        clearTimeout(fadeTimeout.current);
-      }
-      fadeTimeout.current = setTimeout(() => {
-        setActiveSection(sectionId);
-        setIsFading(false);
-        fadeTimeout.current = null;
-      }, 300);
+      setActiveSection(sectionId);
       void playTypingTick();
       spawnExtraBubbles();
     },
-    [activeSection, selectedSection, spawnExtraBubbles],
+    [selectedSection, spawnExtraBubbles],
   );
 
   const activeSectionData = sections.find((section) => section.id === activeSection) ?? sections[0];
@@ -416,9 +402,7 @@ export default function AboutPage() {
                   <div
                     ref={contentRef}
                     aria-live="polite"
-                    className={`flex h-full min-h-0 flex-1 overflow-hidden px-6 pt-6 pb-10 transition-opacity duration-300 ease-out ${
-                      isFading ? "opacity-0" : "opacity-100"
-                    }`}
+                    className="flex h-full min-h-0 flex-1 overflow-hidden px-6 pt-6 pb-10 transition-opacity duration-300 ease-out"
                   >
                     <div className="mx-auto w-full max-w-[78ch]">
                       <div className="aboutStack">
