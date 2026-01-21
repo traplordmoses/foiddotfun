@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useAccount, useChainId } from "wagmi";
-import { writeContract } from "@wagmi/core";
-import { config } from "@/providers";
+import { useAccount, useChainId, useWriteContract } from "wagmi";
 import ABI from "@/abi/LoreboardBoardV2.json" assert { type: "json" };
 import { decodeEventLog, keccak256, toHex, type Abi } from "viem";
 import type { Rect } from "@/lib/contracts/loreboard";
@@ -54,6 +52,7 @@ export default function SubmitProposalButton({
 }: Props) {
   const { isConnected } = useAccount();
   const chainId = useChainId();
+  const { writeContractAsync } = useWriteContract();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -148,7 +147,7 @@ export default function SubmitProposalButton({
     setTxHash(null);
 
     try {
-      const hash = await writeContract(config, {
+      const hash = await writeContractAsync({
         account: bidder,
         address: treasury,
         abi: LoreboardAbi,
