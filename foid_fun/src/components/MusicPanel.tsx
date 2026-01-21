@@ -10,6 +10,7 @@ type Visualizer = {
   loadPreset: (preset: unknown, blendTime: number) => void;
   render: () => void;
   setRendererSize: (width: number, height: number) => void;
+  connectAudio: (node: AudioNode) => void;
 };
 type ButterchurnModule = {
   createVisualizer: (
