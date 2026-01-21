@@ -9,10 +9,12 @@ const manifestStoreCandidates = [
 
 const manifestStoreEnv = manifestStoreCandidates.find((value) => value?.trim());
 
-export const LOREBOARD_MANIFEST_STORE_ADDRESS = requireCanonicalAddress({
-  label: "LOREBOARD_MANIFEST_STORE_ADDRESS",
-  envValue: manifestStoreEnv,
-  expected: CANONICAL_ADDRESSES.manifestStore,
-  envHint:
-    "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS (or NEXT_PUBLIC_LOREBOARD_ANCHOR/NEXT_PUBLIC_MANIFEST_STORE)",
-});
+export const LOREBOARD_MANIFEST_STORE_ADDRESS = manifestStoreEnv
+  ? requireCanonicalAddress({
+      label: "LOREBOARD_MANIFEST_STORE_ADDRESS",
+      envValue: manifestStoreEnv,
+      expected: CANONICAL_ADDRESSES.manifestStore,
+      envHint:
+        "NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS (or NEXT_PUBLIC_LOREBOARD_ANCHOR/NEXT_PUBLIC_MANIFEST_STORE)",
+    })
+  : null;
