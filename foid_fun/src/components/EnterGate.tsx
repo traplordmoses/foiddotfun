@@ -12,6 +12,7 @@ type EnterGateProps = {
   destination?: string;
   navigationMode?: "push" | "replace";
   onEnter?: () => void;
+  enableGlobalEnter?: boolean;
 };
 
 function usePrefersReducedMotion() {
@@ -39,6 +40,7 @@ export default function EnterGate({
   destination = "/",
   navigationMode = "push",
   onEnter,
+  enableGlobalEnter = false,
 }: EnterGateProps) {
   const router = useRouter();
   const reducedMotion = usePrefersReducedMotion();
@@ -257,6 +259,7 @@ export default function EnterGate({
   }, [reducedMotion]);
 
   useEffect(() => {
+    if (!enableGlobalEnter) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Enter" || event.defaultPrevented) return;
       const target = event.target;
@@ -271,7 +274,7 @@ export default function EnterGate({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activateGate]);
+  }, [activateGate, enableGlobalEnter]);
 
   return (
     <div className="enter-gate" data-reduced-motion={reducedMotion ? "true" : "false"}>
