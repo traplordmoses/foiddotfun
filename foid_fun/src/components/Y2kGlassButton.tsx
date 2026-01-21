@@ -112,9 +112,9 @@ export default function Y2kGlassButton({
       onClick={handleClick}
       className={[
         "group relative block w-full",
-        "h-[78px] rounded-[26px]",
+        "min-h-[78px] rounded-[26px]",
         "overflow-hidden",
-        "px-6",
+        "px-6 py-3",
         "flex items-center justify-center",
         "transform-gpu transition-all duration-300 ease-out",
         "hover:scale-[1.02] active:scale-[0.99]",
@@ -231,13 +231,13 @@ export default function Y2kGlassButton({
         </span>
       ) : null}
 
-      <div className="w-full">
+      <div className="w-full min-w-0">
         <div
           className={[
             "mx-auto text-center",
             "text-[14px] sm:text-[15px]",
-            "font-black uppercase tracking-[0.22em] leading-none",
-            "select-none truncate",
+            "font-black uppercase tracking-[0.22em] leading-snug",
+            "select-none whitespace-normal break-words",
           ].join(" ")}
           style={{
             color: "rgba(190, 255, 235, 0.95)",

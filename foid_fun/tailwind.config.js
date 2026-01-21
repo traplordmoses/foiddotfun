@@ -37,11 +37,13 @@ module.exports = {
           'radial-gradient(60% 80% at 10% 0%, rgba(169,96,238,0.25) 0%, rgba(169,96,238,0) 60%), radial-gradient(70% 80% at 90% 10%, rgba(255,78,205,0.22) 0%, rgba(255,78,205,0) 60%), radial-gradient(80% 80% at 50% 100%, rgba(0,212,255,0.18) 0%, rgba(0,212,255,0) 60%)',
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        mono: ['Menlo', 'ui-monospace', 'SFMono-Regular', 'monospace'],
-        primary: ['Orbitron', 'sans-serif'],
-        secondary: ['Inter', 'sans-serif'],
-        terminal: ['VT323', 'monospace'],
+        sans: ['var(--font-body)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-terminal)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        display: ['var(--font-display)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        body: ['var(--font-body)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        primary: ['var(--font-display)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        secondary: ['var(--font-body)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        terminal: ['var(--font-terminal)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       boxShadow: {
         // use with `shadow-card`

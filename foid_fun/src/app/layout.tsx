@@ -1,6 +1,6 @@
 import "./globals.css";
 import type { ReactNode } from "react";
-import { JetBrains_Mono } from "next/font/google";
+import { IBM_Plex_Sans, JetBrains_Mono, Sora } from "next/font/google";
 import { Providers } from "@/providers";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import FloatingElements from "@/components/FloatingElements";
@@ -30,20 +30,32 @@ const jetbrainsMono = JetBrains_Mono({
   fallback: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas"],
 });
 
+const displayFont = Sora({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
+  weight: ["500", "600", "700"],
+});
+
+const bodyFont = IBM_Plex_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-body",
+  weight: ["400", "500", "600"],
+});
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className="h-full overflow-hidden">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`h-full overflow-hidden ${displayFont.variable} ${bodyFont.variable} ${jetbrainsMono.variable}`}
+    >
       <head>
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="theme-color" content="#0e0f2b" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap"
-          rel="stylesheet"
-        />
       </head>
-      <body className={`relative h-full min-h-screen overflow-hidden font-secondary ${jetbrainsMono.variable}`}>
+      <body className="relative h-full min-h-screen overflow-hidden font-secondary">
         <AnimatedBackground />
         <FloatingElements />
         <div className="scene-tint" />

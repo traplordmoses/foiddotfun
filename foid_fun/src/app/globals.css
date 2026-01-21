@@ -2,6 +2,129 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===== ABOUT PAGE TYPOGRAPHY POLISH (NO LAYOUT / NO GLASS CHANGES) ===== */
+.about-page {
+  --about-pad: 22px;
+  --about-sidebar-w: 248px;
+  --about-nav-h: 40px;
+  --about-h1: clamp(36px, 3.2vw, 52px);
+  --about-body: 14.5px;
+  --about-leading: 1.65;
+  --about-gap: 14px;
+}
+
+@media (max-width: 768px) {
+  .about-page {
+    --about-pad: 14px;
+    --about-sidebar-w: 100%;
+    --about-nav-h: 44px;
+    --about-body: 14px;
+  }
+}
+
+.aboutPane {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* base "ink" system */
+.about-prose {
+  color: rgba(255, 255, 255, 0.78);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
+  font-kerning: normal;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  text-wrap: pretty;
+}
+
+/* rhythm: works for paragraphs + panels + callouts (any direct children) */
+.about-prose > * {
+  margin: 0;
+}
+.about-prose > * + * {
+  margin-top: var(--about-gap, 14px);
+}
+
+/* core body sizing -- scoped to text elements so buttons/layout don't shift */
+.about-prose :where(p, li) {
+  font-size: var(--about-body, 14.5px);
+  line-height: var(--about-leading, 1.65);
+  letter-spacing: 0.008em;
+  font-weight: 420;
+}
+
+/* callouts should NOT have "lead" styling (keeps them tight + intentional) */
+.aboutCallout__body.about-prose > p:first-of-type {
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+.aboutCallout__body.about-prose {
+  color: rgba(255, 255, 255, 0.76);
+}
+.aboutCallout__title {
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: none;
+}
+
+/* subtle emphasis */
+.about-prose :where(strong) {
+  color: rgba(255, 255, 255, 0.96);
+  font-weight: 650;
+  text-decoration: underline;
+  text-decoration-color: rgba(0, 255, 213, 0.22);
+  text-underline-offset: 3px;
+  text-shadow: 0 0 18px rgba(0, 255, 213, 0.14);
+}
+.about-prose :where(em) {
+  color: rgba(255, 255, 255, 0.90);
+  font-style: italic;
+}
+
+/* links (if any) */
+.about-prose :where(a) {
+  color: rgba(255, 255, 255, 0.92);
+  text-decoration: underline;
+  text-decoration-color: rgba(0, 255, 213, 0.35);
+  text-underline-offset: 3px;
+  transition: color 180ms ease, text-shadow 180ms ease, text-decoration-color 180ms ease;
+}
+.about-prose :where(a:hover) {
+  color: rgba(255, 255, 255, 0.98);
+  text-decoration-color: rgba(0, 255, 213, 0.75);
+  text-shadow: 0 0 18px rgba(0, 255, 213, 0.22);
+}
+
+/* lists: intentional markers + clean baseline */
+.about-prose :where(ul, ol) {
+  margin: 0;
+}
+.about-prose :where(li) {
+  line-height: var(--about-leading, 1.65);
+}
+.about-prose :where(li)::marker {
+  color: rgba(0, 255, 213, 0.55);
+}
+
+.aboutGlassCard {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.26);
+  padding: 16px;
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+}
+
+/* small "label" line for things like streak tiers */
+.aboutKicker {
+  font-size: 11px;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  text-shadow: none;
+}
+
 @font-face {
   font-family: 'Orbitron';
   src: url('/fonts/orbitron/Orbitron-Regular.woff2') format('woff2');
@@ -33,8 +156,9 @@
 
 :root {
   /* fonts */
-  --font-ui: "Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Orbitron", var(--font-ui);
+  --font-body: "IBM Plex Sans", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Sora", var(--font-body);
+  --font-ui: var(--font-body);
   --font-terminal: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --terminal-font-size: 16px;
   --terminal-log-size: 15.5px;
@@ -121,7 +245,7 @@
     color: var(--text-bright);
     position: relative;
     padding-top: max(0px, env(safe-area-inset-top));
-    font-family: var(--font-ui);
+    font-family: var(--font-body);
     letter-spacing: 0.005em;
   }
 
@@ -167,7 +291,7 @@
   }
 
   /* make these classes REAL, no matter what tailwind config is doing */
-  .font-secondary { font-family: var(--font-ui) !important; }
+  .font-secondary { font-family: var(--font-body) !important; }
   .font-primary { font-family: var(--font-display) !important; }
   .font-terminal { font-family: var(--font-terminal) !important; }
 
@@ -200,6 +324,62 @@
     border-color: rgba(0, 208, 255, 0.6);
     box-shadow: 0 0 0 3px rgba(0, 208, 255, 0.2);
     background: rgba(18, 48, 74, 0.72);
+  }
+}
+
+@layer components {
+  .foid-h1 {
+    font-family: var(--font-display);
+    font-size: var(--foid-h1-size, clamp(32px, 5vw, 64px));
+    line-height: 1.05;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-wrap: balance;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .foid-h2 {
+    font-family: var(--font-display);
+    font-size: var(--foid-h2-size, clamp(22px, 3.4vw, 36px));
+    line-height: 1.1;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-wrap: balance;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .foid-h3 {
+    font-family: var(--font-display);
+    font-size: var(--foid-h3-size, clamp(13px, 1.7vw, 18px));
+    line-height: 1.3;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .foid-body {
+    font-family: var(--font-body);
+    font-size: var(--foid-body-size, clamp(14px, 1.4vw, 16px));
+    line-height: 1.65;
+    letter-spacing: 0.01em;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: subpixel-antialiased;
+  }
+
+  .foid-small {
+    font-family: var(--font-body);
+    font-size: var(--foid-small-size, clamp(12px, 1.15vw, 14px));
+    line-height: 1.55;
+    letter-spacing: 0.02em;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: subpixel-antialiased;
+  }
+
+  .foid-muted {
+    color: rgba(190, 222, 242, 0.72);
   }
 }
 
@@ -2716,52 +2896,141 @@
 .aboutPane {
   /* enable container-based scaling so the same rules fit on different screen heights */
   container-type: size;
-  --abt-h1: clamp(44px, 10cqh, 66px);
-  --abt-sub: clamp(13px, 2.6cqh, 16px);
-  --abt-body: clamp(12px, 2.2cqh, 14px);
-  --abt-gap: clamp(10px, 2.0cqh, 18px);
-  --abt-pgap: clamp(8px, 1.4cqh, 14px);
+  --abt-h1: clamp(36px, 9cqh, 60px);
+  --abt-sub: clamp(12px, 2.3cqh, 15px);
+  --abt-body: clamp(14px, 2.4cqh, 16px);
+  --abt-gap: clamp(12px, 2.2cqh, 20px);
+  --abt-pgap: clamp(10px, 1.7cqh, 16px);
+  --foid-h1-size: var(--abt-h1);
+  --foid-body-size: var(--abt-body);
+  --foid-small-size: var(--abt-sub);
 }
 
 @supports not (font-size: 1cqh) {
   .aboutPane {
-    --abt-h1: clamp(44px, 5.2vw, 66px);
-    --abt-sub: clamp(13px, 1.2vw, 16px);
-    --abt-body: clamp(12px, 1.05vw, 14px);
-    --abt-gap: 14px;
-    --abt-pgap: 12px;
+    --abt-h1: clamp(36px, 5vw, 60px);
+    --abt-sub: clamp(12px, 1.1vw, 15px);
+    --abt-body: clamp(14px, 1.25vw, 16px);
+    --abt-gap: 16px;
+    --abt-pgap: 14px;
+    --foid-h1-size: var(--abt-h1);
+    --foid-body-size: var(--abt-body);
+    --foid-small-size: var(--abt-sub);
   }
 }
 
 .aboutTitle {
-  font-size: var(--abt-h1);
-  line-height: 0.96;
-  letter-spacing: 0.22em;
   text-wrap: balance;
-  color: rgba(255, 255, 255, 0.95);
+  color: rgba(236, 249, 255, 0.98);
+  text-shadow:
+    0 0 18px rgba(120, 240, 255, 0.35),
+    0 6px 18px rgba(0, 24, 60, 0.35);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .aboutSub {
-  font-size: var(--abt-sub);
-  line-height: 1.35;
-  letter-spacing: 0.1em;
-  color: rgba(255, 255, 255, 0.82);
+  font-size: var(--foid-small-size, var(--abt-sub));
+  line-height: 1.5;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-family: var(--font-body, "Inter", sans-serif);
+  color: rgba(190, 235, 255, 0.9);
+  text-shadow: 0 1px 10px rgba(0, 40, 90, 0.35);
   text-wrap: pretty;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: subpixel-antialiased;
+  overflow-wrap: anywhere;
 }
 
+/* ===== ABOUT PAGE BODY RHYTHM ===== */
 .aboutBody {
-  font-size: var(--abt-body);
-  line-height: 1.55;
-  color: rgba(255, 255, 255, 0.84);
   text-wrap: pretty;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
-.aboutBody p + p {
-  margin-top: var(--abt-pgap);
+.aboutBody > * + * {
+  margin-top: var(--about-gap, 14px);
+}
+
+.aboutBody p:first-of-type {
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  font-weight: inherit;
+}
+
+.aboutKicker {
+  margin-top: 18px;
+  font-size: 11px;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+@container (max-width: 620px) {
+  .aboutTitle {
+    letter-spacing: 0.06em;
+  }
 }
 
 .aboutStack {
   display: flex;
   flex-direction: column;
   gap: var(--abt-gap);
+}
+
+.aboutPanel,
+.aboutCallout {
+  position: relative;
+  overflow: hidden;
+}
+
+.aboutPanel::before,
+.aboutCallout::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(140deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(255, 255, 255, 0.03) 45%,
+    transparent 60%);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.aboutPanel::after,
+.aboutCallout::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+  opacity: 0.3;
+}
+
+.aboutCallout__title {
+  color: rgba(255, 255, 255, 0.72);
+  text-shadow: none;
+}
+
+.aboutCallout__body {
+  overflow-wrap: anywhere;
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .aboutTitle {
+    background: linear-gradient(180deg,
+      #ffffff 0%,
+      #d6f4ff 35%,
+      #9bdcff 70%,
+      #7dbdff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 }
