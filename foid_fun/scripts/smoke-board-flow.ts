@@ -19,9 +19,15 @@ import { normalizePk, requireEnv, resolveFirst, resolveRpcUrl } from "./lib/env"
 loadEnv({ path: process.env.DOTENV_CONFIG_PATH || ".env.local" });
 loadEnv();
 
-const rpc = resolveRpcUrl(process.env);
-const proposerPk = process.env.E2E_PROPOSER_PK || process.env.OPERATOR_PK;
-const voterPk = process.env.VOTER1_PK;
+const rpc = requireEnv(
+  "NEXT_PUBLIC_FLUENT_RPC/FLUENT_RPC_URL/NEXT_PUBLIC_RPC_URL/RPC_URL",
+  resolveRpcUrl(process.env)
+);
+const proposerPk = requireEnv(
+  "E2E_PROPOSER_PK or OPERATOR_PK",
+  process.env.E2E_PROPOSER_PK || process.env.OPERATOR_PK
+);
+const voterPk = requireEnv("VOTER1_PK", process.env.VOTER1_PK);
 const boardAddress = resolveFirst(process.env, [
   "NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS",
   "LOREBOARD_BOARD_ADDRESS",
@@ -35,12 +41,6 @@ const treasuryAddress = resolveFirst(process.env, [
   "TREASURY_ADDRESS",
 ]) as `0x${string}` | undefined;
 
-requireEnv(
-  "NEXT_PUBLIC_FLUENT_RPC/FLUENT_RPC_URL/NEXT_PUBLIC_RPC_URL/RPC_URL",
-  rpc
-);
-requireEnv("E2E_PROPOSER_PK or OPERATOR_PK", proposerPk);
-requireEnv("VOTER1_PK", voterPk);
 const proposerKey = normalizePk(proposerPk);
 const voterKey = normalizePk(voterPk);
 const board = requireCanonicalAddress({
