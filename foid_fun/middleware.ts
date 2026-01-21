@@ -13,16 +13,17 @@ function isLikelyServerAction(request: NextRequest) {
 }
 
 export function middleware(request: NextRequest) {
-  if (isLikelyServerAction(request)) {
+  if (request.method === "POST") {
     return NextResponse.json(
       {
-        error: "stale-action",
-        message: "This action is not available. Refresh the page and try again.",
+        error: isLikelyServerAction(request) ? "stale-action" : "post-not-allowed",
+        message: "This request is not supported. Refresh the page and try again.",
       },
       {
-        status: 409,
+        status: isLikelyServerAction(request) ? 409 : 405,
         headers: {
           "Cache-Control": "no-store",
+          Allow: "GET, HEAD, OPTIONS",
         },
       }
     );
