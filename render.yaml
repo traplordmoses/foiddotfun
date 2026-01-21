@@ -4,6 +4,6 @@ services:
     env: node
     rootDir: foid_fun
     plan: free
-    buildCommand: "npm ci && npm run build"
-    startCommand: "npm run start"
+    buildCommand: "corepack enable && pnpm install --frozen-lockfile && pnpm run build"
+    startCommand: "pnpm run start"
     autoDeploy: true
