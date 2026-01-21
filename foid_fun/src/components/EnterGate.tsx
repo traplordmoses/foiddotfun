@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 const PARTICLE_COUNT = 20;
 const BOOT_STEPS = [15, 35, 50, 72, 88, 100];
 
-type TimeoutId = ReturnType<typeof window.setTimeout>;
+// Browser timers return numbers; avoid Node timer types leaking in via @types/node.
+type TimeoutId = number;
 
 type EnterGateProps = {
   destination?: string;
