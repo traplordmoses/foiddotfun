@@ -206,7 +206,6 @@ type Stage =
   | "awaitFeeling"
   | "processingFeeling"
   | "awaitPrayer"
-  | "txPrompt"
   | "txPending"
   | "txSuccess"
   | "txFail"
@@ -387,9 +386,6 @@ export default function FoidMommyTerminal({
   // This is now handled by the status message below the input
 
   useEffect(() => {
-    if (stage === "txPrompt" && lastStageRef.current !== "txPrompt") {
-      addMessage("system", "confirm & send? (y/n)");
-    }
     if (stage === "txFail" && lastStageRef.current !== "txFail") {
       addMessage("system", "tx failed. type retry, edit, or cancel.");
     }
@@ -397,12 +393,7 @@ export default function FoidMommyTerminal({
   }, [addMessage, stage]);
 
   useEffect(() => {
-    if (
-      stage === "idle" ||
-      stage === "txPrompt" ||
-      stage === "txFail" ||
-      stage === "checkInPrompt"
-    ) {
+    if (stage === "idle" || stage === "txFail" || stage === "checkInPrompt") {
       setCommandInput("");
     }
   }, [stage]);
@@ -596,65 +587,9 @@ export default function FoidMommyTerminal({
     ],
   );
 
-  const handlePrayerSubmit = useCallback(
-    async (inputText: string) => {
-      if (!registryReady) {
-        addMessage("system", "misconfigured: missing registry address.");
-        return;
-      }
-      if (!chainOk) {
-        addMessage(
-          "system",
-          `switch to fluent testnet (chain id ${requiredChainId ?? "?"}) to continue.`,
-        );
-        return;
-      }
-      if (prayerOverLimit || isProcessing) return;
-      if (!feelingKey) return;
-      const trimmed = inputText.trim();
-      const finalPrayer = trimmed || suggestedPrayer.trim();
-      if (!finalPrayer) return;
-      if (trimmed) {
-        addMessage("user", trimmed);
-      } else {
-        addMessage("user", "[using mommy prayer]");
-      }
-      setPrayerInput("");
-      setPrayerText(finalPrayer);
-      setStage("txPrompt");
-
-      const flavor = "whisper";
-
-      await sleep(200);
-      await typeMessage({ role: "system", text: "hashing your prayer locally..." });
-      await sleep(600);
-      await typeMessage({ role: "system", text: "hash ready." });
-      await sleep(400);
-      await typeMessage({
-        role: "foid",
-        text: `anchoring only the hash on-chain. your ${flavor} stays with you. 🌟`,
-        speed: 20,
-      });
-      await typeMessage({
-        role: "foid",
-        text: "confirm the tx to beam it blockchain-ward, letting mifoid know mommy held your words?",
-        speed: 20,
-      });
-    },
-    [
-      addMessage,
-      chainOk,
-      feelingKey,
-      isProcessing,
-      prayerOverLimit,
-      registryReady,
-      requiredChainId,
-      suggestedPrayer,
-      typeMessage,
-    ],
-  );
-
-  const handleConfirm = useCallback(async () => {
+  const handleConfirm = useCallback(async (prayerOverride?: string, feelingOverride?: FeelingKey) => {
+    const prayerToSend = prayerOverride ?? prayerText;
+    const feelingToSend = feelingOverride ?? feelingKey;
     if (!registryReady) {
       addMessage("system", "misconfigured: missing registry address.");
       return;
@@ -666,7 +601,7 @@ export default function FoidMommyTerminal({
       );
       return;
     }
-    if (!feelingKey || !prayerText) return;
+    if (!feelingToSend || !prayerToSend) return;
     setStage("txPending");
     setIsProcessing(true);
 
@@ -678,7 +613,7 @@ export default function FoidMommyTerminal({
           ? error.message
           : "your wallet isn't ready yet. connect and make sure you're on fluent testnet.";
       await typeMessage({ role: "system", text: message });
-      setStage("txPrompt");
+      setStage("awaitPrayer");
       setIsProcessing(false);
       return;
     }
@@ -691,7 +626,7 @@ export default function FoidMommyTerminal({
     timeoutsRef.current.push(waitingTimer);
 
     try {
-      const result = await submitPrayer(prayerText, feelingKey);
+      const result = await submitPrayer(prayerToSend, feelingToSend);
       window.clearTimeout(waitingTimer);
       updateMessage(statusId, "sending to fluent...");
 
@@ -727,8 +662,8 @@ export default function FoidMommyTerminal({
         ? (error as Record<string, unknown>)
         : {});
       const cause =
-        typeof err.cause === "object" && err.cause !== null
-          ? (err.cause as Record<string, unknown>)
+        typeof err.cause === "object" && cause.cause !== null
+          ? (cause.cause as Record<string, unknown>)
           : undefined;
       const causeCause =
         typeof cause?.cause === "object" && cause.cause !== null
@@ -791,7 +726,7 @@ export default function FoidMommyTerminal({
         updateMessage(statusId, "cancelled in wallet.");
         await sleep(200);
         await typeMessage({ role: "foid", text: "you cancelled in your wallet. want to try again?" });
-        setStage("txPrompt");
+        setStage("awaitPrayer");
       } else if (hasCooldown) {
         updateMessage(statusId, "cooldown active.");
         await sleep(300);
@@ -846,8 +781,68 @@ export default function FoidMommyTerminal({
     nextAllowedAt,
   ]);
 
+  const handlePrayerSubmit = useCallback(
+    async (inputText: string) => {
+      if (!registryReady) {
+        addMessage("system", "misconfigured: missing registry address.");
+        return;
+      }
+      if (!chainOk) {
+        addMessage(
+          "system",
+          `switch to fluent testnet (chain id ${requiredChainId ?? "?"}) to continue.`,
+        );
+        return;
+      }
+      if (prayerOverLimit || isProcessing) return;
+      if (!feelingKey) return;
+      const trimmed = inputText.trim();
+      const finalPrayer = trimmed || suggestedPrayer.trim();
+      if (!finalPrayer) return;
+      if (trimmed) {
+        addMessage("user", trimmed);
+      } else {
+        addMessage("user", "[using mommy prayer]");
+      }
+      setPrayerInput("");
+      setPrayerText(finalPrayer);
+
+      const flavor = "whisper";
+
+      await sleep(200);
+      await typeMessage({ role: "system", text: "hashing your prayer locally..." });
+      await sleep(600);
+      await typeMessage({ role: "system", text: "hash ready." });
+      await sleep(400);
+      await typeMessage({
+        role: "foid",
+        text: `anchoring only the hash on-chain. your ${flavor} stays with you. 🌟`,
+        speed: 20,
+      });
+      await typeMessage({
+        role: "foid",
+        text: "confirm the tx to beam it blockchain-ward, letting mifoid know mommy held your words?",
+        speed: 20,
+      });
+
+      await handleConfirm(finalPrayer, feelingKey);
+    },
+    [
+      addMessage,
+      chainOk,
+      feelingKey,
+      handleConfirm,
+      isProcessing,
+      prayerOverLimit,
+      registryReady,
+      requiredChainId,
+      suggestedPrayer,
+      typeMessage,
+    ],
+  );
+
   const handleRetry = useCallback(() => {
-    setStage("txPrompt");
+    setStage("awaitPrayer");
   }, []);
 
   const handleEditPrayer = useCallback(() => {
@@ -936,22 +931,6 @@ export default function FoidMommyTerminal({
         return;
       }
 
-      if (stage === "txPrompt") {
-        const lowered = trimmed.toLowerCase();
-        if (lowered === "y" || lowered === "yes") {
-          setCommandInput("");
-          await handleConfirm();
-          return;
-        }
-        if (lowered === "n" || lowered === "no") {
-          setStage("awaitPrayer");
-          setCommandInput("");
-          return;
-        }
-        addMessage("system", "type y or n.");
-        return;
-      }
-
       if (stage === "txFail") {
         const lowered = trimmed.toLowerCase();
         if (lowered === "retry") {
@@ -987,7 +966,6 @@ export default function FoidMommyTerminal({
     [
       addMessage,
       currentInputValue,
-      handleConfirm,
       handleEditPrayer,
       handleFeelingSubmit,
       handlePrayerSubmit,
@@ -1029,10 +1007,6 @@ export default function FoidMommyTerminal({
         return prayerOverLimit
           ? `${prayerCount}/${prayerLimit} — KEEP IT UNDER 240 CHARS`
           : `TYPE YOUR PRAYER OR PRESS ENTER FOR MOMMY'S • ${prayerCount}/${prayerLimit}`;
-      case "txPrompt":
-        return cooldownActive
-          ? `Y = CONFIRM • N = EDIT • COOLDOWN: ${cooldownNextWindow}`
-          : "Y = CONFIRM • N = EDIT";
       case "txPending":
         return "SENDING TO CHAIN...";
       case "txFail":
@@ -1064,8 +1038,6 @@ export default function FoidMommyTerminal({
         return "how are you feeling?";
       case "awaitPrayer":
         return "type your prayer or press enter";
-      case "txPrompt":
-        return "y or n";
       case "txFail":
         return "retry / edit / cancel";
       case "checkInPrompt":

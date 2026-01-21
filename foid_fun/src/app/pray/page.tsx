@@ -58,8 +58,14 @@ const PrayerRegistryAbi = [
       { name: "label", type: "uint8" },
     ],
     outputs: [
-      { type: "uint256" }, { type: "uint256" }, { type: "uint256" }, { type: "uint256" },
-      { type: "uint256" }, { type: "bytes32" }, { type: "uint256" }, { type: "uint256" },
+      { type: "uint256" },
+      { type: "uint256" },
+      { type: "uint256" },
+      { type: "uint256" },
+      { type: "uint256" },
+      { type: "bytes32" },
+      { type: "uint256" },
+      { type: "uint256" },
     ],
   },
   {
@@ -144,7 +150,6 @@ export default function PrayPage() {
   const { disconnect } = useDisconnect();
   const { connect, connectors } = useConnect();
   const [mobileTab, setMobileTab] = useState<"terminal" | "manual" | "stats">("terminal");
-  const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
   const [nowSeconds, setNowSeconds] = useState<number | null>(null);
 
   const env = useMemo(resolveEnv, []);
@@ -280,8 +285,6 @@ export default function PrayPage() {
             chainId={FLUENT_CHAIN_ID}
             connected={isConnected}
             address={address}
-            isWalletDropdownOpen={walletDropdownOpen}
-            onToggleWallet={() => setWalletDropdownOpen((prev) => !prev)}
             onDisconnect={() => disconnect()}
             onSwitchWallet={handleSwitchWallet}
             warnings={titlebarWarnings}
@@ -393,40 +396,44 @@ export default function PrayPage() {
       <style jsx>{`
         :global(.pray-dashboard) { background: transparent !important; }
         .pray-page {
-          position: fixed;
-          inset: 0;
-          min-height: 100vh;
-          height: 100vh;
+          position: relative;
+          min-height: min(100svh, 100dvh);
+          min-height: 100svh;
+          min-height: 100dvh;
           background: transparent;
-          overflow: hidden;
+          overflow: auto;
+          padding: 0;
+          width: 100%;
           z-index: 0;
+          overscroll-behavior: contain;
         }
         .pray-page__shell {
           display: flex;
           flex-direction: column;
-          align-items: center;
+          align-items: stretch;
           justify-content: flex-start;
-          min-height: 100vh;
-          padding: clamp(12px, 3vw, 24px);
-          position: relative;
           width: 100%;
-          z-index: 1;
+          max-width: 100%;
+          padding: clamp(12px, 3vw, 24px);
+          gap: 12px;
         }
         .pray-window-frame {
-          width: min(1800px, calc(100vw - clamp(24px, 4vw, 40px)));
-          height: min(1050px, calc(100vh - clamp(24px, 4vw, 40px)));
+          width: min(1800px, calc(100vw - clamp(28px, 5vw, 44px)));
           max-width: 100%;
-          max-height: 100%;
+          max-height: min(1050px, calc(100svh - clamp(56px, 9vw, 96px)));
           margin: 0 auto;
           display: flex;
           flex-direction: column;
           min-height: 0;
+          overflow: hidden;
         }
         .pray-window-frame > .vista-window {
           border: none !important;
           box-shadow: none !important;
           width: 100%;
-          height: 100%;
+          height: auto;
+          max-height: 100%;
+          min-height: 0;
           background: rgba(6, 10, 18, 0.8);
         }
         .pray-window-frame .vista-window__body {
@@ -458,6 +465,73 @@ export default function PrayPage() {
           background-color: transparent !important;
           background-image: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.35) 100%) !important;
           opacity: 0.55;
+        }
+
+        .pray-main-grid {
+          padding: 16px;
+          gap: 20px;
+          width: 100%;
+        }
+
+        .pray-pane {
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          overflow: hidden;
+        }
+
+        .pray-pane__body {
+          flex: 1;
+          min-height: 0;
+          overflow: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .pray-pane--mobile-hidden {
+          display: block;
+        }
+
+        .pray-mobile-tabs {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 4px;
+          margin-bottom: 12px;
+          scrollbar-width: none;
+        }
+
+        .pray-mobile-tabs::-webkit-scrollbar {
+          display: none;
+        }
+
+        .pray-tab {
+          flex: 1;
+          min-width: 90px;
+          min-height: 44px;
+          padding: 10px 12px;
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.25);
+          background: rgba(255, 255, 255, 0.08);
+          color: rgba(255, 255, 255, 0.9);
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          text-align: center;
+          transition: background 0.2s ease, box-shadow 0.2s ease;
+          backdrop-filter: blur(8px);
+        }
+
+        .pray-tab.is-active {
+          background: rgba(0, 255, 213, 0.2);
+          border-color: rgba(0, 255, 213, 0.45);
+          color: #0c1c26;
+          box-shadow: 0 0 10px rgba(0, 255, 213, 0.35);
+        }
+
+        .pray-tab:focus-visible {
+          outline: 2px solid rgba(0, 255, 213, 0.8);
+          outline-offset: 2px;
         }
         
         /* Terminal pane */
@@ -754,6 +828,18 @@ export default function PrayPage() {
           .pray-liquid-glass-terminal :global(.frutiger-terminal) {
             padding: 14px 16px;
           }
+          .pray-main-grid {
+            padding: 12px;
+          }
+          .pray-window-frame {
+            max-height: calc(100svh - clamp(64px, 10vw, 96px));
+          }
+          .pray-window-frame > .vista-window {
+            max-height: none;
+          }
+          .pray-pane--mobile-hidden {
+            display: none;
+          }
         }
 
         @media (max-width: 640px) {
@@ -768,6 +854,16 @@ export default function PrayPage() {
           }
           .pray-stats-cell__value {
             font-size: 22px;
+          }
+          .pray-window-frame {
+            padding-bottom: calc(var(--safe-bottom, 0px) + 8px);
+          }
+          .pray-mobile-tabs {
+            gap: 6px;
+          }
+          .pray-tab {
+            font-size: 11px;
+            letter-spacing: 0.1em;
           }
         }
       `}</style>

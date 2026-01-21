@@ -29,6 +29,7 @@ import { sniffImageType, mimeFromType } from "@/lib/image";
 import { uploadImage } from "@/lib/ipfs";
 import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 import { formatEth } from "@/lib/wei";
+import { formatCountdown } from "@/lib/formatDuration";
 import { useEpochCountdown } from "@/hooks/useEpochCountdown";
 import { useLatestManifestFromChain } from "@/hooks/useLatestManifestFromChain";
 import { usePlacementVotes } from "@/hooks/usePlacementVotes";
@@ -122,9 +123,11 @@ const formatShortAddress = (value?: string) =>
 function TerminalChat({
   statusMessages,
   onSend,
+  className = "",
 }: {
   statusMessages: StatusMessage[];
   onSend?: (text: string) => void | Promise<void>;
+  className?: string;
 }) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -160,7 +163,7 @@ function TerminalChat({
   };
 
   return (
-    <div className="terminal-chat">
+    <div className={`terminal-chat ${className}`}>
       <div ref={scrollRef} className="terminal-chat__messages">
         {statusMessages.map((msg) => {
           const isChat = msg.variant === "chat";
@@ -251,18 +254,27 @@ function Y2kActionButton({
 // VOTING ITEM
 // ============================================================================
 
-function VotingItem({ proposal, addStatus }: { proposal: ProposalSummary; addStatus: (msg: string, type: StatusMessage["type"]) => void }) {
+function VotingItem({
+  proposal,
+  addStatus,
+  now,
+}: {
+  proposal: ProposalSummary;
+  addStatus: (msg: string, type: StatusMessage["type"]) => void;
+  now: number;
+}) {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { switchChainAsync, isPending: switchingChain } = useSwitchChain();
 
   const computedSecondsLeft = useMemo(() => {
+    void now;
     const { enabled, epochSec } = resolveEpochConfig();
     if (!enabled || epochSec <= 0) return null;
     const nowEpoch = currentEpoch();
     const epochsDiff = proposal.voteEndsAtEpoch - nowEpoch;
     return epochsDiff <= 0 ? 0 : Math.max(0, epochsDiff * epochSec);
-  }, [proposal.voteEndsAtEpoch]);
+  }, [proposal.voteEndsAtEpoch, now]);
 
   const hasEpoch = typeof proposal.epochSubmitted === "number";
   const epochCfg = resolveEpochConfig();
@@ -301,6 +313,10 @@ function VotingItem({ proposal, addStatus }: { proposal: ProposalSummary; addSta
 
   const displayYes = queryEnabled ? yes : BigInt(proposal.yes ?? 0);
   const displayNo = queryEnabled ? no : BigInt(proposal.no ?? 0);
+  const timeLeftLabel =
+    computedSecondsLeft !== null
+      ? formatCountdown(Math.max(0, computedSecondsLeft) * 1000)
+      : "—";
 
   return (
     <div className="voting-item">
@@ -314,7 +330,7 @@ function VotingItem({ proposal, addStatus }: { proposal: ProposalSummary; addSta
       </div>
       <div className="voting-item__info">
         <span>{proposal.cells} cells</span>
-        <span>{computedSecondsLeft !== null ? `${Math.floor(computedSecondsLeft / 60)}m` : "—"}</span>
+        <span>{timeLeftLabel}</span>
       </div>
       <span className="voting-item__counts">{displayYes.toString()}↑ {displayNo.toString()}↓</span>
       <div className="voting-item__btns">
@@ -451,7 +467,6 @@ export default function BoardPage() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { connect, connectors } = useConnect();
-  const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
   const handleSwitchWallet = useCallback(() => {
     disconnect();
     setTimeout(() => { const c = connectors[0]; if (c) connect({ connector: c }); }, 100);
@@ -513,13 +528,16 @@ export default function BoardPage() {
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [submittingProposals, setSubmittingProposals] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   // Epoch
   const { enabled, index: epochIdx, remainingMs } = useEpochCountdown();
   const fmtCountdown = useMemo(() => {
-    if (!enabled) return "—";
-    const s = Math.floor(remainingMs / 1000);
-    return `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+    if (!enabled || remainingMs <= 0) return "ready now";
+    const hours = Math.floor(remainingMs / 3600000);
+    const days = Math.floor(hours / 24);
+    const remHours = hours % 24;
+    return `${days}d ${remHours}h`;
   }, [enabled, remainingMs]);
 
   // Board data
@@ -616,6 +634,11 @@ export default function BoardPage() {
   }, [isPanning]);
 
   useEffect(() => { if (!spaceDown) setIsPanning(false); }, [spaceDown]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (!draggingBoard) return;
@@ -1020,7 +1043,7 @@ export default function BoardPage() {
   // ============================================================================
 
   return (
-    <main className="board-page">
+    <main className="board-page overflow-hidden">
       {/* Floating particles */}
       <div className="board-particles">
         {boardParticles.map((cfg, i) => (
@@ -1046,8 +1069,6 @@ export default function BoardPage() {
               chainId={FLUENT_CHAIN_ID}
               connected={isConnected}
               address={address}
-              isWalletDropdownOpen={walletDropdownOpen}
-              onToggleWallet={() => setWalletDropdownOpen((prev) => !prev)}
               onDisconnect={() => disconnect()}
               onSwitchWallet={handleSwitchWallet}
             />
@@ -1156,61 +1177,69 @@ export default function BoardPage() {
 
               {/* Sidebar */}
               <div className="board-sidebar">
-                {/* Epoch */}
-                <div className="board-section board-section--epoch">
-                  <div className="board-section__header board-section__header--epoch">
-                    <span className="board-section__dot" />
-                    <span className="board-section__title">EPOCH</span>
-                    <div className="board-epoch">
-                      <span className="board-epoch__num">#{enabled ? epochIdx : "—"}</span>
-                      <span className="board-epoch__time">{fmtCountdown}</span>
+                <div className="board-sidebar__scroller">
+                  {/* Actions */}
+                  <div className="board-section board-section--actions">
+                    <div className="board-section__header">
+                      <span className="board-section__dot" />
+                      <span className="board-section__title">ACTIONS</span>
+                      <span className="board-section__chip">ETH/CELL: {formatEth(BASE_FEE_PER_CELL_WEI)}</span>
                     </div>
+                    <div className="board-actions">
+                      <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" />
+                      <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={onFileChange} />
+                      <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "SUBMITTING..." : "SUBMIT PROPOSAL"} disabled={!items.length || submittingProposals} variant="secondary" />
+                    </div>
+                    {pendingVotes.length > 0 && (
+                      <div className="board-actions__voting">
+                        <div className="board-section__header board-section__header--compact">
+                          <span className="board-section__dot" />
+                          <span className="board-section__title">VOTING</span>
+                        </div>
+                        <div className="board-voting">
+                          {pendingVotes.map((p) => (
+                            <VotingItem key={p.id} proposal={p} addStatus={addStatus} now={now} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
 
-                {/* Actions */}
-                <div className="board-section board-section--actions">
-                  <div className="board-section__header">
-                    <span className="board-section__dot" />
-                    <span className="board-section__title">ACTIONS</span>
-                    <span className="board-section__chip">ETH/CELL: {formatEth(BASE_FEE_PER_CELL_WEI)}</span>
-                  </div>
-                  <div className="board-actions">
-                    <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" />
-                    <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={onFileChange} />
-                    <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "SUBMITTING..." : "SUBMIT PROPOSAL"} disabled={!items.length || submittingProposals} variant="secondary" />
-                  </div>
-                  {pendingVotes.length > 0 && (
-                    <div className="board-actions__voting">
-                      <div className="board-section__header board-section__header--compact">
+                  {/* Chat */}
+                  <div className="board-section--chat-wrapper">
+                    <div className="board-section board-section--chat">
+                      <div className="board-section__header">
                         <span className="board-section__dot" />
-                        <span className="board-section__title">VOTING</span>
+                        <span className="board-section__title">CHAT</span>
+                        <span
+                          className="board-section__status"
+                          data-status={isConnected ? "online" : "offline"}
+                        >
+                          {isConnected ? "online" : "offline"}
+                        </span>
                       </div>
-                      <div className="board-voting">
-                        {pendingVotes.map((p) => <VotingItem key={p.id} proposal={p} addStatus={addStatus} />)}
+                      <TerminalChat className="h-full" statusMessages={statusMessages} onSend={handleChatSend} />
+                    </div>
+                  </div>
+
+                  {/* Music - iPod-style player */}
+                  <div className="board-section--music-wrapper">
+                    <div className="board-section board-section--music">
+                      <CompactMusicPlayer />
+                    </div>
+                  </div>
+
+                  {/* Epoch */}
+                  <div className="board-section board-section--epoch">
+                    <div className="board-section__header board-section__header--epoch">
+                      <span className="board-section__dot" />
+                      <span className="board-section__title">EPOCH</span>
+                      <div className="board-epoch">
+                        <span className="board-epoch__num">#{enabled ? epochIdx : "—"}</span>
+                        <span className="board-epoch__time">{fmtCountdown}</span>
                       </div>
                     </div>
-                  )}
-                </div>
-
-                {/* Chat */}
-                <div className="board-section board-section--chat">
-                  <div className="board-section__header">
-                    <span className="board-section__dot" />
-                    <span className="board-section__title">CHAT</span>
-                    <span
-                      className="board-section__status"
-                      data-status={isConnected ? "online" : "offline"}
-                    >
-                      {isConnected ? "online" : "offline"}
-                    </span>
                   </div>
-                  <TerminalChat statusMessages={statusMessages} onSend={handleChatSend} />
-                </div>
-
-                {/* Music - iPod-style player */}
-                <div className="board-section board-section--music">
-                  <CompactMusicPlayer />
                 </div>
               </div> {/* board-sidebar */}
             </div> {/* board-grid */}
@@ -1224,10 +1253,16 @@ export default function BoardPage() {
       <style jsx>{`
         /* Layout - more padding and spacing */
         .board-page {
-          position: fixed;
-          inset: 0;
+          position: relative;
+          min-height: min(100svh, 100dvh);
+          min-height: 100svh;
+          min-height: 100dvh;
           background: transparent !important;
-          overflow: hidden;
+          overflow: auto;
+          padding: 0;
+          width: 100%;
+          z-index: 0;
+          overscroll-behavior: contain;
           --board-radius-lg: 14px;
           --board-radius-md: 12px;
           --foid-bg-deepest: #030b12;
@@ -1248,19 +1283,20 @@ export default function BoardPage() {
           flex-direction: column;
           align-items: center;
           justify-content: flex-start;
-          min-height: 100vh;
+          min-height: 0;
           padding: clamp(12px, 3vw, 24px);
           position: relative;
           z-index: 1;
+          width: 100%;
           overflow: hidden;
         }
 
         /* expand board window to full viewport while keeping safe margins */
         .board-window {
-          width: min(1800px, calc(100vw - clamp(24px, 4vw, 40px)));
-          height: min(1050px, calc(100vh - clamp(24px, 4vw, 40px)));
+          width: min(1800px, calc(100vw - clamp(24px, 4vw, 46px)));
           max-width: 100%;
-          max-height: 100%;
+          max-height: min(1050px, calc(100svh - clamp(60px, 9vw, 100px)));
+          height: auto;
           display: flex;
           flex-direction: column;
           min-height: 0;
@@ -1271,11 +1307,12 @@ export default function BoardPage() {
         .board-body { flex: 1; min-height: 0; padding: 18px; }
         .board-grid {
           display: grid;
-          grid-template-columns: 1fr 320px;
+          grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
           gap: 18px;
           padding: 14px;
           box-sizing: border-box;
           height: 100%;
+          grid-auto-rows: minmax(0, auto);
           background:
             linear-gradient(
               to right,
@@ -1371,6 +1408,44 @@ export default function BoardPage() {
           60% { opacity: 1; }
           100% { opacity: 0; }
         }
+        @media (max-width: 1024px) {
+          .board-grid {
+            grid-template-columns: 1fr;
+          }
+          .board-sidebar {
+            width: 100%;
+          }
+          .board-section--chat-wrapper {
+            min-height: 300px;
+            height: auto;
+          }
+          .board-actions__voting {
+            max-height: 120px;
+          }
+          .board-sidebar__scroller {
+            max-height: calc(100svh - 220px - var(--safe-bottom, 0px));
+          }
+        }
+        @media (max-width: 640px) {
+          .board-grid {
+            padding: 12px;
+            gap: 12px;
+          }
+          .board-section--chat-wrapper {
+            min-height: 260px;
+          }
+          .board-section--chat,
+          .board-section--actions,
+          .board-section--music {
+            padding: 12px;
+          }
+          .board-sidebar__scroller {
+            max-height: none;
+          }
+          .board-actions__voting {
+            max-height: 90px;
+          }
+        }
         @media (prefers-reduced-motion: reduce) {
           .board-hint-bottom { animation: none; }
         }
@@ -1448,10 +1523,8 @@ export default function BoardPage() {
         /* Sidebar - more padding and spacing */
         .board-sidebar {
           position: relative;
-          display: grid;
-          grid-template-columns: 1fr;
-          grid-template-rows: auto auto auto 1fr;
-          gap: 16px;
+          display: flex;
+          flex-direction: column;
           height: 100%;
           min-height: 0;
           overflow: hidden;
@@ -1468,6 +1541,16 @@ export default function BoardPage() {
             inset 0 0 25px rgba(255, 255, 255, 0.06),
             inset 0 0 40px rgba(116, 255, 235, 0.08),
             0 20px 40px rgba(0, 0, 0, 0.45);
+        }
+        .board-sidebar__scroller {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          padding-right: 6px;
         }
         .board-sidebar::after {
           content: none !important;
@@ -1518,12 +1601,20 @@ export default function BoardPage() {
           flex-direction: column;
           gap: 6px;
         }
+        .board-section--chat-wrapper,
+        .board-section--music-wrapper {
+          flex-shrink: 0;
+        }
+        .board-section--chat-wrapper {
+          min-height: 360px;
+          height: auto;
+        }
         .board-section--chat {
-          grid-row: 4 / 5;
           display: flex;
           flex-direction: column;
           min-height: 0;
           overflow: hidden;
+          height: 100%;
         }
         .board-section--chat :global(.terminal-chat) {
           flex: 1;
@@ -1767,7 +1858,18 @@ export default function BoardPage() {
         :global(.terminal-chat__text) { color: rgba(255,255,255,0.85); font-size: 9px; }
         :global(.terminal-chat__line--success .terminal-chat__text) { color: var(--foid-accent); }
         :global(.terminal-chat__line--error .terminal-chat__text) { color: #ff4757; }
-        :global(.terminal-chat__input-row) { display: flex; align-items: center; padding: 8px 10px; gap: 8px; border-top: 1px solid var(--foid-accent-soft); background: rgba(5, 15, 26, 0.58); }
+        :global(.terminal-chat__input-row) {
+          display: flex;
+          align-items: center;
+          padding: 8px 10px;
+          gap: 8px;
+          border-top: 1px solid var(--foid-accent-soft);
+          background: rgba(5, 15, 26, 0.85);
+          position: sticky;
+          bottom: 0;
+          backdrop-filter: blur(12px);
+          z-index: 2;
+        }
         :global(.terminal-chat__prompt) { color: var(--foid-accent); margin-right: 8px; font-weight: 600; font-size: 11px; text-shadow: 0 0 8px var(--foid-glow); }
         :global(.terminal-chat__input) { flex: 1; background: rgba(11,24,38,0.55); border: 1px solid var(--foid-accent-soft); border-radius: 4px; outline: none; color: white; font-family: inherit; font-size: 10px; padding: 6px 10px; transition: border-color 0.2s, box-shadow 0.2s; }
         :global(.terminal-chat__input:focus) { border-color: var(--foid-accent); box-shadow: 0 0 10px var(--foid-glow); }

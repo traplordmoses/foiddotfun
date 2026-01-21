@@ -87,7 +87,7 @@ export default function FloatingElements() {
 
   return (
     <div
-      className="pointer-events-none fixed inset-0 overflow-hidden"
+      className="pointer-events-none fixed inset-0 overflow-hidden floating-elements"
       style={{ zIndex: 2 }}
       aria-hidden="true"
     >

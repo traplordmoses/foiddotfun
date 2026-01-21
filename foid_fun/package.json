@@ -28,8 +28,8 @@
     "@rainbow-me/rainbowkit": "2.1.6",
     "@supabase/supabase-js": "^2.81.0",
     "@tanstack/react-query": "5.51.1",
-    "@wagmi/core": "2.22.1",
     "@wagmi/connectors": "6.2.0",
+    "@wagmi/core": "2.22.1",
     "butterchurn": "^2.6.7",
     "butterchurn-presets": "^2.4.7",
     "dotenv": "^16.6.1",
@@ -51,6 +51,7 @@
   "devDependencies": {
     "@types/node": "^20.19.25",
     "@types/react": "18.3.3",
+    "@types/react-dom": "^18.3.0",
     "autoprefixer": "10.4.19",
     "eslint": "8.57.1",
     "eslint-config-next": "14.2.35",

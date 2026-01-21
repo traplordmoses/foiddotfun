@@ -55,16 +55,18 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="theme-color" content="#0e0f2b" />
       </head>
-      <body className="relative h-full min-h-screen overflow-hidden font-secondary">
-        <AnimatedBackground />
-        <FloatingElements />
-        <div className="scene-tint" />
-        <Providers>
-          <SfxInitializer />
-          <FairyDustCursor />
-          {children}
-        </Providers>
-      </body>
-    </html>
+  <body className="relative h-full min-h-screen overflow-hidden font-secondary">
+    <AnimatedBackground />
+    <FloatingElements />
+    <div className="scene-tint" />
+    <Providers>
+      <div className="app-viewport">
+        <SfxInitializer />
+        <FairyDustCursor />
+        {children}
+      </div>
+    </Providers>
+  </body>
+</html>
   );
 }

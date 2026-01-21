@@ -231,7 +231,6 @@ export default function AboutPage() {
   const chainId = useChainId();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
-  const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
   const initialSection = sections[0].id;
   const [activeSection, setActiveSection] = useState(initialSection);
   const [selectedSection, setSelectedSection] = useState(initialSection);
@@ -355,8 +354,6 @@ export default function AboutPage() {
               chainId={chainId}
               connected={isConnected}
               address={address}
-              isWalletDropdownOpen={walletDropdownOpen}
-              onToggleWallet={() => setWalletDropdownOpen((prev) => !prev)}
               onDisconnect={() => disconnect()}
               onSwitchWallet={handleSwitchWallet}
             />
@@ -614,11 +611,14 @@ export default function AboutPage() {
 
         .aboutNav {
           gap: 10px;
+          display: flex;
+          flex-direction: column;
         }
 
         .aboutNavButton {
-          height: var(--about-nav-h);
-          padding: 0 14px;
+          min-height: 44px;
+          height: calc(var(--about-nav-h, 44px));
+          padding: 0 18px;
           border-radius: 12px;
           font-size: 11px;
           letter-spacing: 0.08em;
@@ -626,6 +626,8 @@ export default function AboutPage() {
           background: rgba(255, 255, 255, 0.04);
           border-color: rgba(255, 255, 255, 0.1);
           transform: translateY(0);
+          justify-content: center;
+          flex: 0 0 auto;
         }
 
         .aboutNavButton::before {
@@ -656,6 +658,34 @@ export default function AboutPage() {
 
         .aboutNavButton--active::before {
           background: rgba(120, 220, 255, 0.9);
+        }
+
+        @media (max-width: 640px) {
+          .aboutNav {
+            flex-direction: row;
+            overflow-x: auto;
+            padding-bottom: 6px;
+            scrollbar-width: none;
+          }
+
+          .aboutNav::-webkit-scrollbar {
+            display: none;
+          }
+
+          .aboutNavButton {
+            flex: 0 0 auto;
+            min-width: 120px;
+            border-radius: 999px;
+          }
+
+          .aboutWindowBody {
+            gap: 14px;
+          }
+
+          .vista-window--enhanced {
+            min-height: auto;
+            height: auto;
+          }
         }
 
         .aboutContentScroll {

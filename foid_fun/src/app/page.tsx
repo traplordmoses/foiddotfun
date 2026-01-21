@@ -75,7 +75,7 @@ export default function LandingPage() {
     <main className="relative isolate min-h-[100svh] bg-foid-bg text-white/90 overflow-x-hidden overflow-y-auto lg:overflow-hidden">
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
 
-      <div className="relative z-10 mx-auto flex min-h-[100svh] w-full max-w-[1200px] flex-col px-5 py-5 lg:h-screen lg:px-8 lg:py-6">
+        <div className="relative z-10 mx-auto flex min-h-0 w-full max-w-[1200px] flex-col px-4 py-4 lg:h-screen lg:px-8 lg:py-6 home-shell">
         {/* title */}
         <div className="mb-4 flex items-center justify-center">
           <span className="foid-title foid-title--xl">
@@ -85,9 +85,9 @@ export default function LandingPage() {
           </span>
         </div>
 
-        <div className="grid flex-1 min-h-0 grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr] lg:items-stretch">
+        <div className="grid flex-1 min-h-0 grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr] lg:items-stretch home-main-grid">
           {/* hero */}
-          <section className="vista-window vista-window--media flex min-h-[360px] sm:min-h-[420px] lg:min-h-0 flex-col overflow-hidden max-h-[520px] sm:max-h-[640px] lg:max-h-[720px] w-full">
+          <section className="vista-window vista-window--media flex min-h-[320px] sm:min-h-[360px] lg:min-h-0 flex-col overflow-hidden max-h-[520px] sm:max-h-[640px] lg:max-h-[720px] w-full home-hero-window">
             <div className="vista-window__titlebar">
               <div className="vista-window__controls" aria-hidden="true">
                 <span className="vista-window__control vista-window__control--minimize" />
@@ -186,7 +186,7 @@ export default function LandingPage() {
           </section>
 
           {/* launcher */}
-            <aside className="vista-window vista-window--compact flex min-h-[360px] sm:min-h-[420px] lg:min-h-0 flex-col overflow-hidden max-h-[520px] sm:max-h-[640px] lg:max-h-[720px] w-full foid-right-panel">
+          <aside className="vista-window vista-window--compact flex min-h-[320px] sm:min-h-[380px] lg:min-h-0 flex-col overflow-hidden max-h-[520px] sm:max-h-[640px] lg:max-h-[720px] w-full foid-right-panel home-cta-panel">
               <div className="vista-window__titlebar">
                 <div className="vista-window__controls" aria-hidden="true">
                   <span className="vista-window__control vista-window__control--minimize" />
@@ -360,6 +360,14 @@ export default function LandingPage() {
           stroke-linejoin: round;
         }
 
+        :global(.home-shell) {
+          min-height: 0;
+        }
+
+        :global(.home-main-grid) {
+          width: 100%;
+        }
+
         @media (max-width: 640px) {
           :global(.foid-meme-overlay) {
             padding: 8px;
@@ -369,6 +377,17 @@ export default function LandingPage() {
           }
           :global(.foid-meme-bottext) {
             stroke-width: 6px;
+          }
+          :global(.home-main-grid) {
+            gap: 14px;
+          }
+          :global(.home-hero-window),
+          :global(.home-cta-panel) {
+            min-height: 260px;
+            max-height: none;
+          }
+          :global(.home-hero-window) {
+            padding-bottom: 4px;
           }
         }
       `}</style>

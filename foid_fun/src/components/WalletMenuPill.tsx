@@ -1,0 +1,250 @@
+"use client";
+
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
+export interface WalletMenuPillProps {
+  address?: string;
+  isConnected: boolean;
+  onSwitchWallet: () => void;
+  onDisconnect: () => void;
+  className?: string;
+}
+
+function shortHash(hash?: string) {
+  if (!hash) return "—";
+  if (hash.length <= 10) return hash;
+  return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
+}
+
+export default function WalletMenuPill({
+  address,
+  isConnected,
+  onSwitchWallet,
+  onDisconnect,
+  className = "",
+}: WalletMenuPillProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [mounted, setMounted] = useState(false);
+
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuId = useId();
+
+  // Client-side mount check for portal
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Calculate menu position when opened
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const menuWidth = Math.max(rect.width, 200);
+      setMenuPosition({
+        top: rect.bottom + 8,
+        left: rect.right - menuWidth,
+        width: menuWidth,
+      });
+    }
+  }, [isOpen]);
+
+  // Click outside handler
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(target)
+      ) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  // Keyboard handler
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (event.key === "Escape" && isOpen) {
+        event.preventDefault();
+        setIsOpen(false);
+        buttonRef.current?.focus();
+      }
+    },
+    [isOpen]
+  );
+
+  // Focus trap within menu
+  useEffect(() => {
+    if (!isOpen || !menuRef.current) return;
+
+    const menu = menuRef.current;
+    const focusableElements = menu.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+
+    function handleTabKey(e: KeyboardEvent) {
+      if (e.key !== "Tab") return;
+
+      if (e.shiftKey && document.activeElement === firstElement) {
+        e.preventDefault();
+        lastElement?.focus();
+      } else if (!e.shiftKey && document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement?.focus();
+      }
+    }
+
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+        buttonRef.current?.focus();
+      }
+    }
+
+    menu.addEventListener("keydown", handleTabKey);
+    document.addEventListener("keydown", handleEscape);
+
+    // Focus first item when menu opens
+    firstElement?.focus();
+
+    return () => {
+      menu.removeEventListener("keydown", handleTabKey);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isOpen]);
+
+  const handleToggle = () => {
+    setIsOpen((prev) => !prev);
+  };
+
+  const handleSwitchWallet = () => {
+    onSwitchWallet();
+    setIsOpen(false);
+  };
+
+  const handleDisconnect = () => {
+    onDisconnect();
+    setIsOpen(false);
+  };
+
+  const dropdownMenu = isOpen && mounted ? (
+    <div
+      ref={menuRef}
+      id={menuId}
+      role="menu"
+      aria-label="Wallet actions"
+      className="aero-wallet-menu"
+      style={{
+        position: "fixed",
+        top: menuPosition.top,
+        left: menuPosition.left,
+        width: menuPosition.width,
+        zIndex: 99999,
+      }}
+      onKeyDown={handleKeyDown}
+    >
+      <button
+        type="button"
+        role="menuitem"
+        className="aero-wallet-menu__item aero-wallet-menu__item--primary"
+        onClick={handleSwitchWallet}
+      >
+        <svg
+          className="aero-wallet-menu__icon"
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M6 2L2 6L6 10M10 6L2 6M10 14L14 10L10 6"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        Switch Wallet
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        className="aero-wallet-menu__item aero-wallet-menu__item--danger"
+        onClick={handleDisconnect}
+      >
+        <svg
+          className="aero-wallet-menu__icon"
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M6 14H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H6M11 11L14 8L11 5M6 8H14"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        Disconnect
+      </button>
+    </div>
+  ) : null;
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        className={`aero-wallet-pill ${className}`}
+        onClick={handleToggle}
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        aria-controls={isOpen ? menuId : undefined}
+        aria-label={isConnected ? "Manage wallet" : "Connect wallet"}
+      >
+        <span className="aero-wallet-pill__shine" aria-hidden="true" />
+        <span className="aero-wallet-pill__label">
+          {isConnected ? "WALLET" : "CONNECT"}
+        </span>
+        <span className="aero-wallet-pill__address">
+          {address ? shortHash(address) : "—"}
+        </span>
+        <svg
+          className={`aero-wallet-pill__chevron ${isOpen ? "aero-wallet-pill__chevron--open" : ""}`}
+          width="10"
+          height="6"
+          viewBox="0 0 10 6"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M1 1L5 5L9 1"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {mounted && dropdownMenu
+        ? createPortal(dropdownMenu, document.body)
+        : null}
+    </>
+  );
+}
