@@ -187,6 +187,7 @@ export type ListProposalsDebug = {
   pendingLogCount?: number;
   boardLogCount?: number;
   boardEventsCount?: number;
+  joinedRenderableCount?: number;
   joinedCount?: number;
   pendingActiveCount: number;
   missingBoardPayload: string[];
