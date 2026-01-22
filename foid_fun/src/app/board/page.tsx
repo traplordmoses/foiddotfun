@@ -486,7 +486,7 @@ const getBoundsFromRects = (rects: Rect[]): Rect | null => {
 // MAIN BOARD PAGE COMPONENT
 // ============================================================================
 
-export default function BoardPage() {
+function BoardPageContent() {
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -2142,9 +2142,13 @@ export default function BoardPage() {
     </main>
   );
 
+  return locked ? lockedView : mainView;
+}
+
+export default function BoardPage() {
   return (
     <Suspense fallback={null}>
-      {locked ? lockedView : mainView}
+      <BoardPageContent />
     </Suspense>
   );
 }
