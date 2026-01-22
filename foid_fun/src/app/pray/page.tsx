@@ -428,6 +428,9 @@ export default function PrayPage() {
       <style jsx>{`
         :global(.pray-dashboard) { background: transparent !important; }
         .pray-page {
+          display: flex;
+          justify-content: center;
+          align-items: center;
           position: relative;
           min-height: min(100svh, 100dvh);
           min-height: 100svh;
@@ -443,7 +446,8 @@ export default function PrayPage() {
           display: flex;
           flex-direction: column;
           align-items: stretch;
-          justify-content: flex-start;
+          justify-content: center;
+          flex: 1;
           width: 100%;
           max-width: 100%;
           padding: clamp(12px, 3vw, 24px);
@@ -452,7 +456,8 @@ export default function PrayPage() {
         .pray-window-frame {
           width: min(1800px, calc(100vw - clamp(28px, 5vw, 44px)));
           max-width: 100%;
-          max-height: calc(100svh - clamp(56px, 9vw, 96px));
+          max-height: calc(100svh - clamp(32px, 4vw, 48px));
+          height: min(100svh, 100dvh);
           margin: 0 auto;
           display: flex;
           flex-direction: column;
@@ -463,7 +468,7 @@ export default function PrayPage() {
           border: none !important;
           box-shadow: none !important;
           width: 100%;
-          height: auto;
+          height: 100%;
           max-height: 100%;
           min-height: 0;
           background: rgba(6, 10, 18, 0.8);
@@ -492,6 +497,7 @@ export default function PrayPage() {
               rgba(255, 255, 255, 0) 65%
             );
           box-shadow: none;
+          height: 100%;
         }
         :global(.vignette) {
           background-color: transparent !important;
@@ -503,6 +509,7 @@ export default function PrayPage() {
           padding: 16px;
           gap: 20px;
           width: 100%;
+          height: 100%;
         }
 
         .pray-pane {
@@ -517,6 +524,7 @@ export default function PrayPage() {
           min-height: 0;
           overflow: auto;
           -webkit-overflow-scrolling: touch;
+          height: 100%;
         }
 
         /* Terminal pane */

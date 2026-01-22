@@ -87,7 +87,7 @@ export default function LandingPage() {
 
         <div className="grid flex-1 min-h-0 grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr] lg:items-stretch home-main-grid">
           {/* hero */}
-          <section className="vista-window vista-window--media flex min-h-[320px] sm:min-h-[360px] lg:min-h-0 flex-col overflow-hidden max-h-[520px] sm:max-h-[640px] lg:max-h-[720px] w-full home-hero-window">
+          <section className="vista-window vista-window--media flex min-h-[320px] sm:min-h-[360px] lg:min-h-0 flex-col overflow-hidden max-h-[520px] sm:max-h-[640px] lg:max-h-none lg:h-full w-full home-hero-window">
             <div className="vista-window__titlebar">
               <div className="vista-window__controls" aria-hidden="true">
                 <span className="vista-window__control vista-window__control--minimize" />
@@ -186,7 +186,7 @@ export default function LandingPage() {
           </section>
 
           {/* launcher */}
-          <aside className="vista-window vista-window--compact flex min-h-[320px] sm:min-h-[380px] lg:min-h-0 flex-col overflow-hidden max-h-[520px] sm:max-h-[640px] lg:max-h-[720px] w-full foid-right-panel home-cta-panel">
+          <aside className="vista-window vista-window--compact flex min-h-[320px] sm:min-h-[380px] lg:min-h-0 flex-col overflow-hidden max-h-[520px] sm:max-h-[640px] lg:max-h-none lg:h-full w-full foid-right-panel home-cta-panel">
               <div className="vista-window__titlebar">
                 <div className="vista-window__controls" aria-hidden="true">
                   <span className="vista-window__control vista-window__control--minimize" />
@@ -336,11 +336,11 @@ export default function LandingPage() {
           font-weight: 900;
           text-transform: uppercase;
           letter-spacing: 0.02em;
-          font-size: clamp(36px, 3.2vw, 60px);
+          font-size: clamp(32px, 2.8vw, 54px);
 
           fill: rgba(255, 255, 255, 0.98);
           stroke: rgba(0, 0, 0, 0.95);
-          stroke-width: 6px;
+          stroke-width: 7px;
           paint-order: stroke fill;
           stroke-linejoin: round;
         }
@@ -351,7 +351,7 @@ export default function LandingPage() {
           font-weight: 900;
           text-transform: uppercase;
           letter-spacing: 0.01em;
-          font-size: clamp(28px, 2.2vw, 40px);
+          font-size: clamp(24px, 1.7vw, 32px);
 
           fill: rgba(255, 255, 255, 0.98);
           stroke: rgba(0, 0, 0, 0.95);
