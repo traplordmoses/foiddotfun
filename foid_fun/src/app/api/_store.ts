@@ -22,7 +22,9 @@ export type ProposalStatus = "proposed" | "accepted" | "rejected" | "expired";
 export type Proposal = Placement & {
   epochSubmitted: number;
   voteEndsAtEpoch: number;
+  voteEndsAtSec?: number;
   chainId?: string;
+  isVotable?: boolean;
   voters: Record<string, boolean>;
   yes: number;
   no: number;

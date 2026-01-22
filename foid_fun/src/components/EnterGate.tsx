@@ -494,12 +494,28 @@ export default function EnterGate({
 
       <div className={`boot-overlay ${bootActive ? "active" : ""}`}>
         <div className="scanlines" aria-hidden="true" />
-        <div className={`boot-text ${bootText1 ? "show" : ""}`}>INITIALIZING FOID SYSTEMS</div>
-        <div className={`boot-text ${bootText2 ? "show" : ""}`} style={{ marginTop: 15 }}>
-          LOADING FOUNDATION...
+        <div className="boot-logo" aria-hidden="true">
+          <svg viewBox="0 0 120 120" className="boot-logo-svg">
+            <defs>
+              <radialGradient id="bootGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#00ffd5" stopOpacity="0.6" />
+                <stop offset="70%" stopColor="#00bfff" stopOpacity="0.2" />
+                <stop offset="100%" stopColor="#0066ff" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            <circle cx="60" cy="60" r="50" fill="url(#bootGlow)" className="boot-glow-circle" />
+            <circle cx="60" cy="60" r="35" fill="none" stroke="#00ffd5" strokeWidth="2" strokeOpacity="0.6" className="boot-ring" />
+          </svg>
+        </div>
+        <div className={`boot-text boot-text--title ${bootText1 ? "show" : ""}`}>FOID FOUNDATION</div>
+        <div className={`boot-text ${bootText2 ? "show" : ""}`} style={{ marginTop: 8 }}>
+          establishing connection...
         </div>
         <div className={`boot-progress ${bootProgressVisible ? "show" : ""}`}>
           <div className="boot-progress-bar" style={{ width: `${bootProgress}%` }} />
+        </div>
+        <div className={`boot-text boot-text--welcome ${bootProgress >= 100 ? "show" : ""}`}>
+          welcome home
         </div>
       </div>
 
@@ -666,13 +682,51 @@ export default function EnterGate({
           pointer-events: all;
         }
 
+        .boot-logo {
+          position: relative;
+          width: 120px;
+          height: 120px;
+          margin-bottom: 32px;
+        }
+
+        .boot-logo-svg {
+          width: 100%;
+          height: 100%;
+        }
+
+        .boot-glow-circle {
+          animation: bootGlowPulse 2s ease-in-out infinite;
+        }
+
+        .boot-ring {
+          animation: bootRingSpin 3s linear infinite;
+          transform-origin: center;
+        }
+
         .boot-text {
           font-family: var(--font-display, "Orbitron", sans-serif);
-          font-size: 14px;
-          color: #4ae;
-          text-transform: uppercase;
-          letter-spacing: 3px;
+          font-size: 12px;
+          color: rgba(0, 255, 213, 0.7);
+          text-transform: lowercase;
+          letter-spacing: 4px;
           opacity: 0;
+        }
+
+        .boot-text--title {
+          font-size: 18px;
+          font-weight: 600;
+          letter-spacing: 8px;
+          color: #00ffd5;
+          text-transform: uppercase;
+          text-shadow: 0 0 30px rgba(0, 255, 213, 0.5);
+        }
+
+        .boot-text--welcome {
+          margin-top: 24px;
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.9);
+          letter-spacing: 6px;
+          text-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
         }
 
         .boot-text.show {
@@ -799,6 +853,26 @@ export default function EnterGate({
           to {
             opacity: 1;
             transform: translateY(0);
+          }
+        }
+
+        @keyframes bootGlowPulse {
+          0%, 100% {
+            opacity: 0.6;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 1;
+            transform: scale(1.1);
+          }
+        }
+
+        @keyframes bootRingSpin {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
           }
         }
 

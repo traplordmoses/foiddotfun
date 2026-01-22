@@ -31,6 +31,7 @@ export function middleware(request: NextRequest) {
 
   if (request.nextUrl.pathname !== "/") return NextResponse.next();
 
+  // Redirect to /enter only if user hasn't entered before (no cookie)
   const enteredCookie = request.cookies.get("foid_entered");
   if (!enteredCookie) {
     return NextResponse.redirect(new URL("/enter", request.url));

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
+import CompactMusicPlayer from "@/components/CompactMusicPlayer";
 import Y2kGlassButton from "@/components/Y2kGlassButton";
 
 const MusicPanel = dynamic(() => import("@/components/MusicPanel"), {
@@ -71,10 +72,10 @@ export default function LandingPage() {
   const loadMusicPanelNow = useCallback(() => setMusicPanelReady(true), []);
 
   return (
-    <main className="relative isolate min-h-screen bg-foid-bg text-white/90 overflow-hidden">
+    <main className="relative isolate min-h-[100svh] bg-foid-bg text-white/90 overflow-x-hidden overflow-y-auto lg:overflow-hidden">
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
 
-      <div className="relative z-10 mx-auto flex h-screen w-full max-w-[1200px] flex-col px-5 py-5 lg:px-8 lg:py-6">
+        <div className="relative z-10 mx-auto flex min-h-0 w-full max-w-[1200px] flex-col px-4 py-4 lg:h-screen lg:px-8 lg:py-6 home-shell">
         {/* title */}
         <div className="mb-4 flex items-center justify-center">
           <span className="foid-title foid-title--xl">
@@ -84,9 +85,9 @@ export default function LandingPage() {
           </span>
         </div>
 
-        <div className="grid flex-1 min-h-0 grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr] lg:items-stretch">
+        <div className="grid flex-1 min-h-0 grid-cols-1 gap-5 lg:grid-cols-[1.6fr_1fr] lg:items-stretch home-main-grid">
           {/* hero */}
-          <section className="vista-window vista-window--media flex min-h-0 flex-col overflow-hidden max-h-[640px] lg:max-h-[720px] w-full">
+          <section className="vista-window vista-window--media flex min-h-[320px] sm:min-h-[360px] lg:min-h-0 flex-col overflow-hidden max-h-[520px] sm:max-h-[640px] lg:max-h-[720px] w-full home-hero-window">
             <div className="vista-window__titlebar">
               <div className="vista-window__controls" aria-hidden="true">
                 <span className="vista-window__control vista-window__control--minimize" />
@@ -125,74 +126,271 @@ export default function LandingPage() {
                     className="object-cover"
                     style={{ objectPosition: "50% 35%" }}
                   />
+                  {/* meme-style overlay text (SVG stroke for consistent outline) */}
+                  <div className="foid-meme-overlay" aria-hidden="true">
+                    <svg
+                      className="foid-meme-topsvg"
+                      viewBox="0 0 1000 140"
+                      preserveAspectRatio="xMidYMin meet"
+                    >
+                      <text
+                        className="foid-meme-toptext"
+                        x="500"
+                        y="52"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        textLength="940"
+                        lengthAdjust="spacingAndGlyphs"
+                      >
+                        AN ONCHAIN FUNNEL FOR MEMES AND CULTURE
+                      </text>
+                    </svg>
+
+                    <svg
+                      className="foid-meme-bottomsvg"
+                      viewBox="0 0 1000 240"
+                      preserveAspectRatio="xMidYMax meet"
+                    >
+                      <text
+                        className="foid-meme-bottext"
+                        x="500"
+                        y="70"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                      >
+                        FOID_MOMMY_TERMINAL.EXE: PRAY WITH FOID MOMMY. DAILY. FOREVER
+                      </text>
+                      <text
+                        className="foid-meme-bottext"
+                        x="500"
+                        y="130"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                      >
+                        LOREBOARD.APP: SHARE MEMES. VOTE TO PRESERVE. CANONIZE CULTURE
+                      </text>
+                      <text
+                        className="foid-meme-bottext"
+                        x="500"
+                        y="190"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                      >
+                        MIFOID NFT: MINT YOUR AI GIRLFRIEND. YOUR VIRTUAL FOID
+                      </text>
+                    </svg>
+                  </div>
                 </div>
               </div>
             </div>
           </section>
 
           {/* launcher */}
-          <aside className="vista-window vista-window--compact flex min-h-0 flex-col overflow-hidden max-h-[640px] lg:max-h-[720px] w-full">
-            <div className="vista-window__titlebar">
-              <div className="vista-window__controls" aria-hidden="true">
-                <span className="vista-window__control vista-window__control--minimize" />
-                <span className="vista-window__control vista-window__control--restore" />
-                <span className="vista-window__control vista-window__control--close" />
-              </div>
+          <aside className="vista-window vista-window--compact flex min-h-[320px] sm:min-h-[380px] lg:min-h-0 flex-col overflow-hidden max-h-[520px] sm:max-h-[640px] lg:max-h-[720px] w-full foid-right-panel home-cta-panel">
+              <div className="vista-window__titlebar">
+                <div className="vista-window__controls" aria-hidden="true">
+                  <span className="vista-window__control vista-window__control--minimize" />
+                  <span className="vista-window__control vista-window__control--restore" />
+                  <span className="vista-window__control vista-window__control--close" />
+                </div>
 
-              <span className="vista-window__title text-[12px]">
-                <span
-                  aria-hidden="true"
-                  className="inline-flex h-[40px] w-[40px] items-center justify-center"
-                >
-                  <Image
-                    src="/foidmommy.gif"
-                    alt=""
-                    width={40}
-                    height={40}
-                    className="block"
-                  />
-                </span>{" "}
-                foid.fun
-              </span>
-            </div>
-            <div className="vista-window__body flex flex-1 min-h-0 flex-col">
-              {/* buttons */}
-              <div className="launcher-buttons px-4 pt-2 pb-2">
-                <div className="flex flex-col gap-4">
-                  <Y2kGlassButton
-                    href="/foid-mommy-terminal"
-                    label="FOID_MOMMY_TERMINAL.EXE"
-                  />
-                  <Y2kGlassButton href="/board" label="LOREBOARD.APP" />
+                <span className="vista-window__title text-[12px]">
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex h-[40px] w-[40px] items-center justify-center"
+                  >
+                    <Image
+                      src="/foidmommy.gif"
+                      alt=""
+                      width={40}
+                      height={40}
+                      className="block"
+                    />
+                  </span>{" "}
+                  foid.fun
+                </span>
+              </div>
+            <div className="vista-window__body flex flex-1 min-h-0 flex-col overflow-hidden">
+              <div className="flex flex-1 min-h-0 flex-col px-4 pt-4 pb-2 sm:px-6 sm:pt-6 sm:pb-1">
+                <div className="mx-auto flex h-full w-full max-w-[360px] flex-1 flex-col gap-3 items-stretch">
+                  {/* buttons */}
+                  <div className="launcher-buttons flex flex-col gap-3">
+                    <Y2kGlassButton
+                      href="/pray"
+                      label="FOID_MOMMY_TERMINAL.EXE"
+                    />
+                    <Y2kGlassButton href="/board" label="LOREBOARD.APP" />
+                  </div>
+
+                  <div
+                    ref={musicRef}
+                    className="launcher-music flex flex-col gap-4 mt-3"
+                  >
+                    {musicPanelReady ? (
+                      <>
+                        <div className="w-full">
+                          <MusicPanel className="home-music-panel h-[220px] sm:h-[320px] w-full" />
+                        </div>
+                        <div className="home-ipod-frame">
+                          <CompactMusicPlayer mountLogic={false} />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex min-h-[220px] w-full flex-col items-center justify-center gap-3 text-center text-xs text-white/55">
+                        <p className="text-white/40">music loads after the launcher.</p>
+                        <button
+                          type="button"
+                          onClick={loadMusicPanelNow}
+                          className="rounded-full border border-white/20 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.3em] text-white/65 transition hover:bg-white/10 hover:border-white/30"
+                        >
+                          load
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              {/* music: render ONLY the player (no extra frame) */}
-              <div className="launcher-music flex min-h-0 flex-col">
-                <div ref={musicRef} className="min-h-0 flex flex-col justify-end overflow-hidden">
-                  {musicPanelReady ? (
-                    <div className="w-full origin-bottom scale-[0.95]">
-                      <MusicPanel />
-                    </div>
-                  ) : (
-                    <div className="flex min-h-[150px] w-full flex-col items-center justify-center gap-3 px-4 text-center text-xs text-white/55">
-                      <p className="text-white/40">music loads after the launcher.</p>
-                      <button
-                        type="button"
-                        onClick={loadMusicPanelNow}
-                        className="rounded-full border border-white/20 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.3em] text-white/65 transition hover:bg-white/10 hover:border-white/30"
-                      >
-                        load
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {/* removed the “fits @ 100%” footer entirely */}
             </div>
-          </aside>
+            </aside>
         </div>
       </div>
+      <style jsx>{`
+        :global(.foid-right-panel .vista-window__body) {
+          padding: 0;
+        }
+
+        :global(.foid-right-panel .launcher-buttons),
+        :global(.foid-right-panel .launcher-music) {
+          padding: 0;
+        }
+
+        :global(.foid-right-panel .launcher-music) {
+          flex: 0 0 auto;
+        }
+
+        :global(.foid-right-panel .launcher-buttons) {
+          flex: 0 0 auto;
+        }
+
+        :global(.home-music-panel) :global(.mt-3) {
+          display: none;
+        }
+
+        :global(.home-music-panel) {
+          padding: 0 !important;
+          border-radius: 28px;
+          background: transparent;
+          box-shadow: none;
+        }
+
+        :global(.home-ipod-frame) {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          margin-top: -6px;
+          border-radius: 30px;
+          padding: 0;
+          border: none;
+          background: transparent;
+          box-shadow: none;
+        }
+
+        :global(.home-ipod-frame) :global(.ipod-player) {
+          width: 100%;
+          border-radius: 26px;
+        }
+
+        :global(.foid-meme-overlay) {
+          pointer-events: none;
+          position: absolute;
+          inset: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding: 4px;
+        }
+
+        :global(.foid-meme-topsvg),
+        :global(.foid-meme-bottomsvg) {
+          width: 100%;
+          height: auto;
+        }
+
+        :global(.foid-meme-topsvg) {
+          margin-top: 0;
+          filter:
+            drop-shadow(0 6px 0 rgba(0, 0, 0, 0.55))
+            drop-shadow(0 16px 30px rgba(0, 0, 0, 0.4));
+        }
+
+        :global(.foid-meme-bottomsvg) {
+          margin-bottom: 0;
+          filter:
+            drop-shadow(0 5px 0 rgba(0, 0, 0, 0.55))
+            drop-shadow(0 14px 26px rgba(0, 0, 0, 0.4));
+        }
+
+        /* Top meme text */
+        :global(.foid-meme-toptext) {
+          font-family: Impact, Haettenschweiler, "Arial Black", "Anton", system-ui, sans-serif;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+          font-size: clamp(36px, 3.2vw, 60px);
+
+          fill: rgba(255, 255, 255, 0.98);
+          stroke: rgba(0, 0, 0, 0.95);
+          stroke-width: 6px;
+          paint-order: stroke fill;
+          stroke-linejoin: round;
+        }
+
+        /* Bottom meme text: make it taller / not cropped + thinner outline */
+        :global(.foid-meme-bottext) {
+          font-family: Impact, Haettenschweiler, "Arial Black", "Anton", system-ui, sans-serif;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: 0.01em;
+          font-size: clamp(28px, 2.2vw, 40px);
+
+          fill: rgba(255, 255, 255, 0.98);
+          stroke: rgba(0, 0, 0, 0.95);
+          stroke-width: 6px;
+          paint-order: stroke fill;
+          stroke-linejoin: round;
+        }
+
+        :global(.home-shell) {
+          min-height: 0;
+        }
+
+        :global(.home-main-grid) {
+          width: 100%;
+        }
+
+        @media (max-width: 640px) {
+          :global(.foid-meme-overlay) {
+            padding: 8px;
+          }
+          :global(.foid-meme-toptext) {
+            stroke-width: 16px;
+          }
+          :global(.foid-meme-bottext) {
+            stroke-width: 6px;
+          }
+          :global(.home-main-grid) {
+            gap: 14px;
+          }
+          :global(.home-hero-window),
+          :global(.home-cta-panel) {
+            min-height: 260px;
+            max-height: none;
+          }
+          :global(.home-hero-window) {
+            padding-bottom: 4px;
+          }
+        }
+      `}</style>
     </main>
   );
 }

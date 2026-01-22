@@ -1527,12 +1527,12 @@ body {
     position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    border-radius: 20px;
-    min-height: 44px;
-    min-width: 130px;
-    max-width: 260px;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 16px;
+    min-height: 36px;
+    min-width: 110px;
+    max-width: 220px;
     justify-content: center;
 
     /* Aqua-lime glass gradient */
@@ -1615,9 +1615,9 @@ body {
   }
 
   .aero-wallet-pill__label {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     opacity: 0.7;
     flex-shrink: 0;
@@ -1625,11 +1625,11 @@ body {
   }
 
   .aero-wallet-pill__address {
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 600;
     font-family: "SF Mono", "Monaco", "Inconsolata", monospace;
     letter-spacing: 0.02em;
-    max-width: 110px;
+    max-width: 95px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

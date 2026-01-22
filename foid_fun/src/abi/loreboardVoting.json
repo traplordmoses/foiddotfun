@@ -143,45 +143,6 @@
     ],
     "outputs": [
       {
-        "name": "votingStartsAt",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "votingEndsAt",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "finalized",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getEpochConfig",
-    "inputs": [
-      {
-        "name": "epochId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "startsAt",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "endsAt",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
         "name": "finalized",
         "type": "bool",
         "internalType": "bool"
@@ -304,47 +265,6 @@
       }
     ],
     "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "configureEpoch",
-    "inputs": [
-      {
-        "name": "epochId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "startsAt",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "endsAt",
-        "type": "uint64",
-        "internalType": "uint64"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "registerPendingPlacement",
-    "inputs": [
-      {
-        "name": "epochId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "placementId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
   },
   {
     "type": "function",

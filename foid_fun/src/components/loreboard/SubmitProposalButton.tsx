@@ -6,8 +6,9 @@ import ABI from "@/abi/LoreboardBoardV2.json" assert { type: "json" };
 import { decodeEventLog, keccak256, toHex, type Abi } from "viem";
 import type { Rect } from "@/lib/contracts/loreboard";
 import { publicClient } from "@/lib/viem";
+import { TARGET_CHAIN_ID } from "@/lib/chain";
 
-const FLUENT_CHAIN_ID = 20994;
+const FLUENT_CHAIN_ID = TARGET_CHAIN_ID;
 const LoreboardAbi = ABI as Abi;
 
 const normalizeCidString = (value: string): string => {

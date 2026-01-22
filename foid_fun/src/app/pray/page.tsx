@@ -2,26 +2,31 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AppTitlebar, { type AppTitlebarWarning } from "@/app/(components)/AppTitlebar";
-import { useAccount, usePublicClient, useReadContract, useWriteContract, useDisconnect, useConnect } from "wagmi";
-import { keccak256, stringToBytes, type Hex, type Hash } from "viem";
+import { useAccount, useChainId, usePublicClient, useReadContract, useDisconnect, useConnect } from "wagmi";
+import { encodeAbiParameters, keccak256, stringToBytes, type Address, type Hex, type Hash } from "viem";
 import FoidMommyTerminal, {
   FEELING_LABELS,
   type FeelingKey,
 } from "@/app/(components)/FoidMommyTerminal";
+import { getWalletClient } from "@/lib/viem";
+import { formatViemError } from "@/lib/prayerErrors";
+import { TARGET_CHAIN_ID } from "@/lib/chain";
 
 /* --- env --- */
-function resolveEnv(): { registry?: Hex; mirror?: Hex; chainId: number } {
+const DEFAULT_FOIP_REGISTRY: Hex = "0x6FC7301fad7Ca0294152b23FD4f0467200376d65";
+const DEFAULT_FOIP_MIRROR: Hex = "0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF";
+const PRAYER_SELECTOR = "0xedf32f27";
+const PRAYER_CATEGORY = 1n;
+
+function resolveEnv(): { registry?: Hex; mirror?: Hex } {
   let registry: string | undefined;
   let mirror: string | undefined;
-  let chainId = 20994;
 
   try {
     if (typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);
       registry = sp.get("registry") ?? undefined;
       mirror = sp.get("mirror") ?? undefined;
-      const chainParam = sp.get("chain");
-      if (chainParam) chainId = Number(chainParam);
     }
     const g = globalThis as { __ENV__?: Record<string, string> };
     if (!registry && g.__ENV__?.NEXT_PUBLIC_FOIP_REGISTRY) {
@@ -30,44 +35,19 @@ function resolveEnv(): { registry?: Hex; mirror?: Hex; chainId: number } {
     if (!mirror && g.__ENV__?.NEXT_PUBLIC_FOIP_MIRROR) {
       mirror = g.__ENV__.NEXT_PUBLIC_FOIP_MIRROR;
     }
-    if (
-      g.__ENV__?.NEXT_PUBLIC_FLUENT_CHAIN_ID &&
-      !Number.isNaN(Number(g.__ENV__.NEXT_PUBLIC_FLUENT_CHAIN_ID))
-    ) {
-      chainId = Number(g.__ENV__.NEXT_PUBLIC_FLUENT_CHAIN_ID);
-    }
     if (typeof process !== "undefined") {
       const env = process.env;
       if (!registry && env.NEXT_PUBLIC_FOIP_REGISTRY) registry = env.NEXT_PUBLIC_FOIP_REGISTRY;
       if (!mirror && env.NEXT_PUBLIC_FOIP_MIRROR) mirror = env.NEXT_PUBLIC_FOIP_MIRROR;
-      if (env.NEXT_PUBLIC_FLUENT_CHAIN_ID && !Number.isNaN(Number(env.NEXT_PUBLIC_FLUENT_CHAIN_ID))) {
-        chainId = Number(env.NEXT_PUBLIC_FLUENT_CHAIN_ID);
-      }
     }
   } catch {}
-  return { registry: registry as Hex | undefined, mirror: mirror as Hex | undefined, chainId };
+  return {
+    registry: (registry ?? DEFAULT_FOIP_REGISTRY) as Hex,
+    mirror: (mirror ?? DEFAULT_FOIP_MIRROR) as Hex,
+  };
 }
 
 const PrayerRegistryAbi = [
-  {
-    type: "function",
-    name: "checkIn",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "prayer_hash", type: "bytes32" },
-      { name: "label", type: "uint8" },
-    ],
-    outputs: [
-      { type: "uint256" },
-      { type: "uint256" },
-      { type: "uint256" },
-      { type: "uint256" },
-      { type: "uint256" },
-      { type: "bytes32" },
-      { type: "uint256" },
-      { type: "uint256" },
-    ],
-  },
   {
     type: "function",
     name: "nextAllowedAt",
@@ -143,26 +123,28 @@ function shortHash(hash?: string) {
   return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
 }
 
-
 export default function PrayPage() {
-  const { address, isConnected, chainId } = useAccount();
-  const { writeContractAsync } = useWriteContract();
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const { disconnect } = useDisconnect();
   const { connect, connectors } = useConnect();
-  const [mobileTab, setMobileTab] = useState<"terminal" | "manual" | "stats">("terminal");
   const [nowSeconds, setNowSeconds] = useState<number | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
   const env = useMemo(resolveEnv, []);
   const REGISTRY = env.registry;
   const MIRROR = env.mirror;
-  const FLUENT_CHAIN_ID = env.chainId;
+  const FLUENT_CHAIN_ID = TARGET_CHAIN_ID;
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
   const missingRegistry = !REGISTRY;
   const missingMirror = !MIRROR;
   const walletDisconnected = !isConnected || !address;
-  const wrongChain = Boolean(isConnected && chainId && FLUENT_CHAIN_ID && chainId !== FLUENT_CHAIN_ID);
+  const wrongChain = Boolean(hydrated && isConnected && chainId && FLUENT_CHAIN_ID && chainId !== FLUENT_CHAIN_ID);
   const titlebarWarnings: AppTitlebarWarning[] = [];
   if (missingRegistry) titlebarWarnings.push({ key: "registry", message: "missing registry", variant: "error" });
-  if (wrongChain) titlebarWarnings.push({ key: "chain", message: `wrong chain ${FLUENT_CHAIN_ID ?? "?"}`, variant: "mint" });
+  if (wrongChain) titlebarWarnings.push({ key: "chain", message: `wrong chain ${TARGET_CHAIN_ID}`, variant: "mint" });
   if (missingMirror) titlebarWarnings.push({ key: "mirror", message: "mirror missing", variant: "error" });
   const publicClient = usePublicClient();
   const snapRef = useRef<(() => Promise<unknown>) | null>(null);
@@ -230,19 +212,75 @@ export default function PrayPage() {
     }
   }, [FLUENT_CHAIN_ID, address, chainId, isConnected]);
 
-  const submitPrayer = useCallback(async (prayer: string, feeling: FeelingKey) => {
-    const registryAddress = registryRef.current;
-    if (!registryAddress) throw new Error("missing registry address on this page.");
-    const prayerHash = keccak256(stringToBytes(prayer));
-    const label = FEELING_LABELS[feeling] ?? 1;
-    const txHash = await writeContractAsync({
-      address: registryAddress,
-      abi: PrayerRegistryAbi,
-      functionName: "checkIn",
-      args: [prayerHash, label],
-    });
-    return { txHash };
-  }, [writeContractAsync]);
+  const submitPrayer = useCallback(
+    async (prayer: string, feeling: FeelingKey) => {
+      const registryAddress = registryRef.current;
+      if (!registryAddress) throw new Error("missing registry address on this page.");
+      if (!publicClient) throw new Error("public client not ready.");
+      if (!address) throw new Error("connect your wallet before anchoring your prayer.");
+
+      const prayerHash = keccak256(stringToBytes(prayer));
+      const label = BigInt(FEELING_LABELS[feeling] ?? 1);
+      const encodedArgs = encodeAbiParameters(
+        [
+          { name: "prayer_hash", type: "bytes32" },
+          { name: "label", type: "uint256" },
+          { name: "category", type: "uint256" },
+        ],
+        [prayerHash, label, PRAYER_CATEGORY],
+      );
+      const data = (`${PRAYER_SELECTOR}${encodedArgs.slice(2)}` as `0x${string}`);
+
+      const transportInfo = publicClient.transport as { url?: string; type?: string } | undefined;
+      console.debug("submitPrayer", {
+        chainId: publicClient.chain?.id ?? FLUENT_CHAIN_ID,
+        userChainId: chainId,
+        rpc: transportInfo?.url ?? transportInfo?.type ?? "unknown",
+        registry: registryAddress,
+        selector: PRAYER_SELECTOR,
+        args: [prayerHash, label, PRAYER_CATEGORY],
+      });
+
+      try {
+        await publicClient.call({ to: registryAddress, data, account: address as Address });
+      } catch (error: unknown) {
+        const message = formatViemError(error);
+        console.error("prayer simulation failed:", message, error);
+        throw new Error(message);
+      }
+
+      let gasEstimate: bigint;
+      try {
+        gasEstimate = await publicClient.estimateGas({
+          to: registryAddress,
+          data,
+          account: address as Address,
+        });
+      } catch (error: unknown) {
+        const message = formatViemError(error);
+        console.error("prayer gas estimation failed:", message, error);
+        throw new Error(message);
+      }
+      const gasMargin = (gasEstimate * 20n) / 100n;
+      const gasLimit = gasEstimate + (gasMargin > 0 ? gasMargin : 1n);
+
+      const walletClient = await getWalletClient();
+      try {
+        const txHash = await walletClient.sendTransaction({
+          account: address as Address,
+          to: registryAddress,
+          data,
+          gas: gasLimit,
+        });
+        return { txHash };
+      } catch (error: unknown) {
+        const message = formatViemError(error);
+        console.error("prayer send failed:", message, error);
+        throw new Error(message);
+      }
+    },
+    [address, chainId, FLUENT_CHAIN_ID, publicClient],
+  );
 
   const waitForReceipt = useCallback(async (hash: string) => {
     if (publicClient) await publicClient.waitForTransactionReceipt({ hash: hash as Hash });
@@ -290,15 +328,9 @@ export default function PrayPage() {
             warnings={titlebarWarnings}
           />
             <div className="vista-window__body vista-window__body--flush mt-2 pray-panel__body">
-              <div className="pray-mobile-tabs" role="tablist" aria-label="Prayer panels">
-                <button type="button" role="tab" aria-selected={mobileTab === "terminal"} className={`pray-tab ${mobileTab === "terminal" ? "is-active" : ""}`} onClick={() => setMobileTab("terminal")}>Terminal</button>
-                <button type="button" role="tab" aria-selected={mobileTab === "manual"} className={`pray-tab ${mobileTab === "manual" ? "is-active" : ""}`} onClick={() => setMobileTab("manual")}>Manual</button>
-                <button type="button" role="tab" aria-selected={mobileTab === "stats"} className={`pray-tab ${mobileTab === "stats" ? "is-active" : ""}`} onClick={() => setMobileTab("stats")}>Stats</button>
-              </div>
-
               <div className="pray-main-grid">
                 {/* Terminal pane */}
-                <div className={`pray-pane pray-pane--terminal pray-liquid-glass-terminal ${mobileTab === "terminal" ? "" : "pray-pane--mobile-hidden"}`}>
+                <div className="pray-pane pray-pane--terminal pray-liquid-glass-terminal">
                   <svg className="pray-bracket pray-bracket--tl" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M2 22V2H22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                   <svg className="pray-bracket pray-bracket--tr" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M22 22V2H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                   <svg className="pray-bracket pray-bracket--bl" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M2 2V22H22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
@@ -320,7 +352,7 @@ export default function PrayPage() {
                 </div>
 
                 {/* Manual pane - no header */}
-                <div className={`pray-pane pray-pane--manual pray-pane--panel ${mobileTab === "manual" ? "" : "pray-pane--mobile-hidden"}`}>
+                <div className="pray-pane pray-pane--manual pray-pane--panel">
                   <div className="pray-pane__body pray-pane__body--no-header">
                     <div className="pray-scroll space-y-4 text-sm">
                       <h3 className="pray-manual__hero">F O I D &nbsp;&nbsp; M O M M Y</h3>
@@ -351,7 +383,7 @@ export default function PrayPage() {
                 </div>
 
                 {/* Stats pane */}
-                <div className={`pray-pane pray-pane--stats pray-pane--panel ${mobileTab === "stats" ? "" : "pray-pane--mobile-hidden"}`}>
+                <div className="pray-pane pray-pane--stats pray-pane--panel">
                   <div className="pray-pane__title">YOUR PRAYERS</div>
                   <div className="pray-pane__body font-terminal text-xs sm:text-[13px] leading-snug">
                     <div className="pray-scroll">
@@ -375,7 +407,7 @@ export default function PrayPage() {
                       </div>
                       <div className="pray-chain-info">
                         <div className="pray-chain-info__row"><span className="pray-chain-info__label">prayer hash</span><span className="pray-chain-info__value pray-chain-info__value--hash">{formattedPrayerHash}</span></div>
-                        <div className="pray-chain-info__row"><span className="pray-chain-info__label">chain</span><span className="pray-chain-info__value">{FLUENT_CHAIN_ID ?? "?"}</span></div>
+                        <div className="pray-chain-info__row"><span className="pray-chain-info__label">chain</span><span className="pray-chain-info__value">{TARGET_CHAIN_ID}</span></div>
                         <div className="pray-chain-info__row"><span className="pray-chain-info__label">next allowed in</span><span className={`pray-chain-info__value ${!cooldownActive ? "pray-chain-info__value--ready" : ""}`}>{canRenderTime ? formatDurationShort(secondsLeft(nowSeconds, nextAllowed as bigint | undefined)) : "—"}</span></div>
                         {cooldownActive && <div className="pray-chain-info__row"><span className="pray-chain-info__label">next window</span><span className="pray-chain-info__value">{nextWindowLabel}</span></div>}
                       </div>
@@ -487,53 +519,6 @@ export default function PrayPage() {
           -webkit-overflow-scrolling: touch;
         }
 
-        .pray-pane--mobile-hidden {
-          display: block;
-        }
-
-        .pray-mobile-tabs {
-          display: flex;
-          gap: 8px;
-          overflow-x: auto;
-          padding-bottom: 4px;
-          margin-bottom: 12px;
-          scrollbar-width: none;
-        }
-
-        .pray-mobile-tabs::-webkit-scrollbar {
-          display: none;
-        }
-
-        .pray-tab {
-          flex: 1;
-          min-width: 90px;
-          min-height: 44px;
-          padding: 10px 12px;
-          border-radius: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.25);
-          background: rgba(255, 255, 255, 0.08);
-          color: rgba(255, 255, 255, 0.9);
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-          text-align: center;
-          transition: background 0.2s ease, box-shadow 0.2s ease;
-          backdrop-filter: blur(8px);
-        }
-
-        .pray-tab.is-active {
-          background: rgba(0, 255, 213, 0.2);
-          border-color: rgba(0, 255, 213, 0.45);
-          color: #0c1c26;
-          box-shadow: 0 0 10px rgba(0, 255, 213, 0.35);
-        }
-
-        .pray-tab:focus-visible {
-          outline: 2px solid rgba(0, 255, 213, 0.8);
-          outline-offset: 2px;
-        }
-        
         /* Terminal pane */
         .pray-liquid-glass-terminal {
           position: relative;
@@ -830,15 +815,19 @@ export default function PrayPage() {
           }
           .pray-main-grid {
             padding: 12px;
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows: auto;
+            grid-template-areas:
+              "terminal"
+              "manual"
+              "stats";
+            gap: 16px;
           }
           .pray-window-frame {
             max-height: calc(100svh - clamp(64px, 10vw, 96px));
           }
           .pray-window-frame > .vista-window {
             max-height: none;
-          }
-          .pray-pane--mobile-hidden {
-            display: none;
           }
         }
 
@@ -857,13 +846,6 @@ export default function PrayPage() {
           }
           .pray-window-frame {
             padding-bottom: calc(var(--safe-bottom, 0px) + 8px);
-          }
-          .pray-mobile-tabs {
-            gap: 6px;
-          }
-          .pray-tab {
-            font-size: 11px;
-            letter-spacing: 0.1em;
           }
         }
       `}</style>

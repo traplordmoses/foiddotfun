@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { celebrateTransaction } from "@/effects/celebrate";
 import sfx from "@/lib/sfx";
 import { attachTypingClicks, initTypingClicks } from "@/lib/typingClicks";
+import { formatViemError } from "@/lib/prayerErrors";
 
 export type FeelingKey =
   | "happy"
@@ -712,6 +713,8 @@ export default function FoidMommyTerminal({
         seenNames.some((name) => name.includes("insufficientfunds")) ||
         seenMessages.some((text) => outOfGasIndicators.some((pattern) => text.includes(pattern)));
 
+      const formattedReason = formatViemError(error);
+      console.error("submitPrayer error:", formattedReason, error);
       const nowSeconds = Math.floor(Date.now() / 1000);
       const nextAllowedSecondsRaw =
         typeof nextAllowedAt === "bigint"
@@ -758,7 +761,7 @@ export default function FoidMommyTerminal({
         await sleep(300);
         await typeMessage({
           role: "foid",
-          text: "want to try again?",
+          text: `tx failed: ${formattedReason}. want to try again?`,
         });
         sfx.playError();
         setStage("txFail");

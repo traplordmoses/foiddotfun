@@ -6,8 +6,9 @@ import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { toast } from "react-hot-toast";
 import { Stamp } from "./Stamp";
 import { BLOCK_EXPLORER_URL } from "@/lib/contracts";
+import { TARGET_CHAIN_ID } from "@/lib/chain";
 
-const FLUENT_CHAIN_ID = 20994;
+const FLUENT_CHAIN_ID = TARGET_CHAIN_ID;
 const FLUENT_CHAIN_NAME = "Fluent Testnet";
 const RPC_URL = "https://rpc.testnet.fluent.xyz";
 

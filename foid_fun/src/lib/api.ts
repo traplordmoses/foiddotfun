@@ -115,7 +115,9 @@ export type ProposalSummary = {
   status: "proposed" | "accepted" | "rejected" | "expired";
   epochSubmitted: number;
   voteEndsAtEpoch: number;
+  voteEndsAtSec?: number;
   secondsLeft: number;
+  isVotable?: boolean;
   width?: number;
   height?: number;
 };
@@ -149,10 +151,61 @@ export async function proposePlacement(input: {
   }>(res);
 }
 
-export async function listProposals() {
+export type PendingPlacementWire = {
+  emitter: string;
+  blockNumber: string | null;
+  logIndex: string | null;
+  epochId: string;
+  placementId: `0x${string}` | "";
+  voteEndsAt: string | null;
+};
+
+export type PendingBoardPlacement = {
+  placementId: `0x${string}` | "";
+  bidder: `0x${string}` | "";
+  epoch: number;
+  rect: Rect;
+  cells: number;
+  bidPerCellWei: string;
+  cidHash?: `0x${string}`;
+  blockNumber: string | null;
+  logIndex: string | null;
+};
+
+export type PendingRenderableSample = {
+  pending: PendingPlacementWire;
+  placement: PendingBoardPlacement;
+};
+
+export type ListProposalsDebug = {
+  lastError?: string | null;
+  epoch?: number | null;
+  latestBlock?: number;
+  fromBlock?: number;
+  rangesScanned?: number;
+  pendingEvents?: PendingPlacementWire[];
+  pendingLogCount?: number;
+  boardLogCount?: number;
+  boardEventsCount?: number;
+  joinedCount?: number;
+  pendingActiveCount: number;
+  missingBoardPayload: string[];
+  samplePending: PendingPlacementWire[];
+  sampleJoined: PendingRenderableSample[];
+  pendingEpochIdsSample?: number[];
+  boardEpochsSample?: number[];
+  proxyUrlUsed?: string | null;
+};
+
+export type ListProposalsResponse = {
+  proposals: ProposalSummary[];
+  debug?: ListProposalsDebug;
+};
+
+export async function listProposals(): Promise<ListProposalsResponse> {
   const res = await fetch("/api/proposals", { cache: "no-store" });
   if (!res.ok) throw new Error("proposals failed");
-  return asJson<{ proposals: ProposalSummary[] }>(res);
+  return asJson<ListProposalsResponse>(res);
 }
 
 export async function castVote(input: {

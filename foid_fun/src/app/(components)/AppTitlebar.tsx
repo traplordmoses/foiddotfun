@@ -42,6 +42,16 @@ export default function AppTitlebar({
 }: AppTitlebarProps) {
   void chainId;
   const pathname = usePathname();
+  const buildCommit = useMemo(() => {
+    const env = typeof globalThis === "object" ? (globalThis as { __ENV__?: Record<string, string> | undefined }).__ENV__ : undefined;
+    return (
+      env?.RENDER_GIT_COMMIT ??
+      process.env.NEXT_PUBLIC_RENDER_GIT_COMMIT ??
+      process.env.RENDER_GIT_COMMIT ??
+      null
+    )?.trim() ?? null;
+  }, []);
+  const buildLabel = buildCommit ? `BUILD:${buildCommit.slice(0, 7)}` : null;
 
   const tabItems = useMemo(() => {
     const isPrayRoute = pathname === "/pray" || pathname.startsWith("/pray/");
@@ -89,6 +99,11 @@ export default function AppTitlebar({
               ))}
             </div>
           ) : null}
+          {buildLabel ? (
+            <span className="pray-build-tag" title={`Render build ${buildCommit}`}>
+              {buildLabel}
+            </span>
+          ) : null}
         </div>
         <span className="vista-window__badge" aria-hidden="true">
           <Image src="/icons/skull.png" alt="" width={20} height={20} className="h-5 w-5 rounded-full" />
@@ -96,46 +111,39 @@ export default function AppTitlebar({
       </div>
       <style jsx global>{`
         :global(.pray-nav-tabs-wrapper) {
-          flex: 1 1 0;
+          flex: 0 0 auto;
           min-width: 0;
-          margin: 0 6px;
+          margin-left: auto;
+          margin-right: 6px;
           display: flex;
-          align-items: stretch;
+          align-items: center;
           overflow: hidden;
         }
 
         :global(.pray-nav-tabs) {
-          width: 100%;
           display: flex;
           align-items: center;
-          gap: 8px;
+          justify-content: flex-end;
+          gap: 6px;
           padding-bottom: 2px;
-          overflow-x: auto;
-          overscroll-behavior: contain;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
-          white-space: nowrap;
-        }
-
-        :global(.pray-nav-tabs::-webkit-scrollbar) {
-          display: none;
+          overflow: hidden;
         }
 
         :global(.pray-nav-tab) {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-height: 44px;
-          min-width: 90px;
-          padding: 10px 18px;
-          font-size: 11px;
+          min-height: 30px;
+          min-width: 60px;
+          padding: 6px 10px;
+          font-size: 9px;
           font-weight: 600;
-          letter-spacing: 0.08em;
+          letter-spacing: 0.1em;
           color: #1a1a1a;
           background: linear-gradient(180deg, rgba(233, 221, 80, 0.95), rgba(214, 180, 52, 0.95));
           border: 1px solid rgba(26, 26, 26, 0.4);
           border-bottom: none;
-          border-radius: 12px;
+          border-radius: 8px;
           text-decoration: none;
           transition: all 0.16s ease;
           position: relative;
@@ -173,6 +181,18 @@ export default function AppTitlebar({
           height: 2px;
           background: #e9dd50;
           box-shadow: 0 0 8px rgba(233, 221, 80, 0.6);
+        }
+
+        :global(.pray-build-tag) {
+          padding: 2px 8px;
+          border-radius: 8px;
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          font-size: 9px;
+          letter-spacing: 0.28em;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.85);
+          background: rgba(0, 0, 0, 0.25);
+          white-space: nowrap;
         }
       `}</style>
     </>

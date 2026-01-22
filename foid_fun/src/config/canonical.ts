@@ -3,9 +3,12 @@ import { getAddress, type Address } from "viem";
 const DOTENV_HINT =
   "If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local.";
 
+const DEFAULT_CHAIN_ID = 20994;
+const DEFAULT_RPC_URL = "https://rpc.testnet.fluent.xyz";
+
 export const CANONICAL_CHAIN = {
-  id: 20994,
-  rpcUrl: "https://rpc.testnet.fluent.xyz",
+  id: DEFAULT_CHAIN_ID,
+  rpcUrl: DEFAULT_RPC_URL,
 };
 
 export const CANONICAL_ADDRESSES = {
@@ -18,6 +21,114 @@ export const CANONICAL_ADDRESSES = {
   vmWrapper: "0x4031762fB8b5d3fcA168AA6555FfC666ED500DaD" as Address,
   vmWasm: "0xBE0ec2117F36797DEf3ab10661464265b2E4df34" as Address,
 };
+
+const warnOnce = (() => {
+  const seen = new Set<string>();
+  return (key: string, message: string) => {
+    if (seen.has(key)) return;
+    seen.add(key);
+    console.warn(message);
+  };
+})();
+
+function pickEnvKey(keys: string[]) {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+function normalizeAddress(value: string, label: string): Address {
+  try {
+    return getAddress(value);
+  } catch {
+    throw new Error(
+      `[contracts] ${label} invalid address: ${value}. ${DOTENV_HINT}`
+    );
+  }
+}
+
+export const CHAIN_ID = Number(
+  pickEnvKey(["CHAIN_ID", "NEXT_PUBLIC_CHAIN_ID"]) ?? DEFAULT_CHAIN_ID
+);
+
+if (!Number.isFinite(CHAIN_ID) || CHAIN_ID <= 0) {
+  throw new Error(`[config] Invalid CHAIN_ID. ${DOTENV_HINT}`);
+}
+
+export const RPC_URL =
+  pickEnvKey([
+    "RPC_URL",
+    "NEXT_PUBLIC_FLUENT_RPC",
+    "FLUENT_RPC_URL",
+    "NEXT_PUBLIC_RPC_URL",
+  ]) ?? DEFAULT_RPC_URL;
+
+if (
+  !pickEnvKey([
+    "RPC_URL",
+    "NEXT_PUBLIC_FLUENT_RPC",
+    "FLUENT_RPC_URL",
+    "NEXT_PUBLIC_RPC_URL",
+  ])
+) {
+  warnOnce(
+    "RPC_URL",
+    `[config] RPC URL not configured; falling back to ${DEFAULT_RPC_URL}. ${DOTENV_HINT}`
+  );
+}
+
+const boardAddressEnv = pickEnvKey([
+  "BOARD_ADDRESS",
+  "NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS",
+  "LOREBOARD_BOARD_ADDRESS",
+]);
+
+export const BOARD_ADDRESS = boardAddressEnv
+  ? normalizeAddress(boardAddressEnv, "BOARD_ADDRESS")
+  : CANONICAL_ADDRESSES.board;
+
+if (!boardAddressEnv) {
+  warnOnce(
+    "BOARD_ADDRESS",
+    `[config] BOARD_ADDRESS is not set; falling back to Fluent testnet board ${CANONICAL_ADDRESSES.board}. ${DOTENV_HINT}`
+  );
+}
+
+const votingAddressEnv = pickEnvKey([
+  "VOTING_ADDRESS",
+  "NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS",
+  "LOREBOARD_VOTING_ADDRESS",
+]);
+
+export const VOTING_ADDRESS = votingAddressEnv
+  ? normalizeAddress(votingAddressEnv, "VOTING_ADDRESS")
+  : CANONICAL_ADDRESSES.voting;
+
+if (!votingAddressEnv) {
+  warnOnce(
+    "VOTING_ADDRESS",
+    `[config] VOTING_ADDRESS is not set; falling back to Fluent testnet voting ${CANONICAL_ADDRESSES.voting}. ${DOTENV_HINT}`
+  );
+}
+
+const deployBlockEnv = pickEnvKey([
+  "DEPLOY_BLOCK",
+  "NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK",
+  "NEXT_PUBLIC_DEPLOY_BLOCK",
+]);
+
+export const DEPLOY_BLOCK = deployBlockEnv ? BigInt(deployBlockEnv) : 0n;
+
+if (!deployBlockEnv) {
+  warnOnce(
+    "DEPLOY_BLOCK",
+    `[config] DEPLOY_BLOCK is not configured; scans will fall back to inferred lookback. ${DOTENV_HINT}`
+  );
+}
 
 export function requireCanonicalAddress(params: {
   label: string;

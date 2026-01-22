@@ -12,6 +12,7 @@ import React, {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAccount, useChainId, useSwitchChain, useDisconnect, useConnect } from "wagmi";
 import { useBoard } from "@/state/board";
 import type { PendingItem } from "@/state/board";
@@ -39,12 +40,13 @@ import sfx from "@/lib/sfx";
 import type { FinalizedPlacement } from "@/lib/types";
 import { getLatestNormalized } from "@/lib/manifest";
 import { listProposals } from "@/lib/api";
-import type { ProposalSummary } from "@/lib/api";
+import type { ProposalSummary, ListProposalsResponse } from "@/lib/api";
 import { writeProposePlacement } from "@/lib/viem";
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import CompactMusicPlayer from "@/components/CompactMusicPlayer";
+import { TARGET_CHAIN_ID } from "@/lib/chain";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -78,9 +80,10 @@ const GRID_RADIUS_X = Math.floor(WORLD_MAX_X / TILE);
 const GRID_RADIUS_Y = Math.floor(WORLD_MAX_Y / TILE);
 
 const BOARD_PASSWORD = process.env.NEXT_PUBLIC_BOARD_PASSWORD ?? "";
+const REQUIRES_BOARD_PASSWORD = Boolean(BOARD_PASSWORD.trim());
 const CARD_BORDER = "rgba(116, 255, 235, 0.55)";
 const CARD_SHADOW = "0 14px 32px rgba(0, 6, 22, 0.45), 0 0 0 1px rgba(116,255,235,0.3)";
-const FLUENT_CHAIN_ID = 20994;
+const FLUENT_CHAIN_ID = TARGET_CHAIN_ID;
 
 // Zoom limits - extended for infinite feel
 const MIN_SCALE = 0.02;
@@ -278,8 +281,15 @@ function VotingItem({
 
   const hasEpoch = typeof proposal.epochSubmitted === "number";
   const epochCfg = resolveEpochConfig();
-  const isPending = proposal.status === "proposed" && epochCfg.enabled && computedSecondsLeft !== null && computedSecondsLeft > 0;
-  const placementId = isBytes32Hex(proposal.chainId) ? proposal.chainId : isBytes32Hex(proposal.placementId) ? proposal.placementId : undefined;
+  const isVotable = Boolean(proposal.isVotable);
+  const isPending =
+    proposal.status === "proposed" &&
+    epochCfg.enabled &&
+    computedSecondsLeft !== null &&
+    computedSecondsLeft > 0 &&
+    isVotable;
+  // Check proposal.id first (from API), then placementId, then chainId (legacy)
+  const placementId = isBytes32Hex(proposal.id) ? proposal.id : isBytes32Hex(proposal.placementId) ? proposal.placementId : isBytes32Hex(proposal.chainId) ? proposal.chainId : undefined;
   const epochId = proposal.epochSubmitted ?? 0;
   const queryEnabled = isPending && hasEpoch && isBytes32Hex(placementId);
   const epochBigInt = BigInt(epochId || 0);
@@ -337,6 +347,9 @@ function VotingItem({
         <button onClick={() => onVoteClick(true)} disabled={!canVote} className="voting-item__yes" type="button">✓</button>
         <button onClick={() => onVoteClick(false)} disabled={!canVote} className="voting-item__no" type="button">✕</button>
       </div>
+      {!isVotable && (
+        <span className="voting-item__status">awaiting registration</span>
+      )}
     </div>
   );
 }
@@ -443,9 +456,30 @@ const normalizePlacements = (list: unknown[]): FinalizedPlacement[] =>
 const normalizeProposals = (list: ProposalSummary[] | undefined): ProposalSummary[] =>
   (list ?? []).map((p) => {
     const rect = asWorldRect(p.rect ?? p);
-    const placementId = isBytes32Hex(p.chainId) ? p.chainId : isBytes32Hex(p.placementId) ? p.placementId : undefined;
+    // Check p.id first (from API), then p.placementId, then p.chainId (legacy)
+    const placementId = isBytes32Hex(p.id) ? p.id : isBytes32Hex(p.placementId) ? p.placementId : isBytes32Hex(p.chainId) ? p.chainId : undefined;
     return { ...p, rect, placementId, epochId: p.epochSubmitted ?? 0 };
   });
+
+const getBoundsFromRects = (rects: Rect[]): Rect | null => {
+  if (!rects.length) return null;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const rect of rects) {
+    minX = Math.min(minX, rect.x);
+    minY = Math.min(minY, rect.y);
+    maxX = Math.max(maxX, rect.x + rect.w);
+    maxY = Math.max(maxY, rect.y + rect.h);
+  }
+  return {
+    x: minX,
+    y: minY,
+    w: Math.max(0, maxX - minX),
+    h: Math.max(0, maxY - minY),
+  };
+};
 
 // ============================================================================
 // MAIN BOARD PAGE COMPONENT
@@ -473,23 +507,33 @@ export default function BoardPage() {
   }, [disconnect, connect, connectors]);
 
   // Password gate
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(!REQUIRES_BOARD_PASSWORD);
   const [pwInput, setPwInput] = useState("");
   const [pwError, setPwError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && window.localStorage.getItem("mifoid-board-unlocked") === "1") setUnlocked(true);
-  }, []);
+    if (!REQUIRES_BOARD_PASSWORD) {
+      setUnlocked(true);
+      return;
+    }
+    if (typeof window !== "undefined" && window.localStorage.getItem("mifoid-board-unlocked") === "1") {
+      setUnlocked(true);
+    }
+  }, [REQUIRES_BOARD_PASSWORD]);
 
   const handleUnlock = useCallback((e: React.FormEvent) => {
     e.preventDefault();
+    if (!REQUIRES_BOARD_PASSWORD) {
+      setUnlocked(true);
+      return;
+    }
     if (!BOARD_PASSWORD) { setPwError("Missing password config"); return; }
     if (pwInput.trim() === BOARD_PASSWORD) {
       setUnlocked(true); setPwError(null);
       window.localStorage?.setItem("mifoid-board-unlocked", "1");
       sfx.unlock?.();
     } else setPwError("incorrect password");
-  }, [pwInput]);
+  }, [pwInput, REQUIRES_BOARD_PASSWORD]);
 
   // Pan/zoom - smooth infinite
   const [scale, setScale] = useState(1);
@@ -529,6 +573,8 @@ export default function BoardPage() {
   const [busy, setBusy] = useState(false);
   const [submittingProposals, setSubmittingProposals] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const searchParams = useSearchParams();
+  const debugMode = searchParams?.get("debug") === "1";
 
   // Epoch
   const { enabled, index: epochIdx, remainingMs } = useEpochCountdown();
@@ -545,8 +591,11 @@ export default function BoardPage() {
   const [placedEpoch, setPlacedEpoch] = useState<number | null>(null);
   const [viewEpoch, setViewEpoch] = useState<number | null>(null);
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
+  const [proposalDebug, setProposalDebug] = useState<ListProposalsResponse["debug"] | null>(null);
   const [viewMode] = useState<"latest" | "fixed">("latest");
   const [activePlacement, setActivePlacement] = useState<Placement | null>(null);
+  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
+  const autoZoomedEpochRef = useRef<number | null>(null);
 
   const { manifest: latestManifest, epoch: latestManifestEpoch, loading: latestManifestLoading, error: latestManifestError } = useLatestManifestFromChain();
   const latestFallbackTried = useRef(false);
@@ -903,11 +952,19 @@ export default function BoardPage() {
     if (!unlocked) return;
     let alive = true;
     const tick = async () => {
-      try { const { proposals } = await listProposals(); if (alive) setProposals(normalizeProposals(proposals)); }
-      catch { if (alive) setProposals([]); }
+      try {
+        const response = await listProposals();
+        if (!alive) return;
+        setProposals(normalizeProposals(response.proposals));
+        setProposalDebug(response.debug ?? null);
+      } catch (err) {
+        if (!alive) return;
+        setProposals([]);
+        setProposalDebug(null);
+      }
     };
     tick();
-    const t = setInterval(tick, 2000);
+    const t = setInterval(tick, 8000);
     return () => { alive = false; clearInterval(t); };
   }, [unlocked]);
 
@@ -989,7 +1046,13 @@ export default function BoardPage() {
       }
 
       clearBoardState?.();
-      try { const { proposals } = await listProposals(); setProposals(normalizeProposals(proposals)); } catch {}
+      try {
+        const response = await listProposals();
+        setProposals(normalizeProposals(response.proposals));
+        setProposalDebug(response.debug ?? null);
+      } catch (err) {
+        setProposalDebug(null);
+      }
       addStatus("All proposals submitted!", "success");
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : String(e);
@@ -1010,8 +1073,36 @@ export default function BoardPage() {
     [],
   );
 
-  // Password gate UI
-  if (!unlocked) {
+  const pendingVotes = proposals.filter((p) => p.status === "proposed");
+  const firstPending = pendingVotes[0];
+  const firstPendingId = firstPending?.id ?? null;
+  const firstPendingEpoch = firstPending?.epochSubmitted ?? null;
+  const pendingBounds = useMemo(() => getBoundsFromRects(pendingVotes.map((p) => p.rect)), [pendingVotes]);
+
+  useEffect(() => {
+    if (!firstPendingId || !pendingBounds || firstPendingEpoch == null) {
+      setSelectedProposalId(null);
+      if (pendingVotes.length === 0) autoZoomedEpochRef.current = null;
+      return;
+    }
+    setSelectedProposalId(firstPendingId);
+    if (autoZoomedEpochRef.current === firstPendingEpoch) return;
+    autoZoomedEpochRef.current = firstPendingEpoch;
+    zoomToRect(pendingBounds, 64);
+  }, [firstPendingId, firstPendingEpoch, pendingBounds, pendingVotes.length, zoomToRect]);
+
+  const selectedProposal = useMemo(
+    () =>
+      selectedProposalId ? proposals.find((p) => p.id === selectedProposalId) ?? null : null,
+    [proposals, selectedProposalId]
+  );
+  const locked = REQUIRES_BOARD_PASSWORD && !unlocked;
+
+  // ============================================================================
+  // MAIN RENDER
+  // ============================================================================
+
+  if (locked) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="vista-window max-w-sm w-full">
@@ -1037,13 +1128,8 @@ export default function BoardPage() {
     );
   }
 
-  const pendingVotes = proposals.filter((p) => p.status === "proposed");
-  // ============================================================================
-  // MAIN RENDER
-  // ============================================================================
-
   return (
-    <main className="board-page overflow-hidden">
+    <main className="board-page overflow-hidden flex h-[calc(100vh-12px)] flex-col">
       {/* Floating particles */}
       <div className="board-particles">
         {boardParticles.map((cfg, i) => (
@@ -1076,11 +1162,11 @@ export default function BoardPage() {
             {/* Main content - align with pray spacing */}
             <div className="vista-window__body vista-window__body--flush mt-2 pray-panel__body board-body">
               <div className="board-grid">
-              {/* Canvas */}
-              <div className="board-canvas-wrap">
+                {/* Canvas */}
+                <div className="board-canvas-wrap flex-1 min-h-0">
                   <div
                     ref={containerRef}
-                    className="board-canvas"
+                    className="board-canvas flex-1 min-h-0 h-full w-full"
                     onPointerDown={onContainerPointerDown}
                     onDragOver={onDragOver}
                     onDragEnter={onDragEnter}
@@ -1135,10 +1221,16 @@ export default function BoardPage() {
                     {/* Proposals */}
                     {proposals.filter((p) => p.status === "proposed").map((p) => {
                       const sr = toStageRect(p.rect);
+                      const isSelectedProposal = selectedProposal?.id === p.id;
                       return (
-                        <figure key={p.id} className="board-proposal" style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h }}>
+                        <figure
+                          key={p.id}
+                          className={`board-proposal${isSelectedProposal ? " board-proposal--selected" : ""}`}
+                          style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h }}
+                        >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={cidToHttpUrl(p.cid)} alt={p.name} className="board-proposal__img" draggable={false} onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
+                          {isSelectedProposal && <span className="board-proposal__badge">selected</span>}
                         </figure>
                       );
                     })}
@@ -1158,6 +1250,15 @@ export default function BoardPage() {
                       );
                     })}
                     </div>
+                    {selectedProposal && (
+                      <div className="board-selected-proposal" aria-live="polite">
+                        <span className="board-selected-proposal__label">pending proposal</span>
+                        <span className="board-selected-proposal__name">{selectedProposal.name}</span>
+                        <span className="board-selected-proposal__meta">
+                          {formatShortAddress(selectedProposal.owner)} · {selectedProposal.cells} cells · epoch #{selectedProposal.epochSubmitted ?? "—"}
+                        </span>
+                      </div>
+                    )}
                     <div className="board-hud">
                       <span>ZOOM: {Math.round(scale * 100)}%</span>
                       <span>PAN: {Math.round(pan.x)}, {Math.round(pan.y)}</span>
@@ -1240,6 +1341,30 @@ export default function BoardPage() {
                       </div>
                     </div>
                   </div>
+
+                  {debugMode && proposalDebug && (
+                    <div className="board-section board-section--debug">
+                      <div className="board-section__header">
+                        <span className="board-section__dot" />
+                        <span className="board-section__title">DEBUG</span>
+                        <span className="board-section__sub">pending feed</span>
+                      </div>
+                      <div className="debug-stats">
+                        <span>pendingActiveCount: {proposalDebug.pendingActiveCount}</span>
+                        <span>boardEventsCount: {proposalDebug.boardEventsCount}</span>
+                        <span>joinedRenderableCount: {proposalDebug.joinedRenderableCount}</span>
+                        <span>pendingEvents: {proposalDebug.pendingEvents?.length ?? 0}</span>
+                      </div>
+                      <div className="debug-missing">
+                        <strong>missing:</strong>{" "}
+                        {proposalDebug.missingBoardPayload.length
+                          ? proposalDebug.missingBoardPayload.join(", ")
+                          : "none"}
+                      </div>
+                      <pre className="debug-json">{JSON.stringify(proposalDebug.samplePending ?? [], null, 2)}</pre>
+                      <pre className="debug-json">{JSON.stringify(proposalDebug.sampleJoined ?? [], null, 2)}</pre>
+                    </div>
+                  )}
                 </div>
               </div> {/* board-sidebar */}
             </div> {/* board-grid */}
@@ -1249,16 +1374,12 @@ export default function BoardPage() {
     </div> {/* board-shell */}
 
     {activePlacement && <PlacementModal placement={activePlacement} onClose={() => setActivePlacement(null)} />}
-
       <style jsx>{`
         /* Layout - more padding and spacing */
         .board-page {
           position: relative;
-          min-height: min(100svh, 100dvh);
-          min-height: 100svh;
-          min-height: 100dvh;
           background: transparent !important;
-          overflow: auto;
+          overflow: hidden;
           padding: 0;
           width: 100%;
           z-index: 0;
@@ -1282,21 +1403,20 @@ export default function BoardPage() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: flex-start;
+          justify-content: center;
+          flex: 1 1 auto;
+          width: 100%;
           min-height: 0;
-          padding: clamp(12px, 3vw, 24px);
+          box-sizing: border-box;
+          padding: clamp(6px, 1vw, 16px);
           position: relative;
           z-index: 1;
-          width: 100%;
           overflow: hidden;
         }
-
-        /* expand board window to full viewport while keeping safe margins */
         .board-window {
-          width: min(1800px, calc(100vw - clamp(24px, 4vw, 46px)));
+          width: min(1800px, calc(100vw - clamp(16px, 1.5vw, 30px)));
           max-width: 100%;
-          max-height: min(1050px, calc(100svh - clamp(60px, 9vw, 100px)));
-          height: auto;
+          flex: 1 1 auto;
           display: flex;
           flex-direction: column;
           min-height: 0;
@@ -1304,14 +1424,23 @@ export default function BoardPage() {
           box-shadow: none !important;
           border: none !important;
         }
-        .board-body { flex: 1; min-height: 0; padding: 18px; }
+        .board-body {
+          flex: 1 1 auto;
+          min-height: 0;
+          padding: 18px;
+          display: flex;
+          flex-direction: column;
+        }
         .board-grid {
+          flex: 1 1 auto;
+          min-height: 0;
           display: grid;
           grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
           gap: 18px;
           padding: 14px;
           box-sizing: border-box;
           height: 100%;
+          align-items: stretch;
           grid-auto-rows: minmax(0, auto);
           background:
             linear-gradient(
@@ -1351,12 +1480,20 @@ export default function BoardPage() {
 
 
         /* Canvas */
-        .board-canvas-wrap { border: none; }
-        .board-canvas-wrap::before { display: none; } 
+        .board-canvas-wrap {
+          border: none;
+          flex: 1 1 auto;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+        }
+        .board-canvas-wrap::before { display: none; }
         .board-canvas {
           position: relative;
           width: 100%;
           height: 100%;
+          min-height: 0;
+          flex: 1 1 auto;
           overflow: hidden;
           background:
             radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.12), transparent 45%),
@@ -1501,6 +1638,44 @@ export default function BoardPage() {
           100% { transform: translateX(60%); }
         }
 
+        .board-selected-proposal {
+          position: absolute;
+          left: 12px;
+          top: 68px;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          padding: 6px 10px;
+          border-radius: 10px;
+          border: 1px solid var(--foid-glass-border);
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
+            rgba(5, 12, 18, 0.8);
+          color: var(--foid-text);
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          pointer-events: none;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+          z-index: 4;
+        }
+        .board-selected-proposal__label {
+          font-size: 9px;
+          color: rgba(255, 255, 255, 0.7);
+          letter-spacing: 0.2em;
+        }
+        .board-selected-proposal__name {
+          font-family: var(--font-terminal);
+          font-size: 12px;
+          color: var(--foid-text);
+          letter-spacing: 0.18em;
+        }
+        .board-selected-proposal__meta {
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.6);
+          letter-spacing: 0.08em;
+        }
+
         /* Ghost */
         .board-ghost { position: absolute; border-radius: 8px; pointer-events: none; outline: 2px dashed; z-index: 3; }
         .board-ghost__label { position: absolute; left: 4px; top: 4px; font-size: 11px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.2); }
@@ -1508,6 +1683,24 @@ export default function BoardPage() {
         /* Proposal */
         .board-proposal { position: absolute; pointer-events: none; z-index: 2; animation: fadeIn 0.3s; }
         .board-proposal__img { width: 100%; height: 100%; border-radius: 12px; object-fit: contain; outline: 2px dashed rgba(255,200,100,0.8); background: rgba(8,18,36,0.4); }
+        .board-proposal--selected {
+          outline-color: var(--foid-accent);
+          box-shadow: 0 0 18px rgba(0,255,213,0.9), inset 0 0 12px rgba(255,255,255,0.35);
+        }
+        .board-proposal__badge {
+          position: absolute;
+          left: 10px;
+          bottom: 10px;
+          padding: 3px 10px;
+          border-radius: 999px;
+          font-size: 10px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          background: rgba(0, 0, 0, 0.55);
+          border: 1px solid rgba(255, 255, 255, 0.4);
+          color: var(--foid-text);
+          pointer-events: none;
+        }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         /* Pending */
@@ -1587,6 +1780,41 @@ export default function BoardPage() {
         .board-section--epoch .board-section__header {
           margin-bottom: 0;
           gap: 6px;
+        }
+        .board-section--debug .debug-stats {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.8);
+        }
+        .board-section--debug .debug-stats span {
+          padding: 2px 8px;
+          border-radius: 6px;
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          background: rgba(255, 255, 255, 0.04);
+          font-family: var(--font-mono);
+          letter-spacing: 0.06em;
+        }
+        .board-section--debug .debug-missing {
+          margin-top: 6px;
+          font-size: 10px;
+          line-height: 1.3;
+          color: rgba(255, 138, 255, 0.85);
+          word-break: break-word;
+        }
+        .debug-json {
+          margin-top: 8px;
+          padding: 6px;
+          border-radius: 8px;
+          background: rgba(0, 0, 0, 0.45);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          font-family: var(--font-mono);
+          font-size: 10px;
+          max-height: 96px;
+          overflow: auto;
+          white-space: pre-wrap;
+          line-height: 1.4;
         }
         .board-section--music {
           padding: 10px 12px;
@@ -1795,6 +2023,7 @@ export default function BoardPage() {
         :global(.voting-item__thumb img) { width: 100%; height: 100%; object-fit: cover; }
         :global(.voting-item__info) { display: flex; flex-direction: column; font-size: 9px; color: rgba(255,255,255,0.7); }
         :global(.voting-item__counts) { margin-left: auto; font-size: 9px; color: rgba(255,255,255,0.5); }
+        :global(.voting-item__status) { margin-left: 0.5rem; font-size: 8px; border-radius: 999px; padding: 1px 6px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.65); border: 1px solid rgba(255,255,255,0.2); }
         :global(.voting-item__btns) { display: flex; gap: 4px; }
         :global(.voting-item__yes), :global(.voting-item__no) { width: 22px; height: 22px; border-radius: 50%; border: 1px solid; font-size: 10px; cursor: pointer; transition: all 0.15s; background: transparent; }
         :global(.voting-item__yes) { border-color: var(--foid-accent-soft); color: var(--foid-accent); }

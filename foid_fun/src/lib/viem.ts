@@ -10,17 +10,18 @@ import {
   toHex,
 } from "viem";
 import type { Abi } from "viem";
-import TreasuryAbi from "@/abi/LoreBoardTreasury.json";
+import TreasuryAbi from "@/abi/LoreBoardTreasury.json" assert { type: "json" };
 import BoardAbi from "@/abi/LoreboardBoardV2.json" assert { type: "json" };
 import {
   CANONICAL_ADDRESSES,
-  CANONICAL_CHAIN,
   requireCanonicalAddress,
+  CHAIN_ID,
+  RPC_URL,
+  BOARD_ADDRESS,
+  DEPLOY_BLOCK,
 } from "@/config/canonical";
 
 const treasuryEnv = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS;
-const boardEnv = process.env.NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS;
-const rpcUrl = process.env.NEXT_PUBLIC_FLUENT_RPC ?? CANONICAL_CHAIN.rpcUrl;
 
 function getCanonicalAddress(params: {
   label: string;
@@ -39,25 +40,20 @@ export const TREASURY = getCanonicalAddress({
   envHint: "NEXT_PUBLIC_LOREBOARD_ADDRESS",
 }).toLowerCase() as `0x${string}`;
 
-export const BOARD = getCanonicalAddress({
-  label: "NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS",
-  envValue: boardEnv,
-  expected: CANONICAL_ADDRESSES.board,
-  envHint: "NEXT_PUBLIC_LOREBOARD_BOARD_ADDRESS",
-}).toLowerCase() as `0x${string}`;
+export const BOARD = BOARD_ADDRESS.toLowerCase() as `0x${string}`;
 
-export const DEPLOY_BLOCK = BigInt(process.env.NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK || "0");
+export { DEPLOY_BLOCK };
 
 export const fluentTestnet = defineChain({
-  id: 20994,
+  id: CHAIN_ID,
   name: "Fluent Testnet",
   nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-  rpcUrls: { default: { http: [rpcUrl] } },
+  rpcUrls: { default: { http: [RPC_URL] } },
 });
 
 export const publicClient = createPublicClient({
   chain: fluentTestnet,
-  transport: http(rpcUrl),
+  transport: http(RPC_URL),
 });
 
 export const TreasuryAbiTyped = TreasuryAbi as Abi;

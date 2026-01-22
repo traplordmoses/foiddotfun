@@ -8,36 +8,17 @@ import { injected } from "@wagmi/connectors"; // ✅ use the separate package
 import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
-import type { Chain } from "viem";
-
-// --- Fluent Testnet chain ---
-const rpcUrl =
-  process.env.NEXT_PUBLIC_RPC ??
-  process.env.NEXT_PUBLIC_RPC_URL ??
-  "https://rpc.testnet.fluent.xyz";
-
-const explorerUrl =
-  process.env.NEXT_PUBLIC_BLOCK_EXPLORER ??
-  "https://testnet.fluentscan.xyz";
-
-const fluentTestnet: Chain = {
-  id: 20994,
-  name: "Fluent Testnet",
-  nativeCurrency: { name: "Ethereum", symbol: "ETH", decimals: 18 },
-  rpcUrls: {
-    default: { http: [rpcUrl] },
-    public: { http: [rpcUrl] },
-  },
-  blockExplorers: {
-    default: { name: "Fluentscan", url: explorerUrl },
-  },
-};
+import { TARGET_CHAIN, TARGET_CHAIN_ID } from "@/lib/chain";
 
 export const config = createConfig({
-  chains: [fluentTestnet],
+  chains: [TARGET_CHAIN],
   connectors: [injected({ shimDisconnect: true })], // ✅ no MetaMask SDK
   transports: {
-    [fluentTestnet.id]: http(rpcUrl),
+    [TARGET_CHAIN_ID]: http(
+      process.env.NEXT_PUBLIC_RPC ??
+        process.env.NEXT_PUBLIC_RPC_URL ??
+        (TARGET_CHAIN.rpcUrls.default.http[0] ?? "https://rpc.testnet.fluent.xyz"),
+    ),
   },
   ssr: true,
 });
