@@ -452,7 +452,7 @@ export default function PrayPage() {
         .pray-window-frame {
           width: min(1800px, calc(100vw - clamp(28px, 5vw, 44px)));
           max-width: 100%;
-          max-height: min(1050px, calc(100svh - clamp(56px, 9vw, 96px)));
+          max-height: calc(100svh - clamp(56px, 9vw, 96px));
           margin: 0 auto;
           display: flex;
           flex-direction: column;

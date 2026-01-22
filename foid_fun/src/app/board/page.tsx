@@ -1249,15 +1249,6 @@ function BoardPageContent() {
                       );
                     })}
                     </div>
-                    {selectedProposal && (
-                      <div className="board-selected-proposal" aria-live="polite">
-                        <span className="board-selected-proposal__label">pending proposal</span>
-                        <span className="board-selected-proposal__name">{selectedProposal.name}</span>
-                        <span className="board-selected-proposal__meta">
-                          {formatShortAddress(selectedProposal.owner)} · {selectedProposal.cells} cells · epoch #{selectedProposal.epochSubmitted ?? "—"}
-                        </span>
-                      </div>
-                    )}
                     <div className="board-hud">
                       <span>ZOOM: {Math.round(scale * 100)}%</span>
                       <span>PAN: {Math.round(pan.x)}, {Math.round(pan.y)}</span>
@@ -1288,6 +1279,9 @@ function BoardPageContent() {
                     <div className="board-actions">
                       <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" />
                       <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={onFileChange} />
+                      {items.length > 0 && (
+                        <span className="board-actions__pending-line">ready to submit ✓</span>
+                      )}
                       <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "SUBMITTING..." : "SUBMIT PROPOSAL"} disabled={!items.length || submittingProposals} variant="secondary" />
                     </div>
                     {pendingVotes.length > 0 && (
@@ -1637,44 +1631,6 @@ function BoardPageContent() {
           100% { transform: translateX(60%); }
         }
 
-        .board-selected-proposal {
-          position: absolute;
-          left: 12px;
-          top: 68px;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          padding: 6px 10px;
-          border-radius: 10px;
-          border: 1px solid var(--foid-glass-border);
-          background:
-            linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0)),
-            rgba(5, 12, 18, 0.8);
-          color: var(--foid-text);
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.12em;
-          pointer-events: none;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-          z-index: 4;
-        }
-        .board-selected-proposal__label {
-          font-size: 9px;
-          color: rgba(255, 255, 255, 0.7);
-          letter-spacing: 0.2em;
-        }
-        .board-selected-proposal__name {
-          font-family: var(--font-terminal);
-          font-size: 12px;
-          color: var(--foid-text);
-          letter-spacing: 0.18em;
-        }
-        .board-selected-proposal__meta {
-          font-size: 10px;
-          color: rgba(255, 255, 255, 0.6);
-          letter-spacing: 0.08em;
-        }
-
         /* Ghost */
         .board-ghost { position: absolute; border-radius: 8px; pointer-events: none; outline: 2px dashed; z-index: 3; }
         .board-ghost__label { position: absolute; left: 4px; top: 4px; font-size: 11px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.2); }
@@ -1914,6 +1870,12 @@ function BoardPageContent() {
         }
 
         /* Actions */
+        .board-actions__pending-line {
+          font-size: 10px;
+          letter-spacing: 0.25em;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.6);
+        }
         .board-actions { display: flex; flex-direction: column; gap: 6px; }
 
         /* Y2K Button - pink glass pill */

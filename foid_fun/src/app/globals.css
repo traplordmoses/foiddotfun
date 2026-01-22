@@ -1157,7 +1157,7 @@ body {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.18em;
-    font-size: clamp(20px, 2.8vw + 10px, 38px);
+    font-size: clamp(20px, 2.2vw + 10px, 36px);
     line-height: 1;
     z-index: 2;
 
@@ -1203,7 +1203,7 @@ body {
   }
 
   .foid-title--xl .foid-title__text {
-    font-size: clamp(22px, 3vw + 12px, 42px);
+    font-size: clamp(22px, 2.4vw + 12px, 38px);
   }
 
   /* ===== ANIMATIONS ===== */
@@ -1330,9 +1330,10 @@ body {
   .pray-shell {
     position: relative;
     z-index: 10;
-    height: calc(100svh - (var(--pray-outer-pad) * 2));
-    max-height: calc(100svh - (var(--pray-outer-pad) * 2));
-    overflow: hidden;
+    min-height: calc(100svh - (var(--pray-outer-pad) * 2));
+    height: auto;
+    max-height: none;
+    overflow: visible;
     display: flex;
     flex-direction: column;
     gap: var(--pray-gap);
