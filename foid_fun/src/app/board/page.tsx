@@ -4,6 +4,7 @@
 "use client";
 
 import React, {
+  Suspense,
   useCallback,
   useMemo,
   useRef,
@@ -1098,37 +1099,35 @@ export default function BoardPage() {
   );
   const locked = REQUIRES_BOARD_PASSWORD && !unlocked;
 
+  const lockedView = (
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="vista-window max-w-sm w-full">
+        <div className="vista-window__titlebar">
+          <div className="vista-window__controls">
+            <div className="vista-window__control vista-window__control--close" />
+            <div className="vista-window__control vista-window__control--minimize" />
+            <div className="vista-window__control vista-window__control--restore" />
+          </div>
+          <div className="vista-window__title"><span>🔒</span><span>LOREBOARD.APP</span></div>
+        </div>
+        <div className="vista-window__body p-6">
+          <h1 className="text-lg font-primary font-semibold text-white text-center mb-1">Mifoid Loreboard</h1>
+          <p className="text-xs text-white/70 text-center mb-4">Beta access required.</p>
+          <form onSubmit={handleUnlock} className="space-y-3">
+            <input type="password" className="w-full" placeholder="••••••••" value={pwInput} onChange={(e) => setPwInput(e.currentTarget.value)} />
+            {pwError && <p className="text-[11px] text-foid-candy">{pwError}</p>}
+            <button type="submit" className="frutiger-button w-full">Unlock Board</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+
   // ============================================================================
   // MAIN RENDER
   // ============================================================================
 
-  if (locked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="vista-window max-w-sm w-full">
-          <div className="vista-window__titlebar">
-            <div className="vista-window__controls">
-              <div className="vista-window__control vista-window__control--close" />
-              <div className="vista-window__control vista-window__control--minimize" />
-              <div className="vista-window__control vista-window__control--restore" />
-            </div>
-            <div className="vista-window__title"><span>🔒</span><span>LOREBOARD.APP</span></div>
-          </div>
-          <div className="vista-window__body p-6">
-            <h1 className="text-lg font-primary font-semibold text-white text-center mb-1">Mifoid Loreboard</h1>
-            <p className="text-xs text-white/70 text-center mb-4">Beta access required.</p>
-            <form onSubmit={handleUnlock} className="space-y-3">
-              <input type="password" className="w-full" placeholder="••••••••" value={pwInput} onChange={(e) => setPwInput(e.currentTarget.value)} />
-              {pwError && <p className="text-[11px] text-foid-candy">{pwError}</p>}
-              <button type="submit" className="frutiger-button w-full">Unlock Board</button>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
+  const mainView = (
     <main className="board-page overflow-hidden flex h-[calc(100vh-12px)] flex-col">
       {/* Floating particles */}
       <div className="board-particles">
@@ -2141,5 +2140,11 @@ export default function BoardPage() {
 
       `}</style>
     </main>
+  );
+
+  return (
+    <Suspense fallback={null}>
+      {locked ? lockedView : mainView}
+    </Suspense>
   );
 }
