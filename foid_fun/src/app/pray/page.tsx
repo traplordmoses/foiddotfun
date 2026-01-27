@@ -123,6 +123,44 @@ function shortHash(hash?: string) {
   return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
 }
 
+type ApiProposal = {
+  id: string; // placementId (0x...)
+  owner: string;
+  epochSubmitted: number;
+  voteEndsAtEpoch: number;
+  voteEndsAtSec: number;
+  secondsLeft?: number;
+  yes?: number;
+  no?: number;
+  percentYes?: number;
+  isVotable?: boolean;
+  cid?: string;
+  name?: string;
+  rect?: { x: number; y: number; w: number; h: number };
+};
+
+function safeNumber(v: unknown, fallback = 0) {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function shortId(id?: string) {
+  if (!id) return "–";
+  if (id.length <= 12) return id;
+  return `${id.slice(0, 8)}…${id.slice(-4)}`;
+}
+
+type VoteWire = {
+  epochId: string;
+  placementId: `0x${string}`;
+  voter: `0x${string}`;
+  support: boolean;
+  weight: string;
+  blockNumber: string | null;
+  txHash: `0x${string}` | null;
+  logIndex: string | null;
+};
+
 export default function PrayPage() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
@@ -130,6 +168,12 @@ export default function PrayPage() {
   const { connect, connectors } = useConnect();
   const [nowSeconds, setNowSeconds] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [boardProposals, setBoardProposals] = useState<ApiProposal[]>([]);
+  const [boardLoading, setBoardLoading] = useState(false);
+  const [boardError, setBoardError] = useState<string | null>(null);
+  const [votes, setVotes] = useState<VoteWire[]>([]);
+  const [votesLoading, setVotesLoading] = useState(false);
+  const [votesError, setVotesError] = useState<string | null>(null);
 
   const env = useMemo(resolveEnv, []);
   const REGISTRY = env.registry;
@@ -204,6 +248,98 @@ export default function PrayPage() {
     const interval = setInterval(updateNow, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!address) {
+      setBoardProposals([]);
+      setBoardError(null);
+      setBoardLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const run = async () => {
+      try {
+        setBoardLoading(true);
+        setBoardError(null);
+
+        const res = await fetch(`/api/proposals?owner=${address}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`proposals fetch failed (${res.status}) ${text}`.trim());
+        }
+
+        const json = (await res.json()) as { proposals?: ApiProposal[] };
+        const proposals = Array.isArray(json.proposals) ? json.proposals : [];
+
+        proposals.sort((a, b) => safeNumber(b.epochSubmitted) - safeNumber(a.epochSubmitted));
+
+        setBoardProposals(proposals);
+      } catch (e) {
+        if ((e as any)?.name === "AbortError") return;
+        setBoardError(e instanceof Error ? e.message : String(e));
+        setBoardProposals([]);
+      } finally {
+        setBoardLoading(false);
+      }
+    };
+
+    run();
+
+    const t = setInterval(run, 10_000);
+
+    return () => {
+      clearInterval(t);
+      controller.abort();
+    };
+  }, [address]);
+
+  useEffect(() => {
+    if (!address) {
+      setVotes([]);
+      setVotesError(null);
+      setVotesLoading(false);
+      return;
+    }
+
+    const ctrl = new AbortController();
+
+    const run = async () => {
+      try {
+        setVotesLoading(true);
+        setVotesError(null);
+        const res = await fetch(`/api/votes?address=${address}`, {
+          cache: "no-store",
+          signal: ctrl.signal,
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`votes fetch failed (${res.status}) ${text}`.trim());
+        }
+        const json = (await res.json()) as { votes?: VoteWire[] };
+        setVotes(Array.isArray(json.votes) ? json.votes : []);
+      } catch (e) {
+        if ((e as any)?.name === "AbortError") return;
+        setVotesError(e instanceof Error ? e.message : String(e));
+        setVotes([]);
+      } finally {
+        setVotesLoading(false);
+      }
+    };
+
+    run();
+    const t = setInterval(run, 10_000);
+
+    return () => {
+      clearInterval(t);
+      ctrl.abort();
+    };
+  }, [address]);
 
   const ensureWalletReady = useCallback(async () => {
     if (!isConnected || !address) throw new Error("please connect your wallet before anchoring your prayer.");
@@ -405,15 +541,81 @@ export default function PrayPage() {
                           <span className="pray-stats-cell__value">{snap?.[3]?.toString?.() ?? (address ? "0" : "–")}</span>
                         </div>
                       </div>
-                      <div className="pray-chain-info">
-                        <div className="pray-chain-info__row"><span className="pray-chain-info__label">prayer hash</span><span className="pray-chain-info__value pray-chain-info__value--hash">{formattedPrayerHash}</span></div>
-                        <div className="pray-chain-info__row"><span className="pray-chain-info__label">chain</span><span className="pray-chain-info__value">{TARGET_CHAIN_ID}</span></div>
-                        <div className="pray-chain-info__row"><span className="pray-chain-info__label">next allowed in</span><span className={`pray-chain-info__value ${!cooldownActive ? "pray-chain-info__value--ready" : ""}`}>{canRenderTime ? formatDurationShort(secondsLeft(nowSeconds, nextAllowed as bigint | undefined)) : "—"}</span></div>
-                        {cooldownActive && <div className="pray-chain-info__row"><span className="pray-chain-info__label">next window</span><span className="pray-chain-info__value">{nextWindowLabel}</span></div>}
+                        <div className="pray-chain-info">
+                          <div className="pray-chain-info__row"><span className="pray-chain-info__label">prayer hash</span><span className="pray-chain-info__value pray-chain-info__value--hash">{formattedPrayerHash}</span></div>
+                          <div className="pray-chain-info__row"><span className="pray-chain-info__label">chain</span><span className="pray-chain-info__value">{TARGET_CHAIN_ID}</span></div>
+                          <div className="pray-chain-info__row"><span className="pray-chain-info__label">next allowed in</span><span className={`pray-chain-info__value ${!cooldownActive ? "pray-chain-info__value--ready" : ""}`}>{canRenderTime ? formatDurationShort(secondsLeft(nowSeconds, nextAllowed as bigint | undefined)) : "—"}</span></div>
+                          {cooldownActive && <div className="pray-chain-info__row"><span className="pray-chain-info__label">next window</span><span className="pray-chain-info__value">{nextWindowLabel}</span></div>}
+                        </div>
+                        <div className="mt-4 border-t border-white/10 pt-4">
+                          <div className="flex items-center justify-between">
+                            <span className="pray-chain-info__label">loreboard history</span>
+                            <span className="pray-chain-info__value" style={{ fontSize: 11, opacity: 0.8 }}>
+                              {boardLoading ? "loading…" : `${boardProposals.length} total`}
+                            </span>
+                          </div>
+
+                          {boardError && (
+                            <div className="mt-2 text-[10px] uppercase tracking-[0.12em] text-white/45">
+                              failed to load placements: {boardError}
+                            </div>
+                          )}
+
+                          {!boardError && !boardLoading && boardProposals.length === 0 && (
+                            <div className="mt-2 text-[10px] uppercase tracking-[0.12em] text-white/45">
+                              no placements found for this wallet yet.
+                            </div>
+                          )}
+
+                          <div className="mt-3 space-y-2">
+                            {boardProposals.slice(0, 8).map((p) => {
+                              const yes = safeNumber(p.yes);
+                              const no = safeNumber(p.no);
+                              const total = yes + no;
+                              const pctYes = typeof p.percentYes === "number" ? p.percentYes : total ? yes / total : 0;
+                              const seconds = safeNumber(p.secondsLeft);
+                              const status = p.isVotable ? "voting" : total > 0 ? "resolved" : "queued";
+                              const title = (p.cid ?? p.name ?? p.id ?? "").replace(/^ipfs:\/\//, "");
+
+                              return (
+                                <div
+                                  key={`${p.id}-${p.epochSubmitted}`}
+                                  className="rounded-md border border-white/10 bg-black/10 px-3 py-2"
+                                >
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <div className="truncate text-[11px] font-terminal text-white/85">
+                                        epoch {safeNumber(p.epochSubmitted)} • {status}
+                                      </div>
+                                      <div className="truncate text-[10px] font-terminal text-white/45">
+                                        {shortId(title) || shortId(p.id)}
+                                      </div>
+                                    </div>
+
+                                    <div className="flex shrink-0 flex-col items-end">
+                                      <div className="text-[10px] font-terminal text-white/70">
+                                        {total ? `${yes}/${total} yes` : "no votes"}
+                                      </div>
+                                      <div className={`text-[10px] font-terminal ${seconds > 0 ? "text-white/60" : "text-white/35"}`}>
+                                        {seconds > 0 ? formatDurationShort(seconds) : "—"}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-2 h-[6px] w-full overflow-hidden rounded-full bg-white/10">
+                                    <div
+                                      className="h-full rounded-full bg-white/40"
+                                      style={{ width: `${Math.round(Math.max(0, Math.min(1, pctYes)) * 100)}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {missingMirror && <div className="pray-stats-notice">stats unavailable (mirror not set).</div>}
+                        {walletDisconnected && <div className="pray-stats-notice">connect your wallet to start logging prayers.</div>}
                       </div>
-                      {missingMirror && <div className="pray-stats-notice">stats unavailable (mirror not set).</div>}
-                      {walletDisconnected && <div className="pray-stats-notice">connect your wallet to start logging prayers.</div>}
-                    </div>
                   </div>
                 </div>
               </div>

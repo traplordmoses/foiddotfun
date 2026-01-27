@@ -583,7 +583,7 @@ style: |
 ## The internet is dead.
 
 - platforms optimize for **dopamine extraction**, not human connection
-- deeds overrun by **AI slop**—your best posts decay in digital oblivion.
+- feeds are overrun by **AI slop**. your best posts decay in digital oblivion.
 - the magic of early internet is gone: *RuneScape after school, Minecraft factions on Skype*
 
 > *61% of Gen Z report severe loneliness. People crave shared experiences, not algorithmic feeds.*
@@ -667,7 +667,7 @@ FOID is a **consumer crypto culture hub**:
 <strong>7 contracts</strong> + worker automation
 </pre>
 
-<div class="highlight"><strong>chain:</strong> Fluent testnet (20994) — shipping now</div>
+<div class="highlight"><strong>chain:</strong> Fluent testnet (20994) - shipping now</div>
 
 ---
 
@@ -792,7 +792,7 @@ Mainnet stability → MiFOID identity → Foidspace social canon.
 
 # Team
 
-## Moses — founder, full stack
+## Moses - founder, full stack
 
 ![bg right:34% 88%](./screenshots/09-pfp.png)
 
@@ -810,7 +810,7 @@ Mainnet stability → MiFOID identity → Foidspace social canon.
   <span class="team-stat">Featured in <strong>Nasdaq</strong></span>
 </div>
 
-FOID started over dinner talks at Shiphouse. Design pulls from **Frutiger Aero** and early Mac OS.
+FOID started over talks friends at Shiphouse & Devconnect. Design pulls from **Frutiger Aero** and early Mac OS.
 
 > *Pray daily. It gets better.*
 
@@ -827,7 +827,7 @@ FOID started over dinner talks at Shiphouse. Design pulls from **Frutiger Aero**
 <div class="cta-links">
   <div class="cta-link"><strong>Enter</strong> foid.fun/enter</div>
   <div class="cta-link"><strong>Twitter</strong> @sloshlord</div>
-  <div class="cta-link"><strong>GitHub</strong> foid-foundation</div>
+  <div class="cta-link"><strong>GitHub</strong> github.com/traplordmoses/foiddotfun</div>
 </div>
 
 <div class="cta-final">

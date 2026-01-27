@@ -224,19 +224,19 @@ export default function LandingPage() {
 
                   <div
                     ref={musicRef}
-                    className="launcher-music flex flex-col gap-4 mt-3"
+                    className="launcher-music flex flex-col gap-4 mt-3 flex-1 min-h-0"
                   >
                     {musicPanelReady ? (
                       <>
-                        <div className="w-full">
-                          <MusicPanel className="home-music-panel h-[220px] sm:h-[320px] w-full" />
+                        <div className="w-full flex-1">
+                          <MusicPanel className="home-music-panel h-full min-h-[190px] sm:min-h-[250px] w-full" />
                         </div>
-                        <div className="home-ipod-frame">
+                        <div className="home-ipod-frame flex-shrink-0">
                           <CompactMusicPlayer mountLogic={false} />
                         </div>
                       </>
                     ) : (
-                      <div className="flex min-h-[220px] w-full flex-col items-center justify-center gap-3 text-center text-xs text-white/55">
+                      <div className="flex min-h-[190px] w-full flex-1 flex-col items-center justify-center gap-3 text-center text-xs text-white/55">
                         <p className="text-white/40">music loads after the launcher.</p>
                         <button
                           type="button"
@@ -265,7 +265,8 @@ export default function LandingPage() {
         }
 
         :global(.foid-right-panel .launcher-music) {
-          flex: 0 0 auto;
+          flex: 1 1 auto;
+          min-height: 0;
         }
 
         :global(.foid-right-panel .launcher-buttons) {
@@ -287,12 +288,13 @@ export default function LandingPage() {
           width: 100%;
           display: flex;
           justify-content: center;
-          margin-top: -6px;
+          margin-top: 4px;
           border-radius: 30px;
           padding: 0;
           border: none;
           background: transparent;
           box-shadow: none;
+          flex-shrink: 0;
         }
 
         :global(.home-ipod-frame) :global(.ipod-player) {

@@ -119,6 +119,7 @@ const deployBlockEnv = pickEnvKey([
   "DEPLOY_BLOCK",
   "NEXT_PUBLIC_LOREBOARD_DEPLOY_BLOCK",
   "NEXT_PUBLIC_DEPLOY_BLOCK",
+  "NEXT_PUBLIC_LORE_START_BLOCK",
 ]);
 
 export const DEPLOY_BLOCK = deployBlockEnv ? BigInt(deployBlockEnv) : 0n;

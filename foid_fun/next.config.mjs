@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "ipfs.io",
+      },
+    ],
+  },
   webpack(config, { isServer }) {
     const aliases = {
       ...config.resolve.alias,

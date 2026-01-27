@@ -1,0 +1,21 @@
+export const CONTRACTS = {
+  PRAYER_REGISTRY: "0x6FC7301fad7Ca0294152b23FD4f0467200376d65",
+  PRAYER_MIRROR: "0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF",
+  LOREBOARD_BOARD: "0xE41B2D418C09Ea928E4F657ED2438f5D01472105",
+  LOREBOARD_TREASURY: "0x4A777d8650b3FA2419377F4ffeF0EF8007151536",
+  LOREBOARD_VOTING: "0xEbf065A7ca3917BB5e669982e8C6954cC27A7075",
+  LOREBOARD_MANIFEST_STORE: "0xeE469D8F9BB2Ace861AA689dE53c016871ad3D10",
+  VOTING_POWER: "0xCCf0ac9c66a68FCb8c438C697EdA87D9766f1Be5",
+} as const;
+
+export const CHAIN_CONFIG = {
+  id: 20994,
+  name: "Fluent Testnet",
+  rpcUrl: "https://rpc.testnet.fluent.xyz",
+  blockExplorer: "https://testnet.fluentscan.xyz",
+} as const;
+
+// Block where Loreboard contracts were deployed
+export const DEPLOY_BLOCK = BigInt(
+  process.env.NEXT_PUBLIC_LORE_START_BLOCK || "16322309"
+);
