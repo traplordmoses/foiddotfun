@@ -18,7 +18,7 @@ export function ConnectWalletPrompt() {
         </button>
 
         <div className="space-y-2 text-xs text-white/40">
-          <p>You'll be able to see:</p>
+          <p>You&apos;ll be able to see:</p>
           <ul className="list-inside list-disc space-y-1 text-left">
             <li>Your prayer streaks & history</li>
             <li>Your board placements</li>

@@ -26,6 +26,7 @@ import {
   WORLD_MAX_X,
   WORLD_MAX_Y,
   worldToContractRect,
+  contractToWorldRect,
 } from "@/lib/boardSpace";
 import { sniffImageType, mimeFromType } from "@/lib/image";
 import { uploadImage } from "@/lib/ipfs";
@@ -272,19 +273,24 @@ function VotingItem({
   const { switchChainAsync, isPending: switchingChain } = useSwitchChain();
 
   const computedSecondsLeft = useMemo(() => {
-    void now;
+    // If API provides voteEndsAt timestamp, use it directly
+    if (proposal.voteEndsAt) {
+      const nowSec = Math.floor(now / 1000);
+      return Math.max(0, proposal.voteEndsAt - nowSec);
+    }
+    // Fallback to epoch calculation
     const { enabled, epochSec } = resolveEpochConfig();
     if (!enabled || epochSec <= 0) return null;
     const nowEpoch = currentEpoch();
-    const epochsDiff = proposal.voteEndsAtEpoch - nowEpoch;
+    const epochsDiff = (proposal.voteEndsAtEpoch ?? 0) - nowEpoch;
     return epochsDiff <= 0 ? 0 : Math.max(0, epochsDiff * epochSec);
-  }, [proposal.voteEndsAtEpoch, now]);
+  }, [proposal.voteEndsAt, proposal.voteEndsAtEpoch, now]);
 
   const hasEpoch = typeof proposal.epochSubmitted === "number";
   const epochCfg = resolveEpochConfig();
   const isVotable = Boolean(proposal.isVotable);
   const isPending =
-    proposal.status === "proposed" &&
+    (proposal.status === "proposed" || proposal.status === "voting") &&
     epochCfg.enabled &&
     computedSecondsLeft !== null &&
     computedSecondsLeft > 0 &&
@@ -456,10 +462,16 @@ const normalizePlacements = (list: unknown[]): FinalizedPlacement[] =>
 
 const normalizeProposals = (list: ProposalSummary[] | undefined): ProposalSummary[] =>
   (list ?? []).map((p) => {
-    const rect = asWorldRect(p.rect ?? p);
+    // API returns CONTRACT coordinates, convert to WORLD coordinates for rendering
+    const contractRect = asWorldRect(p.rect ?? p);
+    const rect = contractToWorldRect(contractRect);
+    const cells = Math.floor((contractRect.w / TILE) * (contractRect.h / TILE));
     // Check p.id first (from API), then p.placementId, then p.chainId (legacy)
     const placementId = isBytes32Hex(p.id) ? p.id : isBytes32Hex(p.placementId) ? p.placementId : isBytes32Hex(p.chainId) ? p.chainId : undefined;
-    return { ...p, rect, placementId, epochId: p.epochSubmitted ?? 0 };
+    // Map yesVotes/noVotes to yes/no for backward compatibility
+    const yes = p.yesVotes ?? p.yes ?? 0;
+    const no = p.noVotes ?? p.no ?? 0;
+    return { ...p, rect, cells, placementId, epochId: p.epochSubmitted ?? 0, yes, no };
   });
 
 const getBoundsFromRects = (rects: Rect[]): Rect | null => {
@@ -1074,7 +1086,7 @@ function BoardPageContent() {
     [],
   );
 
-  const pendingVotes = proposals.filter((p) => p.status === "proposed");
+  const pendingVotes = proposals.filter((p) => (p.status === "voting" && p.isVotable));
   const firstPending = pendingVotes[0];
   const firstPendingId = firstPending?.id ?? null;
   const firstPendingEpoch = firstPending?.epochSubmitted ?? null;
@@ -1218,7 +1230,7 @@ function BoardPageContent() {
                     })()}
 
                     {/* Proposals */}
-                    {proposals.filter((p) => p.status === "proposed").map((p) => {
+                    {proposals.filter((p) => p.status === "voting" && p.isVotable).map((p) => {
                       const sr = toStageRect(p.rect);
                       const isSelectedProposal = selectedProposal?.id === p.id;
                       return (

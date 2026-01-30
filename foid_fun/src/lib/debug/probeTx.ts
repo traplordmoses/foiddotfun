@@ -1,10 +1,10 @@
 "use client";
 
-import type { PublicClient } from "viem";
+import type { Address, Hex, PublicClient } from "viem";
 
-const TX_HASH = "0xcec18676c1e6dd7db361c2dd431804962c6fcbebeb9c8ac6a5bc6e33fe703bac";
+const TX_HASH: Hex = "0xcec18676c1e6dd7db361c2dd431804962c6fcbebeb9c8ac6a5bc6e33fe703bac" as Hex;
 const EXPECTED_BLOCK = 17036146n;
-const BOARD_ADDRESS = "0xE41B2D418C09Ea928E4F657ED2438f5D01472105" as const;
+const BOARD_ADDRESS: Address = "0xE41B2D418C09Ea928E4F657ED2438f5D01472105" as Address;
 
 export async function probeTx(publicClient: PublicClient) {
   const chainId = await publicClient.getChainId();
@@ -15,7 +15,7 @@ export async function probeTx(publicClient: PublicClient) {
 
   try {
     const tx = await publicClient.getTransaction({
-      hash: TX_HASH as `0x${string}`,
+      hash: TX_HASH,
     });
     if (!tx) {
       console.warn("[probeTx] transaction not found");
@@ -30,7 +30,7 @@ export async function probeTx(publicClient: PublicClient) {
 
   try {
     const receipt = await publicClient.getTransactionReceipt({
-      hash: TX_HASH as `0x${string}`,
+      hash: TX_HASH,
     });
     if (!receipt) {
       console.warn("[probeTx] receipt not found");
@@ -51,11 +51,10 @@ export async function probeTx(publicClient: PublicClient) {
     });
     if (block) {
       blockWithTx = block;
+      const normalizedTxHash = TX_HASH.toLowerCase();
       const hasTx = block.transactions.some((tx) => {
-        if (typeof tx === "string") {
-          return tx.toLowerCase() === TX_HASH;
-        }
-        return tx.hash.toLowerCase() === TX_HASH;
+        const hash = typeof tx === "string" ? tx : tx.hash;
+        return typeof hash === "string" && hash.toLowerCase() === normalizedTxHash;
       });
       console.log(
         `[probeTx] block includeTransactions=true number=${block.number} hash=${block.hash} txCount=${block.transactions.length} containsKnownTx=${hasTx}`

@@ -5,16 +5,21 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { useReadContract } from "wagmi";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { LOREBOARD_VOTING_ABI } from "@/lib/contracts/abis";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 
-export function AppContext() {
+interface AppContextProps {
+  enablePendingPoll?: boolean;
+}
+
+export function AppContext({ enablePendingPoll = false }: AppContextProps) {
   const { address, isConnected } = useAccount();
   const { stats } = useUserStats(address);
 
   const [activePendingCount, setActivePendingCount] = useState(0);
   const [userPendingCount, setUserPendingCount] = useState(0);
   const [currentEpoch, setCurrentEpoch] = useState(0);
+  const pendingFetchKey = useRef<string | null>(null);
 
   // Get current epoch
   const { data: epochData } = useReadContract({
@@ -33,6 +38,18 @@ export function AppContext() {
   // Fetch pending proposals count
   useEffect(() => {
     if (!currentEpoch) return;
+
+    const requestKey = `${currentEpoch}-${address ?? "none"}`;
+    if (!enablePendingPoll) {
+      setActivePendingCount(0);
+      setUserPendingCount(0);
+      pendingFetchKey.current = null;
+      return;
+    }
+    if (pendingFetchKey.current === requestKey) {
+      return;
+    }
+    pendingFetchKey.current = requestKey;
 
     const fetchPendingCount = async () => {
       try {
@@ -76,7 +93,7 @@ export function AppContext() {
     };
 
     fetchPendingCount();
-  }, [currentEpoch, address]);
+  }, [currentEpoch, address, enablePendingPoll]);
 
   // Calculate next prayer time
   const getNextPrayerStatus = () => {

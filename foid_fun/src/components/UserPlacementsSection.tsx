@@ -1,32 +1,65 @@
 "use client";
 
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Placement } from "@/hooks/useUserPlacements";
 import { Skeleton } from "./Skeleton";
-import { getIpfsGatewayCandidates } from "@/lib/ipfsUrl";
 
 interface Props {
   placements: Placement[];
   isLoading: boolean;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+  lastRefreshAt?: number | null;
 }
 
-export const UserPlacementsSection = memo(function UserPlacementsSection({ placements, isLoading }: Props) {
+export const UserPlacementsSection = memo(function UserPlacementsSection({
+  placements,
+  isLoading,
+  onRefresh,
+  isRefreshing,
+  lastRefreshAt,
+}: Props) {
   const [showAll, setShowAll] = useState(false);
 
   const sortedPlacements = useMemo(
     () => [...placements].sort((a, b) => b.epoch - a.epoch),
     [placements]
   );
-  const displayedPlacements = showAll
-    ? sortedPlacements
-    : sortedPlacements.slice(0, 3);
+  const displayedPlacements = useMemo(
+    () => (showAll ? sortedPlacements : sortedPlacements.slice(0, 3)),
+    [showAll, sortedPlacements]
+  );
+
+  const header = (
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-white/70">
+          Your Placements
+        </h3>
+        {lastRefreshAt && (
+          <p className="text-[11px] text-white/40">
+            updated {new Date(lastRefreshAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </p>
+        )}
+      </div>
+      {onRefresh && (
+        <button
+          onClick={onRefresh}
+          className="rounded-full border border-white/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-white/30"
+          type="button"
+          disabled={Boolean(isRefreshing || isLoading)}
+        >
+          {isRefreshing ? "Refreshing…" : "Refresh"}
+        </button>
+      )}
+    </div>
+  );
 
   if (isLoading) {
     return (
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-white/70">
-          Your Placements
-        </h3>
+        {header}
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-20 w-full rounded-2xl" />
@@ -39,9 +72,7 @@ export const UserPlacementsSection = memo(function UserPlacementsSection({ place
   if (!placements.length) {
     return (
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-white/70">
-          Your Placements
-        </h3>
+        {header}
         <div className="glass-panel-darker p-6 text-center text-sm text-white/50">
           No placements yet. Visit the board to propose your first image!
         </div>
@@ -51,13 +82,11 @@ export const UserPlacementsSection = memo(function UserPlacementsSection({ place
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold uppercase tracking-wider text-white/70">
-        Your Placements
-      </h3>
+      {header}
 
       <div className="space-y-2">
         {displayedPlacements.map((placement) => (
-          <PlacementCard key={placement.id} placement={placement} />
+          <PlacementCard key={placement.placementId ?? placement.id} placement={placement} />
         ))}
       </div>
 
@@ -74,7 +103,8 @@ export const UserPlacementsSection = memo(function UserPlacementsSection({ place
 });
 
 function PlacementCard({ placement }: { placement: Placement }) {
-  const statusConfig = {
+  const statusKey = placement.status ?? "voting";
+  const statusConfigMap = {
     canonized: {
       badge: "CANONIZED",
       emoji: "✅",
@@ -90,61 +120,34 @@ function PlacementCard({ placement }: { placement: Placement }) {
       emoji: "❌",
       className: "status-badge--rejected",
     },
-  }[placement.status];
+  };
+  const statusConfig = statusConfigMap[statusKey] ?? statusConfigMap.voting;
 
-  const candidates = useMemo(() => {
-    const rawInput = placement.imageUrl ?? placement.cid ?? placement.cidHash ?? "";
-    const gatewayCandidates = getIpfsGatewayCandidates(rawInput);
-    if (gatewayCandidates.length) {
-      return gatewayCandidates;
-    }
-    if (placement.imageUrl && /^https?:\/\//i.test(placement.imageUrl)) {
-      return [placement.imageUrl];
-    }
-    return [];
-  }, [placement.cid, placement.cidHash, placement.imageUrl]);
-
-  const [urlIndex, setUrlIndex] = useState(0);
+  const [thumbSrc, setThumbSrc] = useState(() => getThumbSrc(placement.imageUrl));
 
   useEffect(() => {
-    setUrlIndex(0);
-  }, [candidates.length]);
-
-  const currentSrc = candidates.length ? candidates[urlIndex % candidates.length] : null;
-  const loggedRef = useRef(false);
-
-  useEffect(() => {
-    if (process.env.NODE_ENV !== "development") return;
-    if (loggedRef.current) return;
-    if (!currentSrc) return;
-    console.debug("[thumb]", {
-      cid: placement.cid,
-      imageUrl: placement.imageUrl,
-      src: currentSrc,
-    });
-    loggedRef.current = true;
-  }, [currentSrc, placement.cid, placement.imageUrl]);
+    setThumbSrc(getThumbSrc(placement.imageUrl));
+  }, [placement.placementId, placement.imageUrl]);
 
   const handleImageError = () => {
-    if (!candidates.length) return;
-    setUrlIndex((prev) => (prev + 1) % candidates.length);
+    if (thumbSrc === PLACEHOLDER_SRC) return;
+    setThumbSrc(PLACEHOLDER_SRC);
   };
 
   return (
     <div className="placement-card p-2">
       <div className="flex gap-3">
         <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-white/5">
-          {currentSrc ? (
-            <img
-              src={currentSrc}
-              alt={placement.title || "Placement"}
-              className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-              onError={handleImageError}
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-2xl">🖼️</div>
-          )}
+          <Image
+            src={thumbSrc}
+            alt={placement.title || "Placement"}
+            fill
+            sizes="64px"
+            className="pointer-events-none object-cover"
+            onError={handleImageError}
+            referrerPolicy="no-referrer"
+            unoptimized
+          />
 
           <div className={`status-badge ${statusConfig.className}`}>{statusConfig.emoji}</div>
         </div>
@@ -164,4 +167,13 @@ function PlacementCard({ placement }: { placement: Placement }) {
       </div>
     </div>
   );
+}
+
+const PLACEHOLDER_SRC =
+  "data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'64'%20height%3D'64'%3E%3Crect%20width%3D'64'%20height%3D'64'%20fill%3D'%231F1F1F'/%3E%3Ctext%20x%3D'50%25'%20y%3D'50%25'%20dominant-baseline%3D'middle'%20text-anchor%3D'middle'%20font-size%3D'20'%20fill%3D'%23757575'%3E%F0%9F%96%B4%3C%2Ftext%3E%3C%2Fsvg%3E";
+
+function getThumbSrc(imageUrl?: string | null) {
+  const candidate = imageUrl?.trim();
+  if (candidate) return candidate;
+  return PLACEHOLDER_SRC;
 }

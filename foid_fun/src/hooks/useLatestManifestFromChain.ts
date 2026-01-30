@@ -6,6 +6,7 @@ import { LOREBOARD_MANIFEST_STORE_ADDRESS } from "@/config/contracts";
 import { loreBoardManifestStoreAbi } from "@/abi/loreBoardManifestStore";
 import type { BoardManifest } from "@/types/manifest";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
+import { debug } from "@/lib/debug";
 
 type State = {
   manifest: BoardManifest | null;
@@ -97,7 +98,7 @@ export function useLatestManifestFromChain(): State {
           });
         }
       } catch (e: unknown) {
-        console.error("load latest manifest failed", e);
+        debug.error("load latest manifest failed", e);
         if (!cancelled) {
           setState((s) => ({
             ...s,

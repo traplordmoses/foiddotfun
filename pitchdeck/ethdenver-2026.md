@@ -2,28 +2,89 @@
 marp: true
 theme: default
 paginate: true
-backgroundColor: #0e0f2b
+backgroundColor: transparent
 color: #ffffff
 style: |
   /*
-  FOID OS v3.0 — Final Polish
+  FOID OS v3.0 — Final Polish (PS2 Ocean)
   */
 
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
+  /* ─── HARD OVERRIDES (Marp inline background fix) ─────────────────────── */
+  /* Marp applies backgroundColor as an inline style on <section>. To beat it,
+     we use !important + also set marpit wrapper background. */
+  .marpit {
+    /* engage prague-style teal → purple gradient (wrapper behind slides) */
+    background: linear-gradient(120deg,
+      #97c0c2 0%,
+      #667f8d 18%,
+      #505671 45%,
+      #43375b 70%,
+      #663a5d 100%
+    ) !important;
+  }
+
+  /* Ensure slide content is always above our decorative overlays */
+  section > * {
+    position: relative;
+    z-index: 2;
+  }
+
   /* ─── BASE ─────────────────────────────────────────────────────────────── */
   section {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+    /* FORCE OVERRIDE of Marp inline background */
+    background-color: transparent !important;
+
+    /* UPDATED: engage prague-style gradient + subtle depth */
     background:
-      radial-gradient(ellipse 120% 80% at 10% 20%, rgba(0,255,213,0.055) 0%, transparent 52%),
-      radial-gradient(ellipse 90% 70% at 90% 80%, rgba(255,107,157,0.040) 0%, transparent 52%),
-      linear-gradient(180deg, #0e0f2b 0%, #0a0b1f 100%);
+      /* subtle vertical depth (keeps it clean + readable) */
+      linear-gradient(180deg, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.55) 100%),
+      /* main teal → purple sweep */
+      linear-gradient(120deg,
+        #97c0c2 0%,
+        #667f8d 18%,
+        #505671 45%,
+        #43375b 70%,
+        #663a5d 100%
+      ) !important;
+
     padding: 58px 72px;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
     position: relative;
     overflow: hidden;
+  }
+
+  /* glass sheen + vignette */
+  section::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(1200px 420px at 50% -10%, rgba(255,255,255,0.11) 0%, rgba(255,255,255,0.00) 62%),
+      radial-gradient(900px 700px at 50% 120%, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.00) 58%),
+      linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.00) 22%);
+    mix-blend-mode: screen;
+    opacity: 0.52;
+  }
+
+  /* micro-noise to prevent banding (subtle) */
+  section::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+    opacity: 0.055;
+    mix-blend-mode: overlay;
   }
 
   /* ─── TYPOGRAPHY ───────────────────────────────────────────────────────── */
@@ -542,11 +603,42 @@ style: |
     white-space: nowrap;
   }
 
-  .team-stat strong {
-    color: #00ffd5;
-  }
+  .team-stat strong { color: #00ffd5; }
 
   small { font-size: 0.82em; color: rgba(255,255,255,0.50); }
+
+  /* ─────────────────────────────────────────────────────────────
+     HARD DENSE MODE (opt-in per slide: <!-- _class: dense -->)
+     ───────────────────────────────────────────────────────────── */
+  section.dense { padding: 46px 60px; }
+  section.dense h1 { font-size: 2.00em; margin-bottom: 6px; line-height: 1.08; }
+  section.dense h2 { font-size: 1.02em; margin-bottom: 14px; padding-bottom: 10px; line-height: 1.28; }
+  section.dense p { font-size: 0.92em; line-height: 1.58; margin-bottom: 10px; }
+  section.dense ul { margin-top: 10px; }
+  section.dense li { font-size: 0.92em; line-height: 1.50; margin-bottom: 10px; }
+  section.dense blockquote { margin-top: 14px; }
+  section.dense blockquote p { font-size: 0.94em; }
+  section.dense .cards { margin-top: 14px; gap: 12px; }
+  section.dense .card { padding: 14px 16px; }
+  section.dense .card h3 { margin-bottom: 8px; }
+  section.dense .card p { font-size: 0.88em; line-height: 1.44; }
+  section.dense .quote-card-compact { padding: 12px 16px; margin-top: 12px; }
+  section.dense .quote-text-sm { font-size: 0.84em; line-height: 1.42; margin-bottom: 6px; }
+  section.dense .glass-compact { padding: 12px 16px; margin-top: 10px; }
+  section.dense .glass-compact li { font-size: 0.86em; margin-bottom: 7px; line-height: 1.42; }
+  section.dense .glass { padding: 16px 18px; margin-top: 12px; }
+  section.dense .glass-sm { padding: 12px 14px; margin-top: 10px; }
+  section.dense .glass-sm li { font-size: 0.86em; margin-bottom: 7px; line-height: 1.42; }
+  section.dense pre { font-size: 0.70em; line-height: 1.48; padding: 12px 16px; margin-top: 10px; }
+  section.dense .highlight { font-size: 0.90em; padding: 10px 14px; margin-top: 12px; }
+  section.dense .highlight-sm { font-size: 0.78em; padding: 8px 12px; margin-top: 10px; }
+  section.dense .team-row { margin-bottom: 12px; }
+  section.dense .team-stat { font-size: 0.62em; padding: 3px 6px; }
+  section.dense .rm-title { font-size: 1.85em; }
+  section.dense .rm-grid { gap: 22px; }
+
+  /* ─── PAGE 10: keep subtitle on ONE line ──────────────────────────────── */
+  .nowrap { white-space: nowrap; }
 ---
 
 <!-- _class: lead -->
@@ -620,15 +712,19 @@ FOID is a **consumer crypto culture hub**:
 
 ---
 
+<!-- _class: dense -->
+
 # Loreboard
 
 ## *Crypto's hottest pop-up gallery.*
 
-![bg right:44% 90%](./screenshots/05-loreboard-canvas.png)
+![bg right:40% 86%](./screenshots/05-loreboard-canvas.png)
 
 - an **infinite zoomable canvas** for memes
 - anyone can **propose** a placement
-- **51%+ approval** = canonized forever
+- **72-hour voting window** (community decides, not instant)
+- **51%+ approval + quorum** = canonized forever
+- failed proposals = **refund**, minus a small anti-spam fee (ex: ~$2 / ~10%)
 
 <div class="highlight">propose → vote → preserve</div>
 
@@ -653,6 +749,8 @@ FOID is a **consumer crypto culture hub**:
 
 ---
 
+<!-- _class: dense -->
+
 # Architecture
 
 ## Live on Fluent testnet
@@ -664,12 +762,54 @@ FOID is a **consumer crypto culture hub**:
 ├── <strong>LOREBOARD.APP</strong>            →  living canon
 └── <strong>MIFOID</strong>                   →  your personal foid
 
-<strong>7 contracts</strong> + worker automation
+<strong>7 Rust contracts</strong> + automated worker
+├─ Blended Execution (WASM + EVM)
+├─ Goldsky indexing (sub-second reads)
+└─ IPFS storage (content permanence)
 </pre>
 
-<div class="highlight"><strong>chain:</strong> Fluent testnet (20994) - shipping now</div>
+<div class="highlight"><strong>chain:</strong> Fluent testnet (20994) → mainnet Q1 2026</div>
 
 ---
+
+<!-- _class: center -->
+
+# Smart Contract Architecture
+
+![w:1100](./screenshots/08-smart-contract-architecture.png)
+
+---
+
+# Why Fluent?
+
+## *WASM performance. EVM compatibility. Instant UX.*
+
+<div class="cards">
+  <div class="card">
+    <h3>Blended Execution</h3>
+    <p><strong>WASM</strong> speed (Rust-native) + <strong>EVM</strong> compatibility (Web3 tooling). Complex voting logic stays fast without sacrificing composability.</p>
+  </div>
+  <div class="card">
+    <h3>Goldsky Indexing</h3>
+    <p><strong>sub-second queries</strong> + real-time event tracking. Loreboard feels like Web2, but the canon is enforced on-chain.</p>
+  </div>
+</div>
+
+<div class="highlight">FOID uses Fluent as a high-performance settlement layer for culture</div>
+
+---
+
+<!-- _class: dense -->
+
+# How Loreboard Works
+
+## <span class="nowrap">*propose → 72hr vote → canonize forever*</span>
+
+![w:1100](./screenshots/07-user-journey.png)
+
+---
+
+<!-- _class: dense -->
 
 # Traction
 
@@ -683,7 +823,9 @@ FOID is a **consumer crypto culture hub**:
 <div class="glass-compact">
 <ul>
   <li><strong>live</strong>: foid_mommy_terminal.exe, loreboard.app, & music.exe</li>
-  <li><strong>7 contracts</strong> deployed + routing</li>
+  <li><strong>11+ canonized placements</strong> (72hr voting cycles)</li>
+  <li><strong>7 Rust contracts</strong> deployed + worker automation</li>
+  <li><strong>sub-second</strong> load times (Goldsky indexing)</li>
   <li>organic discovery via <strong>Fluent ecosystem</strong> threads (1.8K+ views)</li>
 </ul>
 </div>
@@ -729,7 +871,7 @@ FOID is a **consumer crypto culture hub**:
 
 ---
 
-<!-- _class: biz -->
+<!-- _class: biz dense -->
 
 # Business Model
 
@@ -738,11 +880,11 @@ FOID is a **consumer crypto culture hub**:
 <div class="cards">
   <div class="card">
     <h3>Loreboard</h3>
-    <p>Base fee per cell placement. Optional tips to compete for prime spots. r/place mechanics with skin in the game.</p>
+    <p><strong>pokemon pack pricing</strong>: most placements cost a few dollars, max ~<strong>$10–$20</strong>.<br><strong>refund</strong>: failed proposals refunded minus anti-spam fee (~$2 / ~10%).<br><strong>prime spots</strong>: competed for via higher bids/tips.</p>
   </div>
   <div class="card">
     <h3>MiFOID</h3>
-    <p>Primary mint sales + trait evolutions + companion economy. Tapping into a $28B+ AI companion market.</p>
+    <p><strong>3,333 supply</strong> on mainnet.<br><strong>mint</strong>: 0.02 ETH (priced like an indie game).<br>trait evolutions + companion economy (future).</p>
   </div>
 </div>
 
@@ -788,7 +930,7 @@ Mainnet stability → MiFOID identity → Foidspace social canon.
 
 ---
 
-<!-- _class: vcenter -->
+<!-- _class: vcenter dense -->
 
 # Team
 

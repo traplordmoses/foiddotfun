@@ -1,4 +1,4 @@
-import type { TransactionReceipt, Log } from "viem";
+import type { Address, Hex, Log, TransactionReceipt } from "viem";
 import { CHAIN_CONFIG } from "@/lib/contracts/addresses";
 
 const BASE_URL = (process.env.NEXT_PUBLIC_EXPLORER_API_BASE ?? CHAIN_CONFIG.blockExplorer)
@@ -9,26 +9,58 @@ const FETCH_RETRY_DELAYS = [0, 400, 900];
 const DEFAULT_WINDOW = 10_000n;
 const MIN_WINDOW = 2_000n;
 const LOG_PAGE_SIZE = 1_000;
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-const EMPTY_HASH = "0x" + "0".repeat(64);
-const EMPTY_LOGS_BLOOM = "0x" + "0".repeat(512);
+const ZERO_ADDRESS: Address = "0x0000000000000000000000000000000000000000" as Address;
+const EMPTY_HASH: Hex = ("0x" + "0".repeat(64)) as Hex;
+const EMPTY_LOGS_BLOOM: Hex = ("0x" + "0".repeat(512)) as Hex;
+
+interface ExplorerResponse<T = unknown> {
+  status?: string;
+  message?: string;
+  result?: T;
+}
+
+interface ExplorerReceiptPayload {
+  blockHash?: string | null;
+  blockHashHex?: string | null;
+  blockNumber?: string | number | null;
+  blockNumberHex?: string | number | null;
+  cumulativeGasUsed?: string | number | null;
+  effectiveGasPrice?: string | number | null;
+  gasUsed?: string | number | null;
+  gasPrice?: string | number | null;
+  contractAddress?: string | null;
+  from?: string | null;
+  to?: string | null;
+  logs?: unknown;
+  logsBloom?: string | null;
+  logBloom?: string | null;
+  status?: string | number | boolean | null;
+  transactionHash?: string | null;
+  transactionIndex?: string | number | null;
+  type?: string | number | null;
+}
+
+interface ExplorerReceiptResponse extends ExplorerResponse<ExplorerReceiptPayload> {
+  receipt?: ExplorerReceiptPayload;
+  data?: ExplorerReceiptPayload;
+}
 
 export interface ExplorerLogFilter {
-  address: `0x${string}`;
+  address: Address;
   fromBlock: bigint;
   toBlock: bigint;
   topics?: (string | null)[];
 }
 
 export interface ExplorerLogItem {
-  address: `0x${string}`;
-  blockHash: `0x${string}` | null;
+  address: Address;
+  blockHash: Hex;
   blockNumber: bigint;
-  data: `0x${string}`;
+  data: Hex;
   logIndex: number | null;
-  transactionHash: `0x${string}` | null;
+  transactionHash: Hex;
   transactionIndex: number | null;
-  topics: `0x${string}`[];
+  topics: Hex[];
   removed: boolean;
 }
 
@@ -101,11 +133,15 @@ function hasNoLogsMessage(message?: string) {
   return /no (records|results|logs)/i.test(normalized);
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 async function fetchLogsForRange(filter: ExplorerLogFilter, page = 1): Promise<ExplorerLogItem[]> {
   const logs: ExplorerLogItem[] = [];
   while (true) {
     const url = buildLogUrl(filter, page);
-    const response = await fetchJson<{ status?: string; message?: string; result?: unknown }>(url);
+    const response = await fetchJson<ExplorerResponse>(url);
     const { status, message } = response;
     let result = response.result;
     if (typeof result === "string") {
@@ -125,8 +161,12 @@ async function fetchLogsForRange(filter: ExplorerLogFilter, page = 1): Promise<E
     }
 
     if (Array.isArray(result) && result.length > 0) {
-      logs.push(...result.map((item) => normalizeExplorerLog(item as ExplorerRawLog)));
-      if (result.length < LOG_PAGE_SIZE) {
+      const normalizedLogs = result
+        .filter(isExplorerRawLog)
+        .map(normalizeExplorerLog);
+
+      logs.push(...normalizedLogs);
+      if (normalizedLogs.length < LOG_PAGE_SIZE) {
         break;
       }
     } else if (status === "0") {
@@ -150,6 +190,10 @@ interface ExplorerRawLog {
   transactionIndex?: string;
   topics?: string[];
   removed?: boolean | string;
+}
+
+function isExplorerRawLog(value: unknown): value is ExplorerRawLog {
+  return typeof value === "object" && value !== null;
 }
 
 function parseQuantity(value?: string | number | null): bigint {
@@ -183,24 +227,34 @@ function parseNumber(value?: string | number | null): number | null {
   }
 }
 
-function normalizeTopic(topic?: string): `0x${string}` | null {
+function normalizeTopic(topic?: string): Hex | null {
   if (!topic) return null;
-  return topic as `0x${string}`;
+  return topic as Hex;
 }
 
 function normalizeExplorerLog(raw: ExplorerRawLog): ExplorerLogItem {
-  const topics = (raw.topics ?? []).map((topic) => normalizeTopic(topic)).filter((topic): topic is `0x${string}` => Boolean(topic));
+  const topics = (raw.topics ?? [])
+    .map((topic) => normalizeTopic(topic))
+    .filter((topic): topic is Hex => Boolean(topic));
   return {
-    address: (raw.address ?? ZERO_ADDRESS) as `0x${string}`,
-    blockHash: (raw.blockHash ?? EMPTY_HASH) as `0x${string}`,
+    address: (raw.address ?? ZERO_ADDRESS) as Address,
+    blockHash: (raw.blockHash ?? EMPTY_HASH) as Hex,
     blockNumber: parseQuantity(raw.blockNumber),
-    data: (raw.data ?? "0x") as `0x${string}`,
+    data: (raw.data ?? "0x") as Hex,
     logIndex: parseNumber(raw.logIndex),
-    transactionHash: (raw.transactionHash ?? EMPTY_HASH) as `0x${string}`,
+    transactionHash: (raw.transactionHash ?? EMPTY_HASH) as Hex,
     transactionIndex: parseNumber(raw.transactionIndex),
     topics,
     removed: raw.removed === true || raw.removed === "true" || raw.removed === "1",
   };
+}
+
+function toTopicTuple(topics: Hex[]): [] | [Hex, ...Hex[]] {
+  if (topics.length === 0) {
+    return [];
+  }
+  const [first, ...rest] = topics;
+  return [first, ...rest] as [Hex, ...Hex[]];
 }
 
 export async function getExplorerLogs(
@@ -279,62 +333,65 @@ function normalizeTransactionType(value?: string | number | null): TransactionRe
   return "legacy";
 }
 
-function normalizeAddress(value?: string | null): `0x${string}` | null {
+function normalizeAddress(value?: string | null): Address | null {
   if (!value || value === "null") return null;
-  return value as `0x${string}`;
+  return value as Address;
 }
 
-function parseReceiptPayload(payload: any, txHash: `0x${string}`): TransactionReceipt {
-  const logs = Array.isArray(payload.logs)
-    ? payload.logs.map((item: ExplorerRawLog) => normalizeExplorerLog(item))
+function parseReceiptPayload(payload: ExplorerReceiptPayload, txHash: Hex): TransactionReceipt {
+  const normalizedLogs = Array.isArray(payload.logs)
+    ? payload.logs.filter(isExplorerRawLog).map(normalizeExplorerLog)
     : [];
 
   const blockHash = payload.blockHash ?? payload.blockHashHex ?? EMPTY_HASH;
   const transactionHash = payload.transactionHash ?? txHash;
+  const receiptLogs = normalizedLogs.map((log) => ({
+    ...log,
+    logIndex: log.logIndex ?? 0,
+    transactionIndex: log.transactionIndex ?? 0,
+    topics: toTopicTuple(log.topics),
+  })) as Log<bigint, number, false>[];
 
   return {
-    blockHash: (blockHash ?? EMPTY_HASH) as `0x${string}`,
+    blockHash: (blockHash ?? EMPTY_HASH) as Hex,
     blockNumber: parseQuantity(payload.blockNumber || payload.blockNumberHex),
     contractAddress: normalizeAddress(payload.contractAddress),
     cumulativeGasUsed: parseQuantity(payload.cumulativeGasUsed),
     effectiveGasPrice: parseQuantity(payload.effectiveGasPrice ?? payload.gasPrice),
-    from: normalizeAddress(payload.from) ?? (ZERO_ADDRESS as `0x${string}`),
+    from: normalizeAddress(payload.from) ?? ZERO_ADDRESS,
     gasUsed: parseQuantity(payload.gasUsed),
-    logs: logs as Log[],
-    logsBloom: (payload.logsBloom ?? payload.logBloom ?? EMPTY_LOGS_BLOOM) as `0x${string}`,
+    logs: receiptLogs,
+    logsBloom: (payload.logsBloom ?? payload.logBloom ?? EMPTY_LOGS_BLOOM) as Hex,
     status: normalizeReceiptStatus(payload.status),
     to: normalizeAddress(payload.to),
-    transactionHash: transactionHash as `0x${string}`,
+    transactionHash: transactionHash as Hex,
     transactionIndex: parseNumber(payload.transactionIndex) ?? 0,
     type: normalizeTransactionType(payload.type),
   };
 }
 
-function tryExtractPayload(source: any) {
-  if (!source || typeof source !== "object") {
+function tryExtractPayload(source: unknown): ExplorerReceiptPayload | null {
+  if (!isObject(source)) {
     return null;
   }
-  if ("receipt" in source && source.receipt) {
-    return source.receipt;
+  for (const key of ["receipt", "data", "result"] as const) {
+    const candidate = (source as Record<string, unknown>)[key];
+    if (isObject(candidate)) {
+      return candidate as ExplorerReceiptPayload;
+    }
   }
-  if ("data" in source && source.data) {
-    return source.data;
-  }
-  if ("result" in source && source.result) {
-    return source.result;
-  }
-  return source;
+  return source as ExplorerReceiptPayload;
 }
 
-export async function getExplorerReceipt(txHash: `0x${string}`): Promise<TransactionReceipt> {
+export async function getExplorerReceipt(txHash: Hex): Promise<TransactionReceipt> {
   const v2Url = `${BASE_URL}/api/v2/transactions/${txHash}`;
   try {
-    const v2Response = await fetchJson<any>(v2Url);
+    const v2Response = await fetchJson<ExplorerReceiptResponse>(v2Url);
     const payload = tryExtractPayload(v2Response);
     if (payload) {
       return parseReceiptPayload(payload, txHash);
     }
-  } catch (error) {
+  } catch {
     // ignore and fallback to proxy
   }
 
@@ -344,7 +401,7 @@ export async function getExplorerReceipt(txHash: `0x${string}`): Promise<Transac
     txhash: txHash,
   });
   const proxyUrl = `${BASE_URL}/api?${proxyParams.toString()}`;
-  const proxyResponse = await fetchJson<any>(proxyUrl);
+  const proxyResponse = await fetchJson<ExplorerReceiptResponse>(proxyUrl);
   const payload = tryExtractPayload(proxyResponse);
   if (!payload) {
     throw new Error("Explorer returned no receipt data");

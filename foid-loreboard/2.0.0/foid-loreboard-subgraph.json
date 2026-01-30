@@ -1,0 +1,17 @@
+{
+  "name": "foid-loreboard/2.0.0",
+  "version": "1",
+  "abis": {
+    "loreboardboardv2": {
+      "path": "./abis/loreboardboardv2.json"
+    }
+  },
+  "instances": [
+    {
+      "abi": "loreboardboardv2",
+      "address": "0xE41B2D418C09Ea928E4F657ED2438f5D01472105",
+      "startBlock": 15774936,
+      "chain": "fluent-testnet"
+    }
+  ]
+}

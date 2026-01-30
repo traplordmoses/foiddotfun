@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const VOTING_URL =
   process.env.GOLDSKY_VOTING_URL ||
-  "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/1.0.0/gn";
+  "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/2.0.1/gn";
 
 type GoldskyVoteCast = {
   id: string;
@@ -26,7 +26,7 @@ type GoldskyResponse = {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 30;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

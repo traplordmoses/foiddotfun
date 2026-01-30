@@ -1,16 +1,21 @@
-import type { GetLogsParameters, Log, PublicClient } from "viem";
+import type { AbiEvent, Address, Log, PublicClient } from "viem";
 
 const DEFAULT_CHUNK_SIZE = 95_000n;
 const RETRY_DELAYS = [400, 900];
 
-export async function getLogsChunked<TAbiEvent extends any>(
-  client: PublicClient,
-  params: Omit<GetLogsParameters<any, any, any, any>, "fromBlock" | "toBlock"> & {
-    fromBlock: bigint;
-    toBlock: bigint;
-    chunkSize?: bigint;
-  }
-): Promise<Log[]> {
+interface ChunkedLogParams {
+  address?: Address | Address[];
+  event?: AbiEvent;
+  events?: readonly AbiEvent[] | readonly unknown[];
+  args?: Record<string, unknown>;
+  strict?: boolean;
+  blockHash?: `0x${string}`;
+  fromBlock: bigint;
+  toBlock: bigint;
+  chunkSize?: bigint;
+}
+
+export async function getLogsChunked(client: PublicClient, params: ChunkedLogParams): Promise<Log[]> {
   const { chunkSize = DEFAULT_CHUNK_SIZE, fromBlock, toBlock, ...rest } = params;
   if (fromBlock > toBlock) {
     return [];
@@ -28,10 +33,10 @@ export async function getLogsChunked<TAbiEvent extends any>(
     while (true) {
       try {
         const chunkLogs = await client.getLogs({
-          ...rest,
+          ...(rest as Record<string, unknown>),
           fromBlock: start,
           toBlock: end,
-        });
+        } as Parameters<PublicClient["getLogs"]>[0]);
 
         logs.push(...chunkLogs);
         break;

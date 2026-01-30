@@ -1,4 +1,12 @@
-import type { AbiEvent, Log, PublicClient, TransactionReceipt } from "viem";
+import type {
+  AbiEvent,
+  Address,
+  EncodeEventTopicsReturnType,
+  Hex,
+  Log,
+  PublicClient,
+  TransactionReceipt,
+} from "viem";
 import { decodeEventLog, encodeEventTopics, TransactionReceiptNotFoundError } from "viem";
 import { getLogsChunked } from "@/lib/viem/getLogsChunked";
 import { CONTRACTS } from "@/lib/contracts/addresses";
@@ -22,6 +30,8 @@ import {
 
 const RPC_CHUNK_SIZE = 95_000n;
 const FORCE_EXPLORER = process.env.NEXT_PUBLIC_FORCE_EXPLORER === "1";
+const BOARD_ADDRESS = CONTRACTS.LOREBOARD_BOARD as Address;
+const VOTING_ADDRESS = CONTRACTS.LOREBOARD_VOTING as Address;
 
 let explorerModeActive = FORCE_EXPLORER;
 const explorerModeListeners = new Set<(active: boolean) => void>();
@@ -61,6 +71,35 @@ export type DataLog = {
   eventName?: string;
 };
 
+function normalizeEncodedTopics(value: EncodeEventTopicsReturnType): (string | null)[] {
+  if (!value) return [];
+  if (typeof value === "string") {
+    return [value];
+  }
+  if (Array.isArray(value)) {
+    return [...value] as (string | null)[];
+  }
+  return [];
+}
+
+function buildEncodedTopics(event: AbiEvent, args?: Record<string, unknown>): (string | null)[] {
+  return normalizeEncodedTopics(
+    encodeEventTopics({
+      abi: [event],
+      eventName: event.name,
+      args: args ?? undefined,
+    })
+  );
+}
+
+function ensureLogTopics(topics: `0x${string}`[]): [] | [ `0x${string}`, ...`0x${string}`[]] {
+  if (topics.length === 0) {
+    return [];
+  }
+  const [first, ...rest] = topics;
+  return [first, ...rest] as [ `0x${string}`, ...`0x${string}`[]];
+}
+
 async function shouldUseExplorer(publicClient: PublicClient) {
   if (FORCE_EXPLORER) return true;
   try {
@@ -78,12 +117,12 @@ async function shouldUseExplorer(publicClient: PublicClient) {
 function normalizeRpcLogs(logs: Log[]): DataLog[] {
   return logs.map((log) => ({
     address: log.address,
-    blockHash: log.blockHash,
-    blockNumber: log.blockNumber,
+    blockHash: (log.blockHash ?? "0x") as `0x${string}`,
+    blockNumber: log.blockNumber ?? 0n,
     data: log.data,
-    logIndex: log.logIndex ?? null,
-    transactionHash: log.transactionHash,
-    transactionIndex: log.transactionIndex ?? null,
+    logIndex: log.logIndex ?? 0,
+    transactionHash: (log.transactionHash ?? "0x") as `0x${string}`,
+    transactionIndex: log.transactionIndex ?? 0,
     topics: log.topics ?? [],
     removed: log.removed,
     args: (log as unknown as { args?: Record<string, unknown> }).args,
@@ -92,12 +131,15 @@ function normalizeRpcLogs(logs: Log[]): DataLog[] {
 }
 
 function decodeExplorerLog(event: AbiEvent, log: ExplorerLogItem): DataLog {
-  const decoded = decodeEventLog({ abi: [event], data: log.data, topics: log.topics });
+  const decoded = decodeEventLog({
+    abi: [event],
+    data: log.data,
+    topics: ensureLogTopics(log.topics),
+  });
   return {
     ...log,
     args: decoded.args,
     eventName: decoded.eventName,
-    topics: decoded.topics as `0x${string}`[],
   };
 }
 
@@ -111,7 +153,7 @@ async function fetchExplorerLogsForEvent(
 
 interface EventLogParams {
   publicClient: PublicClient;
-  address: `0x${string}`;
+  address: Address;
   event: AbiEvent;
   args?: Record<string, unknown>;
   fromBlock: bigint;
@@ -122,6 +164,7 @@ interface EventLogParams {
 async function fetchEventLogs(params: EventLogParams): Promise<DataLog[]> {
   const { publicClient, address, event, args, fromBlock, toBlock, chunkSize } = params;
   const explorerMode = await shouldUseExplorer(publicClient);
+  const explorerTopics = buildEncodedTopics(event, args);
   if (explorerMode) {
     setExplorerMode(true);
     return fetchExplorerLogsForEvent(
@@ -129,11 +172,7 @@ async function fetchEventLogs(params: EventLogParams): Promise<DataLog[]> {
         address,
         fromBlock,
         toBlock,
-        topics: encodeEventTopics({
-          abi: [event],
-          eventName: event.name,
-          args: args ?? undefined,
-        }),
+        topics: explorerTopics,
       },
       event
     );
@@ -155,11 +194,7 @@ async function fetchEventLogs(params: EventLogParams): Promise<DataLog[]> {
           address,
           fromBlock,
           toBlock,
-          topics: encodeEventTopics({
-            abi: [event],
-            eventName: event.name,
-            args: args ?? undefined,
-          }),
+          topics: explorerTopics,
         },
         event
       );
@@ -182,11 +217,7 @@ async function fetchEventLogs(params: EventLogParams): Promise<DataLog[]> {
         address,
         fromBlock,
         toBlock,
-        topics: encodeEventTopics({
-          abi: [event],
-          eventName: event.name,
-          args: args ?? undefined,
-        }),
+        topics: explorerTopics,
       },
       event
     );
@@ -203,7 +234,7 @@ export async function getPlacementProposedLogs(params: {
   const args = params.bidder ? { bidder: params.bidder } : undefined;
   return fetchEventLogs({
     publicClient: params.publicClient,
-    address: CONTRACTS.LOREBOARD_BOARD,
+    address: BOARD_ADDRESS,
     event: PlacementProposedEvent,
     args,
     fromBlock: params.fromBlock,
@@ -222,7 +253,7 @@ export async function getPendingPlacementRegisteredLogs(params: {
   const epochId = typeof params.epochId === "bigint" ? params.epochId : BigInt(params.epochId);
   return fetchEventLogs({
     publicClient: params.publicClient,
-    address: CONTRACTS.LOREBOARD_VOTING,
+    address: VOTING_ADDRESS,
     event: PendingPlacementRegisteredEvent,
     args: { epochId },
     fromBlock: params.fromBlock,
@@ -250,7 +281,7 @@ export async function getVoteCastLogs(params: {
   }
   return fetchEventLogs({
     publicClient: params.publicClient,
-    address: CONTRACTS.LOREBOARD_VOTING,
+    address: VOTING_ADDRESS,
     event: VoteCastEvent,
     args: Object.keys(args).length ? args : undefined,
     fromBlock: params.fromBlock,
@@ -261,7 +292,7 @@ export async function getVoteCastLogs(params: {
 
 export async function getTxReceipt(
   publicClient: PublicClient,
-  txHash: `0x${string}`
+  txHash: Hex
 ): Promise<TransactionReceipt> {
   if (FORCE_EXPLORER) {
     setExplorerMode(true);

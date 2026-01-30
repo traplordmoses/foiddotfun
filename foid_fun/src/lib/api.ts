@@ -101,22 +101,32 @@ export type ProposalSummary = {
   chainId?: `0x${string}`;
   placementId?: `0x${string}`;
   owner: string;
+  bidder?: string;
   cid: string;
   name: string;
   mime: "image/png" | "image/jpeg";
   rect: Rect;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
   cells: number;
   bidPerCellWei: string;
   epochId?: number;
-  yes: number;
-  no: number;
+  yes: number; // Legacy field name
+  no: number; // Legacy field name
+  yesVotes?: number; // New field name from API
+  noVotes?: number; // New field name from API
   voters: number;
   percentYes: number; // 0..1
-  status: "proposed" | "accepted" | "rejected" | "expired";
+  status: "proposed" | "accepted" | "rejected" | "expired" | "voting" | "canonized";
   epochSubmitted: number;
   voteEndsAtEpoch: number;
+  registeredAt?: number;
+  voteEndsAt?: number;
   voteEndsAtSec?: number;
   secondsLeft: number;
+  timeRemaining?: number;
   isVotable?: boolean;
   width?: number;
   height?: number;
@@ -204,9 +214,24 @@ export type ListProposalsResponse = {
 };
 
 export async function listProposals(): Promise<ListProposalsResponse> {
+  console.log('[DEBUG] listProposals() called - fetching /api/proposals');
   const res = await fetch("/api/proposals", { cache: "no-store" });
-  if (!res.ok) throw new Error("proposals failed");
-  return asJson<ListProposalsResponse>(res);
+  console.log('[DEBUG] listProposals() response status:', res.status, res.ok);
+  if (!res.ok) {
+    console.error('[DEBUG] listProposals() failed with status:', res.status);
+    throw new Error("proposals failed");
+  }
+  const data = await asJson<ListProposalsResponse>(res);
+  console.log('[DEBUG] listProposals() success:', {
+    proposalsCount: data.proposals?.length || 0,
+    hasDebug: !!data.debug,
+    firstProposal: data.proposals?.[0] ? {
+      id: data.proposals[0].id?.slice(0, 16),
+      status: data.proposals[0].status,
+      isVotable: data.proposals[0].isVotable
+    } : null
+  });
+  return data;
 }
 
 export async function castVote(input: {

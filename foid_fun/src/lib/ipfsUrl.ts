@@ -2,7 +2,13 @@ const HTTP_URL_REGEX = /^https?:\/\//i;
 const IPFS_SCHEME_REGEX = /^ipfs:\/\//i;
 const IPFS_PATH_PREFIX = "/ipfs/";
 
-const FALLBACK_GATEWAY_BASES = ["https://cloudflare-ipfs.com", "https://ipfs.io", "https://gateway.pinata.cloud"];
+const FALLBACK_GATEWAY_BASES = [
+  "https://ipfs.io",
+  "https://dweb.link",
+  "https://gateway.pinata.cloud",
+  "https://w3s.link",
+  "https://4everland.io",
+];
 const PROXY_PATH_RAW = process.env.NEXT_PUBLIC_IPFS_PROXY_PATH?.trim();
 const PROXY_PATH = PROXY_PATH_RAW ? PROXY_PATH_RAW.replace(/\/+$/, "") : null;
 const DEFAULT_PROXY_PATH = "/api/ipfs";
@@ -127,18 +133,20 @@ export function getIpfsGatewayBases(): string[] {
 
 export function getIpfsGatewayCandidates(input?: string | null): string[] {
   const cid = extractIpfsCid(input);
-  if (cid) {
-    const normalizedCid = cid.replace(/^\/+|\/+$/g, "");
-    const proxy = `${PROXY_BASE}/${normalizedCid}`;
-    return [
-      proxy,
-      ...getIpfsGatewayBases().map((base) => `${base.replace(/\/+$/, "")}/ipfs/${normalizedCid}`),
-    ];
+  if (!cid) {
+    if (input && HTTP_URL_REGEX.test(input)) {
+      return [input.trim()];
+    }
+    return [];
   }
-  if (input && HTTP_URL_REGEX.test(input)) {
-    return [input.trim()];
-  }
-  return [];
+  const normalizedCid = cid.replace(/^\/+|\/+$/g, "");
+  return [
+    `https://ipfs.io/ipfs/${normalizedCid}`,
+    `https://dweb.link/ipfs/${normalizedCid}`,
+    `https://gateway.pinata.cloud/ipfs/${normalizedCid}`,
+    `https://w3s.link/ipfs/${normalizedCid}`,
+    `https://4everland.io/ipfs/${normalizedCid}`,
+  ];
 }
 
 export function ipfsToHttp(uri: string, gateways: string[] = NORMALIZED_GATEWAY_BASES): string[] {

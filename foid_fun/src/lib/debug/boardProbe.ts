@@ -1,11 +1,20 @@
 "use client";
 
-import type { PublicClient } from "viem";
+import type { Abi, AbiEvent, Address, PublicClient } from "viem";
+
+function isAbiEventFragment(item: Abi[number]): item is AbiEvent {
+  return (
+    typeof item === "object" &&
+    item !== null &&
+    item.type === "event" &&
+    typeof item.name === "string"
+  );
+}
 
 export async function runBoardProbe(opts: {
   publicClient: PublicClient;
-  boardAddress: `0x${string}`;
-  boardAbi: readonly any[];
+  boardAddress: Address;
+  boardAbi: Abi;
 }) {
   const { publicClient, boardAddress, boardAbi } = opts;
 
@@ -20,11 +29,11 @@ export async function runBoardProbe(opts: {
   console.log("[boardProbe] bytecode length", code?.length ?? 0, "hasCode", Boolean(code && code !== "0x"));
 
   // 2) list ABI event names
-  const abiEvents = boardAbi.filter((x: any) => x?.type === "event");
-  console.log("[boardProbe] abi event names", abiEvents.map((e: any) => e.name));
+  const abiEvents = boardAbi.filter((item): item is AbiEvent => isAbiEventFragment(item));
+  console.log("[boardProbe] abi event names", abiEvents.map((e) => e.name));
 
   // 3) find PlacementProposed event in ABI (if present)
-  const placementEvent = abiEvents.find((e: any) => e.name === "PlacementProposed");
+  const placementEvent = abiEvents.find((e) => e.name === "PlacementProposed");
   console.log("[boardProbe] has PlacementProposed in ABI?", Boolean(placementEvent), placementEvent);
 
   // 4) fetch logs using ABI event definition (no args filter)
@@ -36,13 +45,14 @@ export async function runBoardProbe(opts: {
       toBlock: latest,
     });
     console.log("[boardProbe] PlacementProposed logs (no filter) last 50k blocks:", logs.length);
-    if (logs[0]) {
-      console.log("[boardProbe] sample PlacementProposed log", {
-        block: logs[0].blockNumber?.toString?.(),
-        args: (logs[0] as any).args,
-        topic0: logs[0].topics?.[0],
-      });
-    }
+      const sampleLog = logs[0];
+      if (sampleLog) {
+        console.log("[boardProbe] sample PlacementProposed log", {
+          block: sampleLog.blockNumber?.toString?.(),
+          args: sampleLog.args,
+          topic0: sampleLog.topics?.[0],
+        });
+      }
   }
 
   // 5) raw logs query (no event decoding) to prove whether address emitted ANY logs

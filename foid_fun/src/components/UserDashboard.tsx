@@ -1,37 +1,221 @@
 "use client";
 
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount } from "wagmi";
 import { ConnectWalletPrompt } from "./ConnectWalletPrompt";
 import { UserStatsSection } from "./UserStatsSection";
 import { UserPlacementsSection } from "./UserPlacementsSection";
 import { VotingActivitySection } from "./VotingActivitySection";
 import { useUserStats } from "@/hooks/useUserStats";
-import { useUserPlacements } from "@/hooks/useUserPlacements";
+import { useUserPlacements, type Placement } from "@/hooks/useUserPlacements";
 import { useUserVotingActivity } from "@/hooks/useUserVotingActivity";
+import { shouldFetchOnce } from "@/lib/requestGuard";
 
-/**
- * UserDashboard - Main dashboard component for displaying user stats and activity
- *
- * Shows different views based on wallet connection state:
- * - Disconnected: ConnectWalletPrompt with CTA
- * - Connected: Full dashboard with stats, placements, and voting activity
- *
- * Layout is optimized to fit in the left vista-window panel with proper scrolling
- */
-export function UserDashboard() {
+type ManifestLatestResponse = {
+  cid: string | null;
+  placementsIndex: Record<string, true>;
+  fetchedAt: number;
+  epoch: number | null;
+  sourceUsed: string | null;
+  resolverDebug: unknown | null;
+  error: string | null;
+  manifest: { placements?: Array<{ id?: string | null }> } | null;
+};
+
+const VOTING_WINDOW_SECONDS = 72 * 60 * 60;
+
+function buildIndexFromManifest(manifest: ManifestLatestResponse["manifest"]) {
+  const out: Record<string, true> = {};
+  const placements = manifest?.placements;
+  if (!Array.isArray(placements)) return out;
+  for (const placement of placements) {
+    const id = placement?.id;
+    if (typeof id === "string" && id) {
+      out[id] = true;
+    }
+  }
+  return out;
+}
+
+function basePlacementId(id?: string | null): string | null {
+  if (!id || !id.includes("-")) return null;
+  const [head] = id.split("-");
+  if (!head) return null;
+  return head.startsWith("0x") ? head : null;
+}
+
+function isCanonized(placement: Placement, manifestIndex: Record<string, true>) {
+  const raw = placement.placementId ?? placement.id ?? null;
+  const base = basePlacementId(raw);
+  return Boolean((raw && manifestIndex[raw]) || (base && manifestIndex[base]));
+}
+
+function isVotingNow(placement: Placement, nowSec: number) {
+  if (placement.isVotable) return true;
+
+  const voteEndsAt = Number(placement.voteEndsAt ?? 0);
+  const registeredAt = Number(placement.registeredAt ?? 0);
+
+  if (voteEndsAt > 0) return nowSec < voteEndsAt;
+  if (registeredAt > 0) return nowSec < registeredAt + VOTING_WINDOW_SECONDS;
+
+  return false;
+}
+
+function derivePlacementStatus(
+  placement: Placement,
+  manifestIndex: Record<string, true>,
+  nowSec: number
+) {
+  const raw = placement.placementId ?? placement.id ?? null;
+  const base = basePlacementId(raw);
+
+  if (isCanonized(placement, manifestIndex)) {
+    return "canonized" as const;
+  }
+
+  if (isVotingNow(placement, nowSec)) {
+    return "voting" as const;
+  }
+
+  if (
+    process.env.NODE_ENV !== "production" &&
+    raw &&
+    base &&
+    manifestIndex[base]
+  ) {
+    console.info(
+      `[UserDashboard] placement ${raw} derived rejected but manifest contains ${base}`
+    );
+  }
+
+  return "rejected" as const;
+}
+
+export const UserDashboard = memo(function UserDashboard() {
   const { address, isConnected } = useAccount();
   const { stats, isLoading: statsLoading, error: statsError } = useUserStats(address);
-  const { placements, isLoading: placementsLoading } = useUserPlacements(address);
+  const { placements, isLoading: placementsLoading, refresh: refreshPlacements } =
+    useUserPlacements(address);
   const {
     votesThisEpoch,
     currentEpoch,
     isLoading: votesLoading,
     totalVotes,
     recentVotes,
-  } = useUserVotingActivity(address);
+    error: votesError,
+    refresh: refreshVotes,
+    hasFetched: votesLoaded,
+  } = useUserVotingActivity(address, { enabled: false });
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshAt, setLastRefreshAt] = useState<number | null>(null);
+  const [manifestIndex, setManifestIndex] = useState<Record<string, true>>({});
+  const [manifestLoading, setManifestLoading] = useState(false);
+  const [manifestError, setManifestError] = useState<string | null>(null);
+
+  const manifestControllerRef = useRef<AbortController | null>(null);
+
+  const loadManifest = useCallback(async () => {
+    manifestControllerRef.current?.abort();
+    const controller = new AbortController();
+    manifestControllerRef.current = controller;
+
+    setManifestLoading(true);
+    setManifestError(null);
+
+    try {
+      const res = await fetch("/api/manifest/latest", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        throw new Error(`manifest ${res.status}`);
+      }
+
+      const data = (await res.json()) as ManifestLatestResponse;
+      if (controller.signal.aborted) return;
+
+      const indexFromPayload =
+        data?.placementsIndex && typeof data.placementsIndex === "object"
+          ? data.placementsIndex
+          : {};
+      const fallbackIndex = buildIndexFromManifest(data?.manifest ?? null);
+      const resolvedIndex =
+        Object.keys(indexFromPayload).length > 0 ? indexFromPayload : fallbackIndex;
+
+      setManifestIndex(resolvedIndex);
+      setManifestError(data?.error ?? null);
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const message = error instanceof Error ? error.message : String(error);
+      setManifestError(message);
+      setManifestIndex({});
+    } finally {
+      if (!controller.signal.aborted) {
+        setManifestLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      manifestControllerRef.current?.abort();
+    };
+  }, []);
+
+  const loadDashboardData = useCallback(async () => {
+    if (!address) return;
+    setIsRefreshing(true);
+    try {
+      await Promise.allSettled([refreshPlacements(), loadManifest()]);
+      setLastRefreshAt(Date.now());
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [address, refreshPlacements, loadManifest]);
+
+  useEffect(() => {
+    if (!address) {
+      setManifestIndex({});
+      setManifestError(null);
+      return;
+    }
+
+    const guardKey = `dashboard:init:${address}`;
+    if (!shouldFetchOnce(guardKey, 25_000)) {
+      return;
+    }
+
+    void loadDashboardData();
+  }, [address, loadDashboardData]);
+
+  const placementsWithStatus = useMemo(() => {
+    if (!placements.length) return [];
+    const nowSec = Math.floor(Date.now() / 1000);
+    return placements.map((placement) => ({
+      ...placement,
+      status: derivePlacementStatus(placement, manifestIndex, nowSec),
+    }));
+  }, [placements, manifestIndex]);
+
+  const sortedPlacements = useMemo(
+    () => [...placementsWithStatus].sort((a, b) => b.epoch - a.epoch),
+    [placementsWithStatus]
+  );
+
+  const isLoading = placementsLoading || statsLoading || manifestLoading;
 
   if (!isConnected || !address) {
     return <ConnectWalletPrompt />;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-cyan-400 text-lg animate-pulse">Loading your dashboard...</div>
+      </div>
+    );
   }
 
   return (
@@ -39,20 +223,32 @@ export function UserDashboard() {
       <div className="custom-scrollbar flex-1 space-y-6 overflow-y-auto px-4 py-6">
         <UserStatsSection
           stats={stats}
-          placements={placements}
+          placements={sortedPlacements}
           totalVotes={totalVotes}
           isLoading={statsLoading}
           error={statsError}
         />
-        <UserPlacementsSection placements={placements} isLoading={placementsLoading} />
+        {manifestError && (
+          <div className="text-xs text-amber-300/80">manifest: {manifestError}</div>
+        )}
+        <UserPlacementsSection
+          placements={sortedPlacements}
+          isLoading={placementsLoading}
+          onRefresh={loadDashboardData}
+          isRefreshing={isRefreshing}
+          lastRefreshAt={lastRefreshAt}
+        />
         <VotingActivitySection
           votesThisEpoch={votesThisEpoch}
           currentEpoch={currentEpoch}
           totalVotes={totalVotes}
           recentVotes={recentVotes}
           isLoading={votesLoading}
+          hasLoaded={votesLoaded}
+          error={votesError}
+          onLoadVotes={refreshVotes}
         />
       </div>
     </div>
   );
-}
+});

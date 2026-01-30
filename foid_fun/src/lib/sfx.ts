@@ -37,6 +37,18 @@ const TYPING_VOLUME = 0.4;
 let ctx: AudioContext | null = null;
 let unlocked = false;
 let fallbackMode = false;
+const unlockedListeners = new Set<(value: boolean) => void>();
+
+function notifyUnlockedListeners() {
+  if (unlockedListeners.size === 0) return;
+  for (const listener of unlockedListeners) {
+    try {
+      listener(unlocked);
+    } catch {
+      /* ignore listener failures */
+    }
+  }
+}
 
 const buffers: Partial<Record<SfxKey, AudioBuffer>> = {};
 const pendingLoads: Partial<Record<SfxKey, Promise<void>>> = {};
@@ -160,6 +172,7 @@ export async function init(): Promise<void> {
 export async function unlock(): Promise<void> {
   if (!isBrowser) return;
   unlocked = true;
+  notifyUnlockedListeners();
   if (fallbackMode) return;
   const ac = ensureCtx();
   try {
@@ -351,6 +364,18 @@ export const background = {
 
 export async function isUnlocked(): Promise<boolean> { return unlocked; }
 
+export function subscribeUnlocked(listener: (value: boolean) => void): () => void {
+  unlockedListeners.add(listener);
+  try {
+    listener(unlocked);
+  } catch {
+    /* ignore listener errors */
+  }
+  return () => {
+    unlockedListeners.delete(listener);
+  };
+}
+
 const sfx = {
   init,
   unlock,
@@ -361,6 +386,7 @@ const sfx = {
   playTypingTick,
   background,
   isUnlocked,
+  subscribeUnlocked,
 };
 
 export default sfx;

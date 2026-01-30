@@ -35,6 +35,18 @@ export async function POST(req: Request) {
       args: [],
     })) as `0x${string}`;
 
+    // Admin-only endpoint - regular users should register via their wallet
+    // by calling registerPlacement() directly from the frontend
+    if (boardAdmin.toLowerCase() !== votingAdminClient.account.address.toLowerCase()) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Admin only. Users should register placements via their wallet by calling registerPlacement() directly."
+        },
+        { status: 403 }
+      );
+    }
+
     let startsAt = 0n;
     let endsAt = 0n;
     let finalized = false;
@@ -94,10 +106,9 @@ export async function POST(req: Request) {
       const votingStartsAt = now - 60n;
       const votingEndsAt = now + 3n * 24n * 60n * 60n;
 
-      if (boardAdmin.toLowerCase() === votingAdminClient.account.address.toLowerCase()) {
-        const txHash = await configureEpochOnChain(epoch, votingStartsAt, votingEndsAt);
-        await fluentPublicClient.waitForTransactionReceipt({ hash: txHash });
-      }
+      // Admin check already done at the beginning - we can proceed
+      const txHash = await configureEpochOnChain(epoch, votingStartsAt, votingEndsAt);
+      await fluentPublicClient.waitForTransactionReceipt({ hash: txHash });
     }
 
     if (!finalized) {
@@ -108,7 +119,8 @@ export async function POST(req: Request) {
         args: [epoch, placement],
       });
 
-      if (!isPending && boardAdmin.toLowerCase() === votingAdminClient.account.address.toLowerCase()) {
+      if (!isPending) {
+        // Admin check already done at the beginning - we can proceed
         const txHash = await registerPendingPlacementOnChain(epoch, placement);
         await fluentPublicClient.waitForTransactionReceipt({ hash: txHash });
       }

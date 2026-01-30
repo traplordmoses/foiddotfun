@@ -1,11 +1,19 @@
+// Import canonical addresses and config as single source of truth
+import {
+  CANONICAL_ADDRESSES,
+  CHAIN_ID,
+  RPC_URL as CANONICAL_RPC_URL,
+  DEPLOY_BLOCK as CANONICAL_DEPLOY_BLOCK,
+} from "@/config/canonical";
+
 const DEFAULT_CONTRACTS = {
   PRAYER_REGISTRY: "0x6FC7301fad7Ca0294152b23FD4f0467200376d65",
   PRAYER_MIRROR: "0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF",
-  LOREBOARD_BOARD: "0xE41B2D418C09Ea928E4F657ED2438f5D01472105",
-  LOREBOARD_TREASURY: "0x4A777d8650b3FA2419377F4ffeF0EF8007151536",
-  LOREBOARD_VOTING: "0xEbf065A7ca3917BB5e669982e8C6954cC27A7075",
-  LOREBOARD_MANIFEST_STORE: "0xeE469D8F9BB2Ace861AA689dE53c016871ad3D10",
-  VOTING_POWER: "0xCCf0ac9c66a68FCb8c438C697EdA87D9766f1Be5",
+  LOREBOARD_BOARD: CANONICAL_ADDRESSES.board,
+  LOREBOARD_TREASURY: CANONICAL_ADDRESSES.treasury,
+  LOREBOARD_VOTING: CANONICAL_ADDRESSES.voting,
+  LOREBOARD_MANIFEST_STORE: CANONICAL_ADDRESSES.manifestStore,
+  VOTING_POWER: CANONICAL_ADDRESSES.votingPowerSource,
 } as const;
 
 export const CONTRACTS = {
@@ -20,22 +28,13 @@ export const CONTRACTS = {
 } as const;
 
 export const CHAIN_CONFIG = {
-  id: 20994,
+  id: CHAIN_ID, // Use canonical chain ID
   name: "Fluent Testnet",
-  rpcUrl: "https://rpc.testnet.fluent.xyz",
+  rpcUrl: CANONICAL_RPC_URL,
   blockExplorer: "https://testnet.fluentscan.xyz",
 } as const;
 
 export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? CHAIN_CONFIG.rpcUrl;
 
-export const DEPLOY_BLOCK: bigint =
-  process.env.NEXT_PUBLIC_DEPLOY_BLOCK
-    ? BigInt(process.env.NEXT_PUBLIC_DEPLOY_BLOCK)
-    : 16322309n;
-
-if (process.env.NODE_ENV !== "production" && !process.env.NEXT_PUBLIC_DEPLOY_BLOCK) {
-  console.warn(
-    "[config] NEXT_PUBLIC_DEPLOY_BLOCK not set; defaulting to",
-    DEPLOY_BLOCK.toString()
-  );
-}
+// Use canonical deploy block
+export const DEPLOY_BLOCK: bigint = CANONICAL_DEPLOY_BLOCK;

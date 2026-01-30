@@ -1,6 +1,6 @@
 "use client";
 
-import type { PublicClient, AbiEvent, Log } from "viem";
+import type { Address, AbiEvent, Log, PublicClient } from "viem";
 import { getLogsChunked } from "@/lib/viem/getLogsChunked";
 import { DEPLOY_BLOCK } from "@/lib/contracts/addresses";
 
@@ -9,9 +9,9 @@ const DEFAULT_MAX_WINDOWS = 60;
 
 export async function findFirstLogBlock(params: {
   client: PublicClient;
-  address: `0x${string}`;
+  address: Address;
   event: AbiEvent;
-  args?: Record<string, any>;
+  args?: Record<string, unknown>;
   latestBlock: bigint;
   windowSize?: bigint;
   maxWindows?: number;
@@ -59,7 +59,7 @@ export async function findFirstLogBlock(params: {
     const offset = BigInt(i) * windowSize;
     if (offset > latestBlock) break;
 
-    let end = latestBlock - offset;
+    const end = latestBlock - offset;
     if (end < floorBlock) {
       break;
     }
@@ -78,9 +78,16 @@ export async function findFirstLogBlock(params: {
     });
 
     if (logs.length > 0) {
-      const minBlock = logs.reduce(
-        (min, log) => (log.blockNumber < min ? log.blockNumber : min),
-        logs[0].blockNumber
+      const blockNumbers = logs
+        .map((log) => log.blockNumber)
+        .filter((value): value is bigint => typeof value === "bigint");
+      if (blockNumbers.length === 0) {
+        continue;
+      }
+
+      const minBlock = blockNumbers.reduce(
+        (min, value) => (value < min ? value : min),
+        blockNumbers[0]
       );
 
       if (cacheKey && storage) {

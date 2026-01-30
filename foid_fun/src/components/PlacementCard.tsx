@@ -60,6 +60,8 @@ export function PlacementCard({ placement, onOpen, frameStyle }: Props) {
           src={src}
           alt={name ?? ""}
           className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+          loading="lazy"
+          decoding="async"
           onError={handleError}
           referrerPolicy="no-referrer"
         />

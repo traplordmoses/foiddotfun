@@ -2,130 +2,201 @@ import { NextResponse } from "next/server";
 import { LOREBOARD_MANIFEST_STORE_ADDRESS } from "@/config/contracts";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 import { DEPLOY_BLOCK } from "@/lib/viem";
-import { currentEpoch } from "@/lib/epoch";
 import {
   type LatestManifestAnchor,
   createManifestStoreClient,
   resolveLatestManifestCid,
 } from "@/lib/manifestStore";
+import type { BoardManifest } from "@/types/manifest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
-const rpcUrl = process.env.NEXT_PUBLIC_FLUENT_RPC ?? "";
-const cacheHeaders = {
-  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+const RPC_URL = process.env.NEXT_PUBLIC_FLUENT_RPC ?? "";
+const CACHE_TTL_MS = 45_000;
+const CACHE_HEADERS = {
+  "Cache-Control": "no-store, max-age=0, must-revalidate, proxy-revalidate",
   Pragma: "no-cache",
   Expires: "0",
 };
 
-function respond(payload: unknown, status = 200) {
-  return NextResponse.json(payload, { status, headers: cacheHeaders });
+type ManifestPayload = {
+  cid: string | null;
+  manifest: BoardManifest | null;
+  placementsIndex: Record<string, true>;
+  fetchedAt: number;
+  epoch: number | null;
+  sourceUsed: string | null;
+  resolverDebug: LatestManifestAnchor["debug"] | null;
+  error: string | null;
+};
+
+const manifestCache: {
+  entry: ManifestPayload | null;
+  ongoing: Promise<ManifestPayload> | null;
+} = {
+  entry: null,
+  ongoing: null,
+};
+
+function respond(payload: ManifestPayload) {
+  return NextResponse.json(payload, { headers: CACHE_HEADERS });
 }
 
-async function fetchManifest(cid: string) {
-  const urls = ipfsToHttp(cid);
-  for (const url of urls) {
+function buildPlacementsIndex(manifest: BoardManifest | null) {
+  const index: Record<string, true> = {};
+  if (!manifest?.placements?.length) return index;
+  for (const placement of manifest.placements) {
+    if (placement?.id) {
+      index[placement.id] = true;
+    }
+  }
+  return index;
+}
+
+async function fetchManifestJson(cid: string) {
+  for (const url of ipfsToHttp(cid)) {
     try {
       const res = await fetch(url, { cache: "no-store" });
-      if (res.ok) return await res.json();
+      if (!res.ok) continue;
+      return (await res.json()) as BoardManifest;
     } catch {
-      /* ignore and try the next gateway */
+      // try next gateway
     }
   }
   return null;
 }
 
-export async function GET() {
+async function resolveManifestFromChain(): Promise<ManifestPayload> {
+  const fallback: ManifestPayload = {
+    cid: null,
+    manifest: null,
+    placementsIndex: {},
+    fetchedAt: Date.now(),
+    epoch: null,
+    sourceUsed: null,
+    resolverDebug: null,
+    error: "manifest store not configured",
+  };
+
+  if (!RPC_URL || !LOREBOARD_MANIFEST_STORE_ADDRESS) {
+    return fallback;
+  }
+
   try {
-    let latest: LatestManifestAnchor = {
-      epoch: null,
-      cid: null,
-      manifestRoot: null,
-      sourceUsed: "none",
-      debug: {
-        getterError: null,
-        logsError: null,
-        fromBlock: null,
-        logCount: null,
-      },
-    };
+    const client = createManifestStoreClient(RPC_URL);
+    const fromBlock = DEPLOY_BLOCK > 0n ? DEPLOY_BLOCK : undefined;
+    const latest = await resolveLatestManifestCid({
+      client,
+      manifestStore: LOREBOARD_MANIFEST_STORE_ADDRESS,
+      ...(fromBlock ? { fromBlock } : {}),
+      strict: true,
+    });
 
-    if (rpcUrl && LOREBOARD_MANIFEST_STORE_ADDRESS) {
-      const client = createManifestStoreClient(rpcUrl);
-      const fromBlock = DEPLOY_BLOCK > 0n ? DEPLOY_BLOCK : undefined;
-      latest = await resolveLatestManifestCid({
-        client,
-        manifestStore: LOREBOARD_MANIFEST_STORE_ADDRESS,
-        ...(fromBlock ? { fromBlock } : {}),
-        strict: true,
-      });
-    }
-
-    const epochNum = latest.epoch ?? null;
+    const epoch = latest.epoch ?? null;
     const normalizedCid = latest.cid ?? null;
-    const normalizedRoot = latest.manifestRoot ?? null;
 
-    if (process.env.NODE_ENV !== "production") {
-      console.log("[/api/manifest/latest] resolved", {
-        manifestStoreAddr: LOREBOARD_MANIFEST_STORE_ADDRESS ?? null,
-        sourceUsed: latest.sourceUsed,
-        epoch: epochNum ?? 0,
-        cid: normalizedCid,
-        manifestRoot: normalizedRoot,
-      });
-    }
-
-    if (!normalizedCid || !epochNum) {
-      return respond({
-        currentEpoch: currentEpoch(),
-        latestFinalizedEpoch: null,
-        latestFinalizedCid: null,
-        latestFinalizedManifestRoot: null,
+    if (!normalizedCid) {
+      return {
+        ...fallback,
+        epoch,
         sourceUsed: latest.sourceUsed,
         resolverDebug: latest.debug,
-        epoch: 0,
-        cid: null,
-        manifestCID: null,
-        count: 0,
-        manifest: null,
-      });
+        error: "manifest CID is missing",
+      };
     }
 
-    const manifestRaw = await fetchManifest(normalizedCid);
+    const manifestRaw = await fetchManifestJson(normalizedCid);
     if (!manifestRaw) {
-      return respond(
-        { error: "failed to fetch manifest from IPFS" },
-        502
-      );
+      return {
+        ...fallback,
+        epoch,
+        sourceUsed: latest.sourceUsed,
+        resolverDebug: latest.debug,
+        error: "failed to fetch manifest from IPFS",
+      };
     }
 
-    const placements =
-      manifestRaw?.placements ?? manifestRaw?.winners ?? [];
-    const manifest =
-      manifestRaw && !manifestRaw.placements
-        ? { ...manifestRaw, placements }
-        : manifestRaw;
+    const placements = Array.isArray(manifestRaw.placements)
+      ? manifestRaw.placements
+      : [];
+    const normalizedManifest: BoardManifest = {
+      epoch: Number(manifestRaw.epoch ?? epoch ?? 0) || 0,
+      width: manifestRaw.width,
+      height: manifestRaw.height,
+      cells: manifestRaw.cells,
+      renderCid: manifestRaw.renderCid,
+      finalizedAt: manifestRaw.finalizedAt,
+      placements,
+    };
 
-    return respond({
-      currentEpoch: currentEpoch(),
-      latestFinalizedEpoch: epochNum,
-      latestFinalizedCid: normalizedCid,
-      latestFinalizedManifestRoot: normalizedRoot,
+    const payload: ManifestPayload = {
+      cid: normalizedCid,
+      manifest: normalizedManifest,
+      placementsIndex: buildPlacementsIndex(normalizedManifest),
+      fetchedAt: Date.now(),
+      epoch,
       sourceUsed: latest.sourceUsed,
       resolverDebug: latest.debug,
-      epoch: epochNum,
-      cid: normalizedCid,
-      manifestCID: normalizedCid,
-      count: Array.isArray(placements) ? placements.length : 0,
-      manifest,
+      error: null,
+    };
+
+    return payload;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      ...fallback,
+      error: `manifest resolution failed: ${message}`,
+    };
+  }
+}
+
+async function loadManifestPayload() {
+  if (manifestCache.entry && Date.now() - manifestCache.entry.fetchedAt < CACHE_TTL_MS) {
+    return manifestCache.entry;
+  }
+
+  if (!manifestCache.ongoing) {
+    manifestCache.ongoing = resolveManifestFromChain().finally(() => {
+      manifestCache.ongoing = null;
     });
-  } catch (err) {
-    console.error("[/api/manifest/latest] error", err);
-    return respond(
-      { error: "failed to load latest manifest" },
-      500
-    );
+  }
+
+  const payload = await manifestCache.ongoing;
+  if (!payload.error) {
+    manifestCache.entry = payload;
+  }
+
+  return payload;
+}
+
+export async function GET() {
+  try {
+    const payload = await loadManifestPayload();
+    if (payload.error && manifestCache.entry) {
+      return respond({
+        ...manifestCache.entry,
+        error: payload.error,
+      });
+    }
+    return respond(payload);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (manifestCache.entry) {
+      return respond({
+        ...manifestCache.entry,
+        error: `manifest load failed: ${message}`,
+      });
+    }
+    return respond({
+      cid: null,
+      manifest: null,
+      placementsIndex: {},
+      fetchedAt: Date.now(),
+      epoch: null,
+      sourceUsed: null,
+      resolverDebug: null,
+      error: `manifest load failed: ${message}`,
+    });
   }
 }
