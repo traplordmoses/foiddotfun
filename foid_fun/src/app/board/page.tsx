@@ -532,7 +532,7 @@ function BoardPageContent() {
     if (typeof window !== "undefined" && window.localStorage.getItem("mifoid-board-unlocked") === "1") {
       setUnlocked(true);
     }
-  }, [REQUIRES_BOARD_PASSWORD]);
+  }, []);
 
   const handleUnlock = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -546,7 +546,7 @@ function BoardPageContent() {
       window.localStorage?.setItem("mifoid-board-unlocked", "1");
       sfx.unlock?.();
     } else setPwError("incorrect password");
-  }, [pwInput, REQUIRES_BOARD_PASSWORD]);
+  }, [pwInput]);
 
   // Pan/zoom - smooth infinite
   const [scale, setScale] = useState(1);
@@ -970,7 +970,7 @@ function BoardPageContent() {
         if (!alive) return;
         setProposals(normalizeProposals(response.proposals));
         setProposalDebug(response.debug ?? null);
-      } catch (err) {
+      } catch {
         if (!alive) return;
         setProposals([]);
         setProposalDebug(null);
@@ -1063,7 +1063,7 @@ function BoardPageContent() {
         const response = await listProposals();
         setProposals(normalizeProposals(response.proposals));
         setProposalDebug(response.debug ?? null);
-      } catch (err) {
+      } catch {
         setProposalDebug(null);
       }
       addStatus("All proposals submitted!", "success");

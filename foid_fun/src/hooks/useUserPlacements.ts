@@ -20,7 +20,7 @@ export interface Placement {
   registeredAt: number | null;
   voteEndsAt: number | null;
   isVotable: boolean;
-  status: "canonized" | "voting" | "rejected";
+  status: "canonized" | "voting" | "rejected" | "proposed" | "expired";
   votes?: { yes: number; total: number };
 }
 
@@ -35,34 +35,35 @@ export function useUserPlacements(address: `0x${string}` | undefined) {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   };
 
-  const normalizeProposals = useCallback((json: any): Placement[] => {
-    const proposals = (json?.proposals ?? []) as any[];
-    const mapped: Placement[] = proposals.map((p) => {
+  const normalizeProposals = useCallback((json: unknown): Placement[] => {
+    const proposals = (json && typeof json === "object" && "proposals" in json ? json.proposals : []) as unknown[];
+    const mapped: Placement[] = proposals.map((item) => {
+      const p = item as Record<string, unknown>;
       const cid =
         typeof p.cid === "string" && p.cid
           ? p.cid
           : typeof p.cidHash === "string" && p.cidHash
           ? p.cidHash
           : null;
-      const imageUrl = toIpfsHttpUrl(cid ?? p.imageUrl ?? null);
+      const imageUrl = toIpfsHttpUrl(cid ?? (p.imageUrl as string | null) ?? null);
 
-      const placementId = typeof p.placementId === "string" && p.placementId ? p.placementId : p.id;
+      const placementId = typeof p.placementId === "string" && p.placementId ? p.placementId : (p.id as string);
 
       return {
-        id: p.id,
+        id: p.id as string,
         placementId,
-        epoch: Number(p.epochSubmitted ?? p.epoch ?? 0),
-        x: Number(p.rect?.x ?? p.x ?? 0),
-        y: Number(p.rect?.y ?? p.y ?? 0),
-        w: Number(p.rect?.w ?? p.w ?? 0),
-        h: Number(p.rect?.h ?? p.h ?? 0),
+        epoch: Number((p.epochSubmitted ?? p.epoch) ?? 0),
+        x: Number((p.rect as Record<string, unknown> | undefined)?.x ?? p.x ?? 0),
+        y: Number((p.rect as Record<string, unknown> | undefined)?.y ?? p.y ?? 0),
+        w: Number((p.rect as Record<string, unknown> | undefined)?.w ?? p.w ?? 0),
+        h: Number((p.rect as Record<string, unknown> | undefined)?.h ?? p.h ?? 0),
         bidPerCellWei: String(p.bidPerCellWei ?? "0"),
         cidHash: String(p.cidHash ?? ""),
         cid,
         imageUrl,
-        registeredAt: toNumberOrNull(p.registeredAt ?? p.time ?? null),
+        registeredAt: toNumberOrNull((p.registeredAt ?? p.time) ?? null),
         voteEndsAt: toNumberOrNull(p.voteEndsAt ?? null),
-        title: p.title ?? null,
+        title: (p.title as string | null) ?? null,
         isVotable: Boolean(p.isVotable),
         status: (p.status ?? "voting") as Placement["status"],
         votes:

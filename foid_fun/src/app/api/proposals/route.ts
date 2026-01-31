@@ -34,6 +34,17 @@ const cidGetterAbi = parseAbi([`function ${GETTER_NAME}(bytes32) view returns (b
 
 const client = publicClient;
 
+type VoteRecord = {
+  placementId: string;
+  support: boolean;
+  weight: string | number;
+};
+
+type PendingRecord = {
+  placementId: string;
+  voteEndsAt?: number | string;
+};
+
 function extractCidFromString(s: string): string | null {
   const looksLikeCid = (x: string) =>
     /^Qm[1-9A-HJ-NP-Za-km-z]{44}$/.test(x) || /^bafy[1-9A-HJ-NP-Za-km-z]+$/.test(x);
@@ -288,7 +299,7 @@ async function resolveCidMapFromChain(
     return {
       address,
       abi: cidGetterAbi,
-      functionName: GETTER_NAME as any,
+      functionName: GETTER_NAME as "cidOf",
       args: [u.cidHash] as const,
     };
   });
@@ -348,7 +359,7 @@ export async function GET(request: NextRequest) {
         manifestIndex = manifestData.placementsIndex || {};
         console.log("[api/proposals] 📋 Loaded manifest with", Object.keys(manifestIndex).length, "canonized placements");
       }
-    } catch (err) {
+    } catch {
       console.warn("[api/proposals] ⚠️ Failed to load manifest, assuming all non-voting proposals are votable");
     }
 
@@ -415,9 +426,10 @@ const votingQuery = `
     const pending = votingData.data?.pendingPlacementRegistereds || [];
     const votes = votingData.data?.voteCasts || [];
     const pendingByPlacement = new Map<string, typeof pending[0]>();
-    pending.forEach((entry: any) => {
-      if (entry?.placementId) {
-        pendingByPlacement.set(entry.placementId, entry);
+    pending.forEach((entry: unknown) => {
+      const record = entry as PendingRecord;
+      if (record?.placementId) {
+        pendingByPlacement.set(record.placementId, record);
       }
     });
 
@@ -426,10 +438,10 @@ const votingQuery = `
 
     // DEBUG: Log first few entries to see ID format
     if (pending.length > 0) {
-      console.log("[api/proposals] 🔍 Sample pending IDs:", pending.slice(0, 3).map((p: any) => p.placementId));
+      console.log("[api/proposals] 🔍 Sample pending IDs:", (pending as PendingRecord[]).slice(0, 3).map((p) => p.placementId));
     }
     if (placements.length > 0) {
-      console.log("[api/proposals] 🔍 Sample placement IDs:", placements.slice(0, 3).map((p: any) => p.id));
+      console.log("[api/proposals] 🔍 Sample placement IDs:", placements.slice(0, 3).map((p: unknown) => (p as { id: string }).id));
     }
 
     let resolvedFromMulticall = 0;
@@ -484,15 +496,15 @@ const votingQuery = `
         const registeredAt = toFiniteNumber(pendingRecord?.registeredAt);
         const voteEndsAt = toFiniteNumber(pendingRecord?.voteEndsAt);
         const isPending = Boolean(pendingRecord);
-        const placementVotes = votes.filter((v: any) => v.placementId === placementId);
+        const placementVotes = (votes as VoteRecord[]).filter((v) => v.placementId === placementId);
 
         const yesVotes = placementVotes
-          .filter((v: any) => v.support)
-          .reduce((sum: number, v: any) => sum + Number(v.weight), 0);
+          .filter((v) => v.support)
+          .reduce((sum: number, v) => sum + Number(v.weight), 0);
 
         const noVotes = placementVotes
-          .filter((v: any) => !v.support)
-          .reduce((sum: number, v: any) => sum + Number(v.weight), 0);
+          .filter((v) => !v.support)
+          .reduce((sum: number, v) => sum + Number(v.weight), 0);
 
         // Determine status and votability based on manifest and voting window
         // Priority:
@@ -599,8 +611,8 @@ const votingQuery = `
           epochRange:
             proposals.length > 0
               ? {
-                  min: Math.min(...proposals.map((p: any) => Number(p.epoch))),
-                  max: Math.max(...proposals.map((p: any) => Number(p.epoch))),
+                  min: Math.min(...proposals.map((p: { epoch?: number | string }) => Number(p.epoch ?? 0))),
+                  max: Math.max(...proposals.map((p: { epoch?: number | string }) => Number(p.epoch ?? 0))),
                 }
               : null,
           urls: { BOARD_V1_URL, BOARD_V2_URL, VOTING_URL },

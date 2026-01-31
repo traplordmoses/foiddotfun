@@ -22,7 +22,6 @@ type ManifestLatestResponse = {
   manifest: { placements?: Array<{ id?: string | null }> } | null;
 };
 
-const VOTING_WINDOW_SECONDS = 72 * 60 * 60;
 
 function buildIndexFromManifest(manifest: ManifestLatestResponse["manifest"]) {
   const out: Record<string, true> = {};
@@ -50,28 +49,22 @@ function isCanonized(placement: Placement, manifestIndex: Record<string, true>) 
   return Boolean((raw && manifestIndex[raw]) || (base && manifestIndex[base]));
 }
 
-function isVotingNow(placement: Placement, nowSec: number) {
-  if (placement.isVotable) return true;
-
-  const voteEndsAt = Number(placement.voteEndsAt ?? 0);
-  const registeredAt = Number(placement.registeredAt ?? 0);
-
-  if (voteEndsAt > 0) return nowSec < voteEndsAt;
-  if (registeredAt > 0) return nowSec < registeredAt + VOTING_WINDOW_SECONDS;
-
-  return false;
-}
 
 function derivePlacementStatus(
   placement: Placement,
   manifestIndex: Record<string, true>
 ) {
-  // Only override status if placement is canonized
+  // Override status if placement is canonized
   if (isCanonized(placement, manifestIndex)) {
     return "canonized" as const;
   }
 
-  // Otherwise trust the API's status field
+  // Map API status "proposed" to "canonized" for display
+  if (placement.status === "proposed") {
+    return "canonized" as const;
+  }
+
+  // Otherwise use the API's status field
   return placement.status;
 }
 

@@ -50,23 +50,25 @@ export function useUserVotingActivity(
   const fetchKeyRef = useRef<string | null>(null);
   const { enabled = true } = options;
 
-  const normalizeRecentVotes = (payload: any): VoteRecord[] =>
-    (payload?.recentVotes ?? []).map((vote: any) => ({
-      id: vote.id,
-      epochId: Number(vote.epochId ?? 0),
-      placementId: vote.placementId ?? "",
-      support: Boolean(vote.support),
-      weight: String(vote.weight ?? "0"),
-      blockNumber: vote.blockNumber != null ? Number(vote.blockNumber) : null,
-      txHash: vote.txHash ?? null,
-      contractId: vote.contractId ?? null,
-      timestamp: vote.timestamp != null ? Number(vote.timestamp) : null,
+  const normalizeRecentVotes = (payload: unknown): VoteRecord[] => {
+    const recentVotes = payload && typeof payload === "object" && "recentVotes" in payload ? payload.recentVotes : [];
+    return (Array.isArray(recentVotes) ? recentVotes : []).map((vote: unknown) => ({
+      id: (vote as Record<string, unknown>).id as string,
+      epochId: Number((vote as Record<string, unknown>).epochId ?? 0),
+      placementId: (vote as Record<string, unknown>).placementId as string ?? "",
+      support: Boolean((vote as Record<string, unknown>).support),
+      weight: String((vote as Record<string, unknown>).weight ?? "0"),
+      blockNumber: (vote as Record<string, unknown>).blockNumber != null ? Number((vote as Record<string, unknown>).blockNumber) : null,
+      txHash: (vote as Record<string, unknown>).txHash as string ?? null,
+      contractId: (vote as Record<string, unknown>).contractId as string ?? null,
+      timestamp: (vote as Record<string, unknown>).timestamp != null ? Number((vote as Record<string, unknown>).timestamp) : null,
     }));
+  };
 
-  const ensureVotesByEpoch = (json: any, recent: VoteRecord[]) => {
+  const ensureVotesByEpoch = (json: unknown, recent: VoteRecord[]) => {
     const votesByEpoch: Record<string, number> = {};
-    const epochSource = json?.votesByEpoch ?? {};
-    Object.entries(epochSource).forEach(([key, value]) => {
+    const epochSource = json && typeof json === "object" && "votesByEpoch" in json && typeof json.votesByEpoch === "object" ? json.votesByEpoch : {};
+    Object.entries(epochSource as Record<string, unknown>).forEach(([key, value]) => {
       votesByEpoch[key] = Number(value ?? 0);
     });
     if (!Object.keys(votesByEpoch).length) {
@@ -79,10 +81,13 @@ export function useUserVotingActivity(
   };
 
   const fetchVotes = useCallback(async () => {
-    if (!address || !currentEpoch) {
+    if (!address) {
       return;
     }
     setHasFetched(true);
+
+    // Use currentEpoch if available, otherwise use 0 as fallback
+    const epochToFetch = currentEpoch || 0;
 
     controllerRef.current?.abort();
     const controller = new AbortController();
@@ -96,7 +101,7 @@ export function useUserVotingActivity(
           cache: "no-store",
           signal: controller.signal,
         }),
-        fetch(`/api/votes?address=${address}&epoch=${currentEpoch}`, {
+        fetch(`/api/votes?address=${address}&epoch=${epochToFetch}`, {
           cache: "no-store",
           signal: controller.signal,
         }),
@@ -154,8 +159,8 @@ export function useUserVotingActivity(
       return;
     }
 
-    const key = `${address}-${currentEpoch}`;
-    if (!currentEpoch || fetchKeyRef.current === key) {
+    const key = `${address}-${currentEpoch || 0}`;
+    if (fetchKeyRef.current === key) {
       return;
     }
 

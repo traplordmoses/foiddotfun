@@ -120,6 +120,16 @@ function PlacementCard({ placement }: { placement: Placement }) {
       emoji: "❌",
       className: "status-badge--rejected",
     },
+    proposed: {
+      badge: "CANONIZED",
+      emoji: "✅",
+      className: "status-badge--canonized",
+    },
+    expired: {
+      badge: "EXPIRED",
+      emoji: "⏰",
+      className: "status-badge--rejected",
+    },
   };
   const statusConfig = statusConfigMap[statusKey] ?? statusConfigMap.voting;
 
