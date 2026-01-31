@@ -1,11 +1,12 @@
 // src/hooks/useVoteOnPlacement.ts
 import { useCallback, useMemo, useState } from "react";
-import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import { useWaitForTransactionReceipt, useWriteContract, useSwitchChain } from "wagmi";
 import {
   LOREBOARD_VOTING_ADDRESS,
   loreboardVotingAbi,
   type PlacementId,
 } from "@/contracts/loreboardVoting";
+import { TARGET_CHAIN_ID } from "@/lib/chain";
 
 type Epochish = number | bigint | undefined;
 
@@ -35,6 +36,8 @@ export function useVoteOnPlacement({ epochId, placementId }: UseVoteOnPlacementP
       ),
     []
   );
+
+  const { switchChainAsync } = useSwitchChain();
 
   const {
     writeContractAsync,
@@ -81,6 +84,13 @@ export function useVoteOnPlacement({ epochId, placementId }: UseVoteOnPlacementP
       throw new Error(body?.error ?? "Failed to bootstrap epoch/placement");
     }
 
+    // Switch to Fluent testnet if needed
+    try {
+      await switchChainAsync?.({ chainId: TARGET_CHAIN_ID });
+    } catch (err) {
+      console.warn("[vote] Chain switch failed or not needed:", err);
+    }
+
     const hash = await writeContractAsync(
       hasShortVote
         ? {
@@ -88,12 +98,16 @@ export function useVoteOnPlacement({ epochId, placementId }: UseVoteOnPlacementP
             abi: loreboardVotingAbi,
             functionName: "voteOnPlacement",
             args: [placementId, support],
+            chainId: TARGET_CHAIN_ID,
+            gas: BigInt(200_000), // Fallback gas limit
           }
         : {
             address: LOREBOARD_VOTING_ADDRESS,
             abi: loreboardVotingAbi,
             functionName: "voteOnPlacement",
             args: [BigInt(epochNumber ?? 0), placementId, support],
+            chainId: TARGET_CHAIN_ID,
+            gas: BigInt(200_000), // Fallback gas limit
           }
     );
     setTxHash(hash);

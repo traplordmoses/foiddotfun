@@ -108,6 +108,30 @@ export async function writeProposePlacement(args: {
   const cells = Math.max(1, cellsWide * cellsHigh);
   const value = BigInt(cells) * bidPerCellWei;
 
+  // Estimate gas with fallback
+  let gas: bigint | undefined;
+  try {
+    gas = await publicClient.estimateContractGas({
+      account: args.bidder,
+      address: BOARD,
+      abi: BoardAbiTyped,
+      functionName: "proposePlacement",
+      args: [
+        args.rect.x,
+        args.rect.y,
+        args.rect.w,
+        args.rect.h,
+        bidPerCellWei,
+        cidHex,
+      ],
+      value,
+    });
+  } catch (err) {
+    console.warn("[proposePlacement] Gas estimation failed, using fallback:", err);
+    // Fallback: 500k gas should be enough for most placements
+    gas = BigInt(500_000);
+  }
+
   const txHash = await walletClient.writeContract({
     account: args.bidder,
     address: BOARD,
@@ -122,6 +146,8 @@ export async function writeProposePlacement(args: {
       cidHex,
     ],
     value,
+    gas,
+    chain: fluentTestnet,
   });
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });

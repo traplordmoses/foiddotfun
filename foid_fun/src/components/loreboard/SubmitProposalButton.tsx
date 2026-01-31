@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useAccount, useChainId, useWriteContract } from "wagmi";
+import { useAccount, useChainId, useWriteContract, useSwitchChain } from "wagmi";
 import ABI from "@/abi/LoreboardBoardV2.json" assert { type: "json" };
 import { decodeEventLog, keccak256, toHex, type Abi } from "viem";
 import type { Rect } from "@/lib/contracts/loreboard";
@@ -54,6 +54,7 @@ export default function SubmitProposalButton({
   const { isConnected } = useAccount();
   const chainId = useChainId();
   const { writeContractAsync } = useWriteContract();
+  const { switchChainAsync } = useSwitchChain();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
@@ -126,9 +127,15 @@ export default function SubmitProposalButton({
       alert("Missing CID hash");
       return;
     }
+    // Switch to Fluent Testnet if needed
     if (mustSwitchChain) {
-      alert("Switch to Fluent Testnet (chain 20994)");
-      return;
+      try {
+        await switchChainAsync?.({ chainId: FLUENT_CHAIN_ID });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to switch chain";
+        setError(`Please switch to Fluent Testnet (chain 20994): ${message}`);
+        return;
+      }
     }
 
     const toI32 = (value: number) => Number(BigInt.asIntN(32, BigInt(value)));
@@ -163,6 +170,7 @@ export default function SubmitProposalButton({
         ],
         value,
         chainId: FLUENT_CHAIN_ID,
+        gas: BigInt(500_000), // Fallback gas limit
       });
       setTxHash(hash);
       const receipt = await publicClient.waitForTransactionReceipt({
