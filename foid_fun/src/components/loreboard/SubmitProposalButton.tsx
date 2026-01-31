@@ -176,30 +176,44 @@ export default function SubmitProposalButton({
       const receipt = await publicClient.waitForTransactionReceipt({
         hash: hash as `0x${string}`,
       });
-      const log = receipt.logs.find(
-        (entry) => entry.address.toLowerCase() === treasury.toLowerCase()
-      );
-      if (!log) throw new Error("PlacementProposed event not found");
-      const decoded = decodeEventLog({
-        abi: LoreboardAbi,
-        data: log.data,
-        topics: log.topics,
-        eventName: "PlacementProposed",
+
+      // Transaction succeeded! Try to decode the event, but don't fail if we can't
+      let proposalId: `0x${string}` | undefined;
+
+      try {
+        const log = receipt.logs.find(
+          (entry) => entry.address.toLowerCase() === treasury.toLowerCase()
+        );
+
+        if (log) {
+          const decoded = decodeEventLog({
+            abi: LoreboardAbi,
+            data: log.data,
+            topics: log.topics,
+            eventName: "PlacementProposed",
+          });
+          const eventArgs = decoded.args;
+          if (
+            typeof eventArgs === "object" &&
+            eventArgs !== null &&
+            "id" in eventArgs
+          ) {
+            const idValue = (eventArgs as Record<string, unknown>).id;
+            if (typeof idValue === "string") {
+              proposalId = idValue as `0x${string}`;
+            }
+          }
+        }
+      } catch (eventError) {
+        console.warn("Could not decode PlacementProposed event, but tx succeeded:", eventError);
+      }
+
+      // Call onSubmitted even if we couldn't parse the event
+      onSubmitted?.({
+        txHash: hash,
+        proposalId: proposalId ?? hash, // Use txHash as fallback ID
+        cid: ensuredCid
       });
-      const eventArgs = decoded.args;
-      if (
-        typeof eventArgs !== "object" ||
-        eventArgs === null ||
-        !("id" in eventArgs)
-      ) {
-        throw new Error("Placement event missing id");
-      }
-      const idValue = (eventArgs as Record<string, unknown>).id;
-      if (typeof idValue !== "string") {
-        throw new Error("Placement event id is not a string");
-      }
-      const id = idValue as `0x${string}`;
-      onSubmitted?.({ txHash: hash, proposalId: id, cid: ensuredCid });
     } catch (e: unknown) {
       console.error(e);
       const message =

@@ -1045,17 +1045,28 @@ function BoardPageContent() {
           cidBytes: new TextEncoder().encode(normalizedCid),
         });
 
-        const res = await fetch("/api/proposals", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: onChain.placementId, owner: account, cid: normalizedCid, name: it.name, mime: it.mime,
-            rect: it.rect, width: it.width, height: it.height,
-            bidPerCellWei: bidPerCellWei.toString(), cells: onChain.cells, filename: it.name,
-          }),
-        });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "Failed");
-        addStatus(`${it.name} submitted ✓`, "success");
+        // Transaction succeeded on-chain!
+        addStatus(`${it.name} on-chain ✓ (tx: ${onChain.txHash.slice(0, 10)}...)`, "success");
+
+        // Try to register with backend API, but don't fail if it errors
+        try {
+          const res = await fetch("/api/proposals", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: onChain.placementId, owner: account, cid: normalizedCid, name: it.name, mime: it.mime,
+              rect: it.rect, width: it.width, height: it.height,
+              bidPerCellWei: bidPerCellWei.toString(), cells: onChain.cells, filename: it.name,
+            }),
+          });
+          if (!res.ok) {
+            const error = (await res.json().catch(() => ({}))).error ?? "API error";
+            addStatus(`⚠️ ${it.name} backend sync failed (${error}), but it's on-chain and live!`, "info");
+          }
+        } catch (apiError) {
+          console.warn("API registration failed but transaction succeeded:", apiError);
+          addStatus(`⚠️ ${it.name} is on-chain and ready to vote - backend will sync soon!`, "info");
+        }
       }
 
       clearBoardState?.();
