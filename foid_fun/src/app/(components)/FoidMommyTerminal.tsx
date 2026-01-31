@@ -208,6 +208,8 @@ type Stage =
   | "loading"
   | "awaitFeeling"
   | "processingFeeling"
+  | "awaitSecondChat"
+  | "processingSecondChat"
   | "awaitPrayer"
   | "txPending"
   | "txSuccess"
@@ -277,12 +279,14 @@ export default function FoidMommyTerminal({
   const [messages, setMessages] = useState<Message[]>([]);
   const [feelingKey, setFeelingKey] = useState<FeelingKey | null>(null);
   const [feelingInput, setFeelingInput] = useState("");
+  const [secondChatInput, setSecondChatInput] = useState("");
   const [prayerInput, setPrayerInput] = useState("");
   const [commandInput, setCommandInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [prayerText, setPrayerText] = useState<string>("");
   const [suggestedPrayer, setSuggestedPrayer] = useState<string>("");
   const [hasAutoStarted, setHasAutoStarted] = useState(false);
+  const [initialFeelingText, setInitialFeelingText] = useState("");
 
   const logRef = useRef<HTMLDivElement | null>(null);
   const isNearBottomRef = useRef(true);
@@ -423,11 +427,13 @@ export default function FoidMommyTerminal({
     resetTimers();
     setMessages([]);
     setFeelingInput("");
+    setSecondChatInput("");
     setPrayerInput("");
     setCommandInput("");
     setFeelingKey(null);
     setPrayerText("");
     setSuggestedPrayer("");
+    setInitialFeelingText("");
 
     const bootId = addMessage("system", "booting foid mommy .");
     const dotOne = window.setTimeout(() => {
@@ -485,6 +491,7 @@ export default function FoidMommyTerminal({
       if (isProcessing) return;
       setIsProcessing(true);
       setFeelingKey(feeling);
+      setInitialFeelingText(inputText.trim());
       addMessage("user", inputText.trim());
       setStage("processingFeeling");
 
@@ -493,7 +500,7 @@ export default function FoidMommyTerminal({
       try {
         await sleep(250);
 
-        // Call AI first to get custom response and prayer
+        // Call AI to get first response with follow-up question
         const res = await fetch("/api/foid-mommy", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -504,8 +511,6 @@ export default function FoidMommyTerminal({
         });
 
         let customResponse = config.response;
-        let prayer = config.prayer;
-        let prompt = config.prompt;
 
         if (res.ok) {
           const data = await res.json();
@@ -513,36 +518,18 @@ export default function FoidMommyTerminal({
           if (typeof data.response === "string" && data.response.trim().length > 0) {
             customResponse = data.response;
           }
-          // Use custom AI prayer if available
-          if (typeof data.prayer === "string" && data.prayer.trim().length > 0) {
-            prayer = data.prayer;
-          }
         }
 
-        // Show Foid Mommy's acknowledgment (AI-generated or fallback)
+        // Show Foid Mommy's acknowledgment with follow-up question
         await typeMessage({ role: "foid", text: customResponse });
 
-        await sleep(300);
-        // Show the prayer
-        await typeMessage({ role: "foid", text: prayer, speed: 22 });
-        setSuggestedPrayer(prayer);
-
-        await sleep(400);
-        // Show the prompt
-        prompt = "if you want to add your own words, type them now—or type /mommy to use mine.";
-        await typeMessage({ role: "foid", text: prompt, speed: 22 });
-
-        setStage("awaitPrayer");
+        // Wait for user's second response
+        setStage("awaitSecondChat");
       } catch (err) {
         console.error("processFeeling error:", err);
-        // Fallback to canned responses if API fails
+        // Fallback to canned response with question
         await typeMessage({ role: "foid", text: config.response });
-        await sleep(300);
-        await typeMessage({ role: "foid", text: config.prayer, speed: 22 });
-        setSuggestedPrayer(config.prayer);
-        await sleep(400);
-        await typeMessage({ role: "foid", text: config.prompt, speed: 22 });
-        setStage("awaitPrayer");
+        setStage("awaitSecondChat");
       } finally {
         setIsProcessing(false);
       }
@@ -550,12 +537,100 @@ export default function FoidMommyTerminal({
     [addMessage, typeMessage, isProcessing],
   );
 
+  const handleSecondChat = useCallback(
+    async (userResponse: string) => {
+      if (!userResponse.trim()) return;
+      if (isProcessing) return;
+      if (!feelingKey || !initialFeelingText) return;
+
+      setIsProcessing(true);
+      addMessage("user", userResponse.trim());
+      setStage("processingSecondChat");
+
+      const config = feelingsConfig[feelingKey];
+
+      try {
+        await sleep(250);
+
+        // Call AI to get second response + prayer
+        const res = await fetch("/api/foid-mommy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            feelingKey,
+            feelingText: initialFeelingText,
+            userResponse: userResponse.trim(),
+          }),
+        });
+
+        let warmResponse = "that's beautiful, sweet one. let me craft a prayer for this moment...";
+        let prayer = config.prayer;
+
+        if (res.ok) {
+          const data = await res.json();
+          if (typeof data.response === "string" && data.response.trim().length > 0) {
+            warmResponse = data.response;
+          }
+          if (typeof data.prayer === "string" && data.prayer.trim().length > 0) {
+            prayer = data.prayer;
+          }
+        }
+
+        // Show warm response + transition
+        await typeMessage({ role: "foid", text: warmResponse, speed: 24 });
+
+        await sleep(600);
+
+        // Show the prayer
+        await typeMessage({ role: "foid", text: prayer, speed: 22 });
+        setSuggestedPrayer(prayer);
+        setPrayerText(prayer);
+
+        await sleep(800);
+
+        // Auto-submit to chain
+        await typeMessage({ role: "system", text: "hashing your prayer locally..." });
+        await sleep(600);
+        await typeMessage({ role: "system", text: "hash ready." });
+        await sleep(400);
+        await typeMessage({
+          role: "foid",
+          text: "anchoring only the hash on-chain. your prayer stays with you. 🌟",
+          speed: 20,
+        });
+        await typeMessage({
+          role: "foid",
+          text: "confirm the tx to beam it blockchain-ward, letting mifoid know mommy held your words?",
+          speed: 20,
+        });
+
+        await handleConfirm(prayer, feelingKey);
+      } catch (err) {
+        console.error("handleSecondChat error:", err);
+        // Fallback
+        await typeMessage({ role: "foid", text: "let me craft a prayer for this moment..." });
+        await sleep(500);
+        await typeMessage({ role: "foid", text: config.prayer, speed: 22 });
+        setSuggestedPrayer(config.prayer);
+        setPrayerText(config.prayer);
+        await sleep(600);
+        await handleConfirm(config.prayer, feelingKey);
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [addMessage, typeMessage, isProcessing, feelingKey, initialFeelingText, handleConfirm],
+  );
+
   const feelingLimit = 140;
   const prayerLimit = 240;
+  const secondChatLimit = 200;
   const feelingCount = feelingInput.length;
   const prayerCount = prayerInput.length;
+  const secondChatCount = secondChatInput.length;
   const feelingOverLimit = feelingCount > feelingLimit;
   const prayerOverLimit = prayerCount > prayerLimit;
+  const secondChatOverLimit = secondChatCount > secondChatLimit;
   const nowSeconds = Math.floor(Date.now() / 1000);
   const nextAllowedSecondsRaw =
     typeof nextAllowedAt === "bigint"
@@ -891,19 +966,26 @@ export default function FoidMommyTerminal({
     isProcessing ||
     stage === "txPending" ||
     stage === "processingFeeling" ||
+    stage === "processingSecondChat" ||
     stage === "loading";
 
   const currentInputValue =
     stage === "awaitFeeling"
       ? feelingInput
-      : stage === "awaitPrayer"
-        ? prayerInput
-        : commandInput;
+      : stage === "awaitSecondChat"
+        ? secondChatInput
+        : stage === "awaitPrayer"
+          ? prayerInput
+          : commandInput;
 
   const handleCommandChange = useCallback(
     (value: string) => {
       if (stage === "awaitFeeling") {
         setFeelingInput(value);
+        return;
+      }
+      if (stage === "awaitSecondChat") {
+        setSecondChatInput(value);
         return;
       }
       if (stage === "awaitPrayer") {
@@ -934,6 +1016,13 @@ export default function FoidMommyTerminal({
 
       if (stage === "awaitFeeling") {
         await handleFeelingSubmit(raw);
+        return;
+      }
+
+      if (stage === "awaitSecondChat") {
+        if (!trimmed || secondChatOverLimit) return;
+        await handleSecondChat(trimmed);
+        setSecondChatInput("");
         return;
       }
 
@@ -990,10 +1079,12 @@ export default function FoidMommyTerminal({
       handleFeelingSubmit,
       handlePrayerSubmit,
       handleRetry,
+      handleSecondChat,
       handleStart,
       inputLocked,
       nextAllowedText,
       onDailyCheckInChoice,
+      secondChatOverLimit,
       stage,
       suggestedPrayer,
     ],
@@ -1003,11 +1094,13 @@ export default function FoidMommyTerminal({
   const statusTone =
     stage === "awaitFeeling" && feelingOverLimit
       ? "foid-terminal__status foid-terminal__status--error"
-      : stage === "awaitPrayer" && prayerOverLimit
+      : stage === "awaitSecondChat" && secondChatOverLimit
         ? "foid-terminal__status foid-terminal__status--error"
-        : stage === "loading"
-          ? "foid-terminal__status foid-terminal__status--loading"
-          : "foid-terminal__status";
+        : stage === "awaitPrayer" && prayerOverLimit
+          ? "foid-terminal__status foid-terminal__status--error"
+          : stage === "loading"
+            ? "foid-terminal__status foid-terminal__status--loading"
+            : "foid-terminal__status";
 
   const statusMessage = useMemo(() => {
     switch (stage) {
@@ -1023,6 +1116,12 @@ export default function FoidMommyTerminal({
           : `TELL MOMMY HOW YOU FEEL • ${feelingCount}/${feelingLimit}`;
       case "processingFeeling":
         return "FOID MOMMY IS THINKING...";
+      case "awaitSecondChat":
+        return secondChatOverLimit
+          ? `${secondChatCount}/${secondChatLimit} — KEEP IT UNDER 200 CHARS`
+          : `SHARE WITH MOMMY • ${secondChatCount}/${secondChatLimit}`;
+      case "processingSecondChat":
+        return "CRAFTING YOUR PRAYER...";
       case "awaitPrayer":
         return prayerOverLimit
           ? `${prayerCount}/${prayerLimit} — KEEP IT UNDER 240 CHARS`
@@ -1042,6 +1141,9 @@ export default function FoidMommyTerminal({
     feelingOverLimit,
     feelingCount,
     feelingLimit,
+    secondChatOverLimit,
+    secondChatCount,
+    secondChatLimit,
     prayerOverLimit,
     prayerCount,
     prayerLimit,
@@ -1056,6 +1158,8 @@ export default function FoidMommyTerminal({
         return autoStart ? "" : "press enter to start";
       case "awaitFeeling":
         return "how are you feeling?";
+      case "awaitSecondChat":
+        return "tell mommy more...";
       case "awaitPrayer":
         return "type your prayer or press enter";
       case "txFail":

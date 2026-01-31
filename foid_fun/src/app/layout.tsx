@@ -56,7 +56,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="theme-color" content="#0e0f2b" />
       </head>
-  <body className="relative h-full min-h-screen overflow-hidden font-secondary">
+  <body className="relative h-full min-h-screen overflow-hidden font-secondary" suppressHydrationWarning>
     <AnimatedBackground />
     <FloatingElements />
     <div className="scene-tint" />
