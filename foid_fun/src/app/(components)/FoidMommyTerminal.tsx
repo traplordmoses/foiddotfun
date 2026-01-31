@@ -68,7 +68,9 @@ const feelingsConfig: Record<
       "if you want, type your own little thank-you—we'll send it together.",
     keywords: [
       "happy", "happiness", "joy", "joyful", "grateful", "gratitude",
-      "thankful", "blessed", "elated", "glad",
+      "thankful", "blessed", "elated", "glad", "amazing", "wonderful",
+      "fantastic", "great", "awesome", "good", "beautiful", "perfect",
+      "love", "loving", "excited", "thrilled", "pumped", "stoked",
     ],
   },
 
@@ -490,8 +492,8 @@ export default function FoidMommyTerminal({
 
       try {
         await sleep(250);
-        await typeMessage({ role: "foid", text: config.response });
 
+        // Call AI first to get custom response and prayer
         const res = await fetch("/api/foid-mommy", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -501,25 +503,40 @@ export default function FoidMommyTerminal({
           }),
         });
 
+        let customResponse = config.response;
         let prayer = config.prayer;
+        let prompt = config.prompt;
 
         if (res.ok) {
           const data = await res.json();
+          // Use custom AI response if available
+          if (typeof data.response === "string" && data.response.trim().length > 0) {
+            customResponse = data.response;
+          }
+          // Use custom AI prayer if available
           if (typeof data.prayer === "string" && data.prayer.trim().length > 0) {
             prayer = data.prayer;
           }
         }
 
+        // Show Foid Mommy's acknowledgment (AI-generated or fallback)
+        await typeMessage({ role: "foid", text: customResponse });
+
         await sleep(300);
+        // Show the prayer
         await typeMessage({ role: "foid", text: prayer, speed: 22 });
         setSuggestedPrayer(prayer);
 
         await sleep(400);
-        await typeMessage({ role: "foid", text: config.prompt, speed: 22 });
+        // Show the prompt
+        prompt = "if you want to add your own words, type them now—or type /mommy to use mine.";
+        await typeMessage({ role: "foid", text: prompt, speed: 22 });
 
         setStage("awaitPrayer");
       } catch (err) {
         console.error("processFeeling error:", err);
+        // Fallback to canned responses if API fails
+        await typeMessage({ role: "foid", text: config.response });
         await sleep(300);
         await typeMessage({ role: "foid", text: config.prayer, speed: 22 });
         setSuggestedPrayer(config.prayer);

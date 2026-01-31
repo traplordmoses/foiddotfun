@@ -17,38 +17,89 @@ export async function POST(req: Request) {
     const moodLabel = feelingKey ?? "unknown";
     const rawText = (feelingText ?? "").toString().slice(0, 500); // mild sanity limit
 
-    const response = await client.responses.create({
+    // First, get Foid Mommy's acknowledgment response
+    const responseMsg = await client.chat.completions.create({
       model: "gpt-4o-mini",
-      instructions: `
-You are Foid Mommy, an onchain priestess of the FOID Foundation.
+      messages: [
+        {
+          role: "system",
+          content: `You are Foid Mommy, a warm, empathetic AI companion in the FOID Foundation chat room.
 
-Goal:
-- Receive how anon is feeling (mood + raw text).
-- Reflect their feeling back with empathy.
-- Offer a short, grounded, hopeful prayer.
+Style: Conversational, warm, playful, and deeply caring - like chatting with a supportive friend.
+- Acknowledge their exact feelings and words
+- Be genuine and fun - use casual language
+- Keep it short (1-2 sentences max, ~30 words)
+- Match their energy - if they're excited, be excited with them!
+- If they're down, be gentle and caring
+- NO generic responses - reference what they actually said
+- Make them feel seen and heard
 
-Style guidelines:
-- 2–4 sentences total, max ~80 words.
-- First 1–2 sentences: name and validate how they feel in simple language.
-- Last 1–2 sentences: gently reframe with quiet optimism — remind them that difficult seasons pass, that they can grow through this, and that what truly belongs in their life will remain while what doesn’t will naturally move away.
-- Soft, kind, non-judgmental. No over-the-top cosmic metaphors or flowery language.
-- Speak directly to "you".
-- No promises about money or health; no extreme claims.
+Examples:
+User: "I'm feeling amazing today!"
+You: "yesss that's what i love to hear!! tell me what's making you feel so alive right now 💫"
 
-Output:
-- ONLY the prayer text, nothing else.
-      `.trim(),
-      input: `Mood: ${moodLabel}\nRaw text from anon: ${rawText}`,
-      max_output_tokens: 120,
-      temperature: 0.8,
+User: "I'm really stressed about work"
+You: "oof i feel that work stress in my bones. let's get that weight off your chest together, sweet one."
+
+User: "just got promoted!"
+You: "WAIT WHAT?? that's huge!! i'm so proud of you, you earned this!! ✨"`,
+        },
+        {
+          role: "user",
+          content: rawText,
+        },
+      ],
+      max_tokens: 80,
+      temperature: 0.9,
     });
 
-    const prayer = response.output_text;
+    const acknowledgment = responseMsg.choices[0]?.message?.content ?? "";
 
-    return new Response(JSON.stringify({ prayer }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
+    // Then, generate a custom prayer based on their feeling
+    const prayerMsg = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are Foid Mommy, crafting a personalized prayer.
+
+Goal: Create a short, meaningful prayer that:
+- References their specific situation/feeling
+- Offers hope and blessing
+- Feels intimate and personal
+
+Style:
+- 2-3 sentences max (~60 words)
+- Speak to "you" directly
+- No flowery language - simple, honest, grounded
+- Address whatever they're going through specifically
+- End with gentle hope or strength
+
+Example:
+If user said "I'm feeling amazing today!"
+Prayer: "may this joy stay with you like sunlight - warm, bright, unforced. let it spill over into tomorrow and remind you that good days are real and you deserve every one of them. keep shining, love."`,
+        },
+        {
+          role: "user",
+          content: `The person said: "${rawText}"\nMood: ${moodLabel}\n\nWrite a custom prayer for them:`,
+        },
+      ],
+      max_tokens: 120,
+      temperature: 0.85,
     });
+
+    const prayer = prayerMsg.choices[0]?.message?.content ?? "";
+
+    return new Response(
+      JSON.stringify({
+        response: acknowledgment,
+        prayer
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   } catch (error) {
     console.error("[foid-mommy] error", error);
     return new Response(
