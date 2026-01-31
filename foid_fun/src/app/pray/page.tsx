@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AppTitlebar, { type AppTitlebarWarning } from "@/app/(components)/AppTitlebar";
-import { useAccount, useChainId, usePublicClient, useReadContract, useDisconnect, useConnect } from "wagmi";
+import { useAccount, useChainId, usePublicClient, useReadContract, useDisconnect, useConnect, useSwitchChain } from "wagmi";
 import { encodeAbiParameters, keccak256, stringToBytes, type Address, type Hex, type Hash } from "viem";
 import FoidMommyTerminal, {
   FEELING_LABELS,
@@ -166,6 +166,7 @@ export default function PrayPage() {
   const chainId = useChainId();
   const { disconnect } = useDisconnect();
   const { connect, connectors } = useConnect();
+  const { switchChainAsync } = useSwitchChain();
   const [nowSeconds, setNowSeconds] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [boardProposals, setBoardProposals] = useState<ApiProposal[]>([]);
@@ -355,6 +356,18 @@ export default function PrayPage() {
       if (!publicClient) throw new Error("public client not ready.");
       if (!address) throw new Error("connect your wallet before anchoring your prayer.");
 
+      // Switch to Fluent Testnet if needed
+      if (chainId !== FLUENT_CHAIN_ID) {
+        try {
+          await switchChainAsync?.({ chainId: FLUENT_CHAIN_ID });
+          // Wait a bit for the chain to switch
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : "Failed to switch chain";
+          throw new Error(`please switch to fluent testnet (chain ${FLUENT_CHAIN_ID}). ${message}`);
+        }
+      }
+
       const prayerHash = keccak256(stringToBytes(prayer));
       const label = BigInt(FEELING_LABELS[feeling] ?? 1);
       const encodedArgs = encodeAbiParameters(
@@ -393,9 +406,9 @@ export default function PrayPage() {
           account: address as Address,
         });
       } catch (error: unknown) {
-        const message = formatViemError(error);
-        console.error("prayer gas estimation failed:", message, error);
-        throw new Error(message);
+        console.warn("prayer gas estimation failed, using fallback:", error);
+        // Fallback: 200k gas should be enough for prayers
+        gasEstimate = BigInt(200_000);
       }
       const gasMargin = (gasEstimate * 20n) / 100n;
       const gasLimit = gasEstimate + (gasMargin > 0 ? gasMargin : 1n);
@@ -407,6 +420,7 @@ export default function PrayPage() {
           to: registryAddress,
           data,
           gas: gasLimit,
+          chain: walletClient.chain,
         });
         return { txHash };
       } catch (error: unknown) {
@@ -415,7 +429,7 @@ export default function PrayPage() {
         throw new Error(message);
       }
     },
-    [address, chainId, FLUENT_CHAIN_ID, publicClient],
+    [address, chainId, FLUENT_CHAIN_ID, publicClient, switchChainAsync],
   );
 
   const waitForReceipt = useCallback(async (hash: string) => {
