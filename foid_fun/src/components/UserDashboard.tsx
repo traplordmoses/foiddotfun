@@ -64,32 +64,15 @@ function isVotingNow(placement: Placement, nowSec: number) {
 
 function derivePlacementStatus(
   placement: Placement,
-  manifestIndex: Record<string, true>,
-  nowSec: number
+  manifestIndex: Record<string, true>
 ) {
-  const raw = placement.placementId ?? placement.id ?? null;
-  const base = basePlacementId(raw);
-
+  // Only override status if placement is canonized
   if (isCanonized(placement, manifestIndex)) {
     return "canonized" as const;
   }
 
-  if (isVotingNow(placement, nowSec)) {
-    return "voting" as const;
-  }
-
-  if (
-    process.env.NODE_ENV !== "production" &&
-    raw &&
-    base &&
-    manifestIndex[base]
-  ) {
-    console.info(
-      `[UserDashboard] placement ${raw} derived rejected but manifest contains ${base}`
-    );
-  }
-
-  return "rejected" as const;
+  // Otherwise trust the API's status field
+  return placement.status;
 }
 
 export const UserDashboard = memo(function UserDashboard() {
@@ -106,7 +89,7 @@ export const UserDashboard = memo(function UserDashboard() {
     error: votesError,
     refresh: refreshVotes,
     hasFetched: votesLoaded,
-  } = useUserVotingActivity(address, { enabled: false });
+  } = useUserVotingActivity(address, { enabled: true }); // Auto-load votes
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastRefreshAt, setLastRefreshAt] = useState<number | null>(null);
@@ -168,12 +151,16 @@ export const UserDashboard = memo(function UserDashboard() {
     if (!address) return;
     setIsRefreshing(true);
     try {
-      await Promise.allSettled([refreshPlacements(), loadManifest()]);
+      await Promise.allSettled([
+        refreshPlacements(),
+        loadManifest(),
+        refreshVotes() // Auto-load votes in parallel
+      ]);
       setLastRefreshAt(Date.now());
     } finally {
       setIsRefreshing(false);
     }
-  }, [address, refreshPlacements, loadManifest]);
+  }, [address, refreshPlacements, loadManifest, refreshVotes]);
 
   useEffect(() => {
     if (!address) {
@@ -192,10 +179,11 @@ export const UserDashboard = memo(function UserDashboard() {
 
   const placementsWithStatus = useMemo(() => {
     if (!placements.length) return [];
-    const nowSec = Math.floor(Date.now() / 1000);
-    return placements.map((placement) => ({
+    // Filter out proposals with null CID
+    const validPlacements = placements.filter(p => p.cid !== null);
+    return validPlacements.map((placement) => ({
       ...placement,
-      status: derivePlacementStatus(placement, manifestIndex, nowSec),
+      status: derivePlacementStatus(placement, manifestIndex),
     }));
   }, [placements, manifestIndex]);
 
