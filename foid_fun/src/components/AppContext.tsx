@@ -113,139 +113,93 @@ export function AppContext({ enablePendingPoll = false }: AppContextProps) {
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2">
       {/* FOID MOMMY TERMINAL Card */}
       <Link href="/pray" className="group cursor-pointer block">
-        <div className="premium-card premium-card--prayer relative overflow-hidden rounded-2xl p-5 transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-2xl">
-          {/* Animated gradient border */}
-          <div className="absolute inset-0 rounded-2xl p-[1.5px] premium-card__border--prayer">
-            <div className="absolute inset-[1.5px] rounded-2xl bg-gradient-to-br from-indigo-900/40 via-purple-900/30 to-indigo-950/40 backdrop-blur-xl" />
-          </div>
-
-          {/* Glow effect on hover */}
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/0 via-purple-500/0 to-pink-500/0 opacity-0 blur-xl transition-opacity duration-300 group-hover:opacity-30" />
+        <div className="relative overflow-hidden rounded-3xl p-4 transition-all duration-200 group-hover:shadow-lg"
+             style={{
+               background: 'linear-gradient(135deg, rgba(147, 112, 219, 0.35) 0%, rgba(138, 43, 226, 0.25) 100%)',
+               backdropFilter: 'blur(20px)',
+               border: '1px solid rgba(255, 255, 255, 0.12)'
+             }}>
+          {/* Subtle inner glow */}
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/5 to-transparent opacity-60 pointer-events-none" />
 
           {/* Content */}
           <div className="relative z-10">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-blue-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-white/90 underline decoration-white/30 underline-offset-2">
                 FOID MOMMY TERMINAL.EXE
               </h3>
-              <span className="text-2xl drop-shadow-lg">📿</span>
+              <span className="text-lg">📿</span>
             </div>
 
             {isConnected && stats ? (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/70">Current Streak</span>
-                  <span className="premium-stat font-bold text-white bg-gradient-to-r from-orange-400 to-pink-400 bg-clip-text text-transparent">
+                  <span className="text-white/70 underline decoration-white/20 underline-offset-2">Current Streak</span>
+                  <span className="font-semibold text-orange-300">
                     {stats.currentStreak} days 🔥
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/70">Next Prayer</span>
-                  <span className="font-semibold text-white/95">{getNextPrayerStatus()}</span>
+                  <span className="text-white/70 underline decoration-white/20 underline-offset-2">Next Prayer</span>
+                  <span className="font-semibold text-white/90 underline decoration-white/30 underline-offset-2">{getNextPrayerStatus()}</span>
                 </div>
               </div>
             ) : (
-              <div className="text-xs italic text-white/60">Connect wallet to see your stats</div>
+              <div className="text-xs italic text-white/50">Connect wallet to see your stats</div>
             )}
           </div>
-
-          {/* Shine effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
         </div>
       </Link>
 
       {/* LOREBOARD Card */}
       <Link href="/board" className="group cursor-pointer block">
-        <div className="premium-card premium-card--board relative overflow-hidden rounded-2xl p-5 transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-2xl">
-          {/* Animated gradient border */}
-          <div className="absolute inset-0 rounded-2xl p-[1.5px] premium-card__border--board">
-            <div className="absolute inset-[1.5px] rounded-2xl bg-gradient-to-br from-orange-900/40 via-red-900/30 to-pink-950/40 backdrop-blur-xl" />
-          </div>
-
-          {/* Glow effect on hover */}
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-orange-500/0 via-red-500/0 to-pink-500/0 opacity-0 blur-xl transition-opacity duration-300 group-hover:opacity-30" />
+        <div className="relative overflow-hidden rounded-3xl p-4 transition-all duration-200 group-hover:shadow-lg"
+             style={{
+               background: 'linear-gradient(135deg, rgba(205, 92, 92, 0.35) 0%, rgba(178, 34, 34, 0.25) 100%)',
+               backdropFilter: 'blur(20px)',
+               border: '1px solid rgba(255, 255, 255, 0.12)'
+             }}>
+          {/* Subtle inner glow */}
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/5 to-transparent opacity-60 pointer-events-none" />
 
           {/* Content */}
           <div className="relative z-10">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-orange-300 via-red-300 to-pink-300 bg-clip-text text-transparent">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-white/90 underline decoration-white/30 underline-offset-2">
                 LOREBOARD.APP
               </h3>
-              <span className="text-2xl drop-shadow-lg">🎨</span>
+              <span className="text-lg">🎨</span>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-white/70">Active Proposals</span>
-                <span className="premium-stat font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                <span className="text-white/70 underline decoration-white/20 underline-offset-2">Active Proposals</span>
+                <span className="font-semibold text-cyan-300">
                   {activePendingCount}
                 </span>
               </div>
 
               {isConnected && userPendingCount > 0 && (
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-white/70">Your Pending</span>
-                  <span className="font-semibold text-white/95">
-                    {userPendingCount} <span className="text-blue-300">🗳️</span>
+                  <span className="text-white/70 underline decoration-white/20 underline-offset-2">Your Pending</span>
+                  <span className="font-semibold text-white/90">
+                    {userPendingCount} 🗳️
                   </span>
                 </div>
               )}
 
               <div className="flex items-center justify-between text-xs">
-                <span className="text-white/70">Latest Epoch</span>
-                <span className="font-semibold text-white/95">#{currentEpoch}</span>
+                <span className="text-white/70 underline decoration-white/20 underline-offset-2">Latest Epoch</span>
+                <span className="font-semibold text-white/90 underline decoration-white/30 underline-offset-2">#{currentEpoch}</span>
               </div>
             </div>
           </div>
-
-          {/* Shine effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out" />
         </div>
       </Link>
-
-      <style jsx>{`
-        .premium-card__border--prayer {
-          background: linear-gradient(135deg,
-            rgba(99, 102, 241, 0.6) 0%,
-            rgba(168, 85, 247, 0.6) 25%,
-            rgba(236, 72, 153, 0.6) 50%,
-            rgba(168, 85, 247, 0.6) 75%,
-            rgba(99, 102, 241, 0.6) 100%
-          );
-          background-size: 200% 200%;
-          animation: borderShift 3s ease infinite;
-        }
-
-        .premium-card__border--board {
-          background: linear-gradient(135deg,
-            rgba(251, 146, 60, 0.6) 0%,
-            rgba(239, 68, 68, 0.6) 25%,
-            rgba(236, 72, 153, 0.6) 50%,
-            rgba(239, 68, 68, 0.6) 75%,
-            rgba(251, 146, 60, 0.6) 100%
-          );
-          background-size: 200% 200%;
-          animation: borderShift 3s ease infinite;
-        }
-
-        @keyframes borderShift {
-          0%, 100% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-        }
-
-        .premium-stat {
-          font-size: 0.875rem;
-          filter: drop-shadow(0 0 4px currentColor);
-        }
-      `}</style>
     </div>
   );
 }
