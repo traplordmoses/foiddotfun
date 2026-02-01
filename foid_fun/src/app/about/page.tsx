@@ -615,7 +615,7 @@ export default function AboutPage() {
 
       <section className="relative z-10 w-full">
         <div className="mx-auto w-full max-w-[min(94vw,1240px)]">
-          <div className="vista-window vista-window--terminal vista-window--enhanced h-[min(68vh,600px)] w-full">
+          <div className="vista-window vista-window--terminal vista-window--enhanced h-[min(85vh,900px)] w-full">
             <AppTitlebar
               title="FOID_ABOUT.EXE"
               chainId={chainId}
