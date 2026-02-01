@@ -208,7 +208,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">gated access</p>
             <p className="aboutMiniCard__body">
-              Virgin chats (0 transfers) = most exclusive. Body count unlocks different rooms. Provenance > floor price.
+              Virgin chats (0 transfers) = most exclusive. Body count unlocks different rooms. Provenance {'>'} floor price.
             </p>
           </div>
         </div>
