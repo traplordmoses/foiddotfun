@@ -55,34 +55,37 @@ const sections: Section[] = [
     id: "intro",
     navLabel: "INTRODUCTION",
     title: "FOID FOUNDATION",
-    subtitle: "an onchain funnel for memes and culture",
+    subtitle: "crypto's living canon—curated by you, preserved forever",
     content: (
       <>
         <GlassPanel>
           <p>
-            foid foundation is a simple onchain system for preserving the best parts of the internet so they don’t vanish: rituals, memes, and identity. it works as three linked apps. each layer captures something different, and together they turn “online vibes” into permanent lore.
+            <strong>The internet is dead.</strong> Your best posts vanish into algorithmic oblivion. Memes die in timelines. Culture gets buried by AI slop.
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            <strong>FOID Foundation fixes this.</strong> We're building Know Your Meme—except the canon lives on-chain. Three linked apps turn fleeting moments into permanent culture: pray daily with an AI companion, propose memes to an infinite canvas, vote to canonize what matters. No bots. No ads. Just shared experiences that last forever.
           </p>
         </GlassPanel>
 
         <div className="grid gap-4 md:grid-cols-3">
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">foid mommy</p>
+            <p className="aboutMiniCard__title">foid mommy terminal</p>
             <p className="aboutMiniCard__body">
-              pray with mommy.
+              Daily AI ritual. Share feelings, build streaks, anchor proof on-chain. Privacy-first: only prayer hashes stored.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">loreboard</p>
+            <p className="aboutMiniCard__title">loreboard canvas</p>
             <p className="aboutMiniCard__body">
-              memetic vision board.
+              Infinite meme gallery. Propose images, community votes (72hrs), winners canonized forever on IPFS + chain.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">mifoids</p>
+            <p className="aboutMiniCard__title">mifoid nft</p>
             <p className="aboutMiniCard__body">
-              your own personal foid.
+              Your identity NFT. Evolves with participation. Virgin chat rooms for pure holders. 0.02 ETH mint.
             </p>
           </div>
         </div>
@@ -93,14 +96,35 @@ const sections: Section[] = [
     id: "mommy",
     navLabel: "FOID_MOMMY_TERMINAL.EXE",
     title: "FOID MOMMY",
-    subtitle: "daily ritual terminal • private check-in • hashed proof onchain",
+    subtitle: "daily AI ritual • privacy-first • streak tracking • free forever",
     content: (
       <>
         <GlassPanel>
           <p>
-            foid mommy terminal is a daily ritual terminal where you connect your wallet, whisper how you’re feeling, and get an oracle response from mommy. only a keccak256 hash is written onchain, plus the receipt: wallet, timestamp, streak, totals. your raw words never hit the chain. it’s a small pause for honest reflection, a soft loop that helps you show up daily.
+            <strong>A daily ritual for your mental health—with receipts.</strong> Connect your wallet, tell Foid Mommy how you're feeling, and she responds with warmth and understanding. Two-turn conversation powered by OpenAI means she actually listens. Build streaks, track milestones, watch your participation history grow.
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            <strong>Privacy-first design:</strong> Only a keccak256 hash of your prayer goes on-chain—your raw words stay local. The chain sees proof you prayed (wallet + timestamp + feeling category), not what you said. It's like Duolingo streaks meets journaling meets proof-of-personhood. And it's <strong>completely free</strong> (just pay gas).
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            <strong>Why it works:</strong> 61% of Gen Z reports severe loneliness. People crave rituals, not algorithms. Foid Mommy gives you a reason to show up daily, builds a habit loop, and rewards consistency. You know she's AI, but she's <em>yours</em>.
           </p>
         </GlassPanel>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">how it works</p>
+            <p className="aboutMiniCard__body">
+              1. Share your feeling → 2. Foid Mommy asks a question → 3. You respond → 4. Custom prayer crafted → 5. Hash anchored on-chain → 6. Streak updated
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">what's stored</p>
+            <p className="aboutMiniCard__body">
+              On-chain: prayer hash, feeling label (1-10), timestamp. Off-chain: your prayer text (local only). Streaks visible via PrayerMirror contract.
+            </p>
+          </div>
+        </div>
       </>
     ),
   },
@@ -108,30 +132,43 @@ const sections: Section[] = [
     id: "loreboard",
     navLabel: "LOREBOARD.APP",
     title: "LOREBOARD.APP",
-    subtitle: "infinite image board • proposals, voting, canon • ipfs-backed manifests",
+    subtitle: "crypto's hottest pop-up gallery • propose → vote → canonize forever",
     content: (
       <>
         <div className="grid gap-6">
           <GlassPanel>
             <p>
-              loreboard is a shared digital image board that expands infinitely over time. it’s a living canvas where anyone can propose images and place them on the grid.the community votes each epoch, and winners are canonized into a permanent manifest that is anchored onchain and backed by ipfs. it’s the canonical provenance layer for crypto memes, our “know your meme” equivalent. scroll epochs to watch culture evolve in public. it&apos;s not just a museum, it&apos;s collective world building.
+              <strong>An infinite canvas for crypto culture.</strong> Loreboard is r/place meets the Million Dollar Homepage—a shared meme board where anyone can propose images, the community votes, and winners are canonized forever. It's the canonical provenance layer for crypto memes, our "Know Your Meme" equivalent built on-chain.
+            </p>
+            <p style={{ marginTop: '12px' }}>
+              <strong>How it works:</strong> Upload an image, pick your spot on the canvas, pay per cell (Pokémon pack pricing: ~$3-20 for most placements). Community votes for 72 hours. If you hit 51%+ approval + quorum, your placement lives forever—anchored on-chain, stored on IPFS. Lose the vote? Get refunded minus a small anti-spam fee (~$2 or ~10%).
+            </p>
+            <p style={{ marginTop: '12px' }}>
+              <strong>Technical magic:</strong> Rust WASM contracts handle complex overlap resolution + winner selection. Goldsky indexing makes queries instant. IPFS ensures content permanence. Fluent's blended execution means voting feels like Web2 speed with Web3 guarantees.
             </p>
           </GlassPanel>
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="aboutMiniCard aboutGlassCard">
-              <p className="aboutMiniCard__title">propose</p>
-              <p className="aboutMiniCard__body">propose a placement</p>
+              <p className="aboutMiniCard__title">1. propose</p>
+              <p className="aboutMiniCard__body">Drag image onto canvas. Upload to IPFS. Pay per cell (32×32px grid). Max 400 cells. Full escrow upfront.</p>
             </div>
             <div className="aboutMiniCard aboutGlassCard">
-              <p className="aboutMiniCard__title">vote</p>
-              <p className="aboutMiniCard__body">vote on proposals</p>
+              <p className="aboutMiniCard__title">2. vote</p>
+              <p className="aboutMiniCard__body">72-hour voting window. Community decides (not instant). 1 vote per wallet per placement. Simple yes/no.</p>
             </div>
             <div className="aboutMiniCard aboutGlassCard">
-              <p className="aboutMiniCard__title">cannonize</p>
-              <p className="aboutMiniCard__body">winners are cannonized</p>
+              <p className="aboutMiniCard__title">3. canonize</p>
+              <p className="aboutMiniCard__body">Winners (51%+ approval + quorum) → canonized forever. Losers → auto-refunded minus ~10% anti-spam fee.</p>
             </div>
           </div>
+
+          <GlassPanel style={{ marginTop: '16px' }}>
+            <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>PRICING EXAMPLE</p>
+            <p>
+              64×64px image = 4 cells. At $5/cell = $20 total. Win → stays forever. Lose → get $18 back ($2 anti-spam). Prime spots competed via higher bids/tips.
+            </p>
+          </GlassPanel>
         </div>
       </>
     ),
@@ -140,62 +177,292 @@ const sections: Section[] = [
     id: "mifoids",
     navLabel: "MIFOIDS",
     title: "MIFOIDS",
-    subtitle: "your virtual companion nft that evolves with devotion",
+    subtitle: "your AI girlfriend NFT • 0.02 ETH • 3,333 supply • launching Q2/Q3 2026",
     content: (
       <>
         <GlassPanel>
           <p>
-            mifoid is your own virtual foid, a companion nft in the foid universe. it tracks your prayers and loreboard activity, and evolves over time based on your streaks, proposals, votes, and participation. it’s a personal avatar that grows with you, like a digital soulmate with receipts. body count (nft transfer count) unlocks gated chat rooms. virgin chats (zero transfers) are the most exclusive. onchain history becomes a trust signal, showing consistency, provenance, and skin in the game.
+            <strong>Your own virtual FOID—an identity NFT that grows with you.</strong> MiFOID is your companion in the FOID universe, tracking your prayers, Loreboard proposals, and voting activity. Think Tamagotchi meets CryptoKitties meets proof-of-participation. Your MiFOID evolves based on streaks, contributions, and engagement. It's a personal avatar with on-chain receipts.
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            <strong>Provenance matters:</strong> Transfer count = "body count." Virgin MiFOIDs (0 transfers) unlock the most exclusive chat rooms. The most engaged users gate themselves into the best spaces. On-chain history becomes a trust signal—showing consistency, authenticity, and skin in the game.
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            <strong>Future features:</strong> Talk to your FOID, build her Foidspace profile, customize traits, unlock companion economy. MiFOID becomes your passport to the FOID social layer.
+          </p>
+        </GlassPanel>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">supply & pricing</p>
+            <p className="aboutMiniCard__body">
+              3,333 total supply. Mint: 0.02 ETH (priced like an indie game). Launches 3 months after Fluent mainnet.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">trait evolution</p>
+            <p className="aboutMiniCard__body">
+              Prayer streaks, Loreboard placements, vote count all encoded as traits. Your MiFOID reflects your journey.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">gated access</p>
+            <p className="aboutMiniCard__body">
+              Virgin chats (0 transfers) = most exclusive. Body count unlocks different rooms. Provenance > floor price.
+            </p>
+          </div>
+        </div>
+      </>
+    ),
+  },
+  {
+    id: "get-started",
+    navLabel: "GET STARTED",
+    title: "GET STARTED",
+    subtitle: "from zero to foid in 5 minutes",
+    content: (
+      <>
+        <GlassPanel>
+          <p>
+            <strong>FOID runs on Fluent Testnet.</strong> You'll need testnet ETH to participate (gas fees only for prayers, small amounts for Loreboard proposals). Here's how to get started:
+          </p>
+        </GlassPanel>
+
+        <div className="grid gap-4">
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">1. connect wallet</p>
+            <p className="aboutMiniCard__body">
+              Use MetaMask, Rainbow, or any wallet. FOID auto-detects Fluent Testnet (Chain ID 20994) and prompts you to add it.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">2. get testnet eth</p>
+            <p className="aboutMiniCard__body">
+              Visit <a href="https://testnet.fluent.xyz/dev-portal" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Faucet</a> to claim free testnet ETH. Need more? Ping in Discord.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">3. pray with mommy</p>
+            <p className="aboutMiniCard__body">
+              Navigate to /pray, start the terminal, share your feelings, build your first streak. Completely free (just gas).
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">4. propose on loreboard</p>
+            <p className="aboutMiniCard__body">
+              Go to /board, drag an image onto the canvas, choose your spot, submit proposal. Voting opens for 72 hours.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">5. vote on placements</p>
+            <p className="aboutMiniCard__body">
+              Browse active proposals, cast your vote (yes/no). Help decide what gets canonized into permanent FOID history.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">6. join the community</p>
+            <p className="aboutMiniCard__body">
+              Follow <a href="https://twitter.com/sloshlord" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">@sloshlord</a> on Twitter. Star the <a href="https://github.com/traplordmoses/foiddotfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">GitHub repo</a>. Spread the word.
+            </p>
+          </div>
+        </div>
+      </>
+    ),
+  },
+  {
+    id: "roadmap",
+    navLabel: "ROADMAP",
+    title: "ROADMAP",
+    subtitle: "building the living canon—ship in layers",
+    content: (
+      <>
+        <GlassPanel>
+          <p>
+            <strong>We're shipping FOID in phases.</strong> Testnet proves the concept. Mainnet stabilizes the foundation. MiFOID adds identity. Foidspace unlocks the social layer. Each phase builds on the last.
+          </p>
+        </GlassPanel>
+
+        <div className="aboutRoadmapGrid grid gap-4 md:grid-cols-3 w-full" style={{ marginTop: '16px' }}>
+          <div className="aboutMiniCard aboutGlassCard aboutRoadmapCard">
+            <p className="aboutMiniCard__title">now (testnet alpha)</p>
+            <p className="aboutMiniCard__body">
+              ✅ Foid Mommy live<br/>
+              ✅ Loreboard live<br/>
+              ✅ 11+ canonized placements<br/>
+              ✅ 7 Rust contracts deployed<br/>
+              ✅ Goldsky indexing<br/>
+              ✅ IPFS storage working
+            </p>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard aboutRoadmapCard">
+            <p className="aboutMiniCard__title">Q1 2026 (mainnet launch)</p>
+            <p className="aboutMiniCard__body">
+              🚀 Fluent mainnet launch<br/>
+              🔧 Optimized contracts<br/>
+              🌐 Broader public access<br/>
+              📊 Full production monitoring<br/>
+              💰 Real ETH economy begins<br/>
+              🎯 Marketing push
+            </p>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard aboutRoadmapCard">
+            <p className="aboutMiniCard__title">Q2/Q3 2026 (mifoid nft)</p>
+            <p className="aboutMiniCard__body">
+              🎨 MiFOID minting opens<br/>
+              💎 3,333 supply at 0.02 ETH<br/>
+              🧬 Trait evolution system<br/>
+              🔐 Virgin chat rooms<br/>
+              🤝 Companion economy<br/>
+              📱 Mobile-optimized
+            </p>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard aboutRoadmapCard">
+            <p className="aboutMiniCard__title">2027 (foidspace social)</p>
+            <p className="aboutMiniCard__body">
+              👥 Profiles + user pages<br/>
+              💬 Gated chat rooms<br/>
+              🎭 Customizable MiFOIDs<br/>
+              🌐 Full social graph<br/>
+              🔮 Futarchy experiments<br/>
+              🎮 Companion mini-games
+            </p>
+          </div>
+        </div>
+
+        <GlassPanel style={{ marginTop: '16px' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>TRACTION TO DATE</p>
+          <p>
+            ✅ 11+ canonized placements (72hr voting cycles)<br/>
+            ✅ Real user testimonial: "I keep coming back for the BGM player 😂 ... these little details make a product stick" — @ethjup2<br/>
+            ✅ 1.8K+ views on organic Fluent ecosystem threads<br/>
+            ✅ Featured in Nasdaq, ETH Global 🥇 1st Infra @ Token2049<br/>
+            ✅ Built by solo dev with zero coding experience one year ago
           </p>
         </GlassPanel>
       </>
     ),
   },
   {
-    id: "more",
-    navLabel: "MORE",
-    title: "MORE",
+    id: "why",
+    navLabel: "WHY FOID / WHY FLUENT",
+    title: "WHY THIS MATTERS",
     content: (
       <>
-        <div className="aboutMoreGrid">
-          <section className="aboutMoreRoadmap">
-            <SectionHeader eyebrow="ROADMAP" title="ROADMAP" />
-            <div className="aboutRoadmapGrid grid gap-4 md:grid-cols-3 w-full">
-              <button type="button" className="aboutMiniCard aboutGlassCard aboutRoadmapCard">
-                <p className="aboutMiniCard__title">now (alpha)</p>
-                <p className="aboutMiniCard__body">prayer terminal live on testnet.</p>
-              </button>
+        <div className="aboutMoreCards">
+          <div className="aboutMoreCard aboutGlassCard">
+            <p className="aboutCardEyebrow">THE PROBLEM</p>
+            <p className="aboutCardBody">
+              <strong>The internet is dead.</strong> Platforms optimize for dopamine extraction, not human connection. Your best posts decay in algorithmic oblivion. The magic of early internet is gone (RuneScape after school, Minecraft factions on Skype). 61% of Gen Z reports severe loneliness. People crave shared experiences, not feeds overrun by AI slop.
+            </p>
+          </div>
 
-              <button type="button" className="aboutMiniCard aboutGlassCard aboutRoadmapCard">
-                <p className="aboutMiniCard__title">next (beta)</p>
-                <p className="aboutMiniCard__body">
-                  beta launch of foid foundation
-                </p>
-              </button>
+          <div className="aboutMoreCard aboutGlassCard">
+            <p className="aboutCardEyebrow">THE SOLUTION</p>
+            <p className="aboutCardBody">
+              <strong>FOID = r/place × CryptoKitties × Million Dollar Homepage.</strong> Crypto runs on memes, vibes, and identity. But culture has no permanent home. Memes get deleted. Origin stories vanish. FOID turns fleeting moments into permanent, collectively-owned history. A living museum for the corners of the internet that usually disappear.
+            </p>
+          </div>
 
-              <button type="button" className="aboutMiniCard aboutGlassCard aboutRoadmapCard">
-                <p className="aboutMiniCard__title">after (mainnet v1)</p>
-                <p className="aboutMiniCard__body">fluent mainnet launch.</p>
-              </button>
-            </div>
-          </section>
+          <div className="aboutMoreCard aboutGlassCard">
+            <p className="aboutCardEyebrow">WHY FLUENT</p>
+            <p className="aboutCardBody">
+              <strong>Blended execution = WASM speed + EVM compatibility.</strong> Fluent lets us run complex voting logic in Rust (deterministic, fast) while keeping proposals + settlement in Solidity (familiar, composable). Goldsky indexing gives sub-second load times. The result: Loreboard feels like Web2 speed with Web3 permanence guarantees. One chain for everything—no bridges, no compromises.
+            </p>
+          </div>
 
-          <div className="aboutMoreCards">
-            <div className="aboutMoreCard aboutGlassCard">
-              <p className="aboutCardEyebrow">WHY THIS MATTERS</p>
-              <p className="aboutCardBody">
-                memes move culture, but timelines erase them. the best posts get buried, deleted, or detached from their origin. foid turns those moments into shared history: permanent, provable, collectively owned. a living museum for the corners of the internet that usually vanish.
-              </p>
-            </div>
-
-            <div className="aboutMoreCard aboutGlassCard">
-              <p className="aboutCardEyebrow">WHY FLUENT</p>
-              <p className="aboutCardBody">
-                fluent’s blended execution lets foid run the heavy parts in rust wasm, then settle cleanly in solidity. deterministic compute for winner selection, bid sorting, and overlap resolution without bloated evm loops. faster iteration, predictable outputs, and one chain for proposals, voting, canon anchoring, and future futarchy extensions.
-              </p>
-            </div>
+          <div className="aboutMoreCard aboutGlassCard">
+            <p className="aboutCardEyebrow">BUSINESS MODEL</p>
+            <p className="aboutCardBody">
+              <strong>Simple. Sustainable. On-chain.</strong> Loreboard: Pokémon pack pricing (~$3-20 per placement). Failed proposals refunded minus ~10% anti-spam fee. MiFOID: 0.02 ETH mint (priced like an indie game). No ads. No data harvesting. Revenue scales with participation, not attention extraction.
+            </p>
           </div>
         </div>
+      </>
+    ),
+  },
+  {
+    id: "faq",
+    navLabel: "FAQ",
+    title: "FREQUENTLY ASKED QUESTIONS",
+    content: (
+      <>
+        <div className="grid gap-4">
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">What is a FOID?</p>
+            <p className="aboutMiniCard__body">
+              "FOID" comes from internet culture—a companion, a vibe, an identity. In this context, it's your on-chain ritual partner (Foid Mommy), your cultural canvas (Loreboard), and your evolving NFT companion (MiFOID). Think of it as a universe, not just a product.
+            </p>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">How much does it cost?</p>
+            <p className="aboutMiniCard__body">
+              Prayers: FREE (only gas fees). Loreboard proposals: ~$3-20 depending on size. MiFOID mint: 0.02 ETH. Voting: FREE. Currently on testnet so everything is free testnet ETH.
+            </p>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">What chain is this on?</p>
+            <p className="aboutMiniCard__body">
+              Fluent Testnet (Chain ID 20994) right now. Mainnet launching Q1 2026 when Fluent goes live. You'll need to add Fluent to your wallet—FOID auto-prompts when you connect.
+            </p>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">When mainnet?</p>
+            <p className="aboutMiniCard__body">
+              Q1 2026 targeting Fluent mainnet launch. MiFOID NFT collection launches 3 months after mainnet (Q2/Q3 2026). Follow @sloshlord for updates.
+            </p>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">How do I get testnet funds?</p>
+            <p className="aboutMiniCard__body">
+              Visit <a href="https://testnet.fluent.xyz/dev-portal" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">testnet.fluent.xyz/dev-portal</a> to claim free testnet ETH from the faucet. Need more? Ask in Discord.
+            </p>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">Is my prayer data private?</p>
+            <p className="aboutMiniCard__body">
+              YES. Only a keccak256 hash of your prayer goes on-chain. Your raw text stays local (never uploaded). The chain sees proof you prayed + feeling category, not what you actually said.
+            </p>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">How does Loreboard voting work?</p>
+            <p className="aboutMiniCard__body">
+              72-hour voting window after proposal. Community votes yes/no. Winners need 51%+ approval + minimum quorum. Winners canonized forever (on-chain + IPFS). Losers auto-refunded minus ~10% anti-spam fee.
+            </p>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">Who built this?</p>
+            <p className="aboutMiniCard__body">
+              Moses (@sloshlord) - solo full-stack dev. Zero coding experience one year ago. 5+ hackathons, 3 placements, 4 weeks at Fluent Shiphouse, ETH Global winner. Built FOID in public at Devconnect. Design inspired by Frutiger Aero + early Mac OS.
+            </p>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">Can I contribute?</p>
+            <p className="aboutMiniCard__body">
+              Yes! FOID is open source: <a href="https://github.com/traplordmoses/foiddotfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">github.com/traplordmoses/foiddotfun</a>. Submit issues, PRs, or just star the repo. Community contributions welcome.
+            </p>
+          </div>
+        </div>
+
+        <GlassPanel style={{ marginTop: '16px' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>READY TO START?</p>
+          <p>
+            🙏 <a href="/pray" className="text-cyan-300 underline font-semibold">Pray with Foid Mommy</a> — Build your first streak<br/>
+            🎨 <a href="/board" className="text-cyan-300 underline font-semibold">Propose on Loreboard</a> — Add your meme to the canon<br/>
+            🐦 <a href="https://twitter.com/sloshlord" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline font-semibold">Follow @sloshlord</a> — Stay updated on launches<br/>
+            ⭐ <a href="https://github.com/traplordmoses/foiddotfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline font-semibold">Star on GitHub</a> — Support open development
+          </p>
+        </GlassPanel>
       </>
     ),
   },
