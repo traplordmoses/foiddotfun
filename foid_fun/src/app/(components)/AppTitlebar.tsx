@@ -139,48 +139,41 @@ export default function AppTitlebar({
           font-size: 9px;
           font-weight: 600;
           letter-spacing: 0.1em;
-          color: #1a1a1a;
-          background: linear-gradient(180deg, rgba(233, 221, 80, 0.95), rgba(214, 180, 52, 0.95));
-          border: 1px solid rgba(26, 26, 26, 0.4);
-          border-bottom: none;
+          color: rgba(255, 255, 255, 0.85);
+          background: transparent;
+          border: none;
           border-radius: 8px;
           text-decoration: none;
           transition: all 0.16s ease;
           position: relative;
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.5),
-            0 4px 12px rgba(0, 0, 0, 0.25);
+          box-shadow: none;
           flex-shrink: 0;
           white-space: nowrap;
         }
 
         :global(.pray-nav-tab:hover) {
-          color: #0f0f0f;
-          background: linear-gradient(180deg, rgba(253, 232, 120, 0.97), rgba(233, 221, 80, 0.98));
-          border-color: rgba(26, 26, 26, 0.6);
+          color: rgba(255, 255, 255, 1);
+          background: rgba(255, 255, 255, 0.08);
         }
 
         :global(.pray-nav-tab:focus-visible) {
-          outline: 2px solid rgba(26, 26, 26, 0.6);
+          outline: 1px solid rgba(255, 255, 255, 0.3);
           outline-offset: 2px;
-          box-shadow: 0 0 0 2px rgba(26, 26, 26, 0.25);
         }
 
         :global(.pray-nav-tab--active) {
-          color: #1a1a1a;
-          background: linear-gradient(180deg, rgba(26, 26, 26, 1), rgba(20, 20, 20, 0.95));
-          border-color: rgba(26, 26, 26, 0.8);
+          color: rgba(255, 255, 255, 1);
+          background: rgba(255, 255, 255, 0.12);
         }
 
         :global(.pray-nav-tab--active)::after {
           content: '';
           position: absolute;
-          bottom: -1px;
+          bottom: 0;
           left: 0;
           right: 0;
-          height: 2px;
-          background: #e9dd50;
-          box-shadow: 0 0 8px rgba(233, 221, 80, 0.6);
+          height: 1px;
+          background: rgba(255, 255, 255, 0.4);
         }
 
         :global(.pray-build-tag) {
