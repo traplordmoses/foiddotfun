@@ -17,8 +17,8 @@ import { loreBoardManifestStoreAbi } from "../src/abi/loreBoardManifestStore";
 /* ---------- ENV ---------- */
 
 const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC!;
-const treasury = process.env
-  .NEXT_PUBLIC_LOREBOARD_ADDRESS as `0x${string}` | undefined; // finalize target
+const treasury = (process.env.NEXT_PUBLIC_LOREBOARD_TREASURY ||
+  process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS) as `0x${string}` | undefined; // finalize target
 
 const emitterEnv = process.env
   .NEXT_PUBLIC_LOREBOARD_EMITTER as `0x${string}` | undefined;
@@ -301,13 +301,13 @@ async function main() {
   console.log("Manifest CID:", manifestCid);
   console.log("Manifest root:", manifestRoot);
 
-  if ((process.env.SKIP_FINALIZE ?? "1") === "1") {
+  if ((process.env.SKIP_FINALIZE ?? "0") === "1") {
     console.log("SKIP_FINALIZE=1 set; not calling finalizeEpoch.");
     return;
   }
   if (!treasury)
     throw new Error(
-      "NEXT_PUBLIC_LOREBOARD_ADDRESS is required to finalize."
+      "NEXT_PUBLIC_LOREBOARD_TREASURY is required to finalize."
     );
 
   const finalizeAbi = [
