@@ -6,6 +6,7 @@ import { ConnectWalletPrompt } from "./ConnectWalletPrompt";
 import { UserStatsSection } from "./UserStatsSection";
 import { UserPlacementsSection } from "./UserPlacementsSection";
 import { VotingActivitySection } from "./VotingActivitySection";
+import { ClaimableRefundsSection } from "./ClaimableRefundsSection";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useUserPlacements, type Placement } from "@/hooks/useUserPlacements";
 import { useUserVotingActivity } from "@/hooks/useUserVotingActivity";
@@ -209,6 +210,7 @@ export const UserDashboard = memo(function UserDashboard() {
           isLoading={statsLoading}
           error={statsError}
         />
+        <ClaimableRefundsSection />
         {manifestError && (
           <div className="text-xs text-amber-300/80">manifest: {manifestError}</div>
         )}
