@@ -107,7 +107,7 @@ const sections: Section[] = [
             <strong>Privacy-first design:</strong> Only a keccak256 hash of your prayer goes on-chain—your raw words stay local. The chain sees proof you prayed (wallet + timestamp + feeling category), not what you said. It's like Duolingo streaks meets journaling meets proof-of-personhood. And it's <strong>completely free</strong> (just pay gas).
           </p>
           <p style={{ marginTop: '12px' }}>
-            <strong>Why it works:</strong> 61% of Gen Z reports severe loneliness. People crave rituals, not algorithms. Foid Mommy gives you a reason to show up daily, builds a habit loop, and rewards consistency. You know she's AI, but she's <em>yours</em>.
+            <strong>Why it works:</strong> 61% of Gen Z reports severe loneliness. People crave rituals, not algorithms. Foid Mommy gives you a reason to show up daily, builds a habit loop, and rewards consistency. You know she&apos;s AI, but she&apos;s <em>yours</em>.
           </p>
         </GlassPanel>
 
@@ -119,7 +119,7 @@ const sections: Section[] = [
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">what's stored</p>
+            <p className="aboutMiniCard__title">what&apos;s stored</p>
             <p className="aboutMiniCard__body">
               On-chain: prayer hash, feeling label (1-10), timestamp. Off-chain: your prayer text (local only). Streaks visible via PrayerMirror contract.
             </p>
@@ -138,13 +138,13 @@ const sections: Section[] = [
         <div className="grid gap-6">
           <GlassPanel>
             <p>
-              <strong>An infinite canvas for crypto culture.</strong> Loreboard is r/place meets the Million Dollar Homepage—a shared meme board where anyone can propose images, the community votes, and winners are canonized forever. It's the canonical provenance layer for crypto memes, our "Know Your Meme" equivalent built on-chain.
+              <strong>An infinite canvas for crypto culture.</strong> Loreboard is r/place meets the Million Dollar Homepage—a shared meme board where anyone can propose images, the community votes, and winners are canonized forever. It&apos;s the canonical provenance layer for crypto memes, our &quot;Know Your Meme&quot; equivalent built on-chain.
             </p>
             <p style={{ marginTop: '12px' }}>
               <strong>How it works:</strong> Upload an image, pick your spot on the canvas, pay per cell (Pokémon pack pricing: ~$3-20 for most placements). Community votes for 72 hours. If you hit 51%+ approval + quorum, your placement lives forever—anchored on-chain, stored on IPFS. Lose the vote? Get refunded minus a small anti-spam fee (~$2 or ~10%).
             </p>
             <p style={{ marginTop: '12px' }}>
-              <strong>Technical magic:</strong> Rust WASM contracts handle complex overlap resolution + winner selection. Goldsky indexing makes queries instant. IPFS ensures content permanence. Fluent's blended execution means voting feels like Web2 speed with Web3 guarantees.
+              <strong>Technical magic:</strong> Rust WASM contracts handle complex overlap resolution + winner selection. Goldsky indexing makes queries instant. IPFS ensures content permanence. Fluent&apos;s blended execution means voting feels like Web2 speed with Web3 guarantees.
             </p>
           </GlassPanel>
 
@@ -182,10 +182,10 @@ const sections: Section[] = [
       <>
         <GlassPanel>
           <p>
-            <strong>Your own virtual FOID—an identity NFT that grows with you.</strong> MiFOID is your companion in the FOID universe, tracking your prayers, Loreboard proposals, and voting activity. Think Tamagotchi meets CryptoKitties meets proof-of-participation. Your MiFOID evolves based on streaks, contributions, and engagement. It's a personal avatar with on-chain receipts.
+            <strong>Your own virtual FOID—an identity NFT that grows with you.</strong> MiFOID is your companion in the FOID universe, tracking your prayers, Loreboard proposals, and voting activity. Think Tamagotchi meets CryptoKitties meets proof-of-participation. Your MiFOID evolves based on streaks, contributions, and engagement. It&apos;s a personal avatar with on-chain receipts.
           </p>
           <p style={{ marginTop: '12px' }}>
-            <strong>Provenance matters:</strong> Transfer count = "body count." Virgin MiFOIDs (0 transfers) unlock the most exclusive chat rooms. The most engaged users gate themselves into the best spaces. On-chain history becomes a trust signal—showing consistency, authenticity, and skin in the game.
+            <strong>Provenance matters:</strong> Transfer count = &quot;body count.&quot; Virgin MiFOIDs (0 transfers) unlock the most exclusive chat rooms. The most engaged users gate themselves into the best spaces. On-chain history becomes a trust signal—showing consistency, authenticity, and skin in the game.
           </p>
           <p style={{ marginTop: '12px' }}>
             <strong>Future features:</strong> Talk to your FOID, build her Foidspace profile, customize traits, unlock companion economy. MiFOID becomes your passport to the FOID social layer.
@@ -224,7 +224,7 @@ const sections: Section[] = [
       <>
         <GlassPanel>
           <p>
-            <strong>FOID runs on Fluent Testnet.</strong> You'll need testnet ETH to participate (gas fees only for prayers, small amounts for Loreboard proposals). Here's how to get started:
+            <strong>FOID runs on Fluent Testnet.</strong> You&apos;ll need testnet ETH to participate (gas fees only for prayers, small amounts for Loreboard proposals). Here&apos;s how to get started:
           </p>
         </GlassPanel>
 
@@ -278,7 +278,7 @@ const sections: Section[] = [
       <>
         <GlassPanel>
           <p>
-            <strong>We're shipping FOID in phases.</strong> Testnet proves the concept. Mainnet stabilizes the foundation. MiFOID adds identity. Foidspace unlocks the social layer. Each phase builds on the last.
+            <strong>We&apos;re shipping FOID in phases.</strong> Testnet proves the concept. Mainnet stabilizes the foundation. MiFOID adds identity. Foidspace unlocks the social layer. Each phase builds on the last.
           </p>
         </GlassPanel>
 
@@ -336,7 +336,7 @@ const sections: Section[] = [
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>TRACTION TO DATE</p>
           <p>
             ✅ 11+ canonized placements (72hr voting cycles)<br/>
-            ✅ Real user testimonial: "I keep coming back for the BGM player 😂 ... these little details make a product stick" — @ethjup2<br/>
+            ✅ Real user testimonial: &quot;I keep coming back for the BGM player 😂 ... these little details make a product stick&quot; — @ethjup2<br/>
             ✅ 1.8K+ views on organic Fluent ecosystem threads<br/>
             ✅ Featured in Nasdaq, ETH Global 🥇 1st Infra @ Token2049<br/>
             ✅ Built by solo dev with zero coding experience one year ago
@@ -393,7 +393,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">What is a FOID?</p>
             <p className="aboutMiniCard__body">
-              "FOID" comes from internet culture—a companion, a vibe, an identity. In this context, it's your on-chain ritual partner (Foid Mommy), your cultural canvas (Loreboard), and your evolving NFT companion (MiFOID). Think of it as a universe, not just a product.
+              &quot;FOID&quot; comes from internet culture—a companion, a vibe, an identity. In this context, it&apos;s your on-chain ritual partner (Foid Mommy), your cultural canvas (Loreboard), and your evolving NFT companion (MiFOID). Think of it as a universe, not just a product.
             </p>
           </div>
 
@@ -407,7 +407,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">What chain is this on?</p>
             <p className="aboutMiniCard__body">
-              Fluent Testnet (Chain ID 20994) right now. Mainnet launching Q1 2026 when Fluent goes live. You'll need to add Fluent to your wallet—FOID auto-prompts when you connect.
+              Fluent Testnet (Chain ID 20994) right now. Mainnet launching Q1 2026 when Fluent goes live. You&apos;ll need to add Fluent to your wallet—FOID auto-prompts when you connect.
             </p>
           </div>
 
