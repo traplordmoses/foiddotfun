@@ -112,7 +112,7 @@ export function useVoteOnPlacement({ epochId, placementId }: UseVoteOnPlacementP
     );
     setTxHash(hash);
     return hash;
-  }, [epochId, placementId, writeContractAsync, hasShortVote]);
+  }, [epochId, placementId, writeContractAsync, hasShortVote, switchChainAsync]);
 
   return {
     vote: voteOnChain,

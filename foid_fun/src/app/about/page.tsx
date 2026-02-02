@@ -24,31 +24,14 @@ type BubbleConfig = {
   delay: string;
 };
 
-function GlassPanel({ children }: { children: ReactNode }) {
+function GlassPanel({ children, style }: { children: ReactNode; style?: React.CSSProperties }) {
   return (
-    <div className="aboutPanel about-prose aboutGlassCard font-normal">
+    <div className="aboutPanel about-prose aboutGlassCard font-normal" style={style}>
       {children}
     </div>
   );
 }
 
-function SectionHeader({
-  eyebrow,
-  title,
-  subtitle,
-}: {
-  eyebrow: string;
-  title: string;
-  subtitle?: string;
-}) {
-  return (
-    <header className="aboutHeader">
-      <p className="aboutEyebrow">{eyebrow}</p>
-      <h1 className="aboutTitle text-balance">{title}</h1>
-      {subtitle ? <p className="aboutSubtitle">{subtitle}</p> : null}
-    </header>
-  );
-}
 
 const sections: Section[] = [
   {
@@ -63,7 +46,7 @@ const sections: Section[] = [
             <strong>The internet is dead.</strong> Your best posts vanish into algorithmic oblivion. Memes die in timelines. Culture gets buried by AI slop.
           </p>
           <p style={{ marginTop: '12px' }}>
-            <strong>FOID Foundation fixes this.</strong> We're building Know Your Meme—except the canon lives on-chain. Three linked apps turn fleeting moments into permanent culture: pray daily with an AI companion, propose memes to an infinite canvas, vote to canonize what matters. No bots. No ads. Just shared experiences that last forever.
+            <strong>FOID Foundation fixes this.</strong> We&apos;re building Know Your Meme—except the canon lives on-chain. Three linked apps turn fleeting moments into permanent culture: pray daily with an AI companion, propose memes to an infinite canvas, vote to canonize what matters. No bots. No ads. Just shared experiences that last forever.
           </p>
         </GlassPanel>
 
@@ -101,10 +84,10 @@ const sections: Section[] = [
       <>
         <GlassPanel>
           <p>
-            <strong>A daily ritual for your mental health—with receipts.</strong> Connect your wallet, tell Foid Mommy how you're feeling, and she responds with warmth and understanding. Two-turn conversation powered by OpenAI means she actually listens. Build streaks, track milestones, watch your participation history grow.
+            <strong>A daily ritual for your mental health—with receipts.</strong> Connect your wallet, tell Foid Mommy how you&apos;re feeling, and she responds with warmth and understanding. Two-turn conversation powered by OpenAI means she actually listens. Build streaks, track milestones, watch your participation history grow.
           </p>
           <p style={{ marginTop: '12px' }}>
-            <strong>Privacy-first design:</strong> Only a keccak256 hash of your prayer goes on-chain—your raw words stay local. The chain sees proof you prayed (wallet + timestamp + feeling category), not what you said. It's like Duolingo streaks meets journaling meets proof-of-personhood. And it's <strong>completely free</strong> (just pay gas).
+            <strong>Privacy-first design:</strong> Only a keccak256 hash of your prayer goes on-chain—your raw words stay local. The chain sees proof you prayed (wallet + timestamp + feeling category), not what you said. It&apos;s like Duolingo streaks meets journaling meets proof-of-personhood. And it&apos;s <strong>completely free</strong> (just pay gas).
           </p>
           <p style={{ marginTop: '12px' }}>
             <strong>Why it works:</strong> 61% of Gen Z reports severe loneliness. People crave rituals, not algorithms. Foid Mommy gives you a reason to show up daily, builds a habit loop, and rewards consistency. You know she&apos;s AI, but she&apos;s <em>yours</em>.

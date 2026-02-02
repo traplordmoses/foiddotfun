@@ -172,9 +172,9 @@ export default function PrayPage() {
   const [boardProposals, setBoardProposals] = useState<ApiProposal[]>([]);
   const [boardLoading, setBoardLoading] = useState(false);
   const [boardError, setBoardError] = useState<string | null>(null);
-  const [votes, setVotes] = useState<VoteWire[]>([]);
-  const [votesLoading, setVotesLoading] = useState(false);
-  const [votesError, setVotesError] = useState<string | null>(null);
+  // const [votes, setVotes] = useState<VoteWire[]>([]);
+  // const [votesLoading, setVotesLoading] = useState(false);
+  // const [votesError, setVotesError] = useState<string | null>(null);
 
   const env = useMemo(resolveEnv, []);
   const REGISTRY = env.registry;
@@ -300,47 +300,47 @@ export default function PrayPage() {
     };
   }, [address]);
 
-  useEffect(() => {
-    if (!address) {
-      setVotes([]);
-      setVotesError(null);
-      setVotesLoading(false);
-      return;
-    }
+  // useEffect(() => {
+  //   if (!address) {
+  //     setVotes([]);
+  //     setVotesError(null);
+  //     setVotesLoading(false);
+  //     return;
+  //   }
 
-    const ctrl = new AbortController();
+  //   const ctrl = new AbortController();
 
-    const run = async () => {
-      try {
-        setVotesLoading(true);
-        setVotesError(null);
-        const res = await fetch(`/api/votes?address=${address}`, {
-          cache: "no-store",
-          signal: ctrl.signal,
-        });
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(`votes fetch failed (${res.status}) ${text}`.trim());
-        }
-        const json = (await res.json()) as { votes?: VoteWire[] };
-        setVotes(Array.isArray(json.votes) ? json.votes : []);
-      } catch (e) {
-        if ((e as any)?.name === "AbortError") return;
-        setVotesError(e instanceof Error ? e.message : String(e));
-        setVotes([]);
-      } finally {
-        setVotesLoading(false);
-      }
-    };
+  //   const run = async () => {
+  //     try {
+  //       setVotesLoading(true);
+  //       setVotesError(null);
+  //       const res = await fetch(`/api/votes?address=${address}`, {
+  //         cache: "no-store",
+  //         signal: ctrl.signal,
+  //       });
+  //       if (!res.ok) {
+  //         const text = await res.text().catch(() => "");
+  //         throw new Error(`votes fetch failed (${res.status}) ${text}`.trim());
+  //       }
+  //       const json = (await res.json()) as { votes?: VoteWire[] };
+  //       setVotes(Array.isArray(json.votes) ? json.votes : []);
+  //     } catch (e) {
+  //       if ((e as any)?.name === "AbortError") return;
+  //       setVotesError(e instanceof Error ? e.message : String(e));
+  //       setVotes([]);
+  //     } finally {
+  //       setVotesLoading(false);
+  //     }
+  //   };
 
-    run();
-    const t = setInterval(run, 10_000);
+  //   run();
+  //   const t = setInterval(run, 10_000);
 
-    return () => {
-      clearInterval(t);
-      ctrl.abort();
-    };
-  }, [address]);
+  //   return () => {
+  //     clearInterval(t);
+  //     ctrl.abort();
+  //   };
+  // }, [address]);
 
   const ensureWalletReady = useCallback(async () => {
     if (!isConnected || !address) throw new Error("please connect your wallet before anchoring your prayer.");

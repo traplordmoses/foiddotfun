@@ -12,7 +12,7 @@
  *   npm run auto:finalize
  *
  * Cron example (every 6 hours):
- *   0 */6 * * * cd /path/to/foid_fun && npm run auto:finalize >> logs/finalize.log 2>&1
+ *   0 *\/6 * * * cd /path/to/foid_fun && npm run auto:finalize >> logs/finalize.log 2>&1
  */
 
 import { spawn } from "child_process";

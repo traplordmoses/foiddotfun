@@ -619,7 +619,8 @@ export default function FoidMommyTerminal({
         setIsProcessing(false);
       }
     },
-    [addMessage, typeMessage, isProcessing, feelingKey, initialFeelingText, handleConfirm],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [addMessage, typeMessage, isProcessing, feelingKey, initialFeelingText],
   );
 
   const feelingLimit = 140;
@@ -1147,8 +1148,6 @@ export default function FoidMommyTerminal({
     prayerOverLimit,
     prayerCount,
     prayerLimit,
-    cooldownActive,
-    cooldownNextWindow,
   ]);
 
   // Get placeholder based on stage
