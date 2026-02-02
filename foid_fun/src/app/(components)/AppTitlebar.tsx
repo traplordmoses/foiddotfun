@@ -118,6 +118,8 @@ export default function AppTitlebar({
           display: flex;
           align-items: center;
           overflow: hidden;
+          background: transparent;
+          box-shadow: none;
         }
 
         :global(.pray-nav-tabs) {
@@ -127,6 +129,9 @@ export default function AppTitlebar({
           gap: 6px;
           padding-bottom: 2px;
           overflow: hidden;
+          background: transparent;
+          border: none;
+          box-shadow: none;
         }
 
         :global(.pray-nav-tab) {
