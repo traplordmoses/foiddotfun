@@ -24,7 +24,9 @@
     "e2e:board": "tsx scripts/e2e-step3-boardv1.ts",
     "debug:receipt": "tsx scripts/debug-receipt-logs.ts",
     "sync:nft": "tsx scripts/sync-live-nft.ts",
-    "recover:refunds": "tsx scripts/recover-stuck-refunds.ts"
+    "recover:refunds": "tsx scripts/recover-stuck-refunds.ts",
+    "check:refunds": "tsx scripts/dry-run-refunds.ts",
+    "auto:finalize": "tsx scripts/auto-finalize-cron.ts"
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "2.1.6",
