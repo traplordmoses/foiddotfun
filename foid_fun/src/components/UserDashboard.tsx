@@ -163,15 +163,17 @@ export const UserDashboard = memo(function UserDashboard() {
       return;
     }
 
-    // Auto-load data on page load (reduced guard time for better UX)
+    // Always load on first render (bypass guard if hasFetched is false)
     const guardKey = `dashboard:init:${address}`;
-    if (!shouldFetchOnce(guardKey, 2_000)) {
+    const shouldLoad = !placementsHasFetched || shouldFetchOnce(guardKey, 2_000);
+
+    if (!shouldLoad) {
       return;
     }
 
     void loadDashboardData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address]);
+  }, [address, placementsHasFetched]);
 
   const placementsWithStatus = useMemo(() => {
     if (!placements.length) return [];
