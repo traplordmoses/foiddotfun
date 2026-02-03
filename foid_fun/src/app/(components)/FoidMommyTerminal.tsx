@@ -3,6 +3,7 @@ import { celebrateTransaction } from "@/effects/celebrate";
 import sfx from "@/lib/sfx";
 import { attachTypingClicks, initTypingClicks } from "@/lib/typingClicks";
 import { formatViemError } from "@/lib/prayerErrors";
+import { usePrayerDraft } from "@/hooks/usePrayerDraft";
 
 export type FeelingKey =
   | "happy"
@@ -275,12 +276,15 @@ export default function FoidMommyTerminal({
   className,
   autoStart = false,
 }: FoidMommyTerminalProps) {
+  // Prayer draft persistence
+  const { draft, saveDraft, clearDraft } = usePrayerDraft();
+
   const [stage, setStage] = useState<Stage>("idle");
   const [messages, setMessages] = useState<Message[]>([]);
   const [feelingKey, setFeelingKey] = useState<FeelingKey | null>(null);
   const [feelingInput, setFeelingInput] = useState("");
   const [secondChatInput, setSecondChatInput] = useState("");
-  const [prayerInput, setPrayerInput] = useState("");
+  const [prayerInput, setPrayerInput] = useState(draft);
   const [commandInput, setCommandInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [prayerText, setPrayerText] = useState<string>("");
@@ -422,6 +426,13 @@ export default function FoidMommyTerminal({
     return "lost";
   }, []);
 
+  // Auto-save prayer draft as user types (only during awaitPrayer stage)
+  useEffect(() => {
+    if (stage === "awaitPrayer") {
+      saveDraft(prayerInput);
+    }
+  }, [prayerInput, stage, saveDraft]);
+
   useEffect(() => {
     if (stage !== "loading") return;
     resetTimers();
@@ -429,6 +440,7 @@ export default function FoidMommyTerminal({
     setFeelingInput("");
     setSecondChatInput("");
     setPrayerInput("");
+    clearDraft(); // Clear draft when terminal restarts
     setCommandInput("");
     setFeelingKey(null);
     setPrayerText("");
@@ -743,6 +755,7 @@ export default function FoidMommyTerminal({
       celebrateTransaction(result?.txHash);
       setStage("checkInPrompt");
       setPrayerText("");
+      clearDraft(); // Clear draft after successful prayer submission
       setIsProcessing(false);
     } catch (error: unknown) {
       window.clearTimeout(waitingTimer);
