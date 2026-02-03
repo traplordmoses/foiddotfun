@@ -179,6 +179,10 @@ function PrayPageContent() {
   const [boardProposals, setBoardProposals] = useState<ApiProposal[]>([]);
   const [boardLoading, setBoardLoading] = useState(false);
   const [boardError, setBoardError] = useState<string | null>(null);
+
+  // Optimistic UI updates
+  const [optimisticStreak, setOptimisticStreak] = useState<number | null>(null);
+  const [optimisticTotal, setOptimisticTotal] = useState<number | null>(null);
   // const [votes, setVotes] = useState<VoteWire[]>([]);
   // const [votesLoading, setVotesLoading] = useState(false);
   // const [votesError, setVotesError] = useState<string | null>(null);
@@ -203,7 +207,11 @@ function PrayPageContent() {
   const nextRef = useRef<(() => Promise<unknown>) | null>(null);
   const registryRef = useRef<Hex | undefined>(REGISTRY);
 
-  const { data: snapLegacy, refetch: refetchSnapLegacy } = useReadContract({
+  const {
+    data: snapLegacy,
+    isLoading: snapLegacyLoading,
+    refetch: refetchSnapLegacy
+  } = useReadContract({
     address: safeAddress(MIRROR),
     abi: PrayerMirrorAbiLegacy,
     functionName: "get",
@@ -212,7 +220,11 @@ function PrayPageContent() {
     query: { enabled: Boolean(address && MIRROR && FLUENT_CHAIN_ID) },
   });
 
-  const { data: snapLite, refetch: refetchSnapLite } = useReadContract({
+  const {
+    data: snapLite,
+    isLoading: snapLiteLoading,
+    refetch: refetchSnapLite
+  } = useReadContract({
     address: safeAddress(MIRROR),
     abi: PrayerMirrorAbiLite,
     functionName: "get",
@@ -221,7 +233,11 @@ function PrayPageContent() {
     query: { enabled: Boolean(address && MIRROR && FLUENT_CHAIN_ID) },
   });
 
-  const { data: nextAllowed, refetch: refetchNext } = useReadContract({
+  const {
+    data: nextAllowed,
+    isLoading: nextAllowedLoading,
+    refetch: refetchNext
+  } = useReadContract({
     address: safeAddress(REGISTRY),
     abi: PRAYER_REGISTRY_ABI,
     functionName: "nextAllowedAt",
@@ -229,6 +245,9 @@ function PrayPageContent() {
     chainId: FLUENT_CHAIN_ID,
     query: { enabled: Boolean(address && REGISTRY && FLUENT_CHAIN_ID) },
   });
+
+  // Combined loading state
+  const statsLoading = snapLegacyLoading || snapLiteLoading || nextAllowedLoading;
 
   useEffect(() => {
     snapRef.current = async () => {
@@ -414,12 +433,33 @@ function PrayPageContent() {
           account: address as Address,
         });
       } catch (error: unknown) {
-        console.warn("prayer gas estimation failed, using fallback:", error);
-        // Fallback: 200k gas should be enough for prayers
+        console.warn("prayer gas estimation failed:", error);
+
+        // Try to get a better estimate from simulation
+        // If simulation passed earlier but estimation fails, use conservative fallback
+        // Based on typical prayer transactions: ~150k-180k gas
+        const message = formatViemError(error);
+
+        // If it's a revert, don't use fallback - fail immediately
+        if (message.includes('revert') || message.includes('execution reverted')) {
+          throw new Error(`Transaction would fail: ${message}`);
+        }
+
+        // For network errors or estimation failures, use smart fallback
+        // Base: 150k + 50k buffer = 200k (reasonable for most prayers)
         gasEstimate = BigInt(200_000);
+        console.log("Using fallback gas estimate:", gasEstimate.toString());
       }
+
+      // Add 20% margin to gas estimate for safety
       const gasMargin = (gasEstimate * 20n) / 100n;
       const gasLimit = gasEstimate + (gasMargin > 0 ? gasMargin : 1n);
+
+      // Optimistic update: Show +1 streak and +1 total immediately
+      const currentStreak = typeof snap?.[0] === 'bigint' ? Number(snap[0]) : (typeof snap?.[0] === 'number' ? snap[0] : 0);
+      const currentTotal = typeof snap?.[2] === 'bigint' ? Number(snap[2]) : (typeof snap?.[2] === 'number' ? snap[2] : 0);
+      setOptimisticStreak(currentStreak + 1);
+      setOptimisticTotal(currentTotal + 1);
 
       const walletClient = await getWalletClient();
       try {
@@ -432,12 +472,15 @@ function PrayPageContent() {
         });
         return { txHash };
       } catch (error: unknown) {
+        // Revert optimistic update on error
+        setOptimisticStreak(null);
+        setOptimisticTotal(null);
         const message = formatViemError(error);
         console.error("prayer send failed:", message, error);
         throw new Error(message);
       }
     },
-    [address, chainId, FLUENT_CHAIN_ID, publicClient, switchChainAsync],
+    [address, chainId, FLUENT_CHAIN_ID, publicClient, switchChainAsync, snap],
   );
 
   const waitForReceipt = useCallback(async (hash: string) => {
@@ -475,6 +518,10 @@ function PrayPageContent() {
     if (snapRef.current) tasks.push(snapRef.current());
     if (nextRef.current) tasks.push(nextRef.current());
     if (tasks.length) await Promise.all(tasks); // Use Promise.all instead of allSettled
+
+    // Clear optimistic updates after real data is fetched
+    setOptimisticStreak(null);
+    setOptimisticTotal(null);
   }, [publicClient]);
 
   const handleSwitchWallet = useCallback(() => {
@@ -490,6 +537,12 @@ function PrayPageContent() {
   const snapValues = snap as readonly unknown[] | undefined;
   const prayerHash = snapValues && snapValues.length > 4 ? (snapValues.length > 5 ? snapValues[5] : snapValues[4]) : undefined;
   const formattedPrayerHash = typeof prayerHash === "string" ? shortHash(prayerHash) : "–";
+
+  // Computed values with optimistic updates
+  const displayStreak = optimisticStreak !== null ? optimisticStreak : snap?.[0];
+  const displayLongest = snap?.[1];
+  const displayTotal = optimisticTotal !== null ? optimisticTotal : snap?.[2];
+  const displayMilestones = snap?.[3];
   const canRenderTime = nowSeconds !== null;
   const nextAllowedSecondsRaw = typeof nextAllowed === "bigint" ? Number(nextAllowed) : typeof nextAllowed === "number" ? nextAllowed : null;
   const cooldownActive = canRenderTime && typeof nextAllowedSecondsRaw === "number" && nextAllowedSecondsRaw > nowSeconds;
@@ -509,7 +562,14 @@ function PrayPageContent() {
             <Image src="/foidmommy.gif" alt="Foid Mommy" width={120} height={120} className="rounded-2xl" />
             <button
               onClick={handleSwitchWallet}
-              className="w-full min-h-[56px] px-8 py-5 text-lg font-bold tracking-wide rounded-2xl shadow-lg transition-all duration-200 touch-manipulation active:scale-[0.98] hover:scale-[1.02]"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleSwitchWallet();
+                }
+              }}
+              aria-label="Connect wallet to start praying"
+              className="w-full min-h-[56px] px-8 py-5 text-lg font-bold tracking-wide rounded-2xl shadow-lg transition-all duration-200 touch-manipulation active:scale-[0.98] hover:scale-[1.02] focus:outline-none focus:ring-4 focus:ring-green-500/50"
               style={{
                 background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
                 boxShadow: '0 0 24px rgba(34, 197, 94, 0.4), 0 10px 30px rgba(0, 0, 0, 0.3)',
@@ -649,25 +709,64 @@ function PrayPageContent() {
                       <div className="pray-stats-grid">
                         <div className="pray-stats-cell">
                           <span className="pray-stats-cell__label">CURRENT STREAK</span>
-                          <span className="pray-stats-cell__value pray-stats-cell__value--primary">{snap?.[0]?.toString?.() ?? (address ? "0" : "–")}</span>
+                          <span className="pray-stats-cell__value pray-stats-cell__value--primary">
+                            {statsLoading ? (
+                              <span className="animate-pulse opacity-50">···</span>
+                            ) : (
+                              <>
+                                {displayStreak?.toString?.() ?? (address ? "0" : "–")}
+                                {optimisticStreak !== null && <span className="text-xs ml-1 opacity-60">↑</span>}
+                              </>
+                            )}
+                          </span>
                         </div>
                         <div className="pray-stats-cell">
                           <span className="pray-stats-cell__label">LONGEST STREAK</span>
-                          <span className="pray-stats-cell__value">{snap?.[1]?.toString?.() ?? (address ? "0" : "–")}</span>
+                          <span className="pray-stats-cell__value">
+                            {statsLoading ? (
+                              <span className="animate-pulse opacity-50">···</span>
+                            ) : (
+                              displayLongest?.toString?.() ?? (address ? "0" : "–")
+                            )}
+                          </span>
                         </div>
                         <div className="pray-stats-cell">
                           <span className="pray-stats-cell__label">TOTAL PRAYERS</span>
-                          <span className="pray-stats-cell__value">{snap?.[2]?.toString?.() ?? (address ? "0" : "–")}</span>
+                          <span className="pray-stats-cell__value">
+                            {statsLoading ? (
+                              <span className="animate-pulse opacity-50">···</span>
+                            ) : (
+                              <>
+                                {displayTotal?.toString?.() ?? (address ? "0" : "–")}
+                                {optimisticTotal !== null && <span className="text-xs ml-1 opacity-60">↑</span>}
+                              </>
+                            )}
+                          </span>
                         </div>
                         <div className="pray-stats-cell">
                           <span className="pray-stats-cell__label">MILESTONES</span>
-                          <span className="pray-stats-cell__value">{snap?.[3]?.toString?.() ?? (address ? "0" : "–")}</span>
+                          <span className="pray-stats-cell__value">
+                            {statsLoading ? (
+                              <span className="animate-pulse opacity-50">···</span>
+                            ) : (
+                              displayMilestones?.toString?.() ?? (address ? "0" : "–")
+                            )}
+                          </span>
                         </div>
                       </div>
                         <div className="pray-chain-info">
                           <div className="pray-chain-info__row"><span className="pray-chain-info__label">prayer hash</span><span className="pray-chain-info__value pray-chain-info__value--hash">{formattedPrayerHash}</span></div>
                           <div className="pray-chain-info__row"><span className="pray-chain-info__label">chain</span><span className="pray-chain-info__value">{TARGET_CHAIN_ID}</span></div>
-                          <div className="pray-chain-info__row"><span className="pray-chain-info__label">next allowed in</span><span className={`pray-chain-info__value ${!cooldownActive ? "pray-chain-info__value--ready" : ""}`}>{canRenderTime ? formatDurationShort(secondsLeft(nowSeconds, nextAllowed as bigint | undefined)) : "—"}</span></div>
+                          <div className="pray-chain-info__row">
+                            <span className="pray-chain-info__label">next allowed in</span>
+                            <span className={`pray-chain-info__value ${!cooldownActive ? "pray-chain-info__value--ready" : ""}`}>
+                              {nextAllowedLoading ? (
+                                <span className="animate-pulse opacity-50">loading...</span>
+                              ) : (
+                                canRenderTime ? formatDurationShort(secondsLeft(nowSeconds, nextAllowed as bigint | undefined)) : "—"
+                              )}
+                            </span>
+                          </div>
                           {cooldownActive && <div className="pray-chain-info__row"><span className="pray-chain-info__label">next window</span><span className="pray-chain-info__value">{nextWindowLabel}</span></div>}
                         </div>
                         <div className="mt-4 border-t border-white/10 pt-4">
@@ -1192,6 +1291,34 @@ function PrayPageContent() {
           }
           .pray-window-frame {
             padding-bottom: calc(var(--safe-bottom, 0px) + 8px);
+          }
+
+          /* Ensure minimum 48px touch targets on mobile */
+          button,
+          :global(button),
+          [role="button"],
+          :global([role="button"]) {
+            min-height: 48px;
+            min-width: 48px;
+          }
+
+          /* Stats cells should be tappable */
+          .pray-stats-cell {
+            min-height: 80px;
+            padding: 16px 18px;
+          }
+
+          /* Increase label font sizes for better readability */
+          .pray-stats-cell__label {
+            font-size: 11px;
+          }
+
+          .pray-chain-info__label {
+            font-size: 12px;
+          }
+
+          .pray-chain-info__value {
+            font-size: 13px;
           }
         }
       `}</style>
