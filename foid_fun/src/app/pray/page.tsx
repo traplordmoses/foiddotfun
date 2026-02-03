@@ -793,72 +793,6 @@ function PrayPageContent() {
                             </div>
                           )}
                         </div>
-                        <div className="mt-4 border-t border-white/10 pt-4">
-                          <div className="flex items-center justify-between">
-                            <span className="pray-chain-info__label">loreboard history</span>
-                            <span className="pray-chain-info__value" style={{ fontSize: 11, opacity: 0.8 }}>
-                              {boardLoading ? "loading…" : `${boardProposals.length} total`}
-                            </span>
-                          </div>
-
-                          {boardError && (
-                            <div className="mt-2 text-[10px] uppercase tracking-[0.12em] text-white/45">
-                              failed to load placements: {boardError}
-                            </div>
-                          )}
-
-                          {!boardError && !boardLoading && boardProposals.length === 0 && (
-                            <div className="mt-2 text-[10px] uppercase tracking-[0.12em] text-white/45">
-                              no placements found for this wallet yet.
-                            </div>
-                          )}
-
-                          <div className="mt-3 space-y-2">
-                            {boardProposals.slice(0, 8).map((p) => {
-                              const yes = safeNumber(p.yes);
-                              const no = safeNumber(p.no);
-                              const total = yes + no;
-                              const pctYes = typeof p.percentYes === "number" ? p.percentYes : total ? yes / total : 0;
-                              const seconds = safeNumber(p.secondsLeft);
-                              const status = p.isVotable ? "voting" : total > 0 ? "resolved" : "queued";
-                              const title = (p.cid ?? p.name ?? p.id ?? "").replace(/^ipfs:\/\//, "");
-
-                              return (
-                                <div
-                                  key={`${p.id}-${p.epochSubmitted}`}
-                                  className="rounded-md border border-white/10 bg-black/10 px-3 py-2"
-                                >
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <div className="truncate text-[11px] font-terminal text-white/85">
-                                        epoch {safeNumber(p.epochSubmitted)} • {status}
-                                      </div>
-                                      <div className="truncate text-[10px] font-terminal text-white/45">
-                                        {shortId(title) || shortId(p.id)}
-                                      </div>
-                                    </div>
-
-                                    <div className="flex shrink-0 flex-col items-end">
-                                      <div className="text-[10px] font-terminal text-white/70">
-                                        {total ? `${yes}/${total} yes` : "no votes"}
-                                      </div>
-                                      <div className={`text-[10px] font-terminal ${seconds > 0 ? "text-white/60" : "text-white/35"}`}>
-                                        {seconds > 0 ? formatDurationShort(seconds) : "—"}
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  <div className="mt-2 h-[6px] w-full overflow-hidden rounded-full bg-white/10">
-                                    <div
-                                      className="h-full rounded-full bg-white/40"
-                                      style={{ width: `${Math.round(Math.max(0, Math.min(1, pctYes)) * 100)}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
                         {missingMirror && <div className="pray-stats-notice">stats unavailable (mirror not set).</div>}
                         {walletDisconnected && <div className="pray-stats-notice">connect your wallet to start logging prayers.</div>}
                       </div>
@@ -954,6 +888,8 @@ function PrayPageContent() {
         }
 
         .pray-main-grid {
+          display: grid;
+          grid-template-columns: 1.4fr 1fr;
           padding: 16px;
           gap: 20px;
           width: 100%;
