@@ -732,7 +732,7 @@ function BoardPageContent() {
     if (latestManifestLoading) return;
     if (latestManifestError) { void loadFallback(); return; }
     if (normalizedManifestPlacements.length > 0) {
-      const epochValue = typeof latestManifestEpoch === "number" ? latestManifestEpoch : typeof latestManifest.epoch === "number" ? latestManifest.epoch : null;
+      const epochValue = typeof latestManifestEpoch === "number" ? latestManifestEpoch : (latestManifest && typeof latestManifest.epoch === "number" ? latestManifest.epoch : null);
       if (placedEpoch != null && epochValue != null && epochValue < placedEpoch) return;
       apply(normalizedManifestPlacements, epochValue);
       latestFallbackTried.current = false;

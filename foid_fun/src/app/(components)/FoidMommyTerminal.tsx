@@ -232,7 +232,7 @@ export type FoidMommyTerminalProps = {
 
 function makeId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
+    return (crypto as { randomUUID?: () => string }).randomUUID?.() ?? Math.random().toString(36).slice(2);
   }
   return Math.random().toString(36).slice(2);
 }

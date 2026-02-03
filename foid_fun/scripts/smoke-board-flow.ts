@@ -73,7 +73,7 @@ function resolveSmokeNonce() {
   const envNonce = process.env.SMOKE_NONCE;
   if (envNonce && envNonce.trim()) return envNonce.trim();
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
+    return (crypto as { randomUUID?: () => string }).randomUUID?.() ?? String(Date.now());
   }
   return String(Date.now());
 }

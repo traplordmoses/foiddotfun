@@ -65,7 +65,9 @@ export function useChat(room = "global") {
       const trimmed = text.trim();
       if (!trimmed) return;
       const msg: ChatMsg = {
-        id: crypto.randomUUID(),
+        id: (typeof crypto !== "undefined" && "randomUUID" in crypto)
+          ? ((crypto as { randomUUID?: () => string }).randomUUID?.() ?? Math.random().toString(36).slice(2))
+          : Math.random().toString(36).slice(2),
         user: user || "anon",
         text: trimmed,
         ts: Date.now(),

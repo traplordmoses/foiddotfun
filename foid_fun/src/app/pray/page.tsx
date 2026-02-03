@@ -475,6 +475,7 @@ function PrayPageContent() {
       const gasLimit = gasEstimate + (gasMargin > 0 ? gasMargin : 1n);
 
       // Optimistic update: Show +1 streak and +1 total immediately
+      const snap = snapLegacy ?? snapLite;
       const currentStreak = typeof snap?.[0] === 'bigint' ? Number(snap[0]) : (typeof snap?.[0] === 'number' ? snap[0] : 0);
       const currentTotal = typeof snap?.[2] === 'bigint' ? Number(snap[2]) : (typeof snap?.[2] === 'number' ? snap[2] : 0);
       setOptimisticStreak(currentStreak + 1);
@@ -499,7 +500,7 @@ function PrayPageContent() {
         throw new Error(message);
       }
     },
-    [address, chainId, FLUENT_CHAIN_ID, publicClient, switchChainAsync, snap],
+    [address, chainId, FLUENT_CHAIN_ID, publicClient, switchChainAsync, snapLegacy, snapLite],
   );
 
   const waitForReceipt = useCallback(async (hash: string) => {
