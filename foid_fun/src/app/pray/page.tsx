@@ -469,7 +469,7 @@ export default function PrayPage() {
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
 
       {/* Mobile Layout */}
-      <div className="lg:hidden relative z-10 flex items-center justify-center min-h-screen p-4 pb-28 pb-safe">
+      <div className="lg:hidden relative z-10 flex items-center justify-center min-h-screen px-2 sm:px-4 pb-28 pb-safe">
         {/* NOT CONNECTED - Show connect button */}
         {!isConnected ? (
           <div className="flex flex-col items-center justify-center gap-6 w-full max-w-md">
@@ -489,7 +489,7 @@ export default function PrayPage() {
           </div>
         ) : (
           /* CONNECTED - Show terminal immediately */
-          <section className="vista-window vista-window--media flex flex-col h-[80vh] max-h-[80vh] mb-4 overflow-hidden w-full max-w-4xl">
+          <section className="vista-window vista-window--media flex flex-col h-[75vh] max-h-[75vh] mb-4 overflow-hidden">
             <div className="vista-window__titlebar flex-shrink-0">
               <div className="vista-window__controls" aria-hidden="true">
                 <span className="vista-window__control vista-window__control--minimize" />
@@ -855,6 +855,10 @@ export default function PrayPage() {
         /* Input styling with spacing fix */
         .pray-liquid-glass-terminal :global(.foid-terminal__prompt) { margin-right: 12px; }
         .pray-liquid-glass-terminal :global(.foid-terminal__field) { padding-left: 8px; }
+        .pray-liquid-glass-terminal :global(.foid-terminal__field)::placeholder {
+          font-size: 0.85em;
+          padding-left: 4px;
+        }
         .pray-liquid-glass-terminal :global(.foid-terminal__input) {
           border: 1px solid rgba(0, 255, 213, 0.3) !important;
           background: rgba(0, 20, 30, 0.4) !important;
@@ -1128,6 +1132,15 @@ export default function PrayPage() {
           }
           .pray-window-frame > .vista-window {
             max-height: none;
+          }
+        }
+
+        @media (max-width: 768px) {
+          /* Mobile: Match about page container sizing */
+          .vista-window--media {
+            height: 80vh !important;
+            min-height: 80vh !important;
+            max-height: 80vh !important;
           }
         }
 
