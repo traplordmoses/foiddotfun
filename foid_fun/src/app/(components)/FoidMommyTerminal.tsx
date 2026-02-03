@@ -1178,68 +1178,73 @@ export default function FoidMommyTerminal({
     <div
       className={`foid-terminal foid-cli w-full ${className ?? ""}`}
     >
-      <div
-        ref={logRef}
-        className="foid-cli__log foid-terminal__log"
-        onScroll={handleLogScroll}
-      >
-        <div className="foid-cli__logInner">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              data-role={msg.role}
-              className={`foid-terminal__line ${
-                msg.role === "user"
-                  ? "foid-terminal__line--user"
-                  : msg.role === "foid"
-                    ? "foid-terminal__line--foid"
-                    : `foid-terminal__line--system${
-                        msg.text.toLowerCase().startsWith("booting") ? " foid-terminal__line--boot" : ""
-                      }`
-              }`}
-            >
-              {msg.role === "user" && (
-                <span className="foid-terminal__prompt">{promptLabel}</span>
-              )}
-              <span>{msg.text}</span>
-            </div>
-          ))}
+      {/* IDLE STATE: Show only centered START button */}
+      {stage === "idle" && !autoStart ? (
+        <div className="flex items-center justify-center h-full w-full">
+          <button
+            onClick={handleStart}
+            className="min-h-[56px] px-12 py-4 bg-gradient-to-br from-green-400 to-green-600 text-black font-bold text-lg rounded-xl shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 touch-manipulation"
+          >
+            START PRAYING
+          </button>
         </div>
-      </div>
-
-      <div className="foid-cli__composer">
-        <form onSubmit={handleCommandSubmit} className="foid-terminal__input-wrap">
-          <div className="foid-terminal__input">
-            <span className="foid-terminal__prompt">{promptLabel}</span>
-            <input
-              ref={inputRef}
-              type="text"
-              value={currentInputValue}
-              onChange={(event) => handleCommandChange(event.target.value)}
-              className="foid-terminal__field"
-              placeholder={inputPlaceholder}
-              autoComplete="off"
-              spellCheck={false}
-              disabled={inputLocked}
-            />
-          </div>
-          {statusMessage && (
-            <div className={statusTone}>
-              {statusMessage}
+      ) : (
+        /* ACTIVE STATE: Show full terminal interface */
+        <>
+          <div
+            ref={logRef}
+            className="foid-cli__log foid-terminal__log"
+            onScroll={handleLogScroll}
+          >
+            <div className="foid-cli__logInner">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  data-role={msg.role}
+                  className={`foid-terminal__line ${
+                    msg.role === "user"
+                      ? "foid-terminal__line--user"
+                      : msg.role === "foid"
+                        ? "foid-terminal__line--foid"
+                        : `foid-terminal__line--system${
+                            msg.text.toLowerCase().startsWith("booting") ? " foid-terminal__line--boot" : ""
+                          }`
+                  }`}
+                >
+                  {msg.role === "user" && (
+                    <span className="foid-terminal__prompt">{promptLabel}</span>
+                  )}
+                  <span>{msg.text}</span>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
 
-          {/* Mobile START button */}
-          {stage === "idle" && !autoStart && (
-            <button
-              type="submit"
-              className="lg:hidden mt-4 w-full min-h-[56px] px-6 py-4 bg-gradient-to-br from-green-400 to-green-600 text-black font-bold text-lg rounded-xl shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 touch-manipulation"
-            >
-              START PRAYING
-            </button>
-          )}
-        </form>
-      </div>
+          <div className="foid-cli__composer">
+            <form onSubmit={handleCommandSubmit} className="foid-terminal__input-wrap">
+              <div className="foid-terminal__input">
+                <span className="foid-terminal__prompt">{promptLabel}</span>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={currentInputValue}
+                  onChange={(event) => handleCommandChange(event.target.value)}
+                  className="foid-terminal__field"
+                  placeholder={inputPlaceholder}
+                  autoComplete="off"
+                  spellCheck={false}
+                  disabled={inputLocked}
+                />
+              </div>
+              {statusMessage && (
+                <div className={statusTone}>
+                  {statusMessage}
+                </div>
+              )}
+            </form>
+          </div>
+        </>
+      )}
     </div>
   );
 }
