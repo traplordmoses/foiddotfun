@@ -49,7 +49,7 @@ export const UserStatsSection = memo(function UserStatsSection({
         Your Stats
       </h3>
 
-      <div className="glass-panel space-y-3 p-4">
+      <div className="glass-panel-darker space-y-3 p-4 rounded-2xl">
         <StatRow
           icon="🔥"
           label="Prayer Streak"

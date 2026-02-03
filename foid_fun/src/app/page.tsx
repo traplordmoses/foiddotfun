@@ -194,10 +194,8 @@ export default function LandingPage() {
                 </span>
               </div>
 
-              <div className="vista-window__body vista-window__body--flush flex-1 min-h-0 overflow-hidden !border-0 !bg-transparent">
-                <div className="h-full overflow-y-auto" style={{ touchAction: 'pan-y' }}>
-                  <UserDashboard />
-                </div>
+              <div className="vista-window__body vista-window__body--flush flex-1 min-h-0 overflow-y-auto !border-0 !bg-transparent" style={{ touchAction: 'pan-y' }}>
+                <UserDashboard />
               </div>
             </section>
 
@@ -287,7 +285,7 @@ export default function LandingPage() {
               </span>
             </div>
 
-            <div className="vista-window__body vista-window__body--flush flex-1 min-h-0 overflow-hidden !p-0 !border-0 !bg-transparent">
+            <div className="vista-window__body vista-window__body--flush flex-1 min-h-0 overflow-y-auto !p-0 !border-0 !bg-transparent">
               <UserDashboard />
             </div>
           </section>

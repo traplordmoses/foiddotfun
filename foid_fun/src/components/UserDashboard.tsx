@@ -163,8 +163,9 @@ export const UserDashboard = memo(function UserDashboard() {
       return;
     }
 
+    // Auto-load data on page load (reduced guard time for better UX)
     const guardKey = `dashboard:init:${address}`;
-    if (!shouldFetchOnce(guardKey, 25_000)) {
+    if (!shouldFetchOnce(guardKey, 2_000)) {
       return;
     }
 
