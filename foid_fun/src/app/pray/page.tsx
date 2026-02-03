@@ -889,7 +889,7 @@ function PrayPageContent() {
 
         .pray-main-grid {
           display: grid;
-          grid-template-columns: 2.2fr 1fr;
+          grid-template-columns: 2.5fr 1fr;
           padding: 16px;
           gap: 20px;
           width: 100%;

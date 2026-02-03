@@ -1124,7 +1124,7 @@ export default function FoidMommyTerminal({
     switch (stage) {
       case "idle":
         return autoStart
-          ? "BOOTING FOID MOMMY..."
+          ? "Press enter/return to start"
           : "CLICK HERE OR PRESS ENTER TO START";
       case "loading":
         return "BOOTING FOID MOMMY...";
