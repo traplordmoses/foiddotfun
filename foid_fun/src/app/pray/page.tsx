@@ -387,8 +387,27 @@ function PrayPageContent() {
       if (chainId !== FLUENT_CHAIN_ID) {
         try {
           await switchChainAsync?.({ chainId: FLUENT_CHAIN_ID });
-          // Wait a bit for the chain to switch
-          await new Promise(resolve => setTimeout(resolve, 500));
+
+          // Poll for chain change confirmation (max 5 seconds)
+          const maxAttempts = 50; // 50 * 100ms = 5 seconds
+          let attempts = 0;
+
+          while (attempts < maxAttempts) {
+            // Check if chain has switched
+            if (chainId === FLUENT_CHAIN_ID) {
+              console.log('Chain switched successfully to', FLUENT_CHAIN_ID);
+              break;
+            }
+
+            // Wait 100ms before checking again
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+          }
+
+          // If chain still hasn't switched after 5 seconds, throw error
+          if (chainId !== FLUENT_CHAIN_ID) {
+            throw new Error('Chain switch timed out after 5 seconds');
+          }
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : "Failed to switch chain";
           throw new Error(`please switch to fluent testnet (chain ${FLUENT_CHAIN_ID}). ${message}`);
@@ -706,10 +725,10 @@ function PrayPageContent() {
                   <div className="pray-pane__title">YOUR PRAYERS</div>
                   <div className="pray-pane__body font-terminal text-xs sm:text-[13px] leading-snug">
                     <div className="pray-scroll">
-                      <div className="pray-stats-grid">
-                        <div className="pray-stats-cell">
+                      <div className="pray-stats-grid" role="region" aria-label="Prayer statistics">
+                        <div className="pray-stats-cell" role="status" aria-label="Current prayer streak">
                           <span className="pray-stats-cell__label">CURRENT STREAK</span>
-                          <span className="pray-stats-cell__value pray-stats-cell__value--primary">
+                          <span className="pray-stats-cell__value pray-stats-cell__value--primary" aria-live="polite">
                             {statsLoading ? (
                               <span className="animate-pulse opacity-50">···</span>
                             ) : (
@@ -720,9 +739,9 @@ function PrayPageContent() {
                             )}
                           </span>
                         </div>
-                        <div className="pray-stats-cell">
+                        <div className="pray-stats-cell" role="status" aria-label="Longest prayer streak">
                           <span className="pray-stats-cell__label">LONGEST STREAK</span>
-                          <span className="pray-stats-cell__value">
+                          <span className="pray-stats-cell__value" aria-live="polite">
                             {statsLoading ? (
                               <span className="animate-pulse opacity-50">···</span>
                             ) : (
@@ -730,9 +749,9 @@ function PrayPageContent() {
                             )}
                           </span>
                         </div>
-                        <div className="pray-stats-cell">
+                        <div className="pray-stats-cell" role="status" aria-label="Total prayers submitted">
                           <span className="pray-stats-cell__label">TOTAL PRAYERS</span>
-                          <span className="pray-stats-cell__value">
+                          <span className="pray-stats-cell__value" aria-live="polite">
                             {statsLoading ? (
                               <span className="animate-pulse opacity-50">···</span>
                             ) : (
@@ -743,9 +762,9 @@ function PrayPageContent() {
                             )}
                           </span>
                         </div>
-                        <div className="pray-stats-cell">
+                        <div className="pray-stats-cell" role="status" aria-label="Prayer milestones reached">
                           <span className="pray-stats-cell__label">MILESTONES</span>
-                          <span className="pray-stats-cell__value">
+                          <span className="pray-stats-cell__value" aria-live="polite">
                             {statsLoading ? (
                               <span className="animate-pulse opacity-50">···</span>
                             ) : (
@@ -754,12 +773,23 @@ function PrayPageContent() {
                           </span>
                         </div>
                       </div>
-                        <div className="pray-chain-info">
-                          <div className="pray-chain-info__row"><span className="pray-chain-info__label">prayer hash</span><span className="pray-chain-info__value pray-chain-info__value--hash">{formattedPrayerHash}</span></div>
-                          <div className="pray-chain-info__row"><span className="pray-chain-info__label">chain</span><span className="pray-chain-info__value">{TARGET_CHAIN_ID}</span></div>
+                        <div className="pray-chain-info" role="region" aria-label="On-chain prayer information">
+                          <div className="pray-chain-info__row">
+                            <span className="pray-chain-info__label">prayer hash</span>
+                            <span className="pray-chain-info__value pray-chain-info__value--hash" aria-label={`Prayer hash: ${formattedPrayerHash}`}>{formattedPrayerHash}</span>
+                          </div>
+                          <div className="pray-chain-info__row">
+                            <span className="pray-chain-info__label">chain</span>
+                            <span className="pray-chain-info__value" aria-label={`Chain ID: ${TARGET_CHAIN_ID}`}>{TARGET_CHAIN_ID}</span>
+                          </div>
                           <div className="pray-chain-info__row">
                             <span className="pray-chain-info__label">next allowed in</span>
-                            <span className={`pray-chain-info__value ${!cooldownActive ? "pray-chain-info__value--ready" : ""}`}>
+                            <span
+                              className={`pray-chain-info__value ${!cooldownActive ? "pray-chain-info__value--ready" : ""}`}
+                              role="timer"
+                              aria-live="polite"
+                              aria-label={cooldownActive ? `Next prayer allowed in ${formatDurationShort(secondsLeft(nowSeconds, nextAllowed as bigint | undefined))}` : "Ready to pray now"}
+                            >
                               {nextAllowedLoading ? (
                                 <span className="animate-pulse opacity-50">loading...</span>
                               ) : (
@@ -767,7 +797,12 @@ function PrayPageContent() {
                               )}
                             </span>
                           </div>
-                          {cooldownActive && <div className="pray-chain-info__row"><span className="pray-chain-info__label">next window</span><span className="pray-chain-info__value">{nextWindowLabel}</span></div>}
+                          {cooldownActive && (
+                            <div className="pray-chain-info__row">
+                              <span className="pray-chain-info__label">next window</span>
+                              <span className="pray-chain-info__value" aria-label={`Next prayer window opens at ${nextWindowLabel}`}>{nextWindowLabel}</span>
+                            </div>
+                          )}
                         </div>
                         <div className="mt-4 border-t border-white/10 pt-4">
                           <div className="flex items-center justify-between">
