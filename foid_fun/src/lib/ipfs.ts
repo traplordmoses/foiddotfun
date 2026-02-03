@@ -54,7 +54,9 @@ export async function uploadImage(
 
       // Exponential backoff: 1s, 2s, 4s
       const delayMs = 1000 * Math.pow(2, attempt);
-      console.warn(`IPFS upload attempt ${attempt + 1} failed, retrying in ${delayMs}ms...`, err);
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(`IPFS upload attempt ${attempt + 1} failed, retrying in ${delayMs}ms...`, err);
+      }
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
   }
@@ -128,8 +130,10 @@ export async function uploadJSON(
     return json.IpfsHash as string;
   }
 
-  console.warn(
-    "[ipfs] No WEB3_STORAGE_TOKEN or PINATA_JWT configured. Using dev CID."
-  );
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(
+      "[ipfs] No WEB3_STORAGE_TOKEN or PINATA_JWT configured. Using dev CID."
+    );
+  }
   return `dev-manifest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }

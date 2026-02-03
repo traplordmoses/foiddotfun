@@ -74,6 +74,13 @@ import { insertBoardMessage } from "@/lib/supabase";
 // HELPER FUNCTIONS
 // ============================================================================
 
+// Debug logger - only logs in development
+const debugWarn = (...args: unknown[]) => {
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(...args);
+  }
+};
+
 const isBytes32Hex = (value?: string): value is `0x${string}` =>
   typeof value === "string" && /^0x[0-9a-fA-F]{64}$/.test(value);
 
@@ -367,6 +374,33 @@ function BoardPageContent() {
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
   }, []);
 
+  // Keyboard zoom shortcuts: +/= for zoom in, - for zoom out, 0 for reset
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in input/textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        setScale((s) => Math.min(MAX_SCALE, s * 1.2));
+      } else if (e.key === "-") {
+        e.preventDefault();
+        setScale((s) => Math.max(MIN_SCALE, s / 1.2));
+      } else if (e.key === "0") {
+        e.preventDefault();
+        setScale(1);
+        const el = containerRef.current;
+        if (el) {
+          const r = el.getBoundingClientRect();
+          setPan({ x: (r.width - STAGE_CANVAS_W) / 2, y: (r.height - STAGE_CANVAS_H) / 2 });
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   // Pan handlers
   const onContainerPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
     const interactive = (e.target as HTMLElement).closest("figure,button,input,textarea,select,label");
@@ -444,7 +478,7 @@ function BoardPageContent() {
           try {
             URL.revokeObjectURL(item.previewUrl);
           } catch (err) {
-            console.warn("Failed to revoke blob URL:", err);
+            debugWarn("Failed to revoke blob URL:", err);
           }
         }
       });
@@ -813,7 +847,7 @@ function BoardPageContent() {
             addStatus(`⚠️ ${it.name} backend sync failed (${error}), but it's on-chain and live!`, "info");
           }
         } catch (apiError) {
-          console.warn("API registration failed but transaction succeeded:", apiError);
+          debugWarn("API registration failed but transaction succeeded:", apiError);
           addStatus(`⚠️ ${it.name} is on-chain and ready to vote - backend will sync soon!`, "info");
         }
       }

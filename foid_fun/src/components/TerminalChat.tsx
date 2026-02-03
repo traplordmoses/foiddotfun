@@ -157,10 +157,15 @@ export function TerminalChat({
       })),
   ]
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
-    // Deduplicate by text + timestamp (within 5 seconds)
+    // Deduplicate by ID first, then by text + timestamp (within 5 seconds)
     .filter((msg, index, arr) => {
       if (index === 0) return true;
       const prev = arr[index - 1];
+
+      // If IDs match, it's definitely a duplicate
+      if (msg.id === prev.id) return false;
+
+      // Otherwise, check text + timestamp for potential duplicates
       const timeDiff = Math.abs(msg.timestamp.getTime() - prev.timestamp.getTime());
       return !(msg.text === prev.text && timeDiff < 5000);
     });

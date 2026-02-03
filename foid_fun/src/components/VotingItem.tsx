@@ -176,6 +176,8 @@ export function VotingItem({ proposal, addStatus, now }: VotingItemProps) {
           disabled={!canVote}
           className="voting-item__yes"
           type="button"
+          aria-label={`Vote yes on proposal with ${proposal.cells} cells`}
+          title="Vote Yes"
         >
           ✓
         </button>
@@ -184,6 +186,8 @@ export function VotingItem({ proposal, addStatus, now }: VotingItemProps) {
           disabled={!canVote}
           className="voting-item__no"
           type="button"
+          aria-label={`Vote no on proposal with ${proposal.cells} cells`}
+          title="Vote No"
         >
           ✕
         </button>
