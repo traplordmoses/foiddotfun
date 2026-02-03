@@ -13,31 +13,54 @@ async function blobToBase64(b: Blob): Promise<string> {
 }
 
 /**
- * Upload an image to your local API → Web3.Storage.
+ * Upload an image to your local API → Web3.Storage with retry logic.
  * Returns the CID string on success, or null if IPFS is disabled (501).
- * Throws on other failures.
+ * Throws on other failures after retries exhausted.
  */
 export async function uploadImage(
   name: string,
   file: File | Blob,
-  mime: "image/png" | "image/jpeg"
+  mime: "image/png" | "image/jpeg",
+  maxRetries = 3
 ): Promise<string | null> {
-  const base64 = await blobToBase64(file);
+  let lastError: Error | null = null;
 
-  const res = await fetch("/api/ipfs-upload", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, base64, mime }),
-  });
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const base64 = await blobToBase64(file);
 
-  if (res.status === 501) return null; // IPFS not configured — caller should fallback to objectURL
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data?.error ?? `Upload failed with ${res.status}`);
+      const res = await fetch("/api/ipfs-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, base64, mime }),
+      });
+
+      if (res.status === 501) return null; // IPFS not configured — caller should fallback to objectURL
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error ?? `Upload failed with ${res.status}`);
+      }
+
+      const data = (await res.json()) as { cid: string };
+      return data.cid;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      // Don't retry on last attempt
+      if (attempt === maxRetries - 1) {
+        break;
+      }
+
+      // Exponential backoff: 1s, 2s, 4s
+      const delayMs = 1000 * Math.pow(2, attempt);
+      console.warn(`IPFS upload attempt ${attempt + 1} failed, retrying in ${delayMs}ms...`, err);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
   }
 
-  const data = (await res.json()) as { cid: string };
-  return data.cid;
+  // All retries exhausted
+  throw new Error(`IPFS upload failed after ${maxRetries} attempts: ${lastError?.message ?? "unknown error"}`);
 }
 
 export async function uploadJSON(

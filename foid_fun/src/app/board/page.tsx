@@ -269,6 +269,7 @@ function BoardPageContent() {
   const [placedEpoch, setPlacedEpoch] = useState<number | null>(null);
   const [viewEpoch, setViewEpoch] = useState<number | null>(null);
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
+  const [proposalsLoading, setProposalsLoading] = useState(true);
   const [proposalDebug, setProposalDebug] = useState<ListProposalsResponse["debug"] | null>(null);
   const [viewMode] = useState<"latest" | "fixed">("latest");
   const [activePlacement, setActivePlacement] = useState<Placement | null>(null);
@@ -384,6 +385,21 @@ function BoardPageContent() {
     const r = el.getBoundingClientRect();
     setPan({ x: (r.width - STAGE_CANVAS_W) / 2, y: (r.height - STAGE_CANVAS_H) / 2 });
   }, []);
+
+  // Cleanup: Revoke blob URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      pending.forEach((item) => {
+        if (item.previewUrl && item.previewUrl.startsWith("blob:")) {
+          try {
+            URL.revokeObjectURL(item.previewUrl);
+          } catch (err) {
+            console.warn("Failed to revoke blob URL:", err);
+          }
+        }
+      });
+    };
+  }, [pending]);
 
   async function getImageSize(file: File): Promise<{ w: number; h: number }> {
     try {
@@ -634,10 +650,12 @@ function BoardPageContent() {
         if (!alive) return;
         setProposals(normalizeProposals(response.proposals));
         setProposalDebug(response.debug ?? null);
+        setProposalsLoading(false);
       } catch {
         if (!alive) return;
         setProposals([]);
         setProposalDebug(null);
+        setProposalsLoading(false);
       }
     };
     tick();
@@ -1030,17 +1048,23 @@ function BoardPageContent() {
                       )}
                       <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "SUBMITTING..." : "SUBMIT PROPOSAL"} disabled={!items.length || submittingProposals} variant="secondary" />
                     </div>
-                    {pendingVotes.length > 0 && (
+                    {(proposalsLoading || pendingVotes.length > 0) && (
                       <div className="board-actions__voting">
                         <div className="board-section__header board-section__header--compact">
                           <span className="board-section__dot" />
                           <span className="board-section__title">VOTING</span>
                         </div>
-                        <div className="board-voting">
-                          {pendingVotes.map((p) => (
-                            <VotingItem key={p.id} proposal={p} addStatus={addStatus} now={now} />
-                          ))}
-                        </div>
+                        {proposalsLoading && pendingVotes.length === 0 ? (
+                          <div className="board-voting-loading">
+                            <span className="animate-pulse opacity-50">Loading proposals...</span>
+                          </div>
+                        ) : (
+                          <div className="board-voting">
+                            {pendingVotes.map((p) => (
+                              <VotingItem key={p.id} proposal={p} addStatus={addStatus} now={now} />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

@@ -3,6 +3,13 @@ import { create } from "zustand";
 import type { Rect } from "@/lib/grid";
 import { contractToWorldRect } from "@/lib/boardSpace";
 
+// Type declaration for crypto.randomUUID (not available in all browsers)
+declare global {
+  interface Crypto {
+    randomUUID?: () => string;
+  }
+}
+
 const BASE = BigInt(process.env.NEXT_PUBLIC_BASE_FEE_PER_CELL_WEI ?? "0");
 type FitMode = "contain" | "cover";
 
@@ -41,7 +48,13 @@ function totalWei(cells: number, tip: bigint) {
 }
 
 function uid() {
-  try { if (typeof crypto !== "undefined" && (crypto as any).randomUUID) return (crypto as any).randomUUID(); } catch {}
+  try {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+  } catch {
+    // Fall through to Math.random() fallback
+  }
   return Math.random().toString(36).slice(2);
 }
 
