@@ -705,18 +705,6 @@ function PrayPageContent() {
                           boobs will be.
                         </span>
                       </p>
-                      <div className="pray-manual__section">
-                        <span className="pray-manual__label">HOW TO USE</span>
-                        <ol className="pray-manual__list">
-                          <li><span>1.</span> 1. type a prayer in the terminal</li>
-                          <li><span>2.</span> 2. foid mommy listens and constructs a prayer</li>
-                          <li><span>3.</span> 3. submit your prayer, for your proof of prayer</li>
-                        </ol>
-                      </div>
-                      <div className="pray-manual__section">
-                        <span className="pray-manual__label">DAILY RULES</span>
-                        <p className="pray-manual__text">you can only pray once every 24 hours.</p>
-                      </div>
                     </div>
                   </div>
                 </div>
