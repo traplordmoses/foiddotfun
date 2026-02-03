@@ -14,6 +14,9 @@ import { formatViemError } from "@/lib/prayerErrors";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
 import { MobileWalletButton } from "@/components/MobileWalletButton";
 import { useHaptic } from "@/hooks/useHaptic";
+import { PRAYER_REGISTRY_ABI } from "@/lib/contracts/abis/prayerRegistry";
+import { parseEventLogs, type ContractFunctionRevertedError } from "viem";
+import { PrayerErrorBoundary } from "@/components/PrayerErrorBoundary";
 
 /* --- env --- */
 const DEFAULT_FOIP_REGISTRY: Hex = "0x6FC7301fad7Ca0294152b23FD4f0467200376d65";
@@ -50,15 +53,7 @@ function resolveEnv(): { registry?: Hex; mirror?: Hex } {
   };
 }
 
-const PrayerRegistryAbi = [
-  {
-    type: "function",
-    name: "nextAllowedAt",
-    stateMutability: "view",
-    inputs: [{ name: "user", type: "address" }],
-    outputs: [{ type: "uint256" }],
-  },
-] as const;
+// Using imported PRAYER_REGISTRY_ABI from lib/contracts/abis/prayerRegistry.ts
 
 const PrayerMirrorAbiLegacy = [
   {
@@ -153,6 +148,14 @@ function shortId(id?: string) {
   return `${id.slice(0, 8)}…${id.slice(-4)}`;
 }
 
+// Type-safe address helper
+function safeAddress(addr: string | undefined): Hex {
+  if (!addr || !addr.startsWith('0x')) {
+    return "0x0000000000000000000000000000000000000000";
+  }
+  return addr as Hex;
+}
+
 type VoteWire = {
   epochId: string;
   placementId: `0x${string}`;
@@ -164,7 +167,7 @@ type VoteWire = {
   logIndex: string | null;
 };
 
-export default function PrayPage() {
+function PrayPageContent() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { disconnect } = useDisconnect();
@@ -201,28 +204,28 @@ export default function PrayPage() {
   const registryRef = useRef<Hex | undefined>(REGISTRY);
 
   const { data: snapLegacy, refetch: refetchSnapLegacy } = useReadContract({
-    address: (MIRROR ?? "0x0000000000000000000000000000000000000000") as Hex,
+    address: safeAddress(MIRROR),
     abi: PrayerMirrorAbiLegacy,
     functionName: "get",
-    args: [((address ?? "0x0000000000000000000000000000000000000000") as Hex)],
+    args: [safeAddress(address)],
     chainId: FLUENT_CHAIN_ID,
     query: { enabled: Boolean(address && MIRROR && FLUENT_CHAIN_ID) },
   });
 
   const { data: snapLite, refetch: refetchSnapLite } = useReadContract({
-    address: (MIRROR ?? "0x0000000000000000000000000000000000000000") as Hex,
+    address: safeAddress(MIRROR),
     abi: PrayerMirrorAbiLite,
     functionName: "get",
-    args: [((address ?? "0x0000000000000000000000000000000000000000") as Hex)],
+    args: [safeAddress(address)],
     chainId: FLUENT_CHAIN_ID,
     query: { enabled: Boolean(address && MIRROR && FLUENT_CHAIN_ID) },
   });
 
   const { data: nextAllowed, refetch: refetchNext } = useReadContract({
-    address: (REGISTRY ?? "0x0000000000000000000000000000000000000000") as Hex,
-    abi: PrayerRegistryAbi,
+    address: safeAddress(REGISTRY),
+    abi: PRAYER_REGISTRY_ABI,
     functionName: "nextAllowedAt",
-    args: [((address ?? "0x0000000000000000000000000000000000000000") as Hex)],
+    args: [safeAddress(address)],
     chainId: FLUENT_CHAIN_ID,
     query: { enabled: Boolean(address && REGISTRY && FLUENT_CHAIN_ID) },
   });
@@ -286,7 +289,8 @@ export default function PrayPage() {
 
         setBoardProposals(proposals);
       } catch (e) {
-        if ((e as any)?.name === "AbortError") return;
+        // Type-safe abort check
+        if (e instanceof Error && 'name' in e && e.name === 'AbortError') return;
         setBoardError(e instanceof Error ? e.message : String(e));
         setBoardProposals([]);
       } finally {
@@ -437,11 +441,40 @@ export default function PrayPage() {
   );
 
   const waitForReceipt = useCallback(async (hash: string) => {
-    if (publicClient) await publicClient.waitForTransactionReceipt({ hash: hash as Hash });
+    if (!publicClient) throw new Error("public client not available");
+
+    // Wait for transaction to be mined
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: hash as Hash });
+
+    // Parse and verify PrayerSubmitted event
+    try {
+      const logs = parseEventLogs({
+        abi: PRAYER_REGISTRY_ABI,
+        logs: receipt.logs,
+        eventName: 'PrayerSubmitted',
+      });
+
+      if (logs.length === 0) {
+        console.warn('Warning: PrayerSubmitted event not found in transaction logs');
+        // Don't throw - maybe event name is different, but tx succeeded
+      } else {
+        const prayerEvent = logs[0];
+        console.log('Prayer verified on-chain:', {
+          user: prayerEvent.args.user,
+          prayerHash: prayerEvent.args.prayerHash,
+          timestamp: prayerEvent.args.timestamp,
+        });
+      }
+    } catch (error) {
+      console.error('Error parsing prayer events:', error);
+      // Continue - transaction succeeded even if we can't parse events
+    }
+
+    // Refetch user stats and cooldown
     const tasks: Promise<unknown>[] = [];
     if (snapRef.current) tasks.push(snapRef.current());
     if (nextRef.current) tasks.push(nextRef.current());
-    if (tasks.length) await Promise.allSettled(tasks);
+    if (tasks.length) await Promise.all(tasks); // Use Promise.all instead of allSettled
   }, [publicClient]);
 
   const handleSwitchWallet = useCallback(() => {
@@ -1164,5 +1197,14 @@ export default function PrayPage() {
       `}</style>
       <MobileWalletButton />
     </main>
+  );
+}
+
+// Wrap with error boundary to prevent crashes
+export default function PrayPage() {
+  return (
+    <PrayerErrorBoundary>
+      <PrayPageContent />
+    </PrayerErrorBoundary>
   );
 }
