@@ -95,14 +95,11 @@ const navItems: NavItem[] = [
 
 export function MobileNav() {
   const pathname = usePathname();
-  const { isMobile, isIOS } = useMobile();
-
-  // Don't render on desktop
-  if (!isMobile) return null;
+  const { isIOS } = useMobile();
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-xl border-t border-white/10"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-xl border-t border-white/10"
       style={{
         paddingBottom: isIOS ? 'env(safe-area-inset-bottom)' : '0',
       }}

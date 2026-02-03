@@ -1981,9 +1981,20 @@ function BoardPageContent() {
     </main>
   );
 
-  // Return appropriate view based on device
-  if (isMobile) return mobileView;
-  return mainView;
+  // Render both views, CSS handles which one displays (no flash!)
+  return (
+    <>
+      {/* Mobile view - hidden on desktop */}
+      <div className="lg:hidden">
+        {mobileView}
+      </div>
+
+      {/* Desktop view - hidden on mobile */}
+      <div className="hidden lg:block">
+        {mainView}
+      </div>
+    </>
+  );
 }
 
 export default function BoardPage() {
