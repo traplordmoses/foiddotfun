@@ -112,19 +112,47 @@ type Ghost = { rect: Rect; cells: number; status: GhostStatus; totalWei: bigint 
 // (Image and coordinate utilities now imported from /src/lib/)
 // ============================================================================
 
+/**
+ * Validate if a string is a valid IPFS CID
+ * CIDv0: starts with "Qm" and is 46 characters (base58)
+ * CIDv1: starts with "b" and is variable length (base32)
+ */
+const isValidCid = (value: string): boolean => {
+  const trimmed = value.trim();
+  // CIDv0 format: Qm... (46 chars, base58)
+  if (/^Qm[1-9A-HJ-NP-Za-km-z]{44}$/.test(trimmed)) return true;
+  // CIDv1 format: b... (base32, variable length)
+  if (/^b[a-z2-7]{58,}$/.test(trimmed)) return true;
+  // Allow dev/test CIDs (for local development)
+  if (/^dev-/.test(trimmed)) return true;
+  return false;
+};
+
 const normalizeCidString = (value: string): string => {
   const trimmed = value.trim();
-  if (!trimmed) return "";
+  if (!trimmed) throw new Error("Empty CID");
+
+  let cidPart = trimmed;
+
+  // Extract CID from URL
   if (/^https?:\/\//i.test(trimmed)) {
     try {
       const url = new URL(trimmed);
       const parts = url.pathname.replace(/^\/+/, "").split("/");
-      const bare = parts.slice(parts[0] === "ipfs" ? 1 : 0).join("/");
-      return bare ? `ipfs://${bare}` : "";
-    } catch { return trimmed; }
+      cidPart = parts.slice(parts[0] === "ipfs" ? 1 : 0)[0] || "";
+    } catch {
+      throw new Error("Invalid IPFS URL");
+    }
+  } else if (trimmed.startsWith("ipfs://")) {
+    cidPart = trimmed.replace(/^ipfs:\/\//, "");
   }
-  if (trimmed.startsWith("ipfs://")) return trimmed;
-  return `ipfs://${trimmed}`;
+
+  // Validate CID format
+  if (!isValidCid(cidPart)) {
+    throw new Error(`Invalid CID format: ${cidPart.slice(0, 20)}...`);
+  }
+
+  return `ipfs://${cidPart}`;
 };
 
 
@@ -141,15 +169,30 @@ async function getPendingBytes(p: PendingItem): Promise<ArrayBuffer> {
   return res.arrayBuffer();
 }
 
-const asWorldRect = (value: unknown) => {
-  const src = isRecord(value) ? value : {};
+const asWorldRect = (value: unknown): Rect => {
+  if (!isRecord(value)) {
+    throw new Error("Invalid rect: expected object");
+  }
+
+  const src = value;
   const rect = isRecord(src.rect) ? src.rect : src;
-  return {
-    x: Number(rect.x ?? 0),
-    y: Number(rect.y ?? 0),
-    w: Number(rect.w ?? rect.width ?? 0),
-    h: Number(rect.h ?? rect.height ?? 0),
-  };
+
+  const x = Number(rect.x);
+  const y = Number(rect.y);
+  const w = Number(rect.w ?? rect.width);
+  const h = Number(rect.h ?? rect.height);
+
+  // Validate all fields are valid numbers
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(w) || !Number.isFinite(h)) {
+    throw new Error("Invalid rect: non-numeric or missing coordinates");
+  }
+
+  // Validate dimensions are positive
+  if (w < 0 || h < 0) {
+    throw new Error("Invalid rect: negative dimensions");
+  }
+
+  return { x, y, w, h };
 };
 
 const normalizePlacements = (list: unknown[]): FinalizedPlacement[] =>
@@ -203,7 +246,14 @@ function BoardPageContent() {
   const { connect, connectors } = useConnect();
   const handleSwitchWallet = useCallback(() => {
     disconnect();
-    setTimeout(() => { const c = connectors[0]; if (c) connect({ connector: c }); }, 100);
+    setTimeout(() => {
+      try {
+        const c = connectors[0];
+        if (c) connect({ connector: c });
+      } catch (err) {
+        console.error("Failed to connect wallet:", err);
+      }
+    }, 100);
   }, [disconnect, connect, connectors]);
 
 
@@ -449,12 +499,24 @@ function BoardPageContent() {
     setGhost({ rect, cells, status, totalWei: BigInt(cells) * BASE_FEE_PER_CELL_WEI });
   }, [pending, placed, storedRectFor]);
 
+  // Debounced ghost refresh to reduce CPU usage during drag
+  const ghostDebounceRef = useRef<number | null>(null);
+  const debouncedRefreshGhost = useCallback((pos: DropPos) => {
+    if (ghostDebounceRef.current !== null) {
+      window.clearTimeout(ghostDebounceRef.current);
+    }
+    ghostDebounceRef.current = window.setTimeout(() => {
+      refreshGhostAt(pos);
+      ghostDebounceRef.current = null;
+    }, 16); // ~60fps
+  }, [refreshGhostAt]);
+
   const onDragOver: React.DragEventHandler<HTMLDivElement> = async (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
     await primeGhostMetaFromEvent(e);
     setDragOver(true);
-    refreshGhostAt(screenToWorld(e.clientX, e.clientY));
+    debouncedRefreshGhost(screenToWorld(e.clientX, e.clientY));
   };
 
   const onDragEnter: React.DragEventHandler<HTMLDivElement> = async (e) => {
@@ -601,6 +663,12 @@ function BoardPageContent() {
 
   const currentEpochView = viewMode === "fixed" ? viewEpoch : placedEpoch;
 
+  // Memoize normalized placements to avoid redundant processing
+  const normalizedManifestPlacements = useMemo(() => {
+    if (!latestManifest?.placements) return [];
+    return normalizePlacements(latestManifest.placements);
+  }, [latestManifest?.placements]);
+
   // Load manifest
   useEffect(() => {
     if (viewMode !== "latest") { latestFallbackTried.current = false; return; }
@@ -629,17 +697,16 @@ function BoardPageContent() {
     };
     if (latestManifestLoading) return;
     if (latestManifestError) { void loadFallback(); return; }
-    if (latestManifest?.placements) {
-      const placements = normalizePlacements(latestManifest.placements);
+    if (normalizedManifestPlacements.length > 0) {
       const epochValue = typeof latestManifestEpoch === "number" ? latestManifestEpoch : typeof latestManifest.epoch === "number" ? latestManifest.epoch : null;
       if (placedEpoch != null && epochValue != null && epochValue < placedEpoch) return;
-      apply(placements, epochValue);
+      apply(normalizedManifestPlacements, epochValue);
       latestFallbackTried.current = false;
       return;
     }
     void loadFallback();
     return () => { alive = false; };
-  }, [viewMode, latestManifest, latestManifestEpoch, latestManifestLoading, latestManifestError, zoomToRect, placedEpoch, addStatus]);
+  }, [viewMode, normalizedManifestPlacements, latestManifest, latestManifestEpoch, latestManifestLoading, latestManifestError, zoomToRect, placedEpoch, addStatus]);
 
   // Load proposals
   useEffect(() => {
