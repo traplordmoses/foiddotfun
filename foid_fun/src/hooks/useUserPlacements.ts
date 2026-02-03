@@ -127,11 +127,9 @@ export function useUserPlacements(address: `0x${string}` | undefined) {
       return;
     }
 
-    // Always fetch on first mount, then use guard for subsequent fetches
+    // Check guard only if we've already fetched (prevents spam on rapid re-renders)
     const guardKey = `user-placements:init:${address}`;
-    const shouldLoad = !hasFetched || shouldFetchOnce(guardKey, 2_000);
-
-    if (!shouldLoad) {
+    if (hasFetched && !shouldFetchOnce(guardKey, 2_000)) {
       return;
     }
 
@@ -141,11 +139,6 @@ export function useUserPlacements(address: `0x${string}` | undefined) {
       controllerRef.current?.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, hasFetched]);
-
-  // Reset hasFetched when address changes
-  useEffect(() => {
-    setHasFetched(false);
   }, [address]);
 
   return { placements, isLoading, hasFetched, refresh };
