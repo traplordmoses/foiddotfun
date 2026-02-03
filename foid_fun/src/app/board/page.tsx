@@ -90,8 +90,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const BASE_FEE_PER_CELL_WEI = BigInt(process.env.NEXT_PUBLIC_BASE_FEE_PER_CELL_WEI ?? "0");
 
-const BOARD_PASSWORD = process.env.NEXT_PUBLIC_BOARD_PASSWORD ?? "";
-const REQUIRES_BOARD_PASSWORD = Boolean(BOARD_PASSWORD.trim());
 const CARD_BORDER = "rgba(116, 255, 235, 0.55)";
 const CARD_SHADOW = "0 14px 32px rgba(0, 6, 22, 0.45), 0 0 0 1px rgba(116,255,235,0.3)";
 const FLUENT_CHAIN_ID = TARGET_CHAIN_ID;
@@ -208,34 +206,6 @@ function BoardPageContent() {
     setTimeout(() => { const c = connectors[0]; if (c) connect({ connector: c }); }, 100);
   }, [disconnect, connect, connectors]);
 
-  // Password gate
-  const [unlocked, setUnlocked] = useState(!REQUIRES_BOARD_PASSWORD);
-  const [pwInput, setPwInput] = useState("");
-  const [pwError, setPwError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!REQUIRES_BOARD_PASSWORD) {
-      setUnlocked(true);
-      return;
-    }
-    if (typeof window !== "undefined" && window.localStorage.getItem("mifoid-board-unlocked") === "1") {
-      setUnlocked(true);
-    }
-  }, []);
-
-  const handleUnlock = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    if (!REQUIRES_BOARD_PASSWORD) {
-      setUnlocked(true);
-      return;
-    }
-    if (!BOARD_PASSWORD) { setPwError("Missing password config"); return; }
-    if (pwInput.trim() === BOARD_PASSWORD) {
-      setUnlocked(true); setPwError(null);
-      window.localStorage?.setItem("mifoid-board-unlocked", "1");
-      sfx.unlock?.();
-    } else setPwError("incorrect password");
-  }, [pwInput]);
 
   // Pan/zoom - smooth infinite
   const [scale, setScale] = useState(1);
@@ -617,7 +587,7 @@ function BoardPageContent() {
 
   // Load manifest
   useEffect(() => {
-    if (!unlocked || viewMode !== "latest") { latestFallbackTried.current = false; return; }
+    if (viewMode !== "latest") { latestFallbackTried.current = false; return; }
     let alive = true;
     const apply = (placements: FinalizedPlacement[], epochValue: number | null) => {
       if (!alive) return;
@@ -653,11 +623,10 @@ function BoardPageContent() {
     }
     void loadFallback();
     return () => { alive = false; };
-  }, [unlocked, viewMode, latestManifest, latestManifestEpoch, latestManifestLoading, latestManifestError, zoomToRect, placedEpoch, addStatus]);
+  }, [viewMode, latestManifest, latestManifestEpoch, latestManifestLoading, latestManifestError, zoomToRect, placedEpoch, addStatus]);
 
   // Load proposals
   useEffect(() => {
-    if (!unlocked) return;
     let alive = true;
     const tick = async () => {
       try {
@@ -674,7 +643,7 @@ function BoardPageContent() {
     tick();
     const t = setInterval(tick, 8000);
     return () => { alive = false; clearInterval(t); };
-  }, [unlocked]);
+  }, []);
 
   // Arrow keys
   useEffect(() => {
@@ -820,7 +789,6 @@ function BoardPageContent() {
       selectedProposalId ? proposals.find((p) => p.id === selectedProposalId) ?? null : null,
     [proposals, selectedProposalId]
   );
-  const locked = REQUIRES_BOARD_PASSWORD && !unlocked;
 
   // Convert board items to mobile format
   const boardNodes = useMemo<BoardNode[]>(() => {
@@ -898,30 +866,6 @@ function BoardPageContent() {
 
       {/* Mobile wallet button - hidden on mobile, shown on desktop */}
       {!isMobile && <MobileWalletButton />}
-    </div>
-  );
-
-  const lockedView = (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="vista-window max-w-sm w-full">
-        <div className="vista-window__titlebar">
-          <div className="vista-window__controls">
-            <div className="vista-window__control vista-window__control--close" />
-            <div className="vista-window__control vista-window__control--minimize" />
-            <div className="vista-window__control vista-window__control--restore" />
-          </div>
-          <div className="vista-window__title"><span>🔒</span><span>LOREBOARD.APP</span></div>
-        </div>
-        <div className="vista-window__body p-6">
-          <h1 className="text-lg font-primary font-semibold text-white text-center mb-1">Mifoid Loreboard</h1>
-          <p className="text-xs text-white/70 text-center mb-4">Beta access required.</p>
-          <form onSubmit={handleUnlock} className="space-y-3">
-            <input type="password" className="w-full" placeholder="••••••••" value={pwInput} onChange={(e) => setPwInput(e.currentTarget.value)} />
-            {pwError && <p className="text-[11px] text-foid-candy">{pwError}</p>}
-            <button type="submit" className="frutiger-button w-full">Unlock Board</button>
-          </form>
-        </div>
-      </div>
     </div>
   );
 
@@ -1912,8 +1856,7 @@ function BoardPageContent() {
     </main>
   );
 
-  // Return appropriate view based on state
-  if (locked) return lockedView;
+  // Return appropriate view based on device
   if (isMobile) return mobileView;
   return mainView;
 }
