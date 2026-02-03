@@ -10,13 +10,17 @@ import React, {
   useRef,
   useState,
   useEffect,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 import { useSearchParams } from "next/navigation";
-import { useAccount, useDisconnect, useConnect } from "wagmi";
+import { useAccount, useChainId, useSwitchChain, useDisconnect, useConnect } from "wagmi";
 import { useBoard } from "@/state/board";
 import type { PendingItem } from "@/state/board";
 import { TILE, snapRect, rectCells, hasOverlap, type Rect } from "@/lib/grid";
 import {
+  VIRTUAL_CANVAS_W,
+  VIRTUAL_CANVAS_H,
   BOARD_OFFSET_X,
   BOARD_OFFSET_Y,
   WORLD_MAX_X,
@@ -28,8 +32,12 @@ import { sniffImageType, mimeFromType } from "@/lib/image";
 import { uploadImage } from "@/lib/ipfs";
 import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 import { formatEth } from "@/lib/wei";
+import { formatCountdown } from "@/lib/formatDuration";
 import { useEpochCountdown } from "@/hooks/useEpochCountdown";
 import { useLatestManifestFromChain } from "@/hooks/useLatestManifestFromChain";
+import { usePlacementVotes } from "@/hooks/usePlacementVotes";
+import { useVoteOnPlacement } from "@/hooks/useVoteOnPlacement";
+import { resolveEpochConfig, currentEpoch } from "@/lib/epoch";
 import sfx from "@/lib/sfx";
 import type { FinalizedPlacement } from "@/lib/types";
 import { getLatestNormalized } from "@/lib/manifest";
@@ -41,34 +49,6 @@ import { PlacementModal } from "@/components/PlacementModal";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import CompactMusicPlayer from "@/components/CompactMusicPlayer";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
-import { TerminalChat, type StatusMessage } from "@/components/TerminalChat";
-import { Y2kActionButton } from "@/components/Y2kActionButton";
-import { VotingItem } from "@/components/VotingItem";
-import { useMobile } from "@/hooks/useMobile";
-import { MobileBoard } from "@/components/MobileBoard";
-import type { BoardNode } from "@/types/mobile";
-import { MobileWalletButton } from "@/components/MobileWalletButton";
-import { GestureHint } from "@/components/GestureHint";
-import {
-  toStageRect,
-  snapDown,
-  getBoundsFromRects,
-  STAGE_CANVAS_W,
-  STAGE_CANVAS_H,
-  STAGE_PAD_X,
-  STAGE_PAD_Y,
-  GRID_RADIUS_X,
-  GRID_RADIUS_Y,
-  MIN_SCALE,
-  MAX_SCALE,
-} from "@/lib/boardCoordinates";
-import {
-  capRectToMaxCells,
-  downscaleToMaxCells,
-  MAX_CELLS_PER_RECT,
-} from "@/lib/boardImages";
-import { parseWeb3Error, isUserRejection } from "@/lib/errors";
-import { insertBoardMessage } from "@/lib/supabase";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -89,12 +69,37 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 // ============================================================================
 
 const BASE_FEE_PER_CELL_WEI = BigInt(process.env.NEXT_PUBLIC_BASE_FEE_PER_CELL_WEI ?? "0");
+const MAX_CELLS_PER_RECT: number = Number(
+  process.env.NEXT_PUBLIC_MAX_CELLS_PER_RECT ?? process.env.MAX_CELLS_PER_RECT ?? "400"
+);
+
+const GRID_MULTIPLIER = 8;
+const STAGE_CANVAS_W = VIRTUAL_CANVAS_W * GRID_MULTIPLIER;
+const STAGE_CANVAS_H = VIRTUAL_CANVAS_H * GRID_MULTIPLIER;
+const STAGE_PAD_X = (STAGE_CANVAS_W - VIRTUAL_CANVAS_W) / 2;
+const STAGE_PAD_Y = (STAGE_CANVAS_H - VIRTUAL_CANVAS_H) / 2;
+const GRID_RADIUS_X = Math.floor(WORLD_MAX_X / TILE);
+const GRID_RADIUS_Y = Math.floor(WORLD_MAX_Y / TILE);
 
 const BOARD_PASSWORD = process.env.NEXT_PUBLIC_BOARD_PASSWORD ?? "";
 const REQUIRES_BOARD_PASSWORD = Boolean(BOARD_PASSWORD.trim());
 const CARD_BORDER = "rgba(116, 255, 235, 0.55)";
 const CARD_SHADOW = "0 14px 32px rgba(0, 6, 22, 0.45), 0 0 0 1px rgba(116,255,235,0.3)";
 const FLUENT_CHAIN_ID = TARGET_CHAIN_ID;
+
+// Zoom limits - extended for infinite feel
+const MIN_SCALE = 0.02;
+const MAX_SCALE = 50;
+
+const toStageRect = (rect: Rect): Rect => {
+  const boardRect = worldToContractRect(rect);
+  return {
+    x: boardRect.x + STAGE_PAD_X,
+    y: boardRect.y + STAGE_PAD_Y,
+    w: boardRect.w,
+    h: boardRect.h,
+  };
+};
 
 // ============================================================================
 // TYPES
@@ -104,15 +109,262 @@ type DropPos = { x: number; y: number };
 type DragMeta = { w: number; h: number; mime: "image/png" | "image/jpeg" | null };
 type GhostStatus = "ok" | "overlap" | "oversize" | "invalid";
 type Ghost = { rect: Rect; cells: number; status: GhostStatus; totalWei: bigint };
+type StatusMessage = {
+  id: string;
+  text: string;
+  type: "info" | "success" | "error" | "system";
+  timestamp: Date;
+  variant?: "chat";
+  user?: string;
+};
+
+const formatShortAddress = (value?: string) =>
+  value ? `${value.slice(0, 6)}…${value.slice(-4)}` : "anon";
 
 // ============================================================================
-// COMPONENTS NOW IMPORTED FROM /src/components/
-// TerminalChat, Y2kActionButton, VotingItem
+// TERMINAL CHAT WITH STATUS
 // ============================================================================
+
+function TerminalChat({
+  statusMessages,
+  onSend,
+  className = "",
+}: {
+  statusMessages: StatusMessage[];
+  onSend?: (text: string) => void | Promise<void>;
+  className?: string;
+}) {
+  const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [statusMessages]);
+
+  const formatTime = (date: Date) =>
+    date.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+
+  const handleSend = useCallback(async () => {
+    if (!onSend) return;
+    const trimmed = input.trim();
+    if (!trimmed || isSending) return;
+    setIsSending(true);
+    setInput("");
+    try {
+      await onSend(trimmed);
+    } catch (err) {
+      console.error("TerminalChat send failed", err);
+    } finally {
+      setIsSending(false);
+    }
+  }, [input, isSending, onSend]);
+
+  const handleKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void handleSend();
+    }
+  };
+
+  return (
+    <div className={`terminal-chat ${className}`}>
+      <div ref={scrollRef} className="terminal-chat__messages">
+        {statusMessages.map((msg) => {
+          const isChat = msg.variant === "chat";
+          const isSystem = msg.type === "system" && !isChat;
+          const lineClass = isChat ? "terminal-chat__line--chat" : `terminal-chat__line--${msg.type}`;
+          const labelClass = isSystem ? "terminal-chat__system" : "terminal-chat__user";
+          const labelText = isSystem ? "SYSTEM" : isChat ? "mifoid" : "milady";
+          return (
+            <div key={msg.id} className={`terminal-chat__line ${lineClass}`}>
+              <span className="terminal-chat__time">{formatTime(msg.timestamp)}</span>
+              <span className={labelClass}>{labelText}</span>
+              <span className="terminal-chat__text">{msg.text}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="terminal-chat__input-row">
+        <span className="terminal-chat__prompt">&gt;</span>
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="type here..."
+          className="terminal-chat__input"
+        />
+        <button
+          type="button"
+          className="terminal-chat__send"
+          onClick={() => void handleSend()}
+          disabled={isSending || !input.trim() || !onSend}
+        >
+          SEND
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ============================================================================
-// UTILITY FUNCTIONS
-// (Image and coordinate utilities now imported from /src/lib/)
+// Y2K GLASS ACTION BUTTON
 // ============================================================================
+
+function Y2kActionButton({
+  onClick,
+  label,
+  disabled = false,
+  variant = "primary",
+}: {
+  onClick: () => void;
+  label: string;
+  disabled?: boolean;
+  variant?: "primary" | "secondary";
+}) {
+  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseMove = (e: ReactMouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMousePos({ x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height });
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onMouseMove={handleMouseMove}
+      className={`y2k-btn ${variant === "secondary" ? "y2k-btn--secondary" : ""} ${disabled ? "y2k-btn--disabled" : ""}`}
+    >
+      <span className="y2k-btn__reflection" />
+      {isHovered && !disabled && (
+        <span
+          className="y2k-btn__highlight"
+          style={{
+            background: `radial-gradient(ellipse 70% 90% at ${mousePos.x * 100}% ${mousePos.y * 100}%, rgba(255,255,255,0.5) 0%, transparent 65%)`,
+          }}
+        />
+      )}
+      <span className="y2k-btn__label">{label}</span>
+    </button>
+  );
+}
+
+// ============================================================================
+// VOTING ITEM
+// ============================================================================
+
+function VotingItem({
+  proposal,
+  addStatus,
+  now,
+}: {
+  proposal: ProposalSummary;
+  addStatus: (msg: string, type: StatusMessage["type"]) => void;
+  now: number;
+}) {
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const { switchChainAsync, isPending: switchingChain } = useSwitchChain();
+
+  const computedSecondsLeft = useMemo(() => {
+    // If API provides voteEndsAt timestamp, use it directly
+    if (proposal.voteEndsAt) {
+      const nowSec = Math.floor(now / 1000);
+      return Math.max(0, proposal.voteEndsAt - nowSec);
+    }
+    // Fallback to epoch calculation
+    const { enabled, epochSec } = resolveEpochConfig();
+    if (!enabled || epochSec <= 0) return null;
+    const nowEpoch = currentEpoch();
+    const epochsDiff = (proposal.voteEndsAtEpoch ?? 0) - nowEpoch;
+    return epochsDiff <= 0 ? 0 : Math.max(0, epochsDiff * epochSec);
+  }, [proposal.voteEndsAt, proposal.voteEndsAtEpoch, now]);
+
+  const hasEpoch = typeof proposal.epochSubmitted === "number";
+  const epochCfg = resolveEpochConfig();
+  const isVotable = Boolean(proposal.isVotable);
+  const isPending =
+    (proposal.status === "proposed" || proposal.status === "voting") &&
+    epochCfg.enabled &&
+    computedSecondsLeft !== null &&
+    computedSecondsLeft > 0 &&
+    isVotable;
+  // Check proposal.id first (from API), then placementId, then chainId (legacy)
+  const placementId = isBytes32Hex(proposal.id) ? proposal.id : isBytes32Hex(proposal.placementId) ? proposal.placementId : isBytes32Hex(proposal.chainId) ? proposal.chainId : undefined;
+  const epochId = proposal.epochSubmitted ?? 0;
+  const queryEnabled = isPending && hasEpoch && isBytes32Hex(placementId);
+  const epochBigInt = BigInt(epochId || 0);
+
+  const { yes, no, isLoading: votesLoading, refetch: refetchVotes } = usePlacementVotes({
+    epochId: epochBigInt,
+    placementId: (placementId ?? "0x") as `0x${string}`,
+    enabled: queryEnabled,
+  });
+
+  const { vote, isWriting, isConfirming, isConfirmed } = useVoteOnPlacement({ epochId: epochBigInt, placementId });
+
+  useEffect(() => { if (isConfirmed) refetchVotes(); }, [isConfirmed, refetchVotes]);
+
+  const wrongChain = Boolean(chainId && chainId !== FLUENT_CHAIN_ID);
+  const isVoting = isWriting || isConfirming;
+  const canVote = isPending && queryEnabled && !!address && isConnected && !isVoting && !votesLoading && !switchingChain;
+
+  const onVoteClick = async (support: boolean) => {
+    if (!queryEnabled || !address) return;
+    if (wrongChain) { try { await switchChainAsync?.({ chainId: FLUENT_CHAIN_ID }); } catch { return; } }
+    try {
+      addStatus(`Voting ${support ? "YES" : "NO"}...`, "info");
+      await vote(support);
+      await refetchVotes();
+      addStatus("Vote submitted ✓", "success");
+    } catch (err) {
+      addStatus(`Vote failed: ${(err as Error)?.message || "error"}`, "error");
+    }
+  };
+
+  const displayYes = queryEnabled ? yes : BigInt(proposal.yes ?? 0);
+  const displayNo = queryEnabled ? no : BigInt(proposal.no ?? 0);
+  const timeLeftLabel =
+    computedSecondsLeft !== null
+      ? formatCountdown(Math.max(0, computedSecondsLeft) * 1000)
+      : "—";
+
+  return (
+    <div className="voting-item">
+      <div className="voting-item__thumb">
+        {proposal.cid && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={cidToHttpUrl(proposal.cid)} alt="" />
+          </>
+        )}
+      </div>
+      <div className="voting-item__info">
+        <span>{proposal.cells} cells</span>
+        <span>{timeLeftLabel}</span>
+      </div>
+      <span className="voting-item__counts">{displayYes.toString()}↑ {displayNo.toString()}↓</span>
+      <div className="voting-item__btns">
+        <button onClick={() => onVoteClick(true)} disabled={!canVote} className="voting-item__yes" type="button">✓</button>
+        <button onClick={() => onVoteClick(false)} disabled={!canVote} className="voting-item__no" type="button">✕</button>
+      </div>
+      {!isVotable && (
+        <span className="voting-item__status">awaiting registration</span>
+      )}
+    </div>
+  );
+}
+// ============================================================================
+// UTILITY FUNCTIONS (continued from part 1)
+// ============================================================================
+
+const snapDown = (v: number) => Math.max(TILE, Math.floor(v / TILE) * TILE);
 
 const normalizeCidString = (value: string): string => {
   const trimmed = value.trim();
@@ -129,6 +381,46 @@ const normalizeCidString = (value: string): string => {
   return `ipfs://${trimmed}`;
 };
 
+function capRectToMaxCells(r: Rect, maxCells: number): Rect {
+  let w = snapDown(r.w);
+  let h = snapDown(r.h);
+  const cells = Math.max(1, Math.floor((w / TILE) * (h / TILE)));
+  if (cells <= maxCells) return { ...r, w, h };
+  const scale = Math.sqrt(maxCells / cells);
+  w = snapDown(w * scale);
+  h = snapDown(h * scale);
+  if (w < TILE) w = TILE;
+  if (h < TILE) h = TILE;
+  while (Math.floor((w / TILE) * (h / TILE)) > maxCells) {
+    if (w >= h) w = snapDown(w - TILE);
+    else h = snapDown(h - TILE);
+    if (w < TILE) w = TILE;
+    if (h < TILE) h = TILE;
+  }
+  return { ...r, w, h };
+}
+
+async function downscaleToMaxCells(file: File, maxCells: number, tileSize = TILE): Promise<File> {
+  const url = URL.createObjectURL(file);
+  const img = await new Promise<HTMLImageElement>((res, rej) => {
+    const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url;
+  });
+  try {
+    const { naturalWidth: w0, naturalHeight: h0 } = img;
+    const maxPx = maxCells * tileSize * tileSize;
+    if (w0 * h0 <= maxPx) return file;
+    const scale = Math.sqrt(maxPx / (w0 * h0));
+    const w1 = Math.max(tileSize, Math.floor(w0 * scale));
+    const h1 = Math.max(tileSize, Math.floor(h0 * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w1; canvas.height = h1;
+    const ctx = canvas.getContext("2d")!;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, w1, h1);
+    const blob: Blob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b || new Blob()), "image/jpeg", 0.9));
+    return new File([blob], file.name.replace(/\.(png|jpg|jpeg)$/i, ".resized.jpg"), { type: "image/jpeg" });
+  } finally { URL.revokeObjectURL(url); }
+}
 
 function tryNextGateway(el: HTMLImageElement, cid?: string) {
   if (!cid) return;
@@ -182,6 +474,25 @@ const normalizeProposals = (list: ProposalSummary[] | undefined): ProposalSummar
     return { ...p, rect, cells, placementId, epochId: p.epochSubmitted ?? 0, yes, no };
   });
 
+const getBoundsFromRects = (rects: Rect[]): Rect | null => {
+  if (!rects.length) return null;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const rect of rects) {
+    minX = Math.min(minX, rect.x);
+    minY = Math.min(minY, rect.y);
+    maxX = Math.max(maxX, rect.x + rect.w);
+    maxY = Math.max(maxY, rect.y + rect.h);
+  }
+  return {
+    x: minX,
+    y: minY,
+    w: Math.max(0, maxX - minX),
+    h: Math.max(0, maxY - minY),
+  };
+};
 
 // ============================================================================
 // MAIN BOARD PAGE COMPONENT
@@ -254,24 +565,21 @@ function BoardPageContent() {
   const addStatus = useCallback((text: string, type: StatusMessage["type"] = "info") => {
     setStatusMessages(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, text, type, timestamp: new Date() }]);
   }, []);
-  const handleChatSend = useCallback(async (text: string) => {
+  const handleChatSend = useCallback((text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || !address) return;
-
-    try {
-      // Save to Supabase - real-time subscription will handle display
-      await insertBoardMessage({
-        wallet_address: address,
-        message: trimmed,
-        type: "chat",
-      });
-      // No longer adding to statusMessages - Supabase real-time handles it!
-    } catch (error) {
-      console.error("Failed to send chat message:", error);
-      // Only show error as status message
-      addStatus("Failed to send message", "error");
-    }
-  }, [address, addStatus]);
+    if (!trimmed) return;
+    setStatusMessages((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-${Math.random()}`,
+        text: trimmed,
+        type: "info",
+        timestamp: new Date(),
+        variant: "chat",
+        user: formatShortAddress(address),
+      },
+    ]);
+  }, [address]);
 
   // UI state
   const [dragOver, setDragOver] = useState(false);
@@ -280,9 +588,6 @@ function BoardPageContent() {
   const [now, setNow] = useState(() => Date.now());
   const searchParams = useSearchParams();
   const debugMode = searchParams?.get("debug") === "1";
-
-  // Mobile detection
-  const { isMobile } = useMobile();
 
   // Epoch
   const { enabled, index: epochIdx, remainingMs } = useEpochCountdown();
@@ -637,8 +942,8 @@ function BoardPageContent() {
       } catch (e: unknown) {
         if (!alive) return;
         setPlaced([]); setPlacedEpoch(null); setViewEpoch(null);
-        const parsed = parseWeb3Error(e);
-        addStatus(parsed.message, "error");
+        const message = e instanceof Error ? e.message : "Failed to load";
+        addStatus(message, "error");
       }
     };
     if (latestManifestLoading) return;
@@ -774,13 +1079,8 @@ function BoardPageContent() {
       }
       addStatus("All proposals submitted!", "success");
     } catch (e: unknown) {
-      // Skip user rejection errors (silent)
-      if (isUserRejection(e)) {
-        addStatus("Transaction cancelled", "info");
-      } else {
-        const parsed = parseWeb3Error(e);
-        addStatus(parsed.message, "error");
-      }
+      const message = e instanceof Error ? e.message : String(e);
+      addStatus(message, "error");
     } finally {
       setSubmittingProposals(false);
     }
@@ -821,85 +1121,6 @@ function BoardPageContent() {
     [proposals, selectedProposalId]
   );
   const locked = REQUIRES_BOARD_PASSWORD && !unlocked;
-
-  // Convert board items to mobile format
-  const boardNodes = useMemo<BoardNode[]>(() => {
-    const nodes: BoardNode[] = [];
-
-    // Add finalized placements
-    placed.forEach((p) => {
-      nodes.push({
-        id: `placed-${p.id}`,
-        x: p.x,
-        y: p.y,
-        width: p.w,
-        height: p.h,
-        content: p.cid,
-        type: 'meme',
-      });
-    });
-
-    // Add voting proposals
-    proposals
-      .filter((p) => p.status === "voting" && p.isVotable)
-      .forEach((p) => {
-        nodes.push({
-          id: `proposal-${p.id}`,
-          x: p.rect.x,
-          y: p.rect.y,
-          width: p.rect.w,
-          height: p.rect.h,
-          content: p.cid,
-          type: 'meme',
-        });
-      });
-
-    return nodes;
-  }, [placed, proposals]);
-
-  const mobileView = (
-    <div className="h-screen w-screen bg-transparent">
-      <GestureHint
-        storageKey="board-gestures-seen"
-        hints={[
-          "Pinch to zoom in and out",
-          "Drag with one finger to pan around",
-          "Hold any meme to view details"
-        ]}
-      />
-      <MobileBoard
-        nodes={boardNodes}
-        onNodeClick={(node) => {
-          // Check if it's a finalized placement
-          const placementId = node.id.replace('placed-', '');
-          const placement = placed.find(p => p.id === placementId);
-          if (placement) {
-            setActivePlacement({
-              id: placement.id,
-              cid: placement.cid,
-              x: placement.x,
-              y: placement.y,
-              width: placement.w,
-              height: placement.h,
-              proposer: placement.owner as `0x${string}`,
-              epochId: currentEpochView ?? placedEpoch,
-            });
-          }
-        }}
-      />
-
-      {/* Show placement modal if active */}
-      {activePlacement && (
-        <PlacementModal
-          placement={activePlacement}
-          onClose={() => setActivePlacement(null)}
-        />
-      )}
-
-      {/* Mobile wallet button - hidden on mobile, shown on desktop */}
-      {!isMobile && <MobileWalletButton />}
-    </div>
-  );
 
   const lockedView = (
     <div className="min-h-screen flex items-center justify-center px-4">
@@ -1114,13 +1335,7 @@ function BoardPageContent() {
                           {isConnected ? "online" : "offline"}
                         </span>
                       </div>
-                      <TerminalChat
-                        className="h-full"
-                        statusMessages={statusMessages}
-                        onSend={handleChatSend}
-                        enableSupabase={true}
-                        walletAddress={address}
-                      />
+                      <TerminalChat className="h-full" statusMessages={statusMessages} onSend={handleChatSend} />
                     </div>
                   </div>
 
@@ -1912,10 +2127,7 @@ function BoardPageContent() {
     </main>
   );
 
-  // Return appropriate view based on state
-  if (locked) return lockedView;
-  if (isMobile) return mobileView;
-  return mainView;
+  return locked ? lockedView : mainView;
 }
 
 export default function BoardPage() {

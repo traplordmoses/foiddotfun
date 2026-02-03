@@ -69,20 +69,20 @@ export default function AppTitlebar({
 
   return (
     <>
-      <div className="vista-window__titlebar">
+      <div className="vista-window__titlebar flex-wrap gap-2 md:gap-3">
         <div className="vista-window__controls" aria-hidden="true">
           <span className="vista-window__control vista-window__control--minimize" />
           <span className="vista-window__control vista-window__control--restore" />
           <span className="vista-window__control vista-window__control--close" />
         </div>
-        <span className="vista-window__title">
-          <Image src="/foidmommy.gif" alt="" width={24} height={24} className="inline-block h-6 w-6 align-middle mr-2" />
-          {title}
+        <span className="vista-window__title text-[9px] sm:text-[11px] truncate">
+          <Image src="/foidmommy.gif" alt="" width={24} height={24} className="inline-block h-5 w-5 sm:h-6 sm:w-6 align-middle mr-1 sm:mr-2 flex-shrink-0" />
+          <span className="truncate">{title}</span>
         </span>
-        <div className="vista-window__tabs">
+        <div className="vista-window__tabs hidden md:flex">
           <TopTabs items={tabItems} />
         </div>
-        <div className="vista-window__meta">
+        <div className="vista-window__meta flex-wrap text-[7px] sm:text-[8px] md:text-[9px]">
           <StatusIndicator connected={connected} />
           <WalletMenuPill
             address={address}

@@ -4,10 +4,12 @@ import Image from "next/image";
 import { memo, useEffect, useMemo, useState } from "react";
 import { Placement } from "@/hooks/useUserPlacements";
 import { Skeleton } from "./Skeleton";
+import { EmptyState } from "./EmptyState";
 
 interface Props {
   placements: Placement[];
   isLoading: boolean;
+  hasFetched?: boolean;
   onRefresh?: () => void;
   isRefreshing?: boolean;
   lastRefreshAt?: number | null;
@@ -16,6 +18,7 @@ interface Props {
 export const UserPlacementsSection = memo(function UserPlacementsSection({
   placements,
   isLoading,
+  hasFetched = false,
   onRefresh,
   isRefreshing,
   lastRefreshAt,
@@ -56,7 +59,8 @@ export const UserPlacementsSection = memo(function UserPlacementsSection({
     </div>
   );
 
-  if (isLoading) {
+  // Show skeletons only on initial load (never fetched)
+  if (!hasFetched) {
     return (
       <div className="space-y-3">
         {header}
@@ -73,8 +77,16 @@ export const UserPlacementsSection = memo(function UserPlacementsSection({
     return (
       <div className="space-y-3">
         {header}
-        <div className="glass-panel-darker p-6 text-center text-sm text-white/50">
-          No placements yet. Visit the board to propose your first image!
+        <div className="glass-panel-darker rounded-2xl overflow-hidden">
+          <EmptyState
+            icon="🎨"
+            title="No Placements Yet"
+            description="You haven't proposed any images to the loreboard. Share your first meme and let the community vote!"
+            action={{
+              label: "Go to Board",
+              href: "/board"
+            }}
+          />
         </div>
       </div>
     );

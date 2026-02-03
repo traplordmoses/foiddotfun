@@ -27,6 +27,7 @@ export interface Placement {
 export function useUserPlacements(address: `0x${string}` | undefined) {
   const [placements, setPlacements] = useState<Placement[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
 
   const controllerRef = useRef<AbortController | null>(null);
 
@@ -88,6 +89,7 @@ export function useUserPlacements(address: `0x${string}` | undefined) {
     const controller = new AbortController();
     controllerRef.current = controller;
     setIsLoading(true);
+    setHasFetched(true);
 
     try {
       const res = await fetch(`/api/proposals?owner=${address}`, {
@@ -121,6 +123,7 @@ export function useUserPlacements(address: `0x${string}` | undefined) {
     if (!address) {
       setPlacements([]);
       setIsLoading(false);
+      setHasFetched(false);
       return;
     }
 
@@ -134,7 +137,13 @@ export function useUserPlacements(address: `0x${string}` | undefined) {
     return () => {
       controllerRef.current?.abort();
     };
-  }, [address, fetchPlacements]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address]);
 
-  return { placements, isLoading, refresh };
+  // Reset hasFetched when address changes
+  useEffect(() => {
+    setHasFetched(false);
+  }, [address]);
+
+  return { placements, isLoading, hasFetched, refresh };
 }

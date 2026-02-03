@@ -72,7 +72,7 @@ function derivePlacementStatus(
 export const UserDashboard = memo(function UserDashboard() {
   const { address, isConnected } = useAccount();
   const { stats, isLoading: statsLoading, error: statsError } = useUserStats(address);
-  const { placements, isLoading: placementsLoading, refresh: refreshPlacements } =
+  const { placements, isLoading: placementsLoading, hasFetched: placementsHasFetched, refresh: refreshPlacements } =
     useUserPlacements(address);
   const {
     votesThisEpoch,
@@ -169,7 +169,8 @@ export const UserDashboard = memo(function UserDashboard() {
     }
 
     void loadDashboardData();
-  }, [address, loadDashboardData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address]);
 
   const placementsWithStatus = useMemo(() => {
     if (!placements.length) return [];
@@ -186,23 +187,27 @@ export const UserDashboard = memo(function UserDashboard() {
     [placementsWithStatus]
   );
 
-  const isLoading = placementsLoading || statsLoading || manifestLoading;
-
+  // Don't block entire dashboard - each section handles its own loading
   if (!isConnected || !address) {
     return <ConnectWalletPrompt />;
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-cyan-400 text-lg animate-pulse">Loading your dashboard...</div>
-      </div>
-    );
+  // Debug logging
+  if (typeof window !== 'undefined') {
+    console.log('Dashboard render:', {
+      isConnected,
+      address: address?.slice(0, 6) + '...',
+      statsLoading,
+      placementsLoading,
+      manifestLoading,
+      placementsCount: placements?.length || 0,
+      totalVotes,
+    });
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="custom-scrollbar flex-1 space-y-6 overflow-y-auto px-4 py-6">
+    <div className="flex flex-col">
+      <div className="space-y-6 px-4 py-6">
         <UserStatsSection
           stats={stats}
           placements={sortedPlacements}
@@ -217,6 +222,7 @@ export const UserDashboard = memo(function UserDashboard() {
         <UserPlacementsSection
           placements={sortedPlacements}
           isLoading={placementsLoading}
+          hasFetched={placementsHasFetched}
           onRefresh={loadDashboardData}
           isRefreshing={isRefreshing}
           lastRefreshAt={lastRefreshAt}

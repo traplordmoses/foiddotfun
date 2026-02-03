@@ -6,7 +6,7 @@ import { Providers } from "@/providers";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import FloatingElements from "@/components/FloatingElements";
 import SfxInitializer from "@/components/SfxInitializer";
-import FairyDustCursor from "@/components/FairyDustCursor";
+import { ClientLayout } from "@/components/ClientLayout";
 
 // app/layout.tsx (or wherever your metadata lives)
 export const metadata = {
@@ -55,6 +55,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <head>
         <link rel="manifest" href="/site.webmanifest" />
         <meta name="theme-color" content="#0e0f2b" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
   <body className="relative h-full min-h-screen overflow-hidden font-secondary" suppressHydrationWarning>
     <AnimatedBackground />
@@ -63,7 +67,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <Providers>
       <div className="app-viewport">
         <SfxInitializer />
-        <FairyDustCursor />
+        <ClientLayout />
         {children}
       </div>
     </Providers>

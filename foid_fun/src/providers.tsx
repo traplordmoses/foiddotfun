@@ -3,16 +3,18 @@
 
 import "@rainbow-me/rainbowkit/styles.css";
 import { ReactNode } from "react";
-import { WagmiProvider, createConfig, http } from "wagmi";
-import { injected } from "@wagmi/connectors"; // ✅ use the separate package
-import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
+import { WagmiProvider, http } from "wagmi";
+import { RainbowKitProvider, darkTheme, getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 import { TARGET_CHAIN, TARGET_CHAIN_ID } from "@/lib/chain";
+import { NetworkSwitcher } from "@/components/NetworkSwitcher";
 
-export const config = createConfig({
+// Use RainbowKit's getDefaultConfig for proper mobile wallet detection
+export const config = getDefaultConfig({
+  appName: "FOID.FUN",
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "83f1c6e8db75c230db6e2e4b6b8b5c59",
   chains: [TARGET_CHAIN],
-  connectors: [injected({ shimDisconnect: true })], // ✅ no MetaMask SDK
   transports: {
     [TARGET_CHAIN_ID]: http(
       process.env.NEXT_PUBLIC_RPC ??
@@ -20,7 +22,7 @@ export const config = createConfig({
         (TARGET_CHAIN.rpcUrls.default.http[0] ?? "https://rpc.testnet.fluent.xyz"),
     ),
   },
-  ssr: true,
+  ssr: false,
 });
 
 const queryClient = new QueryClient({
@@ -39,7 +41,13 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider theme={darkTheme()} modalSize="compact">
+        <RainbowKitProvider
+          theme={darkTheme()}
+          modalSize="compact"
+          initialChain={TARGET_CHAIN}
+          showRecentTransactions={true}
+        >
+          <NetworkSwitcher />
           {children}
           <Toaster
             position="top-right"

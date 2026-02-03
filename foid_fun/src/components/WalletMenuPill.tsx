@@ -125,6 +125,11 @@ export default function WalletMenuPill({
   }, [isOpen]);
 
   const handleToggle = () => {
+    // If not connected, trigger connect immediately instead of showing menu
+    if (!isConnected) {
+      onSwitchWallet();
+      return;
+    }
     setIsOpen((prev) => !prev);
   };
 
