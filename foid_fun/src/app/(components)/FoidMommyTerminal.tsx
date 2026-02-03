@@ -477,13 +477,14 @@ export default function FoidMommyTerminal({
   useEffect(() => {
     if (autoStart && stage === "idle" && !hasAutoStarted) {
       setHasAutoStarted(true);
-      // Small delay for smooth UX
+      // Show boot animation for 1.5 seconds before starting
       const timer = setTimeout(() => {
         handleStart();
-      }, 600);
+      }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [autoStart, stage, hasAutoStarted, handleStart]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, stage, hasAutoStarted]);
 
   const processFeeling = useCallback(
     async (inputText: string, feeling: FeelingKey) => {
@@ -964,6 +965,7 @@ export default function FoidMommyTerminal({
 
   const promptLabel = "anon@foid:~$";
   const inputLocked =
+    (stage === "idle" && autoStart && !hasAutoStarted) ||
     isProcessing ||
     stage === "txPending" ||
     stage === "processingFeeling" ||
@@ -1101,13 +1103,15 @@ export default function FoidMommyTerminal({
           ? "foid-terminal__status foid-terminal__status--error"
           : stage === "loading"
             ? "foid-terminal__status foid-terminal__status--loading"
-            : "foid-terminal__status";
+            : stage === "idle" && autoStart
+              ? "foid-terminal__status foid-terminal__status--loading"
+              : "foid-terminal__status";
 
   const statusMessage = useMemo(() => {
     switch (stage) {
       case "idle":
         return autoStart
-          ? "PRESS ENTER TO START"
+          ? "BOOTING FOID MOMMY..."
           : "CLICK HERE OR PRESS ENTER TO START";
       case "loading":
         return "BOOTING FOID MOMMY...";
@@ -1223,6 +1227,16 @@ export default function FoidMommyTerminal({
             <div className={statusTone}>
               {statusMessage}
             </div>
+          )}
+
+          {/* Mobile START button */}
+          {stage === "idle" && !autoStart && (
+            <button
+              type="submit"
+              className="lg:hidden mt-4 w-full min-h-[56px] px-6 py-4 bg-gradient-to-br from-green-400 to-green-600 text-black font-bold text-lg rounded-xl shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 touch-manipulation"
+            >
+              START PRAYING
+            </button>
           )}
         </form>
       </div>

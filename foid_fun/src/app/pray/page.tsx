@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import AppTitlebar, { type AppTitlebarWarning } from "@/app/(components)/AppTitlebar";
 import { useAccount, useChainId, usePublicClient, useReadContract, useDisconnect, useConnect, useSwitchChain } from "wagmi";
 import { encodeAbiParameters, keccak256, stringToBytes, type Address, type Hex, type Hash } from "viem";
@@ -11,6 +12,8 @@ import FoidMommyTerminal, {
 import { getWalletClient } from "@/lib/viem";
 import { formatViemError } from "@/lib/prayerErrors";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
+import { MobileWalletButton } from "@/components/MobileWalletButton";
+import { useHaptic } from "@/hooks/useHaptic";
 
 /* --- env --- */
 const DEFAULT_FOIP_REGISTRY: Hex = "0x6FC7301fad7Ca0294152b23FD4f0467200376d65";
@@ -167,6 +170,7 @@ export default function PrayPage() {
   const { disconnect } = useDisconnect();
   const { connect, connectors } = useConnect();
   const { switchChainAsync } = useSwitchChain();
+  const { trigger: triggerHaptic } = useHaptic();
   const [nowSeconds, setNowSeconds] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [boardProposals, setBoardProposals] = useState<ApiProposal[]>([]);
@@ -441,12 +445,13 @@ export default function PrayPage() {
   }, [publicClient]);
 
   const handleSwitchWallet = useCallback(() => {
+    triggerHaptic('medium');
     disconnect();
     setTimeout(() => {
       const connector = connectors[0];
       if (connector) connect({ connector });
     }, 100);
-  }, [disconnect, connect, connectors]);
+  }, [disconnect, connect, connectors, triggerHaptic]);
 
   const snap = snapLegacy ?? snapLite;
   const snapValues = snap as readonly unknown[] | undefined;
@@ -460,10 +465,81 @@ export default function PrayPage() {
     : "";
 
   return (
-    <main className="pray-page relative pray-dashboard bg-transparent text-white/90">
+    <main className="pray-page relative bg-foid-bg text-white/90 min-h-screen overflow-x-hidden overflow-y-auto">
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
-      <div className="pray-page__shell">
-        <div className="pray-shell">
+
+      {/* Mobile Layout */}
+      <div className="lg:hidden relative z-10 flex items-center justify-center min-h-screen p-4 pb-28 pb-safe">
+        {/* NOT CONNECTED - Show connect button */}
+        {!isConnected ? (
+          <div className="flex flex-col items-center justify-center gap-6 w-full max-w-md">
+            <Image src="/foidmommy.gif" alt="Foid Mommy" width={120} height={120} className="rounded-2xl" />
+            <button
+              onClick={handleSwitchWallet}
+              className="w-full min-h-[56px] px-8 py-5 text-lg font-bold tracking-wide rounded-2xl shadow-lg transition-all duration-200 touch-manipulation active:scale-[0.98] hover:scale-[1.02]"
+              style={{
+                background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                boxShadow: '0 0 24px rgba(34, 197, 94, 0.4), 0 10px 30px rgba(0, 0, 0, 0.3)',
+                color: '#000',
+                border: '2px solid rgba(255, 255, 255, 0.2)',
+              }}
+            >
+              CONNECT & START PRAYING
+            </button>
+          </div>
+        ) : (
+          /* CONNECTED - Show terminal immediately */
+          <section className="vista-window vista-window--media flex flex-col h-[80vh] max-h-[80vh] mb-4 overflow-hidden w-full max-w-4xl">
+            <div className="vista-window__titlebar flex-shrink-0">
+              <div className="vista-window__controls" aria-hidden="true">
+                <span className="vista-window__control vista-window__control--minimize" />
+                <span className="vista-window__control vista-window__control--restore" />
+                <span className="vista-window__control vista-window__control--close" />
+              </div>
+              <span className="vista-window__title text-[12px]">
+                <Image
+                  src="/foidmommy.gif"
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="inline-block h-10 w-10"
+                />
+                {" "}foid_mommy_terminal.exe
+              </span>
+            </div>
+
+            <div className="vista-window__body vista-window__body--flush flex-1 min-h-0 overflow-hidden !border-0 !bg-transparent">
+              {/* Wrong Chain Warning */}
+              {wrongChain && (
+                <div className="px-3 py-2 bg-yellow-900/20 border-b border-yellow-500/30 flex-shrink-0">
+                  <p className="text-xs text-yellow-400 font-terminal">⚠ SWITCH TO FLUENT TESTNET</p>
+                </div>
+              )}
+
+              {/* Terminal */}
+              <div className="flex-1 min-h-0 relative pray-liquid-glass-terminal overflow-hidden">
+                <div className="frutiger-terminal flicker w-full h-full flex flex-col">
+                  <FoidMommyTerminal
+                    className="w-full h-full min-h-0 mobile-terminal"
+                    ensureWalletReady={ensureWalletReady}
+                    submitPrayer={submitPrayer}
+                    waitForReceipt={waitForReceipt}
+                    nextAllowedAt={nextAllowed as bigint | undefined}
+                    registryReady={!missingRegistry}
+                    chainOk={!wrongChain}
+                    requiredChainId={FLUENT_CHAIN_ID}
+                    autoStart={false}
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* Desktop Layout */}
+      <div className="hidden lg:block pray-page__shell max-w-full">
+        <div className="pray-shell max-w-full">
           <div className="pray-grid">
             <div className="pray-window-frame">
               <div className="vista-window vista-window--terminal w-full flex flex-col pray-panel pray-panel--main">
@@ -485,7 +561,7 @@ export default function PrayPage() {
                   <svg className="pray-bracket pray-bracket--tr" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M22 22V2H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                   <svg className="pray-bracket pray-bracket--bl" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M2 2V22H22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                   <svg className="pray-bracket pray-bracket--br" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M22 2V22H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                  
+
                   <div className="frutiger-terminal flicker w-full flex min-h-0 flex-1 flex-col">
                     <FoidMommyTerminal
                       className="w-full h-full min-h-0"
@@ -749,7 +825,7 @@ export default function PrayPage() {
           background: transparent !important;
           border-radius: 12px;
           overflow: hidden;
-          padding: 28px;
+          padding: 16px;
           border: none !important;
           box-shadow: none !important;
         }
@@ -771,7 +847,7 @@ export default function PrayPage() {
           background: transparent !important;
           border: none !important;
           box-shadow: none !important;
-          padding: 20px 24px;
+          padding: 12px 16px;
         }
         
         .pray-liquid-glass-terminal :global(.frutiger-terminal *) { border-color: transparent; }
@@ -1073,6 +1149,7 @@ export default function PrayPage() {
           }
         }
       `}</style>
+      <MobileWalletButton />
     </main>
   );
 }

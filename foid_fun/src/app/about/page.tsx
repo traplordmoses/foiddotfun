@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { useAccount, useChainId, useConnect, useDisconnect } from "wagmi";
 import { playTypingTick } from "@/lib/sfx";
+import { useMobile } from "@/hooks/useMobile";
 
 type Section = {
   id: string;
@@ -953,6 +954,7 @@ export default function AboutPage() {
   const chainId = useChainId();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
+  const { isMobile } = useMobile();
   const initialSection = sections[0].id;
   const [activeSection, setActiveSection] = useState(initialSection);
   const [selectedSection, setSelectedSection] = useState(initialSection);
@@ -1042,7 +1044,7 @@ export default function AboutPage() {
   }, [connect, connectors, disconnect]);
 
   return (
-    <main className="about-page relative min-h-screen w-full flex items-center justify-center overflow-hidden">
+    <main className="about-page relative min-h-screen w-full flex items-center justify-center overflow-hidden max-w-full pt-2 pb-20 pb-safe">
       <div className="absolute inset-0 pointer-events-none z-0" aria-hidden>
         {bubbleConfigs.map((bubble) => (
           <span
@@ -1074,9 +1076,9 @@ export default function AboutPage() {
         ))}
       </div>
 
-      <section className="relative z-10 w-full">
-        <div className="mx-auto w-full max-w-[min(94vw,1240px)]">
-          <div className="vista-window vista-window--terminal vista-window--enhanced h-[min(85vh,900px)] w-full">
+      <section className="relative z-10 w-full max-w-full px-2 sm:px-4">
+        <div className="mx-auto w-full max-w-4xl mb-4">
+          <div className="vista-window vista-window--terminal vista-window--enhanced h-[75vh] max-h-[75vh] w-full">
             <AppTitlebar
               title="FOID_ABOUT.EXE"
               chainId={chainId}
@@ -1085,10 +1087,10 @@ export default function AboutPage() {
               onDisconnect={() => disconnect()}
               onSwitchWallet={handleSwitchWallet}
             />
-            <div className="vista-window__body aboutWindowBody flex flex-col md:flex-row">
-              <aside className="aboutSidebar aboutGlassShell flex-shrink-0">
-                <p className="text-[10px] uppercase tracking-[0.55em] text-white/55">navigation</p>
-                <nav aria-label="about sections" className="aboutNav mt-3 flex w-full flex-col">
+            <div className="vista-window__body aboutWindowBody flex flex-col md:flex-row gap-3 md:gap-4">
+              <aside className="aboutSidebar aboutGlassShell flex-shrink-0 w-full md:w-auto">
+                <p className="text-[10px] uppercase tracking-[0.55em] text-white/55 hidden md:block">navigation</p>
+                <nav aria-label="about sections" className="aboutNav mt-0 md:mt-3 flex w-full flex-col md:flex-col">
                   {sections.map((section) => {
                     const isActive = selectedSection === section.id;
                     const baseClasses = [
@@ -1146,7 +1148,7 @@ export default function AboutPage() {
         .aboutGlassShell {
           border-radius: 16px;
           border: 1px solid rgba(255, 255, 255, 0.12);
-          background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.14));
+          background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
           box-shadow:
             inset 0 0 0 1px rgba(255, 255, 255, 0.06),
             0 10px 24px rgba(0, 0, 0, 0.24);
@@ -1287,8 +1289,10 @@ export default function AboutPage() {
           font-size: 11px;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          background: rgba(255, 255, 255, 0.04);
-          border-color: rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.1);
+          border-color: rgba(255, 255, 255, 0.2);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           transform: translateY(0);
           justify-content: center;
           flex: 0 0 auto;
@@ -1308,15 +1312,19 @@ export default function AboutPage() {
         }
 
         .aboutNavButton:hover {
-          background: rgba(255, 255, 255, 0.08);
-          border-color: rgba(255, 255, 255, 0.2);
+          background: rgba(255, 255, 255, 0.15);
+          border-color: rgba(255, 255, 255, 0.3);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           transform: translateY(-1px);
           color: rgba(255, 255, 255, 0.92);
         }
 
         .aboutNavButton--active {
-          background: rgba(255, 255, 255, 0.11);
-          border-color: rgba(255, 255, 255, 0.24);
+          background: rgba(255, 255, 255, 0.2);
+          border-color: rgba(255, 255, 255, 0.3);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
           box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
         }
 
@@ -1325,6 +1333,15 @@ export default function AboutPage() {
         }
 
         @media (max-width: 640px) {
+          .aboutSidebar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: transparent;
+            backdrop-filter: blur(12px);
+            padding-bottom: 12px !important;
+          }
+
           .aboutNav {
             flex-direction: row;
             overflow-x: auto;
@@ -1468,6 +1485,190 @@ export default function AboutPage() {
           100% {
             transform: translate3d(-15px, -90px, 0) scale(1);
             opacity: 0.16;
+          }
+        }
+
+        /* ====== MOBILE RESPONSIVE FIXES ====== */
+        @media (max-width: 768px) {
+          .about-page {
+            padding: 8px 16px 16px 16px !important;
+            overflow-y: auto !important;
+            min-height: 100vh;
+          }
+
+          .vista-window--enhanced {
+            height: 80vh !important;
+            min-height: 80vh !important;
+            max-height: 80vh !important;
+            display: flex;
+            flex-direction: column;
+          }
+
+          .aboutWindowBody {
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+          }
+
+          .aboutPane {
+            height: 100% !important;
+            min-height: 0 !important;
+            max-height: none !important;
+          }
+
+          .aboutContentScroll {
+            height: 100% !important;
+            max-height: 100% !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            touch-action: pan-y;
+          }
+
+          .aboutContentShell {
+            max-width: 100%;
+            height: auto;
+            min-height: 100%;
+          }
+
+          .aboutStack {
+            max-width: 100%;
+            padding-bottom: 60px; /* Extra padding at bottom for scroll comfort */
+          }
+
+          .aboutWindowBody {
+            flex-direction: column !important;
+            gap: 12px !important;
+            padding: 12px !important;
+          }
+
+          .aboutSidebar {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 10px !important;
+          }
+
+          .aboutNav {
+            flex-direction: row !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            gap: 8px !important;
+            padding-bottom: 8px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+          }
+
+          .aboutNav::-webkit-scrollbar {
+            display: none;
+          }
+
+          .aboutNavButton {
+            flex: 0 0 auto !important;
+            min-width: 100px !important;
+            max-width: 200px !important;
+            min-height: 48px !important;
+            padding: 12px 16px !important;
+            font-size: 10px !important;
+            white-space: nowrap;
+            touch-action: manipulation;
+          }
+
+          .aboutPane {
+            min-height: 400px !important;
+          }
+
+          .aboutContentScroll {
+            padding: 16px !important;
+            overflow-x: hidden !important;
+          }
+
+          .aboutHeader {
+            gap: 8px !important;
+          }
+
+          .aboutEyebrow {
+            font-size: 9px !important;
+          }
+
+          .aboutTitle {
+            font-size: 20px !important;
+            line-height: 1.2 !important;
+          }
+
+          .aboutSubtitle {
+            font-size: 12px !important;
+          }
+
+          .aboutMiniCard {
+            padding: 12px !important;
+          }
+
+          .aboutMiniCard__title {
+            font-size: 10px !important;
+          }
+
+          .aboutMiniCard__body {
+            font-size: 12px !important;
+            line-height: 1.6 !important;
+          }
+
+          .aboutMoreCard {
+            padding: 14px !important;
+          }
+
+          .aboutCardEyebrow {
+            font-size: 9px !important;
+          }
+
+          .aboutCardBody {
+            font-size: 12px !important;
+          }
+
+          .grid {
+            grid-template-columns: 1fr !important;
+          }
+
+          .aboutRoadmapGrid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .about-page {
+            padding: 4px !important;
+          }
+
+          .aboutWindowBody {
+            padding: 8px !important;
+          }
+
+          .aboutSidebar {
+            padding: 8px !important;
+          }
+
+          .aboutContentScroll {
+            padding: 12px !important;
+          }
+
+          .aboutTitle {
+            font-size: 18px !important;
+          }
+
+          .aboutNavButton {
+            min-width: 120px !important;
+            font-size: 9px !important;
+            padding: 10px 12px !important;
+          }
+        }
+
+        /* Touch-friendly links on mobile */
+        @media (max-width: 768px) {
+          a {
+            min-height: 32px;
+            display: inline-block;
+            padding: 4px 0;
+            touch-action: manipulation;
           }
         }
       `}</style>
