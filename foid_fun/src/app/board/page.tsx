@@ -171,6 +171,11 @@ function tryNextGateway(el: HTMLImageElement, cid?: string) {
 }
 
 async function getPendingBytes(p: PendingItem): Promise<ArrayBuffer> {
+  // Prefer using the File object directly if available
+  if (p.file) {
+    return await p.file.arrayBuffer();
+  }
+  // Fallback to fetching the blob URL (may fail if revoked)
   const res = await fetch(p.previewUrl);
   if (!res.ok) throw new Error("Failed to read pending asset");
   return res.arrayBuffer();
@@ -593,7 +598,7 @@ function BoardPageContent() {
       rect = clampToCanvas(capRectToMaxCells(rect, MAX_CELLS_PER_RECT));
       addPending({
         name: workingFile.name, mime, width: rect.w, height: rect.h, rect, cells: rectCells(rect),
-        tipPerCellWei: 0n, previewUrl: URL.createObjectURL(workingFile), cid: undefined, fitMode: "contain",
+        tipPerCellWei: 0n, previewUrl: URL.createObjectURL(workingFile), file: workingFile, cid: undefined, fitMode: "contain",
       });
       addStatus(`Image added: ${workingFile.name}`, "success");
     } finally { setBusy(false); setGhost(null); ghostMetaRef.current = null; }
@@ -811,10 +816,10 @@ function BoardPageContent() {
 
       for (const it of items) {
         addStatus(`Uploading ${it.name}...`, "info");
-        const bytes = await getPendingBytes(it);
         const bidPerCellWei = BASE_FEE_PER_CELL_WEI + it.tipPerCellWei;
         const onChainRect = worldToContractRect(it.rect);
-        const file = new File([bytes], it.name, { type: it.mime });
+        // Use the File object directly if available, otherwise fetch bytes
+        const file = it.file || new File([await getPendingBytes(it)], it.name, { type: it.mime });
         const cid = await uploadImage(it.name, file, it.mime);
         if (!cid) throw new Error("IPFS upload disabled");
         setCidFor(it.id, cid);

@@ -17,6 +17,7 @@ export type PendingItem = {
   tipPerCellWei: bigint;
   totalWei: bigint;
   previewUrl: string;
+  file?: File; // Store the actual File object for submission
   cid?: string;
   fitMode: FitMode;
   space?: "world" | "chain";
@@ -54,7 +55,11 @@ function uid() {
 const STORAGE_KEY = "mifoid_pending_v1";
 
 function save(pending: PendingItem[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(pending)); } catch {}
+  try {
+    // Don't save file objects to localStorage - they can't be serialized
+    const serializable = pending.map(({ file, ...rest }) => rest);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
+  } catch {}
 }
 function load(): PendingItem[] {
   try {
