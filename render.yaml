@@ -7,3 +7,26 @@ services:
     buildCommand: "corepack enable && pnpm install --frozen-lockfile && pnpm run build"
     startCommand: "pnpm run start"
     autoDeploy: true
+
+  - type: cron
+    name: foid-x-bot
+    env: node
+    rootDir: foid_fun
+    schedule: "*/30 * * * *"
+    buildCommand: "corepack enable && pnpm install --frozen-lockfile"
+    startCommand: "npx tsx foid_bot/src/index.ts"
+    envVars:
+      - key: X_API_KEY
+        sync: false
+      - key: X_API_SECRET
+        sync: false
+      - key: X_ACCESS_TOKEN
+        sync: false
+      - key: X_ACCESS_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOLDSKY_BOARD_V1_URL
+        sync: false
+      - key: GOLDSKY_VOTING_URL
+        sync: false

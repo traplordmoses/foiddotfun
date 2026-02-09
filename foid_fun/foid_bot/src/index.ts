@@ -1,7 +1,8 @@
 import { resolve } from "path";
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, existsSync } from "fs";
 import { config } from "dotenv";
 
+// Load .env.local for local dev — on Render, env vars are set directly
 config({ path: resolve(__dirname, "..", "..", ".env.local") });
 
 import { fetchEventsSince, getVoteTallies, type LoreboardEvents } from "./goldsky";
@@ -9,7 +10,8 @@ import { generateTweet, generateThought } from "./personality";
 import { postTweet } from "./twitter";
 
 // ── state ────────────────────────────────────────────────────────
-const STATE_PATH = resolve(__dirname, "state.json");
+// BOT_STATE_PATH overrides default location (useful for Render Disk)
+const STATE_PATH = process.env.BOT_STATE_PATH || resolve(__dirname, "state.json");
 
 type BotState = {
   lastCheckedTimestamp: number;
@@ -17,16 +19,29 @@ type BotState = {
   postedEventIds: string[];   // event IDs we already tweeted about
 };
 
-function loadState(): BotState {
+function loadState(): { state: BotState; persisted: boolean } {
   try {
-    return JSON.parse(readFileSync(STATE_PATH, "utf-8"));
+    if (!existsSync(STATE_PATH)) {
+      return {
+        state: { lastCheckedTimestamp: 0, tweetsToday: [], postedEventIds: [] },
+        persisted: false,
+      };
+    }
+    return { state: JSON.parse(readFileSync(STATE_PATH, "utf-8")), persisted: true };
   } catch {
-    return { lastCheckedTimestamp: 0, tweetsToday: [], postedEventIds: [] };
+    return {
+      state: { lastCheckedTimestamp: 0, tweetsToday: [], postedEventIds: [] },
+      persisted: false,
+    };
   }
 }
 
 function saveState(state: BotState) {
-  writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
+  try {
+    writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
+  } catch (err) {
+    console.warn("[foid-bot] could not write state:", (err as Error).message);
+  }
 }
 
 // ── rate limiting ────────────────────────────────────────────────
@@ -139,21 +154,37 @@ function pickRandomTheme(): string {
 }
 
 // ── main ─────────────────────────────────────────────────────────
+// On Render cron (no persistent state), use shorter lookback to avoid
+// re-tweeting events from previous runs. 35 min covers the 30-min cron
+// interval with buffer. Thought mode uses random probability instead of
+// time-since-last-tweet (which we can't know without state).
+const CRON_LOOKBACK_SEC = 35 * 60;         // 35 min
+const DEFAULT_LOOKBACK_SEC = 6 * 3600;     // 6 hours
+const THOUGHT_PROBABILITY = 0.08;          // ~3-4 thought tweets/day on 30-min cron
+
 async function run() {
   console.log("[foid-bot] starting...");
 
-  const state = loadState();
+  const { state, persisted } = loadState();
   state.tweetsToday = pruneOldTimestamps(state.tweetsToday);
 
-  const { ok, reason } = canTweet(state);
-  if (!ok) {
-    console.log(`[foid-bot] skipping: ${reason}`);
-    saveState(state);
-    return;
+  if (!persisted) {
+    console.log("[foid-bot] no persistent state (ephemeral mode)");
   }
 
-  // use a 6-hour lookback on first run to catch recent events
-  const since = state.lastCheckedTimestamp || Math.floor(Date.now() / 1000) - 6 * 3600;
+  // With persistent state, enforce rate limits. Without it, the cron
+  // interval (30 min) is the only spacing — skip the canTweet check.
+  if (persisted) {
+    const { ok, reason } = canTweet(state);
+    if (!ok) {
+      console.log(`[foid-bot] skipping: ${reason}`);
+      saveState(state);
+      return;
+    }
+  }
+
+  const lookback = persisted ? DEFAULT_LOOKBACK_SEC : CRON_LOOKBACK_SEC;
+  const since = state.lastCheckedTimestamp || Math.floor(Date.now() / 1000) - lookback;
   console.log(`[foid-bot] fetching events since ${new Date(since * 1000).toISOString()}`);
 
   let events: LoreboardEvents;
@@ -198,17 +229,29 @@ async function run() {
       return;
     }
   } else {
-    // THOUGHT MODE — only if 4+ hours since last tweet
-    const lastTweet = state.tweetsToday.length > 0
-      ? new Date(state.tweetsToday[state.tweetsToday.length - 1]).getTime()
-      : 0;
-    const hoursSinceLast = (Date.now() - lastTweet) / 3600000;
+    // THOUGHT MODE
+    if (!persisted) {
+      // Ephemeral state (Render cron): use random probability
+      // ~8% chance per 30-min run = ~3-4 thought tweets per day
+      if (Math.random() > THOUGHT_PROBABILITY) {
+        console.log("[foid-bot] no events, thought roll skipped (ephemeral mode)");
+        state.lastCheckedTimestamp = Math.floor(Date.now() / 1000);
+        saveState(state);
+        return;
+      }
+    } else {
+      // Persistent state: only if 4+ hours since last tweet
+      const lastTweet = state.tweetsToday.length > 0
+        ? new Date(state.tweetsToday[state.tweetsToday.length - 1]).getTime()
+        : 0;
+      const hoursSinceLast = (Date.now() - lastTweet) / 3600000;
 
-    if (hoursSinceLast < 4) {
-      console.log("[foid-bot] nothing tweetworthy, staying quiet");
-      state.lastCheckedTimestamp = Math.floor(Date.now() / 1000);
-      saveState(state);
-      return;
+      if (hoursSinceLast < 4) {
+        console.log("[foid-bot] nothing tweetworthy, staying quiet");
+        state.lastCheckedTimestamp = Math.floor(Date.now() / 1000);
+        saveState(state);
+        return;
+      }
     }
 
     mode = "thought";
