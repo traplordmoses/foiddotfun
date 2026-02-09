@@ -1,5 +1,7 @@
 "use client";
 
+import { getAudioSettings } from "@/lib/audioSettings";
+
 type AudioContextConstructor =
   | typeof AudioContext
   | (typeof globalThis extends { webkitAudioContext: infer T } ? T : never);
@@ -184,6 +186,8 @@ export async function unlock(): Promise<void> {
 
 function playViaBuffer(key: SfxKey, options: { volume?: number; detune?: number } = {}): void {
   if (!isBrowser || !unlocked || fallbackMode) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
   const ac = ensureCtx();
   if (!ac) return;
 
@@ -200,7 +204,7 @@ function playViaBuffer(key: SfxKey, options: { volume?: number; detune?: number 
   }
 
   const gain = ac.createGain();
-  gain.gain.value = options.volume ?? 0.9;
+  gain.gain.value = (options.volume ?? 0.9) * settings.sfxVolume;
   source.connect(gain);
   gain.connect(ac.destination);
   source.start();
@@ -208,9 +212,11 @@ function playViaBuffer(key: SfxKey, options: { volume?: number; detune?: number 
 
 function playViaHtmlAudio(key: SfxKey, volume = 0.9): void {
   if (!isBrowser || !unlocked) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
   const path = PATHS[key];
   const audio = new Audio(path);
-  audio.volume = volume;
+  audio.volume = volume * settings.sfxVolume;
   void audio.play().catch(() => {});
 }
 
@@ -339,8 +345,11 @@ function stopTypingLoop(): void {
 }
 function typingTick(): void {
   if (!isBrowser || !typingState.active) return;
-  const detune = Math.random() * 80 - 40;
-  play("typing", { detune, volume: TYPING_VOLUME });
+  const settings = getAudioSettings();
+  if (settings.sfxEnabled) {
+    const detune = Math.random() * 80 - 40;
+    play("typing", { detune, volume: TYPING_VOLUME });
+  }
   const delay = 70 + Math.random() * 55;
   typingState.timer = window.setTimeout(typingTick, delay);
 }

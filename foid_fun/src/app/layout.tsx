@@ -5,6 +5,7 @@ import { Providers } from "@/providers";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import FloatingElements from "@/components/FloatingElements";
 import SfxInitializer from "@/components/SfxInitializer";
+import SoundToggle from "@/components/SoundToggle";
 import { ClientLayout } from "@/components/ClientLayout";
 
 // app/layout.tsx (or wherever your metadata lives)
@@ -66,6 +67,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <Providers>
       <div className="app-viewport">
         <SfxInitializer />
+        <SoundToggle />
         <ClientLayout />
         {children}
       </div>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
+import { getAudioSettings } from "@/lib/audioSettings";
 
 const PARTICLE_COUNT = 20;
 const BOOT_STEPS = [15, 35, 50, 72, 88, 100];
@@ -84,6 +85,7 @@ export default function EnterGate({
   }, [destination, router]);
 
   const playClickSound = useCallback(() => {
+    if (!getAudioSettings().sfxEnabled) return;
     const ctx = initAudio();
     const now = ctx.currentTime;
 
@@ -131,6 +133,7 @@ export default function EnterGate({
   }, [initAudio]);
 
   const playBootChime = useCallback(() => {
+    if (!getAudioSettings().sfxEnabled) return;
     const ctx = initAudio();
     const now = ctx.currentTime;
     const frequencies = [523.25, 659.25, 783.99, 1046.5];

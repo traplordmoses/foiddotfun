@@ -1,5 +1,7 @@
 "use client";
 
+import { getAudioSettings } from "@/lib/audioSettings";
+
 let ctx: AudioContext | null = null;
 let unlocked = false;
 const buffers: Record<string, AudioBuffer | undefined> = {};
@@ -54,6 +56,8 @@ export async function unlockAudio() {
 
 function play(buf?: AudioBuffer, volume = TYPING_VOLUME, detuneRange = 40) {
   if (!unlocked || !buf) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
   const ac = ensureCtx();
   if (!ac) return;
   const src = ac.createBufferSource();
@@ -62,7 +66,7 @@ function play(buf?: AudioBuffer, volume = TYPING_VOLUME, detuneRange = 40) {
     src.detune.value = (Math.random() * 2 - 1) * detuneRange;
   }
   const gain = ac.createGain();
-  const amount = volume;
+  const amount = volume * settings.sfxVolume;
   gain.gain.value = Math.min(1, Math.max(0, amount));
   src.connect(gain).connect(ac.destination);
   src.start();

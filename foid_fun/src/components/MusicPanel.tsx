@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import butterchurnModule from "butterchurn";
 import * as butterchurnPresets from "butterchurn-presets";
 import { broadcastMusicState, musicPanelController } from "@/components/musicPanelController";
+import { getAudioSettings, subscribe as subscribeAudioSettings, setMusicVolume } from "@/lib/audioSettings";
 
 type PresetMap = Record<string, unknown>;
 type Visualizer = {
@@ -306,6 +307,7 @@ const ensureVisualizer = useCallback(() => {
   }, [showVol]);
 
   const play = useCallback(async () => {
+    if (!getAudioSettings().musicEnabled) return;
     ensureAudioGraph();
     ensureVisualizer();
     const slot = activeSlotRef.current;
@@ -569,12 +571,30 @@ const ensureVisualizer = useCallback(() => {
     musicPanelController.setVolume = (value: number) => {
       const clamped = Math.min(1, Math.max(0, value));
       setVolume(clamped);
+      setMusicVolume(clamped);
     };
     musicPanelController.adjustVolume = (delta: number) => {
-      setVolume((prev) => Math.min(1, Math.max(0, prev + delta)));
+      setVolume((prev) => {
+        const next = Math.min(1, Math.max(0, prev + delta));
+        setMusicVolume(next);
+        return next;
+      });
     };
     musicPanelController.getVolume = () => volumeRef.current;
   }, [toggle, play, pause, next, prev, toggleShuffle, toggleRepeat, setVolume]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAudioSettings(() => {
+      const settings = getAudioSettings();
+      if (!settings.musicEnabled && isPlayingRef.current) {
+        pause();
+      }
+      if (Math.abs(settings.musicVolume - volumeRef.current) > 0.001) {
+        setVolume(settings.musicVolume);
+      }
+    });
+    return unsubscribe;
+  }, [pause, setVolume]);
 
   const audioElements = (
     <>
