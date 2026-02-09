@@ -5,7 +5,7 @@ import { config } from "dotenv";
 config({ path: resolve(__dirname, "..", "..", ".env.local") });
 
 import { fetchEventsSince, getVoteTallies, type LoreboardEvents } from "./goldsky";
-import { generateTweet } from "./personality";
+import { generateTweet, generateThought } from "./personality";
 import { postTweet } from "./twitter";
 
 // ── state ────────────────────────────────────────────────────────
@@ -123,21 +123,19 @@ async function classifyEvents(
   return tweetable;
 }
 
-// ── quiet observation ────────────────────────────────────────────
-function generateQuietObservation(): TweetableEvent {
-  const observations = [
-    "the loreboard is quiet. no new proposals. the grid waits.",
-    "nothing proposed, nothing voted, nothing canonized. the board holds its breath.",
-    "silence on the loreboard. either everyone agrees or nobody cares.",
-    "the loreboard has been still. the cells sit unclaimed. patience is underrated.",
-    "no new activity on the loreboard. the on-chain pixels rest undisturbed.",
-  ];
-  const pick = observations[Math.floor(Math.random() * observations.length)];
-  return {
-    id: `quiet:${Date.now()}`,
-    type: "proposal",
-    description: pick,
-  };
+// ── thought themes ──────────────────────────────────────────────
+const THOUGHT_THEMES = [
+  "board philosophy",
+  "prayer ritual",
+  "permanence",
+  "consensus",
+  "internet culture",
+  "grid dynamics",
+  "the tension between chaos and order",
+];
+
+function pickRandomTheme(): string {
+  return THOUGHT_THEMES[Math.floor(Math.random() * THOUGHT_THEMES.length)];
 }
 
 // ── main ─────────────────────────────────────────────────────────
@@ -173,47 +171,61 @@ async function run() {
   const postedIds = new Set(state.postedEventIds);
   let tweetable = await classifyEvents(events, postedIds);
 
-  // if nothing happened, occasionally post a quiet observation
-  if (tweetable.length === 0) {
-    // only post quiet observations if we haven't tweeted in 6+ hours
+  // determine mode: event or thought
+  let mode: "event" | "thought";
+  let tweetText: string;
+  let eventId: string;
+
+  if (tweetable.length > 0) {
+    // EVENT MODE — pick the most interesting event
+    mode = "event";
+    const priority: Record<string, number> = {
+      canonization: 0,
+      epoch_finalized: 1,
+      vote_surge: 2,
+      proposal: 3,
+    };
+    tweetable.sort((a, b) => (priority[a.type] ?? 99) - (priority[b.type] ?? 99));
+    const event = tweetable[0];
+    eventId = event.id;
+
+    console.log(`[foid-bot] EVENT MODE: [${event.type}] ${event.description}`);
+
+    try {
+      tweetText = await generateTweet(event.description);
+    } catch (err) {
+      console.error("[foid-bot] openai generation failed:", err);
+      return;
+    }
+  } else {
+    // THOUGHT MODE — only if 4+ hours since last tweet
     const lastTweet = state.tweetsToday.length > 0
       ? new Date(state.tweetsToday[state.tweetsToday.length - 1]).getTime()
       : 0;
     const hoursSinceLast = (Date.now() - lastTweet) / 3600000;
 
-    if (hoursSinceLast >= 6) {
-      console.log("[foid-bot] nothing happened, generating quiet observation");
-      tweetable = [generateQuietObservation()];
-    } else {
+    if (hoursSinceLast < 4) {
       console.log("[foid-bot] nothing tweetworthy, staying quiet");
       state.lastCheckedTimestamp = Math.floor(Date.now() / 1000);
       saveState(state);
       return;
     }
+
+    mode = "thought";
+    const theme = pickRandomTheme();
+    eventId = `thought:${Date.now()}`;
+
+    console.log(`[foid-bot] THOUGHT MODE: theme="${theme}"`);
+
+    try {
+      tweetText = await generateThought(theme);
+    } catch (err) {
+      console.error("[foid-bot] openai generation failed:", err);
+      return;
+    }
   }
 
-  // pick the most interesting event (canonization > epoch > vote_surge > proposal)
-  const priority: Record<string, number> = {
-    canonization: 0,
-    epoch_finalized: 1,
-    vote_surge: 2,
-    proposal: 3,
-  };
-  tweetable.sort((a, b) => (priority[a.type] ?? 99) - (priority[b.type] ?? 99));
-  const event = tweetable[0];
-
-  console.log(`[foid-bot] selected event: [${event.type}] ${event.description}`);
-
-  // generate tweet
-  let tweetText: string;
-  try {
-    tweetText = await generateTweet(event.description);
-  } catch (err) {
-    console.error("[foid-bot] openai generation failed:", err);
-    return;
-  }
-
-  console.log(`[foid-bot] generated tweet (${tweetText.length} chars): ${tweetText}`);
+  console.log(`[foid-bot] generated tweet [${mode}] (${tweetText.length} chars): ${tweetText}`);
 
   if (tweetText.length > 280) {
     console.warn("[foid-bot] tweet too long, truncating");
@@ -226,7 +238,7 @@ async function run() {
     console.log(`[foid-bot] posted tweet: ${tweetId}`);
 
     state.tweetsToday.push(new Date().toISOString());
-    state.postedEventIds.push(event.id);
+    state.postedEventIds.push(eventId);
     // keep postedEventIds bounded
     if (state.postedEventIds.length > 500) {
       state.postedEventIds = state.postedEventIds.slice(-200);

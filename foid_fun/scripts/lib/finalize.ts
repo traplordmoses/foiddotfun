@@ -139,6 +139,68 @@ const loreboardLiveNftAbi = [
 const ZERO_BYTES32 =
   "0x0000000000000000000000000000000000000000000000000000000000000000";
 
+const IPFS_GATEWAYS = [
+  "https://ipfs.io/ipfs/",
+  "https://gateway.pinata.cloud/ipfs/",
+  "https://cloudflare-ipfs.com/ipfs/",
+];
+
+async function fetchPreviousManifestPlacements(params: {
+  publicClient: PublicClient<Transport, Chain>;
+  manifestStore: Address;
+}): Promise<{ placements: Placement[]; latestFinalizedEpoch: number }> {
+  const latestFinalizedEpoch = Number(
+    await readContractSafe({
+      publicClient: params.publicClient,
+      address: params.manifestStore,
+      abi: loreBoardManifestStoreAbi,
+      functionName: "latestFinalizedEpoch",
+      label: `latestFinalizedEpoch ${params.manifestStore}`,
+    })
+  );
+
+  if (!latestFinalizedEpoch) {
+    return { placements: [], latestFinalizedEpoch: 0 };
+  }
+
+  const manifestData = (await readContractSafe({
+    publicClient: params.publicClient,
+    address: params.manifestStore,
+    abi: loreBoardManifestStoreAbi,
+    functionName: "manifestOf",
+    args: [latestFinalizedEpoch],
+    label: `manifestOf ${params.manifestStore} ${latestFinalizedEpoch}`,
+  })) as readonly [Hex, string];
+
+  const cid = String(manifestData[1]).replace(/^ipfs:\/\//, "").trim();
+  if (!cid) {
+    console.warn("[finalize] previous manifest CID is empty");
+    return { placements: [], latestFinalizedEpoch };
+  }
+
+  for (const gateway of IPFS_GATEWAYS) {
+    try {
+      const res = await fetch(`${gateway}${cid}`, {
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) continue;
+      const manifest = await res.json();
+      const placements = Array.isArray(manifest.placements)
+        ? (manifest.placements as Placement[])
+        : [];
+      console.log(
+        `[finalize] loaded previous manifest: epoch=${latestFinalizedEpoch} placements=${placements.length}`
+      );
+      return { placements, latestFinalizedEpoch };
+    } catch {
+      // try next gateway
+    }
+  }
+
+  console.warn("[finalize] failed to fetch previous manifest from IPFS");
+  return { placements: [], latestFinalizedEpoch };
+}
+
 function parseEpochFinalized(value: unknown): boolean {
   if (typeof value === "boolean") return value;
   if (Array.isArray(value) && typeof value[0] === "boolean") return value[0];
@@ -508,6 +570,7 @@ export async function finalizeEpochIfReady(params: {
       `[finalize] proposals=${params.proposals.length} accepted=${accepted.length} rejected=${rejected.length}`
     );
 
+    // Build new placements from accepted proposals
     const acceptedPlacements: Placement[] = [];
     for (const proposal of accepted) {
       const cid = await fetchCidForPlacement({
@@ -521,20 +584,44 @@ export async function finalizeEpochIfReady(params: {
       const placement = asPlacement(proposal, cid);
       acceptedPlacements.push(placement);
     }
-    const orderedAccepted = acceptedPlacements.sort((a, b) =>
+
+    // Load previous manifest and merge placements (accumulate board state)
+    const { placements: previousPlacements, latestFinalizedEpoch } =
+      await fetchPreviousManifestPlacements({
+        publicClient: params.publicClient,
+        manifestStore: params.manifestStore,
+      });
+
+    const existingIds = new Set(
+      previousPlacements.map((p) => p.id.toLowerCase())
+    );
+    const mergedPlacements = [...previousPlacements];
+    for (const placement of acceptedPlacements) {
+      if (!existingIds.has(placement.id.toLowerCase())) {
+        mergedPlacements.push(placement);
+      }
+    }
+    mergedPlacements.sort((a, b) =>
       a.id.toLowerCase().localeCompare(b.id.toLowerCase())
     );
 
+    // Anchor epoch must be > latestFinalizedEpoch for latest() to pick it up
+    const anchorEpoch = Math.max(params.epochId, latestFinalizedEpoch + 1);
+
+    console.log(
+      `[finalize] merged: ${previousPlacements.length} previous + ${acceptedPlacements.length} new = ${mergedPlacements.length} total (anchorEpoch=${anchorEpoch})`
+    );
+
     const manifestPayload = buildManifestPayload({
-      epoch: params.epochId,
-      placements: orderedAccepted,
+      epoch: anchorEpoch,
+      placements: mergedPlacements,
       finalizedAt: nowSec,
     });
 
     if (params.dryRun) {
       console.log("[finalize] DRY_RUN: would upload manifest + finalize epoch", {
-        epoch: params.epochId,
-        placements: orderedAccepted.length,
+        epoch: anchorEpoch,
+        placements: mergedPlacements.length,
         accepted: accepted.length,
         rejected: rejected.length,
         manifestRoot: manifestPayload.manifestRoot,
@@ -554,7 +641,7 @@ export async function finalizeEpochIfReady(params: {
     if (!params.operatorWallet) throw new Error("Missing OPERATOR_KEY");
 
     const cid = await uploadJSON(
-      `loreboard-epoch-${params.epochId}.manifest.json`,
+      `loreboard-epoch-${anchorEpoch}.manifest.json`,
       manifestPayload.manifest
     );
 
@@ -566,7 +653,7 @@ export async function finalizeEpochIfReady(params: {
       abi: treasuryAbi,
       functionName: "finalizeEpoch",
       args: [
-        params.epochId,
+        anchorEpoch,
         manifestPayload.manifestRoot,
         cid,
         acceptedIds,
@@ -585,7 +672,7 @@ export async function finalizeEpochIfReady(params: {
       address: params.manifestStore,
       abi: loreBoardManifestStoreAbi,
       functionName: "anchor",
-      args: [params.epochId, manifestPayload.manifestRoot, cid],
+      args: [anchorEpoch, manifestPayload.manifestRoot, cid],
       account: params.operatorWallet.account!,
     });
     console.log("[finalize] manifest anchor tx:", anchorTx);
