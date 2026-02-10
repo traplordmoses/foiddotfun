@@ -38,6 +38,7 @@ import type { ProposalSummary, ListProposalsResponse } from "@/lib/api";
 import { writeProposePlacement } from "@/lib/viem";
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
+import { LoreboardNotification } from "@/components/LoreboardNotification";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import CompactMusicPlayer from "@/components/CompactMusicPlayer";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
@@ -211,12 +212,17 @@ const normalizePlacements = (list: unknown[]): FinalizedPlacement[] =>
   list.map((p) => {
     const placement = isRecord(p) ? p : {};
     const coerced = asWorldRect(placement.rect ?? placement);
+    // Manifests may contain contract-space coordinates (x/y offset by BOARD_OFFSET).
+    // In world space x is always < BOARD_OFFSET, so values >= BOARD_OFFSET indicate
+    // contract coordinates that need conversion.
+    const needsTransform = coerced.x >= BOARD_OFFSET_X || coerced.y >= BOARD_OFFSET_Y;
+    const rect = needsTransform ? contractToWorldRect(coerced) : coerced;
     return {
       ...(placement as FinalizedPlacement),
-      x: coerced.x,
-      y: coerced.y,
-      w: coerced.w,
-      h: coerced.h,
+      x: rect.x,
+      y: rect.y,
+      w: rect.w,
+      h: rect.h,
       cells: Number(placement.cells ?? 1),
     };
   });
@@ -914,6 +920,30 @@ function BoardPageContent() {
     [proposals, selectedProposalId]
   );
 
+  const proposalToPlacement = (p: ProposalSummary): Placement => {
+    const sr = toStageRect(p.rect);
+    return {
+      id:             p.id,
+      cid:            p.cid,
+      x:              sr.x,
+      y:              sr.y,
+      width:          sr.w,
+      height:         sr.h,
+      name:           p.name,
+      proposer:       p.owner as `0x${string}`,
+      epochId:        p.epochId ?? p.epochSubmitted,
+      status:         p.status,
+      yesVotes:       p.yesVotes ?? p.yes,
+      noVotes:        p.noVotes ?? p.no,
+      voters:         p.voters,
+      percentYes:     p.percentYes,
+      secondsLeft:    p.secondsLeft,
+      voteEndsAt:     p.voteEndsAt,
+      epochSubmitted: p.epochSubmitted,
+      cells:          p.cells,
+    };
+  };
+
   // Convert board items to mobile format
   const boardNodes = useMemo<BoardNode[]>(() => {
     const nodes: BoardNode[] = [];
@@ -1063,7 +1093,7 @@ function BoardPageContent() {
                       return (
                         <PlacementCard
                           key={p.id}
-                          placement={{ id: p.id, cid: p.cid, x: sr.x, y: sr.y, width: sr.w, height: sr.h, proposer: p.owner as `0x${string}`, epochId: currentEpochView ?? placedEpoch }}
+                          placement={{ id: p.id, cid: p.cid, x: sr.x, y: sr.y, width: sr.w, height: sr.h, proposer: p.owner as `0x${string}`, epochId: currentEpochView ?? placedEpoch, status: "canonized" }}
                           onOpen={setActivePlacement}
                           frameStyle={{
                             border: `1px solid ${isActive ? "rgba(0,255,213,0.95)" : CARD_BORDER}`,
@@ -1095,7 +1125,8 @@ function BoardPageContent() {
                         <figure
                           key={p.id}
                           className={`board-proposal${isSelectedProposal ? " board-proposal--selected" : ""}`}
-                          style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h }}
+                          style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h, cursor: "pointer" }}
+                          onClick={() => setActivePlacement(proposalToPlacement(p))}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={cidToHttpUrl(p.cid)} alt={p.name} className="board-proposal__img" draggable={false} onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
@@ -1249,6 +1280,7 @@ function BoardPageContent() {
     </div> {/* board-shell */}
 
     {activePlacement && <PlacementModal placement={activePlacement} onClose={() => setActivePlacement(null)} />}
+    {isConnected && <LoreboardNotification address={address} />}
       <style jsx>{`
         /* Layout - more padding and spacing */
         .board-page {

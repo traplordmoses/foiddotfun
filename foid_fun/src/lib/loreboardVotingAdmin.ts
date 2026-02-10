@@ -1,52 +1,72 @@
 // src/lib/loreboardVotingAdmin.ts
-import { createWalletClient, createPublicClient, http } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
+import {
+  createWalletClient,
+  createPublicClient,
+  defineChain,
+  http,
+  type WalletClient,
+  type PublicClient,
+  type Chain,
+  type Transport,
+} from "viem";
+import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import {
   LOREBOARD_VOTING_ADDRESS,
   loreboardVotingAbi,
 } from "@/contracts/loreboardVoting";
 
-const RPC_URL =
-  process.env.FLUENT_RPC_URL ??
-  process.env.FLUENT_RPC ??
-  process.env.NEXT_PUBLIC_FLUENT_RPC ??
-  process.env.NEXT_PUBLIC_RPC_URL;
+/* ── Lazy-init (avoids crash during Next.js build / page-data collection) ── */
 
-if (!RPC_URL) {
-  throw new Error("Missing Fluent RPC URL");
+type VotingWalletClient = WalletClient<Transport, Chain, PrivateKeyAccount>;
+type VotingPublicClient = PublicClient<Transport, Chain>;
+
+let _walletClient: VotingWalletClient | null = null;
+let _publicClient: VotingPublicClient | null = null;
+
+function ensureClients() {
+  if (!_walletClient || !_publicClient) {
+    const rpcUrl =
+      process.env.FLUENT_RPC_URL ??
+      process.env.FLUENT_RPC ??
+      process.env.NEXT_PUBLIC_FLUENT_RPC ??
+      process.env.NEXT_PUBLIC_RPC_URL;
+    if (!rpcUrl) throw new Error("Missing Fluent RPC URL");
+
+    const pk = process.env.LOREBOARD_VOTING_ADMIN_PRIVATE_KEY as `0x${string}`;
+    if (!pk) throw new Error("Missing LOREBOARD_VOTING_ADMIN_PRIVATE_KEY");
+
+    const chain = defineChain({
+      id: 20994,
+      name: "Fluent Testnet",
+      nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+      rpcUrls: { default: { http: [rpcUrl] } },
+    });
+
+    const account = privateKeyToAccount(pk);
+    _walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
+    _publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+  }
+  return { walletClient: _walletClient!, publicClient: _publicClient! };
 }
 
-const fluentTestnet = {
-  id: 20994,
-  name: "Fluent Testnet",
-  nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-  rpcUrls: { default: { http: [RPC_URL] } },
-} as const;
+/** Lazy accessor — throws at call-time (not import-time) if env vars are missing. */
+export const votingAdminClient = {
+  get account() { return ensureClients().walletClient.account; },
+  get writeContract() { return ensureClients().walletClient.writeContract; },
+} as unknown as VotingWalletClient;
 
-const pk = process.env.LOREBOARD_VOTING_ADMIN_PRIVATE_KEY as `0x${string}`;
-if (!pk) {
-  throw new Error("Missing LOREBOARD_VOTING_ADMIN_PRIVATE_KEY");
-}
-
-const account = privateKeyToAccount(pk);
-
-export const votingAdminClient = createWalletClient({
-  account,
-  chain: fluentTestnet,
-  transport: http(RPC_URL),
-});
-
-export const fluentPublicClient = createPublicClient({
-  chain: fluentTestnet,
-  transport: http(RPC_URL),
-});
+export const fluentPublicClient = {
+  get readContract() { return ensureClients().publicClient.readContract; },
+  get waitForTransactionReceipt() { return ensureClients().publicClient.waitForTransactionReceipt; },
+} as unknown as VotingPublicClient;
 
 export async function configureEpochOnChain(
   epochId: bigint,
   startsAt: bigint,
   endsAt: bigint
 ) {
-  return votingAdminClient.writeContract({
+  const { walletClient } = ensureClients();
+  return walletClient.writeContract({
     address: LOREBOARD_VOTING_ADDRESS,
     abi: loreboardVotingAbi,
     functionName: "configureEpoch",
@@ -58,7 +78,8 @@ export async function registerPendingPlacementOnChain(
   epochId: bigint,
   placementId: `0x${string}`
 ) {
-  return votingAdminClient.writeContract({
+  const { walletClient } = ensureClients();
+  return walletClient.writeContract({
     address: LOREBOARD_VOTING_ADDRESS,
     abi: loreboardVotingAbi,
     functionName: "registerPendingPlacement",
@@ -67,7 +88,8 @@ export async function registerPendingPlacementOnChain(
 }
 
 export async function finalizeEpochOnChain(epochId: bigint) {
-  return votingAdminClient.writeContract({
+  const { walletClient } = ensureClients();
+  return walletClient.writeContract({
     address: LOREBOARD_VOTING_ADDRESS,
     abi: loreboardVotingAbi,
     functionName: "setEpochFinalized",
