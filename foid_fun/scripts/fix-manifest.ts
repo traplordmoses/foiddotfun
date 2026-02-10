@@ -166,7 +166,7 @@ async function main() {
     abi: loreBoardManifestStoreAbi,
     functionName: "latest",
   });
-  const [vEpoch, vRoot, vCid] = verifyLatest as [bigint, string, string];
+  const [vEpoch, vRoot, vCid] = verifyLatest as unknown as [bigint, string, string];
   console.log("\nverification:");
   console.log("  latest epoch:", Number(vEpoch));
   console.log("  latest root:", vRoot);
