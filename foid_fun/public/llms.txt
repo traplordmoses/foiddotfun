@@ -1,0 +1,411 @@
+# FOID Foundation — Technical Reference
+
+> foid.fun | Fluent Testnet (chain 20994) | Next.js 14 + Solidity + Goldsky + IPFS
+
+## Project Overview
+
+FOID Foundation is an on-chain platform for permanent meme culture. It has three interconnected systems:
+
+1. **Loreboard** — A collaborative image board where users propose meme placements on a shared grid, vote on them democratically, and canonize winners permanently on-chain. Think r/place but with economic stakes and on-chain finality.
+2. **Foid Mommy Terminal** — An AI-powered prayer ritual where users select an emotional state, converse with an empathetic AI ("Foid Mommy"), and submit a personalized prayer on-chain. Prayer streaks and history are tracked via smart contracts.
+3. **MiFOID LiveNFT** — A single 1/1 ERC-721 NFT that auto-updates its metadata to reflect the latest finalized board state. It is a living artifact of whatever the community canonized.
+
+The core thesis: memes are culture, culture deserves permanence, and permanence requires consensus. The Loreboard creates a mechanism where economic bidding + democratic voting determines what gets etched into an immutable on-chain manifest.
+
+## Architecture
+
+```
+User (Browser)
+  │
+  ├─ Next.js Frontend (React 18, wagmi, RainbowKit)
+  │   ├─ /board — Infinite canvas with zoom/pan, placement proposals, voting UI
+  │   ├─ /pray — Foid Mommy terminal, feeling selector, prayer submission
+  │   ├─ /enter — Boot sequence gate with animations
+  │   ├─ /about — Project documentation
+  │   └─ / — Landing page with music visualizer
+  │
+  ├─ API Routes (Next.js serverless)
+  │   ├─ /api/proposals — Queries Goldsky subgraphs, resolves CIDs, joins voting data
+  │   ├─ /api/votes — User vote history from Goldsky
+  │   ├─ /api/manifest/latest — Reads finalized manifest from chain + IPFS
+  │   ├─ /api/operator/finalize — Settles epoch on-chain (operator-only)
+  │   ├─ /api/foid-mommy — OpenAI prayer generation
+  │   └─ (14 more routes, see API section below)
+  │
+  ├─ Goldsky Subgraphs (3 instances)
+  │   ├─ Board V1 (v2.0.2) — indexes PlacementProposed from LoreboardBoardV1
+  │   ├─ Board V2 (v2.0.0) — indexes PlacementProposed from LoreboardBoardV2
+  │   └─ Voting (v2.0.1) — indexes VoteCast, PendingPlacementRegistered, EpochFinalized
+  │
+  ├─ IPFS (Web3.Storage primary, Pinata fallback)
+  │   ├─ Image uploads for placement proposals
+  │   └─ Manifest JSON for finalized epochs
+  │
+  └─ Fluent Testnet (chain 20994)
+      ├─ LoreBoardTreasury — escrow, finalization, refunds
+      ├─ LoreboardBoardV2 — proposal entrypoint, CID storage
+      ├─ LoreboardVotingV2 — time-windowed voting per placement
+      ├─ LoreBoardManifestStore — on-chain manifest anchoring
+      ├─ LoreboardLiveNFT — auto-updating 1/1 ERC-721
+      ├─ Prayer Registry — on-chain prayer storage
+      └─ Prayer Mirror — prayer streak/stats reader
+```
+
+## Smart Contracts
+
+All contracts are deployed on Fluent Testnet (chain ID 20994, RPC `https://rpc.testnet.fluent.xyz`).
+
+### Loreboard Contracts
+
+| Contract | Address | Purpose |
+|----------|---------|---------|
+| LoreBoardTreasury | `0x4A777d8650b3FA2419377F4ffeF0EF8007151536` | Escrows proposal funds, settles winners/losers on epoch finalization, handles refunds |
+| LoreboardBoardV2 | `0xE41B2D418C09Ea928E4F657ED2438f5D01472105` | Main board entrypoint, stores CID bytes, relays to Treasury and Voting |
+| LoreboardVotingV2 | `0xEbf065A7ca3917BB5e669982e8C6954cC27A7075` | Rolling-window voting per placement, time-derived epochs, pluggable voting power |
+| LoreBoardManifestStore | `0xeE469D8F9BB2Ace861AA689dE53c016871ad3D10` | Minimal on-chain anchor mapping epoch to manifest root + IPFS CID |
+| LoreboardLiveNFT | `0x4b38ad556300fadd6cdc5a9b0b1870e63c0f14e3` | 1/1 ERC-721 with ERC-4906 metadata updates, tracks latest finalized epoch |
+| OnePerPlacementVotingPower | `0xCCf0ac9c66a68FCb8c438C697EdA87D9766f1Be5` | v0 stub: every address has weight 1 for all epochs |
+
+### Infrastructure Contracts
+
+| Contract | Address | Purpose |
+|----------|---------|---------|
+| Operator (worker key) | `0x1a2a5E805342D5139111488C59d72832055A3e8F` | Off-chain worker that finalizes epochs |
+| VM Wrapper | `0x4031762fB8b5d3fcA168AA6555FfC666ED500DaD` | LoreVM computation wrapper |
+| VM Wasm | `0xBE0ec2117F36797DEf3ab10661464265b2E4df34` | Wasm binary for on-chain winner selection |
+
+### Ecosystem Contracts
+
+| Contract | Address | Purpose |
+|----------|---------|---------|
+| Prayer Registry | `0x6FC7301fad7Ca0294152b23FD4f0467200376d65` | On-chain prayer storage with cooldown |
+| Prayer Mirror | `0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF` | Read-only prayer stats (streak, count) |
+| wFOID | `0x403ECF8ba28E58CE4d1847C1C95ac54651fAB151` | Wrapped FOID token |
+| FoidFactory | `0xaC8433Aa94C3E043b197C25854bAC39Ee914B8F9` | Token factory |
+| FoidSwap LP | `0xe97639fd6Ff7231ed270Ea16BD9Ba2c79f4cD2cc` | Liquidity pool |
+| FoidSwap Router | `0xd71330e54eAA2e4248E75067F8f23bB2a6568613` | AMM router |
+| WETH | `0x3d38E57b5d23c3881AffB8BC0978d5E0bd96c1C6` | Wrapped ETH |
+
+### Key Contract Functions
+
+**LoreBoardTreasury:**
+- `proposePlacement()` — Submit placement with full ETH escrow
+- `finalizeEpoch(epoch, manifestRoot, cid, acceptedIds[], rejectedIds[])` — Settle epoch; winners' funds to treasury, losers refunded
+- `sweepTreasury()` — Owner withdraws accumulated winner funds
+- `withdraw()` — Users pull failed refund (fallback)
+
+**LoreboardBoardV2:**
+- `proposePlacement(x, y, w, h, bidPerCell, cidBytes)` — Propose board placement with CID
+- `finalizeEpochInVoting(epochId)` — Relay to VotingV2 finalization (operator-only)
+
+**LoreboardVotingV2:**
+- `registerPlacement(placementId)` — Register placement for voting (derives epoch from time)
+- `voteOnPlacement(placementId, support)` — Cast YES/NO vote
+- `setEpochFinalized(epochId)` — Lock epoch (prevents further voting)
+
+**LoreBoardManifestStore:**
+- `anchor(epoch, root, cid)` — Owner anchors manifest for epoch
+- `latest()` — Returns (epoch, manifestRoot, manifestCid)
+- `get(epoch)` — Returns (root, cid) for specific epoch
+
+**LoreboardLiveNFT:**
+- `syncLatest()` — Permissionless update to latest epoch metadata
+- `tokenURI(0)` — Returns dynamic JSON metadata for token 0
+
+## Frontend Pages
+
+### `/enter` — Gate
+Animated boot sequence with particle effects and progress bar. Sets `foid_entered` cookie. Keyboard (Enter key) and click activation. Sounds via WebAudio oscillators (click thock, boot chime). Respects `prefers-reduced-motion`.
+
+### `/` — Landing
+Hero page with Foid Mommy artwork, project description, and CTA buttons to /pray and /board. Lazy-loads MusicPanel with Butterchurn visualizer (23-track playlist, crossfade, shuffle/repeat). Vista/Frutiger Aero window aesthetic.
+
+### `/pray` — Foid Mommy Terminal
+1. User selects one of 10 emotional states (happy, calm, hopeful, stressed, sad, angry, tired, lost, guilty, pain)
+2. Foid Mommy responds with personalized acknowledgment via OpenAI (gpt-4o-mini)
+3. User provides more detail, Foid Mommy generates a custom prayer
+4. Prayer is hashed and submitted on-chain to Prayer Registry
+5. Streak tracking: current streak, longest streak, total prayers, 24-hour cooldown
+
+### `/board` — Loreboard
+Infinite zoomable canvas (0.1x to 10x scale) displaying proposed and canonized image placements. Desktop: mouse zoom/pan. Mobile: pinch-zoom with gesture hints.
+
+Key interactions:
+- **Propose**: Upload image to IPFS, select grid position/size (32px tile snapping, max 400 cells), set ETH bid per cell
+- **Vote**: YES/NO on active proposals within 72-hour voting window
+- **View**: Click any placement to see detail modal with metadata, vote tallies, countdown timer, status badge
+- **Chat**: Real-time terminal chat via Supabase
+
+Placement statuses: proposed (not yet in voting), voting (active 72h window), canonized (passed + finalized), expired (voting window passed), rejected.
+
+### `/about` — Documentation
+Tabbed content sections explaining the project, mechanics, prayer system, loreboard, and MiFOID. Glass panel UI.
+
+### `/(app)/home` — Dashboard
+Connected-wallet dashboard showing prayer stats, user's board placements with status badges, voting activity history, and claimable refunds for rejected proposals.
+
+## Key Flows
+
+### Image Proposal Flow
+1. User uploads image to IPFS via `/api/ipfs-upload` (Web3.Storage or Pinata)
+2. User calls `Board.proposePlacement(x, y, w, h, bidPerCell, cidBytes)` with ETH escrow
+3. Treasury escrows the full bid amount
+4. Voting contract registers placement with a vote window (current time + voteWindowSeconds)
+5. Goldsky indexes `PlacementProposed` event
+6. Placement appears on `/board` with "proposed" then "voting" status
+
+### Voting Flow
+1. User calls `VotingV2.voteOnPlacement(placementId, support)` (YES or NO)
+2. Voting power pulled from OnePerPlacementVotingPower (currently 1 weight per address)
+3. Goldsky indexes `VoteCast` event
+4. Frontend polls `/api/proposals` to show updated tallies
+
+### Epoch Finalization Flow
+1. Worker/cron triggers `scripts/auto-finalize-cron.ts` or `POST /api/operator/finalize`
+2. Operator reads proposals from Goldsky, checks quorum and 51% majority
+3. Overlap detection: higher bids displace lower bids for contested cells
+4. Optional LoreVM (on-chain Wasm) computes winners; falls back to JS logic
+5. Manifest JSON uploaded to IPFS with accepted placements
+6. `Treasury.finalizeEpoch()` — winners' ETH goes to treasury, losers refunded
+7. `ManifestStore.anchor(epoch, root, cid)` — on-chain finality anchor
+8. `LiveNFT.syncLatest()` — NFT metadata updates to reflect new board state
+
+### Prayer Flow
+1. User selects emotional state on `/pray`
+2. `POST /api/foid-mommy` with `feelingText` — returns AI acknowledgment + follow-up question
+3. User responds, second `POST /api/foid-mommy` with `userResponse` — returns transition + custom prayer
+4. User submits prayer on-chain to Prayer Registry contract
+5. Prayer Mirror contract tracks streaks and totals
+
+## API Routes
+
+| Route | Method | Purpose | External Dependencies |
+|-------|--------|---------|----------------------|
+| `/api/health` | GET | Health check with memory metrics | None |
+| `/api/status` | GET | Current epoch, seconds left, latest finalized manifest CID | Chain RPC, ManifestStore contract |
+| `/api/proposals` | GET | All placements with voting data, CIDs, and status | Goldsky (3 subgraphs), chain multicall, IPFS |
+| `/api/votes` | GET | Vote history for an address | Goldsky voting subgraph |
+| `/api/manifest/latest` | GET | Latest finalized manifest from chain with IPFS resolution | Chain RPC, IPFS gateways (5 fallbacks) |
+| `/api/manifest` | GET | Manifest for specific epoch (in-memory store) | None |
+| `/api/propose` | POST | Create proposal (generates chainId, sets vote window) | IPFS gateways |
+| `/api/place` | POST | Submit placement intent (ephemeral) | None |
+| `/api/vote` | POST | Cast demo vote on proposal | None |
+| `/api/mempool` | GET | List pending placement intents | None |
+| `/api/cid-by-id` | GET | Lookup IPFS CID by proposal ID | None |
+| `/api/ipfs/[cid]` | GET | Proxy IPFS file via gateway | IPFS gateway (Pinata) |
+| `/api/ipfs-upload` | POST | Upload image to IPFS (max 5MB, png/jpeg) | Web3.Storage or Pinata |
+| `/api/foid-mommy` | POST | AI prayer generation (two-turn conversation) | OpenAI gpt-4o-mini |
+| `/api/finalize` | POST | Finalize epoch in-memory with IPFS manifest upload | IPFS |
+| `/api/operator/finalize` | POST | Finalize epoch on-chain (operator-only, writes to Treasury + ManifestStore) | Chain RPC, IPFS, contracts |
+| `/api/voting/bootstrap` | POST | Register placements for voting, configure epochs (admin-only) | Chain RPC, Voting contract |
+| `/api/vanity-deploy` | POST | Generate vanity salt for predictable contract address | None |
+
+## Automation
+
+### Worker Scripts (`scripts/`)
+
+- **loreboard-worker.ts** — Main worker: syncs proposals from chain logs, evaluates quorum/majority, detects overlaps, calls `finalizeEpoch` and `anchor` on-chain
+- **auto-finalize-cron.ts** — Cron-safe wrapper: checks if finalization is needed, spawns operator finalize. Run via `npm run auto:finalize`
+- **operatorFinalize.ts** — Direct epoch finalization with on-chain verification and manifest upload
+- **sync-live-nft.ts** — Calls `LoreboardLiveNFT.syncLatest()` to update NFT metadata
+- **verify-latest-manifest.ts** — Validates manifest integrity
+- **recover-stuck-refunds.ts** — Refund recovery for failed push refunds
+
+Suggested cron: `0 */6 * * * npm run auto:finalize`
+
+### X Bot (`foid_bot/src/`)
+
+Monitors on-chain events and posts observational tweets.
+
+- **index.ts** — Main loop: load state, query Goldsky, classify events, generate tweet, post, save state
+- **goldsky.ts** — GraphQL queries for PlacementProposed, VoteCast, EpochFinalized since last check
+- **personality.ts** — OpenAI gpt-4o-mini with system prompt: lowercase, dry wit, observational, under 220 chars, no emojis/hashtags
+- **twitter.ts** — Wraps twitter-api-v2 with `postTweet(text)` function
+- **state.json** — Persists lastCheckedTimestamp, daily tweet timestamps, posted event IDs
+
+Rate limits: max 6 tweets/day, minimum 2 hours between tweets.
+Event priority: canonization > epoch finalized > vote surge (5+ votes) > new proposal > quiet observation (if 6+ hours idle).
+
+Run: `npx tsx foid_bot/src/index.ts` from project root.
+
+## Data Layer
+
+### Goldsky Subgraphs
+
+Project ID: `cmkwd7dgh0bq501z7fog65iag`
+
+| Subgraph | Version | Endpoint | Contract | Events Indexed |
+|----------|---------|----------|----------|----------------|
+| Board V1 | 2.0.2 | `.../foid-loreboard-fluent-testnet/2.0.2/gn` | `0x16e1bB93...6013` (LoreboardBoardV1) | PlacementProposed, OperatorUpdated |
+| Board V2 | 2.0.0 | `.../foid-loreboard-fluent-testnet/2.0.0/gn` | `0xE41B2D41...4105` (LoreboardBoardV2) | PlacementProposed, OperatorUpdated |
+| Voting | 2.0.1 | `.../foid-loreboard-fluent-testnet/2.0.1/gn` | `0xEbf065A7...7075` (LoreboardVotingV2) | VoteCast, PendingPlacementRegistered, EpochFinalized, QuorumUpdated |
+
+Base URL: `https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/`
+
+All start at block 15,774,936 on `fluent-testnet`.
+
+### Indexed Entity Fields
+
+**PlacementProposed**: id, idParam (bytes32 contract ID), bidder, epoch, x, y, w, h, cells, bidPerCellWei, cidHash, block_number, timestamp_, transactionHash_
+
+**VoteCast**: id, epochId, placementId, voter, support, weight, block_number, timestamp_, transactionHash_, contractId_
+
+**PendingPlacementRegistered**: id, epochId, placementId, registeredAt, voteEndsAt
+
+**EpochFinalized**: id, epochId, block_number, timestamp_, transactionHash_
+
+### CID Resolution Strategy
+
+The frontend resolves IPFS CIDs from on-chain `cidHash` in three tiers:
+1. **Chain multicall** — Batch `cidOf(bytes32)` calls to ManifestStore or Board contracts (fast)
+2. **Calldata parsing** — Decode `proposePlacement()` transaction input data (slow, reliable)
+3. **Null** — CID unresolvable
+
+Results are cached 30 minutes per placement.
+
+### IPFS Gateways
+
+Upload: Web3.Storage (primary), Pinata (fallback). Retry with exponential backoff (1s, 2s, 4s).
+
+Read (multi-gateway fallback sequence):
+1. Custom gateway (`NEXT_PUBLIC_IPFS_GATEWAY_BASE`)
+2. `https://ipfs.io`
+3. `https://dweb.link`
+4. `https://gateway.pinata.cloud`
+5. `https://w3s.link`
+6. `https://4everland.io`
+
+Local proxy: `/api/ipfs/[cid]` with 10-minute cache.
+
+### Manifest System
+
+Each finalized epoch produces a manifest JSON stored on IPFS:
+
+```json
+{
+  "epoch": 5,
+  "finalizedAt": 1770000000,
+  "placements": [
+    {
+      "id": "0xabc...def",
+      "owner": "0x123...456",
+      "cid": "QmXxxxx",
+      "x": 0, "y": 0, "w": 2, "h": 2,
+      "cells": 4
+    }
+  ]
+}
+```
+
+On-chain anchor: `ManifestStore.anchor(epoch, keccak256(manifest), ipfsCid)`. The `latest()` getter returns the most recent finalized epoch with its root and CID.
+
+The `/api/manifest/latest` route resolves the CID from chain, fetches manifest from IPFS, and builds a placement index (`placementsIndex: Record<placementId, true>`) used to determine canonized status.
+
+### Frontend Data Fetching
+
+- **useLatestManifestFromChain** — Reads ManifestStore contract, fetches manifest from IPFS
+- **usePendingProposals** — Polls chain events for active proposals every 30s
+- **useUserPlacements** — Fetches `/api/proposals?owner={address}`
+- **useUserVotingActivity** — Fetches `/api/votes?address={address}`
+- **useUserStats** — Reads Prayer Mirror contract for streak data
+- **useEpochCountdown** — Real-time countdown to epoch end
+
+Real-time: Supabase channels for board chat only. All proposal/voting data is poll-based.
+
+## Tech Stack
+
+### Frameworks & Runtime
+- **Next.js 14.2.35** — App router, React Server Components, API routes
+- **React 18.3.1** — UI framework
+- **TypeScript 5.6.3** — Strict mode, `@/*` path aliases
+
+### Blockchain
+- **Chain**: Fluent Testnet (ID 20994)
+- **RPC**: `https://rpc.testnet.fluent.xyz`
+- **Explorer**: `https://testnet.fluentscan.xyz`
+- **viem ^2.38.6** — Low-level Ethereum client, ABI encoding, contract reads/writes
+- **wagmi ^2.19.2** — React hooks for wallet interaction
+- **ethers ^6.15.0** — Used in some worker scripts
+- **@rainbow-me/rainbowkit 2.1.6** — Wallet connection UI
+- **@tanstack/react-query 5.51.1** — Cache layer for wagmi
+
+### Indexing & Storage
+- **Goldsky** — Subgraph hosting (3 instances for Board V1, Board V2, Voting)
+- **Web3.Storage ^4.5.5** — IPFS pinning (primary)
+- **Pinata** — IPFS pinning (fallback)
+- **@supabase/supabase-js ^2.81.0** — Real-time chat
+
+### AI & Social
+- **openai ^6.10.0** — GPT-4o-mini for Foid Mommy prayers and bot tweet generation
+- **twitter-api-v2 ^1.29.0** — X/Twitter posting for Loreboard bot
+
+### UI & Audio
+- **Tailwind CSS** — Utility-first styling with custom FOID color palette
+- **framer-motion** — Page transitions and animations
+- **butterchurn + butterchurn-presets** — Milkdrop-style music visualizer
+- **zustand ^5.0.8** — Lightweight state management
+- **react-rnd** — Draggable/resizable desktop windows
+
+### Dev Tools
+- **tsx** — TypeScript script runner (bot, workers)
+- **vitest** — Testing
+- **eslint + eslint-config-next** — Linting
+- **Foundry** — Solidity compilation and testing (in `solidity_contracts/`)
+
+### Key Environment Variables
+
+```
+NEXT_PUBLIC_FLUENT_RPC              # Fluent testnet RPC endpoint
+NEXT_PUBLIC_LOREBOARD_ADDRESS       # Treasury contract address
+NEXT_PUBLIC_LOREBOARD_VOTING_ADDRESS
+NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS
+NEXT_PUBLIC_LOREBOARD_VM_ADDRESS    # Optional LoreVM for on-chain winner selection
+NEXT_PUBLIC_EPOCH_ZERO_UNIX         # Epoch 0 start timestamp
+NEXT_PUBLIC_EPOCH_SECONDS           # Epoch duration in seconds
+OPERATOR_PK                         # Private key for operator wallet
+OPENAI_API_KEY                      # OpenAI API key
+X_API_KEY / X_API_SECRET            # X/Twitter API credentials
+X_ACCESS_TOKEN / X_ACCESS_SECRET
+WEB3_STORAGE_TOKEN                  # IPFS upload (primary)
+PINATA_JWT / PINATA_GATEWAY         # IPFS upload (fallback) + read gateway
+GOLDSKY_BOARD_V1_URL                # Subgraph endpoint overrides
+GOLDSKY_BOARD_V2_URL
+GOLDSKY_VOTING_URL
+```
+
+## Repository Structure
+
+```
+foid_fun/
+  foid_fun/                    # Next.js application root
+    src/
+      app/                     # Next.js app router pages + API routes
+        api/                   # 18 API routes
+        (app)/home/            # Dashboard page
+        (components)/          # Page-level components (AppTitlebar, contracts.ts)
+        board/                 # Loreboard page
+        pray/                  # Foid Mommy terminal page
+        enter/                 # Boot gate page
+        about/                 # Documentation page
+      components/              # Shared React components (~50 files)
+      hooks/                   # Custom React hooks (~17 files)
+      lib/                     # Utilities (sfx, ipfs, viem, manifestStore, audioSettings)
+      config/                  # canonical.ts (contract addresses + chain config)
+      abis/                    # Contract ABI JSON files
+      providers/               # React context providers (wagmi, rainbowkit)
+    foid_bot/                  # X/Twitter bot
+      src/
+        index.ts               # Main loop
+        goldsky.ts             # Subgraph queries
+        personality.ts         # OpenAI tweet generation
+        twitter.ts             # X API wrapper
+        state.json             # Runtime state
+      test_post.ts             # Test script
+    scripts/                   # Worker scripts (finalization, sync, smoke tests)
+    public/                    # Static assets (sfx/, images, manifests)
+  foid-loreboard/              # Goldsky subgraph configs (versioned)
+  solidity_contracts/          # Foundry project with all Solidity sources
+  loreboard/                   # Additional Foundry contracts
+  blended/                     # LoreVM Wasm contracts
+  pitchdeck/                   # Presentation materials
+```

@@ -12,6 +12,17 @@ export type Placement = {
   description?: string;
   proposer?: `0x${string}`;
   epochId?: number | null;
+
+  // Optional voting/status metadata
+  status?: "proposed" | "accepted" | "rejected" | "expired" | "voting" | "canonized";
+  yesVotes?: number;
+  noVotes?: number;
+  voters?: number;
+  percentYes?: number;       // 0..1
+  secondsLeft?: number;
+  voteEndsAt?: number;
+  epochSubmitted?: number;
+  cells?: number;
 };
 
 type Props = {
