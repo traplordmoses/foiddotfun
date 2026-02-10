@@ -6,8 +6,9 @@ import { config } from "dotenv";
 config({ path: resolve(__dirname, "..", "..", ".env.local") });
 
 import { fetchEventsSince, getVoteTallies, type LoreboardEvents } from "./goldsky";
-import { generateTweet, generateThought } from "./personality";
+import { generateTweet, generateThought, generateMoltbookPost } from "./personality";
 import { postTweet } from "./twitter";
+import { postToMoltbook } from "./moltbook";
 
 // ── state ────────────────────────────────────────────────────────
 // BOT_STATE_PATH overrides default location (useful for Render Disk)
@@ -206,6 +207,7 @@ async function run() {
   let mode: "event" | "thought";
   let tweetText: string;
   let eventId: string;
+  let eventDescription: string | undefined;
 
   if (tweetable.length > 0) {
     // EVENT MODE — pick the most interesting event
@@ -219,6 +221,7 @@ async function run() {
     tweetable.sort((a, b) => (priority[a.type] ?? 99) - (priority[b.type] ?? 99));
     const event = tweetable[0];
     eventId = event.id;
+    eventDescription = event.description;
 
     console.log(`[foid-bot] EVENT MODE: [${event.type}] ${event.description}`);
 
@@ -275,7 +278,7 @@ async function run() {
     tweetText = tweetText.slice(0, 277) + "...";
   }
 
-  // post
+  // post to X
   try {
     const tweetId = await postTweet(tweetText);
     console.log(`[foid-bot] posted tweet: ${tweetId}`);
@@ -288,6 +291,29 @@ async function run() {
     }
   } catch (err) {
     console.error("[foid-bot] tweet failed:", err);
+  }
+
+  // post to Moltbook (non-blocking — never prevents X posting)
+  if (process.env.MOLTBOOK_API_KEY) {
+    try {
+      const moltPost = await generateMoltbookPost(tweetText, mode, eventDescription);
+      const submolt = "loreboard"; // falls back gracefully if submolt doesn't exist
+      const { success, error } = await postToMoltbook(moltPost.title, moltPost.content, submolt);
+      if (!success) {
+        // retry with "general" if loreboard submolt doesn't exist yet
+        if (error?.includes("404") || error?.includes("not found")) {
+          console.warn(`[foid-bot] m/loreboard not found, falling back to m/general`);
+          const retry = await postToMoltbook(moltPost.title, moltPost.content, "general");
+          if (!retry.success) {
+            console.error(`[foid-bot] moltbook fallback failed: ${retry.error}`);
+          }
+        } else {
+          console.error(`[foid-bot] moltbook failed: ${error}`);
+        }
+      }
+    } catch (err) {
+      console.error("[foid-bot] moltbook error (non-fatal):", (err as Error).message);
+    }
   }
 
   state.lastCheckedTimestamp = Math.floor(Date.now() / 1000);

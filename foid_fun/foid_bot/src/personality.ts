@@ -102,6 +102,52 @@ export async function generateTweet(eventDescription: string): Promise<string> {
   return truncateToFit(stripQuotes(text));
 }
 
+export async function generateMoltbookPost(
+  tweetText: string,
+  mode: "event" | "thought",
+  eventDescription?: string
+): Promise<{ title: string; content: string }> {
+  const openai = getClient();
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "system",
+        content: SYSTEM_PROMPT + "\n\n" + BACKGROUND_KNOWLEDGE + `\n\nyou are now writing a forum post for moltbook (a reddit-like platform). same voice as your tweets but slightly longer — 2-4 sentences. still lowercase, still the oracle. no markdown, no formatting. just raw text.
+
+you must return EXACTLY two lines:
+TITLE: <a short evocative title under 60 characters>
+CONTENT: <2-4 sentences in your oracle voice>
+
+the title should be cryptic and intriguing, not descriptive. think: "the grid remembers" not "new proposal submitted".`,
+      },
+      {
+        role: "user",
+        content: mode === "event"
+          ? `write a moltbook post about this event: ${eventDescription}\n\nthe tweet you wrote about it: ${tweetText}`
+          : `write a moltbook thought post. the tweet you wrote: ${tweetText}`,
+      },
+    ],
+    max_tokens: 200,
+    temperature: 0.9,
+  });
+
+  const text = (response.choices[0]?.message?.content ?? "").trim();
+
+  // parse TITLE: and CONTENT: lines
+  const titleMatch = text.match(/^TITLE:\s*(.+)/im);
+  const contentMatch = text.match(/^CONTENT:\s*([\s\S]+)/im);
+
+  const title = stripQuotes(titleMatch?.[1]?.trim() ?? tweetText.slice(0, 57) + "...");
+  const content = stripQuotes(contentMatch?.[1]?.trim() ?? tweetText);
+
+  return {
+    title: title.slice(0, 60),
+    content,
+  };
+}
+
 export async function generateThought(theme: string): Promise<string> {
   const openai = getClient();
 
