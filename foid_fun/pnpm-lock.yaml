@@ -65,6 +65,9 @@ importers:
       react-rnd:
         specifier: ^10.5.2
         version: 10.5.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      twitter-api-v2:
+        specifier: ^1.29.0
+        version: 1.29.0
       viem:
         specifier: ^2.38.6
         version: 2.43.5(bufferutil@4.1.0)(typescript@5.6.3)(utf-8-validate@5.0.10)(zod@4.3.5)
@@ -4577,6 +4580,9 @@ packages:
     resolution: {integrity: sha512-5C1sg4USs1lfG0GFb2RLXsdpXqBSEhAaA/0kPL01wxzpMqLILNxIxIOKiILz+cdg/pLnOUxFYOR5yhHU666wbw==}
     engines: {node: '>=18.0.0'}
     hasBin: true
+
+  twitter-api-v2@1.29.0:
+    resolution: {integrity: sha512-v473q5bwme4N+DWSg6qY+JCvfg1nSJRWwui3HUALafxfqCvVkKiYmS/5x/pVeJwTmyeBxexMbzHwnzrH4h6oYQ==}
 
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
@@ -11013,6 +11019,8 @@ snapshots:
       get-tsconfig: 4.13.0
     optionalDependencies:
       fsevents: 2.3.3
+
+  twitter-api-v2@1.29.0: {}
 
   type-check@0.4.0:
     dependencies:
