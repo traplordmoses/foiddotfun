@@ -4,7 +4,8 @@ pragma solidity ^0.8.13;
 import {IPowerCalculator} from "../out/power-calculator.wasm/interface.sol";
 
 /// @title BlendedCounter
-/// @notice Example contract showing interaction between Solidity and Rust contracts.
+/// @notice Fluent blended execution demo — a Solidity counter that delegates exponentiation
+/// to a Rust/WASM PowerCalculator contract deployed on the same chain.
 contract BlendedCounter {
     uint256 public number;
     IPowerCalculator public immutable POWER_CALCULATOR;
@@ -16,6 +17,7 @@ contract BlendedCounter {
     }
 
     /// @notice Sets the counter to a new value.
+    /// @param newNumber The value to set the counter to.
     function setNumber(uint256 newNumber) public {
         number = newNumber;
     }

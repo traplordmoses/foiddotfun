@@ -4,7 +4,9 @@ pragma solidity ^0.8.24;
 import "./LoreBoardTreasury.sol";
 import "./LoreboardVotingV2.sol";
 
-/// @notice Board entrypoint + admin relay for voting finalization/config.
+/// @title LoreboardBoardV2
+/// @notice Main board entrypoint that validates tile-aligned proposals, stores CIDs,
+/// and relays to Treasury + VotingV2. Also provides admin relay for epoch finalization.
 contract LoreboardBoardV2 {
     uint32 public constant TILE = 32;
     uint32 public constant MAX_CELLS = 400;
@@ -20,8 +22,10 @@ contract LoreboardBoardV2 {
 
     mapping(bytes32 => bytes) public cidOf;
 
+    /// @notice Emitted when the operator address is rotated.
     event OperatorUpdated(address indexed oldOp, address indexed newOp);
 
+    /// @notice Emitted when a placement proposal is submitted through this board.
     event PlacementProposed(
         bytes32 indexed id,
         address indexed bidder,
@@ -40,6 +44,12 @@ contract LoreboardBoardV2 {
         _;
     }
 
+    /// @notice Deploy the board with immutable references to Treasury and VotingV2.
+    /// @param _treasury Address of the deployed LoreBoardTreasury.
+    /// @param _votingV2 Address of the deployed LoreboardVotingV2.
+    /// @param _epochZeroUnix Unix timestamp of epoch 0 (must match VotingV2).
+    /// @param _epochSeconds Duration of each epoch in seconds (must match VotingV2).
+    /// @param _operator Address allowed to finalize epochs and manage config.
     constructor(
         address _treasury,
         address _votingV2,
@@ -66,21 +76,26 @@ contract LoreboardBoardV2 {
     // ---------------- admin relay (this is what your worker needs) ----------------
 
     /// @notice Worker calls this when board is voting admin.
+    /// @param epochId The epoch to mark as finalized in VotingV2.
     function finalizeEpochInVoting(uint256 epochId) external onlyOperator {
         votingV2.setEpochFinalized(epochId, true);
     }
 
     /// @notice Compatibility / manual control.
+    /// @param epochId The epoch to update.
+    /// @param finalized_ Whether the epoch should be marked finalized.
     function setEpochFinalized(uint256 epochId, bool finalized_) external onlyOperator {
         votingV2.setEpochFinalized(epochId, finalized_);
     }
 
     /// @notice Escape hatch: rotate voting admin if needed.
+    /// @param newAdmin New board admin address for VotingV2.
     function setVotingBoardAdmin(address newAdmin) external onlyOperator {
         votingV2.setBoardAdmin(newAdmin);
     }
 
     /// @notice Rotate operator (optional).
+    /// @param newOp New operator address.
     function setOperator(address newOp) external onlyOperator {
         require(newOp != address(0), "operator=0");
         address old = operator;
@@ -90,6 +105,16 @@ contract LoreboardBoardV2 {
 
     // ---------------- proposal flow (same as V1) ----------------
 
+    /// @notice Submit a tile-aligned placement proposal with ETH escrow.
+    /// @param x Top-left x coordinate of the placement rectangle.
+    /// @param y Top-left y coordinate of the placement rectangle.
+    /// @param w Width of the placement rectangle in pixels.
+    /// @param h Height of the placement rectangle in pixels.
+    /// @param bidPerCellWei Bid amount per cell in wei (must be >= base fee).
+    /// @param cidBytes Raw CID bytes of the proposed content (1–96 bytes).
+    /// @return id Unique proposal identifier (keccak of sender, epoch, cidHash, rect).
+    /// @return epoch Derived epoch the proposal lands in based on vote window.
+    /// @return cells Number of 32×32 tile cells the rectangle covers.
     function proposePlacement(
         int32 x,
         int32 y,
@@ -141,6 +166,10 @@ contract LoreboardBoardV2 {
         emit PlacementProposed(id, msg.sender, epoch, x, y, w, h, cells, bidPerCellWei, cidHash);
     }
 
+    /// @dev Compute the number of 32×32 tile cells needed for a w×h rectangle.
+    /// @param w Width in pixels.
+    /// @param h Height in pixels.
+    /// @return Number of cells (ceiling division for each dimension, then multiplied).
     function _cellsFor(uint32 w, uint32 h) internal pure returns (uint32) {
         uint256 cellsWide = (uint256(w) + TILE - 1) / TILE;
         uint256 cellsHigh = (uint256(h) + TILE - 1) / TILE;

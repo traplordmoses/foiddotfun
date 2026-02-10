@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/// @title LoreBoardTreasury
 /// @notice Treasury for Loreboard: escrows proposal funds, settles on finalize.
 /// Winners' funds accumulate in-contract and ONLY the owner can sweep them out.
 /// Losers are automatically refunded on finalize; if a push refund fails,
@@ -17,6 +18,7 @@ contract LoreBoardTreasury {
         uint32 epoch;
     }
 
+    /// @notice Emitted when a new placement proposal is submitted with escrowed funds.
     event ProposedEvt(
         bytes32 indexed id,
         address indexed bidder,
@@ -38,11 +40,17 @@ contract LoreBoardTreasury {
         uint32 rejectedCount
     );
 
-    event RefundAvailable(address indexed user, uint256 amount); // fallback bucket
+    /// @notice Emitted when a push refund fails and the amount is credited to the user's claimable balance.
+    event RefundAvailable(address indexed user, uint256 amount);
+    /// @notice Emitted on each refund attempt during finalization (success or failure).
     event RefundPushed(address indexed user, uint256 amount, bytes32 id, bool success);
+    /// @notice Emitted when a user withdraws their claimable refund balance.
     event Withdraw(address indexed user, uint256 amount);
+    /// @notice Emitted when the owner updates the base fee per cell.
     event BaseFeeChanged(uint96 newFee);
+    /// @notice Emitted when the operator address is changed.
     event OperatorChanged(address indexed op);
+    /// @notice Emitted when the owner sweeps accumulated treasury funds.
     event TreasurySwept(address indexed to, uint256 amount);
 
     address public owner;
@@ -67,6 +75,9 @@ contract LoreBoardTreasury {
     modifier onlyOwner()    { require(msg.sender == owner,    "not owner");    _; }
     modifier onlyOperator() { require(msg.sender == operator, "not operator"); _; }
 
+    /// @notice Deploy the treasury with an initial base fee and operator address.
+    /// @param _baseFee Minimum bid per cell in wei (e.g. 1e13).
+    /// @param _operator Address of the LoreVM bot/key allowed to finalize epochs.
     constructor(uint96 _baseFee, address _operator) {
         owner = msg.sender;
         operator = _operator;
@@ -75,17 +86,22 @@ contract LoreBoardTreasury {
         emit OperatorChanged(_operator);
     }
 
+    /// @notice Update the minimum bid per cell. Owner only.
+    /// @param newFee New base fee per cell in wei.
     function setBaseFeePerCell(uint96 newFee) external onlyOwner {
         baseFeePerCellWei = newFee;
         emit BaseFeeChanged(newFee);
     }
 
+    /// @notice Change the operator (LoreVM bot) address. Owner only.
+    /// @param op New operator address.
     function setOperator(address op) external onlyOwner {
         operator = op;
         emit OperatorChanged(op);
     }
 
     /// @notice Anyone can propose; full escrow required (bidPerCell * cells).
+    /// @param p The proposal data including bidder, rect, cells, bid, and CID hash.
     function proposePlacement(Proposed calldata p) external payable {
         require(!seenProposal[p.id], "dup id");
         require(p.bidPerCellWei >= baseFeePerCellWei, "bid < base");
@@ -105,6 +121,11 @@ contract LoreBoardTreasury {
     /// @notice LoreVM calls this after computing winners/losers for the epoch.
     /// @dev Winners add to treasuryBalance; Losers refunded immediately.
     /// If a refund push fails, credit to claimable[user] instead (pull).
+    /// @param epoch The epoch being finalized.
+    /// @param manifestRoot Keccak root of the finalized manifest.
+    /// @param manifestCID IPFS CID of the finalized manifest.
+    /// @param acceptedIds Proposal IDs that won — their escrow moves to treasury.
+    /// @param rejectedIds Proposal IDs that lost — their escrow is refunded.
     function finalizeEpoch(
         uint32 epoch,
         bytes32 manifestRoot,
@@ -185,6 +206,8 @@ contract LoreBoardTreasury {
     }
 
     /// @notice Manual credit path if pushing a refund should be skipped.
+    /// @param user Address to credit the refund to.
+    /// @param amount Amount in wei to credit.
     function creditRefund(address user, uint256 amount) external onlyOperator {
         require(amount > 0, "zero");
         claimable[user] += amount;
@@ -192,6 +215,8 @@ contract LoreBoardTreasury {
     }
 
     /// @notice Owner-only sweep of winners' funds to any address (e.g., your EOA).
+    /// @param to Recipient of the swept funds.
+    /// @param amount Amount in wei to sweep (must be <= treasuryBalance).
     function sweepTreasury(address payable to, uint256 amount) external onlyOwner {
         require(amount > 0 && amount <= treasuryBalance, "bad amount");
         treasuryBalance -= amount; // effects
@@ -201,6 +226,7 @@ contract LoreBoardTreasury {
     }
 
     /// @notice Convenience: sweep entire treasury balance.
+    /// @param to Recipient of all accumulated treasury funds.
     function sweepAllTreasury(address payable to) external onlyOwner {
         uint256 amt = treasuryBalance;
         require(amt > 0, "nothing");

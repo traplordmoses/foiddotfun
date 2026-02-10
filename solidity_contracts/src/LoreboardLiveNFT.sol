@@ -20,8 +20,10 @@ interface ILoreboardManifestStore {
     function latest() external view returns (uint256 epoch, bytes32 root, string memory cid);
 }
 
-/// @notice Single 1/1 Loreboard NFT (tokenId 0) whose metadata tracks the latest finalized epoch.
-/// Anyone can call syncLatest(); it verifies against Treasury finality and root matching.
+/// @title LoreboardLiveNFT
+/// @notice Single 1/1 Loreboard ERC-721 (tokenId 0) whose metadata auto-updates to the latest
+/// finalized epoch. Anyone can call syncLatest() to advance; it verifies against Treasury
+/// finality and root matching. Emits ERC-4906 MetadataUpdate on each advance.
 contract LoreboardLiveNFT is ERC721, IERC4906 {
     using Strings for uint256;
 
@@ -39,6 +41,10 @@ contract LoreboardLiveNFT is ERC721, IERC4906 {
     error EpochNotFinalized(uint256 epoch);
     error RootMismatch(bytes32 treasuryRoot, bytes32 storeRoot);
 
+    /// @notice Deploy the live NFT and mint tokenId 0 to the initial owner.
+    /// @param treasury_ Address of the deployed LoreBoardTreasury.
+    /// @param manifestStore_ Address of the deployed LoreBoardManifestStore.
+    /// @param initialOwner_ Address that receives the minted 1/1 NFT.
     constructor(
         address treasury_,
         address manifestStore_,
@@ -54,7 +60,9 @@ contract LoreboardLiveNFT is ERC721, IERC4906 {
         _safeMint(initialOwner_, TOKEN_ID);
     }
 
-    // ERC-165 / ERC-4906
+    /// @notice ERC-165 introspection including ERC-4906 metadata update interface.
+    /// @param interfaceId Interface identifier to check.
+    /// @return True if the interface is supported.
     function supportsInterface(bytes4 interfaceId)
         public
         view
@@ -83,6 +91,9 @@ contract LoreboardLiveNFT is ERC721, IERC4906 {
         }
     }
 
+    /// @notice Returns on-chain JSON metadata with an embedded SVG for the live NFT.
+    /// @param tokenId Must be TOKEN_ID (0).
+    /// @return Base64-encoded data URI containing JSON metadata.
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         if (tokenId != TOKEN_ID) revert BadTokenId(tokenId);
 

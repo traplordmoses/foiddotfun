@@ -43,9 +43,12 @@ contract LoreboardVoting {
     /// @notice Tracks if a voter has already voted on a placement in an epoch.
     mapping(uint256 => mapping(bytes32 => mapping(address => bool))) public hasVoted;
 
+    /// @notice Emitted when an epoch's voting window is configured or updated.
     event EpochConfigured(uint256 indexed epochId, uint64 startsAt, uint64 endsAt);
+    /// @notice Emitted when a placement is registered as pending in an epoch.
     event PendingPlacementRegistered(uint256 indexed epochId, bytes32 indexed placementId);
 
+    /// @notice Emitted when a vote is cast on a placement.
     event VoteCast(
         uint256 indexed epochId,
         bytes32 indexed placementId,
@@ -54,11 +57,19 @@ contract LoreboardVoting {
         uint256 weight
     );
 
+    /// @notice Emitted when an epoch is marked as finalized.
     event EpochFinalized(uint256 indexed epochId);
+    /// @notice Emitted when the board admin address is updated.
     event BoardAdminUpdated(address indexed oldAdmin, address indexed newAdmin);
+    /// @notice Emitted when the voting power source contract is changed.
     event VotingPowerSourceUpdated(address indexed oldSource, address indexed newSource);
+    /// @notice Emitted when the minimum quorum threshold is updated.
     event QuorumUpdated(uint256 oldQuorum, uint256 newQuorum);
 
+    /// @notice Deploy the v1 voting contract.
+    /// @param _votingPowerSource Address of the IVotingPower implementation.
+    /// @param _boardAdmin Address allowed to configure epochs and manage placements.
+    /// @param _minTotalWeightQuorum Minimum total vote weight for quorum.
     constructor(address _votingPowerSource, address _boardAdmin, uint256 _minTotalWeightQuorum) {
         require(_votingPowerSource != address(0), "invalid votingPowerSource");
         require(_boardAdmin != address(0), "invalid boardAdmin");
@@ -89,6 +100,9 @@ contract LoreboardVoting {
 
     /// @notice Configure or update an epoch's voting window.
     /// @dev `votingStartsAt < votingEndsAt` is enforced.
+    /// @param epochId Epoch to configure.
+    /// @param votingStartsAt Unix timestamp when voting opens.
+    /// @param votingEndsAt Unix timestamp when voting closes.
     function configureEpoch(
         uint256 epochId,
         uint64 votingStartsAt,
@@ -103,6 +117,8 @@ contract LoreboardVoting {
     }
 
     /// @notice Register a placement as pending (votable) in a given epoch.
+    /// @param epochId Epoch the placement belongs to.
+    /// @param placementId Unique placement identifier.
     function registerPendingPlacement(uint256 epochId, bytes32 placementId)
         external
         onlyBoardAdmin
@@ -112,6 +128,8 @@ contract LoreboardVoting {
     }
 
     /// @notice Mark an epoch as finalized or un-finalized.
+    /// @param epochId Epoch to update.
+    /// @param finalized_ True to lock, false to unlock.
     function setEpochFinalized(uint256 epochId, bool finalized_) external onlyBoardAdmin {
         epochs[epochId].finalized = finalized_;
         if (finalized_) {
@@ -120,6 +138,7 @@ contract LoreboardVoting {
     }
 
     /// @notice Update the board admin address.
+    /// @param newAdmin New admin address (must not be zero).
     function setBoardAdmin(address newAdmin) external onlyBoardAdmin {
         require(newAdmin != address(0), "LoreboardVoting: zero address");
         address old = boardAdmin;
@@ -128,6 +147,7 @@ contract LoreboardVoting {
     }
 
     /// @notice Update the voting power source contract (for future streak/MiFOID logic).
+    /// @param newSource Address of the new IVotingPower implementation.
     function setVotingPowerSource(address newSource) external onlyBoardAdmin {
         require(newSource != address(0), "LoreboardVoting: zero source");
         address old = address(votingPowerSource);
@@ -136,6 +156,7 @@ contract LoreboardVoting {
     }
 
     /// @notice Update the minimum total voting weight quorum.
+    /// @param newQuorum New quorum threshold.
     function setMinTotalWeightQuorum(uint256 newQuorum) external onlyBoardAdmin {
         uint256 old = minTotalWeightQuorum;
         minTotalWeightQuorum = newQuorum;
@@ -149,6 +170,9 @@ contract LoreboardVoting {
     ///      - each address can vote at most once per (epochId, placementId)
     ///      - weight is provided by IVotingPower
     ///      - support=true => YES, support=false => NO
+    /// @param epochId Epoch the placement belongs to.
+    /// @param placementId Placement to vote on.
+    /// @param support True for YES, false for NO.
     function voteOnPlacement(
         uint256 epochId,
         bytes32 placementId,
@@ -174,6 +198,10 @@ contract LoreboardVoting {
     // ----------------- Views -----------------
 
     /// @notice Returns (yesWeight, noWeight) for a placement in an epoch.
+    /// @param epochId Epoch to query.
+    /// @param placementId Placement to query.
+    /// @return yesWeight Total YES vote weight.
+    /// @return noWeight Total NO vote weight.
     function getPlacementVotes(uint256 epochId, bytes32 placementId)
         external
         view
@@ -183,6 +211,9 @@ contract LoreboardVoting {
     }
 
     /// @notice Check if a placement is currently votable for an epoch.
+    /// @param epochId Epoch to check.
+    /// @param placementId Placement to check.
+    /// @return True if the placement can currently be voted on.
     function isPlacementVotable(uint256 epochId, bytes32 placementId)
         external
         view
@@ -196,6 +227,9 @@ contract LoreboardVoting {
     }
 
     /// @notice Returns true if (yes+no) meets the quorum for the placement in this epoch.
+    /// @param epochId Epoch to check.
+    /// @param placementId Placement to check.
+    /// @return True if total vote weight meets or exceeds minTotalWeightQuorum.
     function meetsQuorum(uint256 epochId, bytes32 placementId) public view returns (bool) {
         uint256 yesW = placementYesVotes[epochId][placementId];
         uint256 noW = placementNoVotes[epochId][placementId];
@@ -204,6 +238,9 @@ contract LoreboardVoting {
 
     /// @notice Returns true if YES is >= 51% of total (YES+NO). Also requires quorum.
     /// @dev Uses integer math: yes * 100 >= 51 * total.
+    /// @param epochId Epoch to check.
+    /// @param placementId Placement to check.
+    /// @return True if the placement passes a simple 51% majority with quorum.
     function passesMajority51(uint256 epochId, bytes32 placementId) public view returns (bool) {
         uint256 yesW = placementYesVotes[epochId][placementId];
         uint256 noW = placementNoVotes[epochId][placementId];
@@ -216,6 +253,10 @@ contract LoreboardVoting {
     }
 
     /// @notice Get the current config for an epoch.
+    /// @param epochId Epoch to query.
+    /// @return startsAt Unix timestamp when voting opens.
+    /// @return endsAt Unix timestamp when voting closes.
+    /// @return finalized Whether the epoch has been finalized.
     function getEpochConfig(uint256 epochId)
         external
         view

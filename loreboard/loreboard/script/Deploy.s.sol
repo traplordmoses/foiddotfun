@@ -4,7 +4,11 @@ pragma solidity ^0.8.13;
 import {Script} from "forge-std/Script.sol";
 import {BlendedCounter} from "../src/BlendedCounter.sol";
 
+/// @title Deploy
+/// @notice Deploys the Rust PowerCalculator WASM contract and the Solidity BlendedCounter
+/// that references it, demonstrating Fluent blended execution.
 contract Deploy is Script {
+    /// @notice Entry point — deploys the WASM contract via inline assembly, then deploys BlendedCounter.
     function run() external {
         vm.startBroadcast();
 

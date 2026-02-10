@@ -4,7 +4,8 @@ pragma solidity ^0.8.24;
 import "./LoreBoardTreasury.sol";
 import "./LoreboardVotingV2.sol";
 
-/// @notice On-chain Board entrypoint for permissionless proposals.
+/// @title LoreboardBoardV1
+/// @notice Legacy board entrypoint for permissionless proposals using workerAdmin instead of operator.
 /// @dev Optional: includes a relay for VotingV2 epoch finalization if you set VotingV2.boardAdmin = this board.
 contract LoreboardBoardV1 {
     uint32 public constant TILE = 32;
@@ -22,6 +23,7 @@ contract LoreboardBoardV1 {
 
     mapping(bytes32 => bytes) public cidOf;
 
+    /// @notice Emitted when a placement proposal is submitted through this board.
     event PlacementProposed(
         bytes32 indexed id,
         address indexed bidder,
@@ -35,6 +37,7 @@ contract LoreboardBoardV1 {
         bytes32 cidHash
     );
 
+    /// @notice Emitted when the worker admin address is changed.
     event WorkerAdminUpdated(address indexed oldAdmin, address indexed newAdmin);
 
     modifier onlyWorkerAdmin() {
@@ -42,6 +45,11 @@ contract LoreboardBoardV1 {
         _;
     }
 
+    /// @notice Deploy the V1 board with immutable references to Treasury and VotingV2.
+    /// @param _treasury Address of the deployed LoreBoardTreasury.
+    /// @param _votingV2 Address of the deployed LoreboardVotingV2.
+    /// @param _epochZeroUnix Unix timestamp of epoch 0 (must match VotingV2).
+    /// @param _epochSeconds Duration of each epoch in seconds (must match VotingV2).
     constructor(
         address _treasury,
         address _votingV2,
@@ -67,6 +75,16 @@ contract LoreboardBoardV1 {
 
     // ----------------- Proposals -----------------
 
+    /// @notice Submit a tile-aligned placement proposal with ETH escrow.
+    /// @param x Top-left x coordinate of the placement rectangle.
+    /// @param y Top-left y coordinate of the placement rectangle.
+    /// @param w Width of the placement rectangle in pixels.
+    /// @param h Height of the placement rectangle in pixels.
+    /// @param bidPerCellWei Bid amount per cell in wei (must be >= base fee).
+    /// @param cidBytes Raw CID bytes of the proposed content (1–96 bytes).
+    /// @return id Unique proposal identifier.
+    /// @return epoch Derived epoch the proposal lands in.
+    /// @return cells Number of 32x32 tile cells the rectangle covers.
     function proposePlacement(
         int32 x,
         int32 y,
@@ -141,6 +159,8 @@ contract LoreboardBoardV1 {
 
     // ----------------- Worker admin / relay -----------------
 
+    /// @notice Transfer the worker admin role to a new address.
+    /// @param newAdmin New worker admin address (must not be zero).
     function setWorkerAdmin(address newAdmin) external onlyWorkerAdmin {
         require(newAdmin != address(0), "Board: zero admin");
         address old = workerAdmin;
@@ -150,6 +170,7 @@ contract LoreboardBoardV1 {
 
     /// @notice Relay method your worker already expects (name matches your logs).
     /// @dev Only works if VotingV2.boardAdmin == address(this).
+    /// @param epochId The epoch to finalize in VotingV2.
     function finalizeEpochInVoting(uint256 epochId) external onlyWorkerAdmin {
         _requireEpochEnded(epochId);
         votingV2.setEpochFinalized(epochId, true);
@@ -157,6 +178,8 @@ contract LoreboardBoardV1 {
 
     /// @notice More general relay (finalize or unfinalize).
     /// @dev Only works if VotingV2.boardAdmin == address(this).
+    /// @param epochId The epoch to update.
+    /// @param finalized_ Whether the epoch should be marked finalized.
     function setEpochFinalizedInVoting(uint256 epochId, bool finalized_) external onlyWorkerAdmin {
         if (finalized_) _requireEpochEnded(epochId);
         votingV2.setEpochFinalized(epochId, finalized_);

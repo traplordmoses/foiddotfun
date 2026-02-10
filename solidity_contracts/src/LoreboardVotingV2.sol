@@ -52,6 +52,7 @@ contract LoreboardVotingV2 {
 
     // ----- Events -----
 
+    /// @notice Emitted when a placement is registered for voting in an epoch.
     event PendingPlacementRegistered(
         uint256 indexed epochId,
         bytes32 indexed placementId,
@@ -59,6 +60,7 @@ contract LoreboardVotingV2 {
         uint64 voteEndsAt
     );
 
+    /// @notice Emitted when a vote is cast on a placement.
     event VoteCast(
         uint256 indexed epochId,
         bytes32 indexed placementId,
@@ -67,11 +69,22 @@ contract LoreboardVotingV2 {
         uint256 weight
     );
 
+    /// @notice Emitted when an epoch is marked as finalized.
     event EpochFinalized(uint256 indexed epochId);
+    /// @notice Emitted when the board admin address is updated.
     event BoardAdminUpdated(address indexed oldAdmin, address indexed newAdmin);
+    /// @notice Emitted when the voting power source contract is changed.
     event VotingPowerSourceUpdated(address indexed oldSource, address indexed newSource);
+    /// @notice Emitted when the minimum quorum threshold is updated.
     event QuorumUpdated(uint256 oldQuorum, uint256 newQuorum);
 
+    /// @notice Deploy the voting contract with immutable epoch schedule parameters.
+    /// @param _votingPowerSource Address of the IVotingPower implementation.
+    /// @param _boardAdmin Address allowed to finalize epochs and update config.
+    /// @param _minTotalWeightQuorum Minimum total vote weight for a placement to meet quorum.
+    /// @param _epochZeroUnix Unix timestamp marking the start of epoch 0.
+    /// @param _epochSeconds Duration of each epoch in seconds.
+    /// @param _voteWindowSeconds Rolling vote window duration per placement.
     constructor(
         address _votingPowerSource,
         address _boardAdmin,
@@ -106,6 +119,8 @@ contract LoreboardVotingV2 {
     // ----------------- Epoch math (time-derived) -----------------
 
     /// @notice Epoch id at unix time `t`, where epoch 0 starts at epochZeroUnix.
+    /// @param t Unix timestamp to convert.
+    /// @return Epoch id containing timestamp `t`.
     function epochAt(uint64 t) public view returns (uint32) {
         require(t >= epochZeroUnix, "before epochZero");
         unchecked {
@@ -113,12 +128,18 @@ contract LoreboardVotingV2 {
         }
     }
 
+    /// @notice Returns the unix timestamp at which an epoch begins.
+    /// @param epochId The epoch to query.
+    /// @return Unix timestamp of the epoch's start.
     function epochStart(uint32 epochId) public view returns (uint64) {
         unchecked {
             return uint64(uint256(epochZeroUnix) + uint256(epochId) * uint256(epochSeconds));
         }
     }
 
+    /// @notice Returns the unix timestamp at which an epoch ends (inclusive).
+    /// @param epochId The epoch to query.
+    /// @return Unix timestamp of the epoch's last second.
     function epochEnd(uint32 epochId) public view returns (uint64) {
         unchecked {
             return uint64(uint256(epochStart(epochId)) + uint256(epochSeconds) - 1);
@@ -128,6 +149,8 @@ contract LoreboardVotingV2 {
     // ----------------- Admin -----------------
 
     /// @notice Register a placement for voting. Derives voteEndsAt + epochId from block.timestamp.
+    /// @param placementId Unique identifier for the placement.
+    /// @return epochId The derived epoch the placement belongs to.
     function registerPlacement(bytes32 placementId) external returns (uint32 epochId) {
         require(placementId != bytes32(0), "bad id");
         PlacementMeta storage pm = placements[placementId];
@@ -151,6 +174,8 @@ contract LoreboardVotingV2 {
 
     /// @notice Lock an epoch (prevents further voting reads/writes for that epoch).
     /// @dev Worker will call this after epochEnd(epochId) when settling.
+    /// @param epochId The epoch to finalize or un-finalize.
+    /// @param finalized_ True to lock, false to unlock.
     function setEpochFinalized(uint256 epochId, bool finalized_) external onlyBoardAdmin {
         // idempotent: don't emit twice if already true
         if (epochs[epochId].finalized == finalized_) return;
@@ -159,6 +184,8 @@ contract LoreboardVotingV2 {
         if (finalized_) emit EpochFinalized(epochId);
     }
 
+    /// @notice Transfer board admin role to a new address.
+    /// @param newAdmin New admin address (must not be zero).
     function setBoardAdmin(address newAdmin) external onlyBoardAdmin {
         require(newAdmin != address(0), "LoreboardVoting: zero address");
         address old = boardAdmin;
@@ -166,6 +193,8 @@ contract LoreboardVotingV2 {
         emit BoardAdminUpdated(old, newAdmin);
     }
 
+    /// @notice Swap the voting power source contract.
+    /// @param newSource Address of the new IVotingPower implementation.
     function setVotingPowerSource(address newSource) external onlyBoardAdmin {
         require(newSource != address(0), "LoreboardVoting: zero source");
         address old = address(votingPowerSource);
@@ -173,6 +202,8 @@ contract LoreboardVotingV2 {
         emit VotingPowerSourceUpdated(old, newSource);
     }
 
+    /// @notice Update the minimum total weight required for quorum.
+    /// @param newQuorum New quorum threshold.
     function setMinTotalWeightQuorum(uint256 newQuorum) external onlyBoardAdmin {
         uint256 old = minTotalWeightQuorum;
         minTotalWeightQuorum = newQuorum;
@@ -183,6 +214,9 @@ contract LoreboardVotingV2 {
 
     /// @notice Cast a YES/NO vote for a placement.
     /// @dev Requires the caller to provide the correct epochId (derived from voteEndsAt).
+    /// @param epochId Epoch the placement belongs to.
+    /// @param placementId Placement to vote on.
+    /// @param support True for YES, false for NO.
     function voteOnPlacement(
         uint256 epochId,
         bytes32 placementId,
@@ -193,6 +227,8 @@ contract LoreboardVotingV2 {
 
     /// @notice Cast a YES/NO vote without supplying the epochId.
     /// @dev Uses the placement's derived epochId for consistency.
+    /// @param placementId Placement to vote on.
+    /// @param support True for YES, false for NO.
     function voteOnPlacement(bytes32 placementId, bool support) external {
         PlacementMeta memory pm = placements[placementId];
         require(pm.exists, "LoreboardVoting: unregistered placement");
@@ -229,6 +265,11 @@ contract LoreboardVotingV2 {
 
     // ----------------- Views -----------------
 
+    /// @notice Get the current YES and NO vote weights for a placement.
+    /// @param epochId Epoch the placement belongs to.
+    /// @param placementId Placement to query.
+    /// @return yesWeight Total YES vote weight.
+    /// @return noWeight Total NO vote weight.
     function getPlacementVotes(uint256 epochId, bytes32 placementId)
         external
         view
@@ -238,6 +279,9 @@ contract LoreboardVotingV2 {
     }
 
     /// @notice Placement is votable iff: registered, in correct epoch, not finalized, and before voteEndsAt.
+    /// @param epochId Epoch to check.
+    /// @param placementId Placement to check.
+    /// @return True if the placement can currently be voted on.
     function isPlacementVotable(uint256 epochId, bytes32 placementId)
         external
         view
@@ -253,6 +297,12 @@ contract LoreboardVotingV2 {
         return true;
     }
 
+    /// @notice Retrieve registration metadata for a placement.
+    /// @param placementId Placement to query.
+    /// @return registeredAt Unix timestamp when the placement was registered.
+    /// @return voteEndsAt Unix timestamp when voting closes for this placement.
+    /// @return epochId Derived epoch the placement belongs to.
+    /// @return exists Whether the placement has been registered.
     function getPlacementMeta(bytes32 placementId)
         external
         view
@@ -262,6 +312,10 @@ contract LoreboardVotingV2 {
         return (pm.registeredAt, pm.voteEndsAt, pm.placementEpochId, pm.exists);
     }
 
+    /// @notice Check whether a placement meets the minimum total weight quorum.
+    /// @param epochId Epoch the placement belongs to.
+    /// @param placementId Placement to check.
+    /// @return True if (yesWeight + noWeight) >= minTotalWeightQuorum.
     function meetsQuorum(uint256 epochId, bytes32 placementId) public view returns (bool) {
         uint256 yesW = placementYesVotes[epochId][placementId];
         uint256 noW  = placementNoVotes[epochId][placementId];
@@ -269,6 +323,9 @@ contract LoreboardVotingV2 {
     }
 
     /// @notice Returns true if YES is >= 51% of total (YES+NO) and quorum is met.
+    /// @param epochId Epoch the placement belongs to.
+    /// @param placementId Placement to check.
+    /// @return True if the placement passes a simple 51% majority with quorum.
     function passesMajority51(uint256 epochId, bytes32 placementId) public view returns (bool) {
         uint256 yesW = placementYesVotes[epochId][placementId];
         uint256 noW  = placementNoVotes[epochId][placementId];

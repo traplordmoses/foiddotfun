@@ -8,6 +8,8 @@ import "./IVotingPower.sol";
 ///         - works with LoreboardVoting's IVotingPower interface
 ///         - ignores epochId completely
 contract OnePerPlacementVotingPower is IVotingPower {
+    /// @notice Always returns 1 regardless of voter or epoch.
+    /// @return Always 1.
     function votingPowerOf(address /*voter*/, uint256 /*epochId*/)
         external
         pure
