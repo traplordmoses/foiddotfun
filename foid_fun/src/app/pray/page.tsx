@@ -9,7 +9,7 @@ import FoidMommyTerminal, {
   FEELING_LABELS,
   type FeelingKey,
 } from "@/app/(components)/FoidMommyTerminal";
-import { getWalletClient } from "@/lib/viem";
+import { getWalletClient, publicClient as staticPublicClient } from "@/lib/viem";
 import { formatViemError } from "@/lib/prayerErrors";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
 import { MobileWalletButton } from "@/components/MobileWalletButton";
@@ -380,38 +380,47 @@ function PrayPageContent() {
     async (prayer: string, feeling: FeelingKey) => {
       const registryAddress = registryRef.current;
       if (!registryAddress) throw new Error("missing registry address on this page.");
-      if (!publicClient) throw new Error("public client not ready.");
       if (!address) throw new Error("connect your wallet before anchoring your prayer.");
 
-      // Switch to Fluent Testnet if needed
+      // Use the static public client (always points to Fluent Testnet RPC)
+      // instead of the wagmi hook client which can be stale or on the wrong chain.
+      const rpcClient = staticPublicClient;
+
+      // Switch to Fluent Testnet if needed — switchChainAsync resolves only
+      // after the wallet has actually switched, so no polling required.
       if (chainId !== FLUENT_CHAIN_ID) {
         try {
           await switchChainAsync?.({ chainId: FLUENT_CHAIN_ID });
-
-          // Poll for chain change confirmation (max 5 seconds)
-          const maxAttempts = 50; // 50 * 100ms = 5 seconds
-          let attempts = 0;
-
-          while (attempts < maxAttempts) {
-            // Check if chain has switched
-            if (chainId === FLUENT_CHAIN_ID) {
-              console.log('Chain switched successfully to', FLUENT_CHAIN_ID);
-              break;
-            }
-
-            // Wait 100ms before checking again
-            await new Promise(resolve => setTimeout(resolve, 100));
-            attempts++;
-          }
-
-          // If chain still hasn't switched after 5 seconds, throw error
-          if (chainId !== FLUENT_CHAIN_ID) {
-            throw new Error('Chain switch timed out after 5 seconds');
-          }
+          // Brief pause to let wallet provider settle after chain switch
+          await new Promise(resolve => setTimeout(resolve, 300));
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : "Failed to switch chain";
           throw new Error(`please switch to fluent testnet (chain ${FLUENT_CHAIN_ID}). ${message}`);
         }
+      }
+
+      // Pre-flight cooldown check — read fresh from chain to catch stale cache
+      try {
+        const freshNextAllowed = await rpcClient.readContract({
+          address: registryAddress,
+          abi: PRAYER_REGISTRY_ABI,
+          functionName: "nextAllowedAt",
+          args: [address as Address],
+        }) as bigint;
+        const nowSec = BigInt(Math.floor(Date.now() / 1000));
+        if (freshNextAllowed > nowSec) {
+          const waitSec = Number(freshNextAllowed - nowSec);
+          const hours = Math.floor(waitSec / 3600);
+          const mins = Math.floor((waitSec % 3600) / 60);
+          throw new Error(
+            `You can only pray once every 24 hours. Please wait ${hours}h ${mins}m for your cooldown to expire.`
+          );
+        }
+      } catch (error: unknown) {
+        // If it's our cooldown error, rethrow it
+        if (error instanceof Error && error.message.includes("cooldown")) throw error;
+        // Otherwise log and continue — simulation will catch real issues
+        console.warn("cooldown pre-check failed (non-fatal):", error);
       }
 
       const prayerHash = keccak256(stringToBytes(prayer));
@@ -426,9 +435,9 @@ function PrayPageContent() {
       );
       const data = (`${PRAYER_SELECTOR}${encodedArgs.slice(2)}` as `0x${string}`);
 
-      const transportInfo = publicClient.transport as { url?: string; type?: string } | undefined;
+      const transportInfo = rpcClient.transport as { url?: string; type?: string } | undefined;
       console.debug("submitPrayer", {
-        chainId: publicClient.chain?.id ?? FLUENT_CHAIN_ID,
+        chainId: rpcClient.chain?.id ?? FLUENT_CHAIN_ID,
         userChainId: chainId,
         rpc: transportInfo?.url ?? transportInfo?.type ?? "unknown",
         registry: registryAddress,
@@ -437,7 +446,7 @@ function PrayPageContent() {
       });
 
       try {
-        await publicClient.call({ to: registryAddress, data, account: address as Address });
+        await rpcClient.call({ to: registryAddress, data, account: address as Address });
       } catch (error: unknown) {
         const message = formatViemError(error);
         console.error("prayer simulation failed:", message, error);
@@ -446,7 +455,7 @@ function PrayPageContent() {
 
       let gasEstimate: bigint;
       try {
-        gasEstimate = await publicClient.estimateGas({
+        gasEstimate = await rpcClient.estimateGas({
           to: registryAddress,
           data,
           account: address as Address,
@@ -454,9 +463,6 @@ function PrayPageContent() {
       } catch (error: unknown) {
         console.warn("prayer gas estimation failed:", error);
 
-        // Try to get a better estimate from simulation
-        // If simulation passed earlier but estimation fails, use conservative fallback
-        // Based on typical prayer transactions: ~150k-180k gas
         const message = formatViemError(error);
 
         // If it's a revert, don't use fallback - fail immediately
@@ -500,7 +506,7 @@ function PrayPageContent() {
         throw new Error(message);
       }
     },
-    [address, chainId, FLUENT_CHAIN_ID, publicClient, switchChainAsync, snapLegacy, snapLite],
+    [address, chainId, FLUENT_CHAIN_ID, switchChainAsync, snapLegacy, snapLite],
   );
 
   const waitForReceipt = useCallback(async (hash: string) => {

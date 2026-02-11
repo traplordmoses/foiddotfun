@@ -21,6 +21,10 @@ type BotState = {
 };
 
 function loadState(): { state: BotState; persisted: boolean } {
+  // Render cron jobs without a persistent disk mount are ephemeral —
+  // state.json from the repo exists but writes are lost between runs.
+  const isEphemeral = process.env.RENDER === "true" && !process.env.BOT_STATE_PATH;
+
   try {
     if (!existsSync(STATE_PATH)) {
       return {
@@ -28,7 +32,8 @@ function loadState(): { state: BotState; persisted: boolean } {
         persisted: false,
       };
     }
-    return { state: JSON.parse(readFileSync(STATE_PATH, "utf-8")), persisted: true };
+    const state: BotState = JSON.parse(readFileSync(STATE_PATH, "utf-8"));
+    return { state, persisted: !isEphemeral };
   } catch {
     return {
       state: { lastCheckedTimestamp: 0, tweetsToday: [], postedEventIds: [] },
@@ -170,7 +175,7 @@ async function run() {
   state.tweetsToday = pruneOldTimestamps(state.tweetsToday);
 
   if (!persisted) {
-    console.log("[foid-bot] no persistent state (ephemeral mode)");
+    console.log("[foid-bot] ephemeral mode — using lookback window, ignoring stale timestamps");
   }
 
   // With persistent state, enforce rate limits. Without it, the cron
@@ -185,7 +190,10 @@ async function run() {
   }
 
   const lookback = persisted ? DEFAULT_LOOKBACK_SEC : CRON_LOOKBACK_SEC;
-  const since = state.lastCheckedTimestamp || Math.floor(Date.now() / 1000) - lookback;
+  // In ephemeral mode, ignore stale lastCheckedTimestamp from repo — always use lookback from now
+  const since = persisted && state.lastCheckedTimestamp
+    ? state.lastCheckedTimestamp
+    : Math.floor(Date.now() / 1000) - lookback;
   console.log(`[foid-bot] fetching events since ${new Date(since * 1000).toISOString()}`);
 
   let events: LoreboardEvents;
