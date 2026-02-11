@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 type NavLink = { href: string; label: string };
@@ -14,6 +14,7 @@ const LINKS: NavLink[] = [
 
 export default function Nav() {
   const pathname = usePathname() || "/";
+  const router = useRouter();
   const baseFee =
     process.env.NEXT_PUBLIC_BASE_FEE_PER_CELL_WEI ??
     process.env.NEXT_PUBLIC_BASE_FEE_PER_CELL ??
@@ -30,6 +31,15 @@ export default function Nav() {
   useEffect(() => {
     setIsOpen(false);
   }, [pathname]);
+
+  // Warm route bundles/data so large text pages open immediately.
+  useEffect(() => {
+    for (const link of LINKS) {
+      if (link.href !== pathname) {
+        router.prefetch(link.href);
+      }
+    }
+  }, [pathname, router]);
 
   // Normalize and compute active path
   const activePath = useMemo(
@@ -81,7 +91,7 @@ export default function Nav() {
           <ul className="hidden items-center gap-3 md:flex">
             {LINKS.map((l) => (
               <li key={l.href}>
-                <Link href={l.href} className={linkClass(l.href)}>
+                <Link href={l.href} prefetch className={linkClass(l.href)}>
                   {l.label}
                 </Link>
               </li>
@@ -118,6 +128,7 @@ export default function Nav() {
             <li key={l.href}>
               <Link
                 href={l.href}
+                prefetch
                 className={linkClass(l.href)}
                 onClick={() => setIsOpen(false)}
               >

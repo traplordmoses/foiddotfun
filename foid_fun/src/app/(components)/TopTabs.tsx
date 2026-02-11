@@ -29,6 +29,7 @@ export default function TopTabs({
           <Link
             key={item.href}
             href={item.href}
+            prefetch
             className={`pray-nav-tab${isActive(item.href) ? " pray-nav-tab--active" : ""}`}
             role="tab"
             aria-selected={isActive(item.href)}

@@ -122,6 +122,40 @@ const IPFS_GATEWAYS = [
   "https://cloudflare-ipfs.com/ipfs/",
 ];
 
+const LOG_CHUNK_SIZE = 10_000n; // QuickNode limits eth_getLogs to 10k blocks
+
+// Chunked getContractEvents to stay within RPC getLogs range limits
+async function getContractEventsChunked(params: {
+  publicClient: PublicClient<Transport, Chain>;
+  address: Address;
+  abi: Abi;
+  eventName: string;
+  fromBlock: bigint;
+  toBlock: bigint;
+}) {
+  const allLogs: Awaited<ReturnType<typeof params.publicClient.getContractEvents>>  = [];
+  let cursor = params.fromBlock;
+
+  while (cursor <= params.toBlock) {
+    const chunkEnd = cursor + LOG_CHUNK_SIZE - 1n < params.toBlock
+      ? cursor + LOG_CHUNK_SIZE - 1n
+      : params.toBlock;
+
+    const logs = await params.publicClient.getContractEvents({
+      address: params.address,
+      abi: params.abi,
+      eventName: params.eventName,
+      fromBlock: cursor,
+      toBlock: chunkEnd,
+    });
+
+    allLogs.push(...logs);
+    cursor = chunkEnd + 1n;
+  }
+
+  return allLogs;
+}
+
 // ---------------------------------------------------------------------------
 // Proposal scanning — uses RPC getLogs directly (no Blockscout/subgraph)
 // ---------------------------------------------------------------------------
@@ -133,12 +167,15 @@ export async function fetchAgentProposalsForEpoch(params: {
   epochId: number;
   fromBlock: bigint;
 }): Promise<ChainProposal[]> {
-  const logs = await params.publicClient.getContractEvents({
+  const latest = await params.publicClient.getBlockNumber();
+
+  const logs = await getContractEventsChunked({
+    publicClient: params.publicClient,
     address: params.board,
     abi: boardAbiTyped,
     eventName: "PlacementProposed",
     fromBlock: params.fromBlock,
-    toBlock: "latest",
+    toBlock: latest,
   });
 
   const proposals = new Map<string, ChainProposal>();
@@ -369,27 +406,38 @@ export async function finalizeAgentEpochIfReady(params: {
   proposals: ChainProposal[];
 }) {
   // 1. Check treasury finalization
-  const manifestRootOnChain = (await readContractSafe({
-    publicClient: params.publicClient,
-    address: params.treasury,
-    abi: treasuryAbi,
-    functionName: "manifestRootOf",
-    args: [params.epochId],
-    label: `agent:manifestRootOf ${params.treasury} ${params.epochId}`,
-  })) as Hex;
+  // manifestRootOf may revert for non-finalized epochs on fresh deployments
+  let manifestRootOnChain: Hex | null = null;
+  try {
+    manifestRootOnChain = (await readContractSafe({
+      publicClient: params.publicClient,
+      address: params.treasury,
+      abi: treasuryAbi,
+      functionName: "manifestRootOf",
+      args: [params.epochId],
+      label: `agent:manifestRootOf ${params.treasury} ${params.epochId}`,
+    })) as Hex;
+  } catch {
+    // revert = not finalized
+  }
 
   const treasuryFinalized =
     !!manifestRootOnChain && manifestRootOnChain !== ZERO_BYTES32;
 
   // 2. Check voting finalization
-  const votingEpoch = (await readContractSafe({
-    publicClient: params.publicClient,
-    address: params.voting,
-    abi: votingV2Abi,
-    functionName: "epochs",
-    args: [BigInt(params.epochId)],
-    label: `agent:epochs ${params.voting} ${params.epochId}`,
-  })) as unknown;
+  let votingEpoch: unknown = null;
+  try {
+    votingEpoch = await readContractSafe({
+      publicClient: params.publicClient,
+      address: params.voting,
+      abi: votingV2Abi,
+      functionName: "epochs",
+      args: [BigInt(params.epochId)],
+      label: `agent:epochs ${params.voting} ${params.epochId}`,
+    });
+  } catch {
+    // revert = not finalized
+  }
 
   const votingFinalized = parseEpochFinalized(votingEpoch);
 

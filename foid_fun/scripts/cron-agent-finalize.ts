@@ -136,14 +136,20 @@ async function main() {
 
   for (let epochId = startEpoch; epochId <= currentEpoch; epochId++) {
     // Quick check: already finalized in treasury?
-    const manifestRoot = (await readContractSafe({
-      publicClient,
-      address: AGENT_TREASURY,
-      abi: treasuryAbiMinimal,
-      functionName: "manifestRootOf",
-      args: [epochId],
-      label: `agent:manifestRootOf ${epochId}`,
-    })) as Hex;
+    // manifestRootOf reverts for non-finalized epochs on fresh deployments
+    let manifestRoot: Hex | null = null;
+    try {
+      manifestRoot = (await readContractSafe({
+        publicClient,
+        address: AGENT_TREASURY,
+        abi: treasuryAbiMinimal,
+        functionName: "manifestRootOf",
+        args: [epochId],
+        label: `agent:manifestRootOf ${epochId}`,
+      })) as Hex;
+    } catch {
+      // revert = not finalized, continue to check proposals
+    }
 
     if (manifestRoot && manifestRoot !== ZERO_BYTES32) {
       continue; // already finalized

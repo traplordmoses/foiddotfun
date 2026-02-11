@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { startTransition, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { useAccount, useChainId, useConnect, useDisconnect } from "wagmi";
 import { playTypingTick } from "@/lib/sfx";
@@ -907,8 +908,8 @@ const sections: Section[] = [
         <GlassPanel style={{ marginTop: '16px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>READY TO START?</p>
           <p>
-            🙏 <a href="/pray" className="text-cyan-300 underline font-semibold">Pray with Foid Mommy</a> — Build your first streak<br/>
-            🎨 <a href="/board" className="text-cyan-300 underline font-semibold">Propose on Loreboard</a> — Add your meme to the canon<br/>
+            🙏 <Link href="/pray" prefetch className="text-cyan-300 underline font-semibold">Pray with Foid Mommy</Link> — Build your first streak<br/>
+            🎨 <Link href="/board" prefetch className="text-cyan-300 underline font-semibold">Propose on Loreboard</Link> — Add your meme to the canon<br/>
             🎭 <a href="#mifoids" className="text-cyan-300 underline font-semibold">Learn about MiFOID</a> — See how the NFT works<br/>
             ⭐ <a href="https://github.com/traplordmoses/foiddotfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline font-semibold">Star on GitHub</a> — Support open development
           </p>
@@ -986,9 +987,7 @@ export default function AboutPage() {
       if (!exists) return;
       
       setSelectedSection(sectionId);
-      startTransition(() => {
-        setActiveSection(sectionId);
-      });
+      setActiveSection(sectionId);
       if (window.location.hash !== `#${sectionId}`) {
         window.history.replaceState(null, "", `#${sectionId}`);
       }
@@ -1021,9 +1020,7 @@ export default function AboutPage() {
     (sectionId: string) => {
       if (selectedSection === sectionId) return;
       setSelectedSection(sectionId);
-      startTransition(() => {
-        setActiveSection(sectionId);
-      });
+      setActiveSection(sectionId);
       if (typeof window !== "undefined") {
         window.history.replaceState(null, "", `#${sectionId}`);
       }
@@ -1121,7 +1118,7 @@ export default function AboutPage() {
                   <div
                     ref={contentRef}
                     aria-live="polite"
-                    className="aboutContentScroll flex h-full min-h-0 flex-1 overflow-x-hidden overflow-y-auto transition-opacity duration-300 ease-out"
+                    className="aboutContentScroll flex h-full min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
                   >
                     <div className="aboutContentShell">
                       <div className="aboutStack">
