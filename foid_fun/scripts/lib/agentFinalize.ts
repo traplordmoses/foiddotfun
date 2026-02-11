@@ -181,7 +181,7 @@ export async function fetchAgentProposalsForEpoch(params: {
   const proposals = new Map<string, ChainProposal>();
 
   for (const log of logs) {
-    const args = log.args as Record<string, unknown>;
+    const args = (log as unknown as { args: Record<string, unknown> }).args;
     const id = args.id as Hex | undefined;
     const bidder = args.bidder as Address | undefined;
     const epoch = Number(args.epoch ?? 0);
