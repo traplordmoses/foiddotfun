@@ -1,7 +1,7 @@
 // Direct on-chain reads for the agent board (no Goldsky subgraph yet).
-// TODO: Replace with Goldsky subgraph queries once agent board subgraph is deployed.
+// Uses chunked getLogs to stay within QuickNode's 10 000-block limit.
 
-import type { Abi } from "viem";
+import type { Abi, Log } from "viem";
 import { getAgentPublicClient } from "./relayer";
 import { AGENT_BOARD, AGENT_VOTING } from "@/config/agentBoard";
 import BoardAbi from "@/abi/LoreboardBoardV2.json" assert { type: "json" };
@@ -11,6 +11,7 @@ const BoardAbiTyped = BoardAbi as Abi;
 const VotingAbiTyped = VotingAbi as Abi;
 
 const LOOKBACK = BigInt(process.env.AGENT_BOARD_LOOKBACK || "500000");
+const CHUNK = 9_999n; // stay under QuickNode's 10 000-block eth_getLogs limit
 
 export type PlacementRow = {
   id: string;
@@ -60,21 +61,48 @@ async function getFromBlock(): Promise<bigint> {
   }
 }
 
-export async function fetchProposals(owner?: string): Promise<PlacementRow[]> {
+/** Fetch contract events in ≤10 000-block chunks to avoid RPC limits. */
+async function getEventsChunked(params: {
+  address: `0x${string}`;
+  abi: Abi;
+  eventName: string;
+  fromBlock: bigint;
+}): Promise<Log[]> {
   const client = getAgentPublicClient();
+  // cacheTime: 0 bypasses viem's block number cache (default caches for 4s,
+  // but the singleton client can hold a stale value much longer).
+  const latest = await client.getBlockNumber({ cacheTime: 0 });
+  const allLogs: Log[] = [];
+
+  let cursor = params.fromBlock;
+  while (cursor <= latest) {
+    const end = cursor + CHUNK > latest ? latest : cursor + CHUNK;
+    const logs = await client.getContractEvents({
+      address: params.address,
+      abi: params.abi,
+      eventName: params.eventName,
+      fromBlock: cursor,
+      toBlock: end,
+    });
+    allLogs.push(...(logs as Log[]));
+    cursor = end + 1n;
+  }
+  return allLogs;
+}
+
+export async function fetchProposals(owner?: string): Promise<PlacementRow[]> {
   const fromBlock = await getFromBlock();
 
   try {
-    const logs = await client.getContractEvents({
+    const logs = await getEventsChunked({
       address: AGENT_BOARD,
       abi: BoardAbiTyped,
       eventName: "PlacementProposed",
       fromBlock,
-      toBlock: "latest",
     });
 
     const rows: PlacementRow[] = logs.map((log) => {
-      const a = log.args as Record<string, unknown>;
+      const a = (log as Log & { args: Record<string, unknown> }).args;
       return {
         id: String(a.id ?? log.transactionHash),
         idParam: String(a.id ?? ""),
@@ -104,20 +132,18 @@ export async function fetchVotingData(): Promise<{
   pending: PendingRecord[];
   votes: VoteRecord[];
 }> {
-  const client = getAgentPublicClient();
   const fromBlock = await getFromBlock();
 
   try {
-    const voteLogs = await client.getContractEvents({
+    const voteLogs = await getEventsChunked({
       address: AGENT_VOTING,
       abi: VotingAbiTyped,
       eventName: "VoteCast",
       fromBlock,
-      toBlock: "latest",
     });
 
     const votes: VoteRecord[] = voteLogs.map((log) => {
-      const a = log.args as Record<string, unknown>;
+      const a = (log as Log & { args: Record<string, unknown> }).args;
       return {
         id: `${log.transactionHash}-${log.logIndex}`,
         epochId: String(a.epochId ?? a.epoch ?? "0"),
