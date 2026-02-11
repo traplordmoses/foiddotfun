@@ -4,7 +4,8 @@ import type { Abi } from "viem";
 import { verifyAgentSignature } from "../_lib/auth";
 import { checkRateLimit, recordAction } from "../_lib/rateLimit";
 import { getRelayerWalletClient, getAgentPublicClient, getRelayerAccount } from "../_lib/relayer";
-import { BOARD, fluentTestnet } from "@/lib/viem";
+import { fluentTestnet } from "@/lib/viem";
+import { AGENT_BOARD } from "@/config/agentBoard";
 import BoardAbi from "@/abi/LoreboardBoardV2.json" assert { type: "json" };
 
 export const runtime = "nodejs";
@@ -13,9 +14,9 @@ export const dynamic = "force-dynamic";
 const TILE = 32;
 const BoardAbiTyped = BoardAbi as Abi;
 
-// Default base fee — agents pay the minimum unless configured otherwise
+// Agent board base fee (0 by default — free for agents)
 const BASE_FEE_PER_CELL_WEI = BigInt(
-  process.env.NEXT_PUBLIC_BASE_FEE_PER_CELL_WEI || "100000000000000" // 0.0001 ETH default
+  process.env.AGENT_BASE_FEE_PER_CELL_WEI || "0"
 );
 
 function json(success: boolean, data?: unknown, error?: string, status = 200) {
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
     const bidPerCellWei = BASE_FEE_PER_CELL_WEI;
     const value = BigInt(cells) * bidPerCellWei;
 
-    // Submit on-chain via relayer
+    // Submit on-chain via relayer to the agent board
     const publicClient = getAgentPublicClient();
     const walletClient = getRelayerWalletClient();
     const account = getRelayerAccount();
@@ -90,7 +91,7 @@ export async function POST(req: Request) {
       try {
         gas = await publicClient.estimateContractGas({
           account,
-          address: BOARD,
+          address: AGENT_BOARD,
           abi: BoardAbiTyped,
           functionName: "proposePlacement",
           args: [nx, ny, nw, nh, bidPerCellWei, cidHex],
@@ -103,7 +104,7 @@ export async function POST(req: Request) {
       txHash = await walletClient.writeContract({
         chain: fluentTestnet,
         account,
-        address: BOARD,
+        address: AGENT_BOARD,
         abi: BoardAbiTyped,
         functionName: "proposePlacement",
         args: [nx, ny, nw, nh, bidPerCellWei, cidHex],
@@ -112,7 +113,7 @@ export async function POST(req: Request) {
       });
 
       const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash as `0x${string}` });
-      const log = receipt.logs.find((entry) => entry.address.toLowerCase() === BOARD.toLowerCase());
+      const log = receipt.logs.find((entry) => entry.address.toLowerCase() === AGENT_BOARD.toLowerCase());
 
       if (log) {
         const decoded = decodeEventLog({

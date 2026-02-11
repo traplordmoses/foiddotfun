@@ -26,8 +26,9 @@ export async function GET(
   const client = getAgentPublicClient();
 
   try {
-    // Parallel: prayer data from chain + proposal/vote data from Goldsky
-    const [prayerStats, cooldown, proposals, votes] = await Promise.all([
+    // Prayer data from main contracts (shared across all boards)
+    // Note: prayer stats reflect the relayer's on-chain state, not per-agent.
+    const [prayerStats, cooldown] = await Promise.all([
       client.readContract({
         address: CONTRACTS.PRAYER_MIRROR as `0x${string}`,
         abi: PRAYER_MIRROR_ABI,
@@ -41,10 +42,18 @@ export async function GET(
         functionName: "nextAllowedAt",
         args: [address],
       }).catch(() => 0n),
+    ]);
 
+    // Agent board proposals and votes via direct contract event scanning.
+    // Note: on-chain bidder/voter is the relayer address, not the agent wallet.
+    // Per-agent attribution requires off-chain tracking or a subgraph.
+    const [proposals, votes] = await Promise.allSettled([
       fetchProposals(address),
       fetchVotesByVoter(address),
     ]);
+
+    const proposalRows = proposals.status === "fulfilled" ? proposals.value : [];
+    const voteRows = votes.status === "fulfilled" ? votes.value : [];
 
     const [currentStreak, longestStreak, totalPrayers] = prayerStats as readonly [bigint, bigint, bigint];
 
@@ -58,16 +67,16 @@ export async function GET(
         canPrayNow: Number(cooldown) <= Math.floor(Date.now() / 1000),
       },
       proposals: {
-        total: proposals.length,
-        recent: proposals.slice(0, 10).map((p) => ({
+        total: proposalRows.length,
+        recent: proposalRows.slice(0, 10).map((p) => ({
           id: p.idParam,
           epoch: Number(p.epoch),
           cells: Math.ceil(Number(p.w) / 32) * Math.ceil(Number(p.h) / 32),
         })),
       },
       votes: {
-        total: votes.length,
-        recent: votes.slice(0, 10).map((v) => ({
+        total: voteRows.length,
+        recent: voteRows.slice(0, 10).map((v) => ({
           placementId: v.placementId,
           epochId: v.epochId,
           support: v.support,

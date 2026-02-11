@@ -1,28 +1,16 @@
-const BOARD_V1_URL =
-  process.env.GOLDSKY_BOARD_V1_URL ||
-  "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/2.0.2/gn";
+// Direct on-chain reads for the agent board (no Goldsky subgraph yet).
+// TODO: Replace with Goldsky subgraph queries once agent board subgraph is deployed.
 
-const BOARD_V2_URL =
-  process.env.GOLDSKY_BOARD_V2_URL ||
-  process.env.GOLDSKY_BOARD_URL ||
-  "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/2.0.0/gn";
+import type { Abi } from "viem";
+import { getAgentPublicClient } from "./relayer";
+import { AGENT_BOARD, AGENT_VOTING } from "@/config/agentBoard";
+import BoardAbi from "@/abi/LoreboardBoardV2.json" assert { type: "json" };
+import VotingAbi from "@/abi/loreboardVoting.json" assert { type: "json" };
 
-const VOTING_URL =
-  process.env.GOLDSKY_VOTING_URL ||
-  "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/2.0.1/gn";
+const BoardAbiTyped = BoardAbi as Abi;
+const VotingAbiTyped = VotingAbi as Abi;
 
-async function gqlPost<T>(url: string, query: string, variables?: Record<string, unknown>): Promise<T> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
-    body: JSON.stringify({ query, variables }),
-  });
-  if (!res.ok) throw new Error(`Goldsky ${res.status}: ${await res.text()}`);
-  const json = await res.json();
-  if (json.errors?.length) throw new Error(`Goldsky GQL: ${JSON.stringify(json.errors)}`);
-  return json.data;
-}
+const LOOKBACK = BigInt(process.env.AGENT_BOARD_LOOKBACK || "500000");
 
 export type PlacementRow = {
   id: string;
@@ -60,71 +48,101 @@ export type EpochFinalizedRecord = {
   timestamp_: string;
 };
 
+async function getFromBlock(): Promise<bigint> {
+  const deployBlock = process.env.AGENT_BOARD_DEPLOY_BLOCK;
+  if (deployBlock) return BigInt(deployBlock);
+  try {
+    const client = getAgentPublicClient();
+    const latest = await client.getBlockNumber();
+    return latest > LOOKBACK ? latest - LOOKBACK : 0n;
+  } catch {
+    return 0n;
+  }
+}
+
 export async function fetchProposals(owner?: string): Promise<PlacementRow[]> {
-  const ownerFilter = owner ? `where: { bidder: "${owner.toLowerCase()}" }` : "";
-  const query = `{
-    placementProposeds(first: 1000, orderBy: epoch, orderDirection: desc, ${ownerFilter}) {
-      id idParam bidder epoch x y w h bidPerCellWei cidHash
+  const client = getAgentPublicClient();
+  const fromBlock = await getFromBlock();
+
+  try {
+    const logs = await client.getContractEvents({
+      address: AGENT_BOARD,
+      abi: BoardAbiTyped,
+      eventName: "PlacementProposed",
+      fromBlock,
+      toBlock: "latest",
+    });
+
+    const rows: PlacementRow[] = logs.map((log) => {
+      const a = log.args as Record<string, unknown>;
+      return {
+        id: String(a.id ?? log.transactionHash),
+        idParam: String(a.id ?? ""),
+        bidder: String(a.bidder ?? ""),
+        epoch: String(a.epoch ?? "0"),
+        x: String(a.x ?? "0"),
+        y: String(a.y ?? "0"),
+        w: String(a.w ?? "0"),
+        h: String(a.h ?? "0"),
+        bidPerCellWei: String(a.bidPerCellWei ?? "0"),
+        cidHash: String(a.cidHash ?? ""),
+      };
+    });
+
+    if (owner) {
+      const low = owner.toLowerCase();
+      return rows.filter((r) => r.bidder.toLowerCase() === low);
     }
-  }`;
-
-  const [v1, v2] = await Promise.allSettled([
-    gqlPost<{ placementProposeds: PlacementRow[] }>(BOARD_V1_URL, query),
-    gqlPost<{ placementProposeds: PlacementRow[] }>(BOARD_V2_URL, query),
-  ]);
-
-  const v1Rows = v1.status === "fulfilled" ? v1.value.placementProposeds : [];
-  const v2Rows = v2.status === "fulfilled" ? v2.value.placementProposeds : [];
-
-  // Dedupe preferring v2
-  const map = new Map<string, PlacementRow>();
-  for (const r of v1Rows) map.set(r.id, r);
-  for (const r of v2Rows) map.set(r.id, r);
-  return Array.from(map.values());
+    return rows;
+  } catch (err) {
+    console.warn("[agent/goldsky] getLogs PlacementProposed failed:", err);
+    return [];
+  }
 }
 
 export async function fetchVotingData(): Promise<{
   pending: PendingRecord[];
   votes: VoteRecord[];
 }> {
-  const data = await gqlPost<{
-    pendingPlacementRegistereds: PendingRecord[];
-    voteCasts: VoteRecord[];
-  }>(VOTING_URL, `{
-    pendingPlacementRegistereds(first: 1000, orderBy: epochId, orderDirection: asc) {
-      id epochId placementId registeredAt voteEndsAt
-    }
-    voteCasts(first: 1000, orderBy: epochId, orderDirection: asc) {
-      id epochId placementId voter support weight
-    }
-  }`);
+  const client = getAgentPublicClient();
+  const fromBlock = await getFromBlock();
 
-  return {
-    pending: data.pendingPlacementRegistereds ?? [],
-    votes: data.voteCasts ?? [],
-  };
+  try {
+    const voteLogs = await client.getContractEvents({
+      address: AGENT_VOTING,
+      abi: VotingAbiTyped,
+      eventName: "VoteCast",
+      fromBlock,
+      toBlock: "latest",
+    });
+
+    const votes: VoteRecord[] = voteLogs.map((log) => {
+      const a = log.args as Record<string, unknown>;
+      return {
+        id: `${log.transactionHash}-${log.logIndex}`,
+        epochId: String(a.epochId ?? a.epoch ?? "0"),
+        placementId: String(a.placementId ?? ""),
+        voter: String(a.voter ?? ""),
+        support: Boolean(a.support),
+        weight: String(a.weight ?? "1"),
+      };
+    });
+
+    // TODO: Scan PendingPlacementRegistered events once subgraph is deployed
+    return { pending: [], votes };
+  } catch (err) {
+    console.warn("[agent/goldsky] VoteCast event scan failed:", err);
+    return { pending: [], votes: [] };
+  }
 }
 
 export async function fetchVotesByVoter(voter: string): Promise<VoteRecord[]> {
-  const data = await gqlPost<{ voteCasts: VoteRecord[] }>(
-    VOTING_URL,
-    `{
-      voteCasts(first: 1000, where: { voter: "${voter.toLowerCase()}" }, orderBy: epochId, orderDirection: desc) {
-        id epochId placementId voter support weight
-      }
-    }`
-  );
-  return data.voteCasts ?? [];
+  const { votes } = await fetchVotingData();
+  return votes.filter((v) => v.voter.toLowerCase() === voter.toLowerCase());
 }
 
 export async function fetchEpochFinalizations(): Promise<EpochFinalizedRecord[]> {
-  const data = await gqlPost<{ epochFinalizeds: EpochFinalizedRecord[] }>(
-    VOTING_URL,
-    `{
-      epochFinalizeds(first: 50, orderBy: timestamp_, orderDirection: desc) {
-        id epochId timestamp_
-      }
-    }`
-  );
-  return data.epochFinalizeds ?? [];
+  // TODO: Replace with EpochFinalized event scan or Goldsky subgraph
+  // once agent board subgraph is deployed.
+  return [];
 }

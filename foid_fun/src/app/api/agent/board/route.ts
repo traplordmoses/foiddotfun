@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { epochInfo, VOTE_WINDOW_SECONDS } from "@/lib/epoch";
+import { agentEpochInfo, AGENT_VOTE_WINDOW } from "@/config/agentBoard";
 import { fetchProposals, fetchVotingData, fetchEpochFinalizations } from "../_lib/goldsky";
 
 export const runtime = "nodejs";
@@ -22,7 +22,7 @@ export async function GET() {
       fetchEpochFinalizations(),
     ]);
 
-    const epoch = epochInfo();
+    const epoch = agentEpochInfo();
     const nowSec = Math.floor(Date.now() / 1000);
 
     // Build pending lookup
@@ -84,7 +84,7 @@ export async function GET() {
         secondsLeft: epoch.secondsLeft,
         endsAt: epoch.endsAtSec,
         lengthSeconds: epoch.lengthSec,
-        voteWindowSeconds: VOTE_WINDOW_SECONDS,
+        voteWindowSeconds: AGENT_VOTE_WINDOW,
       },
       recentFinalizations,
       grid: {

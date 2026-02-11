@@ -3,14 +3,13 @@ import type { Abi } from "viem";
 import { verifyAgentSignature } from "../_lib/auth";
 import { checkRateLimit, recordAction } from "../_lib/rateLimit";
 import { getRelayerWalletClient, getAgentPublicClient, getRelayerAccount } from "../_lib/relayer";
-import { CONTRACTS } from "@/lib/contracts/addresses";
+import { AGENT_VOTING } from "@/config/agentBoard";
 import VotingAbi from "@/abi/loreboardVoting.json" assert { type: "json" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const VotingAbiTyped = VotingAbi as Abi;
-const VOTING_ADDRESS = CONTRACTS.LOREBOARD_VOTING as `0x${string}`;
 
 function json(success: boolean, data?: unknown, error?: string, status = 200) {
   return NextResponse.json({ success, ...(data ? { data } : {}), ...(error ? { error } : {}) }, { status });
@@ -49,7 +48,7 @@ export async function POST(req: Request) {
     const limit = checkRateLimit(auth.wallet, "vote");
     if (!limit.ok) return json(false, undefined, limit.error, 429);
 
-    // Submit vote on-chain via relayer
+    // Submit vote on-chain via relayer to the agent voting contract
     const publicClient = getAgentPublicClient();
     const walletClient = getRelayerWalletClient();
     const account = getRelayerAccount();
@@ -58,7 +57,7 @@ export async function POST(req: Request) {
     try {
       const { request } = await publicClient.simulateContract({
         account,
-        address: VOTING_ADDRESS,
+        address: AGENT_VOTING,
         abi: VotingAbiTyped,
         functionName: "voteOnPlacement",
         args: [proposalId, supportBool],
