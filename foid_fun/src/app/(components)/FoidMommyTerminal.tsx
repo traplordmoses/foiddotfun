@@ -264,6 +264,8 @@ function formatCooldown(seconds: number) {
   return parts.join(" ");
 }
 
+const COMPOSER_MAX_HEIGHT = 172;
+
 export default function FoidMommyTerminal({
   ensureWalletReady,
   submitPrayer,
@@ -296,7 +298,7 @@ export default function FoidMommyTerminal({
   const isNearBottomRef = useRef(true);
   const timeoutsRef = useRef<number[]>([]);
   const intervalsRef = useRef<number[]>([]);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const attachedTypingTargets = useRef(new WeakSet<HTMLElement>());
   const lastStageRef = useRef<Stage>("idle");
 
@@ -473,7 +475,7 @@ export default function FoidMommyTerminal({
     return () => {
       resetTimers();
     };
-  }, [stage, typeMessage, addMessage, updateMessage, resetTimers]);
+  }, [stage, typeMessage, addMessage, updateMessage, resetTimers, clearDraft]);
 
   const handleStart = useCallback(async () => {
     try {
@@ -645,23 +647,6 @@ export default function FoidMommyTerminal({
   const feelingOverLimit = feelingCount > feelingLimit;
   const prayerOverLimit = prayerCount > prayerLimit;
   const secondChatOverLimit = secondChatCount > secondChatLimit;
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  const nextAllowedSecondsRaw =
-    typeof nextAllowedAt === "bigint"
-      ? Number(nextAllowedAt)
-      : typeof nextAllowedAt === "number"
-        ? nextAllowedAt
-        : null;
-  const cooldownActive =
-    typeof nextAllowedSecondsRaw === "number" && nextAllowedSecondsRaw > nowSeconds;
-  const cooldownNextWindow = cooldownActive
-    ? new Date(nextAllowedSecondsRaw * 1000).toLocaleString(undefined, {
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "";
 
   const handleFeelingSubmit = useCallback(
     async (inputText: string) => {
@@ -889,6 +874,7 @@ export default function FoidMommyTerminal({
     waitForReceipt,
     timeoutsRef,
     nextAllowedAt,
+    clearDraft,
   ]);
 
   const handlePrayerSubmit = useCallback(
@@ -1013,6 +999,15 @@ export default function FoidMommyTerminal({
     [stage],
   );
 
+  const resizeComposerField = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const nextHeight = Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT);
+    el.style.height = `${Math.max(nextHeight, 24)}px`;
+    el.style.overflowY = el.scrollHeight > COMPOSER_MAX_HEIGHT ? "auto" : "hidden";
+  }, []);
+
   const handleCommandSubmit = useCallback(
     async (event: React.FormEvent) => {
       event.preventDefault();
@@ -1106,6 +1101,17 @@ export default function FoidMommyTerminal({
     ],
   );
 
+  const handleComposerKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.key !== "Enter") return;
+      if (event.shiftKey) return;
+      if ((event.nativeEvent as { isComposing?: boolean }).isComposing) return;
+      event.preventDefault();
+      event.currentTarget.form?.requestSubmit();
+    },
+    [],
+  );
+
   // UPDATED: Status tone for different states
   const statusTone =
     stage === "awaitFeeling" && feelingOverLimit
@@ -1187,6 +1193,10 @@ export default function FoidMommyTerminal({
     }
   }, [stage, autoStart]);
 
+  useEffect(() => {
+    resizeComposerField();
+  }, [currentInputValue, stage, resizeComposerField]);
+
   return (
     <div
       className={`foid-terminal foid-cli w-full ${className ?? ""}`}
@@ -1237,12 +1247,13 @@ export default function FoidMommyTerminal({
             <form onSubmit={handleCommandSubmit} className="foid-terminal__input-wrap">
               <div className="foid-terminal__input">
                 <span className="foid-terminal__prompt">{promptLabel}</span>
-                <input
+                <textarea
                   ref={inputRef}
-                  type="text"
+                  rows={1}
                   value={currentInputValue}
                   onChange={(event) => handleCommandChange(event.target.value)}
-                  className="foid-terminal__field"
+                  onKeyDown={handleComposerKeyDown}
+                  className="foid-terminal__field foid-terminal__field--multiline w-full resize-none overflow-y-auto whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
                   placeholder={inputPlaceholder}
                   autoComplete="off"
                   spellCheck={false}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import AppTitlebar, { type AppTitlebarWarning } from "@/app/(components)/AppTitlebar";
 import { useAccount, useChainId, usePublicClient, useReadContract, useDisconnect, useConnect, useSwitchChain } from "wagmi";
@@ -15,7 +15,7 @@ import { TARGET_CHAIN_ID } from "@/lib/chain";
 import { MobileWalletButton } from "@/components/MobileWalletButton";
 import { useHaptic } from "@/hooks/useHaptic";
 import { PRAYER_REGISTRY_ABI } from "@/lib/contracts/abis/prayerRegistry";
-import { parseEventLogs, type ContractFunctionRevertedError } from "viem";
+import { parseEventLogs } from "viem";
 import { PrayerErrorBoundary } from "@/components/PrayerErrorBoundary";
 
 /* --- env --- */
@@ -121,33 +121,6 @@ function shortHash(hash?: string) {
   return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
 }
 
-type ApiProposal = {
-  id: string; // placementId (0x...)
-  owner: string;
-  epochSubmitted: number;
-  voteEndsAtEpoch: number;
-  voteEndsAtSec: number;
-  secondsLeft?: number;
-  yes?: number;
-  no?: number;
-  percentYes?: number;
-  isVotable?: boolean;
-  cid?: string;
-  name?: string;
-  rect?: { x: number; y: number; w: number; h: number };
-};
-
-function safeNumber(v: unknown, fallback = 0) {
-  const n = typeof v === "number" ? v : Number(v);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function shortId(id?: string) {
-  if (!id) return "–";
-  if (id.length <= 12) return id;
-  return `${id.slice(0, 8)}…${id.slice(-4)}`;
-}
-
 // Type-safe address helper
 function safeAddress(addr: string | undefined): Hex {
   if (!addr || !addr.startsWith('0x')) {
@@ -155,17 +128,6 @@ function safeAddress(addr: string | undefined): Hex {
   }
   return addr as Hex;
 }
-
-type VoteWire = {
-  epochId: string;
-  placementId: `0x${string}`;
-  voter: `0x${string}`;
-  support: boolean;
-  weight: string;
-  blockNumber: string | null;
-  txHash: `0x${string}` | null;
-  logIndex: string | null;
-};
 
 function PrayPageContent() {
   const { address, isConnected } = useAccount();
@@ -176,9 +138,6 @@ function PrayPageContent() {
   const { trigger: triggerHaptic } = useHaptic();
   const [nowSeconds, setNowSeconds] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [boardProposals, setBoardProposals] = useState<ApiProposal[]>([]);
-  const [boardLoading, setBoardLoading] = useState(false);
-  const [boardError, setBoardError] = useState<string | null>(null);
 
   // Optimistic UI updates
   const [optimisticStreak, setOptimisticStreak] = useState<number | null>(null);
@@ -276,56 +235,8 @@ function PrayPageContent() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (!address) {
-      setBoardProposals([]);
-      setBoardError(null);
-      setBoardLoading(false);
-      return;
-    }
-
-    const controller = new AbortController();
-
-    const run = async () => {
-      try {
-        setBoardLoading(true);
-        setBoardError(null);
-
-        const res = await fetch(`/api/proposals?owner=${address}`, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          throw new Error(`proposals fetch failed (${res.status}) ${text}`.trim());
-        }
-
-        const json = (await res.json()) as { proposals?: ApiProposal[] };
-        const proposals = Array.isArray(json.proposals) ? json.proposals : [];
-
-        proposals.sort((a, b) => safeNumber(b.epochSubmitted) - safeNumber(a.epochSubmitted));
-
-        setBoardProposals(proposals);
-      } catch (e) {
-        // Type-safe abort check
-        if (e instanceof Error && 'name' in e && e.name === 'AbortError') return;
-        setBoardError(e instanceof Error ? e.message : String(e));
-        setBoardProposals([]);
-      } finally {
-        setBoardLoading(false);
-      }
-    };
-
-    run();
-
-    const t = setInterval(run, 10_000);
-
-    return () => {
-      clearInterval(t);
-      controller.abort();
-    };
-  }, [address]);
+  // Performance note: an older 10s /api/proposals polling loop lived here but
+  // did not feed any rendered UI state, causing avoidable fetch churn/rerenders.
 
   // useEffect(() => {
   //   if (!address) {
@@ -484,8 +395,10 @@ function PrayPageContent() {
       const snap = snapLegacy ?? snapLite;
       const currentStreak = typeof snap?.[0] === 'bigint' ? Number(snap[0]) : (typeof snap?.[0] === 'number' ? snap[0] : 0);
       const currentTotal = typeof snap?.[2] === 'bigint' ? Number(snap[2]) : (typeof snap?.[2] === 'number' ? snap[2] : 0);
-      setOptimisticStreak(currentStreak + 1);
-      setOptimisticTotal(currentTotal + 1);
+      startTransition(() => {
+        setOptimisticStreak(currentStreak + 1);
+        setOptimisticTotal(currentTotal + 1);
+      });
 
       const walletClient = await getWalletClient();
       try {
@@ -499,8 +412,10 @@ function PrayPageContent() {
         return { txHash };
       } catch (error: unknown) {
         // Revert optimistic update on error
-        setOptimisticStreak(null);
-        setOptimisticTotal(null);
+        startTransition(() => {
+          setOptimisticStreak(null);
+          setOptimisticTotal(null);
+        });
         const message = formatViemError(error);
         console.error("prayer send failed:", message, error);
         throw new Error(message);
@@ -546,8 +461,10 @@ function PrayPageContent() {
     if (tasks.length) await Promise.all(tasks); // Use Promise.all instead of allSettled
 
     // Clear optimistic updates after real data is fetched
-    setOptimisticStreak(null);
-    setOptimisticTotal(null);
+    startTransition(() => {
+      setOptimisticStreak(null);
+      setOptimisticTotal(null);
+    });
   }, [publicClient]);
 
   const handleSwitchWallet = useCallback(() => {

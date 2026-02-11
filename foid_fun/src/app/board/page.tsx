@@ -5,6 +5,7 @@
 
 import React, {
   Suspense,
+  startTransition,
   useCallback,
   useMemo,
   useRef,
@@ -30,7 +31,6 @@ import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 import { formatEth } from "@/lib/wei";
 import { useEpochCountdown } from "@/hooks/useEpochCountdown";
 import { useLatestManifestFromChain } from "@/hooks/useLatestManifestFromChain";
-import sfx from "@/lib/sfx";
 import type { FinalizedPlacement } from "@/lib/types";
 import { getLatestNormalized } from "@/lib/manifest";
 import { listProposals } from "@/lib/api";
@@ -760,18 +760,24 @@ function BoardPageContent() {
       try {
         const response = await listProposals();
         if (!alive) return;
-        setProposals(normalizeProposals(response.proposals));
-        setProposalDebug(response.debug ?? null);
-        setProposalsLoading(false);
+        const normalized = normalizeProposals(response.proposals);
+        startTransition(() => {
+          setProposals(normalized);
+          setProposalDebug(response.debug ?? null);
+          setProposalsLoading(false);
+        });
       } catch {
         if (!alive) return;
-        setProposals([]);
-        setProposalDebug(null);
-        setProposalsLoading(false);
+        startTransition(() => {
+          setProposals([]);
+          setProposalDebug(null);
+          setProposalsLoading(false);
+        });
       }
     };
     tick();
-    const t = setInterval(tick, 8000);
+    // Slightly slower polling reduces render churn in this heavy route.
+    const t = setInterval(tick, 12_000);
     return () => { alive = false; clearInterval(t); };
   }, []);
 
@@ -866,10 +872,14 @@ function BoardPageContent() {
       clearBoardState?.();
       try {
         const response = await listProposals();
-        setProposals(normalizeProposals(response.proposals));
-        setProposalDebug(response.debug ?? null);
+        startTransition(() => {
+          setProposals(normalizeProposals(response.proposals));
+          setProposalDebug(response.debug ?? null);
+        });
       } catch {
-        setProposalDebug(null);
+        startTransition(() => {
+          setProposalDebug(null);
+        });
       }
       addStatus("All proposals submitted!", "success");
     } catch (e: unknown) {
@@ -2036,7 +2046,16 @@ function BoardPageContent() {
 
 export default function BoardPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <main className="min-h-screen w-full flex items-center justify-center px-4">
+          <div className="font-terminal text-xs uppercase tracking-[0.16em] text-white/70 flex items-center gap-3">
+            <span className="inline-block h-4 w-4 rounded-full border-2 border-cyan-100/35 border-t-cyan-100 animate-spin" />
+            loading board...
+          </div>
+        </main>
+      }
+    >
       <BoardPageContent />
     </Suspense>
   );

@@ -1,11 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { useAccount, useChainId, useConnect, useDisconnect } from "wagmi";
 import { playTypingTick } from "@/lib/sfx";
-import { useMobile } from "@/hooks/useMobile";
 
 type Section = {
   id: string;
@@ -954,7 +953,6 @@ export default function AboutPage() {
   const chainId = useChainId();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
-  const { isMobile } = useMobile();
   const initialSection = sections[0].id;
   const [activeSection, setActiveSection] = useState(initialSection);
   const [selectedSection, setSelectedSection] = useState(initialSection);
@@ -988,7 +986,9 @@ export default function AboutPage() {
       if (!exists) return;
       
       setSelectedSection(sectionId);
-      setActiveSection(sectionId);
+      startTransition(() => {
+        setActiveSection(sectionId);
+      });
       if (window.location.hash !== `#${sectionId}`) {
         window.history.replaceState(null, "", `#${sectionId}`);
       }
@@ -1021,7 +1021,9 @@ export default function AboutPage() {
     (sectionId: string) => {
       if (selectedSection === sectionId) return;
       setSelectedSection(sectionId);
-      setActiveSection(sectionId);
+      startTransition(() => {
+        setActiveSection(sectionId);
+      });
       if (typeof window !== "undefined") {
         window.history.replaceState(null, "", `#${sectionId}`);
       }
@@ -1077,8 +1079,8 @@ export default function AboutPage() {
       </div>
 
       <section className="relative z-10 w-full max-w-full px-2 sm:px-4">
-        <div className="mx-auto w-full max-w-4xl mb-4">
-          <div className="vista-window vista-window--terminal vista-window--enhanced h-[75vh] max-h-[75vh] w-full">
+        <div className="mx-auto w-full max-w-6xl mb-4">
+          <div className="vista-window vista-window--terminal vista-window--enhanced h-[82vh] max-h-[82vh] w-full">
             <AppTitlebar
               title="FOID_ABOUT.EXE"
               chainId={chainId}
@@ -1133,7 +1135,9 @@ export default function AboutPage() {
                           ) : null}
                         </div>
                         {activeSectionData.lede && <p className="aboutSub foid-small">{activeSectionData.lede}</p>}
-                        <div className="aboutBody about-prose foid-body">{activeSectionData.content}</div>
+                        <div className="aboutBody about-prose foid-body">
+                          <div className="aboutReadable">{activeSectionData.content}</div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1188,13 +1192,13 @@ export default function AboutPage() {
             "SF Pro Display", "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
           letter-spacing: 0.01em;
           padding: var(--about-pad);
-          --about-body-size: 13.5px;
-          --about-body-leading: 1.65;
+          --about-body-size: 14px;
+          --about-body-leading: 1.72;
         }
 
         .aboutWindowBody {
-          gap: 18px;
-          padding: var(--about-pad);
+          gap: 22px;
+          padding: clamp(18px, 2vw, 30px);
         }
 
         .aboutHeader {
@@ -1253,7 +1257,7 @@ export default function AboutPage() {
         }
 
         .aboutMiniCard {
-          padding: 14px 16px;
+          padding: 16px 18px;
         }
 
         .aboutMiniCard__title {
@@ -1272,7 +1276,7 @@ export default function AboutPage() {
         .aboutSidebar {
           width: var(--about-sidebar-w);
           max-width: 100%;
-          padding: 14px;
+          padding: 16px;
         }
 
         .aboutNav {
@@ -1370,7 +1374,7 @@ export default function AboutPage() {
         }
 
         .aboutContentScroll {
-          padding: 22px 26px 32px;
+          padding: 28px 32px 40px;
           scrollbar-gutter: stable;
           scrollbar-width: thin;
           scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
@@ -1393,14 +1397,44 @@ export default function AboutPage() {
 
         .aboutContentShell {
           width: 100%;
-          max-width: 920px;
-          margin: 0;
+          max-width: 1080px;
+          margin: 0 auto;
         }
 
         .aboutStack {
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 16px;
+        }
+
+        .aboutBody {
+          line-height: var(--about-body-leading);
+        }
+
+        .aboutReadable {
+          width: 100%;
+        }
+
+        .aboutReadable p {
+          max-width: 70ch;
+        }
+
+        .aboutPanel {
+          display: grid;
+          gap: 14px;
+          padding: 20px;
+        }
+
+        .aboutPanel > p {
+          margin: 0 !important;
+          max-width: 70ch;
+        }
+
+        .aboutReadable .aboutCardBody,
+        .aboutReadable .aboutMiniCard__body,
+        .aboutReadable .aboutSubtitle {
+          max-width: 70ch;
+          line-height: var(--about-body-leading);
         }
 
         .aboutRoadmapGrid {
@@ -1448,6 +1482,11 @@ export default function AboutPage() {
 
           .aboutContentShell {
             max-width: 100%;
+          }
+
+          .aboutPanel {
+            padding: 16px;
+            gap: 12px;
           }
 
           .aboutNavButton {
