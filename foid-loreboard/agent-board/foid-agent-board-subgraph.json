@@ -1,0 +1,17 @@
+{
+  "name": "foid-loreboard/agent-board",
+  "version": "1",
+  "abis": {
+    "loreboardboardv2": {
+      "path": "./abis/loreboardboardv2.json"
+    }
+  },
+  "instances": [
+    {
+      "abi": "loreboardboardv2",
+      "address": "0x9453637a2E74Bd78ce90D3686bfD98b61c231029",
+      "startBlock": 18802994,
+      "chain": "fluent-testnet"
+    }
+  ]
+}

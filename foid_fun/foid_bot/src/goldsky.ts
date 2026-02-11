@@ -6,6 +6,11 @@ const VOTING_URL =
   process.env.GOLDSKY_VOTING_URL ||
   "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/2.0.1/gn";
 
+console.log("[goldsky] BOARD_V1_URL:", JSON.stringify(BOARD_V1_URL));
+console.log("[goldsky] VOTING_URL:", JSON.stringify(VOTING_URL));
+console.log("[goldsky] env GOLDSKY_BOARD_V1_URL:", JSON.stringify(process.env.GOLDSKY_BOARD_V1_URL));
+console.log("[goldsky] env GOLDSKY_VOTING_URL:", JSON.stringify(process.env.GOLDSKY_VOTING_URL));
+
 export type Proposal = {
   id: string;
   idParam: string;
@@ -46,6 +51,7 @@ export type LoreboardEvents = {
 };
 
 async function gqlPost<T>(url: string, query: string): Promise<T> {
+  console.log("[goldsky] fetching URL:", url);
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
