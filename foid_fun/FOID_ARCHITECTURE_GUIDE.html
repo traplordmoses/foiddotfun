@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FOID Foundation — Complete Architecture Guide</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a28;
+    --border: #2a2a3a;
+    --text: #e0e0f0;
+    --muted: #8888aa;
+    --accent: #72e1ff;
+    --accent2: #b388ff;
+    --accent3: #ff6b9d;
+    --green: #4ade80;
+    --orange: #fb923c;
+    --red: #f87171;
+    --yellow: #facc15;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.88em;
+  }
+  .container { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* Header */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 3rem 0;
+    text-align: center;
+    background: linear-gradient(180deg, rgba(114,225,255,0.06) 0%, transparent 100%);
+  }
+  header h1 { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.02em; }
+  header h1 span { color: var(--accent); }
+  header p { color: var(--muted); margin-top: 0.5rem; font-size: 1.1rem; }
+  .badge-row { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem; flex-wrap: wrap; }
+  .badge {
+    display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px;
+    font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .badge-blue { background: rgba(114,225,255,0.15); color: var(--accent); border: 1px solid rgba(114,225,255,0.3); }
+  .badge-purple { background: rgba(179,136,255,0.15); color: var(--accent2); border: 1px solid rgba(179,136,255,0.3); }
+  .badge-pink { background: rgba(255,107,157,0.15); color: var(--accent3); border: 1px solid rgba(255,107,157,0.3); }
+
+  /* TOC */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin: 2rem 0;
+  }
+  .toc h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 1rem; }
+  .toc ol { padding-left: 1.5rem; }
+  .toc li { margin: 0.3rem 0; }
+  .toc a { color: var(--text); }
+  .toc a:hover { color: var(--accent); }
+
+  /* Sections */
+  section { margin: 3rem 0; }
+  section > h2 {
+    font-size: 1.6rem; font-weight: 700;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0.5rem; margin-bottom: 1.5rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  section > h2 .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 2rem; height: 2rem; border-radius: 8px;
+    font-size: 0.85rem; font-weight: 800;
+    background: rgba(114,225,255,0.12); color: var(--accent);
+  }
+  h3 { font-size: 1.15rem; margin: 1.5rem 0 0.75rem; color: var(--accent2); }
+  h4 { font-size: 1rem; margin: 1rem 0 0.5rem; color: var(--accent); }
+  p, li { color: var(--text); }
+  p { margin-bottom: 0.75rem; }
+  ul, ol { padding-left: 1.5rem; margin-bottom: 0.75rem; }
+  li { margin: 0.25rem 0; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin: 1rem 0;
+  }
+  .card-title {
+    font-weight: 700; font-size: 1rem;
+    display: flex; align-items: center; gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .card-title .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot-orange { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+  .dot-red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .dot-blue { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .dot-purple { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+
+  /* Code blocks */
+  pre {
+    background: #0d0d18;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    margin: 0.75rem 0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  code { background: rgba(114,225,255,0.08); padding: 0.1em 0.4em; border-radius: 4px; }
+  pre code { background: none; padding: 0; }
+  .kw { color: var(--accent3); }
+  .fn { color: var(--accent); }
+  .str { color: var(--green); }
+  .cmt { color: var(--muted); font-style: italic; }
+  .num-lit { color: var(--orange); }
+
+  /* Diagram boxes */
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.7;
+    white-space: pre;
+    color: var(--text);
+  }
+
+  /* Grid layouts */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+  @media (max-width: 768px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+  th, td { padding: 0.6rem 0.8rem; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+  tr:hover td { background: rgba(114,225,255,0.03); }
+
+  /* Flow arrows */
+  .flow { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0; }
+  .flow-box {
+    display: inline-block; padding: 0.4rem 0.8rem;
+    border-radius: 8px; font-size: 0.82rem; font-weight: 600;
+    white-space: nowrap;
+  }
+  .fb-blue { background: rgba(114,225,255,0.12); color: var(--accent); border: 1px solid rgba(114,225,255,0.3); }
+  .fb-purple { background: rgba(179,136,255,0.12); color: var(--accent2); border: 1px solid rgba(179,136,255,0.3); }
+  .fb-pink { background: rgba(255,107,157,0.12); color: var(--accent3); border: 1px solid rgba(255,107,157,0.3); }
+  .fb-green { background: rgba(74,222,128,0.12); color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
+  .fb-orange { background: rgba(251,146,60,0.12); color: var(--orange); border: 1px solid rgba(251,146,60,0.3); }
+  .arrow { color: var(--muted); font-size: 1.2rem; }
+
+  /* Callout */
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: rgba(114,225,255,0.04);
+    padding: 0.75rem 1rem;
+    border-radius: 0 8px 8px 0;
+    margin: 0.75rem 0;
+    font-size: 0.92rem;
+  }
+  .callout-warn { border-left-color: var(--orange); background: rgba(251,146,60,0.04); }
+  .callout-important { border-left-color: var(--accent3); background: rgba(255,107,157,0.04); }
+
+  /* Tag */
+  .tag {
+    display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px;
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    vertical-align: middle;
+  }
+  .tag-deployed { background: rgba(74,222,128,0.15); color: var(--green); }
+  .tag-new { background: rgba(179,136,255,0.15); color: var(--accent2); }
+  .tag-future { background: rgba(255,255,255,0.08); color: var(--muted); }
+  .tag-core { background: rgba(255,107,157,0.15); color: var(--accent3); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <h1><span>FOID</span> Foundation Architecture</h1>
+    <p>Complete system guide — contracts, frontend, APIs, and data flow</p>
+    <div class="badge-row">
+      <span class="badge badge-blue">Fluent Testnet (20994)</span>
+      <span class="badge badge-purple">Next.js 14 + wagmi + viem</span>
+      <span class="badge badge-pink">Solidity 0.8.24+</span>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+<!-- TABLE OF CONTENTS -->
+<nav class="toc">
+  <h2>Table of Contents</h2>
+  <ol>
+    <li><a href="#overview">System Overview — What Launches Day 1</a></li>
+    <li><a href="#contracts">Smart Contract Map — All 16 Contracts</a></li>
+    <li><a href="#contract-graph">Contract Dependency Graph</a></li>
+    <li><a href="#loreboard-flow">The Loreboard — Complete Flow</a></li>
+    <li><a href="#prayer-flow">Prayer System — Complete Flow</a></li>
+    <li><a href="#mifoid-flow">MiFOID Identity — Complete Flow</a></li>
+    <li><a href="#voting-power">Voting Power Chain — How Votes Are Weighted</a></li>
+    <li><a href="#epoch-system">Epoch System — Time &amp; Finalization</a></li>
+    <li><a href="#frontend-tree">Frontend Architecture — Pages, Hooks, State</a></li>
+    <li><a href="#api-routes">API Routes — Every Endpoint</a></li>
+    <li><a href="#deployment">Deployment Sequence — DeployV1</a></li>
+    <li><a href="#addresses">Contract Addresses — Canonical Registry</a></li>
+    <li><a href="#future">Future Features — FoidTrest &amp; DuelArena</a></li>
+  </ol>
+</nav>
+
+<!-- ================ SECTION 1 ================ -->
+<section id="overview">
+  <h2><span class="num">1</span> System Overview</h2>
+
+  <p>FOID Foundation is a faith-based meme infrastructure protocol on the <strong>Fluent blockchain</strong>. The platform has three core products launching on day 1, plus two future features kept in the codebase but hidden from navigation.</p>
+
+  <h3>Day 1 Launch Products</h3>
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title"><span class="dot dot-green"></span> Prayer Terminal <span class="tag tag-core">CORE</span></div>
+      <p><code>/pray</code> — Daily prayer ritual on-chain. Submit prayers with feelings, build streaks, earn tier progression. Streaks feed into voting power across the system.</p>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot dot-blue"></span> Loreboard <span class="tag tag-core">CORE</span></div>
+      <p><code>/board</code> — Infinite spatial canvas. Users place images on a 2D grid, vote on placements, epochs finalize winning art into a permanent on-chain manifest with a 1/1 live NFT.</p>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot dot-purple"></span> MiFOID <span class="tag tag-core">CORE</span></div>
+      <p><code>/mifoid</code> — One-per-wallet identity NFT. Frozen traits (prayer streak, duel wins, trest placements) + external IPFS visual. Holding grants bonus voting weight.</p>
+    </div>
+  </div>
+
+  <h3>Future Features (in codebase, hidden from nav)</h3>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title"><span class="dot dot-orange"></span> FoidTrest <span class="tag tag-future">FUTURE</span></div>
+      <p><code>/trest</code> — Permanent on-chain gallery. Two paths: pay a flat fee (FoidTrestDirect) or win a duel (DuelArena). Content moderation via FoidTrestGovernance.</p>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot dot-orange"></span> DuelArena <span class="tag tag-future">FUTURE</span></div>
+      <p><code>/duel</code> — Meme futarchy. 1v1 bracket duels with community voting. Winners get free gallery placement + MiFOID duel wins increment.</p>
+    </div>
+  </div>
+
+  <h3>High-Level Architecture</h3>
+  <div class="diagram">
+┌─────────────────────────────────────────────────────────────────┐
+│                        FRONTEND (Next.js 14)                     │
+│                                                                   │
+│  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐     │
+│  │  /pray   │   │  /board  │   │ /mifoid  │   │ /trest   │     │
+│  │ Terminal │   │ Loreboard│   │ Identity │   │ Gallery  │     │
+│  └────┬─────┘   └────┬─────┘   └────┬─────┘   └────┬─────┘     │
+│       │              │              │              │             │
+│  ┌────┴──────────────┴──────────────┴──────────────┴─────┐      │
+│  │           wagmi + viem + RainbowKit + React Query       │      │
+│  └────────────────────────┬────────────────────────────────┘      │
+│                           │                                       │
+│  ┌────────────────────────┴────────────────────────────────┐      │
+│  │                    API Routes (Next.js)                   │      │
+│  │  /api/proposals  /api/ipfs-upload  /api/operator/finalize │      │
+│  │  /api/manifest   /api/voting       /api/foid-mommy        │      │
+│  └────────────────────────┬────────────────────────────────┘      │
+└───────────────────────────┼───────────────────────────────────────┘
+                            │
+              ┌─────────────┼─────────────┐
+              │             │             │
+        ┌─────┴─────┐ ┌────┴────┐ ┌──────┴──────┐
+        │  Fluent   │ │ Goldsky │ │    IPFS     │
+        │ Testnet   │ │Subgraph │ │ Web3/Pinata │
+        │ (20994)   │ │ GraphQL │ │             │
+        └─────┬─────┘ └─────────┘ └─────────────┘
+              │
+┌─────────────┴──────────────────────────────────────────────────┐
+│                     SMART CONTRACTS (Solidity)                    │
+│                                                                    │
+│  ┌─── LOREBOARD STACK (deployed) ────────────────────────────┐    │
+│  │  LoreboardBoardV2  →  Treasury  →  ManifestStore         │    │
+│  │  LoreboardVotingV2 →  IVotingPower                       │    │
+│  │  LoreboardLiveNFT  →  Treasury + ManifestStore            │    │
+│  └───────────────────────────────────────────────────────────┘    │
+│                                                                    │
+│  ┌─── PRAYER STACK ─────────────────────────────────────────┐    │
+│  │  PrayerRegistry (submit)  →  PrayerMirror (read stats)   │    │
+│  │  PrayerTiers (10-tier system)  →  PrayerMirror            │    │
+│  └───────────────────────────────────────────────────────────┘    │
+│                                                                    │
+│  ┌─── VOTING POWER ────────────────────────────────────────┐     │
+│  │  StreakVotingPower  →  PrayerTiers + PrayerMirror + MiFOID│     │
+│  │  OnePerPlacementVotingPower (flat weight=1, v0 stub)      │     │
+│  └───────────────────────────────────────────────────────────┘    │
+│                                                                    │
+│  ┌─── IDENTITY ────────────────────────────────────────────┐     │
+│  │  MiFOID (ERC-721, 1 per wallet, frozen traits)           │     │
+│  └───────────────────────────────────────────────────────────┘    │
+│                                                                    │
+│  ┌─── TREST STACK (future) ────────────────────────────────┐     │
+│  │  FoidTrest  ←  FoidTrestDirect + DuelArena               │     │
+│  │  FoidTrestGovernance  →  FoidTrest.setVisibility          │     │
+│  └───────────────────────────────────────────────────────────┘    │
+└────────────────────────────────────────────────────────────────────┘</div>
+</section>
+
+<!-- ================ SECTION 2 ================ -->
+<section id="contracts">
+  <h2><span class="num">2</span> Smart Contract Map</h2>
+
+  <h3>Loreboard Stack <span class="tag tag-deployed">DEPLOYED</span></h3>
+
+  <table>
+    <thead><tr><th>Contract</th><th>Purpose</th><th>Key Functions</th><th>Admin</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>LoreboardBoardV2</code></td>
+        <td>Board entry point. Validates tile-aligned placements, stores CIDs, relays to Treasury + Voting.</td>
+        <td><code>proposePlacement()</code>, <code>finalizeEpochInVoting()</code></td>
+        <td><code>operator</code></td>
+      </tr>
+      <tr>
+        <td><code>LoreboardVotingV2</code></td>
+        <td>Rolling-window voting per placement. Time-derived epochs. Pluggable <code>IVotingPower</code>.</td>
+        <td><code>registerPlacement()</code>, <code>voteOnPlacement()</code>, <code>setVotingPowerSource()</code></td>
+        <td><code>boardAdmin</code></td>
+      </tr>
+      <tr>
+        <td><code>LoreBoardTreasury</code></td>
+        <td>Escrow. Accepts bids, holds winners' funds, auto-refunds losers.</td>
+        <td><code>proposePlacement()</code>, <code>finalizeEpoch()</code>, <code>withdraw()</code>, <code>sweepTreasury()</code></td>
+        <td><code>owner</code> + <code>operator</code></td>
+      </tr>
+      <tr>
+        <td><code>LoreBoardManifestStore</code></td>
+        <td>On-chain anchor for manifest CIDs. Tracks latest finalized epoch.</td>
+        <td><code>anchor(epoch, root, cid)</code>, <code>latest()</code>, <code>manifestOf(epoch)</code></td>
+        <td><code>owner</code></td>
+      </tr>
+      <tr>
+        <td><code>LoreboardLiveNFT</code></td>
+        <td>Single 1/1 ERC-721 that auto-updates to latest finalized epoch. ERC-4906 metadata.</td>
+        <td><code>syncLatest()</code> (permissionless), <code>tokenURI()</code></td>
+        <td>None (permissionless)</td>
+      </tr>
+      <tr>
+        <td><code>OnePerPlacement</code></td>
+        <td>V0 stub: flat weight = 1 for all voters. Being replaced by StreakVotingPower.</td>
+        <td><code>votingPowerOf()</code> → always returns 1</td>
+        <td>None</td>
+      </tr>
+      <tr>
+        <td><code>IVotingPower</code></td>
+        <td>Interface for pluggable vote weighting.</td>
+        <td><code>votingPowerOf(voter, epochId) → uint256</code></td>
+        <td>N/A</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Prayer Stack <span class="tag tag-deployed">DEPLOYED</span> + <span class="tag tag-new">NEW</span></h3>
+
+  <table>
+    <thead><tr><th>Contract</th><th>Purpose</th><th>Key Functions</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>PrayerRegistry</code> <span class="tag tag-deployed">DEPLOYED</span></td>
+        <td>Accepts prayer submissions. Stores keccak256 hashes on-chain.</td>
+        <td><code>submitPrayer(hash, feeling, category)</code>, <code>nextAllowedAt(addr)</code></td>
+      </tr>
+      <tr>
+        <td><code>PrayerMirror</code> <span class="tag tag-deployed">DEPLOYED</span></td>
+        <td>Read-only stats. Returns current streak, longest streak, total prayers.</td>
+        <td><code>get(addr) → (currentStreak, longestStreak, totalPrayers)</code></td>
+      </tr>
+      <tr>
+        <td><code>PrayerTiers</code> <span class="tag tag-new">NEW</span></td>
+        <td>10-tier progression. Reads PrayerMirror, returns tier + multiplier. Tracks highest tier.</td>
+        <td><code>getTier(streak)</code>, <code>getTierForAddress(addr)</code>, <code>getMultiplierBps(streak)</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Identity <span class="tag tag-new">NEW</span></h3>
+
+  <table>
+    <thead><tr><th>Contract</th><th>Purpose</th><th>Key Functions</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>MiFOID</code></td>
+        <td>ERC-721 identity NFT. One per wallet. Frozen traits at mint. External IPFS visual.</td>
+        <td><code>mint()</code>, <code>holdsToken(addr)</code>, <code>getTraits(id)</code>, <code>setTokenURI(id, uri)</code></td>
+      </tr>
+      <tr>
+        <td><code>StreakVotingPower</code></td>
+        <td>IVotingPower implementation. weight = (base × tierMultiplier / 100) + mifoidBonus</td>
+        <td><code>votingPowerOf(voter, epoch)</code>, <code>setConfig(base, bonus)</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Trest Stack <span class="tag tag-future">FUTURE</span></h3>
+
+  <table>
+    <thead><tr><th>Contract</th><th>Purpose</th><th>Key Functions</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>FoidTrest</code></td>
+        <td>Permanent on-chain gallery. Immutable entries. Two entry points.</td>
+        <td><code>addEntry()</code>, <code>setVisibility()</code>, <code>authorizeEntryPoint()</code></td>
+      </tr>
+      <tr>
+        <td><code>FoidTrestDirect</code></td>
+        <td>Path 1: pay flat fee → gallery placement.</td>
+        <td><code>placeDirect(cid, title, desc)</code> (payable)</td>
+      </tr>
+      <tr>
+        <td><code>DuelArena</code></td>
+        <td>Path 2: submit meme → 1v1 duel → community vote → winner to gallery.</td>
+        <td><code>submit(cid)</code>, <code>matchDuel()</code>, <code>vote()</code>, <code>finalizeDuel()</code></td>
+      </tr>
+      <tr>
+        <td><code>FoidTrestGovernance</code></td>
+        <td>Content moderation: flag posts → threshold triggers removal vote → majority hides content.</td>
+        <td><code>flagPost()</code>, <code>voteOnRemoval()</code>, <code>resolveRemovalVote()</code></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ================ SECTION 3 ================ -->
+<section id="contract-graph">
+  <h2><span class="num">3</span> Contract Dependency Graph</h2>
+
+  <div class="diagram">
+<span class="cmt">═══▶  immutable dependency (set in constructor)</span>
+<span class="cmt">───▶  mutable reference (can be swapped by admin)</span>
+<span class="cmt">~~~▶  dynamic call (staticcall / call at runtime)</span>
+
+<span class="kw">════════════════════════════════════════════════════════════════════════</span>
+<span class="kw"> LOREBOARD STACK</span>
+<span class="kw">════════════════════════════════════════════════════════════════════════</span>
+
+  ┌──────────────────┐         ┌──────────────────┐
+  │  LoreboardBoard  │═══════▶│  LoreBoardTreasury│
+  │       V2         │         │  (escrow + settle)│
+  │  (entry point)   │         └──────────────────┘
+  └────────┬─────────┘                ▲
+           │                          │ reads manifestRootOf()
+           ║ ═══════════▶ ┌──────────┴─────────┐
+           │              │  LoreboardLiveNFT   │
+           │              │  (1/1, auto-update)  │
+           │              └──────────┬──────────┘
+           │                         │ reads latest()
+           ║                         ▼
+           ║              ┌────────────────────┐
+           ║              │ LoreBoardManifest   │
+           ║              │     Store           │
+           ║              │ (anchor epoch→CID)  │
+           ║              └────────────────────┘
+           ║
+           ╠═══════════▶ ┌──────────────────────┐
+                         │  LoreboardVotingV2    │
+                         │  (rolling windows)    │
+                         └──────────┬────────────┘
+                                    │
+                         ───────────┤  votingPowerSource (swappable!)
+                                    │
+                    ┌───────────────┴───────────────┐
+                    │                               │
+         ┌─────────┴──────────┐         ┌──────────┴──────────┐
+         │ OnePerPlacement    │         │  StreakVotingPower   │
+         │ VotingPower (v0)   │         │  (NEW - tier based) │
+         │ returns flat 1     │         └──────────┬──────────┘
+         └────────────────────┘                    │
+                                         ┌─────────┼──────────┐
+                                         │         │          │
+                                         ▼         ▼          ▼
+                                    PrayerTiers  PrayerMirror  MiFOID
+                                    (10 tiers)   (streaks)   (bonus)
+
+<span class="kw">════════════════════════════════════════════════════════════════════════</span>
+<span class="kw"> PRAYER STACK</span>
+<span class="kw">════════════════════════════════════════════════════════════════════════</span>
+
+  ┌──────────────────┐         ┌──────────────────┐
+  │ PrayerRegistry   │────────▶│  PrayerMirror    │
+  │ (submit prayers) │ writes  │ (read-only stats)│
+  └──────────────────┘         └────────┬─────────┘
+                                        │ get(addr)
+                               ┌────────┴─────────┐
+                               │   PrayerTiers     │
+                               │ (Whisper → Foid   │
+                               │  Sovereign)       │
+                               └───────────────────┘
+
+<span class="kw">════════════════════════════════════════════════════════════════════════</span>
+<span class="kw"> TREST STACK (FUTURE)</span>
+<span class="kw">════════════════════════════════════════════════════════════════════════</span>
+
+  ┌──────────────┐     ┌────────────────┐
+  │FoidTrestDirect│════▶│   FoidTrest    │◀════┌──────────────┐
+  │ (pay fee)    │     │  (gallery)     │     │  DuelArena   │
+  └──────────────┘     └───────┬────────┘     │ (1v1 duels)  │
+                               │              └──────┬───────┘
+                    setVisibility()                   │
+                               │              incrementDuelWins()
+                               ▼                     ▼
+                   ┌──────────────────┐        ┌──────────┐
+                   │FoidTrestGovernance│        │  MiFOID  │
+                   │ (flag → vote →   │        │  (NFT)   │
+                   │  hide content)   │        └──────────┘
+                   └──────────────────┘</div>
+</section>
+
+<!-- ================ SECTION 4 ================ -->
+<section id="loreboard-flow">
+  <h2><span class="num">4</span> The Loreboard — Complete Flow</h2>
+
+  <p>The Loreboard is the <strong>core launch product</strong>. It's an infinite spatial canvas where anyone can propose placing images. Community votes decide what stays. Each epoch finalizes winning art into a permanent on-chain manifest.</p>
+
+  <h3>Step 1: Image Upload</h3>
+  <div class="flow">
+    <span class="flow-box fb-blue">User drags image</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-blue">uploadImage()</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">POST /api/ipfs-upload</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-green">Web3.Storage / Pinata</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-green">Returns CID</span>
+  </div>
+  <div class="callout">
+    <strong>IPFS Pipeline:</strong> Primary = Web3.Storage (WEB3_STORAGE_TOKEN). Fallback = Pinata (PINATA_JWT). 3 retries with exponential backoff (1s, 2s, 4s). 5MB file limit. Returns <code>null</code> on 501 (IPFS disabled) for graceful dev fallback.
+  </div>
+
+  <h3>Step 2: Grid Placement</h3>
+  <div class="flow">
+    <span class="flow-box fb-blue">User places on canvas</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-blue">snapRect()</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-blue">hasOverlap()?</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-blue">worldToContractRect()</span>
+  </div>
+  <div class="card">
+    <div class="card-title">Grid System Constants</div>
+    <pre><code>TILE          = 32px           <span class="cmt">// smallest unit</span>
+WORLD_RADIUS  = 128 tiles      <span class="cmt">// ±128 tiles from genesis</span>
+VIRTUAL_CANVAS= 8192 × 8192 px <span class="cmt">// total world space</span>
+BOARD_OFFSET  = 4096, 4096     <span class="cmt">// center offset for contract coords</span></code></pre>
+    <p>All coordinates snap to 32px grid. <code>grid.ts</code> handles snapping, overlap detection, and cell counting. <code>boardSpace.ts</code> converts between world coordinates (centered at 0,0) and contract coordinates (unsigned integers).</p>
+  </div>
+
+  <h3>Step 3: Proposal Submission (On-Chain)</h3>
+  <div class="flow">
+    <span class="flow-box fb-blue">writeProposePlacement()</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">LoreboardBoardV2</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">Treasury.proposePlacement()</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-green">Escrow locked</span>
+  </div>
+  <pre><code><span class="cmt">// LoreboardBoardV2.proposePlacement(x, y, w, h, bidPerCellWei, cidBytes)</span>
+<span class="cmt">// 1. Validate tile alignment (x, y, w, h must be multiples of TILE)</span>
+<span class="cmt">// 2. Compute cells = (w / TILE) * (h / TILE)</span>
+<span class="cmt">// 3. Store cidOf[placementId] = cidBytes</span>
+<span class="cmt">// 4. Forward to Treasury with msg.value as escrow</span>
+<span class="cmt">// 5. Emit PlacementProposed event</span>
+<span class="cmt">// msg.value must == bidPerCellWei * cells</span></code></pre>
+
+  <h3>Step 4: Voting Registration</h3>
+  <div class="flow">
+    <span class="flow-box fb-purple">POST /api/voting/bootstrap</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">VotingV2.registerPlacement(id)</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-green">Vote window starts</span>
+  </div>
+  <div class="callout">
+    <strong>Rolling Windows:</strong> Each placement gets its own vote window = <code>registeredAt + voteWindowSeconds</code> (default 3 days). Epoch ID is derived from the end of the vote window. This means placements registered near epoch boundaries will finalize in the next epoch.
+  </div>
+
+  <h3>Step 5: Community Voting</h3>
+  <div class="flow">
+    <span class="flow-box fb-blue">User clicks YES/NO</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">VotingV2.voteOnPlacement()</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">IVotingPower.votingPowerOf(voter)</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-green">Weighted vote recorded</span>
+  </div>
+  <pre><code><span class="cmt">// VotingV2 vote flow:</span>
+<span class="fn">uint256</span> weight = votingPowerSource.<span class="fn">votingPowerOf</span>(msg.sender, epochId);
+<span class="kw">require</span>(weight > <span class="num-lit">0</span>, <span class="str">"no voting power"</span>);
+placementYesVotes[epochId][placementId] += weight;  <span class="cmt">// or noVotes</span>
+<span class="kw">emit</span> <span class="fn">VoteCast</span>(epochId, placementId, msg.sender, support, weight);</code></pre>
+
+  <h3>Step 6: Epoch Finalization</h3>
+  <div class="flow">
+    <span class="flow-box fb-orange">POST /api/operator/finalize</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">Read votes from VotingV2</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-blue">Select winners (quorum + 51%)</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-green">Upload manifest to IPFS</span>
+  </div>
+  <div class="flow">
+    <span class="flow-box fb-green">manifest CID</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">Treasury.finalizeEpoch()</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">ManifestStore.anchor()</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-green">On-chain permanent record</span>
+  </div>
+  <div class="card">
+    <div class="card-title">Finalization Pipeline (operator/finalize)</div>
+    <ol>
+      <li>Load base board from ManifestStore (or log scan fallback)</li>
+      <li>Query VotingV2: <code>getPlacementVotes()</code>, <code>meetsQuorum()</code>, <code>passesMajority51()</code></li>
+      <li>Select winners: quorum met + 51% majority + no spatial overlap with higher-bid winners</li>
+      <li>Generate manifest JSON: <code>{ epoch, placements[], finalizedAt }</code></li>
+      <li>Upload manifest to IPFS → get CID</li>
+      <li>Call <code>Treasury.finalizeEpoch(epoch, root, cid, accepted[], rejected[])</code></li>
+      <li>Call <code>ManifestStore.anchor(epoch, root, cid)</code></li>
+      <li>Treasury auto-refunds losers (push), accumulates winners' funds</li>
+    </ol>
+  </div>
+
+  <h3>Step 7: Live NFT Update</h3>
+  <div class="flow">
+    <span class="flow-box fb-blue">Anyone calls syncLatest()</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">LoreboardLiveNFT</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">Reads Treasury.manifestRootOf()</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">Reads ManifestStore.latest()</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-green">NFT metadata updated (ERC-4906)</span>
+  </div>
+
+  <h3>Data Sources for /board Page</h3>
+  <table>
+    <thead><tr><th>Data</th><th>Source</th><th>How</th></tr></thead>
+    <tbody>
+      <tr><td>Active proposals</td><td>Goldsky subgraph</td><td>GET /api/proposals → GraphQL query</td></tr>
+      <tr><td>Vote counts</td><td>Goldsky + on-chain</td><td>VoteCast events + getPlacementVotes()</td></tr>
+      <tr><td>Finalized placements</td><td>ManifestStore</td><td>GET /api/manifest/latest → IPFS manifest JSON</td></tr>
+      <tr><td>CIDs for images</td><td>On-chain multicall</td><td>cidOf() from Board contract</td></tr>
+      <tr><td>Current epoch</td><td>Computed</td><td>lib/epoch.ts: (now - epochZero) / epochSeconds</td></tr>
+      <tr><td>Grid state</td><td>Zustand store</td><td>state/board.ts: useBoard()</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ================ SECTION 5 ================ -->
+<section id="prayer-flow">
+  <h2><span class="num">5</span> Prayer System — Complete Flow</h2>
+
+  <h3>Prayer Submission Flow</h3>
+  <div class="flow">
+    <span class="flow-box fb-blue">User selects feeling</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-blue">FoidMommy conversation</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">POST /api/foid-mommy</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-orange">OpenAI GPT-4o-mini</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-green">Prayer text generated</span>
+  </div>
+  <div class="flow">
+    <span class="flow-box fb-green">Prayer text</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-blue">keccak256(prayer)</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">PrayerRegistry.submitPrayer(hash, feeling, category)</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-green">On-chain ✓</span>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Prayer Submission Details</div>
+    <ul>
+      <li><strong>Feelings:</strong> happy, calm, hopeful, stressed, sad, angry, tired, lost, guilty, pain</li>
+      <li><strong>Two-turn conversation:</strong> First call generates Foid Mommy acknowledgment. Second call (with user response) generates the prayer text.</li>
+      <li><strong>On-chain data:</strong> Only the keccak256 hash is stored. Full text stays off-chain.</li>
+      <li><strong>Rate limit:</strong> One prayer per wallet per 24 hours (enforced by PrayerRegistry.nextAllowedAt)</li>
+      <li><strong>PRAYER_CATEGORY = 1</strong> (bigint constant)</li>
+    </ul>
+  </div>
+
+  <h3>Streak System</h3>
+  <div class="flow">
+    <span class="flow-box fb-purple">PrayerRegistry</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">PrayerMirror</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-green">currentStreak, longestStreak, totalPrayers</span>
+  </div>
+  <div class="callout">
+    PrayerMirror is a read-only contract. It mirrors data from PrayerRegistry and exposes it via <code>get(address) → (currentStreak, longestStreak, totalPrayers)</code>. This is the single source of truth for streak data consumed by PrayerTiers, StreakVotingPower, and MiFOID.
+  </div>
+
+  <h3>10-Tier System (PrayerTiers.sol)</h3>
+  <table>
+    <thead><tr><th>Level</th><th>Tier Name</th><th>Min Streak</th><th>Multiplier</th><th>BPS</th></tr></thead>
+    <tbody>
+      <tr><td>0</td><td>Unranked</td><td>0 days</td><td>1.0×</td><td>100</td></tr>
+      <tr><td>1</td><td>Whisper</td><td>1 day</td><td>1.0×</td><td>100</td></tr>
+      <tr><td>2</td><td>Ember</td><td>3 days</td><td>1.25×</td><td>125</td></tr>
+      <tr><td>3</td><td>Devotee</td><td>7 days</td><td>1.5×</td><td>150</td></tr>
+      <tr><td>4</td><td>Flame Keeper</td><td>14 days</td><td>1.75×</td><td>175</td></tr>
+      <tr><td>5</td><td>Covenant</td><td>21 days</td><td>2.0×</td><td>200</td></tr>
+      <tr><td>6</td><td>Oracle</td><td>30 days</td><td>2.5×</td><td>250</td></tr>
+      <tr><td>7</td><td>Ascendant</td><td>45 days</td><td>3.0×</td><td>300</td></tr>
+      <tr><td>8</td><td>Archon</td><td>60 days</td><td>3.5×</td><td>350</td></tr>
+      <tr><td>9</td><td>Eternal Witness</td><td>75 days</td><td>4.0×</td><td>400</td></tr>
+      <tr><td>10</td><td>Foid Sovereign</td><td>90 days</td><td>5.0×</td><td>500</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Tier UI on /pray Page</h3>
+  <p>The prayer page shows a tier progress indicator after the stats grid. It displays the current tier name, a progress bar showing days toward the next tier, and the next tier's name and requirement.</p>
+  <pre><code><span class="cmt">// Client-side tier computation (no contract call needed)</span>
+<span class="kw">import</span> { getTierFromStreak } <span class="kw">from</span> <span class="str">"@/hooks/usePrayerTiers"</span>;
+
+<span class="kw">const</span> tierProgress = getTierFromStreak(currentStreak);
+<span class="cmt">// → { current: "Devotee", next: "Flame Keeper", daysToNext: 7, progressPercent: 50 }</span></code></pre>
+</section>
+
+<!-- ================ SECTION 6 ================ -->
+<section id="mifoid-flow">
+  <h2><span class="num">6</span> MiFOID Identity — Complete Flow</h2>
+
+  <h3>Minting Flow</h3>
+  <div class="flow">
+    <span class="flow-box fb-blue">User clicks "Mint MiFOID"</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">MiFOID.mint()</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">PrayerMirror.get(user)</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-green">Traits frozen at mint</span>
+  </div>
+  <div class="card">
+    <div class="card-title">MiFOID Traits (Frozen at Mint)</div>
+    <pre><code><span class="kw">struct</span> Traits {
+    <span class="fn">uint64</span>  mintedAt;          <span class="cmt">// block.timestamp</span>
+    <span class="fn">uint256</span> mintStreak;        <span class="cmt">// currentStreak from PrayerMirror</span>
+    <span class="fn">uint256</span> duelWins;          <span class="cmt">// starts at 0, incremented by DuelArena</span>
+    <span class="fn">uint256</span> trestPlacements;   <span class="cmt">// starts at 0, incremented by FoidTrest</span>
+}</code></pre>
+    <ul>
+      <li><strong>One per wallet.</strong> <code>hasMiFOID[addr]</code> prevents double-minting.</li>
+      <li><strong>Mint fee:</strong> Configurable (MIFOID_MINT_FEE env var, default 0).</li>
+      <li><strong>Traits are frozen</strong> except duelWins and trestPlacements which can be incremented by authorized updaters.</li>
+      <li><strong>Visual is external:</strong> Owner sets IPFS URI via <code>setTokenURI(tokenId, ipfsUri)</code>.</li>
+    </ul>
+  </div>
+
+  <h3>MiFOID Grants Bonus Voting Power</h3>
+  <div class="flow">
+    <span class="flow-box fb-purple">StreakVotingPower.votingPowerOf(voter)</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-purple">MiFOID.holdsToken(voter)?</span>
+    <span class="arrow">→</span>
+    <span class="flow-box fb-green">+ mifoidBonus (e.g. +50)</span>
+  </div>
+
+  <h3>/mifoid Page Features</h3>
+  <ul>
+    <li>Show current prayer streak + tier progression</li>
+    <li>Mint button (if no MiFOID yet)</li>
+    <li>Display frozen traits: mintStreak, mintedAt, duelWins, trestPlacements</li>
+    <li>Voting power preview from StreakVotingPower contract</li>
+    <li>10-tier display matching PrayerTiers.sol</li>
+  </ul>
+</section>
+
+<!-- ================ SECTION 7 ================ -->
+<section id="voting-power">
+  <h2><span class="num">7</span> Voting Power Chain</h2>
+
+  <p>The <code>IVotingPower</code> interface is the key abstraction. Any contract that needs weighted voting (Loreboard, DuelArena, FoidTrestGovernance) delegates to this interface.</p>
+
+  <h3>The Formula</h3>
+  <pre><code><span class="cmt">// StreakVotingPower.votingPowerOf(voter, epochId)</span>
+
+<span class="fn">uint256</span> streak = _readStreak(voter);         <span class="cmt">// PrayerMirror.get(voter).currentStreak</span>
+<span class="fn">uint256</span> multiplier = _getTierMultiplier(streak); <span class="cmt">// PrayerTiers.getMultiplierBps(streak)</span>
+<span class="fn">bool</span>    hasMiFOID = _holdsMiFOID(voter);       <span class="cmt">// MiFOID.holdsToken(voter)</span>
+
+<span class="fn">uint256</span> weight = (baseWeight * multiplier) / <span class="num-lit">100</span>;
+<span class="kw">if</span> (hasMiFOID) weight += mifoidBonus;
+
+<span class="kw">return</span> weight;</code></pre>
+
+  <h3>Example Calculations</h3>
+  <table>
+    <thead><tr><th>Voter Profile</th><th>Streak</th><th>Tier</th><th>Multiplier</th><th>MiFOID?</th><th>Weight</th></tr></thead>
+    <tbody>
+      <tr><td>New user (no streak)</td><td>0</td><td>Unranked</td><td>100 bps (1×)</td><td>No</td><td>100</td></tr>
+      <tr><td>3-day streak</td><td>3</td><td>Ember</td><td>125 bps (1.25×)</td><td>No</td><td>125</td></tr>
+      <tr><td>7-day + MiFOID</td><td>7</td><td>Devotee</td><td>150 bps (1.5×)</td><td>Yes</td><td>200</td></tr>
+      <tr><td>30-day + MiFOID</td><td>30</td><td>Oracle</td><td>250 bps (2.5×)</td><td>Yes</td><td>300</td></tr>
+      <tr><td>90-day Sovereign + MiFOID</td><td>90</td><td>Foid Sovereign</td><td>500 bps (5×)</td><td>Yes</td><td>550</td></tr>
+    </tbody>
+  </table>
+  <p class="muted" style="color:var(--muted);font-size:0.85rem;">With baseWeight=100, mifoidBonus=50</p>
+
+  <h3>Where Voting Power Is Used</h3>
+  <table>
+    <thead><tr><th>System</th><th>Contract</th><th>What Gets Weighted</th></tr></thead>
+    <tbody>
+      <tr><td>Loreboard</td><td>LoreboardVotingV2</td><td>YES/NO votes on placement proposals</td></tr>
+      <tr><td>Duels (future)</td><td>DuelArena</td><td>Side A / Side B votes in 1v1 duels</td></tr>
+      <tr><td>Governance (future)</td><td>FoidTrestGovernance</td><td>Remove / Keep votes on flagged content</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Hot-Swapping: OnePerPlacement → StreakVotingPower</h3>
+  <pre><code><span class="cmt">// At deployment (DeployV1.s.sol), if LOREBOARD_VOTING_V2 env is set:</span>
+LoreboardVotingV2 loreboardVoting = LoreboardVotingV2(loreboardVotingAddr);
+loreboardVoting.<span class="fn">setVotingPowerSource</span>(<span class="kw">address</span>(streakVotingPower));
+<span class="cmt">// All future Loreboard votes now use streak-weighted power</span></code></pre>
+</section>
+
+<!-- ================ SECTION 8 ================ -->
+<section id="epoch-system">
+  <h2><span class="num">8</span> Epoch System</h2>
+
+  <h3>Time-Derived Epochs</h3>
+  <pre><code><span class="cmt">// Epoch ID is deterministic from time:</span>
+epochId = (timestamp - epochZeroUnix) / epochSeconds
+
+<span class="cmt">// Main board configuration:</span>
+epochZeroUnix    = <span class="num-lit">1730937600</span>  <span class="cmt">// Nov 7 2024 00:00 UTC</span>
+epochSeconds     = <span class="num-lit">86400</span>       <span class="cmt">// 1 day</span>
+voteWindowSeconds= <span class="num-lit">259200</span>      <span class="cmt">// 3 days</span>
+
+<span class="cmt">// Agent board (fast experiments):</span>
+AGENT_EPOCH_ZERO   = <span class="num-lit">1770791951</span>
+AGENT_EPOCH_LENGTH = <span class="num-lit">3600</span>   <span class="cmt">// 1 hour</span>
+AGENT_VOTE_WINDOW  = <span class="num-lit">10800</span>  <span class="cmt">// 3 hours</span></code></pre>
+
+  <h3>Epoch Lifecycle</h3>
+  <div class="diagram">
+  EPOCH N-1 (finalized)     EPOCH N (active)          EPOCH N+1
+  ├─────────────────────┤  ├──────────────────────┤  ├──────────
+  │ placements visible  │  │ new proposals come in │  │
+  │ votes settled       │  │ voting windows close  │  │
+  │ manifest anchored   │  │ finalization runs     │  │
+  └─────────────────────┘  └──────────────────────┘  └──────────
+
+  Per-Placement Vote Window (rolling, not epoch-aligned):
+  ┌───────────────────────────────────────────────┐
+  │  registerPlacement()  ─────────────────────── voteEndsAt
+  │         ↑                                      ↑
+  │    registeredAt                    registeredAt + 259200s
+  │    (any time)                      (3 days later)
+  └───────────────────────────────────────────────┘
+  epochId = epochAt(voteEndsAt)  ← derived from when vote window closes</div>
+</section>
+
+<!-- ================ SECTION 9 ================ -->
+<section id="frontend-tree">
+  <h2><span class="num">9</span> Frontend Architecture</h2>
+
+  <h3>Provider Stack (Root)</h3>
+  <div class="diagram">
+  layout.tsx
+  └── Providers (providers.tsx)
+      ├── WagmiProvider (wagmi config)
+      │   └── QueryClientProvider (react-query, 10s stale)
+      │       └── RainbowKitProvider (wallet UI)
+      │           ├── Toaster (react-hot-toast)
+      │           ├── NetworkSwitcher
+      │           └── {children}
+      ├── AnimatedBackground
+      ├── FloatingElements
+      ├── SfxInitializer
+      └── SoundToggle</div>
+
+  <h3>Page → Component → Hook → Contract Flow</h3>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-green"></span> /pray — Prayer Terminal</div>
+    <div class="diagram">
+  /pray/page.tsx
+  ├── AppTitlebar
+  ├── FoidMommyTerminal (conversation UI)
+  ├── MobileWalletButton
+  ├── PrayerErrorBoundary
+  │
+  ├── Hooks:
+  │   ├── useAccount() → wallet address
+  │   ├── useHaptic() → vibration feedback
+  │   ├── usePrayerTiers.getTierFromStreak() → tier progress
+  │   ├── useReadContract() → PrayerMirror stats
+  │   └── useReadContract() → PrayerRegistry nextAllowedAt
+  │
+  ├── Contract Calls:
+  │   ├── PrayerRegistry.submitPrayer(hash, feeling, 1)  [write]
+  │   └── PrayerMirror.get(addr)  [read]
+  │
+  └── API Calls:
+      └── POST /api/foid-mommy → OpenAI prayer generation</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-blue"></span> /board — Loreboard</div>
+    <div class="diagram">
+  /board/page.tsx (2,062 lines)
+  ├── Components:
+  │   ├── PlacementCard, PlacementModal
+  │   ├── LoreboardNotification
+  │   ├── CompactMusicPlayer
+  │   ├── TerminalChat
+  │   ├── VotingItem
+  │   ├── MobileBoard, MobileWalletButton
+  │   ├── GestureHint, Y2kActionButton
+  │   └── AppTitlebar
+  │
+  ├── Hooks:
+  │   ├── useEpochCountdown() → epoch timer
+  │   ├── useLatestManifestFromChain() → finalized state
+  │   ├── useMobile() → responsive layout
+  │   └── useBoard() → zustand grid state
+  │
+  ├── Libraries:
+  │   ├── grid.ts → TILE, snapRect, hasOverlap
+  │   ├── boardSpace.ts → worldToContractRect
+  │   ├── boardCoordinates.ts → toStageRect, zoom
+  │   ├── ipfs.ts → uploadImage
+  │   ├── manifest.ts → getLatestNormalized
+  │   └── viem.ts → writeProposePlacement
+  │
+  ├── Contract Calls:
+  │   ├── LoreboardBoardV2.proposePlacement()  [write]
+  │   └── Various reads via multicall
+  │
+  └── API Calls:
+      ├── GET /api/proposals → active proposals
+      ├── POST /api/ipfs-upload → image upload
+      ├── GET /api/manifest/latest → finalized board
+      └── POST /api/voting/bootstrap → register for voting</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="dot dot-purple"></span> /mifoid — Identity NFT</div>
+    <div class="diagram">
+  /mifoid/page.tsx
+  ├── Hooks:
+  │   ├── useAccount() → wallet
+  │   ├── useUserStats(addr) → prayer stats
+  │   └── useReadContract() → MiFOID + StreakVotingPower
+  │
+  ├── Contract Calls:
+  │   ├── MiFOID.hasMiFOID(addr)  [read]
+  │   ├── MiFOID.getTraits(tokenId)  [read]
+  │   ├── MiFOID.mint()  [write, payable]
+  │   └── StreakVotingPower.votingPowerOf(addr, 0)  [read]
+  │
+  └── No API calls (pure on-chain)</div>
+  </div>
+
+  <h3>Key Hooks Reference</h3>
+  <table>
+    <thead><tr><th>Hook</th><th>Contract</th><th>Returns</th></tr></thead>
+    <tbody>
+      <tr><td><code>useUserStats(addr)</code></td><td>PrayerMirror, PrayerRegistry</td><td>streak, longest, total, nextPrayerAt</td></tr>
+      <tr><td><code>usePrayerTiers(addr)</code></td><td>PrayerTiers</td><td>tier, highestTier, allTiers</td></tr>
+      <tr><td><code>useEpochCountdown()</code></td><td>None (computed)</td><td>index, remainingMs, enabled</td></tr>
+      <tr><td><code>useLatestManifestFromChain()</code></td><td>ManifestStore</td><td>manifest, epoch</td></tr>
+      <tr><td><code>usePendingProposals()</code></td><td>Board (events), Voting</td><td>proposals[], loading</td></tr>
+      <tr><td><code>usePlacementVotes(id)</code></td><td>LoreboardVotingV2</td><td>yes, no, meetsQuorum, passesMajority</td></tr>
+      <tr><td><code>useVoteOnPlacement()</code></td><td>LoreboardVotingV2</td><td>vote(), txHash, isConfirmed</td></tr>
+      <tr><td><code>useClaimableRefund(addr)</code></td><td>Treasury</td><td>claimableWei, withdraw()</td></tr>
+      <tr><td><code>useUserPlacements(addr)</code></td><td>API: /api/proposals</td><td>placements[], refresh()</td></tr>
+      <tr><td><code>useFoidTrestGovernance()</code></td><td>FoidTrestGovernance</td><td>flagPost(), voteOnRemoval(), resolveRemovalVote()</td></tr>
+    </tbody>
+  </table>
+
+  <h3>State Management</h3>
+  <table>
+    <thead><tr><th>Store</th><th>Type</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>state/board.ts</code></td><td>Zustand</td><td>Board placement state, pending items, grid interaction</td></tr>
+      <tr><td><code>lib/proposalStore.ts</code></td><td>Singleton (client)</td><td>Client-side proposal cache (HMR-safe)</td></tr>
+      <tr><td><code>api/_store.ts</code></td><td>Singleton (server)</td><td>Server-side proposals, manifests, votes (in-memory)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ================ SECTION 10 ================ -->
+<section id="api-routes">
+  <h2><span class="num">10</span> API Routes</h2>
+
+  <h3>Core Board APIs</h3>
+  <table>
+    <thead><tr><th>Route</th><th>Method</th><th>Purpose</th><th>External Calls</th></tr></thead>
+    <tbody>
+      <tr><td><code>/api/proposals</code></td><td>GET</td><td>Fetch all proposals with voting data</td><td>Goldsky GraphQL, on-chain multicall</td></tr>
+      <tr><td><code>/api/ipfs-upload</code></td><td>POST</td><td>Upload image to IPFS</td><td>Web3.Storage / Pinata API</td></tr>
+      <tr><td><code>/api/manifest/latest</code></td><td>GET</td><td>Latest finalized manifest from chain</td><td>ManifestStore contract, IPFS gateway</td></tr>
+      <tr><td><code>/api/voting/bootstrap</code></td><td>POST</td><td>Register placement for on-chain voting</td><td>LoreboardVotingV2 contract</td></tr>
+      <tr><td><code>/api/operator/finalize</code></td><td>POST</td><td>Finalize epoch: settle votes, anchor manifest</td><td>VotingV2, Treasury, ManifestStore, IPFS</td></tr>
+      <tr><td><code>/api/votes</code></td><td>GET</td><td>User's voting history</td><td>Goldsky GraphQL</td></tr>
+      <tr><td><code>/api/status</code></td><td>GET</td><td>Current epoch + latest finalized info</td><td>ManifestStore contract</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Prayer / Foid Mommy APIs</h3>
+  <table>
+    <thead><tr><th>Route</th><th>Method</th><th>Purpose</th><th>External Calls</th></tr></thead>
+    <tbody>
+      <tr><td><code>/api/foid-mommy</code></td><td>POST</td><td>Two-turn prayer generation conversation</td><td>OpenAI GPT-4o-mini</td></tr>
+      <tr><td><code>/api/agent/pray</code></td><td>POST</td><td>Agent prayer submission (EIP-191 auth)</td><td>OpenAI, PrayerRegistry (write)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Agent Board APIs (Separate Board, Fast Epochs)</h3>
+  <table>
+    <thead><tr><th>Route</th><th>Method</th><th>Purpose</th><th>Auth</th></tr></thead>
+    <tbody>
+      <tr><td><code>/api/agent/board</code></td><td>GET</td><td>Agent board state + proposals</td><td>None</td></tr>
+      <tr><td><code>/api/agent/propose</code></td><td>POST</td><td>Submit proposal (free, relayed)</td><td>EIP-191 sig</td></tr>
+      <tr><td><code>/api/agent/vote</code></td><td>POST</td><td>Cast vote (relayed)</td><td>EIP-191 sig</td></tr>
+      <tr><td><code>/api/agent/status/[wallet]</code></td><td>GET</td><td>Wallet stats + prayer info</td><td>None</td></tr>
+      <tr><td><code>/api/agent/docs</code></td><td>GET</td><td>API documentation (markdown)</td><td>None</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Utility APIs</h3>
+  <table>
+    <thead><tr><th>Route</th><th>Method</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>/api/health</code></td><td>GET</td><td>Server health (memory, uptime)</td></tr>
+      <tr><td><code>/api/ipfs/[cid]</code></td><td>GET</td><td>IPFS proxy (Pinata gateway + fallback)</td></tr>
+      <tr><td><code>/api/cid-by-id</code></td><td>GET</td><td>Proposal ID → CID lookup</td></tr>
+      <tr><td><code>/api/mempool</code></td><td>GET</td><td>Pending local proposals (sorted by bid)</td></tr>
+      <tr><td><code>/api/vanity-deploy</code></td><td>POST</td><td>Grind salt for vanity contract address</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ================ SECTION 11 ================ -->
+<section id="deployment">
+  <h2><span class="num">11</span> Deployment Sequence (DeployV1.s.sol)</h2>
+
+  <div class="diagram">
+<span class="fn">Step 1:</span>  Deploy <span class="kw">PrayerTiers</span>(prayerMirror)
+              │
+<span class="fn">Step 2:</span>  Deploy <span class="kw">StreakVotingPower</span>(prayerMirror, address(0), baseWeight, mifoidBonus)
+              ├── setPrayerTiers(PrayerTiers)
+              │
+<span class="fn">Step 3:</span>  Deploy <span class="kw">MiFOID</span>(prayerMirror, mintFee)
+              │
+<span class="fn">Step 4:</span>  Wire: StreakVotingPower.<span class="fn">setMifoidNFT</span>(MiFOID)
+              │
+<span class="fn">Step 5:</span>  Deploy <span class="kw">FoidTrest</span>()
+              │
+<span class="fn">Step 6:</span>  Deploy <span class="kw">FoidTrestDirect</span>(FoidTrest, feeRecipient, placementFeeWei)
+              │
+<span class="fn">Step 7:</span>  Deploy <span class="kw">DuelArena</span>(FoidTrest, StreakVotingPower, operator, votingWindow, submissionFee)
+              ├── setMifoidNFT(MiFOID)
+              │
+<span class="fn">Step 8:</span>  Deploy <span class="kw">FoidTrestGovernance</span>(FoidTrest, StreakVotingPower, feeRecipient, flagFee, threshold, window)
+              │
+<span class="fn">Step 9:</span>  Wire authorizations:
+              ├── FoidTrest.<span class="fn">authorizeEntryPoint</span>(FoidTrestDirect)
+              ├── FoidTrest.<span class="fn">authorizeEntryPoint</span>(DuelArena)
+              ├── FoidTrest.<span class="fn">setOwner</span>(FoidTrestGovernance)
+              └── MiFOID.<span class="fn">authorizeUpdater</span>(DuelArena)
+
+<span class="fn">Step 10:</span> Wire into existing Loreboard (if LOREBOARD_VOTING_V2 env set):
+              └── LoreboardVotingV2.<span class="fn">setVotingPowerSource</span>(StreakVotingPower)
+                  <span class="cmt">// All Loreboard votes now streak-weighted!</span></div>
+
+  <h3>Environment Variables for Deployment</h3>
+  <pre><code><span class="cmt"># Required</span>
+OPERATOR_PK=<span class="str">0x...</span>                   <span class="cmt"># Deployer private key</span>
+PRAYER_MIRROR_ADDRESS=<span class="str">0x8ff3...</span>       <span class="cmt"># Existing PrayerMirror</span>
+
+<span class="cmt"># Optional (defaults shown)</span>
+FEE_RECIPIENT=<span class="str">&lt;operator&gt;</span>
+PLACEMENT_FEE_WEI=<span class="num-lit">1000000000000000</span>  <span class="cmt"># 0.001 ETH</span>
+MIFOID_MINT_FEE=<span class="num-lit">0</span>
+DUEL_VOTING_WINDOW=<span class="num-lit">86400</span>            <span class="cmt"># 24 hours</span>
+DUEL_SUBMISSION_FEE=<span class="num-lit">0</span>
+VP_BASE_WEIGHT=<span class="num-lit">100</span>
+VP_MIFOID_BONUS=<span class="num-lit">50</span>
+FLAG_FEE_WEI=<span class="num-lit">200000000000000</span>       <span class="cmt"># 0.0002 ETH</span>
+FLAG_THRESHOLD=<span class="num-lit">7</span>
+REMOVAL_VOTE_WINDOW=<span class="num-lit">86400</span>           <span class="cmt"># 24 hours</span>
+
+<span class="cmt"># Wire into existing Loreboard</span>
+LOREBOARD_VOTING_V2=<span class="str">0xEbf065A7...</span>   <span class="cmt"># Existing LoreboardVotingV2 address</span></code></pre>
+</section>
+
+<!-- ================ SECTION 12 ================ -->
+<section id="addresses">
+  <h2><span class="num">12</span> Contract Addresses — Canonical Registry</h2>
+
+  <h3>Deployed on Fluent Testnet (Chain ID: 20994)</h3>
+  <table>
+    <thead><tr><th>Contract</th><th>Address</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>LoreBoardTreasury</td><td class="mono">0x4A777d8650b3FA2419377F4ffeF0EF8007151536</td><td><span class="tag tag-deployed">DEPLOYED</span></td></tr>
+      <tr><td>LoreBoardManifestStore</td><td class="mono">0xeE469D8F9BB2Ace861AA689dE53c016871ad3D10</td><td><span class="tag tag-deployed">DEPLOYED</span></td></tr>
+      <tr><td>LoreboardVotingV2</td><td class="mono">0xEbf065A7ca3917BB5e669982e8C6954cC27A7075</td><td><span class="tag tag-deployed">DEPLOYED</span></td></tr>
+      <tr><td>LoreboardBoardV2</td><td class="mono">0xE41B2D418C09Ea928E4F657ED2438f5D01472105</td><td><span class="tag tag-deployed">DEPLOYED</span></td></tr>
+      <tr><td>LoreboardLiveNFT</td><td class="mono">0x4b38ad556300fadd6cdc5a9b0b1870e63c0f14e3</td><td><span class="tag tag-deployed">DEPLOYED</span></td></tr>
+      <tr><td>OnePerPlacementVotingPower</td><td class="mono">0xCCf0ac9c66a68FCb8c438C697EdA87D9766f1Be5</td><td><span class="tag tag-deployed">DEPLOYED</span></td></tr>
+      <tr><td>Operator</td><td class="mono">0x1a2a5E805342D5139111488C59d72832055A3e8F</td><td><span class="tag tag-deployed">DEPLOYED</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>V1 Contracts (To Be Deployed)</h3>
+  <table>
+    <thead><tr><th>Contract</th><th>Env Variable</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>PrayerTiers</td><td class="mono">NEXT_PUBLIC_PRAYER_TIERS</td><td><span class="tag tag-new">PENDING</span></td></tr>
+      <tr><td>StreakVotingPower</td><td class="mono">NEXT_PUBLIC_STREAK_VOTING_POWER</td><td><span class="tag tag-new">PENDING</span></td></tr>
+      <tr><td>MiFOID</td><td class="mono">NEXT_PUBLIC_MIFOID</td><td><span class="tag tag-new">PENDING</span></td></tr>
+      <tr><td>FoidTrest</td><td class="mono">NEXT_PUBLIC_FOID_TREST</td><td><span class="tag tag-future">FUTURE</span></td></tr>
+      <tr><td>FoidTrestDirect</td><td class="mono">NEXT_PUBLIC_FOID_TREST_DIRECT</td><td><span class="tag tag-future">FUTURE</span></td></tr>
+      <tr><td>DuelArena</td><td class="mono">NEXT_PUBLIC_DUEL_ARENA</td><td><span class="tag tag-future">FUTURE</span></td></tr>
+      <tr><td>FoidTrestGovernance</td><td class="mono">NEXT_PUBLIC_FOID_TREST_GOVERNANCE</td><td><span class="tag tag-future">FUTURE</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>RPC &amp; External Services</h3>
+  <table>
+    <thead><tr><th>Service</th><th>Env Variable</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td>Fluent RPC</td><td class="mono">NEXT_PUBLIC_FLUENT_RPC</td><td class="mono">https://rpc.testnet.fluent.xyz</td></tr>
+      <tr><td>Goldsky Board V1</td><td class="mono">GOLDSKY_BOARD_V1_URL</td><td>—</td></tr>
+      <tr><td>Goldsky Board V2</td><td class="mono">GOLDSKY_BOARD_V2_URL</td><td>—</td></tr>
+      <tr><td>Goldsky Voting</td><td class="mono">GOLDSKY_VOTING_URL</td><td>—</td></tr>
+      <tr><td>Web3.Storage</td><td class="mono">WEB3_STORAGE_TOKEN</td><td>—</td></tr>
+      <tr><td>Pinata</td><td class="mono">PINATA_JWT</td><td>—</td></tr>
+      <tr><td>OpenAI</td><td class="mono">OPENAI_API_KEY</td><td>—</td></tr>
+      <tr><td>WalletConnect</td><td class="mono">NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID</td><td>—</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ================ SECTION 13 ================ -->
+<section id="future">
+  <h2><span class="num">13</span> Future Features — FoidTrest &amp; DuelArena</h2>
+
+  <div class="callout callout-warn">
+    These features are built and tested (64/64 Solidity tests pass) but are <strong>hidden from navigation</strong> for launch. Routes exist at /trest and /duel but are not linked. Contracts are deployed via DeployV1 but can be activated later.
+  </div>
+
+  <h3>FoidTrest: Permanent Gallery</h3>
+  <div class="diagram">
+  Two paths to permanent gallery placement:
+
+  <span class="kw">Path 1: Direct Placement</span>
+  User pays flat fee → FoidTrestDirect.placeDirect(cid, title, desc)
+       │
+       └──▶ FoidTrest.addEntry(creator, cid, title, desc, path=0, duelId=0)
+                │
+                └──▶ Permanent on-chain entry (immutable)
+
+  <span class="kw">Path 2: Win a Duel</span>
+  User submits meme → DuelArena.submit(cid)
+       │
+       └──▶ Operator matches → DuelArena.matchDuel(subA, subB)
+                │
+                └──▶ Community votes → DuelArena.vote(duelId, side)
+                         │
+                         └──▶ Operator finalizes → DuelArena.finalizeDuel(duelId)
+                                  │
+                                  ├──▶ FoidTrest.addEntry(winner, cid, "", "", path=1, duelId)
+                                  └──▶ MiFOID.incrementDuelWins(winner)</div>
+
+  <h3>FoidTrestGovernance: Content Moderation</h3>
+  <div class="diagram">
+  <span class="kw">Flagging Pipeline:</span>
+
+  User flags post → pays flagFeeWei → flaggers[] grows
+       │
+       └── Once flaggers.length >= flagThreshold (default 7):
+              │
+              └──▶ RemovalVote created → voteWindow starts
+                       │
+                       ├── Community votes: voteOnRemoval(voteId, support=true/false)
+                       │   (weighted by StreakVotingPower)
+                       │
+                       └── After window ends: resolveRemovalVote(voteId)
+                              │
+                              ├── votesFor > votesAgainst → FoidTrest.setVisibility(false) 🚫
+                              └── votesAgainst >= votesFor → flags reset, entry stays ✓</div>
+</section>
+
+<footer style="border-top:1px solid var(--border); margin-top:4rem; padding:2rem 0; text-align:center; color:var(--muted); font-size:0.85rem;">
+  <p>FOID Foundation Architecture Guide — Generated Feb 2026</p>
+  <p>Fluent Testnet (20994) · 64/64 Forge tests pass · TypeScript clean</p>
+</footer>
+
+</div>
+</body>
+</html>

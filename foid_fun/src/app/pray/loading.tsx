@@ -4,7 +4,7 @@ export default function PrayLoading() {
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
       <div className="relative z-10 flex min-h-screen items-center justify-center px-3 sm:px-6">
         <div className="w-full max-w-[1800px]">
-          <div className="vista-window vista-window--terminal w-full h-[78vh] max-h-[86vh]">
+          <div className="vista-window vista-window--terminal w-full h-[94vh] max-h-[94vh]">
             <div className="vista-window__titlebar">
               <div className="vista-window__controls" aria-hidden="true">
                 <span className="vista-window__control vista-window__control--minimize" />

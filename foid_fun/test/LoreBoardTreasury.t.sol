@@ -94,8 +94,8 @@ contract LoreBoardTreasuryTest is Test {
         T.proposePlacement{value: need}(p);
 
         // accepted = [id], rejected = []
-        bytes32;
-        bytes32;
+        bytes32[] memory acc = new bytes32[](1);
+        bytes32[] memory rej = new bytes32[](0);
         acc[0] = id;
 
         // operator is address(this), so no prank needed
@@ -138,8 +138,8 @@ contract LoreBoardTreasuryTest is Test {
 
         uint256 preLoser = loser.balance;
 
-        bytes32;
-        bytes32;
+        bytes32[] memory acc = new bytes32[](1);
+        bytes32[] memory rej = new bytes32[](1);
         acc[0] = id1;
         rej[0] = id2;
 

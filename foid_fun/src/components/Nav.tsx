@@ -6,10 +6,13 @@ import { useEffect, useMemo, useState } from "react";
 type NavLink = { href: string; label: string };
 
 const LINKS: NavLink[] = [
-  { href: "/", label: "Dashboard" },
-  { href: "/about", label: "About" },
-  { href: "/pray", label: "Prayer Terminal" },
+  { href: "/", label: "Home" },
+  { href: "/pray", label: "Pray" },
   { href: "/board", label: "Loreboard" },
+  { href: "/swipe", label: "Swipe" },
+  { href: "/gallery", label: "Gallery" },
+  { href: "/mifoid", label: "MiFOID" },
+  { href: "/about", label: "About" },
 ];
 
 export default function Nav() {

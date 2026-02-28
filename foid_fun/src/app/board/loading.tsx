@@ -2,7 +2,7 @@ export default function BoardLoading() {
   return (
     <main className="board-page overflow-hidden flex h-[calc(100vh-12px)] flex-col">
       <div className="board-shell flex-1">
-        <div className="vista-window vista-window--terminal w-full h-[78vh] max-h-[86vh] max-w-[1800px] mx-auto">
+        <div className="vista-window vista-window--terminal w-full h-[94vh] max-h-[94vh] max-w-[1800px] mx-auto">
           <div className="vista-window__titlebar">
             <div className="vista-window__controls" aria-hidden="true">
               <span className="vista-window__control vista-window__control--minimize" />

@@ -2,7 +2,7 @@ export default function AboutLoading() {
   return (
     <main className="about-page relative min-h-screen w-full flex items-center justify-center overflow-hidden max-w-full pt-2 pb-20 pb-safe px-2 sm:px-4">
       <section className="relative z-10 w-full max-w-6xl">
-        <div className="vista-window vista-window--terminal vista-window--enhanced h-[82vh] max-h-[82vh] w-full">
+        <div className="vista-window vista-window--terminal vista-window--enhanced h-[94vh] max-h-[94vh] w-full">
           <div className="vista-window__titlebar">
             <div className="vista-window__controls" aria-hidden="true">
               <span className="vista-window__control vista-window__control--minimize" />

@@ -5,6 +5,7 @@
 :root {
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --music-bar-h: 0px;
 }
 
 html,
@@ -14,11 +15,39 @@ body {
 }
 
 .app-viewport {
+  zoom: 0.9;
+}
+
+/* Primary CTA button — used for Propose Meme, etc. */
+.foid-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e040fb, #f06292);
+  border: none;
+  border-radius: 8px;
+  padding: 10px 22px;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.foid-cta-btn:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+
+.app-viewport {
   min-height: min(100svh, 100dvh);
   min-height: 100svh;
   min-height: 100dvh;
   padding-top: calc(var(--safe-top, 0px) + 12px);
-  padding-bottom: calc(var(--safe-bottom, 0px) + 12px);
+  padding-bottom: calc(var(--safe-bottom, 0px) + 16px);
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
   box-sizing: border-box;
@@ -1199,11 +1228,12 @@ body {
   }
 
   .foid-title--xl {
-    padding: 12px 32px;
+    padding: 20px 48px;
   }
 
   .foid-title--xl .foid-title__text {
-    font-size: clamp(22px, 2.4vw + 12px, 38px);
+    font-size: clamp(28px, 4vw, 52px);
+    animation: titleFloat 5s ease-in-out infinite, pulse-glow 3s ease-in-out infinite;
   }
 
   /* ===== ANIMATIONS ===== */
@@ -1281,7 +1311,10 @@ body {
     }
 
     .foid-title--xl {
-      padding: 9px 24px;
+      padding: 10px 28px;
+    }
+    .foid-title--xl .foid-title__text {
+      font-size: clamp(24px, 2.8vw + 10px, 36px);
     }
   }
 
@@ -1846,7 +1879,7 @@ body {
     display: grid;
     gap: var(--pray-gap);
     grid-template-columns: minmax(0, 1fr) var(--pray-sidebar-w);
-    grid-template-rows: minmax(0, 1fr) var(--pray-stats-h);
+    grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
       "terminal manual"
       "terminal stats";
@@ -3958,5 +3991,106 @@ body {
 @media (max-width: 768px) {
   .about-page {
     padding-bottom: 80px !important;
+  }
+}
+
+/* ===== FoidOSWindow — Reusable Container ===== */
+.foid-os-window {
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
+  min-height: 0;
+}
+.foid-os-window--full {
+  max-width: 1200px;
+}
+.foid-os-window--full-height {
+  min-height: calc(100vh - 120px);
+}
+
+/* ===== Home Page Tiles ===== */
+.home-tiles-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  width: 100%;
+}
+.home-tile {
+  text-decoration: none;
+  display: block;
+}
+.home-tile__window {
+  transition: transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.32s ease;
+  cursor: pointer;
+}
+.home-tile:hover .home-tile__window {
+  transform: scale(1.05) translateY(-6px);
+  box-shadow: 0 16px 48px rgba(100, 80, 255, 0.18),
+              0 6px 20px rgba(0, 0, 0, 0.35);
+}
+.home-tile__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  transition: box-shadow 0.3s ease;
+}
+.home-tile:hover .home-tile__body {
+  box-shadow: inset 0 0 40px var(--tile-accent-glow, rgba(255,255,255,0.05));
+}
+.home-tile__icon {
+  font-size: 40px;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 0 20px currentColor);
+  opacity: 0.7;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.home-tile:hover .home-tile__icon {
+  opacity: 1;
+  transform: scale(1.12);
+}
+.home-tile__label {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  transition: color 0.28s ease, text-shadow 0.28s ease;
+}
+.home-tile:hover .home-tile__label {
+  color: rgba(255, 255, 255, 1);
+  text-shadow: 0 0 30px rgba(200, 180, 255, 0.45);
+}
+
+@media (max-width: 900px) {
+  .home-tiles-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  .home-tile__body {
+    height: 160px;
+  }
+  .home-tile__icon {
+    font-size: 34px;
+  }
+  .home-tile__label {
+    font-size: 17px;
+  }
+}
+@media (max-width: 520px) {
+  .home-tiles-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .home-tile__body {
+    height: 130px;
+  }
+  .home-tile__icon {
+    font-size: 28px;
+  }
+  .home-tile__label {
+    font-size: 16px;
   }
 }

@@ -17,6 +17,7 @@ import { useHaptic } from "@/hooks/useHaptic";
 import { PRAYER_REGISTRY_ABI } from "@/lib/contracts/abis/prayerRegistry";
 import { parseEventLogs } from "viem";
 import { PrayerErrorBoundary } from "@/components/PrayerErrorBoundary";
+import { getTierFromStreak } from "@/hooks/usePrayerTiers";
 
 /* --- env --- */
 const DEFAULT_FOIP_REGISTRY: Hex = "0x6FC7301fad7Ca0294152b23FD4f0467200376d65";
@@ -486,6 +487,10 @@ function PrayPageContent() {
   const displayLongest = snap?.[1];
   const displayTotal = optimisticTotal !== null ? optimisticTotal : snap?.[2];
   const displayMilestones = snap?.[3];
+  const hasAnyPrayers = Number(displayTotal ?? 0) > 0;
+  const streakNumber = typeof displayStreak === 'bigint' ? Number(displayStreak) : typeof displayStreak === 'number' ? displayStreak : 0;
+  const tierProgress = useMemo(() => getTierFromStreak(streakNumber), [streakNumber]);
+
   const canRenderTime = nowSeconds !== null;
   const nextAllowedSecondsRaw = typeof nextAllowed === "bigint" ? Number(nextAllowed) : typeof nextAllowed === "number" ? nextAllowed : null;
   const cooldownActive = canRenderTime && typeof nextAllowedSecondsRaw === "number" && nextAllowedSecondsRaw > nowSeconds;
@@ -525,7 +530,7 @@ function PrayPageContent() {
           </div>
         ) : (
           /* CONNECTED - Show terminal immediately */
-          <section className="vista-window vista-window--media flex flex-col h-[75vh] max-h-[75vh] mb-4 overflow-hidden">
+          <section className="vista-window vista-window--media flex flex-col h-[90vh] max-h-[90vh] mb-4 overflow-hidden">
             <div className="vista-window__titlebar flex-shrink-0">
               <div className="vista-window__controls" aria-hidden="true">
                 <span className="vista-window__control vista-window__control--minimize" />
@@ -574,11 +579,10 @@ function PrayPageContent() {
       </div>
 
       {/* Desktop Layout */}
-      <div className="hidden lg:block pray-page__shell max-w-full">
-        <div className="pray-shell max-w-full">
-          <div className="pray-grid">
-            <div className="pray-window-frame">
-              <div className="vista-window vista-window--terminal w-full flex flex-col pray-panel pray-panel--main">
+      <section className="hidden lg:flex relative z-10 w-full max-w-full px-2 sm:px-4 items-center justify-center" style={{ height: "100vh" }}>
+        <div className="mx-auto w-full max-w-6xl">
+          <div className="pray-window-frame">
+            <div className="vista-window vista-window--terminal vista-window--enhanced h-[94vh] max-h-[94vh] w-full flex flex-col pray-panel pray-panel--main">
           {/* Titlebar */}
           <AppTitlebar
             title="FOID_MOMMY_TERMINAL.EXE"
@@ -643,9 +647,13 @@ function PrayPageContent() {
                           <span className="pray-stats-cell__value pray-stats-cell__value--primary" aria-live="polite">
                             {statsLoading ? (
                               <span className="animate-pulse opacity-50">···</span>
+                            ) : !address ? (
+                              "–"
+                            ) : !hasAnyPrayers ? (
+                              "—"
                             ) : (
                               <>
-                                {displayStreak?.toString?.() ?? (address ? "0" : "–")}
+                                {displayStreak?.toString?.() ?? "0"}
                                 {optimisticStreak !== null && <span className="text-xs ml-1 opacity-60">↑</span>}
                               </>
                             )}
@@ -656,8 +664,12 @@ function PrayPageContent() {
                           <span className="pray-stats-cell__value" aria-live="polite">
                             {statsLoading ? (
                               <span className="animate-pulse opacity-50">···</span>
+                            ) : !address ? (
+                              "–"
+                            ) : !hasAnyPrayers ? (
+                              "—"
                             ) : (
-                              displayLongest?.toString?.() ?? (address ? "0" : "–")
+                              displayLongest?.toString?.() ?? "0"
                             )}
                           </span>
                         </div>
@@ -666,9 +678,13 @@ function PrayPageContent() {
                           <span className="pray-stats-cell__value" aria-live="polite">
                             {statsLoading ? (
                               <span className="animate-pulse opacity-50">···</span>
+                            ) : !address ? (
+                              "–"
+                            ) : !hasAnyPrayers ? (
+                              "—"
                             ) : (
                               <>
-                                {displayTotal?.toString?.() ?? (address ? "0" : "–")}
+                                {displayTotal?.toString?.() ?? "0"}
                                 {optimisticTotal !== null && <span className="text-xs ml-1 opacity-60">↑</span>}
                               </>
                             )}
@@ -679,12 +695,52 @@ function PrayPageContent() {
                           <span className="pray-stats-cell__value" aria-live="polite">
                             {statsLoading ? (
                               <span className="animate-pulse opacity-50">···</span>
+                            ) : !address ? (
+                              "–"
+                            ) : !hasAnyPrayers ? (
+                              "—"
                             ) : (
-                              displayMilestones?.toString?.() ?? (address ? "0" : "–")
+                              displayMilestones?.toString?.() ?? "0"
                             )}
                           </span>
                         </div>
                       </div>
+
+                      {address && !statsLoading && !hasAnyPrayers && (
+                        <div className="pray-streak-nudge">
+                          pray to start your streak
+                        </div>
+                      )}
+
+                      {/* Tier Progress Indicator */}
+                      {address && !statsLoading && (
+                        <div className="pray-tier-progress" role="region" aria-label="Prayer tier progress">
+                          <div className="pray-tier-progress__row">
+                            <span className="pray-tier-progress__label pray-tier-progress__label--current">{tierProgress.current.name}</span>
+                            <div className="pray-tier-progress__bar">
+                              <div
+                                className="pray-tier-progress__fill"
+                                style={{ width: `${tierProgress.next ? tierProgress.progressPercent : 100}%` }}
+                              />
+                            </div>
+                            <span className="pray-tier-progress__label pray-tier-progress__label--next">
+                              {tierProgress.next ? tierProgress.next.name : "MAX"}
+                            </span>
+                          </div>
+                          {tierProgress.next ? (
+                            <div className="pray-tier-progress__meta">
+                              <span>{tierProgress.current.multiplierBps / 100}x</span>
+                              <span>{tierProgress.daysToNextTier}d to next tier</span>
+                              <span>{tierProgress.next.multiplierBps / 100}x</span>
+                            </div>
+                          ) : (
+                            <div className="pray-tier-progress__meta pray-tier-progress__meta--max">
+                              Max tier reached — 5x voting power
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                         <div className="pray-chain-info" role="region" aria-label="On-chain prayer information">
                           <div className="pray-chain-info__row">
                             <span className="pray-chain-info__label">prayer hash</span>
@@ -725,9 +781,8 @@ function PrayPageContent() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
+        </div>
+      </section>
 
       {/* Enhanced styles */}
       <style jsx>{`
@@ -737,69 +792,44 @@ function PrayPageContent() {
           justify-content: center;
           align-items: center;
           position: relative;
-          min-height: min(100svh, 100dvh);
-          min-height: 100svh;
-          min-height: 100dvh;
+          height: 100vh;
           background: transparent;
           overflow: auto;
-          padding: 0;
+          padding: 24px;
           width: 100%;
           z-index: 0;
           overscroll-behavior: contain;
         }
-        .pray-page__shell {
-          display: flex;
-          flex-direction: column;
-          align-items: stretch;
-          justify-content: center;
-          flex: 1;
-          width: 100%;
-          max-width: 100%;
-          padding: clamp(12px, 3vw, 24px);
-          gap: 12px;
-        }
         .pray-window-frame {
-          width: min(1800px, calc(100vw - clamp(28px, 5vw, 44px)));
-          max-width: 100%;
-          max-height: calc(100svh - clamp(32px, 4vw, 48px));
-          height: min(100svh, 100dvh);
-          margin: 0 auto;
+          width: 100%;
+          margin: 0;
           display: flex;
           flex-direction: column;
           min-height: 0;
           overflow: hidden;
         }
         .pray-window-frame > .vista-window {
-          border: none !important;
-          box-shadow: none !important;
           width: 100%;
-          height: 100%;
-          max-height: 100%;
           min-height: 0;
-          background: rgba(6, 10, 18, 0.8);
+          background: rgba(6, 10, 18, 0.88);
         }
         .pray-window-frame .vista-window__body {
           background:
             linear-gradient(
               to right,
-              rgba(140, 235, 255, 0.07) 1px,
+              rgba(140, 235, 255, 0.04) 1px,
               transparent 1px
             ),
             linear-gradient(
               to bottom,
-              rgba(140, 235, 255, 0.07) 1px,
+              rgba(140, 235, 255, 0.04) 1px,
               transparent 1px
             ),
             linear-gradient(
               180deg,
-              rgba(92, 191, 232, 0.16) 0%,
-              rgba(8, 18, 30, 0.6) 55%,
-              rgba(5, 10, 22, 0.9) 100%
-            ),
-            linear-gradient(
-              180deg,
-              rgba(255, 255, 255, 0.05) 0%,
-              rgba(255, 255, 255, 0) 65%
+              rgba(40, 80, 120, 0.12) 0%,
+              rgba(8, 14, 24, 0.85) 40%,
+              rgba(4, 8, 16, 0.95) 100%
             );
           box-shadow: none;
           height: 100%;
@@ -812,9 +842,9 @@ function PrayPageContent() {
 
         .pray-main-grid {
           display: grid;
-          grid-template-columns: 3.2fr 1fr;
-          padding: 16px;
-          gap: 20px;
+          grid-template-columns: 2fr 1fr;
+          padding: clamp(12px, 1.5vw, 18px);
+          gap: clamp(12px, 1.5vw, 18px);
           width: 100%;
           height: 100%;
         }
@@ -990,29 +1020,32 @@ function PrayPageContent() {
         /* Manual pane - no header */
         .pray-pane__body--no-header { padding-top: 0; }
         .pray-manual__hero {
-          font-size: 18px;
-          font-weight: 700;
-          letter-spacing: 0.25em;
+          font-size: 16px;
+          font-weight: 800;
+          letter-spacing: 0.22em;
           color: #00ffd5;
-          text-shadow: 0 0 20px rgba(0, 255, 213, 0.5);
-          margin-bottom: 10px;
+          text-shadow: 0 0 24px rgba(0, 255, 213, 0.5);
+          margin-bottom: 8px;
+          line-height: 1.2;
+          white-space: nowrap;
         }
         .pray-manual__intro {
           font-size: 12px;
-          line-height: 1.6;
-          color: rgba(255, 255, 255, 0.75);
-          padding-bottom: 10px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          line-height: 1.55;
+          color: rgba(255, 255, 255, 0.6);
+          padding-bottom: 8px;
+          border-bottom: 1px solid rgba(0, 255, 213, 0.08);
         }
-        .pray-manual__section { margin-bottom: 10px; }
+        .pray-manual__section { margin-bottom: 12px; }
         .pray-manual__label {
           display: block;
           font-size: 10px;
           font-weight: 600;
-          letter-spacing: 0.18em;
+          letter-spacing: 0.15em;
           color: #00ffd5;
-          margin-bottom: 5px;
-          opacity: 0.9;
+          margin-bottom: 6px;
+          opacity: 0.85;
+          text-shadow: 0 0 10px rgba(0, 255, 213, 0.3);
         }
         .pray-manual__list { list-style: none; padding: 0; margin: 0; }
         .pray-manual__list li {
@@ -1031,31 +1064,32 @@ function PrayPageContent() {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 1px;
-          background: rgba(0, 255, 255, 0.08);
-          border-radius: 8px;
+          background: rgba(0, 255, 255, 0.06);
+          border-radius: 6px;
           overflow: hidden;
-          margin-bottom: 16px;
+          margin-bottom: 10px;
         }
         .pray-stats-cell {
           display: flex;
           flex-direction: column;
-          gap: 6px;
-          padding: 14px 16px;
-          background: rgba(0, 20, 35, 0.5);
+          gap: 4px;
+          padding: 10px 12px;
+          min-height: 64px;
+          background: rgba(0, 16, 28, 0.6);
           backdrop-filter: blur(4px);
-          transition: background 0.2s ease;
+          transition: background 0.25s ease;
         }
         .pray-stats-cell:hover { background: rgba(0, 40, 55, 0.6); }
-        .pray-stats-cell__label { font-size: 9px; font-weight: 500; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.45); }
+        .pray-stats-cell__label { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.35); text-transform: uppercase; }
         .pray-stats-cell__value {
-          font-size: 28px;
+          font-size: 20px;
           font-weight: 700;
           font-family: var(--font-mono, monospace);
-          color: #00ffd5;
-          text-shadow: 0 0 16px rgba(0, 255, 213, 0.5);
+          color: #00e5ff;
+          text-shadow: 0 0 18px rgba(0, 229, 255, 0.45);
           line-height: 1;
         }
-        .pray-stats-cell__value--primary { color: #00ff88; text-shadow: 0 0 16px rgba(0, 255, 136, 0.6); }
+        .pray-stats-cell__value--primary { color: #00e5ff; text-shadow: 0 0 18px rgba(0, 229, 255, 0.55); }
         
         /* Chain info */
         .pray-chain-info { display: flex; flex-direction: column; }
@@ -1063,18 +1097,90 @@ function PrayPageContent() {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 10px 0;
+          padding: 7px 0;
           border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
         .pray-chain-info__row:last-child { border-bottom: none; }
-        .pray-chain-info__label { font-size: 11px; color: rgba(255, 255, 255, 0.45); }
-        .pray-chain-info__value { font-size: 12px; font-family: var(--font-mono, monospace); color: rgba(255, 255, 255, 0.8); }
+        .pray-chain-info__label { font-size: 11px; color: rgba(255, 255, 255, 0.4); }
+        .pray-chain-info__value { font-size: 12px; font-family: var(--font-mono, monospace); color: rgba(255, 255, 255, 0.8); font-weight: 600; }
         .pray-chain-info__value--hash { color: #00ffd5; }
         .pray-chain-info__value--ready { color: #00ff88; text-shadow: 0 0 8px rgba(0, 255, 136, 0.5); }
         
+        /* Streak nudge micro-copy */
+        .pray-streak-nudge {
+          margin-top: 8px;
+          text-align: center;
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.15em;
+          color: rgba(255, 255, 255, 0.35);
+          animation: pray-nudge-pulse 2.5s ease-in-out infinite;
+        }
+        @keyframes pray-nudge-pulse {
+          0%, 100% { opacity: 0.35; }
+          50% { opacity: 0.7; }
+        }
+
+        /* Tier progress bar */
+        .pray-tier-progress {
+          margin-top: 8px;
+          margin-bottom: 6px;
+          padding: 10px 12px;
+          border-radius: 12px;
+          border: 1px solid rgba(0, 229, 255, 0.12);
+          background: rgba(0, 229, 255, 0.04);
+        }
+        .pray-tier-progress__row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .pray-tier-progress__label {
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .pray-tier-progress__label--current {
+          color: #00e5ff;
+          text-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+        }
+        .pray-tier-progress__label--next {
+          color: rgba(255, 255, 255, 0.45);
+        }
+        .pray-tier-progress__bar {
+          flex: 1;
+          height: 8px;
+          border-radius: 4px;
+          background: rgba(255, 255, 255, 0.08);
+          overflow: hidden;
+        }
+        .pray-tier-progress__fill {
+          height: 100%;
+          border-radius: 4px;
+          background: linear-gradient(90deg, #00e5ff, #00b8d4);
+          box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+          transition: width 0.5s ease;
+        }
+        .pray-tier-progress__meta {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 6px;
+          font-size: 10px;
+          color: rgba(255, 255, 255, 0.4);
+          font-family: var(--font-mono, monospace);
+        }
+        .pray-tier-progress__meta--max {
+          justify-content: center;
+          color: rgba(0, 229, 255, 0.7);
+          font-weight: 600;
+        }
+
         .pray-stats-notice {
-          margin-top: 14px;
-          padding: 12px;
+          margin-top: 8px;
+          padding: 8px;
           font-size: 10px;
           text-transform: uppercase;
           letter-spacing: 0.12em;
@@ -1087,17 +1193,22 @@ function PrayPageContent() {
 
         /* Glass backdrops */
         .pray-liquid-glass-terminal :global(.frutiger-terminal) {
-          background: rgba(5, 12, 18, 0.55) !important;
+          background: rgba(3, 8, 14, 0.7) !important;
           backdrop-filter: blur(14px) saturate(140%);
         }
         .pray-pane--panel {
-          background: rgba(5, 12, 18, 0.55) !important;
+          display: flex;
+          flex-direction: column;
+          background: rgba(4, 10, 18, 0.75) !important;
           backdrop-filter: blur(14px) saturate(140%);
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), inset 0 -1px 0 rgba(0, 0, 0, 0.35);
-          padding: 16px;
+          border: 1px solid rgba(0, 255, 213, 0.08);
+          border-radius: 8px;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+          padding: 14px;
+          min-height: 0;
+          flex: 1;
         }
         .pray-pane--panel > * { background: transparent !important; }
-        .pray-main-grid { padding: 16px; gap: 20px; }
 
         @media (max-width: 1024px) {
           :global(.pray-dashboard) {
@@ -1110,9 +1221,6 @@ function PrayPageContent() {
             height: auto;
             min-height: 100svh;
             overflow: visible;
-          }
-          .pray-page__shell {
-            padding: clamp(10px, 4vw, 16px);
           }
           .pray-window-frame {
             width: 100%;
@@ -1142,9 +1250,6 @@ function PrayPageContent() {
               "stats";
             gap: 16px;
           }
-          .pray-window-frame {
-            max-height: calc(100svh - clamp(64px, 10vw, 96px));
-          }
           .pray-window-frame > .vista-window {
             max-height: none;
           }
@@ -1170,7 +1275,7 @@ function PrayPageContent() {
             display: none;
           }
           .pray-stats-cell__value {
-            font-size: 22px;
+            font-size: 20px;
           }
           .pray-window-frame {
             padding-bottom: calc(var(--safe-bottom, 0px) + 8px);
@@ -1187,8 +1292,8 @@ function PrayPageContent() {
 
           /* Stats cells should be tappable */
           .pray-stats-cell {
-            min-height: 80px;
-            padding: 16px 18px;
+            min-height: 72px;
+            padding: 12px 14px;
           }
 
           /* Increase label font sizes for better readability */

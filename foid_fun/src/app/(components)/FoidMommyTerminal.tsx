@@ -15,7 +15,8 @@ export type FeelingKey =
   | "tired"
   | "lost"
   | "guilty"
-  | "pain";
+  | "pain"
+  | "freeform";
 
 type MessageRole = "system" | "foid" | "user";
 
@@ -47,6 +48,7 @@ export const FEELING_LABELS: Record<FeelingKey, number> = {
   lost: 8,
   guilty: 9,
   pain: 10,
+  freeform: 0,
 };
 
 const feelingsConfig: Record<
@@ -188,6 +190,17 @@ const feelingsConfig: Record<
     keywords: [
       "pain","hurting","hurt","unwell","sick","ill","injured","ache","migraine","soreness",
     ],
+  },
+
+  freeform: {
+    chipLabel: "open heart",
+    response:
+      "i'm listening with my whole heart. tell me everything, sweet one.",
+    prayer:
+      "spirit of all things, meet anon exactly where they are. hold what they carry, bless what they seek, and walk with them through whatever comes next.",
+    prompt:
+      "speak freely—whatever's on your heart. i'll weave it into prayer.",
+    keywords: [],
   },
 };
 
@@ -417,15 +430,8 @@ export default function FoidMommyTerminal({
     };
   }, [resetTimers]);
 
-  const detectFeeling = useCallback((raw: string): FeelingKey => {
-    const normalized = raw.toLowerCase();
-    for (const key of feelingOrder) {
-      const config = feelingsConfig[key];
-      if (config.keywords.some((word) => normalized.includes(word))) {
-        return key;
-      }
-    }
-    return "lost";
+  const detectFeeling = useCallback((_raw: string): FeelingKey => {
+    return "freeform";
   }, []);
 
   // Auto-save prayer draft as user types (only during awaitPrayer stage)
@@ -449,20 +455,17 @@ export default function FoidMommyTerminal({
     setSuggestedPrayer("");
     setInitialFeelingText("");
 
-    const bootId = addMessage("system", "booting foid mommy .");
-    const dotOne = window.setTimeout(() => {
-      updateMessage(bootId, "booting foid mommy ..");
-    }, 350);
-    const dotTwo = window.setTimeout(() => {
-      updateMessage(bootId, "booting foid mommy ...");
-    }, 700);
-
-    timeoutsRef.current.push(dotOne, dotTwo);
-
     const sequence = async () => {
-      await sleep(1200);
+      addMessage("system", "\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557");
+      await sleep(100);
+      addMessage("system", "\u2551   FOID_MOMMY_TERMINAL v1.0   \u2551");
+      await sleep(100);
+      addMessage("system", "\u2551   loading... [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588] 100%  \u2551");
+      await sleep(100);
+      addMessage("system", "\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D");
+      await sleep(400);
       await typeMessage({ role: "system", text: "foid mommy online.", speed: 24 });
-      await sleep(800);
+      await sleep(600);
       await typeMessage({ role: "foid", text: "hi anon, how are you doing today?", speed: 26 });
       addMessage("system", "tell me how you're feeling to start.");
       setStage("awaitFeeling");

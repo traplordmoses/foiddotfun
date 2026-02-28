@@ -1,0 +1,113 @@
+export const STREAK_VOTING_POWER_ABI = [
+  {
+    type: "constructor",
+    inputs: [
+      { name: "_prayerMirror", type: "address" },
+      { name: "_mifoidNFT", type: "address" },
+      { name: "_baseWeight", type: "uint256" },
+      { name: "_mifoidBonus", type: "uint256" },
+    ],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "baseWeight",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "mifoidBonus",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "mifoidNFT",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "prayerMirror",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "prayerTiers",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "owner",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "votingPowerOf",
+    inputs: [
+      { name: "voter", type: "address" },
+      { name: "", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "setMifoidNFT",
+    inputs: [{ name: "_mifoidNFT", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "setPrayerTiers",
+    inputs: [{ name: "_prayerTiers", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "setConfig",
+    inputs: [
+      { name: "_baseWeight", type: "uint256" },
+      { name: "_mifoidBonus", type: "uint256" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "setOwner",
+    inputs: [{ name: "newOwner", type: "address" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "event",
+    name: "ConfigUpdated",
+    anonymous: false,
+    inputs: [
+      { name: "baseWeight", type: "uint256", indexed: false },
+      { name: "mifoidBonus", type: "uint256", indexed: false },
+    ],
+  },
+  {
+    type: "event",
+    name: "OwnerChanged",
+    anonymous: false,
+    inputs: [
+      { name: "oldOwner", type: "address", indexed: true },
+      { name: "newOwner", type: "address", indexed: true },
+    ],
+  },
+] as const;

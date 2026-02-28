@@ -9,10 +9,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const VOTING_URL =
-  process.env.GOLDSKY_VOTING_URL ||
-  "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/2.0.1/gn";
-
 const BOARD_V2_URL =
   process.env.GOLDSKY_BOARD_V2_URL ||
   process.env.GOLDSKY_BOARD_URL ||
@@ -33,17 +29,6 @@ const GETTER_NAME = "cidOf";
 const cidGetterAbi = parseAbi([`function ${GETTER_NAME}(bytes32) view returns (bytes)`]);
 
 const client = publicClient;
-
-type VoteRecord = {
-  placementId: string;
-  support: boolean;
-  weight: string | number;
-};
-
-type PendingRecord = {
-  placementId: string;
-  voteEndsAt?: number | string;
-};
 
 function extractCidFromString(s: string): string | null {
   const looksLikeCid = (x: string) =>
@@ -344,7 +329,7 @@ export async function GET(request: NextRequest) {
 
   console.log("[api/proposals] === Using Goldsky (BOARD v1 + v2) ===");
   console.log("[api/proposals] Owner filter:", owner);
-  console.log("[api/proposals] URLs:", { BOARD_V1_URL, BOARD_V2_URL, VOTING_URL });
+  console.log("[api/proposals] URLs:", { BOARD_V1_URL, BOARD_V2_URL });
 
   try {
     // Fetch manifest to identify canonized placements
@@ -393,56 +378,7 @@ export async function GET(request: NextRequest) {
         ? await resolveCidMapFromChain(placements.map((p) => ({ cidHash: p.cidHash, boardVersion: p.boardVersion })))
         : new Map<string, string>();
 
-const votingQuery = `
-  query GetAllVoting {
-    pendingPlacementRegistereds(first: 1000, orderBy: epochId, orderDirection: asc) {
-      id
-      epochId
-      placementId
-      registeredAt
-      voteEndsAt
-    }
-    voteCasts(first: 1000, orderBy: epochId, orderDirection: asc) {
-      id
-      epochId
-      placementId
-      voter
-      support
-      weight
-    }
-  }
-`;
-
-    const votingResponse = await fetch(VOTING_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify({ query: votingQuery }),
-    });
-
-    const votingData = await votingResponse.json();
-    if (votingData.errors) console.error("[api/proposals] Voting errors:", votingData.errors);
-
-    const pending = votingData.data?.pendingPlacementRegistereds || [];
-    const votes = votingData.data?.voteCasts || [];
-    const pendingByPlacement = new Map<string, typeof pending[0]>();
-    pending.forEach((entry: unknown) => {
-      const record = entry as PendingRecord;
-      if (record?.placementId) {
-        pendingByPlacement.set(record.placementId, record);
-      }
-    });
-
-    console.log("[api/proposals] ✅ Found pending:", pending.length);
-    console.log("[api/proposals] ✅ Found votes:", votes.length);
-
-    // DEBUG: Log first few entries to see ID format
-    if (pending.length > 0) {
-      console.log("[api/proposals] 🔍 Sample pending IDs:", (pending as PendingRecord[]).slice(0, 3).map((p) => p.placementId));
-    }
-    if (placements.length > 0) {
-      console.log("[api/proposals] 🔍 Sample placement IDs:", placements.slice(0, 3).map((p: unknown) => (p as { id: string }).id));
-    }
+    // Voting removed for v1 mainnet — all proposals pass (pay-to-place model)
 
     let resolvedFromMulticall = 0;
     let resolvedFromCalldata = 0;
@@ -470,80 +406,18 @@ const votingQuery = `
           }
         }
 
-        // Join voting data using idParam (the contract placement ID), not id (subgraph ID)
-        const placementId = p.idParam; // Use the contract's placement ID for joining
-        const pendingRecord = pendingByPlacement.get(placementId);
+        const placementId = p.idParam;
 
-        // DEBUG: Log join results for first placement
-        if (placements.indexOf(p) === 0) {
-          console.log("[api/proposals] 🔍 First placement join test:", {
-            subgraphId: p.id,
-            placementId: placementId,
-            hasPendingRecord: Boolean(pendingRecord),
-            pendingRecord: pendingRecord ? {
-              registeredAt: pendingRecord.registeredAt,
-              voteEndsAt: pendingRecord.voteEndsAt
-            } : null,
-            mapSize: pendingByPlacement.size
-          });
-        }
-
-        const toFiniteNumber = (value: unknown): number | null => {
-          if (value == null) return null;
-          const parsed = Number(value);
-          return Number.isFinite(parsed) ? parsed : null;
-        };
-        const registeredAt = toFiniteNumber(pendingRecord?.registeredAt);
-        const voteEndsAt = toFiniteNumber(pendingRecord?.voteEndsAt);
-        const isPending = Boolean(pendingRecord);
-        const placementVotes = (votes as VoteRecord[]).filter((v) => v.placementId === placementId);
-
-        const yesVotes = placementVotes
-          .filter((v) => v.support)
-          .reduce((sum: number, v) => sum + Number(v.weight), 0);
-
-        const noVotes = placementVotes
-          .filter((v) => !v.support)
-          .reduce((sum: number, v) => sum + Number(v.weight), 0);
-
-        // Determine status and votability based on manifest and voting window
-        // Priority:
-        // 1. If in manifest → canonized (passed voting, finalized)
-        // 2. If registered AND within 72h voting window → voting (votable)
-        // 3. If registered AND past 72h voting window → expired (failed)
-        // 4. Otherwise → proposed (not yet registered for voting)
-
-        // Check manifest using placementId (the contract ID), not subgraph ID
+        // Simplified status: canonized (in manifest) or proposed (awaiting finalization)
         const isInManifest = manifestIndex[placementId] === true;
-        const currentTimestamp = Math.floor(Date.now() / 1000);
 
         let status: string;
-        let isVotable: boolean;
-        let effectiveRegisteredAt: number | null = registeredAt;
-        let effectiveVoteEndsAt: number | null = voteEndsAt;
+        const isVotable = false; // Voting removed for v1 mainnet
 
         if (isInManifest) {
-          // Placement is in the canonical manifest - it passed voting and was finalized
           status = "canonized";
-          isVotable = false;
-        } else if (isPending && voteEndsAt !== null) {
-          // Registered in voting contract - check if voting period is still active
-          if (currentTimestamp < voteEndsAt) {
-            // Within 72-hour voting window
-            status = "voting";
-            isVotable = true;
-          } else {
-            // Past 72-hour voting window - voting failed
-            status = "expired";
-            isVotable = false;
-          }
         } else {
-          // Not in manifest and not registered for voting yet
-          // This is a recent proposal that needs voting registration via /api/voting/bootstrap
           status = "proposed";
-          isVotable = false; // Can't vote until registered
-          effectiveRegisteredAt = null;
-          effectiveVoteEndsAt = null;
         }
 
         return {
@@ -563,12 +437,12 @@ const votingQuery = `
           cidHash: p.cidHash,
           cid,
           imageUrl: cid ? buildImageUrl(cid) : null,
-          yesVotes,
-          noVotes,
+          yesVotes: 0,
+          noVotes: 0,
           status,
           isVotable,
-          registeredAt: effectiveRegisteredAt,
-          voteEndsAt: effectiveVoteEndsAt,
+          registeredAt: null,
+          voteEndsAt: null,
           debugCid: { used: debugSource },
           boardVersion: p.boardVersion,
         };
@@ -590,10 +464,9 @@ const votingQuery = `
     console.log("[api/proposals] 📊 Votable count:", proposals.filter(p => p.isVotable).length);
     console.log("[api/proposals] 📊 With timestamps:", proposals.filter(p => p.registeredAt !== null).length);
 
-    const [boardV1Meta, boardV2Meta, votingMeta] = await Promise.all([
+    const [boardV1Meta, boardV2Meta] = await Promise.all([
       fetchMeta(BOARD_V1_URL),
       fetchMeta(BOARD_V2_URL),
-      fetchMeta(VOTING_URL),
     ]);
 
     console.log("[api/proposals] 🎉 Returning", proposals.length, "proposals");
@@ -606,8 +479,6 @@ const votingQuery = `
           placementsCount: merged.counts.merged,
           placementsCountV1: merged.counts.v1,
           placementsCountV2: merged.counts.v2,
-          pendingCount: pending.length,
-          votesCount: votes.length,
           epochRange:
             proposals.length > 0
               ? {
@@ -615,8 +486,8 @@ const votingQuery = `
                   max: Math.max(...proposals.map((p: { epoch?: number | string }) => Number(p.epoch ?? 0))),
                 }
               : null,
-          urls: { BOARD_V1_URL, BOARD_V2_URL, VOTING_URL },
-          meta: { boardV1: boardV1Meta, boardV2: boardV2Meta, voting: votingMeta },
+          urls: { BOARD_V1_URL, BOARD_V2_URL },
+          meta: { boardV1: boardV1Meta, boardV2: boardV2Meta },
           chainCidResolution: {
             manifestStore: MANIFEST_STORE_ADDRESS ?? null,
             boardV1: BOARD_V1_ADDRESS ?? null,

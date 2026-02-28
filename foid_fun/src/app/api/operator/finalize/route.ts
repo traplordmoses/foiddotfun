@@ -439,51 +439,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const passed: Proposal[] = [];
-  const epochBigInt = BigInt(epoch);
-  const minTotalWeightQuorum = force
-    ? 0n
-    : ((await publicClient.readContract({
-        address: LOREBOARD_VOTING_ADDRESS,
-        abi: loreboardVotingAbi,
-        functionName: "minTotalWeightQuorum",
-        args: [],
-      })) as bigint);
-
-  for (const candidate of candidates) {
-    if (force) {
-      passed.push(candidate);
-      continue;
-    }
-
-    const chainId = (ProposalStore.get(candidate.id)?.id ?? candidate.id) as Hex32;
-    const [yes, no] = (await publicClient.readContract({
-      address: LOREBOARD_VOTING_ADDRESS,
-      abi: loreboardVotingAbi,
-      functionName: "getPlacementVotes",
-      args: [epochBigInt, chainId],
-    })) as readonly [bigint, bigint];
-
-    const total = yes + no;
-    if (total < minTotalWeightQuorum) continue;
-
-    const passesMajority = (await publicClient.readContract({
-      address: LOREBOARD_VOTING_ADDRESS,
-      abi: loreboardVotingAbi,
-      functionName: "passesMajority51",
-      args: [epochBigInt, chainId],
-    })) as boolean;
-
-    if (!passesMajority) continue;
-    passed.push(candidate);
-  }
-
-  if (!passed.length && !force) {
-    return NextResponse.json(
-      { error: "No proposals passed quorum/threshold", epoch },
-      { status: 400 }
-    );
-  }
+  // All proposals pass — voting removed for v1 mainnet (pay-to-place model)
+  const passed = [...candidates];
 
   const sorted = sortCandidatesByTieBreak(passed);
 

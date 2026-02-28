@@ -16,49 +16,17 @@ interface UseMobileReturn {
 
 export function useMobile(): UseMobileReturn {
   const [isClient, setIsClient] = useState(false);
-  const [state, setState] = useState<UseMobileReturn>(() => {
-    // Better initial state detection
-    if (typeof window !== 'undefined') {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      const userAgent = navigator.userAgent.toLowerCase();
-
-      const isMobile = width < 768;
-      const isTablet = width >= 768 && width < 1024;
-      const isDesktop = width >= 1024;
-      const isTouchDevice =
-        'ontouchstart' in window ||
-        navigator.maxTouchPoints > 0 ||
-        (navigator as any).msMaxTouchPoints > 0;
-      const isIOS = /iphone|ipad|ipod/.test(userAgent);
-      const isAndroid = /android/.test(userAgent);
-      const orientation = height > width ? 'portrait' : 'landscape';
-
-      return {
-        isMobile,
-        isTablet,
-        isDesktop,
-        isTouchDevice,
-        isIOS,
-        isAndroid,
-        screenWidth: width,
-        screenHeight: height,
-        orientation,
-      };
-    }
-
-    // Server-side fallback - assume mobile-first
-    return {
-      isMobile: true,
-      isTablet: false,
-      isDesktop: false,
-      isTouchDevice: false,
-      isIOS: false,
-      isAndroid: false,
-      screenWidth: 375,
-      screenHeight: 667,
-      orientation: 'portrait',
-    };
+  // Always use safe SSR fallback for initial state to avoid hydration mismatch
+  const [state, setState] = useState<UseMobileReturn>({
+    isMobile: true,
+    isTablet: false,
+    isDesktop: false,
+    isTouchDevice: false,
+    isIOS: false,
+    isAndroid: false,
+    screenWidth: 375,
+    screenHeight: 667,
+    orientation: 'portrait',
   });
 
   useEffect(() => {

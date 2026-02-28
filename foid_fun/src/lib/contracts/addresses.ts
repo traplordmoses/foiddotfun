@@ -18,6 +18,7 @@ const DEFAULT_CONTRACTS = {
 } as const;
 
 export const CONTRACTS = {
+  // ── Existing (prayer + legacy loreboard) ──
   PRAYER_REGISTRY: process.env.NEXT_PUBLIC_PRAYER_REGISTRY ?? DEFAULT_CONTRACTS.PRAYER_REGISTRY,
   PRAYER_MIRROR: process.env.NEXT_PUBLIC_PRAYER_MIRROR ?? DEFAULT_CONTRACTS.PRAYER_MIRROR,
   LOREBOARD_BOARD: process.env.NEXT_PUBLIC_LOREBOARD_BOARD ?? DEFAULT_CONTRACTS.LOREBOARD_BOARD,
@@ -28,13 +29,28 @@ export const CONTRACTS = {
   LOREBOARD_LIVE_NFT:
     process.env.NEXT_PUBLIC_LOREBOARD_LIVE_NFT ?? DEFAULT_CONTRACTS.LOREBOARD_LIVE_NFT,
   VOTING_POWER: process.env.NEXT_PUBLIC_VOTING_POWER ?? DEFAULT_CONTRACTS.VOTING_POWER,
+
+  // ── FOID v1: Two-path model ──
+  FOID_TREST: process.env.NEXT_PUBLIC_FOID_TREST ?? "",
+  FOID_TREST_DIRECT: process.env.NEXT_PUBLIC_FOID_TREST_DIRECT ?? "",
+  MIFOID: process.env.NEXT_PUBLIC_MIFOID ?? "",
+  STREAK_VOTING_POWER: process.env.NEXT_PUBLIC_STREAK_VOTING_POWER ?? "",
+  DUEL_ARENA: process.env.NEXT_PUBLIC_DUEL_ARENA ?? "",
+  PRAYER_TIERS: process.env.NEXT_PUBLIC_PRAYER_TIERS ?? "",
+  FOID_TREST_GOVERNANCE: process.env.NEXT_PUBLIC_FOID_TREST_GOVERNANCE ?? "",
+
+  // ── Fee config (readable from env) ──
+  PLACEMENT_FEE_WEI: process.env.NEXT_PUBLIC_PLACEMENT_FEE_WEI ?? "1000000000000000", // 0.001 ETH default
+  MIFOID_MINT_FEE: process.env.NEXT_PUBLIC_MIFOID_MINT_FEE ?? "10000000000000000", // 0.01 ETH
+  DUEL_SUBMISSION_FEE: process.env.NEXT_PUBLIC_DUEL_SUBMISSION_FEE ?? "1000000000000000", // 0.001 ETH
+  FLAG_FEE_WEI: process.env.NEXT_PUBLIC_FLAG_FEE_WEI ?? "1000000000000000", // 0.001 ETH
 } as const;
 
 export const CHAIN_CONFIG = {
-  id: CHAIN_ID, // Use canonical chain ID
-  name: "Fluent Testnet",
+  id: CHAIN_ID,
+  name: process.env.NEXT_PUBLIC_CHAIN_NAME ?? "Fluent",
   rpcUrl: CANONICAL_RPC_URL,
-  blockExplorer: "https://testnet.fluentscan.xyz",
+  blockExplorer: process.env.NEXT_PUBLIC_BLOCK_EXPLORER ?? "https://testnet.fluentscan.xyz",
 } as const;
 
 export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? CHAIN_CONFIG.rpcUrl;

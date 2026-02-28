@@ -40,14 +40,17 @@ import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { LoreboardNotification } from "@/components/LoreboardNotification";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
-import CompactMusicPlayer from "@/components/CompactMusicPlayer";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
 import { TerminalChat, type StatusMessage } from "@/components/TerminalChat";
 import { Y2kActionButton } from "@/components/Y2kActionButton";
-import { VotingItem } from "@/components/VotingItem";
+import dynamic from "next/dynamic";
 import { useMobile } from "@/hooks/useMobile";
-import { MobileBoard } from "@/components/MobileBoard";
 import type { BoardNode } from "@/types/mobile";
+
+const MobileBoard = dynamic(
+  () => import("@/components/MobileBoard").then((m) => m.MobileBoard),
+  { ssr: false }
+);
 import { MobileWalletButton } from "@/components/MobileWalletButton";
 import { GestureHint } from "@/components/GestureHint";
 import {
@@ -1038,7 +1041,7 @@ function BoardPageContent() {
   // ============================================================================
 
   const mainView = (
-    <main className="board-page overflow-hidden flex h-[calc(100vh-12px)] flex-col">
+    <main className="board-page relative overflow-hidden flex items-center justify-center" style={{ height: "100vh" }}>
       {/* Floating particles */}
       <div className="board-particles">
         {boardParticles.map((cfg, i) => (
@@ -1055,10 +1058,9 @@ function BoardPageContent() {
         ))}
       </div>
 
-      <div className="board-shell">
-        <div className="pray-grid">
-          {/* Single seamless window */}
-          <div className="vista-window vista-window--terminal w-full flex flex-col pray-panel pray-panel--main board-window">
+      <section className="relative z-10 w-full max-w-full px-2 sm:px-4">
+        <div className="mx-auto w-full max-w-6xl">
+          <div className="vista-window vista-window--terminal vista-window--enhanced h-[94vh] max-h-[94vh] w-full flex flex-col board-window">
             <AppTitlebar
               title="MIFOID_LOREBOARD.APP"
               chainId={FLUENT_CHAIN_ID}
@@ -1185,35 +1187,20 @@ function BoardPageContent() {
                     <div className="board-section__header">
                       <span className="board-section__dot" />
                       <span className="board-section__title">ACTIONS</span>
-                      <span className="board-section__chip">ETH/CELL: {formatEth(BASE_FEE_PER_CELL_WEI)}</span>
+                      <span className="board-section__chip" title="ETH cells are your placement credits">{"\u{1F4B0}"} ETH/CELL: {formatEth(BASE_FEE_PER_CELL_WEI)}</span>
                     </div>
                     <div className="board-actions">
                       <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" />
                       <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={onFileChange} />
+                      <div className="board-actions__divider" />
                       {items.length > 0 && (
                         <span className="board-actions__pending-line">ready to submit ✓</span>
                       )}
                       <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "SUBMITTING..." : "SUBMIT PROPOSAL"} disabled={!items.length || submittingProposals} variant="secondary" />
                     </div>
-                    {(proposalsLoading || pendingVotes.length > 0) && (
-                      <div className="board-actions__voting">
-                        <div className="board-section__header board-section__header--compact">
-                          <span className="board-section__dot" />
-                          <span className="board-section__title">VOTING</span>
-                        </div>
-                        {proposalsLoading && pendingVotes.length === 0 ? (
-                          <div className="board-voting-loading">
-                            <span className="animate-pulse opacity-50">Loading proposals...</span>
-                          </div>
-                        ) : (
-                          <div className="board-voting">
-                            {pendingVotes.map((p) => (
-                              <VotingItem key={p.id} proposal={p} addStatus={addStatus} now={now} />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    <div className="board-actions__pricing">
+                      0.001 ETH per placement &middot; any size
+                    </div>
                   </div>
 
                   {/* Chat */}
@@ -1239,24 +1226,7 @@ function BoardPageContent() {
                     </div>
                   </div>
 
-                  {/* Music - iPod-style player */}
-                  <div className="board-section--music-wrapper">
-                    <div className="board-section board-section--music">
-                      <CompactMusicPlayer />
-                    </div>
-                  </div>
-
-                  {/* Epoch */}
-                  <div className="board-section board-section--epoch">
-                    <div className="board-section__header board-section__header--epoch">
-                      <span className="board-section__dot" />
-                      <span className="board-section__title">EPOCH</span>
-                      <div className="board-epoch">
-                        <span className="board-epoch__num">#{enabled ? epochIdx : "—"}</span>
-                        <span className="board-epoch__time">{fmtCountdown}</span>
-                      </div>
-                    </div>
-                  </div>
+                  {/* Music + Epoch removed — music is now global bar, epoch was clutter */}
 
                   {debugMode && proposalDebug && (
                     <div className="board-section board-section--debug">
@@ -1286,8 +1256,8 @@ function BoardPageContent() {
             </div> {/* board-grid */}
           </div> {/* vista-window__body */}
         </div> {/* board-window */}
-      </div> {/* pray-grid */}
-    </div> {/* board-shell */}
+      </div> {/* max-w-6xl */}
+    </section>
 
     {activePlacement && <PlacementModal placement={activePlacement} onClose={() => setActivePlacement(null)} />}
     {isConnected && <LoreboardNotification address={address} />}
@@ -1316,35 +1286,13 @@ function BoardPageContent() {
           --foid-warm: rgba(255, 165, 82, 0.22);
           --board-border: 1px solid var(--foid-glass-border);
         }
-        .board-shell {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          flex: 1 1 auto;
-          width: 100%;
-          min-height: 0;
-          box-sizing: border-box;
-          padding: clamp(6px, 1vw, 16px);
-          position: relative;
-          z-index: 1;
-          overflow: hidden;
-        }
         .board-window {
-          width: min(1800px, calc(100vw - clamp(16px, 1.5vw, 30px)));
-          max-width: 100%;
-          flex: 1 1 auto;
-          display: flex;
-          flex-direction: column;
           min-height: 0;
-          margin: 0;
-          box-shadow: none !important;
-          border: none !important;
         }
         .board-body {
           flex: 1 1 auto;
           min-height: 0;
-          padding: 18px;
+          padding: clamp(12px, 1.5vw, 18px);
           display: flex;
           flex-direction: column;
         }
@@ -1352,9 +1300,9 @@ function BoardPageContent() {
           flex: 1 1 auto;
           min-height: 0;
           display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
-          gap: 18px;
-          padding: 14px;
+          grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+          gap: clamp(12px, 1.5vw, 18px);
+          padding: clamp(10px, 1.5vw, 16px);
           box-sizing: border-box;
           height: 100%;
           align-items: stretch;
@@ -1600,7 +1548,7 @@ function BoardPageContent() {
           height: 100%;
           min-height: 0;
           overflow: hidden;
-          padding: 16px;
+          padding: 14px;
           border-radius: var(--board-radius-lg);
           border: var(--board-border);
           background:
@@ -1621,8 +1569,8 @@ function BoardPageContent() {
           overscroll-behavior: contain;
           display: flex;
           flex-direction: column;
-          gap: 16px;
-          padding-right: 6px;
+          gap: 14px;
+          padding-right: 4px;
         }
         .board-sidebar::after {
           content: none !important;
@@ -1642,7 +1590,7 @@ function BoardPageContent() {
             0 0 16px rgba(116, 255, 235, 0.18),
             inset 0 1px 0 rgba(255, 255, 255, 0.08),
             inset 0 -1px 0 rgba(0, 0, 0, 0.35);
-          padding: 16px;
+          padding: 14px;
         }
         .board-section:not(:last-child)::after {
           content: "";
@@ -1713,7 +1661,8 @@ function BoardPageContent() {
           flex-shrink: 0;
         }
         .board-section--chat-wrapper {
-          min-height: 360px;
+          min-height: 320px;
+          flex: 1 1 60%;
           height: auto;
         }
         .board-section--chat {
@@ -1730,13 +1679,13 @@ function BoardPageContent() {
         .board-section__header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
         .board-section__chip {
           margin-left: auto;
-          padding: 1px 8px;
+          padding: 1px 6px;
           border-radius: 999px;
           border: 1px solid rgba(255, 210, 235, 0.45);
           background: linear-gradient(135deg, rgba(255, 210, 225, 0.25), rgba(255, 150, 195, 0.2));
           color: rgba(190, 255, 235, 0.9);
           font-size: 8px;
-          letter-spacing: 0.08em;
+          letter-spacing: 0.06em;
           font-family: var(--font-mono);
           text-transform: uppercase;
           box-shadow: 0 0 6px rgba(255, 150, 190, 0.3);
@@ -1744,14 +1693,14 @@ function BoardPageContent() {
         }
         .board-section__status {
           margin-left: auto;
-          padding: 2px 8px;
+          padding: 1px 6px;
           border-radius: 999px;
           border: 1px solid var(--foid-glass-border);
           background: rgba(0, 12, 20, 0.6);
           color: var(--foid-accent);
           font-size: 9px;
           font-family: var(--font-mono);
-          letter-spacing: 0.2em;
+          letter-spacing: 0.18em;
           text-transform: uppercase;
           display: flex;
           align-items: center;
@@ -1768,8 +1717,8 @@ function BoardPageContent() {
           color: var(--foid-text-dim);
           border-color: rgba(255, 255, 255, 0.1);
         }
-        .board-section__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--foid-accent); box-shadow: 0 0 8px var(--foid-glow), 0 0 16px var(--foid-accent-soft); animation: pulse 2s ease-in-out infinite; }
-        .board-section__title { font-size: 10px; font-weight: 600; letter-spacing: 0.18em; color: var(--foid-accent); text-shadow: 0 0 12px var(--foid-accent-soft); opacity: 0.92; }
+        .board-section__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--foid-accent); box-shadow: 0 0 6px var(--foid-glow), 0 0 12px var(--foid-accent-soft); animation: pulse 2s ease-in-out infinite; }
+        .board-section__title { font-size: 10px; font-weight: 600; letter-spacing: 0.16em; color: var(--foid-accent); text-shadow: 0 0 10px var(--foid-accent-soft); opacity: 0.92; }
         .board-section__sub { margin-left: auto; font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 0.05em; }
 
         .board-epoch {
@@ -1796,11 +1745,25 @@ function BoardPageContent() {
         /* Actions */
         .board-actions__pending-line {
           font-size: 10px;
-          letter-spacing: 0.25em;
+          letter-spacing: 0.2em;
           text-transform: uppercase;
           color: rgba(255, 255, 255, 0.6);
         }
-        .board-actions { display: flex; flex-direction: column; gap: 6px; }
+        .board-actions { display: flex; flex-direction: column; gap: 5px; }
+        .board-actions__divider { height: 1px; background: rgba(255, 255, 255, 0.08); margin: 3px 0; }
+        .board-actions__pricing { font-size: 11px; color: rgba(255, 255, 255, 0.4); text-align: center; margin-top: 8px; }
+        .board-section--chat :global(.terminal-chat__input-row) {
+          border-top: 1px solid rgba(116, 255, 235, 0.12);
+          padding: 10px 12px;
+        }
+        .board-section--chat :global(.terminal-chat__input) {
+          height: 36px;
+          font-size: 12px;
+        }
+        .board-section--chat :global(.terminal-chat__send) {
+          padding: 8px 14px;
+          font-size: 10px;
+        }
 
         /* Y2K Button - pink glass pill */
         :global(.y2k-btn) {
@@ -1809,16 +1772,10 @@ function BoardPageContent() {
           align-items: center;
           justify-content: center;
           width: 100%;
-          height: 44px;
-          border-radius: 14px;
-          border: 1px solid rgba(255, 210, 235, 0.7);
-          background: linear-gradient(
-            135deg,
-            rgba(255, 210, 225, 0.65) 0%,
-            rgba(255, 150, 195, 0.55) 40%,
-            rgba(235, 105, 165, 0.55) 70%,
-            rgba(200, 75, 140, 0.68) 100%
-          );
+          height: 42px;
+          border-radius: 7px;
+          border: none;
+          background: linear-gradient(135deg, #e040fb, #f06292);
           overflow: hidden;
           cursor: pointer;
           transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
@@ -1877,12 +1834,12 @@ function BoardPageContent() {
         :global(.y2k-btn__label) {
           position: relative;
           z-index: 2;
-          font-size: 11px;
+          font-size: 12px;
           font-weight: 700;
-          letter-spacing: 0.18em;
+          letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: rgba(190, 255, 235, 0.95);
-          text-shadow: 0 0 18px rgba(140, 255, 220, 0.55), 0 2px 0 rgba(0, 0, 0, 0.45);
+          color: white;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         }
         :global(.y2k-btn--secondary) {
           background:
@@ -1964,18 +1921,18 @@ function BoardPageContent() {
           mix-blend-mode: screen;
           z-index: 0;
         }
-        :global(.terminal-chat__messages) { flex: 1; min-height: 0; overflow-y: auto; padding: 10px; font-size: 9px; line-height: 1.5; }
-        :global(.terminal-chat__line) { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 3px; }
-        :global(.terminal-chat__time) { color: rgba(255,255,255,0.35); font-size: 8px; }
-        :global(.terminal-chat__user) { color: var(--foid-accent); font-weight: 600; background: var(--foid-accent-soft); padding: 1px 4px; border-radius: 2px; font-size: 8px; }
-        :global(.terminal-chat__system) { color: #ffcc00; font-weight: 600; font-style: italic; font-size: 8px; }
-        :global(.terminal-chat__text) { color: rgba(255,255,255,0.85); font-size: 9px; }
+        :global(.terminal-chat__messages) { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; font-size: 11px; line-height: 1.5; }
+        :global(.terminal-chat__line) { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+        :global(.terminal-chat__time) { color: rgba(255,255,255,0.35); font-size: 9px; }
+        :global(.terminal-chat__user) { color: var(--foid-accent); font-weight: 600; background: var(--foid-accent-soft); padding: 1px 5px; border-radius: 2px; font-size: 9px; }
+        :global(.terminal-chat__system) { color: #ffcc00; font-weight: 600; font-style: italic; font-size: 9px; }
+        :global(.terminal-chat__text) { color: rgba(255,255,255,0.85); font-size: 11px; }
         :global(.terminal-chat__line--success .terminal-chat__text) { color: var(--foid-accent); }
         :global(.terminal-chat__line--error .terminal-chat__text) { color: #ff4757; }
         :global(.terminal-chat__input-row) {
           display: flex;
           align-items: center;
-          padding: 8px 10px;
+          padding: 10px 12px;
           gap: 8px;
           border-top: 1px solid var(--foid-accent-soft);
           background: rgba(5, 15, 26, 0.85);
@@ -1983,9 +1940,10 @@ function BoardPageContent() {
           bottom: 0;
           backdrop-filter: blur(12px);
           z-index: 2;
+          overflow: hidden;
         }
-        :global(.terminal-chat__prompt) { color: var(--foid-accent); margin-right: 8px; font-weight: 600; font-size: 11px; text-shadow: 0 0 8px var(--foid-glow); }
-        :global(.terminal-chat__input) { flex: 1; background: rgba(11,24,38,0.55); border: 1px solid var(--foid-accent-soft); border-radius: 4px; outline: none; color: white; font-family: inherit; font-size: 10px; padding: 6px 10px; transition: border-color 0.2s, box-shadow 0.2s; }
+        :global(.terminal-chat__prompt) { color: var(--foid-accent); margin-right: 6px; font-weight: 600; font-size: 12px; text-shadow: 0 0 8px var(--foid-glow); flex-shrink: 0; }
+        :global(.terminal-chat__input) { flex: 1; min-width: 0; background: rgba(11,24,38,0.55); border: 1px solid var(--foid-accent-soft); border-radius: 4px; outline: none; color: white; font-family: inherit; font-size: 11px; padding: 6px 10px; transition: border-color 0.2s, box-shadow 0.2s; }
         :global(.terminal-chat__input:focus) { border-color: var(--foid-accent); box-shadow: 0 0 10px var(--foid-glow); }
         :global(.terminal-chat__input:focus-visible) {
           outline: 2px solid var(--foid-accent);
@@ -1994,17 +1952,19 @@ function BoardPageContent() {
         :global(.terminal-chat__input::placeholder) { color: rgba(255,255,255,0.35); }
         :global(.terminal-chat__line--chat .terminal-chat__text) { color: #ccffd8; }
         :global(.terminal-chat__send) {
-          padding: 5px 12px;
+          padding: 6px 14px;
           border-radius: 6px;
           border: 1px solid var(--foid-accent-soft);
           background: var(--foid-accent-soft);
           color: var(--foid-accent);
-          font-size: 9px;
+          font-size: 10px;
           font-weight: 700;
-          letter-spacing: 0.2em;
+          letter-spacing: 0.15em;
           text-transform: uppercase;
           cursor: pointer;
           transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
+          flex-shrink: 0;
+          white-space: nowrap;
         }
         :global(.terminal-chat__send:hover:not(:disabled)) {
           background: var(--foid-accent);
