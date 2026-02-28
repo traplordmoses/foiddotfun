@@ -212,7 +212,7 @@ export default function MiFOIDPage() {
                             className="w-full h-auto"
                             style={{
                               borderRadius: 8,
-                              boxShadow: "0 0 20px rgba(168,130,255,0.4), 0 8px 32px rgba(0,0,0,0.5)",
+                              boxShadow: "none",
                               border: "1.5px solid rgba(168,130,255,0.25)",
                             }}
                             unoptimized
