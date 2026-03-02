@@ -5,13 +5,13 @@ import { useAccount, useDisconnect, useConnect } from "wagmi";
 import Link from "next/link";
 import { getWalletClient } from "@/lib/viem";
 import { CONTRACTS } from "@/lib/contracts/addresses";
-import { DUEL_ARENA_ABI } from "@/lib/contracts/abis/duelArena";
+import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import toast from "react-hot-toast";
 
 type SubmitStatus = "idle" | "uploading" | "confirming" | "done";
 
-export default function DuelSubmitPage() {
+export default function SwipeSubmitPage() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { connectors } = useConnect();
@@ -76,16 +76,16 @@ export default function DuelSubmitPage() {
       const walletClient = await getWalletClient();
       if (!walletClient) throw new Error("Wallet not connected");
 
-      const contractAddress = CONTRACTS.DUEL_ARENA as `0x${string}`;
-      if (!contractAddress) throw new Error("DuelArena not configured");
+      const contractAddress = CONTRACTS.SWIPE as `0x${string}`;
+      if (!contractAddress) throw new Error("Swipe contract not configured");
 
       const hash = await walletClient.writeContract({
         account: address,
         address: contractAddress,
-        abi: DUEL_ARENA_ABI,
-        functionName: "submit",
+        abi: SWIPE_ABI,
+        functionName: "propose",
         args: [cid],
-        value: BigInt(CONTRACTS.DUEL_SUBMISSION_FEE ?? "0"),
+        value: BigInt(CONTRACTS.SWIPE_SUBMISSION_FEE ?? "0"),
       });
 
       setTxHash(hash);
@@ -126,7 +126,7 @@ export default function DuelSubmitPage() {
 
                 <h1 className="mb-2 text-xl font-bold text-white">Submit a Meme</h1>
                 <p className="mb-6 text-sm text-white/50">
-                  Propose a meme. Once matched, the community swipes. Winners get canonized in the Gallery forever.
+                  Propose a meme for the community to vote on. If it passes, it gets canonized in the Gallery forever.
                 </p>
 
                 {/* Upload area */}
@@ -162,10 +162,9 @@ export default function DuelSubmitPage() {
                 <div className="mb-6 rounded-xl border border-white/5 bg-white/[0.02] p-4 text-sm text-white/50">
                   <h3 className="mb-2 font-medium text-white/70">How it works</h3>
                   <ul className="space-y-1 text-xs text-white/40">
-                    <li>1. Propose your meme</li>
-                    <li>2. Wait for it to be matched with another submission</li>
-                    <li>3. Community swipes for 24 hours (weighted by prayer streak)</li>
-                    <li>4. Winner gets canonized in the Gallery</li>
+                    <li>1. Upload and propose your meme (small fee)</li>
+                    <li>2. Community swipes to approve or reject (weighted by prayer streak)</li>
+                    <li>3. Approved memes get canonized in the Gallery</li>
                   </ul>
                 </div>
 
@@ -173,7 +172,7 @@ export default function DuelSubmitPage() {
                 {status === "done" ? (
                   <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 p-4 text-center">
                     <p className="text-sm font-medium text-purple-300">Meme proposed!</p>
-                    <p className="mt-1 text-xs text-white/40">You&apos;ll be matched with an opponent soon.</p>
+                    <p className="mt-1 text-xs text-white/40">The community will now vote on your meme.</p>
                     {txHash && (
                       <a
                         href={`https://testnet.fluentscan.xyz/tx/${txHash}`}
@@ -202,7 +201,7 @@ export default function DuelSubmitPage() {
                           ? "Connect wallet first"
                           : !file
                             ? "Select an image"
-                            : "Submit to Duel Pool"}
+                            : "Propose Meme"}
                   </button>
                 )}
               </div>

@@ -172,3 +172,64 @@ export async function writeProposePlacement(args: {
 
   return { txHash, receipt, placementId: id, epoch, cells: placedCells, cidHash };
 }
+
+/** call: SwipeLoreboard.place(int32 x, int32 y, uint32 w, uint32 h, bytes cidBytes) payable */
+export async function writeSwipeLoreboardPlace(args: {
+  placer: `0x${string}`;
+  rect: { x: number; y: number; w: number; h: number };
+  cidBytes: Uint8Array | string;
+}) {
+  const { SWIPE_LOREBOARD_ABI } = await import("@/lib/contracts/abis/swipeLoreboard");
+  const { CONTRACTS } = await import("@/lib/contracts/addresses");
+
+  const swipeLoreboardAddr = (CONTRACTS.SWIPE_LOREBOARD ?? "").toLowerCase() as `0x${string}`;
+  if (!swipeLoreboardAddr) throw new Error("SwipeLoreboard not configured");
+
+  const placementFeeWei = BigInt(CONTRACTS.PLACEMENT_FEE_WEI ?? "1000000000000000");
+
+  const normalizeBytes = (value: Uint8Array | string): `0x${string}` => {
+    if (value instanceof Uint8Array) return toHex(value);
+    if (isHex(value)) return value as `0x${string}`;
+    return toHex(new TextEncoder().encode(value));
+  };
+
+  const eth = (globalThis as { ethereum?: EthereumProvider }).ethereum;
+  if (!eth) throw new Error("wallet not available");
+  const walletClient = createWalletClient({ chain: fluentTestnet, transport: custom(eth) });
+  const cidHex = normalizeBytes(args.cidBytes);
+
+  const txHash = await walletClient.writeContract({
+    account: args.placer,
+    address: swipeLoreboardAddr,
+    abi: SWIPE_LOREBOARD_ABI,
+    functionName: "place",
+    args: [args.rect.x, args.rect.y, args.rect.w, args.rect.h, cidHex],
+    value: placementFeeWei,
+    chain: fluentTestnet,
+  });
+
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const log = receipt.logs.find((entry) => entry.address.toLowerCase() === swipeLoreboardAddr);
+  if (!log) {
+    throw new Error("PlacementCreated event not found");
+  }
+
+  const decoded = decodeEventLog({
+    abi: SWIPE_LOREBOARD_ABI,
+    data: log.data,
+    topics: log.topics,
+    eventName: "PlacementCreated",
+  });
+
+  const { placementId, cells } = decoded.args as unknown as {
+    placementId: bigint;
+    placer: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    cells: number;
+  };
+
+  return { txHash, receipt, placementId: Number(placementId), cells };
+}

@@ -1,33 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAccount, useReadContract, useDisconnect, useConnect } from "wagmi";
 import Link from "next/link";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { FOID_TREST_ABI } from "@/lib/contracts/abis/foidTrest";
-import {
-  useFoidTrestGovernance,
-  useFlagCount,
-  useHasFlagged,
-  useActiveVote,
-  useRemovalVote,
-  useHasVotedOnRemoval,
-} from "@/hooks/useFoidTrestGovernance";
+import { publicClient } from "@/lib/viem";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 
 type TrestEntry = {
   id: number;
   creator: string;
   ipfsCid: string;
-  title: string;
-  description: string;
   placedAt: number;
-  path: number; // 0 = direct, 1 = duel
-  duelId: number;
+  path: number;
   visible: boolean;
 };
-
-type FilterMode = "all" | "canonized";
 
 const IPFS_GATEWAY = "https://ipfs.io/ipfs/";
 
@@ -49,12 +37,6 @@ function formatTimestamp(unix: number): string {
   });
 }
 
-function formatEth(wei: bigint): string {
-  const eth = Number(wei) / 1e18;
-  if (eth < 0.001) return "<0.001";
-  return eth.toFixed(4);
-}
-
 // ── Gradient + symbol combos for trest cards ──
 const TREST_VISUALS = [
   { gradient: "linear-gradient(135deg, #1a0a2e 0%, #4a1a8e 50%, #0f0c29 100%)", symbol: "\u2728" },
@@ -64,132 +46,6 @@ const TREST_VISUALS = [
   { gradient: "linear-gradient(135deg, #2e2e0a 0%, #8e8e1a 50%, #29290c 100%)", symbol: "\u{1F31F}" },
   { gradient: "linear-gradient(135deg, #0a0a2e 0%, #2a1a6e 50%, #0c0c29 100%)", symbol: "\u{1F52E}" },
 ];
-
-// ── Mock gallery entries for demo (init in useEffect to avoid hydration mismatch) ──
-function makeMockEntries(): TrestEntry[] {
-  const now = Math.floor(Date.now() / 1000);
-  return [
-    { id: 1, creator: "0x1234567890abcdef1234567890abcdef12345678", ipfsCid: "", title: "", description: "", placedAt: now - 86400 * 7, path: 1, duelId: 1, visible: true },
-    { id: 2, creator: "0xabcdef1234567890abcdef1234567890abcdef12", ipfsCid: "", title: "", description: "", placedAt: now - 86400 * 5, path: 1, duelId: 2, visible: true },
-    { id: 3, creator: "0x2222222222222222222222222222222222222222", ipfsCid: "", title: "", description: "", placedAt: now - 86400 * 3, path: 0, duelId: 0, visible: true },
-    { id: 4, creator: "0x3333333333333333333333333333333333333333", ipfsCid: "", title: "", description: "", placedAt: now - 86400 * 2, path: 1, duelId: 3, visible: true },
-    { id: 5, creator: "0x4444444444444444444444444444444444444444", ipfsCid: "", title: "", description: "", placedAt: now - 86400, path: 1, duelId: 4, visible: true },
-    { id: 6, creator: "0x5555555555555555555555555555555555555555", ipfsCid: "", title: "", description: "", placedAt: now - 43200, path: 0, duelId: 0, visible: true },
-  ];
-}
-
-/** Governance panel for a single entry: flag button + active vote UI */
-function GovernancePanel({ entryId }: { entryId: number }) {
-  const { address } = useAccount();
-  const { flagFeeWei, flagThreshold, flagPost, voteOnRemoval, resolveRemovalVote } = useFoidTrestGovernance();
-  const { flagCount } = useFlagCount(entryId);
-  const alreadyFlagged = useHasFlagged(entryId);
-  const activeVoteId = useActiveVote(entryId);
-  const { vote } = useRemovalVote(activeVoteId);
-  const hasVoted = useHasVotedOnRemoval(activeVoteId);
-
-  const [flagging, setFlagging] = useState(false);
-  const [voting, setVoting] = useState(false);
-  const [resolving, setResolving] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-
-  const handleFlag = useCallback(async () => {
-    try {
-      setFlagging(true);
-      await flagPost(entryId);
-      setShowConfirm(false);
-    } catch (err: any) {
-      console.error("Flag failed:", err?.message);
-    } finally {
-      setFlagging(false);
-    }
-  }, [flagPost, entryId]);
-
-  const handleVote = useCallback(async (support: boolean) => {
-    try {
-      setVoting(true);
-      await voteOnRemoval(activeVoteId, support);
-    } catch (err: any) {
-      console.error("Vote failed:", err?.message);
-    } finally {
-      setVoting(false);
-    }
-  }, [voteOnRemoval, activeVoteId]);
-
-  const handleResolve = useCallback(async () => {
-    try {
-      setResolving(true);
-      await resolveRemovalVote(activeVoteId);
-    } catch (err: any) {
-      console.error("Resolve failed:", err?.message);
-    } finally {
-      setResolving(false);
-    }
-  }, [resolveRemovalVote, activeVoteId]);
-
-  const [govNow, setGovNow] = useState(0);
-  useEffect(() => { setGovNow(Math.floor(Date.now() / 1000)); }, []);
-  const voteEnded = vote && govNow > 0 && Number(vote.endsAt) < govNow;
-  const voteActive = activeVoteId > 0 && vote && !vote.resolved;
-
-  return (
-    <div className="border-t border-white/5 px-2 py-1.5">
-      {voteActive ? (
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" />
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-red-300">
-              Removal Vote Active
-            </span>
-          </div>
-          <div className="flex gap-2 text-[10px]">
-            <span className="text-red-400">Remove: {vote.votesFor.toString()}</span>
-            <span className="text-green-400">Keep: {vote.votesAgainst.toString()}</span>
-          </div>
-          {voteEnded ? (
-            <button onClick={handleResolve} disabled={resolving} className="w-full rounded-lg bg-purple-600/30 px-2 py-1 text-[10px] font-medium text-purple-200 transition hover:bg-purple-600/50 disabled:opacity-50">
-              {resolving ? "Resolving..." : "Resolve Vote"}
-            </button>
-          ) : address && !hasVoted ? (
-            <div className="flex gap-1.5">
-              <button onClick={() => handleVote(true)} disabled={voting} className="flex-1 rounded-lg bg-red-600/20 px-2 py-1 text-[10px] font-medium text-red-300 transition hover:bg-red-600/40 disabled:opacity-50">Remove</button>
-              <button onClick={() => handleVote(false)} disabled={voting} className="flex-1 rounded-lg bg-green-600/20 px-2 py-1 text-[10px] font-medium text-green-300 transition hover:bg-green-600/40 disabled:opacity-50">Keep</button>
-            </div>
-          ) : hasVoted ? (
-            <div className="text-[10px] text-neutral-500 italic">You already voted</div>
-          ) : null}
-        </div>
-      ) : (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-[10px] text-neutral-500">
-            {flagCount > 0 && (
-              <span className="rounded-full bg-red-600/20 px-1.5 py-0.5 text-red-300 font-medium">
-                {flagCount}/{flagThreshold} flags
-              </span>
-            )}
-          </div>
-          {address && !alreadyFlagged ? (
-            showConfirm ? (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-neutral-400">{formatEth(flagFeeWei)} ETH fee</span>
-                <button onClick={handleFlag} disabled={flagging} className="rounded-md bg-red-600/30 px-2 py-0.5 text-[10px] font-medium text-red-300 transition hover:bg-red-600/50 disabled:opacity-50">
-                  {flagging ? "..." : "Confirm"}
-                </button>
-                <button onClick={() => setShowConfirm(false)} className="text-[10px] text-neutral-500 hover:text-neutral-300">Cancel</button>
-              </div>
-            ) : (
-              <button onClick={() => setShowConfirm(true)} className="rounded-md px-2 py-0.5 text-[10px] text-neutral-500 transition hover:bg-red-600/10 hover:text-red-300" title="Flag for review">
-                Flag
-              </button>
-            )
-          ) : alreadyFlagged ? (
-            <span className="text-[10px] text-neutral-600 italic">Flagged</span>
-          ) : null}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function TrestCard({ entry }: { entry: TrestEntry }) {
   const [loaded, setLoaded] = useState(false);
@@ -202,7 +58,7 @@ function TrestCard({ entry }: { entry: TrestEntry }) {
             {!loaded && <div className="absolute inset-0 animate-pulse bg-neutral-800" />}
             <img
               src={cidToUrl(entry.ipfsCid)}
-              alt={entry.title || "FOIDREST entry"}
+              alt="Gallery entry"
               className={`h-full w-full object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
               onLoad={() => setLoaded(true)}
             />
@@ -218,60 +74,100 @@ function TrestCard({ entry }: { entry: TrestEntry }) {
             </span>
           </div>
         )}
-        <div className="absolute right-2 top-2">
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
-            entry.path === 1
-              ? "bg-amber-400/90 text-amber-900 shadow-[0_0_8px_rgba(251,191,36,0.5)]"
-              : "bg-slate-400/80 text-slate-900 shadow-[0_0_8px_rgba(148,163,184,0.4)]"
-          }`}>
-            {entry.path === 0 ? "Placed" : "Won"}
-          </span>
-        </div>
       </div>
       <div className="space-y-1 p-2">
-        {entry.title && <h3 className="truncate text-xs font-medium text-neutral-100">{entry.title}</h3>}
         <div className="flex items-center justify-between text-[10px] text-neutral-400">
           <span className="font-mono">{truncateAddress(entry.creator)}</span>
           <span suppressHydrationWarning>{formatTimestamp(entry.placedAt)}</span>
         </div>
       </div>
-      <GovernancePanel entryId={entry.id} />
     </div>
   );
 }
 
-export default function TrestPage() {
+export default function GalleryPage() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { connectors } = useConnect();
-  const [filter, setFilter] = useState<FilterMode>("all");
   const [loading, setLoading] = useState(true);
-
-  // Use mock entries, merged with on-chain data when available
   const [entries, setEntries] = useState<TrestEntry[]>([]);
 
+  const trestAddress = (CONTRACTS.FOID_TREST ?? "") as `0x${string}`;
+  const hasTrest = !!CONTRACTS.FOID_TREST;
+
   const { data: entryCount } = useReadContract({
-    address: (CONTRACTS.FOID_TREST ?? "") as `0x${string}`,
+    address: trestAddress,
     abi: FOID_TREST_ABI,
     functionName: "entryCount",
-    query: { enabled: !!CONTRACTS.FOID_TREST },
+    query: { enabled: hasTrest },
   });
 
-  void entryCount;
-
+  // Load real entries from FoidTrest via multicall
   useEffect(() => {
-    setEntries(makeMockEntries());
-    const timer = setTimeout(() => setLoading(false), 400);
-    return () => clearTimeout(timer);
-  }, []);
+    if (!hasTrest || entryCount === undefined) {
+      setLoading(false);
+      return;
+    }
 
-  const filtered = useMemo(() => {
-    return entries.filter((e) => {
-      if (!e.visible) return false;
-      if (filter === "canonized") return e.path === 1;
-      return true;
-    });
-  }, [entries, filter]);
+    const count = Number(entryCount);
+    if (count === 0) {
+      setEntries([]);
+      setLoading(false);
+      return;
+    }
+
+    let alive = true;
+    const loadEntries = async () => {
+      try {
+        const contracts = Array.from({ length: count }, (_, i) => ({
+          address: trestAddress,
+          abi: FOID_TREST_ABI,
+          functionName: "getEntry" as const,
+          args: [BigInt(i + 1)] as const,
+        }));
+
+        const results = await publicClient.multicall({ contracts, allowFailure: true });
+
+        if (!alive) return;
+
+        const loaded: TrestEntry[] = results
+          .map((result) => {
+            if (result.status !== "success" || !result.result) return null;
+            const e = result.result as {
+              id: bigint;
+              creator: string;
+              ipfsCid: string;
+              title: string;
+              description: string;
+              placedAt: bigint;
+              path: number;
+              duelId: bigint;
+              visible: boolean;
+            };
+            if (!e.visible) return null;
+            return {
+              id: Number(e.id),
+              creator: e.creator,
+              ipfsCid: e.ipfsCid,
+              placedAt: Number(e.placedAt),
+              path: e.path,
+              visible: e.visible,
+            };
+          })
+          .filter((e): e is NonNullable<typeof e> => e !== null) as TrestEntry[];
+
+        setEntries(loaded);
+      } catch (err) {
+        console.error("[gallery] Failed to load entries:", err);
+        setEntries([]);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    };
+
+    loadEntries();
+    return () => { alive = false; };
+  }, [hasTrest, entryCount, trestAddress]);
 
   const handleSwitchWallet = useCallback(() => {
     const injected = connectors.find((c) => c.id === "injected") ?? connectors[0];
@@ -313,22 +209,11 @@ export default function TrestPage() {
                   </Link>
                 </div>
 
-                {/* Filter bar */}
-                <div className="flex gap-2">
-                  {(["all", "canonized"] as FilterMode[]).map((mode) => (
-                    <button
-                      key={mode}
-                      onClick={() => setFilter(mode)}
-                      className={`rounded-lg px-3 py-1 text-[10px] font-medium uppercase tracking-wider transition ${
-                        filter === mode
-                          ? "bg-purple-600/30 text-purple-300 ring-1 ring-purple-500/40"
-                          : "text-white/40 hover:bg-white/5 hover:text-white/70"
-                      }`}
-                    >
-                      {mode === "all" ? `All (${entries.filter(e => e.visible).length})` : "Canonized"}
-                    </button>
-                  ))}
-                </div>
+                {entryCount !== undefined && (
+                  <div className="text-[10px] text-white/40">
+                    {Number(entryCount)} {Number(entryCount) === 1 ? "entry" : "entries"} on-chain
+                  </div>
+                )}
 
                 {/* Gallery grid */}
                 {loading ? (
@@ -337,9 +222,9 @@ export default function TrestPage() {
                       <div key={i} className="aspect-square animate-pulse rounded-xl bg-neutral-800/50" />
                     ))}
                   </div>
-                ) : filtered.length > 0 ? (
+                ) : entries.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    {filtered.map((entry) => (
+                    {entries.map((entry) => (
                       <TrestCard key={entry.id} entry={entry} />
                     ))}
                   </div>

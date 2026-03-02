@@ -35,7 +35,7 @@ import type { FinalizedPlacement } from "@/lib/types";
 import { getLatestNormalized } from "@/lib/manifest";
 import { listProposals } from "@/lib/api";
 import type { ProposalSummary, ListProposalsResponse } from "@/lib/api";
-import { writeProposePlacement } from "@/lib/viem";
+import { writeSwipeLoreboardPlace } from "@/lib/viem";
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { LoreboardNotification } from "@/components/LoreboardNotification";
@@ -831,7 +831,6 @@ function BoardPageContent() {
 
       for (const it of items) {
         addStatus(`Uploading ${it.name}...`, "info");
-        const bidPerCellWei = BASE_FEE_PER_CELL_WEI + it.tipPerCellWei;
         const onChainRect = worldToContractRect(it.rect);
         // Use the File object directly if available, otherwise fetch bytes
         const file = it.file || new File([await getPendingBytes(it)], it.name, { type: it.mime });
@@ -841,35 +840,14 @@ function BoardPageContent() {
 
         addStatus(`Submitting ${it.name}...`, "info");
         const normalizedCid = normalizeCidString(cid);
-        const onChain = await writeProposePlacement({
-          bidder: account as `0x${string}`,
+        const onChain = await writeSwipeLoreboardPlace({
+          placer: account as `0x${string}`,
           rect: onChainRect,
-          bidPerCellWei,
           cidBytes: new TextEncoder().encode(normalizedCid),
         });
 
         // Transaction succeeded on-chain!
         addStatus(`${it.name} on-chain ✓ (tx: ${onChain.txHash.slice(0, 10)}...)`, "success");
-
-        // Try to register with backend API, but don't fail if it errors
-        try {
-          const res = await fetch("/api/proposals", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id: onChain.placementId, owner: account, cid: normalizedCid, name: it.name, mime: it.mime,
-              rect: it.rect, width: it.width, height: it.height,
-              bidPerCellWei: bidPerCellWei.toString(), cells: onChain.cells, filename: it.name,
-            }),
-          });
-          if (!res.ok) {
-            const error = (await res.json().catch(() => ({}))).error ?? "API error";
-            addStatus(`⚠️ ${it.name} backend sync failed (${error}), but it's on-chain and live!`, "info");
-          }
-        } catch (apiError) {
-          debugWarn("API registration failed but transaction succeeded:", apiError);
-          addStatus(`⚠️ ${it.name} is on-chain and ready to vote - backend will sync soon!`, "info");
-        }
       }
 
       clearBoardState?.();

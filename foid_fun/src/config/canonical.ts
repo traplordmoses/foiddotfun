@@ -12,6 +12,7 @@ export const CANONICAL_CHAIN = {
 };
 
 export const CANONICAL_ADDRESSES = {
+  // Legacy loreboard contracts
   treasury: "0x4A777d8650b3FA2419377F4ffeF0EF8007151536" as Address,
   manifestStore: "0xeE469D8F9BB2Ace861AA689dE53c016871ad3D10" as Address,
   voting: "0xEbf065A7ca3917BB5e669982e8C6954cC27A7075" as Address,
@@ -21,6 +22,13 @@ export const CANONICAL_ADDRESSES = {
   votingPowerSource: "0xCCf0ac9c66a68FCb8c438C697EdA87D9766f1Be5" as Address,
   vmWrapper: "0x4031762fB8b5d3fcA168AA6555FfC666ED500DaD" as Address,
   vmWasm: "0xBE0ec2117F36797DEf3ab10661464265b2E4df34" as Address,
+
+  // V1 contracts
+  prayerTiers: "0x4eEeD27Bfa0734086FA65082C96DAD014c31EeDB" as Address,
+  streakVotingPower: "0x68F10FC72572B433425AC036740B52AcE51Af1A6" as Address,
+  foidTrest: "0xdEe866015122c9f3672E18646a172Bd8a1eb2ff1" as Address,
+  swipe: "0x0e222432aC1583E47A80228fd664e90ba6f6e37C" as Address,
+  swipeLoreboard: "0xfb2C1aa8E72baEA6872fae120d25Fc30246a27C6" as Address,
 };
 
 const warnOnce = (() => {

@@ -4,14 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAccount, useReadContract, useDisconnect, useConnect } from "wagmi";
 import Link from "next/link";
 import { CONTRACTS } from "@/lib/contracts/addresses";
-import { DUEL_ARENA_ABI } from "@/lib/contracts/abis/duelArena";
+import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
 import { getWalletClient } from "@/lib/viem";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { useSwipeVote } from "@/hooks/useSwipeVote";
 import toast from "react-hot-toast";
 
 const IPFS_GATEWAY = "https://ipfs.io/ipfs/";
-const CANONIZE_THRESHOLD = 20;
 
 function cidToUrl(cid: string): string {
   if (!cid) return "";
@@ -23,106 +22,62 @@ function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-type DuelData = {
+type SwipeProposal = {
   id: number;
-  submissionA: { id: number; creator: string; ipfsCid: string };
-  submissionB: { id: number; creator: string; ipfsCid: string };
+  proposer: string;
+  ipfsCid: string;
+  createdAt: number;
   votingEndsAt: number;
-  totalVotesA: number;
-  totalVotesB: number;
-  winner: number;
   finalized: boolean;
+  canonized: boolean;
+  trestEntryId: number;
 };
 
-type StagedVote = { duelId: number; side: 1 | 2 };
+type StagedVote = { proposalId: number; approve: boolean };
 
-// ── Gradient + symbol combos for mock cards ──
+// ── Gradient + symbol combos for cards ──
 const CARD_VISUALS = [
-  { gradient: "linear-gradient(135deg, #1a0a2e 0%, #3d1a6e 50%, #0f0c29 100%)", symbol: "\u2694\uFE0F", label: "A" },
-  { gradient: "linear-gradient(135deg, #0a1a2e 0%, #1a3d6e 50%, #0c1929 100%)", symbol: "\u{1F6E1}\uFE0F", label: "B" },
-  { gradient: "linear-gradient(135deg, #2e0a1a 0%, #6e1a3d 50%, #290c0f 100%)", symbol: "\u2620\uFE0F", label: "A" },
-  { gradient: "linear-gradient(135deg, #0a2e1a 0%, #1a6e3d 50%, #0c290f 100%)", symbol: "\u{1F451}", label: "B" },
-  { gradient: "linear-gradient(135deg, #2e2e0a 0%, #6e6e1a 50%, #29290c 100%)", symbol: "\u{1F525}", label: "A" },
-  { gradient: "linear-gradient(135deg, #0a0a2e 0%, #1a1a6e 50%, #0c0c29 100%)", symbol: "\u{1F30C}", label: "B" },
+  { gradient: "linear-gradient(135deg, #1a0a2e 0%, #3d1a6e 50%, #0f0c29 100%)", symbol: "\u2694\uFE0F" },
+  { gradient: "linear-gradient(135deg, #0a1a2e 0%, #1a3d6e 50%, #0c1929 100%)", symbol: "\u{1F6E1}\uFE0F" },
+  { gradient: "linear-gradient(135deg, #2e0a1a 0%, #6e1a3d 50%, #290c0f 100%)", symbol: "\u2620\uFE0F" },
+  { gradient: "linear-gradient(135deg, #0a2e1a 0%, #1a6e3d 50%, #0c290f 100%)", symbol: "\u{1F451}" },
+  { gradient: "linear-gradient(135deg, #2e2e0a 0%, #6e6e1a 50%, #29290c 100%)", symbol: "\u{1F525}" },
+  { gradient: "linear-gradient(135deg, #0a0a2e 0%, #1a1a6e 50%, #0c0c29 100%)", symbol: "\u{1F30C}" },
 ];
 
-// ── Mock duels for demo ──
-function makeMockDuels(): DuelData[] {
-  const now = Math.floor(Date.now() / 1000);
-  return [
-    {
-      id: 1,
-      submissionA: { id: 1, creator: "0x1234567890abcdef1234567890abcdef12345678", ipfsCid: "" },
-      submissionB: { id: 2, creator: "0xabcdef1234567890abcdef1234567890abcdef12", ipfsCid: "" },
-      votingEndsAt: now + 86400,
-      totalVotesA: 12,
-      totalVotesB: 8,
-      winner: 0,
-      finalized: false,
-    },
-    {
-      id: 2,
-      submissionA: { id: 3, creator: "0x2222222222222222222222222222222222222222", ipfsCid: "" },
-      submissionB: { id: 4, creator: "0x3333333333333333333333333333333333333333", ipfsCid: "" },
-      votingEndsAt: now + 43200,
-      totalVotesA: 5,
-      totalVotesB: 15,
-      winner: 0,
-      finalized: false,
-    },
-    {
-      id: 3,
-      submissionA: { id: 5, creator: "0x4444444444444444444444444444444444444444", ipfsCid: "" },
-      submissionB: { id: 6, creator: "0x5555555555555555555555555555555555555555", ipfsCid: "" },
-      votingEndsAt: 0,
-      totalVotesA: 30,
-      totalVotesB: 22,
-      winner: 1,
-      finalized: true,
-    },
-  ];
-}
+const EIP712_DOMAIN = {
+  name: "FoidSwipe",
+  version: "1",
+  chainId: 20994,
+  verifyingContract: CONTRACTS.SWIPE as `0x${string}`,
+};
 
-/** Swipeable card showing one side at a time */
+const EIP712_TYPES = {
+  SwipeVote: [
+    { name: "proposalId", type: "uint256" },
+    { name: "approve", type: "bool" },
+    { name: "deadline", type: "uint256" },
+  ],
+} as const;
+
+/** Swipeable card showing a single proposal */
 function SwipeCard({
-  duel,
-  showingSide,
+  proposal,
   onVote,
 }: {
-  duel: DuelData;
-  showingSide: "A" | "B";
-  onVote: (side: 1 | 2) => void;
+  proposal: SwipeProposal;
+  onVote: (approve: boolean) => void;
 }) {
-  const sub = showingSide === "A" ? duel.submissionA : duel.submissionB;
-  const otherSub = showingSide === "A" ? duel.submissionB : duel.submissionA;
-  const subVisual = CARD_VISUALS[(sub.id - 1) % CARD_VISUALS.length];
-  const otherVisual = CARD_VISUALS[(otherSub.id - 1) % CARD_VISUALS.length];
+  const visual = CARD_VISUALS[(proposal.id - 1) % CARD_VISUALS.length];
 
   const { direction, handlers, style } = useSwipeVote({
     threshold: 100,
-    onSwipeRight: () => onVote(showingSide === "A" ? 1 : 2),
-    onSwipeLeft: () => onVote(showingSide === "A" ? 2 : 1),
+    onSwipeRight: () => onVote(true),
+    onSwipeLeft: () => onVote(false),
   });
 
   return (
     <div className="relative mx-auto w-full max-w-[min(420px,45vh,100%)]" style={{ minHeight: 0 }}>
-      {/* Background card (other side peek) */}
-      <div className="absolute inset-0 rounded-2xl border border-neutral-800 bg-neutral-900/40 overflow-hidden scale-[0.95] opacity-60">
-        <div className="w-full aspect-square">
-          {otherSub.ipfsCid ? (
-            <img
-              src={cidToUrl(otherSub.ipfsCid)}
-              alt="Other side"
-              className="h-full w-full object-cover blur-[2px]"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center" style={{ background: otherVisual.gradient }}>
-              <span className="text-4xl opacity-30">{otherVisual.symbol}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Active card */}
       <div
         {...handlers}
@@ -132,30 +87,30 @@ function SwipeCard({
         {direction === "right" && (
           <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
             <span className="rounded-xl border-4 border-green-500 px-6 py-2 text-2xl font-black uppercase text-green-500 -rotate-12 opacity-80">
-              Canon
+              Approve
             </span>
           </div>
         )}
         {direction === "left" && (
           <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
             <span className="rounded-xl border-4 border-red-500 px-6 py-2 text-2xl font-black uppercase text-red-500 rotate-12 opacity-80">
-              Pass
+              Reject
             </span>
           </div>
         )}
 
         <div className="w-full aspect-square">
-          {sub.ipfsCid ? (
+          {proposal.ipfsCid ? (
             <img
-              src={cidToUrl(sub.ipfsCid)}
-              alt={`Side ${showingSide}`}
+              src={cidToUrl(proposal.ipfsCid)}
+              alt={`Proposal #${proposal.id}`}
               className="h-full w-full object-cover"
               draggable={false}
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center relative" style={{ background: subVisual.gradient }}>
+            <div className="flex h-full w-full items-center justify-center relative" style={{ background: visual.gradient }}>
               <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", backgroundSize: "150px" }} />
-              <span className="text-7xl drop-shadow-[0_0_24px_rgba(255,255,255,0.2)]">{subVisual.symbol}</span>
+              <span className="text-7xl drop-shadow-[0_0_24px_rgba(255,255,255,0.2)]">{visual.symbol}</span>
             </div>
           )}
         </div>
@@ -163,10 +118,10 @@ function SwipeCard({
         <div className="border-t border-neutral-800 bg-neutral-900/80 px-3 py-2 flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase tracking-wider text-neutral-500">
-              Prop #{duel.id}
+              Prop #{proposal.id}
             </span>
             <div className="mt-0.5 font-mono text-xs text-neutral-300">
-              {truncateAddress(sub.creator)}
+              {truncateAddress(proposal.proposer)}
             </div>
           </div>
           <span className="text-[10px] text-neutral-500">Swipe to vote</span>
@@ -174,14 +129,14 @@ function SwipeCard({
       </div>
 
       <div className="mt-2 flex items-center justify-between px-4 text-[10px] font-semibold opacity-60">
-        <span className="text-cyan-400">&larr; PASS</span>
-        <span className="text-pink-400">CANON &rarr;</span>
+        <span className="text-red-400">&larr; REJECT</span>
+        <span className="text-green-400">APPROVE &rarr;</span>
       </div>
     </div>
   );
 }
 
-/** Confirmation modal for batched vote submission */
+/** Confirmation modal for batched EIP-712 vote signing */
 function ConfirmModal({
   count,
   onConfirm,
@@ -196,8 +151,8 @@ function ConfirmModal({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="mx-4 w-full max-w-sm rounded-2xl border border-white/10 bg-neutral-900/95 p-6 shadow-2xl">
-        <h3 className="text-base font-bold text-white/90 mb-2">Submit {count} vote{count !== 1 ? "s" : ""} in one transaction?</h3>
-        <p className="text-xs text-white/50 mb-6">This will sign a single batched transaction for all your staged votes.</p>
+        <h3 className="text-base font-bold text-white/90 mb-2">Sign {count} vote{count !== 1 ? "s" : ""}?</h3>
+        <p className="text-xs text-white/50 mb-6">This will sign each vote with EIP-712 and submit them to the vote collector.</p>
         <div className="flex gap-3">
           <button
             onClick={onCancel}
@@ -226,60 +181,73 @@ export default function SwipePage() {
   const { connectors } = useConnect();
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [showingSide, setShowingSide] = useState<"A" | "B">("A");
   const [tab, setTab] = useState<"active" | "completed">("active");
-  const [voting, setVoting] = useState(false);
-  const [duels, setDuels] = useState<DuelData[]>([]);
+  const [proposals, setProposals] = useState<SwipeProposal[]>([]);
   const [stagedVotes, setStagedVotes] = useState<StagedVote[]>([]);
   const [showConfirm, setShowConfirm] = useState(false);
   const [submittingBatch, setSubmittingBatch] = useState(false);
   const [batchSuccess, setBatchSuccess] = useState(false);
+  const [voteCounts, setVoteCounts] = useState<Record<number, { forCount: number; againstCount: number }>>({});
 
-  const contractAddr = (CONTRACTS.DUEL_ARENA ?? "") as `0x${string}`;
-  const hasContract = !!CONTRACTS.DUEL_ARENA;
+  const contractAddr = (CONTRACTS.SWIPE ?? "") as `0x${string}`;
+  const hasContract = !!CONTRACTS.SWIPE;
 
-  const { data: duelCount } = useReadContract({
+  const { data: proposalCount } = useReadContract({
     address: contractAddr,
-    abi: DUEL_ARENA_ABI,
-    functionName: "duelCount",
+    abi: SWIPE_ABI,
+    functionName: "proposalCount",
     query: { enabled: hasContract },
   });
 
-  const { data: unmatchedCount } = useReadContract({
-    address: contractAddr,
-    abi: DUEL_ARENA_ABI,
-    functionName: "pendingSubmissions",
-    query: { enabled: hasContract },
-  });
-
-  void duelCount;
-
+  // Load proposals from API
   useEffect(() => {
-    setDuels(makeMockDuels());
-    const timer = setTimeout(() => setLoading(false), 600);
-    return () => clearTimeout(timer);
+    let alive = true;
+    const loadProposals = async () => {
+      try {
+        const res = await fetch("/api/swipe/proposals");
+        if (!res.ok) throw new Error("Failed to fetch proposals");
+        const data = await res.json();
+        if (!alive) return;
+        setProposals(data.proposals ?? []);
+        // Store vote counts
+        const counts: Record<number, { forCount: number; againstCount: number }> = {};
+        for (const p of data.proposals ?? []) {
+          if (p.forCount !== undefined || p.againstCount !== undefined) {
+            counts[p.id] = { forCount: p.forCount ?? 0, againstCount: p.againstCount ?? 0 };
+          }
+        }
+        setVoteCounts(counts);
+      } catch {
+        if (!alive) return;
+        setProposals([]);
+      } finally {
+        if (alive) setLoading(false);
+      }
+    };
+    loadProposals();
+    const interval = setInterval(loadProposals, 10_000);
+    return () => { alive = false; clearInterval(interval); };
   }, []);
 
-  const activeDuels = useMemo(() => duels.filter((d) => !d.finalized), [duels]);
-  const completedDuels = useMemo(() => duels.filter((d) => d.finalized), [duels]);
-  const currentDuel = activeDuels[currentIndex] ?? null;
+  const now = useMemo(() => Math.floor(Date.now() / 1000), []);
+  const activeProposals = useMemo(
+    () => proposals.filter((p) => !p.finalized && now < p.votingEndsAt),
+    [proposals, now]
+  );
+  const closedProposals = useMemo(
+    () => proposals.filter((p) => p.finalized || now >= p.votingEndsAt),
+    [proposals, now]
+  );
+  const currentProposal = activeProposals[currentIndex] ?? null;
 
   const handleVote = useCallback(
-    (side: 1 | 2) => {
-      if (!currentDuel || voting) return;
-
-      // Stage the vote locally
-      setStagedVotes((prev) => [...prev, { duelId: currentDuel.id, side }]);
+    (approve: boolean) => {
+      if (!currentProposal) return;
+      setStagedVotes((prev) => [...prev, { proposalId: currentProposal.id, approve }]);
       setBatchSuccess(false);
-
-      if (showingSide === "A") {
-        setShowingSide("B");
-      } else {
-        setCurrentIndex((i) => i + 1);
-        setShowingSide("A");
-      }
+      setCurrentIndex((i) => i + 1);
     },
-    [currentDuel, voting, showingSide]
+    [currentProposal]
   );
 
   const handleSubmitBatch = useCallback(async () => {
@@ -289,17 +257,35 @@ export default function SwipePage() {
     try {
       if (isConnected && address && hasContract) {
         const walletClient = await getWalletClient();
-        // Submit each vote (in production this would be a multicall)
         for (const v of stagedVotes) {
-          await walletClient.writeContract({
+          const proposal = proposals.find((p) => p.id === v.proposalId);
+          if (!proposal) continue;
+
+          const signature = await walletClient.signTypedData({
             account: address,
-            address: contractAddr,
-            abi: DUEL_ARENA_ABI,
-            functionName: "vote",
-            args: [BigInt(v.duelId), v.side],
+            domain: EIP712_DOMAIN,
+            types: EIP712_TYPES,
+            primaryType: "SwipeVote",
+            message: {
+              proposalId: BigInt(v.proposalId),
+              approve: v.approve,
+              deadline: BigInt(proposal.votingEndsAt),
+            },
+          });
+
+          await fetch("/api/swipe/vote", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              proposalId: v.proposalId,
+              approve: v.approve,
+              deadline: proposal.votingEndsAt,
+              signature,
+              voter: address,
+            }),
           });
         }
-        toast.success(`${stagedVotes.length} votes submitted!`);
+        toast.success(`${stagedVotes.length} votes signed and submitted!`);
       } else {
         toast.success(`Demo: ${stagedVotes.length} votes submitted!`);
       }
@@ -312,11 +298,7 @@ export default function SwipePage() {
       setSubmittingBatch(false);
       setShowConfirm(false);
     }
-  }, [stagedVotes, isConnected, address, hasContract, contractAddr]);
-
-  const totalVotes = currentDuel
-    ? currentDuel.totalVotesA + currentDuel.totalVotesB
-    : 0;
+  }, [stagedVotes, isConnected, address, hasContract, proposals]);
 
   const handleSwitchWallet = useCallback(() => {
     const injected = connectors.find((c) => c.id === "injected") ?? connectors[0];
@@ -362,10 +344,9 @@ export default function SwipePage() {
                   </Link>
                 </div>
 
-                {unmatchedCount !== undefined && Number(unmatchedCount) > 0 && (
-                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-amber-300">
-                    {Number(unmatchedCount)} meme{Number(unmatchedCount) > 1 ? "s" : ""}{" "}
-                    waiting for an opponent
+                {proposalCount !== undefined && Number(proposalCount) > 0 && (
+                  <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 px-3 py-2 text-xs text-purple-300 mt-2">
+                    {Number(proposalCount)} total proposal{Number(proposalCount) > 1 ? "s" : ""} on-chain
                   </div>
                 )}
 
@@ -382,8 +363,8 @@ export default function SwipePage() {
                       }`}
                     >
                       {t === "active"
-                        ? `Live (${activeDuels.length})`
-                        : `Closed (${completedDuels.length})`}
+                        ? `Live (${activeProposals.length})`
+                        : `Closed (${closedProposals.length})`}
                     </button>
                   ))}
                 </div>
@@ -394,26 +375,35 @@ export default function SwipePage() {
                     <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
                   </div>
                 ) : tab === "active" ? (
-                  currentDuel ? (
+                  currentProposal ? (
                     <div className="flex flex-col flex-1 min-h-0 items-center justify-center gap-3 mt-2">
-                      <SwipeCard duel={currentDuel} showingSide={showingSide} onVote={handleVote} />
+                      <SwipeCard proposal={currentProposal} onVote={handleVote} />
 
-                      {totalVotes > 0 && (
+                      {voteCounts[currentProposal.id] && (
                         <div className="flex-shrink-0 mx-auto w-full" style={{ maxWidth: 420 }}>
-                          <div className="mb-0.5 flex justify-center text-[10px] font-mono text-white/40">
-                            <span className="text-cyan-400">{totalVotes} / {CANONIZE_THRESHOLD} to canonize</span>
+                          <div className="mb-0.5 flex justify-between text-[10px] font-mono text-white/40">
+                            <span className="text-green-400">{voteCounts[currentProposal.id].forCount} approve</span>
+                            <span className="text-red-400">{voteCounts[currentProposal.id].againstCount} reject</span>
                           </div>
                           <div className="flex h-1.5 overflow-hidden rounded-full bg-neutral-800">
-                            <div className="bg-[#00e5ff] transition-all" style={{ width: `${Math.min((totalVotes / CANONIZE_THRESHOLD) * 100, 100)}%` }} />
+                            {(() => {
+                              const total = voteCounts[currentProposal.id].forCount + voteCounts[currentProposal.id].againstCount;
+                              if (total === 0) return null;
+                              return (
+                                <>
+                                  <div className="bg-green-500 transition-all" style={{ width: `${(voteCounts[currentProposal.id].forCount / total) * 100}%` }} />
+                                  <div className="bg-red-500 transition-all" style={{ width: `${(voteCounts[currentProposal.id].againstCount / total) * 100}%` }} />
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
                       )}
 
                       <div className="flex-shrink-0 text-center text-xs text-white/30">
-                        {currentIndex + 1} / {activeDuels.length} proposals
+                        {currentIndex + 1} / {activeProposals.length} proposals
                       </div>
 
-                      {/* Manual submit button below card stack */}
                       {stagedVotes.length > 0 && (
                         <div className="flex-shrink-0 flex justify-center">
                           <button
@@ -441,7 +431,6 @@ export default function SwipePage() {
                         Propose a Meme
                       </Link>
 
-                      {/* Submit remaining staged votes */}
                       {stagedVotes.length > 0 && (
                         <button
                           onClick={() => setShowConfirm(true)}
@@ -453,56 +442,42 @@ export default function SwipePage() {
                       )}
                     </div>
                   )
-                ) : completedDuels.length > 0 ? (
+                ) : closedProposals.length > 0 ? (
                   <div className="flex-1 min-h-0 overflow-auto mt-2 grid gap-3 sm:grid-cols-2 auto-rows-min">
-                    {completedDuels.map((duel) => (
+                    {closedProposals.map((proposal) => (
                       <Link
-                        key={duel.id}
-                        href={`/swipe/${duel.id}`}
+                        key={proposal.id}
+                        href={`/swipe/${proposal.id}`}
                         className="group block rounded-xl border border-neutral-800 bg-neutral-900/40 p-2 transition hover:border-purple-500/30"
                         style={{ perspective: 600 }}
                       >
                         <div className="transition-transform duration-200 group-hover:[transform:rotateY(1deg)_rotateX(-1deg)]">
                         <div className="mb-1.5 flex items-center justify-between">
-                          <span className="text-[10px] text-white/40">Prop #{duel.id}</span>
-                          <span className="rounded-full bg-purple-600/20 px-2 py-0.5 text-[9px] font-semibold uppercase text-purple-400">
-                            Finalized
+                          <span className="text-[10px] text-white/40">Prop #{proposal.id}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase ${
+                            proposal.canonized
+                              ? "bg-green-600/20 text-green-400"
+                              : "bg-red-600/20 text-red-400"
+                          }`}>
+                            {proposal.canonized ? "Canonized" : "Rejected"}
                           </span>
                         </div>
-                        <div className="flex gap-2">
-                          <div className="relative flex-1 overflow-hidden rounded-lg bg-neutral-800/50">
-                            <div className="aspect-square max-h-[120px]">
-                              {duel.submissionA.ipfsCid ? (
-                                <img src={cidToUrl(duel.submissionA.ipfsCid)} alt="A" className="h-full w-full object-cover" />
-                              ) : (
-                                <div className="flex h-full items-center justify-center" style={{ background: CARD_VISUALS[(duel.submissionA.id - 1) % CARD_VISUALS.length].gradient }}>
-                                  <span className="text-xl">{CARD_VISUALS[(duel.submissionA.id - 1) % CARD_VISUALS.length].symbol}</span>
-                                </div>
-                              )}
-                            </div>
-                            {duel.winner === 1 && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-amber-500/20">
-                                <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-bold uppercase text-black">Win</span>
+                        <div className="overflow-hidden rounded-lg bg-neutral-800/50">
+                          <div className="aspect-square max-h-[160px]">
+                            {proposal.ipfsCid ? (
+                              <img src={cidToUrl(proposal.ipfsCid)} alt={`Proposal #${proposal.id}`} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full items-center justify-center" style={{ background: CARD_VISUALS[(proposal.id - 1) % CARD_VISUALS.length].gradient }}>
+                                <span className="text-xl">{CARD_VISUALS[(proposal.id - 1) % CARD_VISUALS.length].symbol}</span>
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center text-neutral-600 text-[10px] font-bold">VS</div>
-                          <div className="relative flex-1 overflow-hidden rounded-lg bg-neutral-800/50">
-                            <div className="aspect-square max-h-[120px]">
-                              {duel.submissionB.ipfsCid ? (
-                                <img src={cidToUrl(duel.submissionB.ipfsCid)} alt="B" className="h-full w-full object-cover" />
-                              ) : (
-                                <div className="flex h-full items-center justify-center" style={{ background: CARD_VISUALS[(duel.submissionB.id - 1) % CARD_VISUALS.length].gradient }}>
-                                  <span className="text-xl">{CARD_VISUALS[(duel.submissionB.id - 1) % CARD_VISUALS.length].symbol}</span>
-                                </div>
-                              )}
-                            </div>
-                            {duel.winner === 2 && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-amber-500/20">
-                                <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-bold uppercase text-black">Win</span>
-                              </div>
-                            )}
-                          </div>
+                        </div>
+                        <div className="mt-1.5 flex items-center justify-between text-[10px] text-neutral-400">
+                          <span className="font-mono">{truncateAddress(proposal.proposer)}</span>
+                          {proposal.canonized && (
+                            <span className="text-green-400">Gallery &rarr;</span>
+                          )}
                         </div>
                         </div>
                       </Link>

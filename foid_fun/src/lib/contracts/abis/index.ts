@@ -11,3 +11,5 @@ export * from "./streakVotingPower";
 export * from "./duelArena";
 export * from "./prayerTiers";
 export * from "./foidTrestGovernance";
+export * from "./swipe";
+export * from "./swipeLoreboard";
