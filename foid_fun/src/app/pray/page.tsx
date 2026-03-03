@@ -501,10 +501,10 @@ function PrayPageContent() {
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
 
       {/* Mobile Layout */}
-      <div className="lg:hidden relative z-10 flex items-center justify-center min-h-screen px-2 sm:px-4 pb-28 pb-safe">
+      <div className="lg:hidden relative z-10 flex flex-col items-center w-full px-2 sm:px-4 pt-2 pb-28 pb-safe">
         {/* NOT CONNECTED - Show connect button */}
         {!isConnected ? (
-          <div className="flex flex-col items-center justify-center gap-6 w-full max-w-md">
+          <div className="flex flex-col items-center justify-center gap-6 w-full max-w-md min-h-[60vh]">
             <Image src="/foidmommy.gif" alt="Foid Mommy" width={120} height={120} className="rounded-2xl" />
             <button
               onClick={handleSwitchWallet}
@@ -528,7 +528,7 @@ function PrayPageContent() {
           </div>
         ) : (
           /* CONNECTED - Show terminal immediately */
-          <section className="vista-window vista-window--media flex flex-col h-[94vh] max-h-[94vh] mb-4 overflow-hidden">
+          <section className="vista-window vista-window--media flex flex-col w-full mb-4 overflow-hidden" style={{ height: "calc(100dvh - 96px)" }}>
             <div className="vista-window__titlebar flex-shrink-0">
               <div className="vista-window__controls" aria-hidden="true">
                 <span className="vista-window__control vista-window__control--minimize" />

@@ -3620,19 +3620,7 @@ body {
     padding: 0 !important;
   }
 
-  /* Top-align terminal on mobile, keep centered horizontally */
-  .pray-page > .lg\:hidden {
-    align-items: flex-start !important;
-    justify-content: center !important;
-    min-height: auto !important;
-    height: auto !important;
-    padding-bottom: 0 !important;
-  }
-
-  /* Terminal fills available width on mobile */
-  .pray-page .vista-window--media {
-    width: 100% !important;
-  }
+  /* Pray page mobile wrapper handled in TSX (flex-col items-center w-full) */
 
   /* Hide desktop layout on mobile */
   .pray-page__shell,
