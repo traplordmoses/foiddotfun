@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAccount, useReadContract, useDisconnect, useConnect } from "wagmi";
+import { useAccount, useReadContract, useDisconnect } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
@@ -178,7 +179,7 @@ function ConfirmModal({
 export default function SwipePage() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { connectors } = useConnect();
+  const { openConnectModal } = useConnectModal();
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [tab, setTab] = useState<"active" | "completed">("active");
@@ -301,9 +302,9 @@ export default function SwipePage() {
   }, [stagedVotes, isConnected, address, hasContract, proposals]);
 
   const handleSwitchWallet = useCallback(() => {
-    const injected = connectors.find((c) => c.id === "injected") ?? connectors[0];
-    if (injected) injected.connect?.();
-  }, [connectors]);
+    disconnect();
+    setTimeout(() => openConnectModal?.(), 100);
+  }, [disconnect, openConnectModal]);
 
   return (
     <main className="relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center" style={{ height: "100vh" }}>

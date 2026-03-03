@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useAccount, useDisconnect, useConnect } from "wagmi";
+import { useAccount, useDisconnect } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import Image from "next/image";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 
@@ -48,16 +49,16 @@ const SPARKLES = [
 export default function MiFOIDPage() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { connectors } = useConnect();
+  const { openConnectModal } = useConnectModal();
 
   /* Hydration fix — server renders disconnected, client may differ */
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
   const handleSwitchWallet = useCallback(() => {
-    const injected = connectors.find((c) => c.id === "injected") ?? connectors[0];
-    if (injected) injected.connect?.();
-  }, [connectors]);
+    disconnect();
+    setTimeout(() => openConnectModal?.(), 100);
+  }, [disconnect, openConnectModal]);
 
   return (
     <main

@@ -2,7 +2,7 @@
  * Custom wagmi v2 connector for the DIY embedded wallet.
  *
  * Implements an EIP-1193 provider backed by a viem PrivateKeyAccount
- * stored encrypted in IndexedDB.
+ * stored encrypted in IndexedDB, protected by a passkey (WebAuthn PRF).
  */
 import { createConnector } from "@wagmi/core";
 import {
@@ -18,10 +18,11 @@ import {
   createEmbeddedWallet,
   getEmbeddedAccount,
   getEmbeddedAddress,
-  clearEmbeddedWallet,
 } from "@/lib/embeddedWallet";
 
 type EIP1193Provider = { request: EIP1193RequestFn };
+
+const ACTIVE_KEY = "foid-embedded-active";
 
 const RPC_URL =
   process.env.NEXT_PUBLIC_RPC ??
@@ -39,14 +40,20 @@ export function embeddedWalletConnector() {
     type: "foid-embedded",
 
     async setup() {
-      // Check if wallet exists on init
-      const addr = await getEmbeddedAddress();
-      if (addr) _address = addr as Address;
+      // Pre-cache address if wallet exists and was previously active
+      if (
+        typeof window !== "undefined" &&
+        localStorage.getItem(ACTIVE_KEY) === "true"
+      ) {
+        const addr = await getEmbeddedAddress();
+        if (addr) _address = addr as Address;
+      }
     },
 
     async connect(parameters?: { chainId?: number; isReconnecting?: boolean }) {
       const { chainId } = parameters ?? {};
-      // Create wallet if it doesn't exist
+
+      // Create wallet if it doesn't exist (triggers passkey creation UI)
       if (!(await hasEmbeddedWallet())) {
         const { address } = await createEmbeddedWallet();
         _address = address as Address;
@@ -56,6 +63,9 @@ export function embeddedWalletConnector() {
       }
 
       if (!_address) throw new Error("Failed to create embedded wallet");
+
+      // Mark this connector as the active one
+      localStorage.setItem(ACTIVE_KEY, "true");
 
       const chain =
         config.chains.find((c) => c.id === (chainId ?? TARGET_CHAIN_ID)) ??
@@ -67,7 +77,9 @@ export function embeddedWalletConnector() {
 
     async disconnect() {
       _provider = null;
-      // Keep the wallet in IndexedDB — just disconnect the session
+      _address = null;
+      // Clear active flag so we don't auto-reconnect next time
+      localStorage.removeItem(ACTIVE_KEY);
     },
 
     async getAccounts() {
@@ -92,8 +104,8 @@ export function embeddedWalletConnector() {
           switch (method) {
             case "eth_requestAccounts":
             case "eth_accounts": {
-              const accounts = await this.getAccounts();
-              return accounts;
+              const accts = await this.getAccounts();
+              return accts;
             }
 
             case "eth_chainId": {
@@ -101,7 +113,6 @@ export function embeddedWalletConnector() {
             }
 
             case "wallet_switchEthereumChain": {
-              // Single-chain wallet — no-op
               return null;
             }
 
@@ -111,10 +122,9 @@ export function embeddedWalletConnector() {
               if (account.address.toLowerCase() !== address.toLowerCase()) {
                 throw new Error("Address mismatch");
               }
-              const signature = await account.signMessage({
+              return account.signMessage({
                 message: { raw: message as `0x${string}` },
               });
-              return signature;
             }
 
             case "eth_signTypedData_v4": {
@@ -124,13 +134,12 @@ export function embeddedWalletConnector() {
                 throw new Error("Address mismatch");
               }
               const typedData = JSON.parse(typedDataJson);
-              const signature = await account.signTypedData({
+              return account.signTypedData({
                 domain: typedData.domain,
                 types: typedData.types,
                 primaryType: typedData.primaryType,
                 message: typedData.message,
               });
-              return signature;
             }
 
             case "eth_sendTransaction": {
@@ -141,64 +150,36 @@ export function embeddedWalletConnector() {
                 chain: TARGET_CHAIN,
                 transport: http(RPC_URL),
               });
-              const hash = await walletClient.sendTransaction({
+              return walletClient.sendTransaction({
                 to: tx.to as Address,
                 value: tx.value ? BigInt(tx.value) : 0n,
                 data: (tx.data as `0x${string}`) ?? undefined,
                 gas: tx.gas ? BigInt(tx.gas) : undefined,
               });
-              return hash;
             }
 
-            case "eth_estimateGas": {
-              // Delegate to RPC
-              const response = await fetch(RPC_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  jsonrpc: "2.0",
-                  id: 1,
-                  method: "eth_estimateGas",
-                  params,
-                }),
-              });
-              const json = await response.json();
-              return json.result;
-            }
-
+            case "eth_estimateGas":
             case "eth_call":
             case "eth_getBalance":
             case "eth_getTransactionCount":
             case "eth_blockNumber":
             case "eth_getBlockByNumber":
             case "eth_getTransactionReceipt": {
-              // Delegate read calls to RPC
               const response = await fetch(RPC_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  jsonrpc: "2.0",
-                  id: 1,
-                  method,
-                  params,
-                }),
+                body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
               });
               const json = await response.json();
               return json.result;
             }
 
             default: {
-              // Fallback: delegate unknown methods to RPC
               try {
                 const response = await fetch(RPC_URL, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    jsonrpc: "2.0",
-                    id: 1,
-                    method,
-                    params,
-                  }),
+                  body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
                 });
                 const json = await response.json();
                 if (json.error) throw new Error(json.error.message);
@@ -215,13 +196,17 @@ export function embeddedWalletConnector() {
     },
 
     async isAuthorized() {
-      return hasEmbeddedWallet();
+      // Only auto-reconnect if the user previously chose this connector
+      if (typeof window === "undefined") return false;
+      return localStorage.getItem(ACTIVE_KEY) === "true";
     },
 
     onAccountsChanged() {},
     onChainChanged() {},
     onDisconnect() {
       _provider = null;
+      _address = null;
+      localStorage.removeItem(ACTIVE_KEY);
     },
   }));
 }

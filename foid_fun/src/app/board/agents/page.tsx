@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAccount, useDisconnect, useConnect } from "wagmi";
+import { useAccount, useDisconnect } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useAgentManifest } from "@/hooks/useAgentManifest";
 import { useAgentEpoch, AGENT_VOTE_WINDOW_SEC } from "@/hooks/useAgentEpoch";
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
@@ -50,12 +51,12 @@ export default function AgentBoardPage() {
   // ── Wallet hooks (for AppTitlebar) ──
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { connect, connectors } = useConnect();
+  const { openConnectModal } = useConnectModal();
 
   const handleSwitchWallet = useCallback(() => {
-    const injected = connectors.find((c) => c.id === "injected");
-    if (injected) connect({ connector: injected });
-  }, [connect, connectors]);
+    disconnect();
+    setTimeout(() => openConnectModal?.(), 100);
+  }, [disconnect, openConnectModal]);
 
   // ── Data hooks ──
   const { manifest, loading: manifestLoading } = useAgentManifest();

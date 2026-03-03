@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useAccount, useReadContract, useDisconnect, useConnect } from "wagmi";
+import { useAccount, useReadContract, useDisconnect } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { FOID_TREST_ABI } from "@/lib/contracts/abis/foidTrest";
@@ -88,7 +89,7 @@ function TrestCard({ entry }: { entry: TrestEntry }) {
 export default function GalleryPage() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { connectors } = useConnect();
+  const { openConnectModal } = useConnectModal();
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<TrestEntry[]>([]);
 
@@ -170,9 +171,9 @@ export default function GalleryPage() {
   }, [hasTrest, entryCount, trestAddress]);
 
   const handleSwitchWallet = useCallback(() => {
-    const injected = connectors.find((c) => c.id === "injected") ?? connectors[0];
-    if (injected) injected.connect?.();
-  }, [connectors]);
+    disconnect();
+    setTimeout(() => openConnectModal?.(), 100);
+  }, [disconnect, openConnectModal]);
 
   return (
     <main className="relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center" style={{ height: "100vh" }}>

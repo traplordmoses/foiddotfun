@@ -13,7 +13,8 @@ import React, {
   useEffect,
 } from "react";
 import { useSearchParams } from "next/navigation";
-import { useAccount, useDisconnect, useConnect } from "wagmi";
+import { useAccount, useDisconnect } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useBoard } from "@/state/board";
 import type { PendingItem } from "@/state/board";
 import { TILE, snapRect, rectCells, hasOverlap, type Rect } from "@/lib/grid";
@@ -242,18 +243,11 @@ function BoardPageContent() {
   // Wallet
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { connect, connectors } = useConnect();
+  const { openConnectModal } = useConnectModal();
   const handleSwitchWallet = useCallback(() => {
     disconnect();
-    setTimeout(() => {
-      try {
-        const c = connectors[0];
-        if (c) connect({ connector: c });
-      } catch (err) {
-        console.error("Failed to connect wallet:", err);
-      }
-    }, 100);
-  }, [disconnect, connect, connectors]);
+    setTimeout(() => openConnectModal?.(), 100);
+  }, [disconnect, openConnectModal]);
 
 
   // Pan/zoom - smooth infinite

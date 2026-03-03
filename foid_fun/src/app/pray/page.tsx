@@ -3,7 +3,8 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import AppTitlebar, { type AppTitlebarWarning } from "@/app/(components)/AppTitlebar";
-import { useAccount, useChainId, usePublicClient, useReadContract, useDisconnect, useConnect, useSwitchChain } from "wagmi";
+import { useAccount, useChainId, usePublicClient, useReadContract, useDisconnect, useSwitchChain } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { encodeAbiParameters, keccak256, stringToBytes, type Address, type Hex, type Hash } from "viem";
 import FoidMommyTerminal, {
   FEELING_LABELS,
@@ -134,7 +135,7 @@ function PrayPageContent() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { disconnect } = useDisconnect();
-  const { connect, connectors } = useConnect();
+  const { openConnectModal } = useConnectModal();
   const { switchChainAsync } = useSwitchChain();
   const { trigger: triggerHaptic } = useHaptic();
   const [nowSeconds, setNowSeconds] = useState<number | null>(null);
@@ -471,11 +472,8 @@ function PrayPageContent() {
   const handleSwitchWallet = useCallback(() => {
     triggerHaptic('medium');
     disconnect();
-    setTimeout(() => {
-      const connector = connectors[0];
-      if (connector) connect({ connector });
-    }, 100);
-  }, [disconnect, connect, connectors, triggerHaptic]);
+    setTimeout(() => openConnectModal?.(), 100);
+  }, [disconnect, openConnectModal, triggerHaptic]);
 
   const snap = snapLegacy ?? snapLite;
   const snapValues = snap as readonly unknown[] | undefined;
@@ -499,7 +497,7 @@ function PrayPageContent() {
     : "";
 
   return (
-    <main className="pray-page relative bg-foid-bg text-white/90 overflow-hidden" style={{ height: "100vh" }}>
+    <main className="pray-page relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center" style={{ height: "100vh" }}>
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
 
       {/* Mobile Layout */}

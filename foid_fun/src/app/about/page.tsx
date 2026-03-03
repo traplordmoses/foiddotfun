@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
-import { useAccount, useChainId, useConnect, useDisconnect } from "wagmi";
+import { useAccount, useChainId, useDisconnect } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { playTypingTick } from "@/lib/sfx";
 
 type Section = {
@@ -1132,8 +1133,8 @@ const bubbleConfigs: BubbleConfig[] = [
 export default function AboutPage() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
-  const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
+  const { openConnectModal } = useConnectModal();
   const initialSection = sections[0].id;
   const [activeSection, setActiveSection] = useState(initialSection);
   const [selectedSection, setSelectedSection] = useState(initialSection);
@@ -1214,13 +1215,8 @@ export default function AboutPage() {
 
   const handleSwitchWallet = useCallback(() => {
     disconnect();
-    setTimeout(() => {
-      const preferred = connectors.find((connector) => connector.ready) ?? connectors[0];
-      if (preferred) {
-        connect({ connector: preferred });
-      }
-    }, 120);
-  }, [connect, connectors, disconnect]);
+    setTimeout(() => openConnectModal?.(), 100);
+  }, [disconnect, openConnectModal]);
 
   return (
     <main className="about-page relative w-full flex items-center justify-center overflow-hidden max-w-full" style={{ height: "100vh" }}>
