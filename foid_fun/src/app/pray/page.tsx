@@ -530,7 +530,7 @@ function PrayPageContent() {
           </div>
         ) : (
           /* CONNECTED - Show terminal immediately */
-          <section className="vista-window vista-window--media flex flex-col h-[90vh] max-h-[90vh] mb-4 overflow-hidden">
+          <section className="vista-window vista-window--media flex flex-col h-[94vh] max-h-[94vh] mb-4 overflow-hidden">
             <div className="vista-window__titlebar flex-shrink-0">
               <div className="vista-window__controls" aria-hidden="true">
                 <span className="vista-window__control vista-window__control--minimize" />

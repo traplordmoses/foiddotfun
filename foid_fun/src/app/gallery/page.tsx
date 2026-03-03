@@ -179,7 +179,7 @@ export default function GalleryPage() {
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
       <section className="relative z-10 w-full max-w-full px-2 sm:px-4">
         <div className="mx-auto w-full max-w-6xl">
-          <div className="vista-window vista-window--terminal vista-window--enhanced h-[90vh] max-h-[90vh] w-full flex flex-col">
+          <div className="vista-window vista-window--terminal vista-window--enhanced h-[94vh] max-h-[94vh] w-full flex flex-col">
             <AppTitlebar
               title="GALLERY.EXE"
               connected={isConnected}
@@ -241,12 +241,6 @@ export default function GalleryPage() {
                   </div>
                 )}
 
-                {/* Bottom CTA */}
-                <div className="flex justify-center pt-2 pb-1">
-                  <Link href="/swipe" className="foid-cta-btn" style={{ background: "linear-gradient(135deg, #e040fb, #f06292)" }}>
-                    PROPOSE A MEME &rarr;
-                  </Link>
-                </div>
               </div>
             </div>
           </div>

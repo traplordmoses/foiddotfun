@@ -1,12 +1,12 @@
 import Link from "next/link";
 
 const tiles = [
-  { title: "pray.exe", label: "Pray", href: "/pray", icon: "\u{1F4FF}", accent: "#00ffff" },
-  { title: "loreboard.exe", label: "Loreboard", href: "/board", icon: "\u{1F5FA}", accent: "#ff6bd5" },
-  { title: "swipe.exe", label: "Swipe", href: "/swipe", icon: "\u2694\uFE0F", accent: "#a855f7" },
-  { title: "foidrest.exe", label: "FOIDREST", href: "/gallery", icon: "\u{1F3DB}", accent: "#fbbf24" },
-  { title: "mifoid.exe", label: "MiFOID", href: "/mifoid", icon: "\u{1F30C}", accent: "#818cf8" },
-  { title: "about.exe", label: "About", href: "/about", icon: "\u{1F4D6}", accent: "#34d399" },
+  { title: "pray.exe", label: "Pray", href: "/pray", icon: "🙏", accent: "#00ffff" },
+  { title: "loreboard.exe", label: "Loreboard", href: "/board", icon: "🖼️", accent: "#ff6bd5" },
+  { title: "swipe.exe", label: "Swipe", href: "/swipe", icon: "👆", accent: "#a855f7" },
+  { title: "gallery.exe", label: "Gallery", href: "/gallery", icon: "🏛️", accent: "#fbbf24" },
+  { title: "mifoid.exe", label: "MiFOID", href: "/mifoid", icon: "🤖", accent: "#818cf8" },
+  { title: "about.exe", label: "About", href: "/about", icon: "📖", accent: "#34d399" },
 ] as const;
 
 export default function LandingPage() {

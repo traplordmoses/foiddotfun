@@ -29,10 +29,6 @@ import { sniffImageType, mimeFromType } from "@/lib/image";
 import { uploadImage } from "@/lib/ipfs";
 import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 import { formatEth } from "@/lib/wei";
-import { useEpochCountdown } from "@/hooks/useEpochCountdown";
-import { useLatestManifestFromChain } from "@/hooks/useLatestManifestFromChain";
-import type { FinalizedPlacement } from "@/lib/types";
-import { getLatestNormalized } from "@/lib/manifest";
 import { listProposals } from "@/lib/api";
 import type { ProposalSummary, ListProposalsResponse } from "@/lib/api";
 import { writeSwipeLoreboardPlace } from "@/lib/viem";
@@ -211,24 +207,6 @@ const asWorldRect = (value: unknown): Rect => {
   return { x, y, w, h };
 };
 
-const normalizePlacements = (list: unknown[]): FinalizedPlacement[] =>
-  list.map((p) => {
-    const placement = isRecord(p) ? p : {};
-    const coerced = asWorldRect(placement.rect ?? placement);
-    // Manifests may contain contract-space coordinates (x/y offset by BOARD_OFFSET).
-    // In world space x is always < BOARD_OFFSET, so values >= BOARD_OFFSET indicate
-    // contract coordinates that need conversion.
-    const needsTransform = coerced.x >= BOARD_OFFSET_X || coerced.y >= BOARD_OFFSET_Y;
-    const rect = needsTransform ? contractToWorldRect(coerced) : coerced;
-    return {
-      ...(placement as FinalizedPlacement),
-      x: rect.x,
-      y: rect.y,
-      w: rect.w,
-      h: rect.h,
-      cells: Number(placement.cells ?? 1),
-    };
-  });
 
 const normalizeProposals = (list: ProposalSummary[] | undefined): ProposalSummary[] =>
   (list ?? []).map((p) => {
@@ -325,30 +303,21 @@ function BoardPageContent() {
   // Mobile detection
   const { isMobile } = useMobile();
 
-  // Epoch
-  const { enabled, index: epochIdx, remainingMs } = useEpochCountdown();
-  const fmtCountdown = useMemo(() => {
-    if (!enabled || remainingMs <= 0) return "ready now";
-    const hours = Math.floor(remainingMs / 3600000);
-    const days = Math.floor(hours / 24);
-    const remHours = hours % 24;
-    return `${days}d ${remHours}h`;
-  }, [enabled, remainingMs]);
-
-  // Board data
-  const [placed, setPlaced] = useState<FinalizedPlacement[]>([]);
-  const [placedEpoch, setPlacedEpoch] = useState<number | null>(null);
-  const [viewEpoch, setViewEpoch] = useState<number | null>(null);
+  // Board data — proposals are the sole data source
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
   const [proposalsLoading, setProposalsLoading] = useState(true);
   const [proposalDebug, setProposalDebug] = useState<ListProposalsResponse["debug"] | null>(null);
-  const [viewMode] = useState<"latest" | "fixed">("latest");
+
+  // Derive "placed" items from canonized proposals
+  const placed = useMemo(
+    () => proposals.filter((p) => p.status === "canonized"),
+    [proposals]
+  );
+
   const [activePlacement, setActivePlacement] = useState<Placement | null>(null);
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
   const autoZoomedEpochRef = useRef<number | null>(null);
 
-  const { manifest: latestManifest, epoch: latestManifestEpoch, loading: latestManifestLoading, error: latestManifestError } = useLatestManifestFromChain();
-  const latestFallbackTried = useRef(false);
   const ghostMetaRef = useRef<DragMeta | null>(null);
   const [ghost, setGhost] = useState<Ghost | null>(null);
 
@@ -541,7 +510,7 @@ function BoardPageContent() {
     const rect = snapRect({ x: pos.x, y: pos.y, w: meta.w, h: meta.h });
     const cells = rectCells(rect);
     let status: GhostStatus = "ok";
-    const placedRects = placed.map((pl) => ({ x: pl.x, y: pl.y, w: pl.w, h: pl.h }));
+    const placedRects = placed.map((pl) => pl.rect);
     if (cells > MAX_CELLS_PER_RECT) status = "oversize";
     else if (hasOverlap(rect, placedRects) || hasOverlap(rect, pending.map(storedRectFor))) status = "overlap";
     setGhost({ rect, cells, status, totalWei: BigInt(cells) * BASE_FEE_PER_CELL_WEI });
@@ -709,53 +678,6 @@ function BoardPageContent() {
     return { ...p, rect: r, cells: cellsNow, totalWei: BigInt(cellsNow) * (BASE_FEE_PER_CELL_WEI + p.tipPerCellWei) };
   });
 
-  const currentEpochView = viewMode === "fixed" ? viewEpoch : placedEpoch;
-
-  // Memoize normalized placements to avoid redundant processing
-  const normalizedManifestPlacements = useMemo(() => {
-    if (!latestManifest?.placements) return [];
-    return normalizePlacements(latestManifest.placements);
-  }, [latestManifest?.placements]);
-
-  // Load manifest
-  useEffect(() => {
-    if (viewMode !== "latest") { latestFallbackTried.current = false; return; }
-    let alive = true;
-    const apply = (placements: FinalizedPlacement[], epochValue: number | null) => {
-      if (!alive) return;
-      setPlaced(placements); setPlacedEpoch(epochValue); setViewEpoch(epochValue);
-      if (placements.length) {
-        const last = placements[placements.length - 1];
-        zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
-      }
-    };
-    const loadFallback = async () => {
-      if (latestFallbackTried.current) return;
-      latestFallbackTried.current = true;
-      try {
-        const latest = await getLatestNormalized();
-        if (!alive) return;
-        apply(normalizePlacements(latest.manifest?.placements ?? []), typeof latest.epoch === "number" ? latest.epoch : null);
-      } catch (e: unknown) {
-        if (!alive) return;
-        setPlaced([]); setPlacedEpoch(null); setViewEpoch(null);
-        const parsed = parseWeb3Error(e);
-        addStatus(parsed.message, "error");
-      }
-    };
-    if (latestManifestLoading) return;
-    if (latestManifestError) { void loadFallback(); return; }
-    if (normalizedManifestPlacements.length > 0) {
-      const epochValue = typeof latestManifestEpoch === "number" ? latestManifestEpoch : (latestManifest && typeof latestManifest.epoch === "number" ? latestManifest.epoch : null);
-      if (placedEpoch != null && epochValue != null && epochValue < placedEpoch) return;
-      apply(normalizedManifestPlacements, epochValue);
-      latestFallbackTried.current = false;
-      return;
-    }
-    void loadFallback();
-    return () => { alive = false; };
-  }, [viewMode, normalizedManifestPlacements, latestManifest, latestManifestEpoch, latestManifestLoading, latestManifestError, zoomToRect, placedEpoch, addStatus]);
-
   // Load proposals
   useEffect(() => {
     let alive = true;
@@ -812,7 +734,7 @@ function BoardPageContent() {
     setSubmittingProposals(true);
     addStatus("Preparing submissions...", "info");
     try {
-      const placedRects = placed.map((pl) => ({ x: pl.x, y: pl.y, w: pl.w, h: pl.h }));
+      const placedRects = placed.map((pl) => pl.rect);
       const pendingRects = items.map((it) => ({ name: it.name, rect: { ...it.rect } }));
       const overlapNames: string[] = [];
       pendingRects.forEach((c, idx) => {
@@ -939,14 +861,14 @@ function BoardPageContent() {
   const boardNodes = useMemo<BoardNode[]>(() => {
     const nodes: BoardNode[] = [];
 
-    // Add finalized placements
+    // Add finalized placements (canonized proposals)
     placed.forEach((p) => {
       nodes.push({
         id: `placed-${p.id}`,
-        x: p.x,
-        y: p.y,
-        width: p.w,
-        height: p.h,
+        x: p.rect.x,
+        y: p.rect.y,
+        width: p.rect.w,
+        height: p.rect.h,
         content: p.cid,
         type: 'meme',
       });
@@ -990,12 +912,12 @@ function BoardPageContent() {
             setActivePlacement({
               id: placement.id,
               cid: placement.cid,
-              x: placement.x,
-              y: placement.y,
-              width: placement.w,
-              height: placement.h,
-              proposer: placement.owner as `0x${string}`,
-              epochId: currentEpochView ?? placedEpoch,
+              x: placement.rect.x,
+              y: placement.rect.y,
+              width: placement.rect.w,
+              height: placement.rect.h,
+              proposer: (placement.owner ?? "") as `0x${string}`,
+              epochId: placement.epochSubmitted ?? 0,
             });
           }
         }}
@@ -1076,14 +998,14 @@ function BoardPageContent() {
                       height: STAGE_CANVAS_H,
                     }}
                     >
-                      {/* Finalized */}
+                      {/* Finalized (canonized proposals) */}
                     {placed.map((p) => {
-                      const sr = toStageRect({ x: p.x, y: p.y, w: p.w, h: p.h });
+                      const sr = toStageRect(p.rect);
                       const isActive = activePlacement?.id === p.id;
                       return (
                         <PlacementCard
                           key={p.id}
-                          placement={{ id: p.id, cid: p.cid, x: sr.x, y: sr.y, width: sr.w, height: sr.h, proposer: p.owner as `0x${string}`, epochId: currentEpochView ?? placedEpoch, status: "canonized" }}
+                          placement={{ id: p.id, cid: p.cid, x: sr.x, y: sr.y, width: sr.w, height: sr.h, proposer: (p.owner ?? "") as `0x${string}`, epochId: p.epochSubmitted ?? 0, status: "canonized" }}
                           onOpen={setActivePlacement}
                           frameStyle={{
                             border: `1px solid ${isActive ? "rgba(0,255,213,0.95)" : CARD_BORDER}`,
