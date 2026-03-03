@@ -821,6 +821,121 @@ const sections: Section[] = [
     ),
   },
   {
+    id: "contracts",
+    navLabel: "CONTRACTS",
+    title: "SMART CONTRACTS",
+    subtitle: "Verified On-Chain",
+    content: (
+      <>
+        <GlassPanel>
+          <p>
+            Every piece of FOID runs on <strong>verified smart contracts</strong> deployed to the{" "}
+            <a href="https://testnet.fluentscan.xyz" className="text-cyan-300 underline" target="_blank" rel="noopener noreferrer">Fluent testnet</a>.
+            All contract source code is open and verified on Blockscout — you can read every line, audit every function, and verify every transaction.
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            No hidden logic. No upgradeable proxies. No admin backdoors. Just pure, immutable code.
+          </p>
+        </GlassPanel>
+
+        <div style={{ marginTop: '24px' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>V1 CORE CONTRACTS</p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">PrayerTiers</p>
+            <p className="aboutMiniCard__body">
+              10-tier prayer streak system. Your daily devotion earns multipliers from 1x (Whisper) to 5x (Foid Sovereign). Tiers feed into voting power across the entire ecosystem.
+            </p>
+            <a href="https://testnet.fluentscan.xyz/address/0x4eEeD27Bfa0734086FA65082C96DAD014c31EeDB" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">StreakVotingPower</p>
+            <p className="aboutMiniCard__body">
+              Converts prayer streaks into weighted voting power. Higher streaks = more influence on Swipe votes and loreboard governance. Base weight 100, scaled by tier multiplier.
+            </p>
+            <a href="https://testnet.fluentscan.xyz/address/0x68F10FC72572B433425AC036740B52AcE51Af1A6" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">FoidTrest (Gallery)</p>
+            <p className="aboutMiniCard__body">
+              The permanent on-chain gallery. Every meme that wins a Swipe vote gets canonized here forever. Immutable entries, chronological order, community curated.
+            </p>
+            <a href="https://testnet.fluentscan.xyz/address/0xdEe866015122c9f3672E18646a172Bd8a1eb2ff1" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">Swipe</p>
+            <p className="aboutMiniCard__body">
+              Propose a meme, community votes via EIP-712 signed ballots. If more than 51% approve, the meme gets canonized to the Gallery. Replaces the old DuelArena with a cleaner flow.
+            </p>
+            <a href="https://testnet.fluentscan.xyz/address/0x0e222432aC1583E47A80228fd664e90ba6f6e37C" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">SwipeLoreboard</p>
+            <p className="aboutMiniCard__body">
+              Pay-to-place spatial board with community governance. Place content on a tile-aligned grid, flag inappropriate content, and vote on removals with streak-weighted power.
+            </p>
+            <a href="https://testnet.fluentscan.xyz/address/0xfb2C1aa8E72baEA6872fae120d25Fc30246a27C6" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+          </div>
+        </div>
+
+        <div style={{ marginTop: '24px' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>LEGACY CONTRACTS</p>
+          <p style={{ marginBottom: '16px', color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.85rem' }}>
+            Earlier contracts still live on-chain. The loreboard infrastructure powers the canvas experience.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.7 }}>
+            <p className="aboutMiniCard__title">Prayer Mirror</p>
+            <p className="aboutMiniCard__body">On-chain prayer streak oracle.</p>
+            <a href="https://testnet.fluentscan.xyz/address/0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.7 }}>
+            <p className="aboutMiniCard__title">Loreboard Voting</p>
+            <p className="aboutMiniCard__body">Rolling-window vote system for board placements.</p>
+            <a href="https://testnet.fluentscan.xyz/address/0xEbf065A7ca3917BB5e669982e8C6954cC27A7075" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.7 }}>
+            <p className="aboutMiniCard__title">Loreboard Board</p>
+            <p className="aboutMiniCard__body">Tile-aligned placement proposals + treasury escrow.</p>
+            <a href="https://testnet.fluentscan.xyz/address/0xE41B2D418C09Ea928E4F657ED2438f5D01472105" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.7 }}>
+            <p className="aboutMiniCard__title">Loreboard Treasury</p>
+            <p className="aboutMiniCard__body">Escrow and settlement for board proposals.</p>
+            <a href="https://testnet.fluentscan.xyz/address/0x4A777d8650b3FA2419377F4ffeF0EF8007151536" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.7 }}>
+            <p className="aboutMiniCard__title">Prayer Registry</p>
+            <p className="aboutMiniCard__body">On-chain prayer hash storage.</p>
+            <a href="https://testnet.fluentscan.xyz/address/0x6FC7301fad7Ca0294152b23FD4f0467200376d65" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.7 }}>
+            <p className="aboutMiniCard__title">Manifest Store</p>
+            <p className="aboutMiniCard__body">Epoch manifest anchoring for loreboard state.</p>
+            <a href="https://testnet.fluentscan.xyz/address/0xeE469D8F9BB2Ace861AA689dE53c016871ad3D10" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
+          </div>
+        </div>
+
+        <GlassPanel style={{ marginTop: '24px' }}>
+          <p>
+            <strong>Open Source.</strong> All contract source code is verified on{" "}
+            <a href="https://testnet.fluentscan.xyz" className="text-cyan-300 underline" target="_blank" rel="noopener noreferrer">Fluent Blockscout</a>
+            {" "}and available on{" "}
+            <a href="https://github.com/traplordmoses/foiddotfun" className="text-cyan-300 underline" target="_blank" rel="noopener noreferrer">GitHub</a>.
+          </p>
+        </GlassPanel>
+      </>
+    ),
+  },
+  {
     id: "faq",
     navLabel: "FAQ",
     title: "FAQ",
@@ -1108,7 +1223,7 @@ export default function AboutPage() {
   }, [connect, connectors, disconnect]);
 
   return (
-    <main className="about-page relative w-full flex items-center justify-center overflow-hidden max-w-full p-4" style={{ height: "100vh" }}>
+    <main className="about-page relative w-full flex items-center justify-center overflow-hidden max-w-full" style={{ height: "100vh" }}>
       <div className="absolute inset-0 pointer-events-none z-0" aria-hidden>
         {bubbleConfigs.map((bubble) => (
           <span
@@ -1141,7 +1256,7 @@ export default function AboutPage() {
       </div>
 
       <section className="relative z-10 w-full max-w-full px-2 sm:px-4">
-        <div className="mx-auto w-full max-w-6xl mb-4">
+        <div className="mx-auto w-full max-w-6xl">
           <div className="vista-window vista-window--terminal vista-window--enhanced h-[94vh] max-h-[94vh] w-full">
             <AppTitlebar
               title="FOID_ABOUT.EXE"

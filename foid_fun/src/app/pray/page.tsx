@@ -499,7 +499,7 @@ function PrayPageContent() {
     : "";
 
   return (
-    <main className="pray-page relative bg-foid-bg text-white/90 min-h-screen overflow-x-hidden overflow-y-auto">
+    <main className="pray-page relative bg-foid-bg text-white/90 overflow-hidden" style={{ height: "100vh" }}>
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
 
       {/* Mobile Layout */}

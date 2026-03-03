@@ -3,17 +3,46 @@
 
 import "@rainbow-me/rainbowkit/styles.css";
 import { ReactNode } from "react";
-import { WagmiProvider, http } from "wagmi";
-import { RainbowKitProvider, darkTheme, getDefaultConfig } from "@rainbow-me/rainbowkit";
+import { WagmiProvider, http, createConfig } from "wagmi";
+import {
+  RainbowKitProvider,
+  darkTheme,
+  connectorsForWallets,
+} from "@rainbow-me/rainbowkit";
+import {
+  injectedWallet,
+  walletConnectWallet,
+  metaMaskWallet,
+} from "@rainbow-me/rainbowkit/wallets";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 import { TARGET_CHAIN, TARGET_CHAIN_ID } from "@/lib/chain";
 import { NetworkSwitcher } from "@/components/NetworkSwitcher";
+import { foidEmbeddedWallet } from "@/lib/connectors/embeddedRainbowKit";
 
-// Use RainbowKit's getDefaultConfig for proper mobile wallet detection
-export const config = getDefaultConfig({
-  appName: "FOID.FUN",
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "83f1c6e8db75c230db6e2e4b6b8b5c59",
+const PROJECT_ID =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
+  "83f1c6e8db75c230db6e2e4b6b8b5c59";
+
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: "FOID",
+      wallets: [foidEmbeddedWallet],
+    },
+    {
+      groupName: "External",
+      wallets: [injectedWallet, metaMaskWallet, walletConnectWallet],
+    },
+  ],
+  {
+    projectId: PROJECT_ID,
+    appName: "FOID.FUN",
+  },
+);
+
+export const config = createConfig({
+  connectors,
   chains: [TARGET_CHAIN],
   transports: {
     [TARGET_CHAIN_ID]: http(
