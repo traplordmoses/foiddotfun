@@ -3571,6 +3571,11 @@ body {
     max-height: calc(94vh - 68px) !important;
     height: calc(94vh - 68px) !important;
   }
+
+  .app-viewport {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* ============================================================================
@@ -3805,6 +3810,12 @@ body {
     padding: 8px !important;
     max-width: 100% !important;
     overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .vista-window__body:not(.vista-window__body--flush) {
+    padding-bottom: 72px !important;
   }
 
   /* Control buttons - slightly smaller on mobile */

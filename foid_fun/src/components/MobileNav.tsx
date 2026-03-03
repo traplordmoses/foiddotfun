@@ -78,7 +78,7 @@ const navItems: NavItem[] = [
     ),
   },
   {
-    href: 'https://faucet.dev.thefluent.xyz/',
+    href: 'https://testnet.fluent.xyz/dev-portal',
     label: 'Faucet',
     external: true,
     icon: (

@@ -53,10 +53,12 @@ export function embeddedWalletConnector() {
     async connect(parameters?: { chainId?: number; isReconnecting?: boolean }) {
       const { chainId } = parameters ?? {};
 
-      // Create wallet if it doesn't exist (triggers passkey creation UI)
+      // Create wallet if it doesn't exist — route through onboarding modal
       if (!(await hasEmbeddedWallet())) {
-        const { address } = await createEmbeddedWallet();
-        _address = address as Address;
+        const { requestWalletCreation } = await import("./onboardingBridge");
+        const result = await requestWalletCreation();
+        if (!result) throw new Error("Wallet creation cancelled");
+        _address = result.address as Address;
       } else {
         const addr = await getEmbeddedAddress();
         _address = (addr as Address) ?? null;
