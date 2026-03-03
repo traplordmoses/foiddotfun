@@ -108,47 +108,30 @@ export default function MiFOIDPage() {
                 ))}
               </div>
 
-              {/* Sub-header — absolute so it doesn't consume vertical space */}
-              <div className="absolute top-3 left-6 right-6 flex items-center justify-between z-10">
-                <span className="font-mono text-sm font-bold tracking-[0.2em] text-white/90 uppercase">
+              {/* Sub-header */}
+              <div className="absolute top-3 left-4 right-4 lg:left-6 lg:right-6 flex items-center justify-between z-10">
+                <span className="font-mono text-xs lg:text-sm font-bold tracking-[0.2em] text-white/90 uppercase">
                   MIFOID
                 </span>
-                <span className="font-mono text-sm font-medium tracking-[0.15em] text-white/70 uppercase">
+                <span className="font-mono text-[10px] lg:text-sm font-medium tracking-[0.1em] lg:tracking-[0.15em] text-white/70 uppercase hidden sm:block">
                   3,333 BORN, NOT GENERATED
                 </span>
               </div>
 
-              {/* Flex layout: left text | right GameBoy — takes full height */}
-              <div
-                className="relative z-10"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  height: "100%",
-                }}
-              >
-                {/* Left — features, vertically centered */}
-                <div style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  flex: 1,
-                  height: "100%",
-                  paddingLeft: 32,
-                  paddingRight: 24,
-                  gap: 28,
-                  minWidth: 0,
-                }}>
+              {/* Flex layout: stacked on mobile, side-by-side on desktop */}
+              <div className="relative z-10 flex flex-col lg:flex-row items-center h-full pt-10 lg:pt-0 overflow-y-auto lg:overflow-visible">
+                {/* Left — features */}
+                <div className="flex flex-col justify-center flex-1 w-full lg:h-full pl-4 pr-4 lg:pl-8 lg:pr-6 gap-4 lg:gap-7 min-w-0 pb-4 lg:pb-0">
                   {FEATURES.map((feat, i) => (
                     <div key={i} className="flex gap-3 items-start">
                       <div className="mifoid-diamond flex-shrink-0 mt-0.5">
                         <Image src="/star-sparkle.png" alt="" width={18} height={18} unoptimized />
                       </div>
                       <div>
-                        <h3 className="mifoid-feature-title font-mono font-bold tracking-[0.12em] uppercase text-[clamp(14px,1.5vw,22px)] leading-tight">
+                        <h3 className="mifoid-feature-title font-mono font-bold tracking-[0.12em] uppercase text-sm lg:text-[clamp(14px,1.5vw,22px)] leading-tight">
                           {feat.title}
                         </h3>
-                        <p className="text-white/85 font-medium text-[clamp(11px,1.1vw,15px)] leading-snug mt-0.5 whitespace-pre-line">
+                        <p className="text-white/85 font-medium text-xs lg:text-[clamp(11px,1.1vw,15px)] leading-snug mt-0.5 whitespace-pre-line">
                           {feat.body}
                         </p>
                       </div>
@@ -156,23 +139,11 @@ export default function MiFOIDPage() {
                   ))}
                 </div>
 
-                {/* Right — GameBoy+MiFOID combined image, shifted left */}
-                <div style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: "100%",
-                  position: "relative",
-                  marginRight: 90,
-                }}>
+                {/* Right — GameBoy+MiFOID combined image */}
+                <div className="flex-1 flex items-center justify-center relative w-full lg:h-full lg:mr-[90px] pb-20 lg:pb-0">
                   {/* GameBoy + character combined image */}
                   <div
-                    className="mifoid-gameboy-wrap"
-                    style={{
-                      position: "relative",
-                      width: 300,
-                    }}
+                    className="mifoid-gameboy-wrap relative w-[200px] lg:w-[300px]"
                   >
                     {/* Radial glow behind gameboy for focal effect */}
                     <div className="mifoid-focal-glow" />
@@ -190,6 +161,7 @@ export default function MiFOIDPage() {
                     />
 
                     {/* Floating mini-windows around the GameBoy */}
+                    {/* Floating windows — hidden on mobile, shown on desktop */}
                     {FLOAT_WINDOWS.map((fw, i) => {
                       const pos: React.CSSProperties = {
                         position: "absolute",
@@ -204,7 +176,7 @@ export default function MiFOIDPage() {
                       if ("right" in fw && fw.right !== undefined) pos.right = fw.right;
 
                       return (
-                        <div key={i} className="mifoid-paint-window" style={pos}>
+                        <div key={i} className="mifoid-paint-window hidden lg:block" style={pos}>
                           <Image
                             src={fw.src}
                             alt={fw.alt}

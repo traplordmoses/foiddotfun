@@ -925,8 +925,8 @@ function BoardPageContent() {
         />
       )}
 
-      {/* Mobile wallet button - hidden on mobile, shown on desktop */}
-      {!isMobile && <MobileWalletButton />}
+      {/* Mobile wallet button */}
+      {isMobile && <MobileWalletButton />}
     </div>
   );
 

@@ -59,6 +59,7 @@ export default function AppTitlebar({
     { label: "GALLERY", href: "/gallery" },
     { label: "MIFOID", href: "/mifoid" },
     { label: "ABOUT", href: "/about" },
+    { label: "FAUCET", href: "https://faucet.dev.thefluent.xyz/", external: true },
   ], []);
 
   return (

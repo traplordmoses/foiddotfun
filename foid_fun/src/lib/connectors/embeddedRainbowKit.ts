@@ -29,6 +29,13 @@ export const foidEmbeddedWallet = (): Wallet => ({
   name: "FOID Wallet",
   iconUrl: ICON,
   iconBackground: "#1c2030",
-  installed: true, // always "installed" — it's built-in
-  createConnector: () => embeddedWalletConnector(),
+  installed: true,
+  // Must forward walletDetails so rkDetails (isRainbowKitConnector: true) is set
+  createConnector: (walletDetails) => {
+    const base = embeddedWalletConnector();
+    return (config) => ({
+      ...base(config),
+      ...walletDetails,
+    });
+  },
 });

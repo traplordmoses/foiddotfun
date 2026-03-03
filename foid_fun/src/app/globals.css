@@ -3563,6 +3563,17 @@ body {
 }
 
 /* ============================================================================
+   MOBILE NAV VIEWPORT FIX — account for 64px bottom nav on all pages
+   ============================================================================ */
+@media (max-width: 1023px) {
+  .vista-window--terminal,
+  .vista-window--media {
+    max-height: calc(94vh - 68px) !important;
+    height: calc(94vh - 68px) !important;
+  }
+}
+
+/* ============================================================================
    PRAY PAGE MOBILE FIXES
    ============================================================================ */
 

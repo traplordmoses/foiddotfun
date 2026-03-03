@@ -501,7 +501,7 @@ export default function SwipePage() {
         <div
           className="fixed z-50 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded-full px-4 py-2 text-xs font-bold text-white shadow-lg"
           style={{
-            bottom: "20px",
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 84px)",
             background: "linear-gradient(135deg, #e040fb, #f06292)",
             animation: "staged-pill-in 0.3s ease-out",
           }}
