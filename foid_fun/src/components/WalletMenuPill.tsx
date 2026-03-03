@@ -27,6 +27,8 @@ export default function WalletMenuPill({
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
   const [mounted, setMounted] = useState(false);
+  const [exportStatus, setExportStatus] = useState<"idle" | "copied" | "error">("idle");
+  const isEmbeddedWallet = mounted && typeof window !== "undefined" && localStorage.getItem("foid-embedded-active") === "true";
 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -143,6 +145,26 @@ export default function WalletMenuPill({
     setIsOpen(false);
   };
 
+  const handleExportKey = async () => {
+    try {
+      const { exportPrivateKey } = await import("@/lib/embeddedWallet");
+      const key = await exportPrivateKey();
+      await navigator.clipboard.writeText(key);
+      setExportStatus("copied");
+      setTimeout(() => setExportStatus("idle"), 3000);
+    } catch {
+      setExportStatus("error");
+      setTimeout(() => setExportStatus("idle"), 3000);
+    }
+  };
+
+  const handleCopyAddress = async () => {
+    if (address) {
+      await navigator.clipboard.writeText(address);
+    }
+    setIsOpen(false);
+  };
+
   const dropdownMenu = isOpen && mounted ? (
     <div
       ref={menuRef}
@@ -183,6 +205,31 @@ export default function WalletMenuPill({
         </svg>
         Switch Wallet
       </button>
+      <button
+        type="button"
+        role="menuitem"
+        className="aero-wallet-menu__item"
+        onClick={handleCopyAddress}
+      >
+        <svg className="aero-wallet-menu__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M11 5V3C11 2.44772 10.5523 2 10 2H3C2.44772 2 2 2.44772 2 3V10C2 10.5523 2.44772 11 3 11H5" stroke="currentColor" strokeWidth="1.5" />
+        </svg>
+        Copy Address
+      </button>
+      {isEmbeddedWallet && (
+        <button
+          type="button"
+          role="menuitem"
+          className="aero-wallet-menu__item"
+          onClick={handleExportKey}
+        >
+          <svg className="aero-wallet-menu__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M8 2V10M8 10L5 7M8 10L11 7M3 13H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {exportStatus === "copied" ? "Copied to clipboard!" : exportStatus === "error" ? "Auth required" : "Export Private Key"}
+        </button>
+      )}
       <button
         type="button"
         role="menuitem"

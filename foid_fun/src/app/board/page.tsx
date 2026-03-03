@@ -887,7 +887,20 @@ function BoardPageContent() {
   }, [placed, proposals]);
 
   const mobileView = (
-    <div className="h-screen w-screen bg-transparent">
+    <div className="h-screen w-screen bg-transparent relative">
+      {/* Propose button — floating top-right */}
+      <a
+        href="/swipe/submit"
+        className="absolute top-3 left-3 z-50 px-4 py-2 text-xs font-bold tracking-widest uppercase rounded-xl shadow-lg touch-manipulation"
+        style={{
+          background: "linear-gradient(135deg, #e040fb, #f06292)",
+          color: "#fff",
+          border: "1px solid rgba(255,255,255,0.2)",
+          boxShadow: "0 4px 16px rgba(224,64,251,0.35)",
+        }}
+      >
+        Propose Meme
+      </a>
       <GestureHint
         storageKey="board-gestures-seen"
         hints={[

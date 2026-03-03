@@ -15,7 +15,6 @@ import {
 import { TARGET_CHAIN, TARGET_CHAIN_ID } from "@/lib/chain";
 import {
   hasEmbeddedWallet,
-  createEmbeddedWallet,
   getEmbeddedAccount,
   getEmbeddedAddress,
 } from "@/lib/embeddedWallet";

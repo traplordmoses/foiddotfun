@@ -14,7 +14,7 @@ export function ClientLayout() {
       {!isMobile && <FairyDustCursor />}
       <MobileNav />
       <FoidWalletOnboarding />
-      <CompactMusicPlayer mountLogic={true} />
+      {!isMobile && <CompactMusicPlayer mountLogic={true} />}
     </>
   );
 }

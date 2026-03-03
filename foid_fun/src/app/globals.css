@@ -3597,11 +3597,11 @@ body {
     justify-content: flex-start !important;
   }
 
-  /* 4. Vista windows: fill available height above MobileNav */
+  /* 4. Vista windows: fill available height above MobileNav with breathing room */
   .vista-window--terminal,
   .vista-window--media {
-    height: calc(100dvh - 80px) !important;
-    max-height: calc(100dvh - 80px) !important;
+    height: calc(100dvh - 96px) !important;
+    max-height: calc(100dvh - 96px) !important;
   }
 }
 
@@ -3620,13 +3620,18 @@ body {
     padding: 0 !important;
   }
 
-  /* Top-align terminal on mobile (remove dead-space vertical centering) */
+  /* Top-align terminal on mobile, keep centered horizontally */
   .pray-page > .lg\:hidden {
     align-items: flex-start !important;
-    justify-content: flex-start !important;
+    justify-content: center !important;
     min-height: auto !important;
     height: auto !important;
     padding-bottom: 0 !important;
+  }
+
+  /* Terminal fills available width on mobile */
+  .pray-page .vista-window--media {
+    width: 100% !important;
   }
 
   /* Hide desktop layout on mobile */
@@ -4135,16 +4140,18 @@ body {
 }
 @media (max-width: 520px) {
   .home-tiles-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
   }
   .home-tile__body {
-    height: 130px;
+    height: 90px;
   }
   .home-tile__icon {
-    font-size: 28px;
+    font-size: 24px;
+    margin-bottom: 6px;
   }
   .home-tile__label {
-    font-size: 16px;
+    font-size: 12px;
+    letter-spacing: 0.15em;
   }
 }
