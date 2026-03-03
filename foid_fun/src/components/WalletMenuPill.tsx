@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useBalance } from "wagmi";
+import type { Address } from "viem";
 
 export interface WalletMenuPillProps {
   address?: string;
@@ -29,6 +31,11 @@ export default function WalletMenuPill({
   const [mounted, setMounted] = useState(false);
   const [exportStatus, setExportStatus] = useState<"idle" | "copied" | "error">("idle");
   const isEmbeddedWallet = mounted && typeof window !== "undefined" && localStorage.getItem("foid-embedded-active") === "true";
+
+  const { data: balanceData } = useBalance({
+    address: address as Address | undefined,
+    query: { enabled: isConnected && !!address },
+  });
 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -181,6 +188,23 @@ export default function WalletMenuPill({
       }}
       onKeyDown={handleKeyDown}
     >
+      {/* Balance display */}
+      {balanceData && (
+        <div className="aero-wallet-menu__balance" style={{
+          padding: "8px 12px",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
+          fontSize: "11px",
+          color: "rgba(255,255,255,0.7)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}>
+          <span style={{ letterSpacing: "0.1em", textTransform: "uppercase", fontSize: "9px" }}>Balance</span>
+          <span style={{ fontWeight: 700, color: "rgba(255,255,255,0.95)", fontSize: "12px" }}>
+            {Number(balanceData.formatted).toFixed(4)} {balanceData.symbol}
+          </span>
+        </div>
+      )}
       <button
         type="button"
         role="menuitem"
