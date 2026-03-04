@@ -50,6 +50,12 @@ export async function GET(request: NextRequest) {
         name: CHAIN_CONFIG.name,
         nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
         rpcUrls: { default: { http: [RPC_URL] } },
+        contracts: {
+          multicall3: {
+            address: "0xcA11bde05977b3631167028862bE2a173976CA11" as `0x${string}`,
+            blockCreated: 0,
+          },
+        },
       },
       transport: http(RPC_URL),
     });

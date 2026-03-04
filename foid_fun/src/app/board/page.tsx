@@ -983,13 +983,8 @@ function BoardPageContent() {
       });
       if (overlapNames.length) throw new Error(`Overlap: ${overlapNames.join(", ")}`);
 
-      const eth = (globalThis as { ethereum?: EthereumProvider }).ethereum;
-      if (!eth) throw new Error("No wallet");
-      const accounts = await eth.request({ method: "eth_requestAccounts" });
-      if (!Array.isArray(accounts) || accounts.length === 0) {
-        throw new Error("No wallet accounts available");
-      }
-      const account = accounts[0];
+      if (!address) throw new Error("No wallet connected");
+      const account = address;
 
       for (const it of items) {
         addStatus(`Uploading ${it.name}...`, "info");

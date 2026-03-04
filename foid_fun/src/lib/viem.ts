@@ -69,10 +69,30 @@ type EthereumProvider = {
   request: (args: { method: string; params?: readonly unknown[] }) => Promise<unknown>;
 };
 
-export async function getWalletClient() {
+/** Check if the embedded wallet is the active connector */
+function isEmbeddedWalletActive(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem("foid-embedded-active") === "true";
+}
+
+/** Create a wallet client using the correct provider (embedded or injected) */
+async function createActiveWalletClient() {
+  if (isEmbeddedWalletActive()) {
+    const { getEmbeddedAccount } = await import("@/lib/embeddedWallet");
+    const account = await getEmbeddedAccount();
+    return createWalletClient({
+      account,
+      chain: fluentTestnet,
+      transport: http(RPC_URL),
+    });
+  }
   const eth = (globalThis as { ethereum?: EthereumProvider }).ethereum;
   if (!eth) throw new Error("wallet not available");
   return createWalletClient({ chain: fluentTestnet, transport: custom(eth) });
+}
+
+export async function getWalletClient() {
+  return createActiveWalletClient();
 }
 
 /** call: proposePlacement(int32,int32,uint32,uint32,uint96,bytes) payable */
@@ -97,9 +117,7 @@ export async function writeProposePlacement(args: {
     return value.bytes;
   };
 
-  const eth = (globalThis as { ethereum?: EthereumProvider }).ethereum;
-  if (!eth) throw new Error("wallet not available");
-  const walletClient = createWalletClient({ chain: fluentTestnet, transport: custom(eth) });
+  const walletClient = await createActiveWalletClient();
   const bidPerCellWei = normalizeBigInt(args.bidPerCellWei);
   const cidBytes = normalizeBytes(args.cidBytes);
   const cidHex = toHex(cidBytes);
@@ -193,9 +211,7 @@ export async function writeSwipeLoreboardPlace(args: {
     return toHex(new TextEncoder().encode(value));
   };
 
-  const eth = (globalThis as { ethereum?: EthereumProvider }).ethereum;
-  if (!eth) throw new Error("wallet not available");
-  const walletClient = createWalletClient({ chain: fluentTestnet, transport: custom(eth) });
+  const walletClient = await createActiveWalletClient();
   const cidHex = normalizeBytes(args.cidBytes);
 
   const txHash = await walletClient.writeContract({
