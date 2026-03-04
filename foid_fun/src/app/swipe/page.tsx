@@ -263,7 +263,7 @@ export default function SwipePage() {
           if (!proposal) continue;
 
           const signature = await walletClient.signTypedData({
-            account: address,
+            account: walletClient.account ?? address,
             domain: EIP712_DOMAIN,
             types: EIP712_TYPES,
             primaryType: "SwipeVote",

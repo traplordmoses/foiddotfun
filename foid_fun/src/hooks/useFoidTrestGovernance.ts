@@ -49,7 +49,7 @@ export function useFoidTrestGovernance() {
       functionName: 'flagPost',
       args: [BigInt(entryId)],
       value: BigInt(fee),
-      account: address,
+      account: walletClient.account ?? address,
     });
   }, [address, flagFeeWei]);
 
@@ -64,7 +64,7 @@ export function useFoidTrestGovernance() {
       abi: FOID_TREST_GOVERNANCE_ABI,
       functionName: 'voteOnRemoval',
       args: [BigInt(voteId), support],
-      account: address,
+      account: walletClient.account ?? address,
     });
   }, [address]);
 
@@ -79,7 +79,7 @@ export function useFoidTrestGovernance() {
       abi: FOID_TREST_GOVERNANCE_ABI,
       functionName: 'resolveRemovalVote',
       args: [BigInt(voteId)],
-      account: address,
+      account: walletClient.account ?? address,
     });
   }, [address]);
 

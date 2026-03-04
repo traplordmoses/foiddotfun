@@ -49,7 +49,7 @@ export function useSwipeLoreboardGovernance() {
       functionName: 'flagPlacement',
       args: [BigInt(placementId)],
       value: BigInt(fee),
-      account: address,
+      account: walletClient.account ?? address,
     });
   }, [address, flagFeeWei]);
 
@@ -64,7 +64,7 @@ export function useSwipeLoreboardGovernance() {
       abi: SWIPE_LOREBOARD_ABI,
       functionName: 'voteOnRemoval',
       args: [BigInt(voteId), support],
-      account: address,
+      account: walletClient.account ?? address,
     });
   }, [address]);
 
@@ -79,7 +79,7 @@ export function useSwipeLoreboardGovernance() {
       abi: SWIPE_LOREBOARD_ABI,
       functionName: 'resolveRemovalVote',
       args: [BigInt(voteId)],
-      account: address,
+      account: walletClient.account ?? address,
     });
   }, [address]);
 

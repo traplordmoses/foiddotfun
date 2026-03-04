@@ -91,6 +91,8 @@ async function createActiveWalletClient() {
   return createWalletClient({ chain: fluentTestnet, transport: custom(eth) });
 }
 
+export { isEmbeddedWalletActive };
+
 export async function getWalletClient() {
   return createActiveWalletClient();
 }
@@ -150,11 +152,13 @@ export async function writeProposePlacement(args: {
     gas = BigInt(500_000);
   }
 
-  const txHash = await walletClient.writeContract({
-    account: args.bidder,
+  // Embedded wallet: account already set on client (signs locally via http).
+  // Injected wallet: must pass address so MetaMask knows which account to use.
+  const writeArgs = {
+    account: (walletClient.account ?? args.bidder) as `0x${string}`,
     address: BOARD,
     abi: BoardAbiTyped,
-    functionName: "proposePlacement",
+    functionName: "proposePlacement" as const,
     args: [
       args.rect.x,
       args.rect.y,
@@ -162,11 +166,12 @@ export async function writeProposePlacement(args: {
       args.rect.h,
       bidPerCellWei,
       cidHex,
-    ],
+    ] as const,
     value,
     gas,
     chain: fluentTestnet,
-  });
+  };
+  const txHash = await walletClient.writeContract(writeArgs);
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
   const log = receipt.logs.find((entry) => entry.address.toLowerCase() === BOARD);
@@ -214,8 +219,10 @@ export async function writeSwipeLoreboardPlace(args: {
   const walletClient = await createActiveWalletClient();
   const cidHex = normalizeBytes(args.cidBytes);
 
+  // Embedded wallet: account already set on client (signs locally via http).
+  // Injected wallet: must pass address so MetaMask knows which account to use.
   const txHash = await walletClient.writeContract({
-    account: args.placer,
+    account: (walletClient.account ?? args.placer) as `0x${string}`,
     address: swipeLoreboardAddr,
     abi: SWIPE_LOREBOARD_ABI,
     functionName: "place",

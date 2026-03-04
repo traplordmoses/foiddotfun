@@ -81,7 +81,8 @@ export default function SwipeSubmitPage() {
       if (!contractAddress) throw new Error("Swipe contract not configured");
 
       const hash = await walletClient.writeContract({
-        account: address,
+        // Embedded wallet: account set on client. Injected: pass address.
+        account: walletClient.account ?? address,
         address: contractAddress,
         abi: SWIPE_ABI,
         functionName: "propose",
