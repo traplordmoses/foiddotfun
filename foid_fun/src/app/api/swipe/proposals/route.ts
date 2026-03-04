@@ -22,12 +22,6 @@ export async function GET() {
         name: CHAIN_CONFIG.name,
         nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
         rpcUrls: { default: { http: [RPC_URL] } },
-        contracts: {
-          multicall3: {
-            address: "0xcA11bde05977b3631167028862bE2a173976CA11" as `0x${string}`,
-            blockCreated: 0,
-          },
-        },
       },
       transport: http(RPC_URL),
     });
@@ -44,24 +38,20 @@ export async function GET() {
       return NextResponse.json({ proposals: [], count: 0 });
     }
 
-    // Batch read proposals via multicall
-    const contracts = Array.from({ length: proposalCount }, (_, i) => ({
-      address: swipeAddress,
-      abi: SWIPE_ABI,
-      functionName: "getProposal" as const,
-      args: [BigInt(i)] as const,
-    }));
+    // Read proposals individually (more reliable than multicall on some chains)
+    const proposals = [];
+    for (let i = 0; i < proposalCount; i++) {
+      try {
+        const raw = await client.readContract({
+          address: swipeAddress,
+          abi: SWIPE_ABI,
+          functionName: "getProposal",
+          args: [BigInt(i)],
+        });
 
-    const results = await client.multicall({ contracts, allowFailure: true });
-
-    // Fetch vote counts for each proposal
-    const voteCounts: Record<number, { forCount: number; againstCount: number }> = {};
-    // Vote counts are fetched separately by the frontend via /api/swipe/vote
-
-    const proposals = results
-      .map((result, i) => {
-        if (result.status !== "success" || !result.result) return null;
-        const p = result.result as {
+        // viem returns tuple as array or object depending on ABI
+        // Handle both formats
+        let p: {
           id: bigint;
           proposer: string;
           ipfsCid: string;
@@ -71,7 +61,24 @@ export async function GET() {
           canonized: boolean;
           trestEntryId: bigint;
         };
-        return {
+
+        if (Array.isArray(raw)) {
+          // Tuple returned as array
+          p = {
+            id: raw[0] as bigint,
+            proposer: raw[1] as string,
+            ipfsCid: raw[2] as string,
+            createdAt: raw[3] as bigint,
+            votingEndsAt: raw[4] as bigint,
+            finalized: raw[5] as boolean,
+            canonized: raw[6] as boolean,
+            trestEntryId: raw[7] as bigint,
+          };
+        } else {
+          p = raw as typeof p;
+        }
+
+        proposals.push({
           id: Number(p.id),
           proposer: p.proposer,
           ipfsCid: p.ipfsCid,
@@ -81,11 +88,13 @@ export async function GET() {
           finalized: p.finalized,
           canonized: p.canonized,
           trestEntryId: Number(p.trestEntryId),
-          forCount: voteCounts[Number(p.id)]?.forCount ?? 0,
-          againstCount: voteCounts[Number(p.id)]?.againstCount ?? 0,
-        };
-      })
-      .filter(Boolean);
+          forCount: 0,
+          againstCount: 0,
+        });
+      } catch (err) {
+        console.error(`[api/swipe/proposals] Failed to read proposal ${i}:`, err);
+      }
+    }
 
     return NextResponse.json(
       { proposals, count: proposalCount },
