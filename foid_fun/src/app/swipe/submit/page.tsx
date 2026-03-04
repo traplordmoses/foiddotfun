@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useAccount, useDisconnect } from "wagmi";
-import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useAccount } from "wagmi";
+import { useSwitchWallet } from "@/hooks/useSwitchWallet";
 import Link from "next/link";
 import { getWalletClient } from "@/lib/viem";
 import { CONTRACTS } from "@/lib/contracts/addresses";
@@ -14,8 +14,7 @@ type SubmitStatus = "idle" | "uploading" | "confirming" | "done";
 
 export default function SwipeSubmitPage() {
   const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
-  const { openConnectModal } = useConnectModal();
+  const { disconnect, switchWallet } = useSwitchWallet();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [status, setStatus] = useState<SubmitStatus>("idle");
@@ -99,10 +98,7 @@ export default function SwipeSubmitPage() {
     }
   }, [file, isConnected, address]);
 
-  const handleSwitchWallet = useCallback(() => {
-    disconnect();
-    setTimeout(() => openConnectModal?.(), 100);
-  }, [disconnect, openConnectModal]);
+  const handleSwitchWallet = switchWallet;
 
   return (
     <main className="relative bg-foid-bg text-white/90 min-h-screen overflow-x-hidden overflow-y-auto">

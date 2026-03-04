@@ -237,51 +237,6 @@ function PrayPageContent() {
     return () => clearInterval(interval);
   }, []);
 
-  // Performance note: an older 10s /api/proposals polling loop lived here but
-  // did not feed any rendered UI state, causing avoidable fetch churn/rerenders.
-
-  // useEffect(() => {
-  //   if (!address) {
-  //     setVotes([]);
-  //     setVotesError(null);
-  //     setVotesLoading(false);
-  //     return;
-  //   }
-
-  //   const ctrl = new AbortController();
-
-  //   const run = async () => {
-  //     try {
-  //       setVotesLoading(true);
-  //       setVotesError(null);
-  //       const res = await fetch(`/api/votes?address=${address}`, {
-  //         cache: "no-store",
-  //         signal: ctrl.signal,
-  //       });
-  //       if (!res.ok) {
-  //         const text = await res.text().catch(() => "");
-  //         throw new Error(`votes fetch failed (${res.status}) ${text}`.trim());
-  //       }
-  //       const json = (await res.json()) as { votes?: VoteWire[] };
-  //       setVotes(Array.isArray(json.votes) ? json.votes : []);
-  //     } catch (e) {
-  //       if ((e as any)?.name === "AbortError") return;
-  //       setVotesError(e instanceof Error ? e.message : String(e));
-  //       setVotes([]);
-  //     } finally {
-  //       setVotesLoading(false);
-  //     }
-  //   };
-
-  //   run();
-  //   const t = setInterval(run, 10_000);
-
-  //   return () => {
-  //     clearInterval(t);
-  //     ctrl.abort();
-  //   };
-  // }, [address]);
-
   const ensureWalletReady = useCallback(async () => {
     if (!isConnected || !address) throw new Error("please connect your wallet before anchoring your prayer.");
     if (FLUENT_CHAIN_ID && chainId && chainId !== FLUENT_CHAIN_ID) {
@@ -386,7 +341,6 @@ function PrayPageContent() {
         // For network errors or estimation failures, use smart fallback
         // Base: 150k + 50k buffer = 200k (reasonable for most prayers)
         gasEstimate = BigInt(200_000);
-        console.log("Using fallback gas estimate:", gasEstimate.toString());
       }
 
       // Add 20% margin to gas estimate for safety
@@ -442,15 +396,7 @@ function PrayPageContent() {
       });
 
       if (logs.length === 0) {
-        console.warn('Warning: PrayerSubmitted event not found in transaction logs');
-        // Don't throw - maybe event name is different, but tx succeeded
-      } else {
-        const prayerEvent = logs[0];
-        console.log('Prayer verified on-chain:', {
-          user: prayerEvent.args.user,
-          prayerHash: prayerEvent.args.prayerHash,
-          timestamp: prayerEvent.args.timestamp,
-        });
+        // Event name may differ but tx succeeded — no action needed
       }
     } catch (error) {
       console.error('Error parsing prayer events:', error);

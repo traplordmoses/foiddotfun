@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAccount, useReadContract, useDisconnect } from "wagmi";
-import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useCallback, useEffect, useState } from "react";
+import { useAccount, useReadContract } from "wagmi";
+import { useSwitchWallet } from "@/hooks/useSwitchWallet";
 import Link from "next/link";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
@@ -10,13 +10,13 @@ import { getWalletClient } from "@/lib/viem";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { useSwipeVote } from "@/hooks/useSwipeVote";
 import toast from "react-hot-toast";
+import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 
-const IPFS_GATEWAY = "https://ipfs.io/ipfs/";
-
-function cidToUrl(cid: string): string {
-  if (!cid) return "";
-  if (cid.startsWith("http")) return cid;
-  return `${IPFS_GATEWAY}${cid}`;
+function tryNextGateway(el: HTMLImageElement, cid?: string) {
+  if (!cid) return;
+  const urls = ipfsToHttp(cid);
+  const idx = Number(el.dataset.gatewayIndex ?? "-1") + 1;
+  if (idx < urls.length) { el.src = urls[idx]; el.dataset.gatewayIndex = String(idx); }
 }
 
 function truncateAddress(address: string): string {
@@ -103,10 +103,11 @@ function SwipeCard({
         <div className="w-full aspect-square">
           {proposal.ipfsCid ? (
             <img
-              src={cidToUrl(proposal.ipfsCid)}
+              src={cidToHttpUrl(proposal.ipfsCid)}
               alt={`Proposal #${proposal.id}`}
               className="h-full w-full object-cover"
               draggable={false}
+              onError={(e) => tryNextGateway(e.currentTarget, proposal.ipfsCid)}
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center relative" style={{ background: visual.gradient }}>
@@ -178,8 +179,7 @@ function ConfirmModal({
 
 export default function SwipePage() {
   const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
-  const { openConnectModal } = useConnectModal();
+  const { disconnect, switchWallet } = useSwitchWallet();
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [tab, setTab] = useState<"active" | "completed">("active");
@@ -189,6 +189,13 @@ export default function SwipePage() {
   const [submittingBatch, setSubmittingBatch] = useState(false);
   const [batchSuccess, setBatchSuccess] = useState(false);
   const [voteCounts, setVoteCounts] = useState<Record<number, { forCount: number; againstCount: number }>>({});
+
+  // Auto-clear batch success indicator
+  useEffect(() => {
+    if (!batchSuccess) return;
+    const t = setTimeout(() => setBatchSuccess(false), 3000);
+    return () => clearTimeout(t);
+  }, [batchSuccess]);
 
   const contractAddr = (CONTRACTS.SWIPE ?? "") as `0x${string}`;
   const hasContract = !!CONTRACTS.SWIPE;
@@ -227,18 +234,16 @@ export default function SwipePage() {
     };
     loadProposals();
     const interval = setInterval(loadProposals, 10_000);
-    return () => { alive = false; clearInterval(interval); };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") loadProposals();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => { alive = false; clearInterval(interval); document.removeEventListener("visibilitychange", onVisibility); };
   }, []);
 
-  const now = useMemo(() => Math.floor(Date.now() / 1000), []);
-  const activeProposals = useMemo(
-    () => proposals.filter((p) => !p.finalized && now < p.votingEndsAt),
-    [proposals, now]
-  );
-  const closedProposals = useMemo(
-    () => proposals.filter((p) => p.finalized || now >= p.votingEndsAt),
-    [proposals, now]
-  );
+  const now = Math.floor(Date.now() / 1000);
+  const activeProposals = proposals.filter((p) => !p.finalized && now < p.votingEndsAt);
+  const closedProposals = proposals.filter((p) => p.finalized || now >= p.votingEndsAt);
   const currentProposal = activeProposals[currentIndex] ?? null;
 
   const handleVote = useCallback(
@@ -292,7 +297,6 @@ export default function SwipePage() {
       }
       setStagedVotes([]);
       setBatchSuccess(true);
-      setTimeout(() => setBatchSuccess(false), 3000);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Batch vote failed");
     } finally {
@@ -301,10 +305,7 @@ export default function SwipePage() {
     }
   }, [stagedVotes, isConnected, address, hasContract, proposals]);
 
-  const handleSwitchWallet = useCallback(() => {
-    disconnect();
-    setTimeout(() => openConnectModal?.(), 100);
-  }, [disconnect, openConnectModal]);
+  const handleSwitchWallet = switchWallet;
 
   return (
     <main className="relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center" style={{ height: "100vh" }}>
@@ -466,7 +467,7 @@ export default function SwipePage() {
                         <div className="overflow-hidden rounded-lg bg-neutral-800/50">
                           <div className="aspect-square max-h-[160px]">
                             {proposal.ipfsCid ? (
-                              <img src={cidToUrl(proposal.ipfsCid)} alt={`Proposal #${proposal.id}`} className="h-full w-full object-cover" />
+                              <img src={cidToHttpUrl(proposal.ipfsCid)} alt={`Proposal #${proposal.id}`} className="h-full w-full object-cover" loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, proposal.ipfsCid)} />
                             ) : (
                               <div className="flex h-full items-center justify-center" style={{ background: CARD_VISUALS[(proposal.id - 1) % CARD_VISUALS.length].gradient }}>
                                 <span className="text-xl">{CARD_VISUALS[(proposal.id - 1) % CARD_VISUALS.length].symbol}</span>

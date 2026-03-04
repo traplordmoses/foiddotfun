@@ -11,13 +11,13 @@ import { FoidOSWindow } from "@/components/FoidOSWindow";
 import { useSwipeVote } from "@/hooks/useSwipeVote";
 import { useReadContract } from "wagmi";
 import toast from "react-hot-toast";
+import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 
-const IPFS_GATEWAY = "https://ipfs.io/ipfs/";
-
-function cidToUrl(cid: string): string {
-  if (!cid) return "";
-  if (cid.startsWith("http")) return cid;
-  return `${IPFS_GATEWAY}${cid}`;
+function tryNextGateway(el: HTMLImageElement, cid?: string) {
+  if (!cid) return;
+  const urls = ipfsToHttp(cid);
+  const idx = Number(el.dataset.gatewayIndex ?? "-1") + 1;
+  if (idx < urls.length) { el.src = urls[idx]; el.dataset.gatewayIndex = String(idx); }
 }
 
 function truncateAddress(addr: string): string {
@@ -260,10 +260,11 @@ export default function ProposalDetailPage() {
                 <div className="aspect-square">
                   {proposal.ipfsCid ? (
                     <img
-                      src={cidToUrl(proposal.ipfsCid)}
+                      src={cidToHttpUrl(proposal.ipfsCid)}
                       alt={`Proposal #${proposalId}`}
                       className="h-full w-full object-cover"
                       draggable={false}
+                      onError={(e) => tryNextGateway(e.currentTarget, proposal.ipfsCid)}
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-neutral-600">

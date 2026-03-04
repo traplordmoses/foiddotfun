@@ -3,18 +3,11 @@ import { createPublicClient, http } from "viem";
 import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { RPC_URL, CHAIN_CONFIG } from "@/lib/contracts/addresses";
+import { cidToHttpUrl } from "@/lib/ipfsUrl";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-const IPFS_GATEWAY = "https://ipfs.io/ipfs/";
-
-function cidToUrl(cid: string): string {
-  if (!cid) return "";
-  if (cid.startsWith("http")) return cid;
-  return `${IPFS_GATEWAY}${cid}`;
-}
 
 export async function GET() {
   try {
@@ -82,14 +75,14 @@ export async function GET() {
           id: Number(p.id),
           proposer: p.proposer,
           ipfsCid: p.ipfsCid,
-          imageUrl: p.ipfsCid ? cidToUrl(p.ipfsCid) : null,
+          imageUrl: p.ipfsCid ? cidToHttpUrl(p.ipfsCid) : null,
           createdAt: Number(p.createdAt),
           votingEndsAt: Number(p.votingEndsAt),
           finalized: p.finalized,
           canonized: p.canonized,
           trestEntryId: Number(p.trestEntryId),
-          forCount: voteCounts[i + 1]?.forCount ?? 0,
-          againstCount: voteCounts[i + 1]?.againstCount ?? 0,
+          forCount: voteCounts[Number(p.id)]?.forCount ?? 0,
+          againstCount: voteCounts[Number(p.id)]?.againstCount ?? 0,
         };
       })
       .filter(Boolean);

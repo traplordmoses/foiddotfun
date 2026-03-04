@@ -147,6 +147,7 @@ export function MobileNav() {
               key={item.href}
               href={item.href}
               className="relative flex flex-col items-center justify-center flex-1 h-full min-w-[48px] touch-manipulation"
+              aria-current={isActive ? "page" : undefined}
             >
               {inner}
               {isActive && (

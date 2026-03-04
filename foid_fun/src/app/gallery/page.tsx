@@ -1,13 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useAccount, useReadContract, useDisconnect } from "wagmi";
-import { useConnectModal } from "@rainbow-me/rainbowkit";
+import { useEffect, useState } from "react";
+import { useAccount, useReadContract } from "wagmi";
+import { useSwitchWallet } from "@/hooks/useSwitchWallet";
 import Link from "next/link";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { FOID_TREST_ABI } from "@/lib/contracts/abis/foidTrest";
 import { publicClient } from "@/lib/viem";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
+import { ipfsToHttp } from "@/lib/ipfsUrl";
+
+function tryNextGateway(el: HTMLImageElement, cid?: string) {
+  if (!cid) return;
+  const urls = ipfsToHttp(cid);
+  const idx = Number(el.dataset.gatewayIndex ?? "-1") + 1;
+  if (idx < urls.length) { el.src = urls[idx]; el.dataset.gatewayIndex = String(idx); }
+}
 
 type TrestEntry = {
   id: number;
@@ -61,7 +69,9 @@ function TrestCard({ entry }: { entry: TrestEntry }) {
               src={cidToUrl(entry.ipfsCid)}
               alt="Gallery entry"
               className={`h-full w-full object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
+              loading="lazy"
               onLoad={() => setLoaded(true)}
+              onError={(e) => tryNextGateway(e.currentTarget, entry.ipfsCid)}
             />
           </>
         ) : (
@@ -88,8 +98,7 @@ function TrestCard({ entry }: { entry: TrestEntry }) {
 
 export default function GalleryPage() {
   const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
-  const { openConnectModal } = useConnectModal();
+  const { disconnect, switchWallet } = useSwitchWallet();
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<TrestEntry[]>([]);
 
@@ -170,10 +179,7 @@ export default function GalleryPage() {
     return () => { alive = false; };
   }, [hasTrest, entryCount, trestAddress]);
 
-  const handleSwitchWallet = useCallback(() => {
-    disconnect();
-    setTimeout(() => openConnectModal?.(), 100);
-  }, [disconnect, openConnectModal]);
+  const handleSwitchWallet = switchWallet;
 
   return (
     <main className="relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center" style={{ height: "100vh" }}>
