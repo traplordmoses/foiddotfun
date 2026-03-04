@@ -56,7 +56,7 @@ export async function GET() {
       address: swipeAddress,
       abi: SWIPE_ABI,
       functionName: "getProposal" as const,
-      args: [BigInt(i + 1)] as const,
+      args: [BigInt(i)] as const,
     }));
 
     const results = await client.multicall({ contracts, allowFailure: true });
