@@ -201,7 +201,7 @@ export default function WalletMenuPill({
         }}>
           <span style={{ letterSpacing: "0.1em", textTransform: "uppercase", fontSize: "9px" }}>Balance</span>
           <span style={{ fontWeight: 700, color: "rgba(255,255,255,0.95)", fontSize: "12px" }}>
-            {Number(balanceData.formatted).toFixed(4)} {balanceData.symbol}
+            {Number(balanceData.formatted).toFixed(4)} ETH
           </span>
         </div>
       )}

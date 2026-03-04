@@ -225,6 +225,250 @@ const normalizeProposals = (list: ProposalSummary[] | undefined): ProposalSummar
 
 
 // ============================================================================
+// MOBILE PROPOSE MODAL
+// ============================================================================
+
+function MobileProposeModal({
+  isConnected,
+  address,
+  onClose,
+  onSuccess,
+}: {
+  isConnected: boolean;
+  address?: string;
+  onClose: () => void;
+  onSuccess: (msg: string) => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [step, setStep] = useState<"pick" | "uploading" | "submitting" | "done" | "error">("pick");
+  const [errorMsg, setErrorMsg] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const placementFee = process.env.NEXT_PUBLIC_PLACEMENT_FEE_WEI ?? "1000000000000000";
+  const feeEth = (Number(BigInt(placementFee)) / 1e18).toFixed(4);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) {
+      setErrorMsg("Only image files allowed");
+      setStep("error");
+      return;
+    }
+    if (f.size > 10 * 1024 * 1024) {
+      setErrorMsg("File too large (max 10MB)");
+      setStep("error");
+      return;
+    }
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+    setStep("pick");
+    setErrorMsg("");
+  };
+
+  const handleSubmit = async () => {
+    if (!file || !address || !isConnected) return;
+    try {
+      setStep("uploading");
+
+      // Determine mime type
+      const kind = await sniffImageType(file);
+      const mime = kind ? mimeFromType(kind) : null;
+      if (!mime) throw new Error("Only PNG or JPG images allowed");
+
+      // Upload to IPFS
+      const cid = await uploadImage(file.name, file, mime as "image/png" | "image/jpeg");
+      if (!cid) throw new Error("IPFS upload disabled — configure PINATA_JWT");
+
+      setStep("submitting");
+
+      // Place on board at center (0,0) with image dimensions snapped to grid
+      const { w, h } = await getImageSizeFromFile(file);
+      let rect = snapRect({ x: 0, y: 0, w, h });
+      rect = capRectToMaxCells(rect, MAX_CELLS_PER_RECT);
+      const contractRect = worldToContractRect(rect);
+
+      const normalizedCid = normalizeCidString(cid);
+      await writeSwipeLoreboardPlace({
+        placer: address as `0x${string}`,
+        rect: contractRect,
+        cidBytes: new TextEncoder().encode(normalizedCid),
+      });
+
+      setStep("done");
+      onSuccess(`Meme placed on board! (${file.name})`);
+    } catch (e: unknown) {
+      if (isUserRejection(e)) {
+        setStep("pick");
+        return;
+      }
+      const parsed = parseWeb3Error(e);
+      setErrorMsg(parsed.message);
+      setStep("error");
+    }
+  };
+
+  // Cleanup preview URL
+  useEffect(() => {
+    return () => { if (preview) URL.revokeObjectURL(preview); };
+  }, [preview]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget && step !== "uploading" && step !== "submitting") onClose(); }}
+    >
+      <div
+        className="w-[90vw] max-w-sm rounded-2xl p-5 relative"
+        style={{
+          background: "linear-gradient(135deg, rgba(20,10,40,0.95), rgba(10,5,30,0.98))",
+          border: "1px solid rgba(224,64,251,0.3)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.6), 0 0 60px rgba(224,64,251,0.15)",
+        }}
+      >
+        {/* Close button */}
+        {step !== "uploading" && step !== "submitting" && (
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full"
+            style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
+          >
+            ×
+          </button>
+        )}
+
+        <h2 className="text-sm font-bold tracking-widest uppercase mb-4" style={{ color: "#e040fb" }}>
+          Propose Meme
+        </h2>
+
+        {step === "pick" && (
+          <>
+            {!isConnected ? (
+              <p className="text-xs text-white/60 mb-4">Connect your wallet first to propose a meme.</p>
+            ) : (
+              <>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+
+                {preview ? (
+                  <div className="mb-4">
+                    <div className="rounded-xl overflow-hidden border border-white/10 mb-3" style={{ maxHeight: "40vh" }}>
+                      <img src={preview} alt="Preview" className="w-full object-contain" style={{ maxHeight: "40vh" }} />
+                    </div>
+                    <button
+                      onClick={() => fileRef.current?.click()}
+                      className="text-xs underline"
+                      style={{ color: "rgba(255,255,255,0.5)" }}
+                    >
+                      Choose different image
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    className="w-full py-8 rounded-xl border-2 border-dashed mb-4 text-sm"
+                    style={{ borderColor: "rgba(224,64,251,0.3)", color: "rgba(255,255,255,0.6)", background: "rgba(224,64,251,0.05)" }}
+                  >
+                    Tap to select image
+                  </button>
+                )}
+
+                <div className="flex items-center justify-between text-xs mb-4" style={{ color: "rgba(255,255,255,0.5)" }}>
+                  <span>Placement fee</span>
+                  <span className="font-bold" style={{ color: "rgba(255,255,255,0.9)" }}>{feeEth} ETH</span>
+                </div>
+
+                <button
+                  onClick={handleSubmit}
+                  disabled={!file}
+                  className="w-full py-3 rounded-xl text-sm font-bold tracking-widest uppercase touch-manipulation"
+                  style={{
+                    background: file ? "linear-gradient(135deg, #e040fb, #f06292)" : "rgba(255,255,255,0.1)",
+                    color: file ? "#fff" : "rgba(255,255,255,0.3)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    boxShadow: file ? "0 4px 16px rgba(224,64,251,0.35)" : "none",
+                  }}
+                >
+                  Place on Board
+                </button>
+              </>
+            )}
+          </>
+        )}
+
+        {(step === "uploading" || step === "submitting") && (
+          <div className="py-8 flex flex-col items-center gap-4">
+            <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "#e040fb", borderTopColor: "transparent" }} />
+            <p className="text-sm" style={{ color: "rgba(255,255,255,0.8)" }}>
+              {step === "uploading" ? "Uploading to IPFS..." : "Confirm transaction in wallet..."}
+            </p>
+          </div>
+        )}
+
+        {step === "done" && (
+          <div className="py-8 flex flex-col items-center gap-4">
+            <div className="text-4xl">&#10003;</div>
+            <p className="text-sm font-bold" style={{ color: "rgba(72,255,171,0.95)" }}>Meme placed on board!</p>
+            <button
+              onClick={onClose}
+              className="px-6 py-2 rounded-xl text-sm font-bold"
+              style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)" }}
+            >
+              Done
+            </button>
+          </div>
+        )}
+
+        {step === "error" && (
+          <div className="py-6 flex flex-col items-center gap-4">
+            <p className="text-sm text-center" style={{ color: "rgba(255,71,87,0.9)" }}>{errorMsg}</p>
+            <button
+              onClick={() => { setStep("pick"); setErrorMsg(""); }}
+              className="px-6 py-2 rounded-xl text-sm font-bold"
+              style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)" }}
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Get image dimensions from a File (used by MobileProposeModal) */
+async function getImageSizeFromFile(file: File): Promise<{ w: number; h: number }> {
+  try {
+    const createBitmap = typeof createImageBitmap === "function" ? createImageBitmap : null;
+    const bmp = createBitmap ? await createBitmap(file) : null;
+    if (bmp) {
+      const w = bmp.width, h = bmp.height;
+      bmp.close?.();
+      return { w, h };
+    }
+  } catch { /* fall through */ }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = url;
+    });
+    return { w: img.naturalWidth, h: img.naturalHeight };
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// ============================================================================
 // MAIN BOARD PAGE COMPONENT
 // ============================================================================
 
@@ -249,6 +493,8 @@ function BoardPageContent() {
     setTimeout(() => openConnectModal?.(), 100);
   }, [disconnect, openConnectModal]);
 
+  // Mobile propose modal
+  const [showMobilePropose, setShowMobilePropose] = useState(false);
 
   // Pan/zoom - smooth infinite
   const [scale, setScale] = useState(1);
@@ -888,9 +1134,9 @@ function BoardPageContent() {
 
   const mobileView = (
     <div className="h-screen w-screen bg-transparent relative">
-      {/* Propose button — floating top-right */}
-      <a
-        href="/swipe/submit"
+      {/* Propose button — floating top-left */}
+      <button
+        onClick={() => setShowMobilePropose(true)}
         className="absolute top-3 left-3 z-50 px-4 py-2 text-xs font-bold tracking-widest uppercase rounded-xl shadow-lg touch-manipulation"
         style={{
           background: "linear-gradient(135deg, #e040fb, #f06292)",
@@ -900,7 +1146,26 @@ function BoardPageContent() {
         }}
       >
         Propose Meme
-      </a>
+      </button>
+
+      {/* Mobile propose modal */}
+      {showMobilePropose && (
+        <MobileProposeModal
+          isConnected={isConnected}
+          address={address}
+          onClose={() => setShowMobilePropose(false)}
+          onSuccess={(msg) => {
+            addStatus(msg, "success");
+            setShowMobilePropose(false);
+            // Refresh proposals
+            listProposals().then((response) => {
+              startTransition(() => {
+                setProposals(normalizeProposals(response.proposals));
+              });
+            }).catch(() => {});
+          }}
+        />
+      )}
       <GestureHint
         storageKey="board-gestures-seen"
         hints={[
