@@ -65,40 +65,117 @@ const EIP712_TYPES = {
 function SwipeCard({
   proposal,
   onVote,
+  nextProposal,
 }: {
   proposal: SwipeProposal;
   onVote: (approve: boolean) => void;
+  nextProposal?: SwipeProposal | null;
 }) {
   const visual = CARD_VISUALS[proposal.id % CARD_VISUALS.length];
+  const nextVisual = nextProposal ? CARD_VISUALS[nextProposal.id % CARD_VISUALS.length] : null;
 
-  const { direction, handlers, style } = useSwipeVote({
-    threshold: 100,
+  const { direction, progress, handlers, style, phase } = useSwipeVote({
+    threshold: 80,
     onSwipeRight: () => onVote(true),
     onSwipeLeft: () => onVote(false),
   });
 
+  // Color tint intensity
+  const yesOpacity = direction === "right" ? 0.15 + progress * 0.25 : 0;
+  const noOpacity = direction === "left" ? 0.15 + progress * 0.25 : 0;
+  // Stamp scale springs in
+  const stampScale = progress > 0.3 ? 0.6 + progress * 0.5 : 0;
+
   return (
-    <div className="relative mx-auto w-full max-w-[min(420px,45vh,100%)]" style={{ minHeight: 0 }}>
+    <div className="relative mx-auto w-full max-w-[min(420px,50vh,100%)]" style={{ minHeight: 0 }}>
+      {/* Next card peeking behind */}
+      {nextProposal && (
+        <div
+          className="absolute inset-0 rounded-2xl border border-neutral-800 bg-neutral-900/60 overflow-hidden"
+          style={{
+            transform: `scale(${0.92 + progress * 0.04}) translateY(${12 - progress * 8}px)`,
+            transition: phase === "exiting" ? "transform 0.28s ease" : "none",
+            zIndex: 0,
+          }}
+        >
+          <div className="w-full aspect-square">
+            {nextProposal.ipfsCid ? (
+              <img
+                src={cidToHttpUrl(nextProposal.ipfsCid)}
+                alt="Next"
+                className="h-full w-full object-cover opacity-60"
+                draggable={false}
+              />
+            ) : nextVisual ? (
+              <div className="flex h-full w-full items-center justify-center opacity-60" style={{ background: nextVisual.gradient }}>
+                <span className="text-5xl">{nextVisual.symbol}</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
       {/* Active card */}
       <div
         {...handlers}
-        style={{ ...style, touchAction: "pan-y" }}
-        className="relative rounded-2xl border border-neutral-700 bg-neutral-900/80 overflow-hidden select-none"
+        style={{ ...style, touchAction: "pan-y", zIndex: 1, position: "relative" }}
+        className="relative rounded-2xl border border-neutral-700 bg-neutral-900/95 overflow-hidden select-none shadow-2xl"
       >
-        {direction === "right" && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-            <span className="rounded-xl border-4 border-green-500 px-6 py-2 text-2xl font-black uppercase text-green-500 -rotate-12 opacity-80">
-              Approve
-            </span>
-          </div>
-        )}
-        {direction === "left" && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-            <span className="rounded-xl border-4 border-red-500 px-6 py-2 text-2xl font-black uppercase text-red-500 rotate-12 opacity-80">
-              Reject
-            </span>
-          </div>
-        )}
+        {/* YES/NO color tint overlays */}
+        <div
+          className="absolute inset-0 z-10 pointer-events-none rounded-2xl"
+          style={{
+            background: `linear-gradient(135deg, rgba(34,197,94,${yesOpacity}) 0%, transparent 60%)`,
+            transition: phase === "dragging" ? "none" : "background 0.3s ease",
+          }}
+        />
+        <div
+          className="absolute inset-0 z-10 pointer-events-none rounded-2xl"
+          style={{
+            background: `linear-gradient(225deg, rgba(239,68,68,${noOpacity}) 0%, transparent 60%)`,
+            transition: phase === "dragging" ? "none" : "background 0.3s ease",
+          }}
+        />
+
+        {/* YES stamp */}
+        <div
+          className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
+          style={{
+            opacity: direction === "right" ? 1 : 0,
+            transition: "opacity 0.15s ease",
+          }}
+        >
+          <span
+            className="rounded-xl border-[3px] border-green-400 px-8 py-3 text-4xl font-black uppercase text-green-400 -rotate-12 drop-shadow-[0_0_20px_rgba(34,197,94,0.5)]"
+            style={{
+              transform: `scale(${stampScale}) rotate(-12deg)`,
+              transition: "transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)",
+              textShadow: "0 0 30px rgba(34,197,94,0.4)",
+            }}
+          >
+            YES
+          </span>
+        </div>
+
+        {/* NO stamp */}
+        <div
+          className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none"
+          style={{
+            opacity: direction === "left" ? 1 : 0,
+            transition: "opacity 0.15s ease",
+          }}
+        >
+          <span
+            className="rounded-xl border-[3px] border-red-400 px-8 py-3 text-4xl font-black uppercase text-red-400 rotate-12 drop-shadow-[0_0_20px_rgba(239,68,68,0.5)]"
+            style={{
+              transform: `scale(${stampScale}) rotate(12deg)`,
+              transition: "transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)",
+              textShadow: "0 0 30px rgba(239,68,68,0.4)",
+            }}
+          >
+            NO
+          </span>
+        </div>
 
         <div className="w-full aspect-square">
           {proposal.ipfsCid ? (
@@ -117,7 +194,8 @@ function SwipeCard({
           )}
         </div>
 
-        <div className="border-t border-neutral-800 bg-neutral-900/80 px-3 py-2 flex items-center justify-between">
+        {/* Bottom info bar */}
+        <div className="border-t border-neutral-800 bg-neutral-900/90 px-3 py-2 flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase tracking-wider text-neutral-500">
               Prop #{proposal.id}
@@ -126,13 +204,39 @@ function SwipeCard({
               {truncateAddress(proposal.proposer)}
             </div>
           </div>
-          <span className="text-[10px] text-neutral-500">Swipe to vote</span>
+          <span className="text-[10px] text-neutral-500 animate-pulse">Swipe to vote</span>
         </div>
+
+        {/* Bottom gradient glow based on direction */}
+        <div
+          className="absolute bottom-0 left-0 right-0 h-1 z-20"
+          style={{
+            background: direction === "right"
+              ? `linear-gradient(90deg, transparent, rgba(34,197,94,${progress}))`
+              : direction === "left"
+                ? `linear-gradient(270deg, transparent, rgba(239,68,68,${progress}))`
+                : "transparent",
+            transition: "background 0.15s ease",
+          }}
+        />
       </div>
 
-      <div className="mt-2 flex items-center justify-between px-4 text-[10px] font-semibold opacity-60">
-        <span className="text-red-400">&larr; REJECT</span>
-        <span className="text-green-400">APPROVE &rarr;</span>
+      {/* YES / NO button hints */}
+      <div className="mt-3 flex items-center justify-between px-2">
+        <button
+          onClick={() => onVote(false)}
+          className="flex items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/5 px-4 py-1.5 text-xs font-bold text-red-400 transition hover:bg-red-500/15 hover:border-red-500/40 active:scale-95"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+          NO
+        </button>
+        <button
+          onClick={() => onVote(true)}
+          className="flex items-center gap-1.5 rounded-full border border-green-500/20 bg-green-500/5 px-4 py-1.5 text-xs font-bold text-green-400 transition hover:bg-green-500/15 hover:border-green-500/40 active:scale-95"
+        >
+          YES
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>
+        </button>
       </div>
     </div>
   );
@@ -379,13 +483,17 @@ export default function SwipePage() {
                 ) : tab === "active" ? (
                   currentProposal ? (
                     <div className="flex flex-col flex-1 min-h-0 items-center justify-center gap-3 mt-2">
-                      <SwipeCard proposal={currentProposal} onVote={handleVote} />
+                      <SwipeCard
+                        proposal={currentProposal}
+                        onVote={handleVote}
+                        nextProposal={activeProposals[currentIndex + 1] ?? null}
+                      />
 
                       {voteCounts[currentProposal.id] && (
                         <div className="flex-shrink-0 mx-auto w-full" style={{ maxWidth: 420 }}>
                           <div className="mb-0.5 flex justify-between text-[10px] font-mono text-white/40">
-                            <span className="text-green-400">{voteCounts[currentProposal.id].forCount} approve</span>
-                            <span className="text-red-400">{voteCounts[currentProposal.id].againstCount} reject</span>
+                            <span className="text-green-400">{voteCounts[currentProposal.id].forCount} yes</span>
+                            <span className="text-red-400">{voteCounts[currentProposal.id].againstCount} no</span>
                           </div>
                           <div className="flex h-1.5 overflow-hidden rounded-full bg-neutral-800">
                             {(() => {
@@ -545,6 +653,15 @@ export default function SwipePage() {
         @keyframes staged-pill-in {
           from { opacity: 0; transform: translateX(-50%) translateY(10px); }
           to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        @keyframes card-enter {
+          from { opacity: 0; transform: scale(0.9) translateY(20px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes vote-pop {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.15); }
+          100% { transform: scale(1); }
         }
       `}</style>
     </main>

@@ -152,7 +152,7 @@ export default function ProposalDetailPage() {
 
         if (!res.ok) throw new Error("Vote submission failed");
 
-        toast.success(approve ? "Approved!" : "Rejected!");
+        toast.success(approve ? "Voted YES!" : "Voted NO!");
         setVoted(true);
         // Refresh vote counts
         const countRes = await fetch(`/api/swipe/vote?proposalId=${proposalId}`);
@@ -245,15 +245,15 @@ export default function ProposalDetailPage() {
               >
                 {canSwipe && swipe.direction === "right" && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-                    <span className="rounded-xl border-4 border-green-500 px-4 py-1 text-lg font-black uppercase text-green-500 -rotate-12 opacity-80">
-                      Approve
+                    <span className="rounded-xl border-[3px] border-green-400 px-6 py-2 text-3xl font-black uppercase text-green-400 -rotate-12 drop-shadow-[0_0_20px_rgba(34,197,94,0.5)]">
+                      YES
                     </span>
                   </div>
                 )}
                 {canSwipe && swipe.direction === "left" && (
                   <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-                    <span className="rounded-xl border-4 border-red-500 px-4 py-1 text-lg font-black uppercase text-red-500 rotate-12 opacity-80">
-                      Reject
+                    <span className="rounded-xl border-[3px] border-red-400 px-6 py-2 text-3xl font-black uppercase text-red-400 rotate-12 drop-shadow-[0_0_20px_rgba(239,68,68,0.5)]">
+                      NO
                     </span>
                   </div>
                 )}
@@ -286,7 +286,7 @@ export default function ProposalDetailPage() {
             {/* Swipe hint */}
             {canSwipe && (
               <div className="text-center text-xs text-white/40">
-                Drag left to reject, right to approve · or use buttons below
+                Swipe left for NO, right for YES
               </div>
             )}
 
@@ -295,10 +295,10 @@ export default function ProposalDetailPage() {
               <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
                 <div className="mb-2 flex justify-between text-sm font-mono">
                   <span className="text-green-400">
-                    {voteCounts.forCount} approve
+                    {voteCounts.forCount} yes
                   </span>
                   <span className="text-red-400">
-                    {voteCounts.againstCount} reject
+                    {voteCounts.againstCount} no
                   </span>
                 </div>
                 <div className="flex h-3 overflow-hidden rounded-full bg-neutral-800">
@@ -330,14 +330,14 @@ export default function ProposalDetailPage() {
                     disabled={voting || !isConnected}
                     className="flex-1 rounded-lg border border-red-500/30 bg-red-600/20 py-2.5 text-sm font-semibold text-red-300 transition hover:bg-red-600/40 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {voting ? "..." : "Reject"}
+                    {voting ? "..." : "NO"}
                   </button>
                   <button
                     onClick={() => handleVote(true)}
                     disabled={voting || !isConnected}
                     className="flex-1 rounded-lg border border-green-500/30 bg-green-600/20 py-2.5 text-sm font-semibold text-green-300 transition hover:bg-green-600/40 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {voting ? "..." : "Approve"}
+                    {voting ? "..." : "YES"}
                   </button>
                 </div>
               </div>
