@@ -140,6 +140,8 @@ if (!deployBlockEnv) {
   );
 }
 
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
 export function requireCanonicalAddress(params: {
   label: string;
   envValue?: string | null;
@@ -147,8 +149,12 @@ export function requireCanonicalAddress(params: {
   envHint: string;
 }) {
   const value = params.envValue?.trim();
-  if (!value) {
-    throw new Error(`Missing ${params.envHint}. ${DOTENV_HINT}`);
+  if (!value || value.toLowerCase() === ZERO_ADDRESS) {
+    warnOnce(
+      params.label,
+      `[config] ${params.label} not set; using canonical ${params.expected}.`
+    );
+    return params.expected;
   }
   const normalized = getAddress(value);
   if (normalized.toLowerCase() !== params.expected.toLowerCase()) {

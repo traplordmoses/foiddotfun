@@ -69,7 +69,7 @@ function SwipeCard({
   proposal: SwipeProposal;
   onVote: (approve: boolean) => void;
 }) {
-  const visual = CARD_VISUALS[(proposal.id - 1) % CARD_VISUALS.length];
+  const visual = CARD_VISUALS[proposal.id % CARD_VISUALS.length];
 
   const { direction, handlers, style } = useSwipeVote({
     threshold: 100,
@@ -469,8 +469,8 @@ export default function SwipePage() {
                             {proposal.ipfsCid ? (
                               <img src={cidToHttpUrl(proposal.ipfsCid)} alt={`Proposal #${proposal.id}`} className="h-full w-full object-cover" loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, proposal.ipfsCid)} />
                             ) : (
-                              <div className="flex h-full items-center justify-center" style={{ background: CARD_VISUALS[(proposal.id - 1) % CARD_VISUALS.length].gradient }}>
-                                <span className="text-xl">{CARD_VISUALS[(proposal.id - 1) % CARD_VISUALS.length].symbol}</span>
+                              <div className="flex h-full items-center justify-center" style={{ background: CARD_VISUALS[proposal.id % CARD_VISUALS.length].gradient }}>
+                                <span className="text-xl">{CARD_VISUALS[proposal.id % CARD_VISUALS.length].symbol}</span>
                               </div>
                             )}
                           </div>
