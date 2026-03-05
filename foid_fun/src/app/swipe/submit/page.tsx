@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useAccount } from "wagmi";
 import { useSwitchWallet } from "@/hooks/useSwitchWallet";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { getWalletClient } from "@/lib/viem";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
@@ -15,6 +16,7 @@ type SubmitStatus = "idle" | "uploading" | "confirming" | "done";
 export default function SwipeSubmitPage() {
   const { address, isConnected } = useAccount();
   const { disconnect, switchWallet } = useSwitchWallet();
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [status, setStatus] = useState<SubmitStatus>("idle");
@@ -92,6 +94,8 @@ export default function SwipeSubmitPage() {
       setTxHash(hash);
       setStatus("done");
       toast.success("Meme proposed!");
+      // Redirect back to swipe after a brief moment
+      setTimeout(() => router.push("/swipe"), 1500);
     } catch (err) {
       setStatus("idle");
       toast.error(err instanceof Error ? err.message : "Submission failed");
