@@ -937,6 +937,100 @@ const sections: Section[] = [
     ),
   },
   {
+    id: "wallet-security",
+    navLabel: "WALLET & SECURITY",
+    title: "WALLET & SECURITY",
+    subtitle: "How FOID Wallet Works Under the Hood",
+    content: (
+      <>
+        <GlassPanel>
+          <p>
+            <strong>No extension. No seed phrase. Just your fingerprint.</strong>
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            FOID Wallet is a browser-native embedded wallet. When you click &quot;FOID Wallet&quot; in the connect modal, a private key is generated locally in your browser, encrypted, and stored in your device&apos;s IndexedDB. You never need to install MetaMask or write down 12 words. Your biometrics (Face ID, Touch ID, Windows Hello) protect access to your key.
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            <strong>Transactions are instant and silent.</strong> Because the key lives on your device, FOID signs transactions locally without any popup or confirmation dialog. When you swipe on a meme, your EIP-712 signature is created automatically in the background. This is by design&mdash;it&apos;s what makes the experience feel native instead of clunky.
+          </p>
+        </GlassPanel>
+
+        <div style={{ marginTop: '24px' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>HOW YOUR KEY IS PROTECTED</p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">Key Generation</p>
+            <p className="aboutMiniCard__body">
+              A standard Ethereum private key is generated using <code className="text-cyan-300">crypto.getRandomValues()</code>&mdash;the same cryptographically secure randomness that banks use. The key is created entirely in your browser. It never touches a server.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">Passkey Encryption</p>
+            <p className="aboutMiniCard__body">
+              Your private key is encrypted with AES-256-GCM using a secret derived from WebAuthn PRF (a passkey extension). The encryption key comes from your device&apos;s biometric authenticator&mdash;only your fingerprint or face can unlock it. PBKDF2 with 600,000 iterations hardens the derived key.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">Storage</p>
+            <p className="aboutMiniCard__body">
+              The encrypted key is stored in IndexedDB (browser-local storage). The raw private key is never stored anywhere&mdash;only the encrypted blob. Even if someone copies your IndexedDB, they can&apos;t decrypt it without your biometric.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">Key Export</p>
+            <p className="aboutMiniCard__body">
+              You can export your private key at any time via the wallet menu. This lets you import it into MetaMask or any other wallet. Your key, your control. We don&apos;t custody anything.
+            </p>
+          </div>
+        </div>
+
+        <GlassPanel style={{ marginTop: '16px' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>EIP-712 TYPED SIGNATURES</p>
+          <p>
+            When you swipe to vote on a meme, FOID creates an <strong>EIP-712 typed data signature</strong>. This is the same standard used by OpenSea, Uniswap, and every major dApp for secure, human-readable signing.
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            The signature includes the proposal ID, your vote (yes/no), and a deadline&mdash;structured and verifiable. With the embedded wallet, this signature is created instantly and silently because your key is already decrypted in memory. With MetaMask or other external wallets, you&apos;ll see a popup showing exactly what you&apos;re signing.
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            These signatures are collected off-chain and verified on-chain when the vote is finalized. The smart contract uses <code className="text-cyan-300">ECDSA.recover()</code> to cryptographically verify every single vote came from a real wallet.
+          </p>
+        </GlassPanel>
+
+        <GlassPanel style={{ marginTop: '16px' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>WHY NO CONFIRMATION POPUP?</p>
+          <p>
+            Traditional wallets show a popup for every action because they don&apos;t trust the dApp. That makes sense when you&apos;re on a random website.
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            FOID Wallet is different&mdash;it&apos;s built into the app. The key never leaves your browser. There&apos;s no middleman. When you swipe, the app signs locally with your key. No network request to sign. No external process. Just math happening on your device.
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            <strong>The tradeoff:</strong> Faster, smoother UX. But you should understand that every swipe is a real cryptographic signature. If you prefer explicit confirmation for each action, connect MetaMask instead&mdash;you&apos;ll get the standard popup flow.
+          </p>
+        </GlassPanel>
+
+        <GlassPanel style={{ marginTop: '16px' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>WHAT COSTS MONEY?</p>
+          <p>
+            Most actions on FOID are free (just gas, which is fractions of a cent on Fluent testnet). But some actions have explicit fees:
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            &bull; <strong>Proposing a meme:</strong> 0.001 ETH submission fee (keeps spam out)<br/>
+            &bull; <strong>Voting/swiping:</strong> Free (off-chain EIP-712 signature, no gas)<br/>
+            &bull; <strong>Praying:</strong> Gas only (a few cents)<br/>
+            &bull; <strong>MiFOID mint:</strong> 0.01 ETH
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            With the embedded wallet, transactions happen silently. We always show a toast notification when a signed action completes so you know what happened.
+          </p>
+        </GlassPanel>
+      </>
+    ),
+  },
+  {
     id: "faq",
     navLabel: "FAQ",
     title: "FAQ",

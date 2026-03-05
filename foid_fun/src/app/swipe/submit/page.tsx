@@ -160,13 +160,24 @@ export default function SwipeSubmitPage() {
                   )}
                 </div>
 
-                {/* How duels work */}
+                {/* Cost notice */}
+                <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 flex items-start gap-3">
+                  <span className="text-amber-400 text-lg leading-none mt-0.5">&#x26A0;</span>
+                  <div>
+                    <p className="text-sm font-medium text-amber-300">This costs 0.001 ETH</p>
+                    <p className="mt-0.5 text-xs text-white/40">
+                      A small submission fee is charged on-chain to keep spam out. You&apos;ll also pay a tiny amount of gas. With FOID Wallet, the transaction signs automatically&mdash;no popup.
+                    </p>
+                  </div>
+                </div>
+
+                {/* How it works */}
                 <div className="mb-6 rounded-xl border border-white/5 bg-white/[0.02] p-4 text-sm text-white/50">
                   <h3 className="mb-2 font-medium text-white/70">How it works</h3>
                   <ul className="space-y-1 text-xs text-white/40">
-                    <li>1. Upload and propose your meme (small fee)</li>
+                    <li>1. Upload your meme &amp; pay 0.001 ETH submission fee</li>
                     <li>2. Community swipes to approve or reject (weighted by prayer streak)</li>
-                    <li>3. Approved memes get canonized in the Gallery</li>
+                    <li>3. Approved memes get canonized in the Gallery forever</li>
                   </ul>
                 </div>
 
@@ -203,7 +214,7 @@ export default function SwipeSubmitPage() {
                           ? "Connect wallet first"
                           : !file
                             ? "Select an image"
-                            : "Propose Meme"}
+                            : "Propose Meme (0.001 ETH)"}
                   </button>
                 )}
               </div>
