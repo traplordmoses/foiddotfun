@@ -16,6 +16,7 @@ import { TARGET_CHAIN_ID } from "@/lib/chain";
 import { MobileWalletButton } from "@/components/MobileWalletButton";
 import { useHaptic } from "@/hooks/useHaptic";
 import { PRAYER_REGISTRY_ABI } from "@/lib/contracts/abis/prayerRegistry";
+import { PRAYER_MIRROR_ABI } from "@/lib/contracts/abis/prayerMirror";
 import { parseEventLogs } from "viem";
 import { PrayerErrorBoundary } from "@/components/PrayerErrorBoundary";
 import { getTierFromStreak } from "@/hooks/usePrayerTiers";
@@ -57,38 +58,6 @@ function resolveEnv(): { registry?: Hex; mirror?: Hex } {
 
 // Using imported PRAYER_REGISTRY_ABI from lib/contracts/abis/prayerRegistry.ts
 
-const PrayerMirrorAbiLegacy = [
-  {
-    type: "function",
-    name: "get",
-    stateMutability: "view",
-    inputs: [{ name: "user", type: "address" }],
-    outputs: [
-      { name: "streak", type: "uint32" },
-      { name: "longest", type: "uint32" },
-      { name: "total", type: "uint32" },
-      { name: "milestones", type: "uint32" },
-      { name: "legacyMetric", type: "uint16" },
-      { name: "prayerHash", type: "bytes32" },
-    ],
-  },
-] as const;
-
-const PrayerMirrorAbiLite = [
-  {
-    type: "function",
-    name: "get",
-    stateMutability: "view",
-    inputs: [{ name: "user", type: "address" }],
-    outputs: [
-      { name: "streak", type: "uint32" },
-      { name: "longest", type: "uint32" },
-      { name: "total", type: "uint32" },
-      { name: "milestones", type: "uint32" },
-      { name: "prayerHash", type: "bytes32" },
-    ],
-  },
-] as const;
 
 function secondsLeft(tsNow: number, tsNext: bigint | undefined) {
   if (!tsNext) return 0;
@@ -169,25 +138,12 @@ function PrayPageContent() {
   const registryRef = useRef<Hex | undefined>(REGISTRY);
 
   const {
-    data: snapLegacy,
-    isLoading: snapLegacyLoading,
-    refetch: refetchSnapLegacy
+    data: snap,
+    isLoading: snapLoading,
+    refetch: refetchSnap
   } = useReadContract({
     address: safeAddress(MIRROR),
-    abi: PrayerMirrorAbiLegacy,
-    functionName: "get",
-    args: [safeAddress(address)],
-    chainId: FLUENT_CHAIN_ID,
-    query: { enabled: Boolean(address && MIRROR && FLUENT_CHAIN_ID) },
-  });
-
-  const {
-    data: snapLite,
-    isLoading: snapLiteLoading,
-    refetch: refetchSnapLite
-  } = useReadContract({
-    address: safeAddress(MIRROR),
-    abi: PrayerMirrorAbiLite,
+    abi: PRAYER_MIRROR_ABI,
     functionName: "get",
     args: [safeAddress(address)],
     chainId: FLUENT_CHAIN_ID,
@@ -208,27 +164,23 @@ function PrayPageContent() {
   });
 
   // Combined loading state
-  const statsLoading = snapLegacyLoading || snapLiteLoading || nextAllowedLoading;
+  const statsLoading = snapLoading || nextAllowedLoading;
 
   useEffect(() => {
     snapRef.current = async () => {
-      await Promise.allSettled([
-        refetchSnapLegacy({ throwOnError: false, cancelRefetch: false }),
-        refetchSnapLite({ throwOnError: false, cancelRefetch: false }),
-      ]);
+      await refetchSnap({ throwOnError: false, cancelRefetch: false });
     };
-  }, [refetchSnapLegacy, refetchSnapLite]);
+  }, [refetchSnap]);
   useEffect(() => { nextRef.current = refetchNext; }, [refetchNext]);
   useEffect(() => { registryRef.current = REGISTRY as Hex | undefined; }, [REGISTRY]);
   useEffect(() => {
     if (!address || !FLUENT_CHAIN_ID) return;
     if (MIRROR) {
-      void refetchSnapLegacy({ throwOnError: false, cancelRefetch: false });
-      void refetchSnapLite({ throwOnError: false, cancelRefetch: false });
+      void refetchSnap({ throwOnError: false, cancelRefetch: false });
     }
     if (!REGISTRY) return;
     void refetchNext({ throwOnError: false, cancelRefetch: false });
-  }, [MIRROR, REGISTRY, address, FLUENT_CHAIN_ID, refetchNext, refetchSnapLegacy, refetchSnapLite]);
+  }, [MIRROR, REGISTRY, address, FLUENT_CHAIN_ID, refetchNext, refetchSnap]);
 
   useEffect(() => {
     const updateNow = () => setNowSeconds(Math.floor(Date.now() / 1000));
@@ -348,7 +300,6 @@ function PrayPageContent() {
       const gasLimit = gasEstimate + (gasMargin > 0 ? gasMargin : 1n);
 
       // Optimistic update: Show +1 streak and +1 total immediately
-      const snap = snapLegacy ?? snapLite;
       const currentStreak = typeof snap?.[0] === 'bigint' ? Number(snap[0]) : (typeof snap?.[0] === 'number' ? snap[0] : 0);
       const currentTotal = typeof snap?.[2] === 'bigint' ? Number(snap[2]) : (typeof snap?.[2] === 'number' ? snap[2] : 0);
       startTransition(() => {
@@ -378,7 +329,7 @@ function PrayPageContent() {
         throw new Error(message);
       }
     },
-    [address, chainId, FLUENT_CHAIN_ID, switchChainAsync, snapLegacy, snapLite],
+    [address, chainId, FLUENT_CHAIN_ID, switchChainAsync, snap],
   );
 
   const waitForReceipt = useCallback(async (hash: string) => {
@@ -422,16 +373,14 @@ function PrayPageContent() {
     setTimeout(() => openConnectModal?.(), 100);
   }, [disconnect, openConnectModal, triggerHaptic]);
 
-  const snap = snapLegacy ?? snapLite;
-  const snapValues = snap as readonly unknown[] | undefined;
-  const prayerHash = snapValues && snapValues.length > 4 ? (snapValues.length > 5 ? snapValues[5] : snapValues[4]) : undefined;
-  const formattedPrayerHash = typeof prayerHash === "string" ? shortHash(prayerHash) : "–";
+  // snap is [currentStreak, longestStreak, totalPrayers] from the shared PRAYER_MIRROR_ABI
+  const formattedPrayerHash = "–"; // mirror contract doesn't return prayer hash
 
   // Computed values with optimistic updates
   const displayStreak = optimisticStreak !== null ? optimisticStreak : snap?.[0];
   const displayLongest = snap?.[1];
   const displayTotal = optimisticTotal !== null ? optimisticTotal : snap?.[2];
-  const displayMilestones = snap?.[3];
+  const displayMilestones = 0; // mirror contract doesn't expose milestones separately
   const hasAnyPrayers = Number(displayTotal ?? 0) > 0;
   const streakNumber = typeof displayStreak === 'bigint' ? Number(displayStreak) : typeof displayStreak === 'number' ? displayStreak : 0;
   const tierProgress = useMemo(() => getTierFromStreak(streakNumber), [streakNumber]);
@@ -645,7 +594,7 @@ function PrayPageContent() {
                             ) : !hasAnyPrayers ? (
                               "—"
                             ) : (
-                              displayMilestones?.toString?.() ?? "0"
+                              displayMilestones.toString()
                             )}
                           </span>
                         </div>
