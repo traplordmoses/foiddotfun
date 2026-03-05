@@ -50,9 +50,9 @@ type SwipeProposal = {
   finalized: boolean;
   canonized: boolean;
   trestEntryId: number;
+  forCount: number;
+  againstCount: number;
 };
-
-type StagedVote = { proposalId: number; approve: boolean };
 
 const CARD_VISUALS = [
   { gradient: "linear-gradient(135deg, #1a0a2e 0%, #3d1a6e 50%, #0f0c29 100%)", symbol: "\u2694\uFE0F" },
@@ -78,6 +78,22 @@ const EIP712_TYPES = {
   ],
 } as const;
 
+/* ─── Vote count mini-bar ─── */
+function VoteBar({ forCount, againstCount }: { forCount: number; againstCount: number }) {
+  const total = forCount + againstCount;
+  if (total === 0) return null;
+  return (
+    <div className="flex items-center gap-1.5 text-[9px]">
+      <span className="text-green-400">{forCount}Y</span>
+      <div className="flex h-1 flex-1 overflow-hidden rounded-full bg-neutral-800">
+        <div className="bg-green-500" style={{ width: `${(forCount / total) * 100}%` }} />
+        <div className="bg-red-500" style={{ width: `${(againstCount / total) * 100}%` }} />
+      </div>
+      <span className="text-red-400">{againstCount}N</span>
+    </div>
+  );
+}
+
 /* ─── Swipeable card ─── */
 function SwipeCard({
   proposal,
@@ -85,7 +101,7 @@ function SwipeCard({
   nextProposal,
 }: {
   proposal: SwipeProposal;
-  onVote: (approve: boolean) => void;
+  onVote: (proposalId: number, approve: boolean) => void;
   nextProposal?: SwipeProposal | null;
 }) {
   const visual = CARD_VISUALS[proposal.id % CARD_VISUALS.length];
@@ -93,8 +109,8 @@ function SwipeCard({
 
   const { direction, progress, handlers, style, phase } = useSwipeVote({
     threshold: 80,
-    onSwipeRight: () => onVote(true),
-    onSwipeLeft: () => onVote(false),
+    onSwipeRight: () => onVote(proposal.id, true),
+    onSwipeLeft: () => onVote(proposal.id, false),
   });
 
   const yesOpacity = direction === "right" ? 0.15 + progress * 0.25 : 0;
@@ -154,12 +170,19 @@ function SwipeCard({
           )}
         </div>
 
-        <div className="border-t border-neutral-800 bg-neutral-900/90 px-3 py-2 flex items-center justify-between">
-          <div>
-            <span className="text-[10px] uppercase tracking-wider text-neutral-500">Prop #{proposal.id}</span>
-            <div className="mt-0.5 font-mono text-xs text-neutral-300">{truncateAddress(proposal.proposer)}</div>
+        <div className="border-t border-neutral-800 bg-neutral-900/90 px-3 py-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[10px] uppercase tracking-wider text-neutral-500">Prop #{proposal.id}</span>
+              <div className="mt-0.5 font-mono text-xs text-neutral-300">{truncateAddress(proposal.proposer)}</div>
+            </div>
+            <span className="text-[10px] text-neutral-500 animate-pulse">Swipe to vote</span>
           </div>
-          <span className="text-[10px] text-neutral-500 animate-pulse">Swipe to vote</span>
+          {(proposal.forCount > 0 || proposal.againstCount > 0) && (
+            <div className="mt-1.5">
+              <VoteBar forCount={proposal.forCount} againstCount={proposal.againstCount} />
+            </div>
+          )}
         </div>
 
         {/* Bottom glow */}
@@ -168,28 +191,12 @@ function SwipeCard({
 
       {/* Button row */}
       <div className="mt-3 flex items-center justify-center gap-6">
-        <button onClick={() => onVote(false)} className="flex items-center justify-center w-14 h-14 rounded-full border-2 border-red-500/30 bg-red-500/5 text-red-400 transition hover:bg-red-500/15 hover:border-red-500/50 active:scale-90">
+        <button onClick={() => onVote(proposal.id, false)} className="flex items-center justify-center w-14 h-14 rounded-full border-2 border-red-500/30 bg-red-500/5 text-red-400 transition hover:bg-red-500/15 hover:border-red-500/50 active:scale-90">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
         </button>
-        <button onClick={() => onVote(true)} className="flex items-center justify-center w-14 h-14 rounded-full border-2 border-green-500/30 bg-green-500/5 text-green-400 transition hover:bg-green-500/15 hover:border-green-500/50 active:scale-90">
+        <button onClick={() => onVote(proposal.id, true)} className="flex items-center justify-center w-14 h-14 rounded-full border-2 border-green-500/30 bg-green-500/5 text-green-400 transition hover:bg-green-500/15 hover:border-green-500/50 active:scale-90">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>
         </button>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Confirm modal ─── */
-function ConfirmModal({ count, onConfirm, onCancel, submitting }: { count: number; onConfirm: () => void; onCancel: () => void; submitting: boolean }) {
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="mx-4 w-full max-w-sm rounded-2xl border border-white/10 bg-neutral-900/95 p-6 shadow-2xl">
-        <h3 className="text-base font-bold text-white/90 mb-2">Sign {count} vote{count !== 1 ? "s" : ""}?</h3>
-        <p className="text-xs text-white/50 mb-6">Each vote will be signed with your wallet and submitted on-chain.</p>
-        <div className="flex gap-3">
-          <button onClick={onCancel} disabled={submitting} className="flex-1 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/70 transition hover:bg-white/10 disabled:opacity-50">Cancel</button>
-          <button onClick={onConfirm} disabled={submitting} className="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold text-white transition hover:opacity-85 disabled:opacity-50" style={{ background: "linear-gradient(135deg, #e040fb, #f06292)" }}>{submitting ? "Signing..." : "Confirm & Sign"}</button>
-        </div>
       </div>
     </div>
   );
@@ -200,13 +207,8 @@ export default function SwipePage() {
   const { address, isConnected } = useAccount();
   const { disconnect, switchWallet } = useSwitchWallet();
   const [loading, setLoading] = useState(true);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [tab, setTab] = useState<"active" | "completed">("active");
   const [proposals, setProposals] = useState<SwipeProposal[]>([]);
-  const [stagedVotes, setStagedVotes] = useState<StagedVote[]>([]);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [submittingBatch, setSubmittingBatch] = useState(false);
-  const [batchSuccess, setBatchSuccess] = useState(false);
   const [votedIds, setVotedIds] = useState<Set<number>>(new Set());
   const votedIdsRef = useRef(votedIds);
   votedIdsRef.current = votedIds;
@@ -214,15 +216,7 @@ export default function SwipePage() {
   // Load voted IDs from localStorage when wallet changes
   useEffect(() => {
     setVotedIds(getVotedIds(address));
-    setCurrentIndex(0);
   }, [address]);
-
-  // Auto-clear batch success
-  useEffect(() => {
-    if (!batchSuccess) return;
-    const t = setTimeout(() => setBatchSuccess(false), 3000);
-    return () => clearTimeout(t);
-  }, [batchSuccess]);
 
   const contractAddr = (CONTRACTS.SWIPE ?? "") as `0x${string}`;
   const hasContract = !!CONTRACTS.SWIPE;
@@ -291,78 +285,72 @@ export default function SwipePage() {
     (p) => !p.finalized && now < p.votingEndsAt && !votedIds.has(p.id)
   );
   const closedProposals = proposals.filter((p) => p.finalized || now >= p.votingEndsAt);
-  const currentProposal = activeProposals[currentIndex] ?? null;
+  const currentProposal = activeProposals[0] ?? null;
 
+  // Sign EIP-712 and submit vote inline on each swipe
   const handleVote = useCallback(
-    (approve: boolean) => {
-      if (!currentProposal) return;
-      setStagedVotes((prev) => [...prev, { proposalId: currentProposal.id, approve }]);
-      setBatchSuccess(false);
-      // Mark as voted locally immediately
-      if (address) {
+    async (proposalId: number, approve: boolean) => {
+      const proposal = proposals.find((p) => p.id === proposalId);
+      if (!proposal) return;
+
+      if (!isConnected || !address) {
+        toast.error("Connect wallet to vote");
+        return;
+      }
+
+      // Optimistically mark as voted — card disappears immediately
+      setVotedIds((prev) => {
+        const next = new Set(prev);
+        next.add(proposalId);
+        saveVotedIds(address, next);
+        return next;
+      });
+
+      // Sign EIP-712 and submit in background
+      try {
+        const walletClient = await getWalletClient();
+        const signature = await walletClient.signTypedData({
+          account: walletClient.account ?? address,
+          domain: EIP712_DOMAIN,
+          types: EIP712_TYPES,
+          primaryType: "SwipeVote",
+          message: {
+            proposalId: BigInt(proposalId),
+            approve,
+            deadline: BigInt(proposal.votingEndsAt),
+          },
+        });
+
+        const res = await fetch("/api/swipe/vote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            proposalId,
+            approve,
+            deadline: proposal.votingEndsAt,
+            signature,
+            voter: address,
+          }),
+        });
+
+        if (res.ok) {
+          toast.success(approve ? "Signed YES" : "Signed NO", { duration: 1500 });
+        } else if (res.status !== 409) {
+          throw new Error("Vote submission failed");
+        }
+      } catch (err) {
+        // Undo optimistic vote on failure
         setVotedIds((prev) => {
           const next = new Set(prev);
-          next.add(currentProposal.id);
+          next.delete(proposalId);
           saveVotedIds(address, next);
           return next;
         });
+        toast.error(err instanceof Error ? err.message : "Signing failed");
       }
-      setCurrentIndex((i) => i + 1);
     },
-    [currentProposal, address]
+    [address, isConnected, proposals]
   );
-
-  const handleSubmitBatch = useCallback(async () => {
-    if (stagedVotes.length === 0) return;
-    setSubmittingBatch(true);
-
-    try {
-      if (isConnected && address && hasContract) {
-        const walletClient = await getWalletClient();
-        let submitted = 0;
-        for (const v of stagedVotes) {
-          const proposal = proposals.find((p) => p.id === v.proposalId);
-          if (!proposal) continue;
-
-          const signature = await walletClient.signTypedData({
-            account: walletClient.account ?? address,
-            domain: EIP712_DOMAIN,
-            types: EIP712_TYPES,
-            primaryType: "SwipeVote",
-            message: {
-              proposalId: BigInt(v.proposalId),
-              approve: v.approve,
-              deadline: BigInt(proposal.votingEndsAt),
-            },
-          });
-
-          const res = await fetch("/api/swipe/vote", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              proposalId: v.proposalId,
-              approve: v.approve,
-              deadline: proposal.votingEndsAt,
-              signature,
-              voter: address,
-            }),
-          });
-
-          if (res.ok || res.status === 409) submitted++;
-        }
-        toast.success(`${submitted} vote${submitted !== 1 ? "s" : ""} signed & submitted!`);
-      } else {
-        toast.success(`${stagedVotes.length} votes submitted (demo)`);
-      }
-      setStagedVotes([]);
-      setBatchSuccess(true);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Vote failed");
-    } finally {
-      setSubmittingBatch(false);
-      setShowConfirm(false);
-    }
-  }, [stagedVotes, isConnected, address, hasContract, proposals]);
 
   const handleSwitchWallet = switchWallet;
   const totalOnChain = proposalCount !== undefined ? Number(proposalCount) : 0;
@@ -396,7 +384,7 @@ export default function SwipePage() {
                       {(["active", "completed"] as const).map((t) => (
                         <button
                           key={t}
-                          onClick={() => { setTab(t); setCurrentIndex(0); }}
+                          onClick={() => setTab(t)}
                           className={`rounded-full px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition ${
                             tab === t
                               ? "bg-purple-600/30 text-purple-300 ring-1 ring-purple-500/40"
@@ -431,95 +419,73 @@ export default function SwipePage() {
                       <SwipeCard
                         proposal={currentProposal}
                         onVote={handleVote}
-                        nextProposal={activeProposals[currentIndex + 1] ?? null}
+                        nextProposal={activeProposals[1] ?? null}
                       />
-
                       <div className="flex-shrink-0 text-center text-[10px] text-white/25 mt-1">
-                        {currentIndex + 1} / {activeProposals.length}
+                        {activeProposals.length} remaining
                       </div>
-
-                      {stagedVotes.length > 0 && (
-                        <button
-                          onClick={() => setShowConfirm(true)}
-                          className="flex-shrink-0 rounded-full px-5 py-2 text-xs font-bold text-white transition hover:opacity-85 active:scale-95"
-                          style={{ background: "linear-gradient(135deg, #e040fb, #f06292)" }}
-                        >
-                          Submit {stagedVotes.length} Vote{stagedVotes.length !== 1 ? "s" : ""}
-                        </button>
-                      )}
                     </div>
                   ) : (
                     <div className="flex flex-col flex-1 min-h-0 items-center justify-center text-center">
-                      {stagedVotes.length > 0 ? (
-                        <>
-                          <div className="mb-3 text-4xl opacity-40">&#x2713;</div>
-                          <h2 className="text-base font-medium text-white/70">All caught up!</h2>
-                          <p className="mt-1 max-w-sm text-xs text-white/40">
-                            You&apos;ve voted on all live proposals.
-                          </p>
-                          <button
-                            onClick={() => setShowConfirm(true)}
-                            className="mt-4 rounded-full px-6 py-2.5 text-sm font-bold text-white transition hover:opacity-85 active:scale-95"
-                            style={{ background: "linear-gradient(135deg, #e040fb, #f06292)" }}
-                          >
-                            Submit {stagedVotes.length} Vote{stagedVotes.length !== 1 ? "s" : ""}
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <div className="mb-3 text-4xl opacity-30">&#x2694;</div>
-                          <h2 className="text-base font-medium text-white/70">
-                            {proposals.some((p) => !p.finalized && now < p.votingEndsAt)
-                              ? "You've voted on everything!"
-                              : "No live proposals"}
-                          </h2>
-                          <p className="mt-1 max-w-sm text-xs text-white/40">
-                            Propose a meme to get the community voting.
-                          </p>
-                          <Link
-                            href="/swipe/submit"
-                            className="foid-cta-btn mt-4"
-                            style={{ background: "linear-gradient(135deg, #e040fb, #f06292)" }}
-                          >
-                            Propose a Meme
-                          </Link>
-                        </>
-                      )}
+                      <div className="mb-3 text-4xl opacity-30">&#x2694;</div>
+                      <h2 className="text-base font-medium text-white/70">
+                        {proposals.some((p) => !p.finalized && now < p.votingEndsAt)
+                          ? "You've voted on everything!"
+                          : "No live proposals"}
+                      </h2>
+                      <p className="mt-1 max-w-sm text-xs text-white/40">
+                        Propose a meme to get the community voting.
+                      </p>
+                      <Link
+                        href="/swipe/submit"
+                        className="foid-cta-btn mt-4"
+                        style={{ background: "linear-gradient(135deg, #e040fb, #f06292)" }}
+                      >
+                        Propose a Meme
+                      </Link>
                     </div>
                   )
                 ) : closedProposals.length > 0 ? (
                   <div className="flex-1 min-h-0 overflow-auto mt-1 grid gap-3 sm:grid-cols-2 auto-rows-min">
-                    {closedProposals.map((proposal) => (
-                      <Link
-                        key={proposal.id}
-                        href={`/swipe/${proposal.id}`}
-                        className="group block rounded-xl border border-neutral-800 bg-neutral-900/40 p-2 transition hover:border-purple-500/30"
-                      >
-                        <div className="mb-1.5 flex items-center justify-between">
-                          <span className="text-[10px] text-white/40">Prop #{proposal.id}</span>
-                          <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase ${
-                            proposal.canonized ? "bg-green-600/20 text-green-400" : "bg-red-600/20 text-red-400"
-                          }`}>
-                            {proposal.canonized ? "Canonized" : "Rejected"}
-                          </span>
-                        </div>
-                        <div className="overflow-hidden rounded-lg bg-neutral-800/50">
-                          <div className="aspect-square max-h-[160px]">
-                            {proposal.ipfsCid ? (
-                              <img src={cidToHttpUrl(proposal.ipfsCid)} alt={`Proposal #${proposal.id}`} className="h-full w-full object-cover" loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, proposal.ipfsCid)} />
-                            ) : (
-                              <div className="flex h-full items-center justify-center" style={{ background: CARD_VISUALS[proposal.id % CARD_VISUALS.length].gradient }}>
-                                <span className="text-xl">{CARD_VISUALS[proposal.id % CARD_VISUALS.length].symbol}</span>
-                              </div>
-                            )}
+                    {closedProposals.map((proposal) => {
+                      const total = proposal.forCount + proposal.againstCount;
+                      return (
+                        <Link
+                          key={proposal.id}
+                          href={`/swipe/${proposal.id}`}
+                          className="group block rounded-xl border border-neutral-800 bg-neutral-900/40 p-2 transition hover:border-purple-500/30"
+                        >
+                          <div className="mb-1.5 flex items-center justify-between">
+                            <span className="text-[10px] text-white/40">Prop #{proposal.id}</span>
+                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase ${
+                              proposal.canonized ? "bg-green-600/20 text-green-400" : "bg-red-600/20 text-red-400"
+                            }`}>
+                              {proposal.canonized ? "Canonized" : "Rejected"}
+                            </span>
                           </div>
-                        </div>
-                        <div className="mt-1.5 flex items-center justify-between text-[10px] text-neutral-400">
-                          <span className="font-mono">{truncateAddress(proposal.proposer)}</span>
-                          {proposal.canonized && <span className="text-green-400">Gallery &rarr;</span>}
-                        </div>
-                      </Link>
-                    ))}
+                          <div className="overflow-hidden rounded-lg bg-neutral-800/50">
+                            <div className="aspect-square max-h-[160px]">
+                              {proposal.ipfsCid ? (
+                                <img src={cidToHttpUrl(proposal.ipfsCid)} alt={`Proposal #${proposal.id}`} className="h-full w-full object-cover" loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, proposal.ipfsCid)} />
+                              ) : (
+                                <div className="flex h-full items-center justify-center" style={{ background: CARD_VISUALS[proposal.id % CARD_VISUALS.length].gradient }}>
+                                  <span className="text-xl">{CARD_VISUALS[proposal.id % CARD_VISUALS.length].symbol}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="mt-1.5 flex items-center justify-between text-[10px] text-neutral-400">
+                            <span className="font-mono">{truncateAddress(proposal.proposer)}</span>
+                            {proposal.canonized && <span className="text-green-400">Gallery &rarr;</span>}
+                          </div>
+                          {total > 0 && (
+                            <div className="mt-1.5">
+                              <VoteBar forCount={proposal.forCount} againstCount={proposal.againstCount} />
+                            </div>
+                          )}
+                        </Link>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="flex flex-col flex-1 min-h-0 items-center justify-center text-center">
@@ -532,34 +498,6 @@ export default function SwipePage() {
           </div>
         </div>
       </section>
-
-      {/* Floating staged votes pill */}
-      {stagedVotes.length > 0 && !showConfirm && (
-        <div
-          className="fixed z-50 left-1/2 -translate-x-1/2 flex items-center gap-3 rounded-full px-5 py-2.5 text-xs font-bold text-white shadow-lg"
-          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 84px)", background: "linear-gradient(135deg, #e040fb, #f06292)", animation: "pill-in 0.3s ease-out" }}
-        >
-          <span>{stagedVotes.length} vote{stagedVotes.length !== 1 ? "s" : ""} staged</span>
-          <button onClick={() => setShowConfirm(true)} className="underline underline-offset-2 transition hover:opacity-80">Submit &rarr;</button>
-        </div>
-      )}
-
-      {batchSuccess && (
-        <div className="fixed z-50 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full bg-emerald-600/90 px-5 py-2.5 text-sm font-bold text-white shadow-lg" style={{ bottom: "20px", animation: "pill-in 0.3s ease-out" }}>
-          Votes submitted &#x2713;
-        </div>
-      )}
-
-      {showConfirm && (
-        <ConfirmModal count={stagedVotes.length} onConfirm={handleSubmitBatch} onCancel={() => setShowConfirm(false)} submitting={submittingBatch} />
-      )}
-
-      <style jsx>{`
-        @keyframes pill-in {
-          from { opacity: 0; transform: translateX(-50%) translateY(10px); }
-          to { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
-      `}</style>
     </main>
   );
 }

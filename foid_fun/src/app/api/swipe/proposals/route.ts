@@ -4,6 +4,7 @@ import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { RPC_URL, CHAIN_CONFIG } from "@/lib/contracts/addresses";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
+import { getVoteCounts } from "@/lib/voteStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -78,6 +79,7 @@ export async function GET() {
           p = raw as typeof p;
         }
 
+        const counts = getVoteCounts(Number(p.id));
         proposals.push({
           id: Number(p.id),
           proposer: p.proposer,
@@ -88,8 +90,8 @@ export async function GET() {
           finalized: p.finalized,
           canonized: p.canonized,
           trestEntryId: Number(p.trestEntryId),
-          forCount: 0,
-          againstCount: 0,
+          forCount: counts.forCount,
+          againstCount: counts.againstCount,
         });
       } catch (err) {
         console.error(`[api/swipe/proposals] Failed to read proposal ${i}:`, err);

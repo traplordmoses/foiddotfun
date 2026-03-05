@@ -1,19 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { voteStore, type StoredVote } from "@/lib/voteStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type StoredVote = {
-  proposalId: number;
-  approve: boolean;
-  deadline: number;
-  signature: string;
-  voter: string;
-  timestamp: number;
-};
-
-// In-memory vote store (replace with database later)
-const voteStore = new Map<number, StoredVote[]>();
 
 export async function POST(request: NextRequest) {
   try {
