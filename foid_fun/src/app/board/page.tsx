@@ -27,6 +27,7 @@ import {
   contractToWorldRect,
 } from "@/lib/boardSpace";
 import { sniffImageType, mimeFromType } from "@/lib/image";
+import { convertToJpeg } from "@/lib/imageConvert";
 import { uploadImage } from "@/lib/ipfs";
 import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 import { formatEth } from "@/lib/wei";
@@ -248,7 +249,7 @@ function MobileProposeModal({
   const placementFee = process.env.NEXT_PUBLIC_PLACEMENT_FEE_WEI ?? "1000000000000000";
   const feeEth = (Number(BigInt(placementFee)) / 1e18).toFixed(4);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
     if (!f.type.startsWith("image/")) {
@@ -261,8 +262,19 @@ function MobileProposeModal({
       setStep("error");
       return;
     }
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
+    // Auto-convert non-PNG/JPEG to JPEG
+    let processed = f;
+    if (f.type !== "image/jpeg" && f.type !== "image/png") {
+      try {
+        processed = await convertToJpeg(f);
+      } catch {
+        setErrorMsg("Could not process image");
+        setStep("error");
+        return;
+      }
+    }
+    setFile(processed);
+    setPreview(URL.createObjectURL(processed));
     setStep("pick");
     setErrorMsg("");
   };
@@ -352,7 +364,7 @@ function MobileProposeModal({
                 <input
                   ref={fileRef}
                   type="file"
-                  accept="image/png,image/jpeg"
+                  accept="image/*"
                   className="hidden"
                   onChange={handleFileSelect}
                 />
@@ -798,7 +810,13 @@ function BoardPageContent() {
     try {
       let workingFile = file;
       let kind = await sniffImageType(workingFile);
-      if (!kind) { addStatus("Only PNG or JPG allowed.", "error"); return; }
+      // Auto-convert non-PNG/JPEG to JPEG
+      if (!kind) {
+        try {
+          workingFile = await convertToJpeg(workingFile);
+          kind = "jpg";
+        } catch { addStatus("Could not process image.", "error"); return; }
+      }
       let mime = mimeFromType(kind) as "image/png" | "image/jpeg";
       const { w, h } = await getImageSize(workingFile);
       let rect = snapRect({ x: pos?.x ?? 0, y: pos?.y ?? 0, w, h });
@@ -1358,7 +1376,7 @@ function BoardPageContent() {
                     </div>
                     <div className="board-actions">
                       <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" />
-                      <input ref={fileInputRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={onFileChange} />
+                      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onFileChange} />
                       <div className="board-actions__divider" />
                       {items.length > 0 && (
                         <span className="board-actions__pending-line">ready to submit ✓</span>

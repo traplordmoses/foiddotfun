@@ -371,10 +371,10 @@ export default function SwipePage() {
             <div className="vista-window__body" style={{ overflow: "hidden", flex: 1, minHeight: 0 }}>
               <div className="p-3 md:p-4 flex flex-col h-full" style={{ minHeight: 0 }}>
                 {/* Compact header */}
-                <div className="flex-shrink-0 flex items-center justify-between gap-3 mb-2">
-                  <div className="flex items-center gap-3">
+                <div className="flex-shrink-0 flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <h1
-                      className="text-lg font-black uppercase tracking-[0.15em] text-transparent bg-clip-text"
+                      className="text-base sm:text-lg font-black uppercase tracking-[0.15em] text-transparent bg-clip-text flex-shrink-0"
                       style={{ backgroundImage: "linear-gradient(135deg, rgba(168,130,255,1) 0%, rgba(255,255,255,0.95) 50%, rgba(200,160,255,0.9) 100%)" }}
                     >
                       Swipe
@@ -385,7 +385,7 @@ export default function SwipePage() {
                         <button
                           key={t}
                           onClick={() => setTab(t)}
-                          className={`rounded-full px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition ${
+                          className={`rounded-full px-2 sm:px-3 py-0.5 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider transition ${
                             tab === t
                               ? "bg-purple-600/30 text-purple-300 ring-1 ring-purple-500/40"
                               : "text-white/35 hover:text-white/60"
@@ -396,15 +396,15 @@ export default function SwipePage() {
                       ))}
                     </div>
                     {totalOnChain > 0 && (
-                      <span className="text-[10px] text-white/25">{totalOnChain} on-chain</span>
+                      <span className="hidden sm:inline text-[10px] text-white/25">{totalOnChain} on-chain</span>
                     )}
                   </div>
                   <Link
                     href="/swipe/submit"
-                    className="foid-cta-btn text-[10px] px-3 py-1.5 flex-shrink-0"
+                    className="foid-cta-btn text-[9px] sm:text-[10px] px-2 sm:px-3 py-1 sm:py-1.5 flex-shrink-0 rounded-md"
                     style={{ background: "linear-gradient(135deg, #e040fb, #f06292)" }}
                   >
-                    PROPOSE MEME
+                    + PROPOSE
                   </Link>
                 </div>
 
