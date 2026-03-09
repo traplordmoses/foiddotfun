@@ -254,7 +254,7 @@ export async function getEmbeddedAddress(): Promise<string | null> {
   }
 }
 
-export async function createEmbeddedWallet(): Promise<{ address: string }> {
+export async function createEmbeddedWallet(): Promise<{ address: string; passkeyProtected: boolean }> {
   const privateKey = generatePrivateKey();
   const account = privateKeyToAccount(privateKey);
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -280,7 +280,7 @@ export async function createEmbeddedWallet(): Promise<{ address: string }> {
     };
 
     await dbPut(KEY_ID, walletData);
-    return { address: account.address };
+    return { address: account.address, passkeyProtected: true };
   }
 
   // Fallback — random secret (no passkey protection)
@@ -299,7 +299,19 @@ export async function createEmbeddedWallet(): Promise<{ address: string }> {
   };
 
   await dbPut(KEY_ID, walletData);
-  return { address: account.address };
+  return { address: account.address, passkeyProtected: false };
+}
+
+/** Check if the stored wallet is passkey-protected or using fallback mode. */
+export async function isPasskeyProtected(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const wallet = await dbGet<StoredWallet>(KEY_ID);
+    if (!wallet) return false;
+    return !wallet.fallbackMode && !!wallet.credentialId;
+  } catch {
+    return false;
+  }
 }
 
 export async function getEmbeddedAccount(): Promise<PrivateKeyAccount> {

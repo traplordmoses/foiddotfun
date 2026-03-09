@@ -30,6 +30,7 @@ export default function WalletMenuPill({
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
   const [mounted, setMounted] = useState(false);
   const [exportStatus, setExportStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [passkeyStatus, setPasskeyStatus] = useState<boolean | null>(null);
   const isEmbeddedWallet = mounted && typeof window !== "undefined" && localStorage.getItem("foid-embedded-active") === "true";
 
   const { data: balanceData } = useBalance({
@@ -45,6 +46,22 @@ export default function WalletMenuPill({
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Check passkey protection status when menu opens for embedded wallet
+  useEffect(() => {
+    if (!isOpen || !isEmbeddedWallet) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { isPasskeyProtected } = await import("@/lib/embeddedWallet");
+        const result = await isPasskeyProtected();
+        if (!cancelled) setPasskeyStatus(result);
+      } catch {
+        if (!cancelled) setPasskeyStatus(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, isEmbeddedWallet]);
 
   // Calculate menu position when opened
   useEffect(() => {
@@ -203,6 +220,21 @@ export default function WalletMenuPill({
           <span style={{ fontWeight: 700, color: "rgba(255,255,255,0.95)", fontSize: "12px" }}>
             {Number(balanceData.formatted).toFixed(4)} ETH
           </span>
+        </div>
+      )}
+      {/* Passkey protection status for embedded wallet */}
+      {isEmbeddedWallet && passkeyStatus !== null && (
+        <div style={{
+          padding: "6px 12px",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
+          fontSize: "10px",
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          color: passkeyStatus ? "rgba(72,255,171,0.8)" : "rgba(255,184,0,0.8)",
+        }}>
+          <span style={{ fontSize: 12 }}>{passkeyStatus ? "\u2713" : "\u26A0"}</span>
+          <span>{passkeyStatus ? "Passkey protected" : "No passkey protection"}</span>
         </div>
       )}
       <button

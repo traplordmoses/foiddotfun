@@ -17,7 +17,7 @@ import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useBoard } from "@/state/board";
 import type { PendingItem } from "@/state/board";
-import { TILE, snapRect, rectCells, hasOverlap, type Rect } from "@/lib/grid";
+import { TILE, snapRect, rectCells, hasOverlap, isTouching, type Rect } from "@/lib/grid";
 import {
   BOARD_OFFSET_X,
   BOARD_OFFSET_Y,
@@ -51,6 +51,7 @@ const MobileBoard = dynamic(
 );
 import { MobileWalletButton } from "@/components/MobileWalletButton";
 import { GestureHint } from "@/components/GestureHint";
+import { MobilePlacementPicker } from "@/components/MobilePlacementPicker";
 import {
   toStageRect,
   snapDown,
@@ -109,7 +110,7 @@ const FLUENT_CHAIN_ID = TARGET_CHAIN_ID;
 
 type DropPos = { x: number; y: number };
 type DragMeta = { w: number; h: number; mime: "image/png" | "image/jpeg" | null };
-type GhostStatus = "ok" | "overlap" | "oversize" | "invalid";
+type GhostStatus = "ok" | "overlap" | "oversize" | "invalid" | "not-touching";
 type Ghost = { rect: Rect; cells: number; status: GhostStatus; totalWei: bigint };
 
 // ============================================================================
@@ -232,18 +233,21 @@ const normalizeProposals = (list: ProposalSummary[] | undefined): ProposalSummar
 function MobileProposeModal({
   isConnected,
   address,
+  placedRects,
   onClose,
   onSuccess,
 }: {
   isConnected: boolean;
   address?: string;
+  placedRects: Rect[];
   onClose: () => void;
   onSuccess: (msg: string) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [step, setStep] = useState<"pick" | "uploading" | "submitting" | "done" | "error">("pick");
+  const [step, setStep] = useState<"pick" | "position" | "uploading" | "submitting" | "done" | "error">("pick");
   const [errorMsg, setErrorMsg] = useState("");
+  const [placementRect, setPlacementRect] = useState<Rect | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const placementFee = process.env.NEXT_PUBLIC_PLACEMENT_FEE_WEI ?? "1000000000000000";
@@ -275,12 +279,36 @@ function MobileProposeModal({
     }
     setFile(processed);
     setPreview(URL.createObjectURL(processed));
-    setStep("pick");
     setErrorMsg("");
+
+    // Compute initial placement rect from image dimensions
+    try {
+      const { w, h } = await getImageSizeFromFile(processed);
+      let rect = snapRect({ x: 0, y: 0, w, h });
+      rect = capRectToMaxCells(rect, MAX_CELLS_PER_RECT);
+      setPlacementRect(rect);
+      setStep("position");
+    } catch {
+      setPlacementRect(snapRect({ x: 0, y: 0, w: TILE, h: TILE }));
+      setStep("position");
+    }
   };
 
   const handleSubmit = async () => {
-    if (!file || !address || !isConnected) return;
+    if (!file || !address || !isConnected || !placementRect) return;
+
+    // Validate placement
+    if (hasOverlap(placementRect, placedRects)) {
+      setErrorMsg("Placement overlaps an existing meme");
+      setStep("error");
+      return;
+    }
+    if (!isTouching(placementRect, placedRects)) {
+      setErrorMsg("Placement must touch an existing meme on the board");
+      setStep("error");
+      return;
+    }
+
     try {
       setStep("uploading");
 
@@ -295,11 +323,7 @@ function MobileProposeModal({
 
       setStep("submitting");
 
-      // Place on board at center (0,0) with image dimensions snapped to grid
-      const { w, h } = await getImageSizeFromFile(file);
-      let rect = snapRect({ x: 0, y: 0, w, h });
-      rect = capRectToMaxCells(rect, MAX_CELLS_PER_RECT);
-      const contractRect = worldToContractRect(rect);
+      const contractRect = worldToContractRect(placementRect);
 
       const normalizedCid = normalizeCidString(cid);
       await writeSwipeLoreboardPlace({
@@ -369,50 +393,32 @@ function MobileProposeModal({
                   onChange={handleFileSelect}
                 />
 
-                {preview ? (
-                  <div className="mb-4">
-                    <div className="rounded-xl overflow-hidden border border-white/10 mb-3" style={{ maxHeight: "40vh" }}>
-                      <img src={preview} alt="Preview" className="w-full object-contain" style={{ maxHeight: "40vh" }} />
-                    </div>
-                    <button
-                      onClick={() => fileRef.current?.click()}
-                      className="text-xs underline"
-                      style={{ color: "rgba(255,255,255,0.5)" }}
-                    >
-                      Choose different image
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => fileRef.current?.click()}
-                    className="w-full py-8 rounded-xl border-2 border-dashed mb-4 text-sm"
-                    style={{ borderColor: "rgba(224,64,251,0.3)", color: "rgba(255,255,255,0.6)", background: "rgba(224,64,251,0.05)" }}
-                  >
-                    Tap to select image
-                  </button>
-                )}
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="w-full py-8 rounded-xl border-2 border-dashed mb-4 text-sm"
+                  style={{ borderColor: "rgba(224,64,251,0.3)", color: "rgba(255,255,255,0.6)", background: "rgba(224,64,251,0.05)" }}
+                >
+                  Tap to select image
+                </button>
 
-                <div className="flex items-center justify-between text-xs mb-4" style={{ color: "rgba(255,255,255,0.5)" }}>
+                <div className="flex items-center justify-between text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
                   <span>Placement fee</span>
                   <span className="font-bold" style={{ color: "rgba(255,255,255,0.9)" }}>{feeEth} ETH</span>
                 </div>
-
-                <button
-                  onClick={handleSubmit}
-                  disabled={!file}
-                  className="w-full py-3 rounded-xl text-sm font-bold tracking-widest uppercase touch-manipulation"
-                  style={{
-                    background: file ? "linear-gradient(135deg, #e040fb, #f06292)" : "rgba(255,255,255,0.1)",
-                    color: file ? "#fff" : "rgba(255,255,255,0.3)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    boxShadow: file ? "0 4px 16px rgba(224,64,251,0.35)" : "none",
-                  }}
-                >
-                  Place on Board
-                </button>
               </>
             )}
           </>
+        )}
+
+        {step === "position" && preview && placementRect && (
+          <MobilePlacementPicker
+            previewUrl={preview}
+            rect={placementRect}
+            placedRects={placedRects}
+            onRectChange={setPlacementRect}
+            onConfirm={handleSubmit}
+            onBack={() => setStep("pick")}
+          />
         )}
 
         {(step === "uploading" || step === "submitting") && (
@@ -765,6 +771,7 @@ function BoardPageContent() {
     const placedRects = placed.map((pl) => pl.rect);
     if (cells > MAX_CELLS_PER_RECT) status = "oversize";
     else if (hasOverlap(rect, placedRects) || hasOverlap(rect, pending.map(storedRectFor))) status = "overlap";
+    else if (!isTouching(rect, [...placedRects, ...pending.map(storedRectFor)])) status = "not-touching";
     setGhost({ rect, cells, status, totalWei: BigInt(cells) * BASE_FEE_PER_CELL_WEI });
   }, [pending, placed, storedRectFor]);
 
@@ -1001,6 +1008,13 @@ function BoardPageContent() {
       });
       if (overlapNames.length) throw new Error(`Overlap: ${overlapNames.join(", ")}`);
 
+      const notTouchingNames: string[] = [];
+      pendingRects.forEach((c, idx) => {
+        const peers = pendingRects.filter((_, j) => j !== idx).map((r) => r.rect);
+        if (!isTouching(c.rect, [...placedRects, ...peers])) notTouchingNames.push(c.name);
+      });
+      if (notTouchingNames.length) throw new Error(`Not touching board: ${notTouchingNames.join(", ")}`);
+
       if (!address) throw new Error("No wallet connected");
       const account = address;
 
@@ -1166,6 +1180,7 @@ function BoardPageContent() {
         <MobileProposeModal
           isConnected={isConnected}
           address={address}
+          placedRects={placed.map(p => p.rect)}
           onClose={() => setShowMobilePropose(false)}
           onSuccess={(msg) => {
             addStatus(msg, "success");
@@ -1306,7 +1321,7 @@ function BoardPageContent() {
                     {/* Ghost */}
                     {ghost && (() => {
                       const sr = toStageRect(ghost.rect);
-                      const color = ghost.status === "ok" ? "rgba(72,255,171,0.9)" : ghost.status === "invalid" ? "rgba(255,71,87,0.9)" : "rgba(255,184,0,0.9)";
+                      const color = ghost.status === "ok" ? "rgba(72,255,171,0.9)" : ghost.status === "not-touching" ? "rgba(255,184,0,0.9)" : ghost.status === "invalid" ? "rgba(255,71,87,0.9)" : ghost.status === "overlap" ? "rgba(255,71,87,0.9)" : "rgba(255,184,0,0.9)";
                       return (
                         <div className="board-ghost" style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h, outlineColor: color, background: color.replace("0.9", "0.08") }}>
                           <span className="board-ghost__label">{ghost.cells} cells · {formatEth(ghost.totalWei)} ETH</span>

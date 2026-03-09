@@ -10,6 +10,7 @@ export default function FoidWalletOnboarding() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>('explain');
   const [address, setAddress] = useState<string | null>(null);
+  const [passkeyProtected, setPasskeyProtected] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,9 +19,28 @@ export default function FoidWalletOnboarding() {
     const handler = () => {
       setStep('explain');
       setAddress(null);
+      setPasskeyProtected(false);
       setError(null);
       setCopied(false);
       setOpen(true);
+
+      // Close the RainbowKit connect modal so it doesn't block our onboarding modal.
+      // RainbowKit renders an overlay with [data-rk] [role="dialog"]; click its
+      // backdrop or the close button to dismiss it.
+      requestAnimationFrame(() => {
+        const rkOverlay = document.querySelector<HTMLElement>('[data-rk] [aria-label="Close"]');
+        if (rkOverlay) {
+          rkOverlay.click();
+          return;
+        }
+        // Fallback: find the RainbowKit backdrop and click it to dismiss
+        const backdrop = document.querySelector<HTMLElement>('[data-rk] [role="dialog"]');
+        const parent = backdrop?.parentElement;
+        if (parent && parent !== document.body) {
+          // Click outside the dialog to trigger RainbowKit's own dismiss
+          parent.click();
+        }
+      });
     };
     window.addEventListener('foid-wallet:request-create', handler);
     return () => window.removeEventListener('foid-wallet:request-create', handler);
@@ -35,8 +55,9 @@ export default function FoidWalletOnboarding() {
     setStep('creating');
     setError(null);
     try {
-      const { address: addr } = await createEmbeddedWallet();
-      setAddress(addr);
+      const result = await createEmbeddedWallet();
+      setAddress(result.address);
+      setPasskeyProtected(result.passkeyProtected);
       setStep('backup');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Wallet creation failed');
@@ -68,8 +89,8 @@ export default function FoidWalletOnboarding() {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+      className="fixed inset-0 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 100000 }}
     >
       <div
         className="relative w-[90vw] max-w-md rounded-2xl border border-white/15 p-6 text-white shadow-[0_20px_60px_rgba(0,0,0,.5)]"
@@ -125,7 +146,10 @@ export default function FoidWalletOnboarding() {
           <div className="flex flex-col items-center gap-4 py-6">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white" />
             <p className="text-sm text-white/70">
-              Complete the biometric prompt to create your wallet...
+              Creating your wallet...
+            </p>
+            <p className="text-xs text-white/40">
+              You may see a biometric prompt if your device supports passkey encryption.
             </p>
           </div>
         )}
@@ -137,6 +161,23 @@ export default function FoidWalletOnboarding() {
               Your wallet has been created. Save your address and back up your
               private key somewhere safe.
             </p>
+
+            {/* Passkey protection status */}
+            <div
+              className="rounded-lg px-3 py-2 text-xs flex items-center gap-2"
+              style={{
+                background: passkeyProtected ? 'rgba(72,255,171,0.08)' : 'rgba(255,184,0,0.08)',
+                border: `1px solid ${passkeyProtected ? 'rgba(72,255,171,0.25)' : 'rgba(255,184,0,0.25)'}`,
+                color: passkeyProtected ? 'rgba(72,255,171,0.9)' : 'rgba(255,184,0,0.9)',
+              }}
+            >
+              <span style={{ fontSize: 14 }}>{passkeyProtected ? '\u2713' : '\u26A0'}</span>
+              <span>
+                {passkeyProtected
+                  ? 'Passkey-protected — your key is encrypted with biometrics'
+                  : 'No passkey protection — your browser does not support passkey encryption (WebAuthn PRF). Back up your private key!'}
+              </span>
+            </div>
 
             {/* Address display */}
             <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2">

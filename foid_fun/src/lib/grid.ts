@@ -53,6 +53,25 @@ export function hasOverlap(candidate: Rect, rects: readonly Rect[]): boolean {
   return rects.some(r => overlap(candidate, r));
 }
 
+/**
+ * Two grid-aligned rects “touch” if they share an edge segment
+ * (not just a diagonal corner).
+ */
+function touching(a: Rect, b: Rect): boolean {
+  const hFlush = (a.x + a.w === b.x) || (b.x + b.w === a.x);
+  const vFlush = (a.y + a.h === b.y) || (b.y + b.h === a.y);
+  const yOverlap = a.y < b.y + b.h && b.y < a.y + a.h; // strict, not point-only
+  const xOverlap = a.x < b.x + b.w && b.x < a.x + a.w;
+  return (hFlush && yOverlap) || (vFlush && xOverlap);
+}
+
+/** Check if a candidate rect touches at least one rect in the list.
+ *  Returns true for the first placement on an empty board. */
+export function isTouching(candidate: Rect, rects: readonly Rect[]): boolean {
+  if (rects.length === 0) return true; // first placement: anywhere is valid
+  return rects.some(r => touching(candidate, r));
+}
+
 /** Optional: a handy “cells space” view if you need it later. */
 export type CellsRect = { cx: number; cy: number; cw: number; ch: number };
 export function toCellsRect(r: Rect): CellsRect {
