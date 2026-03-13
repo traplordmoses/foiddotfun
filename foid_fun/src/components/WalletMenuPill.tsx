@@ -47,15 +47,15 @@ export default function WalletMenuPill({
     setMounted(true);
   }, []);
 
-  // Check passkey protection status when menu opens for embedded wallet
+  // Check PRF/security status when menu opens for embedded wallet
   useEffect(() => {
     if (!isOpen || !isEmbeddedWallet) return;
     let cancelled = false;
     (async () => {
       try {
-        const { isPasskeyProtected } = await import("@/lib/embeddedWallet");
-        const result = await isPasskeyProtected();
-        if (!cancelled) setPasskeyStatus(result);
+        const { load } = await import("@/lib/embeddedWallet");
+        const wallet = load();
+        if (!cancelled) setPasskeyStatus(wallet?.prfActive ?? null);
       } catch {
         if (!cancelled) setPasskeyStatus(null);
       }
@@ -171,11 +171,24 @@ export default function WalletMenuPill({
 
   const handleExportKey = async () => {
     try {
-      const { exportPrivateKey } = await import("@/lib/embeddedWallet");
-      const key = await exportPrivateKey();
-      await navigator.clipboard.writeText(key);
-      setExportStatus("copied");
-      setTimeout(() => setExportStatus("idle"), 3000);
+      const { getSession } = await import("@/lib/embeddedWallet");
+      const session = getSession();
+      if (session) {
+        await navigator.clipboard.writeText(session.privateKey);
+        setExportStatus("copied");
+        setTimeout(() => setExportStatus("idle"), 3000);
+      } else {
+        // Not unlocked — trigger unlock flow
+        const { requestWalletUnlock } = await import("@/lib/connectors/onboardingBridge");
+        const result = await requestWalletUnlock();
+        if (result) {
+          const { setSession } = await import("@/lib/embeddedWallet");
+          setSession(result.privateKey, result.address);
+          await navigator.clipboard.writeText(result.privateKey);
+          setExportStatus("copied");
+          setTimeout(() => setExportStatus("idle"), 3000);
+        }
+      }
     } catch {
       setExportStatus("error");
       setTimeout(() => setExportStatus("idle"), 3000);
@@ -233,8 +246,8 @@ export default function WalletMenuPill({
           gap: "6px",
           color: passkeyStatus ? "rgba(72,255,171,0.8)" : "rgba(255,184,0,0.8)",
         }}>
-          <span style={{ fontSize: 12 }}>{passkeyStatus ? "\u2713" : "\u26A0"}</span>
-          <span>{passkeyStatus ? "Passkey protected" : "No passkey protection"}</span>
+          <span style={{ fontSize: 12 }}>{passkeyStatus ? "\u2713" : "\u2713"}</span>
+          <span>{passkeyStatus ? "Biometric + PIN" : "PIN encrypted"}</span>
         </div>
       )}
       <button

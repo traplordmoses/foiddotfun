@@ -78,8 +78,22 @@ function isEmbeddedWalletActive(): boolean {
 /** Create a wallet client using the correct provider (embedded or injected) */
 async function createActiveWalletClient() {
   if (isEmbeddedWalletActive()) {
-    const { getEmbeddedAccount } = await import("@/lib/embeddedWallet");
-    const account = await getEmbeddedAccount();
+    const { getSession, setSession } = await import("@/lib/embeddedWallet");
+    let session = getSession();
+
+    if (!session) {
+      // Wallet locked — trigger unlock modal
+      const { requestWalletUnlock } = await import(
+        "@/lib/connectors/onboardingBridge"
+      );
+      const result = await requestWalletUnlock();
+      if (!result) throw new Error("Wallet unlock cancelled");
+      setSession(result.privateKey, result.address);
+      session = result;
+    }
+
+    const { privateKeyToAccount } = await import("viem/accounts");
+    const account = privateKeyToAccount(session.privateKey as `0x${string}`);
     return createWalletClient({
       account,
       chain: fluentTestnet,

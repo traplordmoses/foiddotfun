@@ -1,40 +1,46 @@
 /**
  * Event bridge between the wagmi connector (non-React) and the React
- * onboarding modal. The connector calls requestWalletCreation() which
- * dispatches a custom event; the React modal listens, runs the flow,
- * then calls resolveWalletCreation() to fulfill the promise.
+ * onboarding/unlock modal.
+ *
+ * Two flows:
+ *   - CREATE: new wallet — user enters PIN, passkey created, wallet encrypted
+ *   - UNLOCK: existing wallet — user enters PIN, passkey authenticates, wallet decrypted
+ *
+ * Both return { address, privateKey } so the connector can cache the session.
  */
 
-const EVENT_NAME = "foid-wallet:request-create";
-const WINDOW_KEY = "__foidWalletCreateResolve";
+const CREATE_EVENT = "foid-wallet:request-create";
+const UNLOCK_EVENT = "foid-wallet:request-unlock";
+const WINDOW_KEY = "__foidWalletResolve";
 
-type CreationResult = { address: string } | null;
-type Resolver = (result: CreationResult) => void;
+export type WalletResult = { address: string; privateKey: string } | null;
+type Resolver = (result: WalletResult) => void;
 
 declare global {
   interface WindowEventMap {
-    [EVENT_NAME]: CustomEvent;
+    [CREATE_EVENT]: CustomEvent;
+    [UNLOCK_EVENT]: CustomEvent;
   }
   interface Window {
     [WINDOW_KEY]?: Resolver;
   }
 }
 
-/**
- * Called by the wagmi connector. Returns a promise that resolves when
- * the React onboarding modal completes (or null if cancelled).
- */
-export function requestWalletCreation(): Promise<CreationResult> {
-  return new Promise<CreationResult>((resolve) => {
+export function requestWalletCreation(): Promise<WalletResult> {
+  return new Promise<WalletResult>((resolve) => {
     window[WINDOW_KEY] = resolve;
-    window.dispatchEvent(new CustomEvent(EVENT_NAME));
+    window.dispatchEvent(new CustomEvent(CREATE_EVENT));
   });
 }
 
-/**
- * Called by the React onboarding modal to resolve the pending promise.
- */
-export function resolveWalletCreation(result: CreationResult): void {
+export function requestWalletUnlock(): Promise<WalletResult> {
+  return new Promise<WalletResult>((resolve) => {
+    window[WINDOW_KEY] = resolve;
+    window.dispatchEvent(new CustomEvent(UNLOCK_EVENT));
+  });
+}
+
+export function resolveWalletRequest(result: WalletResult): void {
   const resolve = window[WINDOW_KEY];
   if (resolve) {
     delete window[WINDOW_KEY];

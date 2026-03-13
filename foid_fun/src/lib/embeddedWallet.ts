@@ -1,365 +1,432 @@
 /**
- * DIY Embedded Wallet — browser-side key management with passkey protection
+ * FOID Embedded Wallet — Simple, secure, yours.
  *
- * Private key generated via viem, encrypted with AES-256-GCM using a key
- * derived from a WebAuthn PRF extension output (passkey biometrics).
- * Falls back to random-secret mode if PRF is not supported.
+ * Security model:
+ *   - Private key is AES-256-GCM encrypted at rest. Always.
+ *   - Encryption key is derived from a user-chosen PIN/password via PBKDF2.
+ *   - PIN never stored anywhere. User remembers it.
+ *   - Passkey (biometric) provides device authentication on top.
+ *   - If the device supports WebAuthn PRF, we use it as an ADDITIONAL
+ *     encryption layer — but we don't depend on it.
  *
- * Stored in IndexedDB. No external dependencies.
+ * Threat model:
+ *   - XSS attacker reads localStorage -> gets encrypted blob, no key
+ *   - Malicious extension reads storage -> same, encrypted blob, no key
+ *   - Physical device access -> needs PIN + biometric to unlock
+ *   - NOT designed for: state-level adversaries, >$1000 in value
+ *
+ * What this is NOT:
+ *   - Not MPC. Not Shamir. Not audited by a third party.
+ *   - Users who hold serious value should use MetaMask.
  */
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import type { PrivateKeyAccount } from "viem/accounts";
 
-const DB_NAME = "foid-wallet";
-const STORE_NAME = "keys";
-const KEY_ID = "embedded-wallet-v2";
+import { ethers } from 'ethers';
 
-// Stable salt for PRF evaluation — same salt = same PRF output for same credential
-const PRF_SALT = new TextEncoder().encode("foid-wallet-prf-v1");
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-// ── IndexedDB helpers ──
-
-function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 2);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function dbGet<T>(key: string): Promise<T | undefined> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.get(key);
-    req.onsuccess = () => resolve(req.result as T | undefined);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function dbPut(key: string, value: unknown): Promise<void> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.put(value, key);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function dbDelete(key: string): Promise<void> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.delete(key);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-}
-
-// ── Encryption helpers ──
-
-type StoredWallet = {
-  version: 2;
+export interface FoidWallet {
+  version: 1;
+  vault: {
+    ciphertext: string; // base64
+    iv: string;         // base64 (12 bytes)
+    salt: string;       // base64 (32 bytes, PBKDF2 salt)
+  };
   address: string;
-  encryptedKey: ArrayBuffer;
-  iv: Uint8Array;
-  salt: Uint8Array;
-  /** WebAuthn credential ID — present if passkey-protected */
-  credentialId?: ArrayBuffer;
-  /** true if created without PRF (fallback mode) */
-  fallbackMode?: boolean;
-  /** Random secret stored alongside key when PRF unavailable */
-  fallbackSecret?: number[];
+  credentialId?: string;
+  prfActive: boolean;
+  createdAt: string;
+}
+
+export interface UnlockedWallet {
+  privateKey: string;
+  address: string;
+  lock: () => void;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const GCM_IV_BYTES = 12;
+const PBKDF2_SALT_BYTES = 32;
+const PBKDF2_ITERATIONS = 600_000;
+const HKDF_INFO = new TextEncoder().encode('foid-wallet-v1');
+const PRF_SALT = new TextEncoder().encode('foid:wallet:prf:v1');
+const STORAGE_KEY = 'foid_wallet';
+
+// ─── Encoding ─────────────────────────────────────────────────────────────────
+
+const toB64 = (b: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(b)));
+const fromB64 = (s: string) => {
+  const bin = atob(s);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr.buffer;
+};
+const toB64Url = (b: ArrayBuffer) =>
+  toB64(b).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const fromB64Url = (s: string) => {
+  let b = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (b.length % 4) b += '=';
+  return fromB64(b);
 };
 
-async function deriveAESKey(secret: Uint8Array, salt: Uint8Array): Promise<CryptoKey> {
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    secret,
-    "PBKDF2",
+// ─── Crypto Primitives ────────────────────────────────────────────────────────
+
+function rand(n: number): Uint8Array {
+  return crypto.getRandomValues(new Uint8Array(n));
+}
+
+async function pinToKey(pin: string, salt: Uint8Array): Promise<CryptoKey> {
+  const base = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(pin),
+    'PBKDF2',
     false,
-    ["deriveKey"],
+    ['deriveKey'],
   );
   return crypto.subtle.deriveKey(
-    { name: "PBKDF2", salt, iterations: 600_000, hash: "SHA-256" },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    base,
+    { name: 'AES-GCM', length: 256 },
     false,
-    ["encrypt", "decrypt"],
+    ['encrypt', 'decrypt'],
   );
 }
 
-async function encryptPrivateKey(
-  privateKey: string,
-  secret: Uint8Array,
-  salt: Uint8Array,
-): Promise<{ encrypted: ArrayBuffer; iv: Uint8Array }> {
-  const aesKey = await deriveAESKey(secret, salt);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encoded = new TextEncoder().encode(privateKey);
-  const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    aesKey,
-    encoded,
+async function pinToExtractableKey(pin: string, salt: Uint8Array): Promise<CryptoKey> {
+  const base = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(pin),
+    'PBKDF2',
+    false,
+    ['deriveKey'],
   );
-  return { encrypted, iv };
-}
-
-async function decryptPrivateKey(
-  encrypted: ArrayBuffer,
-  iv: Uint8Array,
-  secret: Uint8Array,
-  salt: Uint8Array,
-): Promise<string> {
-  const aesKey = await deriveAESKey(secret, salt);
-  const decrypted = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv },
-    aesKey,
-    encrypted,
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    base,
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt'],
   );
-  return new TextDecoder().decode(decrypted);
 }
 
-// ── WebAuthn / Passkey helpers ──
-
-/** Check if WebAuthn with PRF extension is available */
-async function isPRFAvailable(): Promise<boolean> {
-  if (typeof window === "undefined") return false;
-  if (!window.PublicKeyCredential) return false;
-  try {
-    // Feature-detect PRF support via getClientCapabilities (very new API)
-    const pkc = PublicKeyCredential as unknown as Record<string, unknown>;
-    if (typeof pkc.getClientCapabilities === "function") {
-      const caps = (await (pkc.getClientCapabilities as () => Promise<Record<string, boolean>>)());
-      return caps?.["prf"] === true;
-    }
-    // Fallback: just try — the worst that happens is PRF isn't in the result
-    return true;
-  } catch {
-    return false;
-  }
+async function prfToKey(prfOutput: ArrayBuffer): Promise<CryptoKey> {
+  const hkdf = await crypto.subtle.importKey('raw', prfOutput, 'HKDF', false, [
+    'deriveKey',
+  ]);
+  return crypto.subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: HKDF_INFO },
+    hkdf,
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt'],
+  );
 }
 
-/**
- * Create a passkey and extract the PRF output as encryption secret.
- * Returns the credential ID and the PRF-derived secret.
- */
-async function createPasskey(): Promise<{
-  credentialId: ArrayBuffer;
-  prfSecret: Uint8Array;
-} | null> {
-  const prfAvail = await isPRFAvailable();
-  if (!prfAvail) return null;
+async function combineKeys(pinKey: CryptoKey, prfKey: CryptoKey): Promise<CryptoKey> {
+  const pinRaw = new Uint8Array(await crypto.subtle.exportKey('raw', pinKey));
+  const prfRaw = new Uint8Array(await crypto.subtle.exportKey('raw', prfKey));
+  const combined = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) combined[i] = pinRaw[i] ^ prfRaw[i];
+  pinRaw.fill(0);
+  prfRaw.fill(0);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    combined,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+  combined.fill(0);
+  return key;
+}
 
-  const userId = crypto.getRandomValues(new Uint8Array(32));
+// ─── WebAuthn / PRF ───────────────────────────────────────────────────────────
+
+interface PasskeyResult {
+  credentialId: string;
+  prfOutput: ArrayBuffer | null;
+}
+
+async function createPasskey(userId: string, userName: string): Promise<PasskeyResult> {
+  const challenge = rand(32);
 
   const credential = (await navigator.credentials.create({
     publicKey: {
-      rp: { name: "FOID.FUN" },
+      challenge,
+      rp: { name: 'FOID', id: window.location.hostname },
       user: {
-        id: userId,
-        name: "foid-wallet",
-        displayName: "FOID Wallet",
+        id: new TextEncoder().encode(userId),
+        name: userName,
+        displayName: userName,
       },
-      challenge: crypto.getRandomValues(new Uint8Array(32)),
       pubKeyCredParams: [
-        { type: "public-key", alg: -7 }, // ES256
-        { type: "public-key", alg: -257 }, // RS256
+        { alg: -7, type: 'public-key' },
+        { alg: -257, type: 'public-key' },
       ],
       authenticatorSelection: {
-        authenticatorAttachment: "platform",
-        residentKey: "preferred",
-        userVerification: "required",
+        authenticatorAttachment: 'platform',
+        residentKey: 'preferred',
+        userVerification: 'required',
       },
       extensions: {
-        // @ts-expect-error — PRF extension not yet in all TS typings
+        // @ts-expect-error PRF not in stable types
         prf: { eval: { first: PRF_SALT } },
       },
     },
   })) as PublicKeyCredential | null;
 
-  if (!credential) return null;
+  if (!credential) throw new Error('Passkey creation cancelled.');
 
-  // @ts-expect-error — PRF extension result not in standard typings
-  const prfResults = credential.getClientExtensionResults()?.prf?.results;
-  if (!prfResults?.first) {
-    // PRF not supported by this authenticator — fall back
-    return null;
+  const credentialId = toB64Url(credential.rawId);
+
+  let prfOutput: ArrayBuffer | null = null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ext = credential.getClientExtensionResults() as any;
+    const result = ext?.prf?.results?.first;
+    if (result && result.byteLength > 0) {
+      prfOutput = result;
+    }
+  } catch {
+    // PRF inspection failed — prfOutput stays null
   }
 
+  return { credentialId, prfOutput };
+}
+
+async function authenticatePasskey(
+  credentialId: string,
+  withPrf: boolean,
+): Promise<{ prfOutput: ArrayBuffer | null }> {
+  const challenge = rand(32);
+
+  const assertion = (await navigator.credentials.get({
+    publicKey: {
+      challenge,
+      allowCredentials: [
+        { id: fromB64Url(credentialId), type: 'public-key' },
+      ],
+      userVerification: 'required',
+      extensions: withPrf
+        // @ts-expect-error PRF not in stable types
+        ? { prf: { eval: { first: PRF_SALT } } }
+        : {},
+    },
+  })) as PublicKeyCredential;
+
+  let prfOutput: ArrayBuffer | null = null;
+  if (withPrf) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ext = assertion.getClientExtensionResults() as any;
+      const result = ext?.prf?.results?.first;
+      if (result && result.byteLength > 0) {
+        prfOutput = result;
+      }
+    } catch {
+      // no PRF
+    }
+  }
+
+  return { prfOutput };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PUBLIC API
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * CREATE a new wallet.
+ * User provides a PIN (min 6 chars). Passkey is created for biometric auth.
+ * If PRF works, it's layered on top of PIN encryption via XOR.
+ */
+export async function create(
+  userId: string,
+  userName: string,
+  pin: string,
+): Promise<{ wallet: FoidWallet; prfActive: boolean }> {
+  if (pin.length < 6) throw new Error('PIN must be at least 6 characters.');
+
+  const ethWallet = ethers.Wallet.createRandom();
+  const privateKeyBytes = ethers.getBytes(ethWallet.privateKey);
+
+  try {
+    const { credentialId, prfOutput } = await createPasskey(userId, userName);
+
+    const salt = rand(PBKDF2_SALT_BYTES);
+    let encKey: CryptoKey;
+    let prfActive = false;
+
+    if (prfOutput) {
+      const pKey = await pinToExtractableKey(pin, salt);
+      const rKey = await prfToKey(prfOutput);
+      encKey = await combineKeys(pKey, rKey);
+      prfActive = true;
+    } else {
+      encKey = await pinToKey(pin, salt);
+    }
+
+    const iv = rand(GCM_IV_BYTES);
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      encKey,
+      privateKeyBytes,
+    );
+
+    privateKeyBytes.fill(0);
+
+    const wallet: FoidWallet = {
+      version: 1,
+      vault: {
+        ciphertext: toB64(ciphertext),
+        iv: toB64(iv.buffer),
+        salt: toB64(salt.buffer),
+      },
+      address: ethWallet.address,
+      credentialId,
+      prfActive,
+      createdAt: new Date().toISOString(),
+    };
+
+    return { wallet, prfActive };
+  } catch (err) {
+    privateKeyBytes.fill(0);
+    throw err;
+  }
+}
+
+/**
+ * UNLOCK an existing wallet.
+ * User provides PIN. Passkey biometric is triggered.
+ * If wallet was created with PRF, PRF is used again automatically.
+ */
+export async function unlock(
+  wallet: FoidWallet,
+  pin: string,
+): Promise<UnlockedWallet> {
+  if (!wallet.credentialId) {
+    throw new Error('Wallet has no passkey. Cannot authenticate.');
+  }
+
+  const { prfOutput } = await authenticatePasskey(
+    wallet.credentialId,
+    wallet.prfActive,
+  );
+
+  if (wallet.prfActive && !prfOutput) {
+    throw new Error(
+      'This wallet was secured with biometric + PIN, but biometric key derivation ' +
+        'is no longer available on this device. You may need to recover from backup ' +
+        'or use the original device.',
+    );
+  }
+
+  const salt = new Uint8Array(fromB64(wallet.vault.salt));
+  let decKey: CryptoKey;
+
+  if (wallet.prfActive && prfOutput) {
+    const pKey = await pinToExtractableKey(pin, salt);
+    const rKey = await prfToKey(prfOutput);
+    decKey = await combineKeys(pKey, rKey);
+  } else {
+    decKey = await pinToKey(pin, salt);
+  }
+
+  let plaintext: ArrayBuffer;
+  try {
+    plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: fromB64(wallet.vault.iv) },
+      decKey,
+      fromB64(wallet.vault.ciphertext),
+    );
+  } catch {
+    throw new Error('Wrong PIN. Decryption failed.');
+  }
+
+  const privateKeyHex = ethers.hexlify(new Uint8Array(plaintext));
+  const address = wallet.address;
+
+  let locked = false;
   return {
-    credentialId: credential.rawId,
-    prfSecret: new Uint8Array(prfResults.first),
+    privateKey: privateKeyHex,
+    address,
+    lock() {
+      if (!locked) {
+        new Uint8Array(plaintext).fill(0);
+        locked = true;
+      }
+    },
   };
 }
 
 /**
- * Authenticate with an existing passkey and extract the PRF secret.
+ * EXPORT the encrypted wallet blob (for backup). Safe to store anywhere.
  */
-async function authenticatePasskey(credentialId: ArrayBuffer): Promise<Uint8Array> {
-  const assertion = (await navigator.credentials.get({
-    publicKey: {
-      challenge: crypto.getRandomValues(new Uint8Array(32)),
-      allowCredentials: [
-        { type: "public-key", id: credentialId, transports: ["internal"] },
-      ],
-      userVerification: "required",
-      extensions: {
-        // @ts-expect-error — PRF extension not yet in all TS typings
-        prf: { eval: { first: PRF_SALT } },
-      },
-    },
-  })) as PublicKeyCredential | null;
-
-  if (!assertion) throw new Error("Passkey authentication cancelled");
-
-  // @ts-expect-error — PRF extension result not in standard typings
-  const prfResults = assertion.getClientExtensionResults()?.prf?.results;
-  if (!prfResults?.first) {
-    throw new Error("PRF output not available from passkey");
-  }
-
-  return new Uint8Array(prfResults.first);
+export function exportWallet(wallet: FoidWallet): string {
+  return JSON.stringify(wallet);
 }
 
-// ── Public API ──
-
-export async function hasEmbeddedWallet(): Promise<boolean> {
-  if (typeof window === "undefined") return false;
-  try {
-    const wallet = await dbGet<StoredWallet>(KEY_ID);
-    return !!wallet;
-  } catch {
-    return false;
+/**
+ * IMPORT a wallet from backup.
+ */
+export function importWallet(json: string): FoidWallet {
+  const w = JSON.parse(json) as FoidWallet;
+  if (w.version !== 1) throw new Error(`Unsupported wallet version: ${w.version}`);
+  if (!w.vault?.ciphertext || !w.vault?.iv || !w.vault?.salt) {
+    throw new Error('Invalid wallet data.');
   }
+  return w;
 }
 
-export async function getEmbeddedAddress(): Promise<string | null> {
-  if (typeof window === "undefined") return null;
+// ─── Local Storage ────────────────────────────────────────────────────────────
+
+export function save(wallet: FoidWallet): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(wallet));
+}
+
+export function load(): FoidWallet | null {
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return null;
   try {
-    const wallet = await dbGet<StoredWallet>(KEY_ID);
-    return wallet?.address ?? null;
+    return JSON.parse(raw) as FoidWallet;
   } catch {
     return null;
   }
 }
 
-export async function createEmbeddedWallet(): Promise<{ address: string; passkeyProtected: boolean }> {
-  const privateKey = generatePrivateKey();
-  const account = privateKeyToAccount(privateKey);
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-
-  // Try passkey with PRF first
-  const passkey = await createPasskey();
-
-  if (passkey) {
-    // Passkey mode — encrypt with PRF-derived secret
-    const { encrypted, iv } = await encryptPrivateKey(
-      privateKey,
-      passkey.prfSecret,
-      salt,
-    );
-
-    const walletData: StoredWallet = {
-      version: 2,
-      address: account.address,
-      encryptedKey: encrypted,
-      iv,
-      salt,
-      credentialId: passkey.credentialId,
-    };
-
-    await dbPut(KEY_ID, walletData);
-    return { address: account.address, passkeyProtected: true };
-  }
-
-  // Fallback — random secret (no passkey protection)
-  console.warn("[FOID Wallet] Passkey PRF not available, using fallback mode");
-  const secret = crypto.getRandomValues(new Uint8Array(32));
-  const { encrypted, iv } = await encryptPrivateKey(privateKey, secret, salt);
-
-  const walletData: StoredWallet = {
-    version: 2,
-    address: account.address,
-    encryptedKey: encrypted,
-    iv,
-    salt,
-    fallbackMode: true,
-    fallbackSecret: Array.from(secret),
-  };
-
-  await dbPut(KEY_ID, walletData);
-  return { address: account.address, passkeyProtected: false };
+export function exists(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(STORAGE_KEY) !== null;
 }
 
-/** Check if the stored wallet is passkey-protected or using fallback mode. */
-export async function isPasskeyProtected(): Promise<boolean> {
-  if (typeof window === "undefined") return false;
-  try {
-    const wallet = await dbGet<StoredWallet>(KEY_ID);
-    if (!wallet) return false;
-    return !wallet.fallbackMode && !!wallet.credentialId;
-  } catch {
-    return false;
-  }
+export function clear(): void {
+  localStorage.removeItem(STORAGE_KEY);
 }
 
-export async function getEmbeddedAccount(): Promise<PrivateKeyAccount> {
-  const wallet = await dbGet<StoredWallet>(KEY_ID);
-  if (!wallet) throw new Error("No embedded wallet found");
-
-  let secret: Uint8Array;
-
-  if (wallet.credentialId && !wallet.fallbackMode) {
-    // Passkey mode — authenticate to get PRF secret
-    secret = await authenticatePasskey(wallet.credentialId);
-  } else if (wallet.fallbackSecret) {
-    // Fallback mode — use stored secret
-    secret = new Uint8Array(wallet.fallbackSecret);
-  } else {
-    throw new Error("Wallet data corrupted — no secret available");
-  }
-
-  const privateKey = await decryptPrivateKey(
-    wallet.encryptedKey,
-    wallet.iv,
-    secret,
-    wallet.salt,
-  );
-
-  return privateKeyToAccount(privateKey as `0x${string}`);
+export function getStoredAddress(): string | null {
+  const w = load();
+  return w?.address ?? null;
 }
 
-export async function exportPrivateKey(): Promise<string> {
-  const wallet = await dbGet<StoredWallet>(KEY_ID);
-  if (!wallet) throw new Error("No embedded wallet found");
+// ─── Session Management ───────────────────────────────────────────────────────
+// In-memory cache of the unlocked private key for the current session.
+// Cleared on disconnect or page reload. Never persisted to storage.
 
-  let secret: Uint8Array;
+let _sessionPrivateKey: string | null = null;
+let _sessionAddress: string | null = null;
 
-  if (wallet.credentialId && !wallet.fallbackMode) {
-    secret = await authenticatePasskey(wallet.credentialId);
-  } else if (wallet.fallbackSecret) {
-    secret = new Uint8Array(wallet.fallbackSecret);
-  } else {
-    throw new Error("Wallet data corrupted");
-  }
-
-  return decryptPrivateKey(wallet.encryptedKey, wallet.iv, secret, wallet.salt);
+export function setSession(privateKey: string, address: string): void {
+  _sessionPrivateKey = privateKey;
+  _sessionAddress = address;
 }
 
-export async function clearEmbeddedWallet(): Promise<void> {
-  await dbDelete(KEY_ID);
-  if (typeof window !== "undefined") {
-    localStorage.removeItem("foid-embedded-active");
-  }
+export function getSession(): { privateKey: string; address: string } | null {
+  if (!_sessionPrivateKey || !_sessionAddress) return null;
+  return { privateKey: _sessionPrivateKey, address: _sessionAddress };
+}
+
+export function clearSession(): void {
+  _sessionPrivateKey = null;
+  _sessionAddress = null;
 }

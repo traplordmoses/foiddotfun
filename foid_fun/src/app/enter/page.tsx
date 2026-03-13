@@ -3,11 +3,11 @@
 import { useCallback } from "react";
 import EnterGate from "@/components/EnterGate";
 
-const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
+const TWENTY_FOUR_HOURS = 60 * 60 * 24;
 
 export default function EnterPage() {
   const handleEnter = useCallback(() => {
-    document.cookie = `foid_entered=1; max-age=${ONE_YEAR_SECONDS}; path=/; samesite=lax`;
+    document.cookie = `foid_entered=1; max-age=${TWENTY_FOUR_HOURS}; path=/; samesite=lax`;
   }, []);
 
   return (
