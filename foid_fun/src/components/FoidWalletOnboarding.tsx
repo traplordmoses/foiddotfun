@@ -66,7 +66,20 @@ export default function FoidWalletOnboarding() {
   }
 
   function dismissRainbowKit() {
-    requestAnimationFrame(() => {
+    // Hide RainbowKit modal immediately via CSS, then try to properly close it.
+    // This prevents the "two modals stacked" problem.
+    const hideRk = () => {
+      // Force-hide any RainbowKit overlay/modal elements
+      document.querySelectorAll<HTMLElement>('[data-rk]').forEach((el) => {
+        const dialog = el.querySelector<HTMLElement>('[role="dialog"]');
+        if (dialog) {
+          // Hide the entire RainbowKit modal container
+          const container = dialog.closest<HTMLElement>('[data-rk]');
+          if (container) container.style.display = 'none';
+        }
+      });
+
+      // Also try clicking the close button for a clean teardown
       const closeBtn = document.querySelector<HTMLElement>(
         '[data-rk] [aria-label="Close"]',
       );
@@ -79,11 +92,23 @@ export default function FoidWalletOnboarding() {
       );
       const parent = backdrop?.parentElement;
       if (parent && parent !== document.body) parent.click();
+    };
+
+    // Try immediately and again after a frame (RainbowKit renders async)
+    hideRk();
+    requestAnimationFrame(hideRk);
+    setTimeout(hideRk, 100);
+  }
+
+  function restoreRainbowKit() {
+    document.querySelectorAll<HTMLElement>('[data-rk]').forEach((el) => {
+      el.style.display = '';
     });
   }
 
   const handleCancel = useCallback(() => {
     setOpen(false);
+    restoreRainbowKit();
     resolveWalletRequest(null);
   }, []);
 
@@ -126,6 +151,7 @@ export default function FoidWalletOnboarding() {
         setPrivateKey(unlocked.privateKey);
         // Unlock flow — resolve immediately
         setOpen(false);
+        restoreRainbowKit();
         resolveWalletRequest({
           address: unlocked.address,
           privateKey: unlocked.privateKey,
@@ -152,6 +178,7 @@ export default function FoidWalletOnboarding() {
 
   const handleContinue = useCallback(() => {
     setOpen(false);
+    restoreRainbowKit();
     if (address && privateKey) {
       resolveWalletRequest({ address, privateKey });
     } else {
