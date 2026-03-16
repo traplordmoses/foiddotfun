@@ -287,17 +287,46 @@ export default function WalletMenuPill({
         Copy Address
       </button>
       {isEmbeddedWallet && (
-        <button
-          type="button"
-          role="menuitem"
-          className="aero-wallet-menu__item"
-          onClick={handleExportKey}
-        >
-          <svg className="aero-wallet-menu__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M8 2V10M8 10L5 7M8 10L11 7M3 13H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          {exportStatus === "copied" ? "Copied to clipboard!" : exportStatus === "error" ? "Auth required" : "Export Private Key"}
-        </button>
+        <>
+          <button
+            type="button"
+            role="menuitem"
+            className="aero-wallet-menu__item"
+            onClick={handleExportKey}
+          >
+            <svg className="aero-wallet-menu__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M8 2V10M8 10L5 7M8 10L11 7M3 13H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {exportStatus === "copied" ? "Copied to clipboard!" : exportStatus === "error" ? "Auth required" : "Export Private Key"}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="aero-wallet-menu__item"
+            onClick={async () => {
+              try {
+                const { load: loadWallet } = await import("@/lib/embeddedWallet");
+                const wallet = loadWallet();
+                if (!wallet) return;
+                const blob = new Blob([JSON.stringify(wallet, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `foid-wallet-${wallet.address.slice(0, 8)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              } catch { /* ignore */ }
+              setIsOpen(false);
+            }}
+          >
+            <svg className="aero-wallet-menu__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M2 10V13H14V10M8 2V10M8 10L5 7M8 10L11 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Download Backup
+          </button>
+        </>
       )}
       <button
         type="button"

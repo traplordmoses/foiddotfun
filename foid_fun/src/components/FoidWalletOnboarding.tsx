@@ -2,10 +2,17 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { resolveWalletRequest } from '@/lib/connectors/onboardingBridge';
-import { create, unlock, load, save } from '@/lib/embeddedWallet';
+import {
+  create,
+  unlock,
+  load,
+  save,
+  exists,
+  importWallet,
+} from '@/lib/embeddedWallet';
 
-type Mode = 'create' | 'unlock';
-type Step = 'explain' | 'pin' | 'working' | 'backup';
+type Mode = 'create' | 'unlock' | 'restore';
+type Step = 'explain' | 'pin' | 'working' | 'backup' | 'restore-input';
 
 export default function FoidWalletOnboarding() {
   const [open, setOpen] = useState(false);
@@ -19,7 +26,10 @@ export default function FoidWalletOnboarding() {
   const [prfActive, setPrfActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
+  const [restoreJson, setRestoreJson] = useState('');
   const pinRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Listen for bridge events
   useEffect(() => {
@@ -63,23 +73,19 @@ export default function FoidWalletOnboarding() {
     setPrfActive(false);
     setError(null);
     setCopied(false);
+    setDownloaded(false);
+    setRestoreJson('');
   }
 
   function dismissRainbowKit() {
-    // Hide RainbowKit modal immediately via CSS, then try to properly close it.
-    // This prevents the "two modals stacked" problem.
     const hideRk = () => {
-      // Force-hide any RainbowKit overlay/modal elements
       document.querySelectorAll<HTMLElement>('[data-rk]').forEach((el) => {
         const dialog = el.querySelector<HTMLElement>('[role="dialog"]');
         if (dialog) {
-          // Hide the entire RainbowKit modal container
           const container = dialog.closest<HTMLElement>('[data-rk]');
           if (container) container.style.display = 'none';
         }
       });
-
-      // Also try clicking the close button for a clean teardown
       const closeBtn = document.querySelector<HTMLElement>(
         '[data-rk] [aria-label="Close"]',
       );
@@ -93,8 +99,6 @@ export default function FoidWalletOnboarding() {
       const parent = backdrop?.parentElement;
       if (parent && parent !== document.body) parent.click();
     };
-
-    // Try immediately and again after a frame (RainbowKit renders async)
     hideRk();
     requestAnimationFrame(hideRk);
     setTimeout(hideRk, 100);
@@ -111,6 +115,96 @@ export default function FoidWalletOnboarding() {
     restoreRainbowKit();
     resolveWalletRequest(null);
   }, []);
+
+  // ─── Download backup as file ───
+
+  const downloadBackup = useCallback(() => {
+    const wallet = load();
+    if (!wallet) return;
+    const blob = new Blob([JSON.stringify(wallet, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `foid-wallet-${wallet.address.slice(0, 8)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setDownloaded(true);
+  }, []);
+
+  const copyBackup = useCallback(async () => {
+    const wallet = load();
+    if (!wallet) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(wallet, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    } catch {
+      setError('Failed to copy to clipboard');
+    }
+  }, []);
+
+  const emailBackup = useCallback(() => {
+    const wallet = load();
+    if (!wallet) return;
+    const body = encodeURIComponent(
+      `FOID Wallet Backup\n\nAddress: ${wallet.address}\nCreated: ${wallet.createdAt}\n\n--- ENCRYPTED WALLET DATA (keep this safe) ---\n\n${JSON.stringify(wallet)}\n\n--- END ---\n\nYou will need your PIN to restore this wallet.`,
+    );
+    const subject = encodeURIComponent(
+      `FOID Wallet Backup — ${wallet.address.slice(0, 8)}...${wallet.address.slice(-4)}`,
+    );
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
+  }, []);
+
+  // ─── Restore from backup ───
+
+  const handleFileUpload = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        setRestoreJson(reader.result as string);
+      };
+      reader.readAsText(file);
+    },
+    [],
+  );
+
+  const handleRestore = useCallback(async () => {
+    setError(null);
+    if (!restoreJson.trim()) {
+      setError('Please paste or upload your backup data.');
+      return;
+    }
+    if (pin.length < 6) {
+      setError('Enter your PIN to decrypt the wallet.');
+      return;
+    }
+    try {
+      const wallet = importWallet(restoreJson.trim());
+      // Verify PIN works by unlocking
+      const unlocked = await unlock(wallet, pin);
+      // Save restored wallet
+      save(wallet);
+      setAddress(unlocked.address);
+      setPrivateKey(unlocked.privateKey);
+      setOpen(false);
+      restoreRainbowKit();
+      resolveWalletRequest({
+        address: unlocked.address,
+        privateKey: unlocked.privateKey,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Restore failed';
+      setError(msg);
+    }
+  }, [restoreJson, pin]);
+
+  // ─── Create / Unlock ───
 
   const handlePinSubmit = useCallback(async () => {
     setError(null);
@@ -149,7 +243,6 @@ export default function FoidWalletOnboarding() {
         const unlocked = await unlock(wallet, pin);
         setAddress(unlocked.address);
         setPrivateKey(unlocked.privateKey);
-        // Unlock flow — resolve immediately
         setOpen(false);
         restoreRainbowKit();
         resolveWalletRequest({
@@ -163,18 +256,6 @@ export default function FoidWalletOnboarding() {
       setStep('pin');
     }
   }, [mode, pin, pinConfirm]);
-
-  const handleExportBackup = useCallback(async () => {
-    const wallet = load();
-    if (!wallet) return;
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(wallet, null, 2));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
-    } catch {
-      setError('Failed to copy to clipboard');
-    }
-  }, []);
 
   const handleContinue = useCallback(() => {
     setOpen(false);
@@ -209,7 +290,7 @@ export default function FoidWalletOnboarding() {
     >
       <div
         className="relative w-[90vw] max-w-md rounded-2xl border border-white/15 p-6 text-white shadow-[0_20px_60px_rgba(0,0,0,.5)]"
-        style={{ background: 'rgba(20,20,30,0.92)' }}
+        style={{ background: 'rgba(20,20,30,0.92)', maxHeight: '90vh', overflowY: 'auto' }}
         onKeyDown={handleKeyDown}
       >
         {/* Header */}
@@ -217,9 +298,10 @@ export default function FoidWalletOnboarding() {
           <div className="text-lg font-bold tracking-wide">FOID WALLET</div>
           <div className="mt-1 text-xs text-white/50 tracking-widest uppercase">
             {step === 'explain' && 'Setup'}
-            {step === 'pin' && (mode === 'create' ? 'Choose a PIN' : 'Enter PIN')}
+            {step === 'pin' && (mode === 'create' ? 'Choose a PIN' : mode === 'unlock' ? 'Enter PIN' : 'Restore')}
             {step === 'working' && (mode === 'create' ? 'Creating...' : 'Unlocking...')}
-            {step === 'backup' && 'Backup'}
+            {step === 'backup' && 'Save Your Backup'}
+            {step === 'restore-input' && 'Restore Wallet'}
           </div>
         </div>
 
@@ -235,12 +317,12 @@ export default function FoidWalletOnboarding() {
           <div className="space-y-4">
             <p className="text-sm text-white/80 leading-relaxed">
               FOID Wallet creates a secure wallet on your device. Your private
-              key is encrypted with a PIN you choose, plus biometric
+              key is encrypted with a PIN you choose, plus passkey
               authentication.
             </p>
             <p className="text-xs text-white/50 leading-relaxed">
               No browser extension needed. No seed phrase. Just a short PIN and
-              your fingerprint or face. Your PIN is never stored anywhere.
+              your passkey. Your PIN is never stored anywhere.
             </p>
             <div className="flex gap-3 pt-2">
               <button
@@ -253,14 +335,24 @@ export default function FoidWalletOnboarding() {
                 onClick={() => setStep('pin')}
                 className="flex-1 rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-black transition hover:bg-white/90"
               >
-                Continue
+                Create New
               </button>
             </div>
+            {/* Restore option */}
+            <button
+              onClick={() => {
+                setMode('restore');
+                setStep('restore-input');
+              }}
+              className="w-full text-center text-[11px] text-white/35 hover:text-white/60 transition-colors pt-1"
+            >
+              Have a backup? Restore existing wallet
+            </button>
           </div>
         )}
 
-        {/* Step: PIN input */}
-        {step === 'pin' && (
+        {/* Step: PIN input (create or unlock) */}
+        {step === 'pin' && (mode === 'create' || mode === 'unlock') && (
           <div className="space-y-4">
             <div>
               <label className="block text-xs text-white/50 tracking-widest uppercase mb-2">
@@ -305,7 +397,7 @@ export default function FoidWalletOnboarding() {
             <p className="text-[11px] text-white/40 leading-relaxed">
               {mode === 'create'
                 ? 'Your PIN encrypts your private key. It is never stored. If you forget it, you will need your backup to recover.'
-                : 'You will also be prompted for biometric authentication (fingerprint or face).'}
+                : 'You will also be prompted for passkey authentication.'}
             </p>
 
             <div className="flex gap-3 pt-1">
@@ -334,41 +426,33 @@ export default function FoidWalletOnboarding() {
               {mode === 'create' ? 'Creating your wallet...' : 'Unlocking...'}
             </p>
             <p className="text-xs text-white/40">
-              You may see a biometric prompt from your device.
+              You may see a passkey prompt from your device or password manager.
             </p>
           </div>
         )}
 
-        {/* Step: Backup (create only) */}
+        {/* Step: Backup (after create) */}
         {step === 'backup' && (
           <div className="space-y-4">
-            <p className="text-sm text-white/80">
-              Your wallet has been created. Save your address and keep your PIN safe.
-            </p>
-
             {/* Security status */}
             <div
-              className="rounded-lg px-3 py-2 text-xs flex items-center gap-2"
+              className="rounded-lg px-3 py-2.5 text-xs"
               style={{
-                background: prfActive
-                  ? 'rgba(72,255,171,0.08)'
-                  : 'rgba(168,85,247,0.08)',
-                border: `1px solid ${
-                  prfActive
-                    ? 'rgba(72,255,171,0.25)'
-                    : 'rgba(168,85,247,0.25)'
-                }`,
-                color: prfActive
-                  ? 'rgba(72,255,171,0.9)'
-                  : 'rgba(168,85,247,0.9)',
+                background: 'rgba(72,255,171,0.06)',
+                border: '1px solid rgba(72,255,171,0.2)',
               }}
             >
-              <span style={{ fontSize: 14 }}>{prfActive ? '\u2713' : '\u2713'}</span>
-              <span>
+              <div className="flex items-center gap-2 mb-1.5" style={{ color: 'rgba(72,255,171,0.9)' }}>
+                <span style={{ fontSize: 14 }}>{'\u2713'}</span>
+                <span className="font-medium">
+                  Secured with passkey + PIN encryption
+                </span>
+              </div>
+              <p style={{ color: 'rgba(72,255,171,0.55)', fontSize: 11, lineHeight: 1.5, paddingLeft: 22 }}>
                 {prfActive
-                  ? 'Secured with biometric + PIN'
-                  : 'Secured with PIN encryption'}
-              </span>
+                  ? 'Your key is encrypted with both your PIN and biometric data. Maximum security.'
+                  : 'Your passkey authenticates you. Your PIN encrypts the key. Both are needed to access your wallet.'}
+              </p>
             </div>
 
             {/* Address display */}
@@ -381,19 +465,50 @@ export default function FoidWalletOnboarding() {
               </div>
             </div>
 
-            {/* Export backup */}
-            <button
-              onClick={handleExportBackup}
-              className="w-full rounded-lg border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 transition hover:bg-white/10"
+            {/* IMPORTANT: Backup warning */}
+            <div
+              className="rounded-lg px-3 py-2.5 text-xs"
+              style={{
+                background: 'rgba(255,184,0,0.06)',
+                border: '1px solid rgba(255,184,0,0.2)',
+                color: 'rgba(255,184,0,0.85)',
+              }}
             >
-              {copied ? 'Copied to clipboard!' : 'Copy Encrypted Backup'}
-            </button>
+              <div className="flex items-center gap-2 mb-1" style={{ fontWeight: 600 }}>
+                <span style={{ fontSize: 13 }}>{'\u26A0'}</span>
+                Save your backup now
+              </div>
+              <p style={{ color: 'rgba(255,184,0,0.6)', fontSize: 11, lineHeight: 1.5, paddingLeft: 22 }}>
+                If you clear your browser data, switch browsers, or lose this device,
+                your wallet is gone without a backup. Download it now.
+              </p>
+            </div>
 
-            <p className="text-[11px] text-white/40 leading-relaxed">
-              This copies your encrypted wallet data. It&apos;s safe to store — the
-              data is encrypted with your PIN. You&apos;ll need both the backup and
-              your PIN to recover.
-            </p>
+            {/* Backup actions */}
+            <div className="space-y-2">
+              <button
+                onClick={downloadBackup}
+                className="w-full rounded-lg bg-white/10 border border-white/20 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-white/15 flex items-center justify-center gap-2"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2V10M8 10L5 7M8 10L11 7M3 13H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                {downloaded ? 'Downloaded!' : 'Download Backup File'}
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={emailBackup}
+                  className="flex-1 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-medium text-white/60 transition hover:bg-white/10 hover:text-white/80"
+                >
+                  Email to myself
+                </button>
+                <button
+                  onClick={copyBackup}
+                  className="flex-1 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-medium text-white/60 transition hover:bg-white/10 hover:text-white/80"
+                >
+                  {copied ? 'Copied!' : 'Copy to clipboard'}
+                </button>
+              </div>
+            </div>
 
             <button
               onClick={handleContinue}
@@ -401,6 +516,91 @@ export default function FoidWalletOnboarding() {
             >
               Continue
             </button>
+          </div>
+        )}
+
+        {/* Step: Restore from backup */}
+        {step === 'restore-input' && (
+          <div className="space-y-4">
+            <p className="text-sm text-white/80 leading-relaxed">
+              Paste your backup data or upload your backup file. You&apos;ll need your
+              original PIN to decrypt it.
+            </p>
+
+            {/* File upload */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full rounded-lg border border-dashed border-white/20 bg-white/5 px-4 py-3 text-sm text-white/60 transition hover:bg-white/10 hover:border-white/30"
+            >
+              {restoreJson ? 'File loaded' : 'Upload backup file (.json)'}
+            </button>
+
+            {/* Or paste */}
+            <div className="relative">
+              <div className="text-[10px] text-white/40 tracking-widest uppercase mb-1.5">
+                Or paste backup data
+              </div>
+              <textarea
+                value={restoreJson}
+                onChange={(e) => setRestoreJson(e.target.value)}
+                placeholder='{"version":1,"vault":{...}}'
+                rows={3}
+                className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-xs text-white placeholder:text-white/20 focus:border-white/30 focus:outline-none font-mono resize-none"
+              />
+            </div>
+
+            {/* PIN */}
+            <div>
+              <label className="block text-xs text-white/50 tracking-widest uppercase mb-2">
+                Your PIN
+              </label>
+              <div className="relative">
+                <input
+                  type={showPin ? 'text' : 'password'}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  placeholder="Enter your original PIN"
+                  autoComplete="off"
+                  className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2.5 pr-16 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none font-mono tracking-wider"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPin(!showPin)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-white/40 hover:text-white/60 px-2 py-1"
+                >
+                  {showPin ? 'HIDE' : 'SHOW'}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => {
+                  setMode('create');
+                  setStep('explain');
+                  setRestoreJson('');
+                  setPin('');
+                  setError(null);
+                }}
+                className="flex-1 rounded-lg border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/70 transition hover:bg-white/10"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleRestore}
+                disabled={!restoreJson.trim() || pin.length < 6}
+                className="flex-1 rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-black transition hover:bg-white/90 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Restore Wallet
+              </button>
+            </div>
           </div>
         )}
       </div>
