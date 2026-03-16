@@ -150,7 +150,11 @@ interface PasskeyResult {
 async function createPasskey(userId: string, userName: string): Promise<PasskeyResult> {
   const challenge = rand(32);
 
-  const credential = (await navigator.credentials.create({
+  // Build creation options. We add `hints: ['client-device']` to tell the
+  // browser to prefer the built-in platform authenticator (Touch ID, Face ID,
+  // Windows Hello) over password-manager extensions (NordPass, 1Password, etc.)
+  // that intercept WebAuthn calls but don't support PRF.
+  const createOptions: Record<string, unknown> = {
     publicKey: {
       challenge,
       rp: { name: 'FOID', id: window.location.hostname },
@@ -165,15 +169,21 @@ async function createPasskey(userId: string, userName: string): Promise<PasskeyR
       ],
       authenticatorSelection: {
         authenticatorAttachment: 'platform',
-        residentKey: 'preferred',
+        residentKey: 'required',
         userVerification: 'required',
       },
+      // Hint the browser to prefer the device's own authenticator
+      // over third-party password managers. Not all browsers support this yet.
+      hints: ['client-device'],
       extensions: {
-        // @ts-expect-error PRF not in stable types
         prf: { eval: { first: PRF_SALT } },
       },
     },
-  })) as PublicKeyCredential | null;
+  };
+
+  const credential = (await navigator.credentials.create(
+    createOptions,
+  )) as PublicKeyCredential | null;
 
   if (!credential) throw new Error('Passkey creation cancelled.');
 
@@ -200,19 +210,23 @@ async function authenticatePasskey(
 ): Promise<{ prfOutput: ArrayBuffer | null }> {
   const challenge = rand(32);
 
-  const assertion = (await navigator.credentials.get({
+  const getOptions: Record<string, unknown> = {
     publicKey: {
       challenge,
       allowCredentials: [
         { id: fromB64Url(credentialId), type: 'public-key' },
       ],
       userVerification: 'required',
+      hints: ['client-device'],
       extensions: withPrf
-        // @ts-expect-error PRF not in stable types
         ? { prf: { eval: { first: PRF_SALT } } }
         : {},
     },
-  })) as PublicKeyCredential;
+  };
+
+  const assertion = (await navigator.credentials.get(
+    getOptions,
+  )) as PublicKeyCredential;
 
   let prfOutput: ArrayBuffer | null = null;
   if (withPrf) {
