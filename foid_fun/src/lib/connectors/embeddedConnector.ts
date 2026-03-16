@@ -8,6 +8,7 @@
 import { createConnector } from "@wagmi/core";
 import {
   createWalletClient,
+  fallback,
   http,
   toHex,
   type EIP1193RequestFn,
@@ -20,11 +21,58 @@ type EIP1193Provider = { request: EIP1193RequestFn };
 
 const ACTIVE_KEY = "foid-embedded-active";
 
-const RPC_URL =
+const QUICKNODE_RPC =
+  "https://flashy-indulgent-knowledge.fluent-testnet.quiknode.pro/ef03557510e0b97fe678aeff63c7a9ef0181a852";
+
+const PUBLIC_RPC =
   process.env.NEXT_PUBLIC_RPC ??
   process.env.NEXT_PUBLIC_RPC_URL ??
   TARGET_CHAIN.rpcUrls.default.http[0] ??
   "https://rpc.testnet.fluent.xyz";
+
+const RPC_URLS = [QUICKNODE_RPC, PUBLIC_RPC];
+
+const resilientTransport = fallback(
+  [
+    http(QUICKNODE_RPC, { retryCount: 3, retryDelay: 500 }),
+    http(PUBLIC_RPC, { retryCount: 2, retryDelay: 1000 }),
+  ],
+  { rank: false },
+);
+
+/** Fetch with retry across multiple RPCs */
+async function rpcFetch(method: string, params?: unknown[]): Promise<unknown> {
+  let lastError: unknown;
+  for (const url of RPC_URLS) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        });
+        const json = await response.json();
+        if (json.error) {
+          lastError = new Error(json.error.message);
+          if (attempt < 2) {
+            await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+            continue;
+          }
+          break; // try next RPC
+        }
+        return json.result;
+      } catch (err) {
+        lastError = err;
+        if (attempt < 2) {
+          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+          continue;
+        }
+        break; // try next RPC
+      }
+    }
+  }
+  throw lastError ?? new Error(`RPC call failed: ${method}`);
+}
 
 /**
  * Ensure the wallet is unlocked for signing. If no session exists,
@@ -208,7 +256,7 @@ export function embeddedWalletConnector() {
               const walletClient = createWalletClient({
                 account,
                 chain: TARGET_CHAIN,
-                transport: http(RPC_URL),
+                transport: resilientTransport,
               });
               return walletClient.sendTransaction({
                 to: tx.to as Address,
@@ -225,38 +273,11 @@ export function embeddedWalletConnector() {
             case "eth_blockNumber":
             case "eth_getBlockByNumber":
             case "eth_getTransactionReceipt": {
-              const response = await fetch(RPC_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  jsonrpc: "2.0",
-                  id: 1,
-                  method,
-                  params,
-                }),
-              });
-              const json = await response.json();
-              return json.result;
+              return rpcFetch(method, params);
             }
 
             default: {
-              try {
-                const response = await fetch(RPC_URL, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    jsonrpc: "2.0",
-                    id: 1,
-                    method,
-                    params,
-                  }),
-                });
-                const json = await response.json();
-                if (json.error) throw new Error(json.error.message);
-                return json.result;
-              } catch {
-                throw new Error(`Unsupported method: ${method}`);
-              }
+              return rpcFetch(method, params);
             }
           }
         }) as EIP1193RequestFn,

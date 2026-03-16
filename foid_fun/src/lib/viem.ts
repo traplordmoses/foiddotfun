@@ -4,6 +4,7 @@ import {
   custom,
   decodeEventLog,
   defineChain,
+  fallback,
   http,
   hexToBytes,
   isHex,
@@ -17,6 +18,7 @@ import {
   requireCanonicalAddress,
   CHAIN_ID,
   RPC_URL,
+  FALLBACK_RPC_URL,
   BOARD_ADDRESS,
   DEPLOY_BLOCK,
 } from "@/config/canonical";
@@ -57,9 +59,18 @@ export const fluentTestnet = defineChain({
   },
 });
 
+// QuickNode primary, public RPC fallback. Both with retries.
+const resilientTransport = fallback(
+  [
+    http(RPC_URL, { retryCount: 3, retryDelay: 500 }),
+    http(FALLBACK_RPC_URL, { retryCount: 2, retryDelay: 1000 }),
+  ],
+  { rank: false },
+);
+
 export const publicClient = createPublicClient({
   chain: fluentTestnet,
-  transport: http(RPC_URL),
+  transport: resilientTransport,
 });
 
 export const TreasuryAbiTyped = TreasuryAbi as Abi;
@@ -97,7 +108,7 @@ async function createActiveWalletClient() {
     return createWalletClient({
       account,
       chain: fluentTestnet,
-      transport: http(RPC_URL),
+      transport: resilientTransport,
     });
   }
   const eth = (globalThis as { ethereum?: EthereumProvider }).ethereum;
