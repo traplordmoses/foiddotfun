@@ -12,6 +12,7 @@ import { useSwipeVote } from "@/hooks/useSwipeVote";
 import toast from "react-hot-toast";
 import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 import { CHAIN_ID } from "@/config/canonical";
+import { playSwipeYes, playSwipeNo } from "@/lib/sfx";
 
 function tryNextGateway(el: HTMLImageElement, cid?: string) {
   if (!cid) return;
@@ -79,6 +80,134 @@ const EIP712_TYPES = {
   ],
 } as const;
 
+/* ─── CSS keyframes injected once ─── */
+const KEYFRAMES_ID = "swipe-polish-keyframes";
+function injectKeyframes() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById(KEYFRAMES_ID)) return;
+  const style = document.createElement("style");
+  style.id = KEYFRAMES_ID;
+  style.textContent = `
+    @keyframes swipe-particle {
+      0% { transform: translate(0,0) scale(1); opacity: 1; }
+      100% { transform: translate(var(--px), var(--py)) scale(0.3); opacity: 0; }
+    }
+    @keyframes stamp-slam {
+      0% { transform: scale(1.5) rotate(var(--stamp-rot)); opacity: 0.5; filter: drop-shadow(0 0 30px var(--stamp-glow)); }
+      50% { transform: scale(0.92) rotate(var(--stamp-rot)); opacity: 1; filter: drop-shadow(0 0 40px var(--stamp-glow)); }
+      70% { transform: scale(1.06) rotate(var(--stamp-rot)); opacity: 1; filter: drop-shadow(0 0 20px var(--stamp-glow)); }
+      100% { transform: scale(1) rotate(var(--stamp-rot)); opacity: 1; filter: drop-shadow(0 0 12px var(--stamp-glow)); }
+    }
+    @keyframes card-enter {
+      0% { transform: scale(0.95); opacity: 0; }
+      60% { transform: scale(1.015); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes streak-pop {
+      0% { transform: scale(0.5) translateY(8px); opacity: 0; }
+      30% { transform: scale(1.25) translateY(-4px); opacity: 1; }
+      60% { transform: scale(1.0) translateY(0); opacity: 1; }
+      100% { transform: scale(0.9) translateY(-6px); opacity: 0; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+/* ─── Particle burst component ─── */
+function SwipeParticles({ direction, trigger }: { direction: "left" | "right" | null; trigger: number }) {
+  const [particles, setParticles] = useState<{ id: number; angle: number; dist: number; color: string; size: number }[]>([]);
+  const lastTrigger = useRef(0);
+
+  useEffect(() => {
+    if (trigger <= 0 || trigger === lastTrigger.current || !direction) return;
+    lastTrigger.current = trigger;
+
+    const colors = direction === "right"
+      ? ["#22c55e", "#06b6d4", "#34d399", "#10b981", "#6ee7b7", "#2dd4bf"]
+      : ["#ef4444", "#f87171", "#dc2626", "#fb923c", "#f43f5e", "#e11d48"];
+
+    const count = 12 + Math.floor(Math.random() * 4);
+    const newParticles = Array.from({ length: count }, (_, i) => ({
+      id: i,
+      angle: (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5,
+      dist: 60 + Math.random() * 80,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: 4 + Math.random() * 5,
+    }));
+    setParticles(newParticles);
+
+    const timer = setTimeout(() => setParticles([]), 550);
+    return () => clearTimeout(timer);
+  }, [trigger, direction]);
+
+  if (particles.length === 0) return null;
+
+  return (
+    <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 50, overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: "50%", left: "50%", width: 0, height: 0 }}>
+        {particles.map((p) => {
+          const px = Math.cos(p.angle) * p.dist;
+          const py = Math.sin(p.angle) * p.dist;
+          return (
+            <div
+              key={p.id}
+              style={{
+                position: "absolute",
+                width: p.size,
+                height: p.size,
+                borderRadius: "50%",
+                backgroundColor: p.color,
+                boxShadow: `0 0 6px ${p.color}`,
+                ["--px" as string]: `${px}px`,
+                ["--py" as string]: `${py}px`,
+                animation: "swipe-particle 500ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+              }}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Streak badge component ─── */
+function StreakBadge({ count, trigger }: { count: number; trigger: number }) {
+  const [visible, setVisible] = useState(false);
+  const lastTrigger = useRef(0);
+
+  useEffect(() => {
+    if (trigger <= 0 || trigger === lastTrigger.current || count < 2) return;
+    lastTrigger.current = trigger;
+    setVisible(true);
+    const timer = setTimeout(() => setVisible(false), 850);
+    return () => clearTimeout(timer);
+  }, [trigger, count]);
+
+  if (!visible || count < 2) return null;
+
+  return (
+    <div style={{
+      position: "absolute",
+      top: 8,
+      left: "50%",
+      transform: "translateX(-50%)",
+      zIndex: 60,
+      pointerEvents: "none",
+    }}>
+      <div style={{
+        fontSize: count >= 5 ? 28 : 22,
+        fontWeight: 900,
+        color: "#fbbf24",
+        textShadow: "0 0 16px rgba(251,191,36,0.7), 0 0 32px rgba(251,191,36,0.4), 0 2px 4px rgba(0,0,0,0.5)",
+        animation: "streak-pop 800ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+        letterSpacing: "0.05em",
+      }}>
+        x{count}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Vote count mini-bar ─── */
 function VoteBar({ forCount, againstCount }: { forCount: number; againstCount: number }) {
   const total = forCount + againstCount;
@@ -100,23 +229,30 @@ function SwipeCard({
   proposal,
   onVote,
   nextProposal,
+  onSwipeComplete,
+  cardKey,
 }: {
   proposal: SwipeProposal;
   onVote: (proposalId: number, approve: boolean) => void;
   nextProposal?: SwipeProposal | null;
+  onSwipeComplete?: (dir: "left" | "right") => void;
+  cardKey: number;
 }) {
   const visual = CARD_VISUALS[proposal.id % CARD_VISUALS.length];
   const nextVisual = nextProposal ? CARD_VISUALS[nextProposal.id % CARD_VISUALS.length] : null;
 
   const { direction, progress, handlers, style, phase } = useSwipeVote({
     threshold: 80,
-    onSwipeRight: () => onVote(proposal.id, true),
-    onSwipeLeft: () => onVote(proposal.id, false),
+    onSwipeRight: () => { onVote(proposal.id, true); onSwipeComplete?.("right"); },
+    onSwipeLeft: () => { onVote(proposal.id, false); onSwipeComplete?.("left"); },
   });
 
   const yesOpacity = direction === "right" ? 0.15 + progress * 0.25 : 0;
   const noOpacity = direction === "left" ? 0.15 + progress * 0.25 : 0;
-  const stampScale = progress > 0.3 ? 0.6 + progress * 0.5 : 0;
+
+  // Enhanced stamp: use CSS slam animation when progress > threshold
+  const showYesStamp = direction === "right" && progress > 0.3;
+  const showNoStamp = direction === "left" && progress > 0.3;
 
   return (
     <div className="relative mx-auto w-full max-w-md">
@@ -142,23 +278,48 @@ function SwipeCard({
         </div>
       )}
 
-      {/* Active card */}
+      {/* Active card with entrance animation */}
       <div
+        key={cardKey}
         {...handlers}
-        style={{ ...style, touchAction: "pan-y", zIndex: 1, position: "relative" }}
+        style={{
+          ...style,
+          touchAction: "pan-y",
+          zIndex: 1,
+          position: "relative",
+          animation: phase !== "exiting" && phase !== "dragging" ? "card-enter 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both" : undefined,
+        }}
         className="relative rounded-2xl border border-neutral-700 bg-neutral-900/95 overflow-hidden select-none shadow-2xl"
       >
         {/* Color tint overlays */}
         <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl" style={{ background: `linear-gradient(135deg, rgba(34,197,94,${yesOpacity}) 0%, transparent 60%)` }} />
         <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl" style={{ background: `linear-gradient(225deg, rgba(239,68,68,${noOpacity}) 0%, transparent 60%)` }} />
 
-        {/* YES stamp */}
-        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none" style={{ opacity: direction === "right" ? 1 : 0, transition: "opacity 0.15s ease" }}>
-          <span className="rounded-xl border-[3px] border-green-400 px-8 py-3 text-4xl font-black uppercase text-green-400 -rotate-12 drop-shadow-[0_0_20px_rgba(34,197,94,0.5)]" style={{ transform: `scale(${stampScale}) rotate(-12deg)`, transition: "transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)", textShadow: "0 0 30px rgba(34,197,94,0.4)" }}>YES</span>
+        {/* YES stamp — enhanced slam */}
+        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none" style={{ opacity: direction === "right" ? 1 : 0, transition: "opacity 0.1s ease" }}>
+          <span
+            className="rounded-xl border-[3px] border-green-400 px-8 py-3 text-4xl font-black uppercase text-green-400"
+            style={{
+              ["--stamp-rot" as string]: "-12deg",
+              ["--stamp-glow" as string]: "rgba(34,197,94,0.5)",
+              animation: showYesStamp ? "stamp-slam 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both" : "none",
+              transform: showYesStamp ? undefined : `scale(${0.6 + progress * 0.5}) rotate(-12deg)`,
+              textShadow: "0 0 30px rgba(34,197,94,0.4)",
+            }}
+          >YES</span>
         </div>
-        {/* NO stamp */}
-        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none" style={{ opacity: direction === "left" ? 1 : 0, transition: "opacity 0.15s ease" }}>
-          <span className="rounded-xl border-[3px] border-red-400 px-8 py-3 text-4xl font-black uppercase text-red-400 rotate-12 drop-shadow-[0_0_20px_rgba(239,68,68,0.5)]" style={{ transform: `scale(${stampScale}) rotate(12deg)`, transition: "transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)", textShadow: "0 0 30px rgba(239,68,68,0.4)" }}>NO</span>
+        {/* NO stamp — enhanced slam */}
+        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none" style={{ opacity: direction === "left" ? 1 : 0, transition: "opacity 0.1s ease" }}>
+          <span
+            className="rounded-xl border-[3px] border-red-400 px-8 py-3 text-4xl font-black uppercase text-red-400"
+            style={{
+              ["--stamp-rot" as string]: "12deg",
+              ["--stamp-glow" as string]: "rgba(239,68,68,0.5)",
+              animation: showNoStamp ? "stamp-slam 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both" : "none",
+              transform: showNoStamp ? undefined : `scale(${0.6 + progress * 0.5}) rotate(12deg)`,
+              textShadow: "0 0 30px rgba(239,68,68,0.4)",
+            }}
+          >NO</span>
         </div>
 
         <div className="w-full aspect-square">
@@ -192,10 +353,10 @@ function SwipeCard({
 
       {/* Button row */}
       <div className="mt-3 flex items-center justify-center gap-6">
-        <button onClick={() => onVote(proposal.id, false)} className="flex items-center justify-center w-14 h-14 rounded-full border-2 border-red-500/30 bg-red-500/5 text-red-400 transition hover:bg-red-500/15 hover:border-red-500/50 active:scale-90">
+        <button onClick={() => { onVote(proposal.id, false); onSwipeComplete?.("left"); }} className="flex items-center justify-center w-14 h-14 rounded-full border-2 border-red-500/30 bg-red-500/5 text-red-400 transition hover:bg-red-500/15 hover:border-red-500/50 active:scale-90">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
         </button>
-        <button onClick={() => onVote(proposal.id, true)} className="flex items-center justify-center w-14 h-14 rounded-full border-2 border-green-500/30 bg-green-500/5 text-green-400 transition hover:bg-green-500/15 hover:border-green-500/50 active:scale-90">
+        <button onClick={() => { onVote(proposal.id, true); onSwipeComplete?.("right"); }} className="flex items-center justify-center w-14 h-14 rounded-full border-2 border-green-500/30 bg-green-500/5 text-green-400 transition hover:bg-green-500/15 hover:border-green-500/50 active:scale-90">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>
         </button>
       </div>
@@ -213,6 +374,34 @@ export default function SwipePage() {
   const [votedIds, setVotedIds] = useState<Set<number>>(new Set());
   const votedIdsRef = useRef(votedIds);
   votedIdsRef.current = votedIds;
+
+  // Streak + particle state
+  const [sessionVoteCount, setSessionVoteCount] = useState(0);
+  const [particleDir, setParticleDir] = useState<"left" | "right" | null>(null);
+  const [particleTrigger, setParticleTrigger] = useState(0);
+  const [streakTrigger, setStreakTrigger] = useState(0);
+  const [cardKey, setCardKey] = useState(0);
+
+  // Inject keyframes on mount
+  useEffect(() => { injectKeyframes(); }, []);
+
+  // Handle swipe complete: sound + particles + streak
+  const handleSwipeComplete = useCallback((dir: "left" | "right") => {
+    // Sound
+    if (dir === "right") playSwipeYes();
+    else playSwipeNo();
+
+    // Particles
+    setParticleDir(dir);
+    setParticleTrigger((n) => n + 1);
+
+    // Streak
+    setSessionVoteCount((n) => n + 1);
+    setStreakTrigger((n) => n + 1);
+
+    // Bump card key for entrance animation
+    setCardKey((n) => n + 1);
+  }, []);
 
   // Load voted IDs from localStorage when wallet changes
   useEffect(() => {
@@ -417,11 +606,17 @@ export default function SwipePage() {
                   </div>
                 ) : tab === "active" ? (
                   currentProposal ? (
-                    <div className="flex flex-col flex-1 min-h-0 items-center justify-center gap-2">
+                    <div className="flex flex-col flex-1 min-h-0 items-center justify-center gap-2 relative">
+                      {/* Particle overlay */}
+                      <SwipeParticles direction={particleDir} trigger={particleTrigger} />
+                      {/* Streak badge */}
+                      <StreakBadge count={sessionVoteCount} trigger={streakTrigger} />
                       <SwipeCard
                         proposal={currentProposal}
                         onVote={handleVote}
                         nextProposal={activeProposals[1] ?? null}
+                        onSwipeComplete={handleSwipeComplete}
+                        cardKey={cardKey}
                       />
                       <div className="flex-shrink-0 text-center text-[10px] text-white/25 mt-1">
                         {activeProposals.length} remaining

@@ -73,6 +73,7 @@ import {
 import { parseWeb3Error, isUserRejection } from "@/lib/errors";
 import { insertBoardMessage } from "@/lib/supabase";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { PaintEditor } from "@/components/PaintEditor";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -246,7 +247,7 @@ function MobileProposeModal({
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [step, setStep] = useState<"pick" | "position" | "uploading" | "submitting" | "done" | "error">("pick");
+  const [step, setStep] = useState<"pick" | "paint" | "position" | "uploading" | "submitting" | "done" | "error">("pick");
   const [errorMsg, setErrorMsg] = useState("");
   const [placementRect, setPlacementRect] = useState<Rect | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -281,10 +282,17 @@ function MobileProposeModal({
     setFile(processed);
     setPreview(URL.createObjectURL(processed));
     setErrorMsg("");
+    setStep("paint");
+  };
+
+  const handlePaintDone = async (editedFile: File) => {
+    setFile(editedFile);
+    if (preview) URL.revokeObjectURL(preview);
+    setPreview(URL.createObjectURL(editedFile));
 
     // Compute initial placement rect from image dimensions
     try {
-      const { w, h } = await getImageSizeFromFile(processed);
+      const { w, h } = await getImageSizeFromFile(editedFile);
       let rect = snapRect({ x: 0, y: 0, w, h });
       rect = capRectToMaxCells(rect, MAX_CELLS_PER_RECT);
       setPlacementRect(rect);
@@ -411,6 +419,14 @@ function MobileProposeModal({
           </>
         )}
 
+        {step === "paint" && file && (
+          <PaintEditor
+            imageFile={file}
+            onDone={handlePaintDone}
+            onCancel={() => setStep("pick")}
+          />
+        )}
+
         {step === "position" && preview && placementRect && (
           <MobilePlacementPicker
             previewUrl={preview}
@@ -514,6 +530,10 @@ function BoardPageContent() {
 
   // Mobile propose modal
   const [showMobilePropose, setShowMobilePropose] = useState(false);
+
+  // Desktop paint editor state
+  const [desktopPaintFile, setDesktopPaintFile] = useState<File | null>(null);
+  const [desktopPaintPos, setDesktopPaintPos] = useState<DropPos | undefined>(undefined);
 
   // Pan/zoom - smooth infinite
   const [scale, setScale] = useState(1);
@@ -827,8 +847,21 @@ function BoardPageContent() {
           kind = "jpg";
         } catch { addStatus("Could not process image.", "error"); return; }
       }
-      let mime = mimeFromType(kind) as "image/png" | "image/jpeg";
+      // Open paint editor before placing on board
+      setDesktopPaintFile(workingFile);
+      setDesktopPaintPos(pos);
+    } finally { setBusy(false); setGhost(null); ghostMetaRef.current = null; }
+  }, [addStatus]);
+
+  const handleDesktopPaintDone = useCallback(async (editedFile: File) => {
+    setDesktopPaintFile(null);
+    setBusy(true);
+    try {
+      let workingFile = editedFile;
+      let kind = await sniffImageType(workingFile);
+      let mime = kind ? (mimeFromType(kind) as "image/png" | "image/jpeg") : ("image/jpeg" as "image/png" | "image/jpeg");
       const { w, h } = await getImageSize(workingFile);
+      const pos = desktopPaintPos;
       let rect = snapRect({ x: pos?.x ?? 0, y: pos?.y ?? 0, w, h });
       let cells = rectCells(rect);
 
@@ -847,8 +880,13 @@ function BoardPageContent() {
         tipPerCellWei: 0n, previewUrl: URL.createObjectURL(workingFile), file: workingFile, cid: undefined, fitMode: "contain",
       });
       addStatus(`Image added: ${workingFile.name}`, "success");
-    } finally { setBusy(false); setGhost(null); ghostMetaRef.current = null; }
-  }, [addPending, clampToCanvas, addStatus]);
+    } finally { setBusy(false); setDesktopPaintPos(undefined); }
+  }, [addPending, clampToCanvas, addStatus, desktopPaintPos]);
+
+  const handleDesktopPaintCancel = useCallback(() => {
+    setDesktopPaintFile(null);
+    setDesktopPaintPos(undefined);
+  }, []);
 
   const handleFiles = useCallback(async (files: FileList | null, pos?: DropPos) => {
     if (files?.length) await handleSingleFile(files[0], pos);
@@ -1464,6 +1502,13 @@ function BoardPageContent() {
 
     {activePlacement && <PlacementModal placement={activePlacement} onClose={() => setActivePlacement(null)} />}
     {isConnected && <LoreboardNotification address={address} />}
+    {desktopPaintFile && (
+      <PaintEditor
+        imageFile={desktopPaintFile}
+        onDone={handleDesktopPaintDone}
+        onCancel={handleDesktopPaintCancel}
+      />
+    )}
       <style jsx>{`
         /* Layout - more padding and spacing */
         .board-page {

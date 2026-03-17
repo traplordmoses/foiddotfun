@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAccount, useReadContract } from "wagmi";
 import { useSwitchWallet } from "@/hooks/useSwitchWallet";
 import Link from "next/link";
@@ -9,6 +9,30 @@ import { FOID_TREST_ABI } from "@/lib/contracts/abis/foidTrest";
 import { publicClient } from "@/lib/viem";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
+
+// ── Engraving helpers ──
+const ENGRAVINGS_KEY = "foid_engravings";
+
+function loadEngravings(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(ENGRAVINGS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveEngraving(entryId: number, message: string) {
+  const all = loadEngravings();
+  all[String(entryId)] = message;
+  localStorage.setItem(ENGRAVINGS_KEY, JSON.stringify(all));
+}
+
+/** Deterministic pseudo-random rotation per entry ID, range [-2, 3] degrees */
+function engravingRotation(id: number): number {
+  const hash = ((id * 2654435761) >>> 0) % 1000;
+  return -2 + (hash / 1000) * 5;
+}
 
 function tryNextGateway(el: HTMLImageElement, cid?: string) {
   if (!cid) return;
@@ -56,11 +80,127 @@ const TREST_VISUALS = [
   { gradient: "linear-gradient(135deg, #0a0a2e 0%, #2a1a6e 50%, #0c0c29 100%)", symbol: "\u{1F52E}" },
 ];
 
-function TrestCard({ entry }: { entry: TrestEntry }) {
-  const [loaded, setLoaded] = useState(false);
+// ── Engraving Modal ──
+function EngravingModal({
+  entryId,
+  onClose,
+  onSave,
+}: {
+  entryId: number;
+  onClose: () => void;
+  onSave: (msg: string) => void;
+}) {
+  const [text, setText] = useState("");
 
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-purple-500/15 bg-neutral-900/70 hover:border-purple-500/40 hover:shadow-[0_0_24px_rgba(139,92,246,0.2)] [perspective:600px] hover:[transform:scale(1.03)_rotateY(2deg)_rotateX(-1deg)]" style={{ transition: "transform 200ms ease-out, border-color 200ms ease, box-shadow 200ms ease" }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="mx-4 w-full max-w-sm rounded-xl border border-purple-500/25 p-5 shadow-[0_0_40px_rgba(139,92,246,0.15)]"
+        style={{ background: "linear-gradient(145deg, rgba(20,12,36,0.95), rgba(12,8,24,0.98))" }}
+      >
+        <h3
+          className="mb-3 text-sm font-bold uppercase tracking-[0.15em] text-transparent bg-clip-text"
+          style={{ backgroundImage: "linear-gradient(135deg, #d4a0ff, #fff)" }}
+        >
+          Engrave your mark
+        </h3>
+        <p className="mb-3 text-[10px] text-white/40">
+          Sign your canonized meme. This is permanent (in your browser).
+        </p>
+        <textarea
+          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/90 placeholder-white/25 outline-none focus:border-purple-500/40 resize-none"
+          rows={3}
+          maxLength={140}
+          placeholder="Leave your mark..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          autoFocus
+        />
+        <div className="mt-1 flex items-center justify-between">
+          <span className="text-[10px] text-white/30 font-mono">{text.length}/140</span>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="rounded-lg border border-white/10 px-3 py-1 text-[10px] text-white/50 hover:bg-white/5 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { if (text.trim()) onSave(text.trim()); }}
+              disabled={!text.trim()}
+              className="rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-30 transition-all hover:shadow-[0_0_12px_rgba(224,64,251,0.3)]"
+              style={{ background: text.trim() ? "linear-gradient(135deg, #e040fb, #f06292)" : "rgba(255,255,255,0.08)" }}
+            >
+              Engrave
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Engraving display overlay ──
+function EngravingOverlay({ text, entryId }: { text: string; entryId: number }) {
+  const rotation = useMemo(() => engravingRotation(entryId), [entryId]);
+
+  return (
+    <div
+      className="absolute bottom-1 left-1 right-1 pointer-events-none select-none overflow-hidden px-1.5 py-0.5"
+      style={{
+        transform: `rotate(${rotation}deg)`,
+      }}
+    >
+      <p
+        className="italic leading-tight"
+        style={{
+          fontSize: "11px",
+          color: "rgba(255, 215, 120, 0.55)",
+          textShadow: "0 1px 3px rgba(0,0,0,0.7), 0 0 8px rgba(255,200,100,0.15)",
+          fontFamily: "'Georgia', 'Times New Roman', serif",
+          letterSpacing: "0.02em",
+        }}
+      >
+        &ldquo;{text}&rdquo;
+      </p>
+      {/* Faint scribble underline */}
+      <div
+        className="mt-0.5"
+        style={{
+          height: "1px",
+          background: "linear-gradient(90deg, transparent 0%, rgba(255,215,120,0.25) 15%, rgba(255,215,120,0.3) 50%, rgba(255,215,120,0.2) 85%, transparent 100%)",
+          transform: `rotate(${rotation > 0 ? -0.5 : 0.5}deg)`,
+        }}
+      />
+    </div>
+  );
+}
+
+function TrestCard({
+  entry,
+  walletAddress,
+  engraving,
+  onEngrave,
+}: {
+  entry: TrestEntry;
+  walletAddress?: string;
+  engraving?: string;
+  onEngrave: (entryId: number) => void;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  const isCreator =
+    !!walletAddress &&
+    entry.creator.toLowerCase() === walletAddress.toLowerCase();
+  const canEngrave = isCreator && !engraving;
+
+  return (
+    <div
+      className="group relative overflow-hidden rounded-xl border border-purple-500/15 bg-neutral-900/70 hover:border-purple-500/40 hover:shadow-[0_0_24px_rgba(139,92,246,0.2)] [perspective:600px] hover:[transform:scale(1.03)_rotateY(2deg)_rotateX(-1deg)]"
+      style={{ transition: "transform 200ms ease-out, border-color 200ms ease, box-shadow 200ms ease" }}
+    >
       <div className="relative aspect-square overflow-hidden bg-neutral-800/40">
         {entry.ipfsCid ? (
           <>
@@ -85,12 +225,29 @@ function TrestCard({ entry }: { entry: TrestEntry }) {
             </span>
           </div>
         )}
+        {/* Engraving display */}
+        {engraving && <EngravingOverlay text={engraving} entryId={entry.id} />}
       </div>
       <div className="space-y-1 p-2">
         <div className="flex items-center justify-between text-[10px] text-neutral-400">
           <span className="font-mono">{truncateAddress(entry.creator)}</span>
           <span suppressHydrationWarning>{formatTimestamp(entry.placedAt)}</span>
         </div>
+        {/* Engrave button — only visible to creator who hasn't engraved yet */}
+        {canEngrave && (
+          <button
+            onClick={() => onEngrave(entry.id)}
+            className="mt-1 w-full rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[9px] font-medium uppercase tracking-wider text-white/40 hover:border-purple-500/30 hover:text-white/70 hover:bg-purple-500/10 transition-all"
+          >
+            &#9998; Engrave
+          </button>
+        )}
+        {/* Show "Engraved" badge if creator has already engraved */}
+        {isCreator && engraving && (
+          <div className="mt-1 text-center text-[9px] italic text-white/20 tracking-wide">
+            &#10003; engraved
+          </div>
+        )}
       </div>
     </div>
   );
@@ -101,6 +258,24 @@ export default function GalleryPage() {
   const { disconnect, switchWallet } = useSwitchWallet();
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<TrestEntry[]>([]);
+  const [engravings, setEngravings] = useState<Record<string, string>>({});
+  const [engravingModalId, setEngravingModalId] = useState<number | null>(null);
+
+  // Load engravings from localStorage on mount
+  useEffect(() => {
+    setEngravings(loadEngravings());
+  }, []);
+
+  const handleEngrave = useCallback((entryId: number) => {
+    setEngravingModalId(entryId);
+  }, []);
+
+  const handleSaveEngraving = useCallback((msg: string) => {
+    if (engravingModalId === null) return;
+    saveEngraving(engravingModalId, msg);
+    setEngravings((prev) => ({ ...prev, [String(engravingModalId)]: msg }));
+    setEngravingModalId(null);
+  }, [engravingModalId]);
 
   const trestAddress = (CONTRACTS.FOID_TREST ?? "") as `0x${string}`;
   const hasTrest = !!CONTRACTS.FOID_TREST;
@@ -232,7 +407,13 @@ export default function GalleryPage() {
                 ) : entries.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                     {entries.map((entry) => (
-                      <TrestCard key={entry.id} entry={entry} />
+                      <TrestCard
+                        key={entry.id}
+                        entry={entry}
+                        walletAddress={address}
+                        engraving={engravings[String(entry.id)]}
+                        onEngrave={handleEngrave}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -253,6 +434,14 @@ export default function GalleryPage() {
           </div>
         </div>
       </section>
+      {/* Engraving modal */}
+      {engravingModalId !== null && (
+        <EngravingModal
+          entryId={engravingModalId}
+          onClose={() => setEngravingModalId(null)}
+          onSave={handleSaveEngraving}
+        />
+      )}
       <style jsx>{`
         :global(.vista-window__body) {
           scrollbar-width: thin;

@@ -236,6 +236,56 @@ export function playLoading(): void { play("loading", { volume: 1 }); }
 export function playReward(): void { play("reward", { volume: 1 }); }
 export function playError(): void { play("error", { volume: 0.95 }); }
 
+/** Bright ascending chime for YES swipe (2 quick notes going up) */
+export function playSwipeYes(): void {
+  if (!isBrowser || !unlocked) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
+  const ac = ensureCtx();
+  if (!ac) return;
+  const gain = ac.createGain();
+  gain.gain.value = 0.10 * settings.sfxVolume;
+  gain.connect(ac.destination);
+  // Note 1: C5
+  const osc1 = ac.createOscillator();
+  osc1.type = "sine";
+  osc1.frequency.value = 523;
+  osc1.connect(gain);
+  osc1.start(ac.currentTime);
+  osc1.stop(ac.currentTime + 0.08);
+  // Note 2: E5 (higher)
+  const osc2 = ac.createOscillator();
+  osc2.type = "sine";
+  osc2.frequency.value = 659;
+  osc2.connect(gain);
+  osc2.start(ac.currentTime + 0.09);
+  osc2.stop(ac.currentTime + 0.18);
+  // Fade out gain
+  gain.gain.setValueAtTime(0.10 * settings.sfxVolume, ac.currentTime + 0.15);
+  gain.gain.linearRampToValueAtTime(0, ac.currentTime + 0.22);
+}
+
+/** Low descending tone for NO swipe (1 quick note going down) */
+export function playSwipeNo(): void {
+  if (!isBrowser || !unlocked) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
+  const ac = ensureCtx();
+  if (!ac) return;
+  const gain = ac.createGain();
+  gain.gain.value = 0.08 * settings.sfxVolume;
+  gain.connect(ac.destination);
+  const osc = ac.createOscillator();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(330, ac.currentTime);
+  osc.frequency.linearRampToValueAtTime(220, ac.currentTime + 0.12);
+  osc.connect(gain);
+  osc.start(ac.currentTime);
+  osc.stop(ac.currentTime + 0.15);
+  gain.gain.setValueAtTime(0.08 * settings.sfxVolume, ac.currentTime + 0.10);
+  gain.gain.linearRampToValueAtTime(0, ac.currentTime + 0.18);
+}
+
 // background controls
 async function playBackground(): Promise<boolean> {
   if (!isBrowser || !unlocked) return false;
@@ -393,6 +443,8 @@ const sfx = {
   playLoading,
   playReward,
   playError,
+  playSwipeYes,
+  playSwipeNo,
   typing,
   playTypingTick,
   background,
