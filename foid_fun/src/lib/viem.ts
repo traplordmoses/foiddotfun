@@ -113,6 +113,27 @@ async function createActiveWalletClient() {
   }
   const eth = (globalThis as { ethereum?: EthereumProvider }).ethereum;
   if (!eth) throw new Error("wallet not available");
+
+  // Update MetaMask's chain RPC to QuickNode so transactions don't hit
+  // the rate-limited public RPC. wallet_addEthereumChain updates the RPC
+  // if the chain already exists.
+  try {
+    await eth.request({
+      method: "wallet_addEthereumChain",
+      params: [
+        {
+          chainId: toHex(CHAIN_ID),
+          chainName: "Fluent Testnet",
+          rpcUrls: [RPC_URL],
+          nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+          blockExplorerUrls: ["https://testnet.fluentscan.xyz"],
+        },
+      ],
+    });
+  } catch {
+    // Non-fatal — wallet may not support this or user may reject
+  }
+
   return createWalletClient({ chain: fluentTestnet, transport: custom(eth) });
 }
 
