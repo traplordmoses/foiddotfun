@@ -14,7 +14,7 @@ interface PaintEditorProps {
 
 type Tool = "select" | "draw" | "eraser" | "stamp";
 
-interface PlacedSticker {
+interface ImageOverlay {
   id: string;
   src: string;
   x: number;
@@ -25,7 +25,7 @@ interface PlacedSticker {
 
 interface HistoryEntry {
   imageData: ImageData;
-  stickers: PlacedSticker[];
+  overlays: ImageOverlay[];
 }
 
 const PRESET_COLORS = [
@@ -41,44 +41,12 @@ const PRESET_COLORS = [
   "#aa44ff",
 ] as const;
 
-const BUILTIN_STICKERS = [
-  { label: "Star", emoji: "\u2B50" },
-  { label: "Heart", emoji: "\u2764\uFE0F" },
-  { label: "Fire", emoji: "\uD83D\uDD25" },
-  { label: "100", emoji: "\uD83D\uDCAF" },
-  { label: "Skull", emoji: "\uD83D\uDC80" },
-  { label: "Cat", emoji: "\uD83D\uDC31" },
-  { label: "Dog", emoji: "\uD83D\uDC36" },
-  { label: "Clown", emoji: "\uD83E\uDD21" },
-  { label: "Eyes", emoji: "\uD83D\uDC40" },
-  { label: "Ghost", emoji: "\uD83D\uDC7B" },
-  { label: "Alien", emoji: "\uD83D\uDC7D" },
-  { label: "Rainbow", emoji: "\uD83C\uDF08" },
-  { label: "Crown", emoji: "\uD83D\uDC51" },
-  { label: "Diamond", emoji: "\uD83D\uDC8E" },
-  { label: "Sparkles", emoji: "\u2728" },
-  { label: "Thumbs Up", emoji: "\uD83D\uDC4D" },
-];
-
 const MAX_HISTORY = 30;
-const DEFAULT_STICKER_SIZE = 80;
+const DEFAULT_OVERLAY_SIZE = 80;
 
 // ============================================================================
 // HELPERS
 // ============================================================================
-
-function emojiToDataURL(emoji: string, size: number = 128): string {
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return "";
-  ctx.font = `${size * 0.8}px serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(emoji, size / 2, size / 2);
-  return canvas.toDataURL("image/png");
-}
 
 function generateId(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -100,26 +68,18 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   const [brushSize, setBrushSize] = useState(8);
   const [isDrawing, setIsDrawing] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [placedStickers, setPlacedStickers] = useState<PlacedSticker[]>([]);
-  const [stampSrc, setStampSrc] = useState<string | null>(null);
-  const [customStickers, setCustomStickers] = useState<string[]>([]);
-  const [builtinStickerURLs, setBuiltinStickerURLs] = useState<string[]>([]);
+  const [overlays, setOverlays] = useState<ImageOverlay[]>([]);
+  const [overlaySrc, setOverlaySrc] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyIdx, setHistoryIdx] = useState(-1);
-  const [draggingSticker, setDraggingSticker] = useState<string | null>(null);
+  const [draggingOverlay, setDraggingOverlay] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [resizingSticker, setResizingSticker] = useState<string | null>(null);
+  const [resizingOverlay, setResizingOverlay] = useState<string | null>(null);
   const [canvasDisplaySize, setCanvasDisplaySize] = useState({ w: 0, h: 0 });
 
   const originalImageRef = useRef<HTMLImageElement | null>(null);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Generate builtin sticker data URLs on mount
-  useEffect(() => {
-    const urls = BUILTIN_STICKERS.map((s) => emojiToDataURL(s.emoji));
-    setBuiltinStickerURLs(urls);
-  }, []);
 
   // ============================================================================
   // IMAGE LOADING
@@ -147,8 +107,8 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     const container = canvasContainerRef.current;
     if (!bgCanvas || !drawCanvas || !container) return;
 
-    const maxW = container.clientWidth - 32;
-    const maxH = container.clientHeight - 32;
+    const maxW = container.clientWidth - 16;
+    const maxH = container.clientHeight - 16;
     const ratio = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
     const w = Math.round(img.naturalWidth * ratio);
     const h = Math.round(img.naturalHeight * ratio);
@@ -170,10 +130,10 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
 
     // Save initial history
     const initialData = drawCtx.getImageData(0, 0, w, h);
-    const entry: HistoryEntry = { imageData: initialData, stickers: [] };
+    const entry: HistoryEntry = { imageData: initialData, overlays: [] };
     setHistory([entry]);
     setHistoryIdx(0);
-    setPlacedStickers([]);
+    setOverlays([]);
   }, []);
 
   // Resize handler
@@ -194,7 +154,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   // ============================================================================
 
   const pushHistory = useCallback(
-    (stickers?: PlacedSticker[]) => {
+    (newOverlays?: ImageOverlay[]) => {
       const drawCanvas = drawCanvasRef.current;
       if (!drawCanvas) return;
       const ctx = drawCanvas.getContext("2d");
@@ -202,7 +162,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       const data = ctx.getImageData(0, 0, drawCanvas.width, drawCanvas.height);
       const entry: HistoryEntry = {
         imageData: data,
-        stickers: stickers ?? placedStickers,
+        overlays: newOverlays ?? overlays,
       };
       setHistory((prev) => {
         const truncated = prev.slice(0, historyIdx + 1);
@@ -212,7 +172,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       });
       setHistoryIdx((prev) => Math.min(prev + 1, MAX_HISTORY - 1));
     },
-    [historyIdx, placedStickers]
+    [historyIdx, overlays]
   );
 
   const undo = useCallback(() => {
@@ -224,7 +184,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     const prev = history[historyIdx - 1];
     if (!prev) return;
     ctx.putImageData(prev.imageData, 0, 0);
-    setPlacedStickers(prev.stickers);
+    setOverlays(prev.overlays);
     setHistoryIdx((i) => i - 1);
   }, [history, historyIdx]);
 
@@ -234,7 +194,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     const ctx = drawCanvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-    setPlacedStickers([]);
+    setOverlays([]);
     pushHistory([]);
   }, [pushHistory]);
 
@@ -312,12 +272,12 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   }, [isDrawing, pushHistory]);
 
   // ============================================================================
-  // STICKER PLACEMENT
+  // OVERLAY PLACEMENT
   // ============================================================================
 
   const handleCanvasClick = useCallback(
     (clientX: number, clientY: number) => {
-      if (tool !== "stamp" || !stampSrc) return;
+      if (tool !== "stamp" || !overlaySrc) return;
       const canvas = drawCanvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
@@ -325,41 +285,38 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       if (!containerEl) return;
       const containerRect = containerEl.getBoundingClientRect();
 
-      // Position relative to canvas container (since stickers are absolutely positioned within it)
-      // We need position relative to the canvas element's visual position within the container
       const canvasVisualX = rect.left - containerRect.left;
       const canvasVisualY = rect.top - containerRect.top;
-      const clickX = clientX - containerRect.left - canvasVisualX - DEFAULT_STICKER_SIZE / 2;
-      const clickY = clientY - containerRect.top - canvasVisualY - DEFAULT_STICKER_SIZE / 2;
+      const clickX = clientX - containerRect.left - canvasVisualX - DEFAULT_OVERLAY_SIZE / 2;
+      const clickY = clientY - containerRect.top - canvasVisualY - DEFAULT_OVERLAY_SIZE / 2;
 
-      const newSticker: PlacedSticker = {
+      const newOverlay: ImageOverlay = {
         id: generateId(),
-        src: stampSrc,
+        src: overlaySrc,
         x: clickX,
         y: clickY,
-        w: DEFAULT_STICKER_SIZE,
-        h: DEFAULT_STICKER_SIZE,
+        w: DEFAULT_OVERLAY_SIZE,
+        h: DEFAULT_OVERLAY_SIZE,
       };
-      const newStickers = [...placedStickers, newSticker];
-      setPlacedStickers(newStickers);
-      pushHistory(newStickers);
-      // Stay in stamp mode for rapid placement
+      const updated = [...overlays, newOverlay];
+      setOverlays(updated);
+      pushHistory(updated);
     },
-    [tool, stampSrc, placedStickers, pushHistory]
+    [tool, overlaySrc, overlays, pushHistory]
   );
 
   // ============================================================================
-  // STICKER DRAG
+  // OVERLAY DRAG
   // ============================================================================
 
-  const startDragSticker = useCallback(
-    (e: React.MouseEvent | React.TouchEvent, stickerId: string) => {
+  const startDragOverlay = useCallback(
+    (e: React.MouseEvent | React.TouchEvent, overlayId: string) => {
       e.stopPropagation();
       e.preventDefault();
       const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
       const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-      const sticker = placedStickers.find((s) => s.id === stickerId);
-      if (!sticker) return;
+      const overlay = overlays.find((s) => s.id === overlayId);
+      if (!overlay) return;
       const containerEl = canvasContainerRef.current;
       if (!containerEl) return;
       const containerRect = containerEl.getBoundingClientRect();
@@ -368,27 +325,27 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       const canvasOffX = canvasRect.left - containerRect.left;
       const canvasOffY = canvasRect.top - containerRect.top;
       setDragOffset({
-        x: clientX - containerRect.left - canvasOffX - sticker.x,
-        y: clientY - containerRect.top - canvasOffY - sticker.y,
+        x: clientX - containerRect.left - canvasOffX - overlay.x,
+        y: clientY - containerRect.top - canvasOffY - overlay.y,
       });
-      setDraggingSticker(stickerId);
+      setDraggingOverlay(overlayId);
       setTool("select");
-      setStampSrc(null);
+      setOverlaySrc(null);
     },
-    [placedStickers]
+    [overlays]
   );
 
-  const startResizeSticker = useCallback(
-    (e: React.MouseEvent | React.TouchEvent, stickerId: string) => {
+  const startResizeOverlay = useCallback(
+    (e: React.MouseEvent | React.TouchEvent, overlayId: string) => {
       e.stopPropagation();
       e.preventDefault();
-      setResizingSticker(stickerId);
+      setResizingOverlay(overlayId);
     },
     []
   );
 
   useEffect(() => {
-    if (!draggingSticker && !resizingSticker) return;
+    if (!draggingOverlay && !resizingOverlay) return;
 
     const onMove = (e: MouseEvent | TouchEvent) => {
       const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
@@ -401,22 +358,22 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       const canvasOffX = canvasRect.left - containerRect.left;
       const canvasOffY = canvasRect.top - containerRect.top;
 
-      if (draggingSticker) {
+      if (draggingOverlay) {
         const newX = clientX - containerRect.left - canvasOffX - dragOffset.x;
         const newY = clientY - containerRect.top - canvasOffY - dragOffset.y;
-        setPlacedStickers((prev) =>
-          prev.map((s) => (s.id === draggingSticker ? { ...s, x: newX, y: newY } : s))
+        setOverlays((prev) =>
+          prev.map((s) => (s.id === draggingOverlay ? { ...s, x: newX, y: newY } : s))
         );
       }
 
-      if (resizingSticker) {
-        setPlacedStickers((prev) =>
+      if (resizingOverlay) {
+        setOverlays((prev) =>
           prev.map((s) => {
-            if (s.id !== resizingSticker) return s;
-            const stickerCenterX = canvasOffX + s.x + s.w / 2;
-            const stickerCenterY = canvasOffY + s.y + s.h / 2;
-            const dx = clientX - containerRect.left - stickerCenterX;
-            const dy = clientY - containerRect.top - stickerCenterY;
+            if (s.id !== resizingOverlay) return s;
+            const centerX = canvasOffX + s.x + s.w / 2;
+            const centerY = canvasOffY + s.y + s.h / 2;
+            const dx = clientX - containerRect.left - centerX;
+            const dy = clientY - containerRect.top - centerY;
             const dist = Math.max(30, Math.sqrt(dx * dx + dy * dy) * 2);
             return { ...s, w: dist, h: dist };
           })
@@ -425,10 +382,9 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     };
 
     const onUp = () => {
-      if (draggingSticker || resizingSticker) {
-        // Push to history after drag/resize
-        setDraggingSticker(null);
-        setResizingSticker(null);
+      if (draggingOverlay || resizingOverlay) {
+        setDraggingOverlay(null);
+        setResizingOverlay(null);
       }
     };
 
@@ -442,19 +398,18 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       window.removeEventListener("touchmove", onMove);
       window.removeEventListener("touchend", onUp);
     };
-  }, [draggingSticker, resizingSticker, dragOffset]);
+  }, [draggingOverlay, resizingOverlay, dragOffset]);
 
   // Push history after drag/resize ends
   useEffect(() => {
-    if (!draggingSticker && !resizingSticker && loaded && history.length > 0) {
-      // Check if stickers changed from last history entry
+    if (!draggingOverlay && !resizingOverlay && loaded && history.length > 0) {
       const lastEntry = history[historyIdx];
-      if (lastEntry && JSON.stringify(lastEntry.stickers) !== JSON.stringify(placedStickers)) {
+      if (lastEntry && JSON.stringify(lastEntry.overlays) !== JSON.stringify(overlays)) {
         pushHistory();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draggingSticker, resizingSticker]);
+  }, [draggingOverlay, resizingOverlay]);
 
   // ============================================================================
   // CANVAS MOUSE/TOUCH EVENTS
@@ -516,30 +471,30 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   );
 
   // ============================================================================
-  // DELETE LAST STICKER
+  // DELETE LAST OVERLAY
   // ============================================================================
 
-  const deleteLastSticker = useCallback(() => {
-    if (placedStickers.length === 0) return;
-    const newStickers = placedStickers.slice(0, -1);
-    setPlacedStickers(newStickers);
-    pushHistory(newStickers);
-  }, [placedStickers, pushHistory]);
+  const deleteLastOverlay = useCallback(() => {
+    if (overlays.length === 0) return;
+    const updated = overlays.slice(0, -1);
+    setOverlays(updated);
+    pushHistory(updated);
+  }, [overlays, pushHistory]);
 
   // ============================================================================
-  // UPLOAD CUSTOM STICKER
+  // UPLOAD IMAGE OVERLAY
   // ============================================================================
 
-  const handleUploadSticker = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadOverlay = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       const dataURL = reader.result as string;
-      setCustomStickers((prev) => [...prev, dataURL]);
+      setOverlaySrc(dataURL);
+      setTool("stamp");
     };
     reader.readAsDataURL(file);
-    // Reset input so user can re-upload same file
     e.target.value = "";
   }, []);
 
@@ -565,31 +520,30 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     // 2. Draw brush strokes scaled up
     ectx.drawImage(drawCanvas, 0, 0, img.naturalWidth, img.naturalHeight);
 
-    // 3. Draw stickers at proportional positions
+    // 3. Draw overlays at proportional positions
     const scaleX = img.naturalWidth / canvasDisplaySize.w;
     const scaleY = img.naturalHeight / canvasDisplaySize.h;
 
-    // We need to wait for all sticker images to load, then composite
-    const stickerPromises = placedStickers.map((sticker) => {
+    const overlayPromises = overlays.map((overlay) => {
       return new Promise<void>((resolve) => {
-        const stickerImg = new Image();
-        stickerImg.crossOrigin = "anonymous";
-        stickerImg.onload = () => {
+        const overlayImg = new Image();
+        overlayImg.crossOrigin = "anonymous";
+        overlayImg.onload = () => {
           ectx.drawImage(
-            stickerImg,
-            sticker.x * scaleX,
-            sticker.y * scaleY,
-            sticker.w * scaleX,
-            sticker.h * scaleY
+            overlayImg,
+            overlay.x * scaleX,
+            overlay.y * scaleY,
+            overlay.w * scaleX,
+            overlay.h * scaleY
           );
           resolve();
         };
-        stickerImg.onerror = () => resolve();
-        stickerImg.src = sticker.src;
+        overlayImg.onerror = () => resolve();
+        overlayImg.src = overlay.src;
       });
     });
 
-    Promise.all(stickerPromises).then(() => {
+    Promise.all(overlayPromises).then(() => {
       exportCanvas.toBlob(
         (blob) => {
           if (!blob) return;
@@ -601,7 +555,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         0.92
       );
     });
-  }, [imageFile, onDone, placedStickers, canvasDisplaySize]);
+  }, [imageFile, onDone, overlays, canvasDisplaySize]);
 
   // ============================================================================
   // KEYBOARD SHORTCUTS
@@ -632,12 +586,6 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       : "default";
 
   // ============================================================================
-  // STICKER SIDEBAR DATA
-  // ============================================================================
-
-  const allStickerSrcs = [...builtinStickerURLs, ...customStickers];
-
-  // ============================================================================
   // RENDER
   // ============================================================================
 
@@ -649,23 +597,22 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         zIndex: 99999,
         display: "flex",
         flexDirection: "column",
-        background: "rgba(12, 14, 22, 0.98)",
+        background: "rgba(8, 12, 20, 0.98)",
       }}
     >
       {/* ============ VISTA-STYLE TITLEBAR ============ */}
       <div
+        className="vista-window__titlebar"
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           padding: "0 12px",
           height: 36,
-          background: "linear-gradient(180deg, rgba(40, 50, 80, 0.95) 0%, rgba(20, 26, 44, 0.95) 100%)",
-          borderBottom: "1px solid rgba(0, 204, 204, 0.15)",
           flexShrink: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="vista-window__title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div
             style={{
               width: 14,
@@ -693,323 +640,192 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
             FOID_PAINT.EXE
           </span>
         </div>
-        <button
-          onClick={onCancel}
-          style={{
-            width: 28,
-            height: 22,
-            border: "1px solid rgba(255,255,255,0.15)",
-            borderRadius: 3,
-            background: "rgba(255, 60, 60, 0.15)",
-            color: "rgba(255,255,255,0.8)",
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            lineHeight: 1,
-          }}
-          title="Close (Cancel)"
-        >
-          &times;
-        </button>
-      </div>
-
-      {/* ============ MAIN AREA: SIDEBAR + CANVAS ============ */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* ---- STICKER SIDEBAR ---- */}
-        <div
-          style={{
-            width: 180,
-            flexShrink: 0,
-            background: "rgba(20, 24, 36, 0.95)",
-            borderRight: "1px solid rgba(255,255,255,0.06)",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          {/* Upload button */}
-          <div style={{ padding: "12px 10px 8px" }}>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                width: "100%",
-                padding: "8px 0",
-                borderRadius: 5,
-                border: "1px dashed rgba(0,204,204,0.4)",
-                background: "rgba(0,204,204,0.06)",
-                color: "#00cccc",
-                fontFamily: "var(--font-terminal), monospace",
-                fontSize: 11,
-                letterSpacing: "0.06em",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              + Upload Media
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={handleUploadSticker}
-            />
-          </div>
-
-          {/* Section label */}
-          <div
+        <div className="vista-window__controls">
+          <button
+            onClick={onCancel}
             style={{
-              padding: "6px 12px 6px",
-              fontFamily: "var(--font-terminal), monospace",
-              fontSize: 10,
-              color: "rgba(255,255,255,0.35)",
-              letterSpacing: "0.12em",
-              borderTop: "1px solid rgba(255,255,255,0.06)",
-            }}
-          >
-            MEME STICKERS
-          </div>
-
-          {/* Sticker grid */}
-          <div
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              padding: "4px 8px 8px",
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 6,
-              alignContent: "start",
-            }}
-          >
-            {allStickerSrcs.map((src, i) => (
-              <button
-                key={`sticker-${i}`}
-                onClick={() => {
-                  setStampSrc(src);
-                  setTool("stamp");
-                }}
-                style={{
-                  width: "100%",
-                  aspectRatio: "1",
-                  borderRadius: 6,
-                  border:
-                    stampSrc === src && tool === "stamp"
-                      ? "2px solid #00cccc"
-                      : "1px solid rgba(255,255,255,0.08)",
-                  background:
-                    stampSrc === src && tool === "stamp"
-                      ? "rgba(0,204,204,0.1)"
-                      : "rgba(255,255,255,0.03)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: 4,
-                  boxShadow:
-                    stampSrc === src && tool === "stamp"
-                      ? "0 0 8px rgba(0,204,204,0.3)"
-                      : "none",
-                }}
-              >
-                <img
-                  src={src}
-                  alt={i < BUILTIN_STICKERS.length ? BUILTIN_STICKERS[i].label : "custom"}
-                  style={{
-                    width: "80%",
-                    height: "80%",
-                    objectFit: "contain",
-                    pointerEvents: "none",
-                  }}
-                />
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ---- CANVAS AREA ---- */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <div
-            ref={canvasContainerRef}
-            style={{
-              flex: 1,
+              width: 28,
+              height: 22,
+              border: "1px solid rgba(255,255,255,0.15)",
+              borderRadius: 3,
+              background: "rgba(255, 60, 60, 0.15)",
+              color: "rgba(255,255,255,0.8)",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              overflow: "hidden",
-              padding: 16,
-              position: "relative",
-              background: "rgba(12, 14, 22, 0.98)",
+              lineHeight: 1,
             }}
+            title="Close (Cancel)"
           >
-            {!loaded && (
-              <div
-                style={{
-                  color: "rgba(255,255,255,0.5)",
-                  fontSize: 13,
-                  fontFamily: "var(--font-terminal), monospace",
-                  letterSpacing: "0.1em",
-                }}
-              >
-                LOADING IMAGE...
-              </div>
-            )}
+            &times;
+          </button>
+        </div>
+      </div>
 
-            {/* Canvas stack */}
-            <div
-              style={{
-                position: "relative",
-                display: loaded ? "block" : "none",
-                lineHeight: 0,
-              }}
-            >
-              {/* Background canvas (image) */}
-              <canvas
-                ref={bgCanvasRef}
-                style={{
-                  display: "block",
-                  borderRadius: 2,
-                  boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
-                }}
-              />
-
-              {/* Drawing overlay canvas */}
-              <canvas
-                ref={drawCanvasRef}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  display: "block",
-                  cursor: cursorStyle,
-                  touchAction: "none",
-                }}
-                onMouseDown={onCanvasMouseDown}
-                onMouseMove={onCanvasMouseMove}
-                onMouseUp={onCanvasMouseUp}
-                onMouseLeave={onCanvasMouseUp}
-                onTouchStart={onCanvasTouchStart}
-                onTouchMove={onCanvasTouchMove}
-                onTouchEnd={onCanvasTouchEnd}
-              />
-
-              {/* Placed stickers */}
-              {placedStickers.map((sticker) => (
-                <div
-                  key={sticker.id}
-                  style={{
-                    position: "absolute",
-                    left: sticker.x,
-                    top: sticker.y,
-                    width: sticker.w,
-                    height: sticker.h,
-                    cursor: draggingSticker === sticker.id ? "grabbing" : "grab",
-                    userSelect: "none",
-                    touchAction: "none",
-                    zIndex: 10,
-                  }}
-                  onMouseDown={(e) => startDragSticker(e, sticker.id)}
-                  onTouchStart={(e) => startDragSticker(e, sticker.id)}
-                >
-                  <img
-                    src={sticker.src}
-                    alt=""
-                    draggable={false}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "contain",
-                      pointerEvents: "none",
-                    }}
-                  />
-                  {/* Resize handle */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      right: -4,
-                      bottom: -4,
-                      width: 12,
-                      height: 12,
-                      background: "#00cccc",
-                      border: "1px solid rgba(0,0,0,0.3)",
-                      borderRadius: 2,
-                      cursor: "nwse-resize",
-                      zIndex: 11,
-                    }}
-                    onMouseDown={(e) => startResizeSticker(e, sticker.id)}
-                    onTouchStart={(e) => startResizeSticker(e, sticker.id)}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Status bar */}
+      {/* ============ CANVAS AREA (full width, fills remaining space) ============ */}
+      <div
+        ref={canvasContainerRef}
+        style={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          padding: 8,
+          position: "relative",
+          background: "rgba(8, 12, 20, 0.95)",
+        }}
+      >
+        {!loaded && (
           <div
             style={{
-              padding: "4px 16px",
-              borderTop: "1px solid rgba(255,255,255,0.05)",
-              background: "rgba(16, 20, 32, 0.8)",
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              flexShrink: 0,
+              color: "rgba(255,255,255,0.5)",
+              fontSize: 13,
+              fontFamily: "var(--font-terminal), monospace",
+              letterSpacing: "0.1em",
             }}
           >
-            <span
-              style={{
-                fontSize: 11,
-                color: "rgba(255,255,255,0.4)",
-                fontFamily: "var(--font-terminal), monospace",
-              }}
-            >
-              {placedStickers.length} sticker{placedStickers.length !== 1 ? "s" : ""}
-            </span>
-            <span
-              style={{
-                fontSize: 11,
-                color: "rgba(255,255,255,0.3)",
-                fontFamily: "var(--font-terminal), monospace",
-              }}
-            >
-              |
-            </span>
-            <span
-              style={{
-                fontSize: 11,
-                color: "rgba(255,255,255,0.4)",
-                fontFamily: "var(--font-terminal), monospace",
-              }}
-            >
-              {imageFile.name}
-            </span>
-            {originalImageRef.current && (
-              <>
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: "rgba(255,255,255,0.3)",
-                    fontFamily: "var(--font-terminal), monospace",
-                  }}
-                >
-                  |
-                </span>
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: "rgba(255,255,255,0.4)",
-                    fontFamily: "var(--font-terminal), monospace",
-                  }}
-                >
-                  {originalImageRef.current.naturalWidth}x{originalImageRef.current.naturalHeight}
-                </span>
-              </>
-            )}
+            LOADING IMAGE...
           </div>
+        )}
+
+        {/* Canvas stack */}
+        <div
+          style={{
+            position: "relative",
+            display: loaded ? "block" : "none",
+            lineHeight: 0,
+          }}
+        >
+          {/* Background canvas (image) */}
+          <canvas
+            ref={bgCanvasRef}
+            style={{
+              display: "block",
+              borderRadius: 2,
+              boxShadow: isDrawing
+                ? "0 0 20px rgba(0,204,204,0.25), 0 4px 24px rgba(0,0,0,0.5)"
+                : "0 4px 24px rgba(0,0,0,0.5)",
+              transition: "box-shadow 0.3s",
+            }}
+          />
+
+          {/* Drawing overlay canvas */}
+          <canvas
+            ref={drawCanvasRef}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              display: "block",
+              cursor: cursorStyle,
+              touchAction: "none",
+              borderRadius: 2,
+              boxShadow: isDrawing
+                ? "inset 0 0 0 1px rgba(0,204,204,0.2)"
+                : "none",
+              transition: "box-shadow 0.3s",
+            }}
+            onMouseDown={onCanvasMouseDown}
+            onMouseMove={onCanvasMouseMove}
+            onMouseUp={onCanvasMouseUp}
+            onMouseLeave={onCanvasMouseUp}
+            onTouchStart={onCanvasTouchStart}
+            onTouchMove={onCanvasTouchMove}
+            onTouchEnd={onCanvasTouchEnd}
+          />
+
+          {/* Placed image overlays */}
+          {overlays.map((overlay) => (
+            <div
+              key={overlay.id}
+              style={{
+                position: "absolute",
+                left: overlay.x,
+                top: overlay.y,
+                width: overlay.w,
+                height: overlay.h,
+                cursor: draggingOverlay === overlay.id ? "grabbing" : "grab",
+                userSelect: "none",
+                touchAction: "none",
+                zIndex: 10,
+              }}
+              onMouseDown={(e) => startDragOverlay(e, overlay.id)}
+              onTouchStart={(e) => startDragOverlay(e, overlay.id)}
+            >
+              <img
+                src={overlay.src}
+                alt=""
+                draggable={false}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  pointerEvents: "none",
+                }}
+              />
+              {/* Resize handle */}
+              <div
+                style={{
+                  position: "absolute",
+                  right: -4,
+                  bottom: -4,
+                  width: 12,
+                  height: 12,
+                  background: "#00cccc",
+                  border: "1px solid rgba(0,0,0,0.3)",
+                  borderRadius: 2,
+                  cursor: "nwse-resize",
+                  zIndex: 11,
+                }}
+                onMouseDown={(e) => startResizeOverlay(e, overlay.id)}
+                onTouchStart={(e) => startResizeOverlay(e, overlay.id)}
+              />
+            </div>
+          ))}
         </div>
+      </div>
+
+      {/* ============ THIN STATUS BAR ============ */}
+      <div
+        style={{
+          height: 20,
+          padding: "0 16px",
+          borderTop: "1px solid rgba(255,255,255,0.04)",
+          background: "rgba(16, 20, 32, 0.7)",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          flexShrink: 0,
+          overflow: "hidden",
+        }}
+      >
+        <span
+          style={{
+            fontSize: 9,
+            color: "rgba(255,255,255,0.35)",
+            fontFamily: "var(--font-terminal), monospace",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {imageFile.name}
+        </span>
+        {originalImageRef.current && (
+          <span
+            style={{
+              fontSize: 9,
+              color: "rgba(255,255,255,0.25)",
+              fontFamily: "var(--font-terminal), monospace",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {originalImageRef.current.naturalWidth}x{originalImageRef.current.naturalHeight}
+          </span>
+        )}
       </div>
 
       {/* ============ BOTTOM TOOLBAR ============ */}
@@ -1018,8 +834,9 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           display: "flex",
           flexWrap: "wrap",
           alignItems: "center",
-          gap: 8,
-          padding: "10px 16px",
+          gap: 6,
+          padding: "6px 12px",
+          height: 52,
           borderTop: "1px solid rgba(0,204,204,0.1)",
           background: "rgba(16, 20, 32, 0.95)",
           flexShrink: 0,
@@ -1036,7 +853,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           active={tool === "select"}
           onClick={() => {
             setTool("select");
-            setStampSrc(null);
+            setOverlaySrc(null);
           }}
         />
         <ToolBtn
@@ -1054,7 +871,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           active={tool === "draw"}
           onClick={() => {
             setTool("draw");
-            setStampSrc(null);
+            setOverlaySrc(null);
           }}
         />
         <ToolBtn
@@ -1068,14 +885,14 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           active={tool === "eraser"}
           onClick={() => {
             setTool("eraser");
-            setStampSrc(null);
+            setOverlaySrc(null);
           }}
         />
 
         <Divider />
 
         {/* Color swatches */}
-        <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 3, alignItems: "center", flexWrap: "nowrap" }}>
           {PRESET_COLORS.map((c) => (
             <button
               key={c}
@@ -1085,8 +902,8 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
                 if (tool !== "draw" && tool !== "eraser") setTool("draw");
               }}
               style={{
-                width: 22,
-                height: 22,
+                width: 20,
+                height: 20,
                 borderRadius: "50%",
                 border: color === c ? "2px solid #00cccc" : "2px solid rgba(255,255,255,0.12)",
                 background: c,
@@ -1102,10 +919,10 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         <Divider />
 
         {/* Size slider */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <span
             style={{
-              fontSize: 10,
+              fontSize: 9,
               color: "rgba(255,255,255,0.4)",
               fontFamily: "var(--font-terminal), monospace",
               whiteSpace: "nowrap",
@@ -1127,10 +944,10 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           />
           <span
             style={{
-              fontSize: 10,
+              fontSize: 9,
               color: "rgba(255,255,255,0.5)",
               fontFamily: "var(--font-terminal), monospace",
-              minWidth: 20,
+              minWidth: 16,
               textAlign: "center",
             }}
           >
@@ -1140,7 +957,28 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
 
         <Divider />
 
-        {/* Delete last sticker */}
+        {/* + Add Image button */}
+        <ToolBtn
+          label="+ Add Image"
+          icon={
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <rect x="1" y="3" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
+              <circle cx="4" cy="6" r="1.2" fill="currentColor" />
+              <path d="M1 10L4.5 7L7 9L9.5 6.5L13 10" stroke="currentColor" strokeWidth="1.2" />
+            </svg>
+          }
+          active={tool === "stamp"}
+          onClick={() => fileInputRef.current?.click()}
+        />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: "none" }}
+          onChange={handleUploadOverlay}
+        />
+
+        {/* Delete last overlay */}
         <ToolBtn
           label="Delete"
           icon={
@@ -1151,8 +989,8 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
             </svg>
           }
           active={false}
-          onClick={deleteLastSticker}
-          disabled={placedStickers.length === 0}
+          onClick={deleteLastOverlay}
+          disabled={overlays.length === 0}
         />
 
         {/* Undo */}
@@ -1188,10 +1026,11 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         <button
           onClick={handleDone}
           style={{
-            padding: "8px 28px",
+            padding: "0 24px",
+            height: 36,
             borderRadius: 6,
-            border: "1px solid rgba(0,204,204,0.5)",
-            background: "linear-gradient(135deg, rgba(0,204,204,0.3), rgba(0,180,180,0.15))",
+            border: "1px solid rgba(0,204,204,0.6)",
+            background: "linear-gradient(135deg, rgba(0,204,204,0.35), rgba(0,180,180,0.2))",
             color: "#00cccc",
             fontSize: 13,
             fontWeight: 700,
@@ -1200,6 +1039,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
             cursor: "pointer",
             boxShadow: "0 0 16px rgba(0,204,204,0.2), inset 0 1px 0 rgba(255,255,255,0.1)",
             transition: "box-shadow 0.2s, background 0.2s",
+            flexShrink: 0,
           }}
           onMouseEnter={(e) => {
             (e.target as HTMLElement).style.boxShadow =
@@ -1240,7 +1080,7 @@ function ToolBtn({
       onClick={onClick}
       disabled={disabled}
       style={{
-        height: 32,
+        height: 36,
         paddingLeft: icon ? 8 : 12,
         paddingRight: 12,
         borderRadius: 5,
