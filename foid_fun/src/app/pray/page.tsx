@@ -49,7 +49,9 @@ function resolveEnv(): { registry?: Hex; mirror?: Hex } {
       if (!registry && env.NEXT_PUBLIC_FOIP_REGISTRY) registry = env.NEXT_PUBLIC_FOIP_REGISTRY;
       if (!mirror && env.NEXT_PUBLIC_FOIP_MIRROR) mirror = env.NEXT_PUBLIC_FOIP_MIRROR;
     }
-  } catch {}
+  } catch (err) {
+    console.warn('[pray] resolveEnv non-fatal error:', err);
+  }
   return {
     registry: (registry ?? DEFAULT_FOIP_REGISTRY) as Hex,
     mirror: (mirror ?? DEFAULT_FOIP_MIRROR) as Hex,

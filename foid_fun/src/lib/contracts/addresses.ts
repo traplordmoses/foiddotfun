@@ -38,9 +38,6 @@ export const CONTRACTS = {
   SWIPE_LOREBOARD: process.env.NEXT_PUBLIC_SWIPE_LOREBOARD ?? CANONICAL_ADDRESSES.swipeLoreboard,
 
   // ── Legacy v1 (deprecated — kept for build compatibility) ──
-  FOID_TREST_DIRECT: "",
-  MIFOID: "",
-  DUEL_ARENA: "",
   FOID_TREST_GOVERNANCE: "",
 
   // ── Fee config (readable from env) ──

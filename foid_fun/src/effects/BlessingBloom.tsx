@@ -70,7 +70,9 @@ export default function OverTheTopBlessingBloom({
         const ctx = new A();
         ctx.close?.();
       }
-    } catch {}
+    } catch (err) {
+      console.warn('[BlessingBloom] AudioContext init non-fatal error:', err);
+    }
   }, []);
 
   const display = useMemo(() => text.toUpperCase(), [text]);

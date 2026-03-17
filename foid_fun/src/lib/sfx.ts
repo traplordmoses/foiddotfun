@@ -120,7 +120,9 @@ async function fetchFirst(paths: string[]): Promise<ArrayBuffer | null> {
     try {
       const res = await fetch(p);
       if (res.ok) return await res.arrayBuffer();
-    } catch {}
+    } catch (err) {
+      console.warn('[sfx] fetchFirst failed for path:', p, err);
+    }
   }
   return null;
 }
@@ -200,7 +202,7 @@ function playViaBuffer(key: SfxKey, options: { volume?: number; detune?: number 
   const source = ac.createBufferSource();
   source.buffer = buffer;
   if (typeof options.detune === "number" && "detune" in source) {
-    try { source.detune.value = options.detune; } catch {}
+    try { source.detune.value = options.detune; } catch (err) { console.warn('[sfx] detune set non-fatal error:', err); }
   }
 
   const gain = ac.createGain();
@@ -245,7 +247,7 @@ async function playBackground(): Promise<boolean> {
     }
     const el = backgroundState.html;
     el.volume = backgroundState.volume;
-    try { if (!Number.isNaN(el.duration) && el.duration > 0) el.currentTime = backgroundState.offset % el.duration; } catch {}
+    try { if (!Number.isNaN(el.duration) && el.duration > 0) el.currentTime = backgroundState.offset % el.duration; } catch (err) { console.warn('[sfx] currentTime set non-fatal error:', err); }
     try {
       await el.play();
       backgroundState.offset = el.currentTime || backgroundState.offset;
@@ -309,7 +311,7 @@ function pauseBackground(): void {
     backgroundState.offset = 0;
   }
 
-  try { source.stop(); } catch {}
+  try { source.stop(); } catch (err) { console.warn('[sfx] source.stop non-fatal error:', err); }
   source.disconnect();
   if (backgroundState.gain) { backgroundState.gain.disconnect(); backgroundState.gain = null; }
   backgroundState.source = null;

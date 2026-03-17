@@ -20,7 +20,8 @@
  *   - Users who hold serious value should use MetaMask.
  */
 
-import { ethers } from 'ethers';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+import { toBytes, toHex } from 'viem';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -261,8 +262,9 @@ export async function create(
 ): Promise<{ wallet: FoidWallet; prfActive: boolean }> {
   if (pin.length < 6) throw new Error('PIN must be at least 6 characters.');
 
-  const ethWallet = ethers.Wallet.createRandom();
-  const privateKeyBytes = ethers.getBytes(ethWallet.privateKey);
+  const privateKey = generatePrivateKey();
+  const account = privateKeyToAccount(privateKey);
+  const privateKeyBytes = toBytes(privateKey);
 
   try {
     const { credentialId, prfOutput } = await createPasskey(userId, userName);
@@ -296,7 +298,7 @@ export async function create(
         iv: toB64(iv.buffer),
         salt: toB64(salt.buffer),
       },
-      address: ethWallet.address,
+      address: account.address,
       credentialId,
       prfActive,
       createdAt: new Date().toISOString(),
@@ -357,7 +359,7 @@ export async function unlock(
     throw new Error('Wrong PIN. Decryption failed.');
   }
 
-  const privateKeyHex = ethers.hexlify(new Uint8Array(plaintext));
+  const privateKeyHex = toHex(new Uint8Array(plaintext));
   const address = wallet.address;
 
   let locked = false;
@@ -427,20 +429,39 @@ export function getStoredAddress(): string | null {
 // In-memory cache of the unlocked private key for the current session.
 // Cleared on disconnect or page reload. Never persisted to storage.
 
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
 let _sessionPrivateKey: string | null = null;
 let _sessionAddress: string | null = null;
+let _sessionLastActivity: number = 0;
 
 export function setSession(privateKey: string, address: string): void {
   _sessionPrivateKey = privateKey;
   _sessionAddress = address;
+  _sessionLastActivity = Date.now();
 }
 
 export function getSession(): { privateKey: string; address: string } | null {
   if (!_sessionPrivateKey || !_sessionAddress) return null;
+
+  // Check if session has timed out
+  if (Date.now() - _sessionLastActivity > SESSION_TIMEOUT_MS) {
+    clearSession();
+    return null;
+  }
+
   return { privateKey: _sessionPrivateKey, address: _sessionAddress };
+}
+
+/** Refresh the session timeout. Call on each signing operation. */
+export function refreshSession(): void {
+  if (_sessionPrivateKey && _sessionAddress) {
+    _sessionLastActivity = Date.now();
+  }
 }
 
 export function clearSession(): void {
   _sessionPrivateKey = null;
   _sessionAddress = null;
+  _sessionLastActivity = 0;
 }

@@ -7,6 +7,23 @@ import { getEpochInfo } from "@/lib/epoch";
 export const runtime = "nodejs";
 
 const MAX_CELLS = Number(process.env.NEXT_PUBLIC_MAX_CELLS_PER_RECT ?? 400);
+const ETH_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
+const MAX_CID_LENGTH = 100;
+const MAX_NAME_LENGTH = 256;
+const PLACEMENT_COOLDOWN_MS = 10_000; // 10 seconds per owner
+
+// Per-owner rate limit tracking
+const ownerLastPlacement = new Map<string, number>();
+
+// Clean up stale entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [owner, ts] of ownerLastPlacement) {
+    if (now - ts > PLACEMENT_COOLDOWN_MS * 2) {
+      ownerLastPlacement.delete(owner);
+    }
+  }
+}, 5 * 60_000);
 
 type PlaceReq = {
   id?: string;
@@ -35,6 +52,33 @@ export async function POST(req: Request) {
   if (!owner || !cid || !rect || typeof cells !== "number" || !feePerCellWei || !tipPerCellWei) {
     return NextResponse.json({ error: "missing fields" }, { status: 400 });
   }
+
+  // Validate owner is a valid Ethereum address
+  if (!ETH_ADDRESS_PATTERN.test(owner)) {
+    return NextResponse.json({ error: "invalid owner address" }, { status: 400 });
+  }
+
+  // Validate CID length
+  if (cid.length > MAX_CID_LENGTH) {
+    return NextResponse.json({ error: `cid too long (max ${MAX_CID_LENGTH} chars)` }, { status: 400 });
+  }
+
+  // Validate name length if provided
+  if (name && name.length > MAX_NAME_LENGTH) {
+    return NextResponse.json({ error: `name too long (max ${MAX_NAME_LENGTH} chars)` }, { status: 400 });
+  }
+
+  // Per-owner rate limit
+  const ownerLower = owner.toLowerCase();
+  const lastPlacement = ownerLastPlacement.get(ownerLower);
+  if (lastPlacement && Date.now() - lastPlacement < PLACEMENT_COOLDOWN_MS) {
+    const waitSec = Math.ceil((PLACEMENT_COOLDOWN_MS - (Date.now() - lastPlacement)) / 1000);
+    return NextResponse.json(
+      { error: `Too fast. Please wait ${waitSec}s before placing again.` },
+      { status: 429 },
+    );
+  }
+
   if (cells <= 0 || cells > MAX_CELLS) {
     return NextResponse.json({ error: `cells out of bounds (<= ${MAX_CELLS})` }, { status: 400 });
   }
@@ -57,6 +101,9 @@ export async function POST(req: Request) {
   const list = store.pendingByEpoch.get(epochId) ?? [];
   list.push(intent);
   store.pendingByEpoch.set(epochId, list);
+
+  // Record placement time for rate limiting
+  ownerLastPlacement.set(ownerLower, Date.now());
 
   return NextResponse.json({ ok: true, epoch: epochId, id: intent.id });
 }

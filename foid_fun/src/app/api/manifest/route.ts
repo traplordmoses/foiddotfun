@@ -24,12 +24,17 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({
-    epoch: record.epoch,
-    manifestCID: record.cid,
-    manifest: {
-      finalizedAt: record.finalizedAt,
-      placements: record.placements,
+  return NextResponse.json(
+    {
+      epoch: record.epoch,
+      manifestCID: record.cid,
+      manifest: {
+        finalizedAt: record.finalizedAt,
+        placements: record.placements,
+      },
     },
-  });
+    {
+      headers: { "Cache-Control": "public, max-age=30" },
+    }
+  );
 }

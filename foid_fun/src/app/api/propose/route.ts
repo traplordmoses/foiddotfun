@@ -122,15 +122,35 @@ export async function POST(req: Request) {
   });
 }
 
+const CID_PATTERN = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{58,})$/;
+const FETCH_TIMEOUT_MS = 30_000;
+const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 async function fetchCidHash(cid: string): Promise<`0x${string}` | null> {
   const normalized = cid.replace(/^ipfs:\/\//, "").trim();
   if (!normalized) return null;
+
+  // Validate CID format before fetching
+  if (!CID_PATTERN.test(normalized)) return null;
+
   const urls = ipfsToHttp(normalized);
   for (const url of urls) {
     try {
-      const res = await fetch(url);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+
       if (!res.ok) continue;
+
+      // Check Content-Length if available
+      const contentLength = res.headers.get("content-length");
+      if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_BYTES) continue;
+
       const bytes = new Uint8Array(await res.arrayBuffer());
+      if (bytes.byteLength > MAX_RESPONSE_BYTES) continue;
+
       return keccak256(bytes);
     } catch {
       // continue to next gateway

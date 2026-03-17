@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cleanIpfsPath } from "@/lib/ipfsUrl";
 
+const CID_PATTERN = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{58,})$/;
+const FETCH_TIMEOUT_MS = 30_000;
+const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 function normalizeGateway(value?: string | null) {
   if (!value) return null;
   const trimmed = value.trim();
@@ -28,6 +32,11 @@ export async function GET(
     return bad("Missing or invalid CID");
   }
 
+  // Strict CID validation to prevent SSRF
+  if (!CID_PATTERN.test(cleaned)) {
+    return bad("Invalid CID format");
+  }
+
   const url = `${PINATA_GATEWAY_BASE}/ipfs/${cleaned}`;
 
   const headers = new Headers();
@@ -36,7 +45,16 @@ export async function GET(
   }
 
   try {
-    const response = await fetch(url, { method: "GET", headers });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
     if (!response.ok) {
       const text = await response.text().catch(() => "");
       const message = text ? `${response.statusText}: ${text}` : response.statusText;
@@ -44,6 +62,12 @@ export async function GET(
         { error: `Gateway responded ${response.status}: ${message}` },
         { status: response.status }
       );
+    }
+
+    // Check Content-Length if available
+    const contentLength = response.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_BYTES) {
+      return bad("Response too large (max 10MB)", 413);
     }
 
     const forwardedHeaders = new Headers(response.headers);
@@ -55,6 +79,9 @@ export async function GET(
       headers: forwardedHeaders,
     });
   } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return NextResponse.json({ error: "IPFS gateway request timed out" }, { status: 504 });
+    }
     console.error("[api/ipfs] fetch failed:", error);
     return NextResponse.json({ error: "Failed to fetch from IPFS gateway" }, { status: 502 });
   }

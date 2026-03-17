@@ -12,6 +12,7 @@ import { useSwipeVote } from "@/hooks/useSwipeVote";
 import { useReadContract } from "wagmi";
 import toast from "react-hot-toast";
 import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
+import { CHAIN_ID } from "@/config/canonical";
 
 function tryNextGateway(el: HTMLImageElement, cid?: string) {
   if (!cid) return;
@@ -27,7 +28,7 @@ function truncateAddress(addr: string): string {
 const EIP712_DOMAIN = {
   name: "FoidSwipe",
   version: "1",
-  chainId: 20994,
+  chainId: CHAIN_ID,
   verifyingContract: CONTRACTS.SWIPE as `0x${string}`,
 };
 
@@ -84,7 +85,9 @@ export default function ProposalDetailPage() {
         const data = await res.json();
         if (!alive) return;
         setVoteCounts({ forCount: data.forCount ?? 0, againstCount: data.againstCount ?? 0 });
-      } catch {}
+      } catch (err) {
+        console.warn('[swipe/detail] fetchVotes non-fatal error:', err);
+      }
     };
     fetchVotes();
     const interval = setInterval(fetchVotes, 5000);

@@ -1,7 +1,9 @@
+import { CHAIN_ID } from "@/config/canonical";
+
 export const NETWORK_DETAILS = {
   chainName: "Fluent Testnet",
   rpcUrl: "https://rpc.testnet.fluent.xyz",
-  chainId: 20994,
+  chainId: CHAIN_ID,
   explorer: "https://testnet.fluentscan.xyz",
 } as const;
 

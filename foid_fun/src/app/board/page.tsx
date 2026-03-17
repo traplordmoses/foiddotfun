@@ -72,6 +72,7 @@ import {
 } from "@/lib/boardImages";
 import { parseWeb3Error, isUserRejection } from "@/lib/errors";
 import { insertBoardMessage } from "@/lib/supabase";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -735,7 +736,9 @@ function BoardPageContent() {
         bmp.close?.();
         return { w, h };
       }
-    } catch {}
+    } catch (err) {
+      console.warn('[board] createImageBitmap failed, falling back to Image:', err);
+    }
     const url = URL.createObjectURL(file);
     try {
       const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
@@ -1341,7 +1344,7 @@ function BoardPageContent() {
                           onClick={() => setActivePlacement(proposalToPlacement(p))}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={cidToHttpUrl(p.cid)} alt={p.name} className="board-proposal__img" draggable={false} onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
+                          <img src={cidToHttpUrl(p.cid)} alt={p.name} className="board-proposal__img" draggable={false} loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
                           {isSelectedProposal && <span className="board-proposal__badge">selected</span>}
                         </figure>
                       );
@@ -1353,7 +1356,7 @@ function BoardPageContent() {
                       return (
                         <figure key={p.id} className="board-pending" style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h }}>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={p.previewUrl} alt={p.name} className="board-pending__img" draggable={false} />
+                          <img src={p.previewUrl} alt={p.name} className="board-pending__img" draggable={false} loading="lazy" />
                           <button className="board-pending__move" onPointerDown={beginMove(p)} type="button">⠿</button>
                           <button className="board-pending__resize" onPointerDown={beginResize(p)} type="button">↘</button>
                           <button className="board-pending__remove" onClick={() => { URL.revokeObjectURL(p.previewUrl); removePending(p.id); }} type="button">×</button>
@@ -2206,17 +2209,19 @@ function BoardPageContent() {
 
 export default function BoardPage() {
   return (
-    <Suspense
-      fallback={
-        <main className="min-h-screen w-full flex items-center justify-center px-4">
-          <div className="font-terminal text-xs uppercase tracking-[0.16em] text-white/70 flex items-center gap-3">
-            <span className="inline-block h-4 w-4 rounded-full border-2 border-cyan-100/35 border-t-cyan-100 animate-spin" />
-            loading board...
-          </div>
-        </main>
-      }
-    >
-      <BoardPageContent />
-    </Suspense>
+    <ErrorBoundary title="Board Error" description="Something went wrong loading the board. This has been logged.">
+      <Suspense
+        fallback={
+          <main className="min-h-screen w-full flex items-center justify-center px-4">
+            <div className="font-terminal text-xs uppercase tracking-[0.16em] text-white/70 flex items-center gap-3">
+              <span className="inline-block h-4 w-4 rounded-full border-2 border-cyan-100/35 border-t-cyan-100 animate-spin" />
+              loading board...
+            </div>
+          </main>
+        }
+      >
+        <BoardPageContent />
+      </Suspense>
+    </ErrorBoundary>
   );
 }

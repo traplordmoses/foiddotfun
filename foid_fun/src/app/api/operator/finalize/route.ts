@@ -33,7 +33,7 @@ import {
   LOREBOARD_VOTING_ADDRESS,
   loreboardVotingAbi,
 } from "@/contracts/loreboardVoting";
-import { CANONICAL_ADDRESSES, requireCanonicalAddress } from "@/config/canonical";
+import { CANONICAL_ADDRESSES, CHAIN_ID, requireCanonicalAddress } from "@/config/canonical";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -88,7 +88,7 @@ const getRuntimeConfig = () => {
     : undefined;
 
   const chain = defineChain({
-    id: 20994,
+    id: CHAIN_ID,
     name: "Fluent Testnet",
     nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
     rpcUrls: { default: { http: [rpc] } },

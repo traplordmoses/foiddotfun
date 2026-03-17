@@ -96,60 +96,81 @@ export function usePendingProposals() {
 
         if (!alive) return;
 
-        // Parse events and check voting status
-        const proposalsWithVotes = await Promise.all(
-          logs.map(async (log) => {
-            try {
-              const args = log.args as {
-                id: `0x${string}`;
-                proposer: `0x${string}`;
-                cid: string;
-                x: bigint;
-                y: bigint;
-                w: bigint;
-                h: bigint;
-                submittedAt: bigint;
-              };
+        // Parse events and filter to active proposals
+        const parsedLogs = logs.map((log) => {
+          const args = log.args as {
+            id: `0x${string}`;
+            proposer: `0x${string}`;
+            cid: string;
+            x: bigint;
+            y: bigint;
+            w: bigint;
+            h: bigint;
+            submittedAt: bigint;
+          };
+          const submitTime = Number(args.submittedAt);
+          const voteEndsAt = submitTime + VOTING_PERIOD_SECONDS;
+          const timeRemaining = Math.max(0, voteEndsAt - currentTime);
+          return { args, submitTime, voteEndsAt, timeRemaining };
+        }).filter((p) => p.timeRemaining > 0);
 
-              // Fetch vote counts
-              const [yes, no] = await publicClient.readContract({
+        // Batch all getVotes calls into a single multicall
+        let voteResults: { yes: bigint; no: bigint }[];
+        if (parsedLogs.length > 0) {
+          try {
+            const multicallResults = await publicClient.multicall({
+              contracts: parsedLogs.map((p) => ({
                 address: VOTING_CONTRACT_ADDRESS,
                 abi: VOTING_ABI,
-                functionName: "getVotes",
-                args: [args.id],
-              });
-
-              const submitTime = Number(args.submittedAt);
-              const voteEndsAt = submitTime + VOTING_PERIOD_SECONDS;
-              const timeRemaining = Math.max(0, voteEndsAt - currentTime);
-
-              // Only include if still in voting period
-              if (timeRemaining > 0) {
-                return {
-                  id: args.id,
-                  proposer: args.proposer,
-                  cid: args.cid,
-                  x: Number(args.x),
-                  y: Number(args.y),
-                  w: Number(args.w),
-                  h: Number(args.h),
-                  submittedAt: submitTime,
-                  votesYes: yes,
-                  votesNo: no,
-                  voteEndsAt,
-                  timeRemaining,
-                };
+                functionName: "getVotes" as const,
+                args: [p.args.id] as const,
+              })),
+            });
+            voteResults = multicallResults.map((r) => {
+              if (r.status === "success") {
+                const [yes, no] = r.result as [bigint, bigint];
+                return { yes, no };
               }
-              return null;
-            } catch (err) {
-              debug.warn('[usePendingProposals] Failed to process proposal:', err);
-              return null;
-            }
-          })
-        );
+              return { yes: 0n, no: 0n };
+            });
+          } catch (err) {
+            debug.warn('[usePendingProposals] multicall failed, falling back to individual calls:', err);
+            voteResults = await Promise.all(
+              parsedLogs.map(async (p) => {
+                try {
+                  const [yes, no] = await publicClient.readContract({
+                    address: VOTING_CONTRACT_ADDRESS,
+                    abi: VOTING_ABI,
+                    functionName: "getVotes",
+                    args: [p.args.id],
+                  });
+                  return { yes, no };
+                } catch {
+                  return { yes: 0n, no: 0n };
+                }
+              })
+            );
+          }
+        } else {
+          voteResults = [];
+        }
 
-        // Filter out expired proposals and errors
-        const activeProposals = proposalsWithVotes.filter(Boolean) as PendingProposal[];
+        const proposalsWithVotes = parsedLogs.map((p, i) => ({
+          id: p.args.id,
+          proposer: p.args.proposer,
+          cid: p.args.cid,
+          x: Number(p.args.x),
+          y: Number(p.args.y),
+          w: Number(p.args.w),
+          h: Number(p.args.h),
+          submittedAt: p.submitTime,
+          votesYes: voteResults[i].yes,
+          votesNo: voteResults[i].no,
+          voteEndsAt: p.voteEndsAt,
+          timeRemaining: p.timeRemaining,
+        }));
+
+        const activeProposals = proposalsWithVotes as PendingProposal[];
 
         if (alive) {
           setProposals(activeProposals);
@@ -170,10 +191,10 @@ export function usePendingProposals() {
 
     loadProposals();
 
-    // Refresh every 30 seconds to update vote counts and time remaining
+    // Refresh every 120 seconds to update vote counts and time remaining
     intervalId = setInterval(() => {
       void loadProposals();
-    }, 30000);
+    }, 120000);
 
     return () => {
       alive = false;

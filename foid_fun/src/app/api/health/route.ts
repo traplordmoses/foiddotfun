@@ -8,16 +8,21 @@ export async function GET() {
   const usagePercent = (heapUsedMB / heapTotalMB) * 100;
   const status = usagePercent > 80 ? "warning" : "healthy";
 
-  return NextResponse.json({
-    status,
-    uptime: Math.round(process.uptime()),
-    memory: {
-      heapUsed: `${heapUsedMB} MB`,
-      heapTotal: `${heapTotalMB} MB`,
-      usage: `${Math.round(usagePercent)}%`,
+  return NextResponse.json(
+    {
+      status,
+      uptime: Math.round(process.uptime()),
+      memory: {
+        heapUsed: `${heapUsedMB} MB`,
+        heapTotal: `${heapTotalMB} MB`,
+        usage: `${Math.round(usagePercent)}%`,
+      },
+      timestamp: new Date().toISOString(),
     },
-    timestamp: new Date().toISOString(),
-  });
+    {
+      headers: { "Cache-Control": "no-store" },
+    }
+  );
 }
 
 export const dynamic = "force-dynamic";

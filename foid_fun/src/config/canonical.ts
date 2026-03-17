@@ -146,6 +146,8 @@ if (!deployBlockEnv) {
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
+export const IS_MAINNET = process.env.NEXT_PUBLIC_IS_MAINNET === 'true';
+
 export function requireCanonicalAddress(params: {
   label: string;
   envValue?: string | null;

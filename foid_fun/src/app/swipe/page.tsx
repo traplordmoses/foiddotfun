@@ -11,6 +11,7 @@ import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { useSwipeVote } from "@/hooks/useSwipeVote";
 import toast from "react-hot-toast";
 import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
+import { CHAIN_ID } from "@/config/canonical";
 
 function tryNextGateway(el: HTMLImageElement, cid?: string) {
   if (!cid) return;
@@ -30,7 +31,7 @@ function getVotedIds(wallet?: string): Set<number> {
     const raw = localStorage.getItem(`foid-swipe-voted-${wallet.toLowerCase()}`);
     if (!raw) return new Set();
     return new Set(JSON.parse(raw) as number[]);
-  } catch { return new Set(); }
+  } catch (err) { console.warn('[swipe] getVotedIds parse error:', err); return new Set(); }
 }
 
 /** Save voted proposal IDs to localStorage */
@@ -66,7 +67,7 @@ const CARD_VISUALS = [
 const EIP712_DOMAIN = {
   name: "FoidSwipe",
   version: "1",
-  chainId: 20994,
+  chainId: CHAIN_ID,
   verifyingContract: CONTRACTS.SWIPE as `0x${string}`,
 };
 
@@ -131,7 +132,7 @@ function SwipeCard({
         >
           <div className="w-full aspect-square">
             {nextProposal.ipfsCid ? (
-              <img src={cidToHttpUrl(nextProposal.ipfsCid)} alt="Next" className="h-full w-full object-cover opacity-50" draggable={false} />
+              <img src={cidToHttpUrl(nextProposal.ipfsCid)} alt="Next" className="h-full w-full object-cover opacity-50" draggable={false} loading="lazy" />
             ) : nextVisual ? (
               <div className="flex h-full w-full items-center justify-center opacity-50" style={{ background: nextVisual.gradient }}>
                 <span className="text-5xl">{nextVisual.symbol}</span>
@@ -162,7 +163,7 @@ function SwipeCard({
 
         <div className="w-full aspect-square">
           {proposal.ipfsCid ? (
-            <img src={cidToHttpUrl(proposal.ipfsCid)} alt={`Proposal #${proposal.id}`} className="h-full w-full object-cover" draggable={false} onError={(e) => tryNextGateway(e.currentTarget, proposal.ipfsCid)} />
+            <img src={cidToHttpUrl(proposal.ipfsCid)} alt={`Proposal #${proposal.id}`} className="h-full w-full object-cover" draggable={false} loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, proposal.ipfsCid)} />
           ) : (
             <div className="flex h-full w-full items-center justify-center relative" style={{ background: visual.gradient }}>
               <span className="text-7xl drop-shadow-[0_0_24px_rgba(255,255,255,0.2)]">{visual.symbol}</span>
@@ -238,7 +239,8 @@ export default function SwipePage() {
         const data = await res.json();
         if (!alive) return;
         setProposals(data.proposals ?? []);
-      } catch {
+      } catch (err) {
+        console.warn('[swipe] loadProposals non-fatal error:', err);
         if (!alive) return;
         setProposals([]);
       } finally {
@@ -268,7 +270,7 @@ export default function SwipePage() {
             (v: { voter: string }) => v.voter.toLowerCase() === address.toLowerCase()
           );
           if (userVoted) local.add(p.id);
-        } catch { /* ignore */ }
+        } catch (err) { console.warn('[swipe] checkVotes non-fatal error for proposal:', p.id, err); }
       }
       if (!alive) return;
       if (local.size > votedIdsRef.current.size) {

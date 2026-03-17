@@ -97,8 +97,12 @@ export async function POST(req: Request) {
           args: [nx, ny, nw, nh, bidPerCellWei, cidHex],
           value,
         });
+        // Clamp estimated gas within bounds
+        if (gas < 200_000n) gas = 200_000n;
+        if (gas > 1_000_000n) gas = 1_000_000n;
       } catch {
         gas = 500_000n;
+        console.warn("[api/agent/propose] gas estimation failed, using fallback:", gas.toString());
       }
 
       txHash = await walletClient.writeContract({

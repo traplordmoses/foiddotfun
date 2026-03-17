@@ -22,7 +22,9 @@ function decodeCidFromBytes(bytesHex: string): string | null {
     if (/^bafy[1-9A-HJ-NP-Za-km-z]+$/.test(trimmed)) return trimmed;
     // Return whatever we decoded if it looks like it might be content
     if (trimmed.length > 10) return trimmed;
-  } catch {}
+  } catch (err) {
+    console.warn('[api/proposals] decodeCidFromBytes non-fatal error:', err);
+  }
 
   return null;
 }
