@@ -5,7 +5,6 @@ const DOTENV_HINT =
 
 const DEFAULT_CHAIN_ID = 20994;
 const DEFAULT_RPC_URL = "https://rpc.testnet.fluent.xyz";
-const QUICKNODE_RPC_URL = "https://flashy-indulgent-knowledge.fluent-testnet.quiknode.pro/ef03557510e0b97fe678aeff63c7a9ef0181a852";
 
 export const CANONICAL_CHAIN = {
   id: DEFAULT_CHAIN_ID,
@@ -75,7 +74,7 @@ export const RPC_URL =
     "NEXT_PUBLIC_FLUENT_RPC",
     "FLUENT_RPC_URL",
     "NEXT_PUBLIC_RPC_URL",
-  ]) ?? QUICKNODE_RPC_URL;
+  ]) ?? DEFAULT_RPC_URL;
 
 /** Public RPC as fallback when QuickNode is down */
 export const FALLBACK_RPC_URL = DEFAULT_RPC_URL;

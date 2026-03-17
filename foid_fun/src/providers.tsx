@@ -46,13 +46,8 @@ export const config = createConfig({
   chains: [TARGET_CHAIN],
   transports: {
     [TARGET_CHAIN_ID]: fallback([
-      http("https://flashy-indulgent-knowledge.fluent-testnet.quiknode.pro/ef03557510e0b97fe678aeff63c7a9ef0181a852", { retryCount: 3, retryDelay: 500 }),
-      http(
-        process.env.NEXT_PUBLIC_RPC ??
-          process.env.NEXT_PUBLIC_RPC_URL ??
-          (TARGET_CHAIN.rpcUrls.default.http[0] ?? "https://rpc.testnet.fluent.xyz"),
-        { retryCount: 2, retryDelay: 1000 },
-      ),
+      http(TARGET_CHAIN.rpcUrls.default.http[0], { retryCount: 3, retryDelay: 500 }),
+      http("https://rpc.testnet.fluent.xyz", { retryCount: 2, retryDelay: 1000 }),
     ]),
   },
   ssr: false,

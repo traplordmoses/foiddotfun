@@ -21,21 +21,21 @@ type EIP1193Provider = { request: EIP1193RequestFn };
 
 const ACTIVE_KEY = "foid-embedded-active";
 
-const QUICKNODE_RPC =
-  "https://flashy-indulgent-knowledge.fluent-testnet.quiknode.pro/ef03557510e0b97fe678aeff63c7a9ef0181a852";
-
-const PUBLIC_RPC =
+const PRIMARY_RPC =
+  process.env.NEXT_PUBLIC_FLUENT_RPC ??
   process.env.NEXT_PUBLIC_RPC ??
   process.env.NEXT_PUBLIC_RPC_URL ??
   TARGET_CHAIN.rpcUrls.default.http[0] ??
   "https://rpc.testnet.fluent.xyz";
 
-const RPC_URLS = [QUICKNODE_RPC, PUBLIC_RPC];
+const FALLBACK_RPC = "https://rpc.testnet.fluent.xyz";
+
+const RPC_URLS = [PRIMARY_RPC, FALLBACK_RPC];
 
 const resilientTransport = fallback(
   [
-    http(QUICKNODE_RPC, { retryCount: 3, retryDelay: 500 }),
-    http(PUBLIC_RPC, { retryCount: 2, retryDelay: 1000 }),
+    http(PRIMARY_RPC, { retryCount: 3, retryDelay: 500 }),
+    http(FALLBACK_RPC, { retryCount: 2, retryDelay: 1000 }),
   ],
   { rank: false },
 );
