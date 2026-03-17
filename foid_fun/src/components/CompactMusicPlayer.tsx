@@ -247,7 +247,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         :global(.cmp-trigger) {
           position: fixed;
           bottom: 20px;
-          right: 20px;
+          left: 20px;
           z-index: 50;
           width: 40px;
           height: 40px;

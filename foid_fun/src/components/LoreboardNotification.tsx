@@ -113,7 +113,7 @@ export function LoreboardNotification({ address }: Props) {
           style={{
             position: "fixed",
             bottom: 24,
-            left: 24,
+            right: 24,
             zIndex: 50,
             width: 48,
             height: 48,
