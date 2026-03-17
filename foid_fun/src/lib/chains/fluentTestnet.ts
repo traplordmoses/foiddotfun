@@ -1,7 +1,8 @@
 import { defineChain } from "viem";
 import { CANONICAL_CHAIN } from "@/config/canonical";
 
-const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC ?? CANONICAL_CHAIN.rpcUrl;
+const QUICKNODE_RPC = "https://flashy-indulgent-knowledge.fluent-testnet.quiknode.pro/ef03557510e0b97fe678aeff63c7a9ef0181a852";
+const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC || QUICKNODE_RPC;
 
 export const fluentTestnet = defineChain({
   id: 20994,
