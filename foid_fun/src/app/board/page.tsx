@@ -2109,6 +2109,7 @@ function BoardPageContent() {
           pointer-events: none;
           opacity: 0.18;
           mix-blend-mode: screen;
+          z-index: -1;
         }
         :global(.terminal-chat::after) {
           content: "";
@@ -2122,9 +2123,9 @@ function BoardPageContent() {
           opacity: 0.08;
           pointer-events: none;
           mix-blend-mode: screen;
-          z-index: 0;
+          z-index: -1;
         }
-        :global(.terminal-chat__messages) { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; font-size: 11px; line-height: 1.5; }
+        :global(.terminal-chat__messages) { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; font-size: 11px; line-height: 1.5; position: relative; z-index: 1; }
         :global(.terminal-chat__line) { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
         :global(.terminal-chat__time) { color: rgba(255,255,255,0.35); font-size: 9px; }
         :global(.terminal-chat__user) { color: var(--foid-accent); font-weight: 600; background: var(--foid-accent-soft); padding: 1px 5px; border-radius: 2px; font-size: 9px; }
