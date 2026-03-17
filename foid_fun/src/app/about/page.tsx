@@ -619,7 +619,7 @@ const sections: Section[] = [
       <>
         <GlassPanel>
           <p>
-            <strong>FOID runs on Fluent Testnet.</strong> This means everything is free (just gas fees). You&apos;re not spending real money to pray or propose memes. You&apos;re just... participating.
+            <strong>FOID runs on Fluent.</strong> When you connect, FOID Wallet creates a secure wallet right in your browser&mdash;just choose a PIN and confirm with your passkey. No MetaMask required. No seed phrases.
           </p>
           <p style={{ marginTop: '12px' }}>
             Here&apos;s how to get in:
@@ -630,13 +630,13 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">1. connect your wallet</p>
             <p className="aboutMiniCard__body">
-              Use MetaMask, Rainbow, Coinbase Wallet, whatever you have. When you connect, FOID will auto-detect you&apos;re not on Fluent Testnet and ask if you want to add it. Click yes. That&apos;s it. Chain ID: 20994 (in case you need to add it manually).
+              Click connect and choose FOID Wallet. Pick a PIN (6+ characters), confirm with your passkey (Face ID / Touch ID / Windows Hello), and you&apos;re in. No extensions, no seed phrases. Already have MetaMask? That works too&mdash;FOID auto-detects Fluent and prompts you to add it.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">2. get testnet eth (it&apos;s free)</p>
+            <p className="aboutMiniCard__title">2. get some eth for gas</p>
             <p className="aboutMiniCard__body">
-              You need testnet ETH for gas. Not real ETH. Fake internet money for a fake internet chain. But it works. Go to <a href="https://testnet.fluent.xyz/dev-portal" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Faucet</a> and claim some. Takes like 30 seconds. Need more? Ping in Discord.
+              You need a tiny bit of ETH for gas fees (fractions of a cent per transaction). If you&apos;re on testnet, grab free ETH from the <a href="https://testnet.fluent.xyz/dev-portal" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Faucet</a>. On mainnet, you&apos;ll need real ETH&mdash;but gas on Fluent is dirt cheap. Need help? Ping in Discord.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -704,7 +704,7 @@ const sections: Section[] = [
             <strong>We&apos;re not doing a big reveal. We&apos;re building in the open.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            Testnet proves it works. Mainnet makes it real. MiFOID adds identity. Then we see what happens.
+            Everything&apos;s been battle-tested. Mainnet makes it real. MiFOID adds identity. Then we see what happens.
           </p>
           <p style={{ marginTop: '12px' }}>
             Each phase builds on the last. Some things will change. Some will fail. That&apos;s how this works.
@@ -713,7 +713,7 @@ const sections: Section[] = [
 
         <div className="aboutRoadmapGrid grid gap-4 md:grid-cols-3 w-full" style={{ marginTop: '16px' }}>
           <div className="aboutMiniCard aboutGlassCard aboutRoadmapCard">
-            <p className="aboutMiniCard__title">right now (testnet alpha)</p>
+            <p className="aboutMiniCard__title">right now (live)</p>
             <p className="aboutMiniCard__body">
               ✅ Foid Mommy Terminal - pray daily, build streaks, tier system<br/>
               ✅ Loreboard Canvas - propose memes, vote, canonize<br/>
@@ -729,7 +729,7 @@ const sections: Section[] = [
           </div>
 
           <div className="aboutMiniCard aboutGlassCard aboutRoadmapCard">
-            <p className="aboutMiniCard__title">Q1 2026 (mainnet launch)</p>
+            <p className="aboutMiniCard__title">mainnet launch — imminent</p>
             <p className="aboutMiniCard__body">
               🚀 Fluent mainnet launch<br/>
               🚀 Real ETH economy (no more testnet)<br/>
@@ -830,8 +830,8 @@ const sections: Section[] = [
       <>
         <GlassPanel>
           <p>
-            Every piece of FOID runs on <strong>verified smart contracts</strong> deployed to the{" "}
-            <a href="https://testnet.fluentscan.xyz" className="text-cyan-300 underline" target="_blank" rel="noopener noreferrer">Fluent testnet</a>.
+            Every piece of FOID runs on <strong>verified smart contracts</strong> deployed on{" "}
+            <a href="https://testnet.fluentscan.xyz" className="text-cyan-300 underline" target="_blank" rel="noopener noreferrer">Fluent</a>.
             All contract source code is open and verified on Blockscout — you can read every line, audit every function, and verify every transaction.
           </p>
           <p style={{ marginTop: '12px' }}>
@@ -945,10 +945,13 @@ const sections: Section[] = [
       <>
         <GlassPanel>
           <p>
-            <strong>No extension. No seed phrase. Just your fingerprint.</strong>
+            <strong>No extension. No seed phrase. Just a PIN and your passkey.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            FOID Wallet is a browser-native embedded wallet. When you click &quot;FOID Wallet&quot; in the connect modal, a private key is generated locally in your browser, encrypted, and stored in your device&apos;s IndexedDB. You never need to install MetaMask or write down 12 words. Your biometrics (Face ID, Touch ID, Windows Hello) protect access to your key.
+            FOID Wallet is a browser-native embedded wallet. When you click &quot;FOID Wallet&quot; in the connect modal, a private key is generated locally in your browser using <code className="text-cyan-300">crypto.getRandomValues()</code> via viem. That key gets encrypted with AES-256-GCM&mdash;the encryption key is derived from a PIN you choose (6+ characters) via PBKDF2 with 600,000 iterations. Your PIN is NEVER stored anywhere. You must remember it.
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            On top of the PIN, your device&apos;s passkey (Face ID, Touch ID, Windows Hello) provides biometric authentication. If your device supports WebAuthn PRF, the PRF output is XOR&apos;d with the PIN-derived key&mdash;meaning an attacker needs BOTH your PIN and your biometric to decrypt. The encrypted wallet is stored in localStorage (safe because it&apos;s encrypted). Session auto-locks after 30 minutes of inactivity.
           </p>
           <p style={{ marginTop: '12px' }}>
             <strong>Transactions are instant and silent.</strong> Because the key lives on your device, FOID signs transactions locally without any popup or confirmation dialog. When you swipe on a meme, your EIP-712 signature is created automatically in the background. This is by design&mdash;it&apos;s what makes the experience feel native instead of clunky.
@@ -963,25 +966,25 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Key Generation</p>
             <p className="aboutMiniCard__body">
-              A standard Ethereum private key is generated using <code className="text-cyan-300">crypto.getRandomValues()</code>&mdash;the same cryptographically secure randomness that banks use. The key is created entirely in your browser. It never touches a server.
+              A standard Ethereum private key is generated using <code className="text-cyan-300">crypto.getRandomValues()</code> via viem&mdash;the same cryptographically secure randomness that banks use. The key is created entirely in your browser. It never touches a server.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">Passkey Encryption</p>
+            <p className="aboutMiniCard__title">PIN Encryption</p>
             <p className="aboutMiniCard__body">
-              Your private key is encrypted with AES-256-GCM using a secret derived from WebAuthn PRF (a passkey extension). The encryption key comes from your device&apos;s biometric authenticator&mdash;only your fingerprint or face can unlock it. PBKDF2 with 600,000 iterations hardens the derived key.
+              Your PIN (6+ chars) is run through PBKDF2 with 600,000 iterations to derive an encryption key. That key encrypts your private key with AES-256-GCM. The PIN is never stored anywhere&mdash;not in memory, not on disk, not on any server. You must remember it.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">Storage</p>
+            <p className="aboutMiniCard__title">Passkey + PRF Layer</p>
             <p className="aboutMiniCard__body">
-              The encrypted key is stored in IndexedDB (browser-local storage). The raw private key is never stored anywhere&mdash;only the encrypted blob. Even if someone copies your IndexedDB, they can&apos;t decrypt it without your biometric.
+              If your device supports WebAuthn PRF, the PRF output is XOR&apos;d with the PIN-derived key. This means an attacker needs BOTH your PIN and your biometric to decrypt. Two independent factors, not just one.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">Key Export</p>
+            <p className="aboutMiniCard__title">Backup &amp; Recovery</p>
             <p className="aboutMiniCard__body">
-              You can export your private key at any time via the wallet menu. This lets you import it into MetaMask or any other wallet. Your key, your control. We don&apos;t custody anything.
+              Download your encrypted backup file, email it to yourself, or copy to clipboard&mdash;3 options. Restore your wallet anytime from backup + your original PIN. Your key, your control. We don&apos;t custody anything.
             </p>
           </div>
         </div>
@@ -1015,7 +1018,7 @@ const sections: Section[] = [
         <GlassPanel style={{ marginTop: '16px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>WHAT COSTS MONEY?</p>
           <p>
-            Most actions on FOID are free (just gas, which is fractions of a cent on Fluent testnet). But some actions have explicit fees:
+            Most actions on FOID are free (just gas, which is fractions of a cent on Fluent). But some actions have explicit fees:
           </p>
           <p style={{ marginTop: '12px' }}>
             &bull; <strong>Proposing a meme:</strong> 0.001 ETH submission fee (keeps spam out)<br/>
@@ -1082,21 +1085,21 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">How much does this cost?</p>
             <p className="aboutMiniCard__body">
-              <strong>Right now? Free (testnet).</strong> Everything runs on testnet ETH which you get from a faucet. Just pay gas (basically nothing). <strong>On mainnet:</strong> Prayers: FREE (just gas, couple cents). Voting: FREE (just gas). Loreboard proposals: ~$3-20 depending on cell size (if you win, you pay; if you lose, 90% refunded). MiFOID mint: 0.01 ETH (priced like an indie game). No subscriptions. No premium tiers.
+              <strong>Prayers:</strong> just gas (couple cents). <strong>Voting/swiping:</strong> FREE (off-chain signatures, no gas). <strong>Loreboard proposals:</strong> placement fee (~$3-20 depending on cell size; if you win, you pay; if you lose, 90% refunded). <strong>MiFOID mint:</strong> 0.01 ETH. No subscriptions. No premium tiers. No hidden costs.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">What chain is this on?</p>
             <p className="aboutMiniCard__body">
-              <strong>Fluent Testnet</strong> (Chain ID 20994) right now. Mainnet launches Q1 2026 when Fluent goes live. When you connect your wallet, FOID will auto-detect you&apos;re not on Fluent and ask if you want to add it. Click yes. That&apos;s it.
+              <strong>Fluent</strong>&mdash;a blended execution L2 that supports both EVM and WASM. When you connect with FOID Wallet, the chain is configured automatically. If you use MetaMask, FOID will auto-detect and prompt you to add Fluent. Click yes. That&apos;s it.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">When mainnet?</p>
             <p className="aboutMiniCard__body">
-              <strong>Fluent mainnet:</strong> Q1 2026 (targeting March/April). <strong>FOID on mainnet:</strong> Same day Fluent launches. <strong>MiFOID drop:</strong> Q2/Q3 2026 (about 3 months after mainnet stabilizes). Follow <a href="https://twitter.com/foidfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">@foidfun</a> for updates.
+              FOID launches with Fluent mainnet. <strong>MiFOID drop:</strong> ~3 months after mainnet stabilizes (targeting Q2/Q3 2026). Follow <a href="https://twitter.com/foidfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">@foidfun</a> for updates.
             </p>
           </div>
 
@@ -1166,7 +1169,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">How do I actually start?</p>
             <p className="aboutMiniCard__body">
-              <strong>Three steps:</strong> 1. Connect wallet → Add Fluent Testnet (FOID will prompt you). 2. Get testnet ETH → Hit the faucet at testnet.fluent.xyz/dev-portal. 3. Start praying → Go to /pray and talk to Foid Mommy. That&apos;s it. You&apos;re in. Then explore /swipe to vote on memes, /board to propose to the Loreboard, and /gallery to see the permanent collection. Your streak starts today. Your MiFOID traits are being determined now. Every day you skip is a day she doesn&apos;t grow.
+              <strong>Three steps:</strong> 1. Click connect → choose FOID Wallet → pick a PIN → passkey prompt → done. (Or use MetaMask if that&apos;s your thing.) 2. Get some ETH for gas (faucet for testnet, or bridge real ETH for mainnet). 3. Start praying → Go to /pray and talk to Foid Mommy. That&apos;s it. You&apos;re in. Then explore /swipe to vote on memes, /board to propose to the Loreboard, and /gallery to see the permanent collection. Your streak starts today. Your MiFOID traits are being determined now. Every day you skip is a day she doesn&apos;t grow.
             </p>
           </div>
 
