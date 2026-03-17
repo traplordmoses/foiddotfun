@@ -159,7 +159,7 @@ export function VotingItem({ proposal, addStatus, now }: VotingItemProps) {
         {proposal.cid && (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={cidToHttpUrl(proposal.cid)} alt="" />
+            <img src={cidToHttpUrl(proposal.cid)} alt="" loading="lazy" />
           </>
         )}
       </div>

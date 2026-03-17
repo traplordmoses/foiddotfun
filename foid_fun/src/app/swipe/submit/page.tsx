@@ -158,7 +158,7 @@ export default function SwipeSubmitPage() {
                     onChange={handleFileSelect}
                   />
                   {preview ? (
-                    <img src={preview} alt="Preview" className="max-h-[280px] rounded-lg object-contain" />
+                    <img src={preview} alt="Preview" className="max-h-[280px] rounded-lg object-contain" loading="lazy" />
                   ) : (
                     <div className="text-center px-4">
                       <div className="mb-2 text-3xl text-white/20">&#x1F4F7;</div>
