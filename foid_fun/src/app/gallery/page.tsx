@@ -6,14 +6,18 @@ import { useSwitchWallet } from "@/hooks/useSwitchWallet";
 import Link from "next/link";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { FOID_TREST_ABI } from "@/lib/contracts/abis/foidTrest";
-import { publicClient } from "@/lib/viem";
+import { ENGRAVE_ABI } from "@/lib/contracts/abis/engrave";
+import { publicClient, getWalletClient } from "@/lib/viem";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 
-// ── Engraving helpers ──
+const ENGRAVE_ADDRESS = (process.env.NEXT_PUBLIC_ENGRAVE_ADDRESS ?? "0x0000000000000000000000000000000000000000") as `0x${string}`;
+const ENGRAVE_DEPLOYED = ENGRAVE_ADDRESS !== "0x0000000000000000000000000000000000000000";
+
+// ── localStorage fallback (used when contract not deployed) ──
 const ENGRAVINGS_KEY = "foid_engravings";
 
-function loadEngravings(): Record<string, string> {
+function loadEngravingsLocal(): Record<string, string> {
   if (typeof window === "undefined") return {};
   try {
     return JSON.parse(localStorage.getItem(ENGRAVINGS_KEY) || "{}");
@@ -22,8 +26,8 @@ function loadEngravings(): Record<string, string> {
   }
 }
 
-function saveEngraving(entryId: number, message: string) {
-  const all = loadEngravings();
+function saveEngravingLocal(entryId: number, message: string) {
+  const all = loadEngravingsLocal();
   all[String(entryId)] = message;
   localStorage.setItem(ENGRAVINGS_KEY, JSON.stringify(all));
 }
@@ -85,17 +89,21 @@ function EngravingModal({
   entryId,
   onClose,
   onSave,
+  saving,
+  error,
 }: {
   entryId: number;
   onClose: () => void;
   onSave: (msg: string) => void;
+  saving: boolean;
+  error: string | null;
 }) {
   const [text, setText] = useState("");
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}
     >
       <div
         className="mx-4 w-full max-w-sm rounded-xl border border-purple-500/25 p-5 shadow-[0_0_40px_rgba(139,92,246,0.15)]"
@@ -108,7 +116,9 @@ function EngravingModal({
           Engrave your mark
         </h3>
         <p className="mb-3 text-[10px] text-white/40">
-          Sign your canonized meme. This is permanent (in your browser).
+          {ENGRAVE_DEPLOYED
+            ? "Sign your canonized meme. This is permanent and on-chain."
+            : "Sign your canonized meme. This is permanent (in your browser)."}
         </p>
         <textarea
           className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/90 placeholder-white/25 outline-none focus:border-purple-500/40 resize-none"
@@ -117,24 +127,29 @@ function EngravingModal({
           placeholder="Leave your mark..."
           value={text}
           onChange={(e) => setText(e.target.value)}
+          disabled={saving}
           autoFocus
         />
+        {error && (
+          <p className="mt-1 text-[10px] text-red-400">{error}</p>
+        )}
         <div className="mt-1 flex items-center justify-between">
           <span className="text-[10px] text-white/30 font-mono">{text.length}/140</span>
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="rounded-lg border border-white/10 px-3 py-1 text-[10px] text-white/50 hover:bg-white/5 transition-colors"
+              disabled={saving}
+              className="rounded-lg border border-white/10 px-3 py-1 text-[10px] text-white/50 hover:bg-white/5 transition-colors disabled:opacity-30"
             >
               Cancel
             </button>
             <button
               onClick={() => { if (text.trim()) onSave(text.trim()); }}
-              disabled={!text.trim()}
+              disabled={!text.trim() || saving}
               className="rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white disabled:opacity-30 transition-all hover:shadow-[0_0_12px_rgba(224,64,251,0.3)]"
-              style={{ background: text.trim() ? "linear-gradient(135deg, #e040fb, #f06292)" : "rgba(255,255,255,0.08)" }}
+              style={{ background: text.trim() && !saving ? "linear-gradient(135deg, #e040fb, #f06292)" : "rgba(255,255,255,0.08)" }}
             >
-              Engrave
+              {saving ? "Engraving..." : "Engrave"}
             </button>
           </div>
         </div>
@@ -260,22 +275,88 @@ export default function GalleryPage() {
   const [entries, setEntries] = useState<TrestEntry[]>([]);
   const [engravings, setEngravings] = useState<Record<string, string>>({});
   const [engravingModalId, setEngravingModalId] = useState<number | null>(null);
+  const [engraveSaving, setEngraveSaving] = useState(false);
+  const [engraveError, setEngraveError] = useState<string | null>(null);
+  const [engraveVersion, setEngraveVersion] = useState(0);
 
-  // Load engravings from localStorage on mount
+  // Load engravings from chain (or localStorage fallback)
   useEffect(() => {
-    setEngravings(loadEngravings());
-  }, []);
+    if (!entries.length) return;
+
+    if (!ENGRAVE_DEPLOYED) {
+      setEngravings(loadEngravingsLocal());
+      return;
+    }
+
+    let alive = true;
+    const fetchEngravings = async () => {
+      try {
+        const entryIds = entries.map((e) => BigInt(e.id));
+        const result = await publicClient.readContract({
+          address: ENGRAVE_ADDRESS,
+          abi: ENGRAVE_ABI,
+          functionName: "getEngravings",
+          args: [entryIds],
+        });
+        if (!alive) return;
+        const messages = result as string[];
+        const map: Record<string, string> = {};
+        entries.forEach((e, i) => {
+          if (messages[i]) map[String(e.id)] = messages[i];
+        });
+        setEngravings(map);
+      } catch (err) {
+        console.error("[gallery] Failed to load engravings from chain:", err);
+        // Fall back to localStorage on read failure
+        if (alive) setEngravings(loadEngravingsLocal());
+      }
+    };
+    fetchEngravings();
+    return () => { alive = false; };
+  }, [entries, engraveVersion]);
 
   const handleEngrave = useCallback((entryId: number) => {
+    setEngraveError(null);
     setEngravingModalId(entryId);
   }, []);
 
-  const handleSaveEngraving = useCallback((msg: string) => {
+  const handleSaveEngraving = useCallback(async (msg: string) => {
     if (engravingModalId === null) return;
-    saveEngraving(engravingModalId, msg);
-    setEngravings((prev) => ({ ...prev, [String(engravingModalId)]: msg }));
-    setEngravingModalId(null);
-  }, [engravingModalId]);
+
+    // localStorage fallback when contract not deployed
+    if (!ENGRAVE_DEPLOYED) {
+      saveEngravingLocal(engravingModalId, msg);
+      setEngravings((prev) => ({ ...prev, [String(engravingModalId)]: msg }));
+      setEngravingModalId(null);
+      return;
+    }
+
+    setEngraveSaving(true);
+    setEngraveError(null);
+    try {
+      const walletClient = await getWalletClient();
+      const account = walletClient.account ?? (address as `0x${string}`);
+      const txHash = await walletClient.writeContract({
+        account,
+        address: ENGRAVE_ADDRESS,
+        abi: ENGRAVE_ABI,
+        functionName: "engrave",
+        args: [BigInt(engravingModalId), msg],
+        chain: walletClient.chain,
+      });
+      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      // Optimistically update local state + trigger refetch
+      setEngravings((prev) => ({ ...prev, [String(engravingModalId)]: msg }));
+      setEngraveVersion((v) => v + 1);
+      setEngravingModalId(null);
+    } catch (err: unknown) {
+      console.error("[gallery] engrave tx failed:", err);
+      const message = err instanceof Error ? err.message : "Transaction failed";
+      setEngraveError(message.length > 120 ? message.slice(0, 120) + "..." : message);
+    } finally {
+      setEngraveSaving(false);
+    }
+  }, [engravingModalId, address]);
 
   const trestAddress = (CONTRACTS.FOID_TREST ?? "") as `0x${string}`;
   const hasTrest = !!CONTRACTS.FOID_TREST;
@@ -438,8 +519,10 @@ export default function GalleryPage() {
       {engravingModalId !== null && (
         <EngravingModal
           entryId={engravingModalId}
-          onClose={() => setEngravingModalId(null)}
+          onClose={() => { if (!engraveSaving) { setEngravingModalId(null); setEngraveError(null); } }}
           onSave={handleSaveEngraving}
+          saving={engraveSaving}
+          error={engraveError}
         />
       )}
       <style jsx>{`

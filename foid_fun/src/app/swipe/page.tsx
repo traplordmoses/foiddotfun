@@ -89,7 +89,7 @@ function injectKeyframes() {
   style.id = KEYFRAMES_ID;
   style.textContent = `
     @keyframes swipe-particle {
-      0% { transform: translate(0,0) scale(1); opacity: 1; }
+      0% { transform: translate(0,0) scale(1); opacity: 1; visibility: visible; }
       100% { transform: translate(var(--px), var(--py)) scale(0.3); opacity: 0; }
     }
     @keyframes stamp-slam {
@@ -109,13 +109,31 @@ function injectKeyframes() {
       60% { transform: scale(1.0) translateY(0); opacity: 1; }
       100% { transform: scale(0.9) translateY(-6px); opacity: 0; }
     }
+    @keyframes swipe-shake {
+      0% { transform: translateX(0); }
+      15% { transform: translateX(-3px); }
+      30% { transform: translateX(4px); }
+      45% { transform: translateX(-4px); }
+      60% { transform: translateX(3px); }
+      75% { transform: translateX(-2px); }
+      100% { transform: translateX(0); }
+    }
+    @keyframes glow-flash {
+      0% { opacity: 0.85; }
+      100% { opacity: 0; }
+    }
+    @keyframes vote-result-text {
+      0% { transform: scale(0.8); opacity: 1; }
+      40% { transform: scale(1.0); opacity: 1; }
+      100% { transform: scale(1.0); opacity: 0; }
+    }
   `;
   document.head.appendChild(style);
 }
 
 /* ─── Particle burst component ─── */
 function SwipeParticles({ direction, trigger }: { direction: "left" | "right" | null; trigger: number }) {
-  const [particles, setParticles] = useState<{ id: number; angle: number; dist: number; color: string; size: number }[]>([]);
+  const [particles, setParticles] = useState<{ id: number; angle: number; dist: number; color: string; size: number; square: boolean; delay: number }[]>([]);
   const lastTrigger = useRef(0);
 
   useEffect(() => {
@@ -126,17 +144,19 @@ function SwipeParticles({ direction, trigger }: { direction: "left" | "right" | 
       ? ["#22c55e", "#06b6d4", "#34d399", "#10b981", "#6ee7b7", "#2dd4bf"]
       : ["#ef4444", "#f87171", "#dc2626", "#fb923c", "#f43f5e", "#e11d48"];
 
-    const count = 12 + Math.floor(Math.random() * 4);
+    const count = 20 + Math.floor(Math.random() * 6);
     const newParticles = Array.from({ length: count }, (_, i) => ({
       id: i,
       angle: (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5,
-      dist: 60 + Math.random() * 80,
+      dist: 80 + Math.random() * 140,
       color: colors[Math.floor(Math.random() * colors.length)],
-      size: 4 + Math.random() * 5,
+      size: 4 + Math.random() * 4,
+      square: Math.random() > 0.65,
+      delay: Math.random() < 0.4 ? Math.random() * 80 : 0,
     }));
     setParticles(newParticles);
 
-    const timer = setTimeout(() => setParticles([]), 550);
+    const timer = setTimeout(() => setParticles([]), 700);
     return () => clearTimeout(timer);
   }, [trigger, direction]);
 
@@ -155,12 +175,15 @@ function SwipeParticles({ direction, trigger }: { direction: "left" | "right" | 
                 position: "absolute",
                 width: p.size,
                 height: p.size,
-                borderRadius: "50%",
+                borderRadius: p.square ? "2px" : "50%",
                 backgroundColor: p.color,
-                boxShadow: `0 0 6px ${p.color}`,
+                boxShadow: `0 0 8px ${p.color}`,
                 ["--px" as string]: `${px}px`,
                 ["--py" as string]: `${py}px`,
-                animation: "swipe-particle 500ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+                animation: "swipe-particle 550ms cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+                animationDelay: `${p.delay}ms`,
+                opacity: 0,
+                animationFillMode: "forwards",
               }}
             />
           );
@@ -204,6 +227,87 @@ function StreakBadge({ count, trigger }: { count: number; trigger: number }) {
       }}>
         x{count}
       </div>
+    </div>
+  );
+}
+
+/* ─── Glow flash behind card ─── */
+function GlowFlash({ direction, trigger }: { direction: "left" | "right" | null; trigger: number }) {
+  const [active, setActive] = useState(false);
+  const [dir, setDir] = useState<"left" | "right" | null>(null);
+  const lastTrigger = useRef(0);
+
+  useEffect(() => {
+    if (trigger <= 0 || trigger === lastTrigger.current || !direction) return;
+    lastTrigger.current = trigger;
+    setDir(direction);
+    setActive(true);
+    const timer = setTimeout(() => setActive(false), 300);
+    return () => clearTimeout(timer);
+  }, [trigger, direction]);
+
+  if (!active || !dir) return null;
+
+  const bg = dir === "right"
+    ? "radial-gradient(circle, rgba(34,197,94,0.55) 0%, rgba(6,182,212,0.3) 40%, transparent 70%)"
+    : "radial-gradient(circle, rgba(239,68,68,0.55) 0%, rgba(248,113,113,0.3) 40%, transparent 70%)";
+
+  return (
+    <div style={{
+      position: "absolute",
+      inset: "-20%",
+      zIndex: 0,
+      pointerEvents: "none",
+      background: bg,
+      animation: "glow-flash 300ms ease-out forwards",
+    }} />
+  );
+}
+
+/* ─── Vote result text flash ─── */
+function VoteResultText({ direction, trigger }: { direction: "left" | "right" | null; trigger: number }) {
+  const [active, setActive] = useState(false);
+  const [dir, setDir] = useState<"left" | "right" | null>(null);
+  const lastTrigger = useRef(0);
+
+  useEffect(() => {
+    if (trigger <= 0 || trigger === lastTrigger.current || !direction) return;
+    lastTrigger.current = trigger;
+    setDir(direction);
+    setActive(true);
+    const timer = setTimeout(() => setActive(false), 600);
+    return () => clearTimeout(timer);
+  }, [trigger, direction]);
+
+  if (!active || !dir) return null;
+
+  const text = dir === "right" ? "APPROVED" : "REJECTED";
+  const color = dir === "right" ? "#22c55e" : "#ef4444";
+  const shadow = dir === "right"
+    ? "0 0 40px rgba(34,197,94,0.6), 0 0 80px rgba(34,197,94,0.3)"
+    : "0 0 40px rgba(239,68,68,0.6), 0 0 80px rgba(239,68,68,0.3)";
+
+  return (
+    <div style={{
+      position: "absolute",
+      inset: 0,
+      zIndex: 55,
+      pointerEvents: "none",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}>
+      <span style={{
+        fontSize: "clamp(32px, 8vw, 56px)",
+        fontWeight: 900,
+        color,
+        textShadow: shadow,
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+        animation: "vote-result-text 600ms ease-out forwards",
+      }}>
+        {text}
+      </span>
     </div>
   );
 }
@@ -382,10 +486,19 @@ export default function SwipePage() {
   const [streakTrigger, setStreakTrigger] = useState(0);
   const [cardKey, setCardKey] = useState(0);
 
+  // Screen shake state
+  const [shaking, setShaking] = useState(false);
+  // Glow flash state
+  const [glowDir, setGlowDir] = useState<"left" | "right" | null>(null);
+  const [glowTrigger, setGlowTrigger] = useState(0);
+  // Vote result text state
+  const [voteResultDir, setVoteResultDir] = useState<"left" | "right" | null>(null);
+  const [voteResultTrigger, setVoteResultTrigger] = useState(0);
+
   // Inject keyframes on mount
   useEffect(() => { injectKeyframes(); }, []);
 
-  // Handle swipe complete: sound + particles + streak
+  // Handle swipe complete: sound + particles + streak + shake + glow + vote text
   const handleSwipeComplete = useCallback((dir: "left" | "right") => {
     // Sound
     if (dir === "right") playSwipeYes();
@@ -401,6 +514,18 @@ export default function SwipePage() {
 
     // Bump card key for entrance animation
     setCardKey((n) => n + 1);
+
+    // Screen shake
+    setShaking(true);
+    setTimeout(() => setShaking(false), 150);
+
+    // Glow flash behind card
+    setGlowDir(dir);
+    setGlowTrigger((n) => n + 1);
+
+    // Vote result text flash
+    setVoteResultDir(dir);
+    setVoteResultTrigger((n) => n + 1);
   }, []);
 
   // Load voted IDs from localStorage when wallet changes
@@ -606,11 +731,18 @@ export default function SwipePage() {
                   </div>
                 ) : tab === "active" ? (
                   currentProposal ? (
-                    <div className="flex flex-col flex-1 min-h-0 items-center justify-center gap-2 relative">
+                    <div
+                      className="flex flex-col flex-1 min-h-0 items-center justify-center gap-2 relative"
+                      style={shaking ? { animation: "swipe-shake 150ms ease-in-out" } : undefined}
+                    >
+                      {/* Glow flash behind card */}
+                      <GlowFlash direction={glowDir} trigger={glowTrigger} />
                       {/* Particle overlay */}
                       <SwipeParticles direction={particleDir} trigger={particleTrigger} />
                       {/* Streak badge */}
                       <StreakBadge count={sessionVoteCount} trigger={streakTrigger} />
+                      {/* Vote result text */}
+                      <VoteResultText direction={voteResultDir} trigger={voteResultTrigger} />
                       <SwipeCard
                         proposal={currentProposal}
                         onVote={handleVote}

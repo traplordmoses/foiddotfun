@@ -1,0 +1,107 @@
+export const ENGRAVE_ABI = [
+  {
+    inputs: [{ name: "_gallery", type: "address" }],
+    stateMutability: "nonpayable",
+    type: "constructor",
+  },
+  {
+    inputs: [{ name: "entryId", type: "uint256" }],
+    name: "AlreadyEngraved",
+    type: "error",
+  },
+  { inputs: [], name: "EmptyMessage", type: "error" },
+  {
+    inputs: [
+      { name: "length", type: "uint256" },
+      { name: "maxLength", type: "uint256" },
+    ],
+    name: "MessageTooLong",
+    type: "error",
+  },
+  {
+    inputs: [
+      { name: "entryId", type: "uint256" },
+      { name: "caller", type: "address" },
+      { name: "creator", type: "address" },
+    ],
+    name: "NotCreator",
+    type: "error",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: "entryId", type: "uint256" },
+      { indexed: true, name: "creator", type: "address" },
+      { indexed: false, name: "message", type: "string" },
+      { indexed: false, name: "timestamp", type: "uint256" },
+    ],
+    name: "Engraved",
+    type: "event",
+  },
+  {
+    inputs: [],
+    name: "MAX_LENGTH",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "entryId", type: "uint256" },
+      { name: "message", type: "string" },
+    ],
+    name: "engrave",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "entryId", type: "uint256" }],
+    name: "engravedAt",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "entryId", type: "uint256" }],
+    name: "engravedBy",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "entryId", type: "uint256" }],
+    name: "engravings",
+    outputs: [{ name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "gallery",
+    outputs: [{ name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "entryId", type: "uint256" }],
+    name: "getEngraving",
+    outputs: [{ name: "message", type: "string" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "entryIds", type: "uint256[]" }],
+    name: "getEngravings",
+    outputs: [{ name: "messages", type: "string[]" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "entryId", type: "uint256" }],
+    name: "isEngraved",
+    outputs: [{ name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;

@@ -74,6 +74,7 @@ import { parseWeb3Error, isUserRejection } from "@/lib/errors";
 import { insertBoardMessage } from "@/lib/supabase";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PaintEditor } from "@/components/PaintEditor";
+import { useSwipeLoreboardGovernance } from "@/hooks/useSwipeLoreboardGovernance";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -570,6 +571,29 @@ function BoardPageContent() {
       addStatus("Failed to send message", "error");
     }
   }, [address, addStatus]);
+
+  // Governance - flagging placements
+  const { flagPlacement, flagFeeWei } = useSwipeLoreboardGovernance();
+  const [flaggedIds, setFlaggedIds] = useState<Set<string>>(new Set());
+  const flagFeeEth = (Number(flagFeeWei) / 1e18).toFixed(3);
+
+  const handleFlagPlacement = useCallback(async (placementId: string) => {
+    if (!address || !isConnected) {
+      openConnectModal?.();
+      return;
+    }
+    try {
+      // Convert hex placementId to number for the contract call
+      const numericId = Number(BigInt(placementId));
+      await flagPlacement(numericId);
+      setFlaggedIds(prev => new Set(prev).add(placementId));
+      addStatus(`Flagged placement — tx sent`, "success");
+    } catch (err: unknown) {
+      if (isUserRejection(err)) return;
+      const msg = parseWeb3Error(err);
+      addStatus(`Flag failed: ${msg}`, "error");
+    }
+  }, [address, isConnected, openConnectModal, flagPlacement, addStatus]);
 
   // UI state
   const [dragOver, setDragOver] = useState(false);
@@ -1348,6 +1372,9 @@ function BoardPageContent() {
                           key={p.id}
                           placement={{ id: p.id, cid: p.cid, x: sr.x, y: sr.y, width: sr.w, height: sr.h, proposer: (p.owner ?? "") as `0x${string}`, epochId: p.epochSubmitted ?? 0, status: "canonized" }}
                           onOpen={setActivePlacement}
+                          onFlag={handleFlagPlacement}
+                          isFlagged={flaggedIds.has(p.id)}
+                          flagLabel={`Flag (${flagFeeEth} ETH)`}
                           frameStyle={{
                             border: `1px solid ${isActive ? "rgba(0,255,213,0.95)" : CARD_BORDER}`,
                             boxShadow: isActive

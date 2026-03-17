@@ -236,15 +236,16 @@ export function playLoading(): void { play("loading", { volume: 1 }); }
 export function playReward(): void { play("reward", { volume: 1 }); }
 export function playError(): void { play("error", { volume: 0.95 }); }
 
-/** Bright ascending chime for YES swipe (2 quick notes going up) */
+/** Bright ascending 3-note chord for YES swipe (C5 → E5 → G5) */
 export function playSwipeYes(): void {
   if (!isBrowser || !unlocked) return;
   const settings = getAudioSettings();
   if (!settings.sfxEnabled) return;
   const ac = ensureCtx();
   if (!ac) return;
+  const vol = 0.14 * settings.sfxVolume;
   const gain = ac.createGain();
-  gain.gain.value = 0.10 * settings.sfxVolume;
+  gain.gain.value = vol;
   gain.connect(ac.destination);
   // Note 1: C5
   const osc1 = ac.createOscillator();
@@ -252,38 +253,66 @@ export function playSwipeYes(): void {
   osc1.frequency.value = 523;
   osc1.connect(gain);
   osc1.start(ac.currentTime);
-  osc1.stop(ac.currentTime + 0.08);
-  // Note 2: E5 (higher)
+  osc1.stop(ac.currentTime + 0.09);
+  // Note 2: E5
   const osc2 = ac.createOscillator();
   osc2.type = "sine";
   osc2.frequency.value = 659;
   osc2.connect(gain);
-  osc2.start(ac.currentTime + 0.09);
-  osc2.stop(ac.currentTime + 0.18);
+  osc2.start(ac.currentTime + 0.08);
+  osc2.stop(ac.currentTime + 0.17);
+  // Note 3: G5 (highest — completing the major triad)
+  const osc3 = ac.createOscillator();
+  osc3.type = "sine";
+  osc3.frequency.value = 784;
+  osc3.connect(gain);
+  osc3.start(ac.currentTime + 0.15);
+  osc3.stop(ac.currentTime + 0.26);
   // Fade out gain
-  gain.gain.setValueAtTime(0.10 * settings.sfxVolume, ac.currentTime + 0.15);
-  gain.gain.linearRampToValueAtTime(0, ac.currentTime + 0.22);
+  gain.gain.setValueAtTime(vol, ac.currentTime + 0.20);
+  gain.gain.linearRampToValueAtTime(0, ac.currentTime + 0.30);
 }
 
-/** Low descending tone for NO swipe (1 quick note going down) */
+/** Low descending 2-note tone with distortion buzz for NO swipe */
 export function playSwipeNo(): void {
   if (!isBrowser || !unlocked) return;
   const settings = getAudioSettings();
   if (!settings.sfxEnabled) return;
   const ac = ensureCtx();
   if (!ac) return;
+  const vol = 0.10 * settings.sfxVolume;
+  // Distortion waveshaper for buzz
+  const distortion = ac.createWaveShaper();
+  const curve = new Float32Array(256);
+  for (let i = 0; i < 256; i++) {
+    const x = (i * 2) / 256 - 1;
+    curve[i] = (Math.PI + 8) * x / (Math.PI + 8 * Math.abs(x));
+  }
+  distortion.curve = curve;
+  distortion.oversample = "2x";
   const gain = ac.createGain();
-  gain.gain.value = 0.08 * settings.sfxVolume;
+  gain.gain.value = vol;
+  distortion.connect(gain);
   gain.connect(ac.destination);
-  const osc = ac.createOscillator();
-  osc.type = "triangle";
-  osc.frequency.setValueAtTime(330, ac.currentTime);
-  osc.frequency.linearRampToValueAtTime(220, ac.currentTime + 0.12);
-  osc.connect(gain);
-  osc.start(ac.currentTime);
-  osc.stop(ac.currentTime + 0.15);
-  gain.gain.setValueAtTime(0.08 * settings.sfxVolume, ac.currentTime + 0.10);
-  gain.gain.linearRampToValueAtTime(0, ac.currentTime + 0.18);
+  // Note 1: E4 descending to C4
+  const osc1 = ac.createOscillator();
+  osc1.type = "sawtooth";
+  osc1.frequency.setValueAtTime(330, ac.currentTime);
+  osc1.frequency.linearRampToValueAtTime(260, ac.currentTime + 0.10);
+  osc1.connect(distortion);
+  osc1.start(ac.currentTime);
+  osc1.stop(ac.currentTime + 0.12);
+  // Note 2: C4 descending to A3 (lower, gritty)
+  const osc2 = ac.createOscillator();
+  osc2.type = "sawtooth";
+  osc2.frequency.setValueAtTime(260, ac.currentTime + 0.10);
+  osc2.frequency.linearRampToValueAtTime(185, ac.currentTime + 0.22);
+  osc2.connect(distortion);
+  osc2.start(ac.currentTime + 0.10);
+  osc2.stop(ac.currentTime + 0.24);
+  // Fade out gain
+  gain.gain.setValueAtTime(vol, ac.currentTime + 0.18);
+  gain.gain.linearRampToValueAtTime(0, ac.currentTime + 0.28);
 }
 
 // background controls
