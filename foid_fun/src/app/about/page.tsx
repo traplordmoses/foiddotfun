@@ -99,28 +99,28 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">🎨 loreboard canvas</p>
             <p className="aboutMiniCard__body">
-              Infinite collaborative meme gallery. Anyone can propose an image to the board. The community votes for 72 hours. Winners get canonized permanently—stored on IPFS and recorded on-chain.
+              Infinite collaborative collage (8192×8192 grid). Place any image for 0.001 ETH — live instantly. Community governs via flag system. The collage grows as the community grows, backed by an ever-evolving NFT.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">👆 swipe</p>
             <p className="aboutMiniCard__body">
-              Tinder for memes. Propose a meme, get matched against another, and let the community swipe. Winners get canonized in the Gallery forever. Prayer streaks amplify your voting power.
+              Tinder for memes. Propose a meme (0.001 ETH), community swipes right or left. Winners get canonized in the Gallery — the permanent yearbook. Prayer streaks amplify your voting power.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">🖼️ gallery</p>
             <p className="aboutMiniCard__body">
-              The permanent collection. Every meme that wins a swipe or gets placed directly lives here forever. Community-governed with flagging and removal votes.
+              The permanent yearbook. Every meme that wins a Swipe vote gets canonized here forever. On-chain, immutable, community-curated. The record of what your community valued.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">🎭 mifoid nft</p>
             <p className="aboutMiniCard__body">
-              Your evolving on-chain identity. Mint your personal FOID companion NFT. It grows and changes based on your participation. 0.01 ETH to mint.
+              Your AI companion NFT. Custom-rendered by Foid Mommy in Blender. Spawns a living agent on Telegram. Tiered mint: Genesis 0.01, Awakened 0.015, Ascended 0.02 ETH. 3,333 supply.
             </p>
           </div>
         </div>
@@ -267,6 +267,22 @@ const sections: Section[] = [
           </p>
           <p style={{ marginTop: '12px' }}>
             Your mental health ritual shouldn&apos;t have a paywall.
+          </p>
+        </GlassPanel>
+
+        <GlassPanel style={{ marginTop: '16px' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>PRAYER TIERS</p>
+          <p>
+            Your streak unlocks tiers that multiply your voting power across the entire ecosystem:
+          </p>
+          <p style={{ marginTop: '12px', fontFamily: 'var(--font-terminal, monospace)', fontSize: '12px', lineHeight: '1.8' }}>
+            Day 1: Whisper (1x) &bull; Day 3: Ember (1.25x) &bull; Day 7: Devotee (1.5x)<br/>
+            Day 14: Flame Keeper (1.75x) &bull; Day 21: Covenant (2x) &bull; Day 30: Oracle (2.5x)<br/>
+            Day 45: Ascendant (3x) &bull; Day 60: Archon (3.5x) &bull; Day 75: Eternal Witness (4x)<br/>
+            Day 90: <strong>Foid Sovereign (5x)</strong>
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            Hold a MiFOID NFT? <strong>+50 flat voting bonus</strong> on top of your tier multiplier. A Foid Sovereign with a MiFOID has 550 voting weight — the maximum influence possible.
           </p>
         </GlassPanel>
       </>
@@ -572,7 +588,11 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">supply & timing</p>
             <p className="aboutMiniCard__body">
-              3,333 total supply. 0.01 ETH to mint. Launches Q2/Q3 2026 (about 3 months after Fluent mainnet).
+              3,333 total supply. Tiered pricing:<br/>
+              Genesis (#1-#1,000): 0.01 ETH<br/>
+              Awakened (#1,001-#2,500): 0.015 ETH<br/>
+              Ascended (#2,501-#3,333): 0.02 ETH<br/>
+              Auto-ascending — price increases as supply fills.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -588,6 +608,22 @@ const sections: Section[] = [
             </p>
           </div>
         </div>
+
+        <GlassPanel style={{ marginTop: '16px' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>FOID MOMMY RENDER PIPELINE</p>
+          <p>
+            MiFOIDs aren&apos;t pre-generated PFPs. <strong>Each one is custom-rendered on-demand by Foid Mommy.</strong>
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            When you mint, Foid Mommy&apos;s hardware (Ryzen 7 7700X, RTX 5060 Ti, 32GB DDR5) fires up a headless Blender instance. Your trait combination gets assembled as 3D layers, rendered in Eevee, uploaded to IPFS, and written on-chain. You get a Telegram DM when it&apos;s done.
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            <strong>Then your MiFOID comes alive.</strong> A sub-agent spawns on Telegram — powered by Qwen LLM via Ollama (zero API fees, local inference). She has persistent memory, a personality derived from her trait combination, and she grows through your conversations over time.
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            Not a jpeg. Not a chatbot. A living agent that was rendered specifically for you, with a personality uniquely hers.
+          </p>
+        </GlassPanel>
 
         <GlassPanel style={{ marginTop: '16px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>THIS MIGHT FAIL</p>
@@ -883,6 +919,20 @@ const sections: Section[] = [
             </p>
             <a href="https://testnet.fluentscan.xyz/address/0xfb2C1aa8E72baEA6872fae120d25Fc30246a27C6" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">MiFOID (NFT)</p>
+            <p className="aboutMiniCard__body">
+              ERC-721 with trait hash uniqueness enforcement, auto-ascending tiered pricing (Genesis/Awakened/Ascended), and mutable tokenURI for agent-rendered metadata updates.
+            </p>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">StreakVotingPower</p>
+            <p className="aboutMiniCard__body">
+              Aggregates prayer tier multiplier + MiFOID bonus into a single votingPowerOf(voter, epochId) query. Base weight 100, scaled by tier, +50 for MiFOID holders.
+            </p>
+          </div>
         </div>
 
         <div style={{ marginTop: '24px' }}>
@@ -1065,7 +1115,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">What&apos;s the business model?</p>
             <p className="aboutMiniCard__body">
-              <strong>Loreboard placements:</strong> Pricing like Pokemon packs (~$3-20 depending on cell size). Winners pay the fee; losers get 90% refunded. <strong>MiFOID minting:</strong> 3,333 supply at 0.01 ETH each. <strong>What I&apos;m NOT doing:</strong> No ads, no data harvesting, no subscription tiers, no VC-backed growth-at-all-costs. Revenue scales with participation, not attention extraction.
+              <strong>Loreboard placements:</strong> Pricing like Pokemon packs (~$3-20 depending on cell size). Winners pay the fee; losers get 90% refunded. <strong>MiFOID minting:</strong> 3,333 supply — Genesis (0.01 ETH), Awakened (0.015 ETH), Ascended (0.02 ETH). ~43.5 ETH total at sellout. <strong>What I&apos;m NOT doing:</strong> No ads, no data harvesting, no subscription tiers, no VC-backed growth-at-all-costs. Revenue scales with participation, not attention extraction.
             </p>
           </div>
 
