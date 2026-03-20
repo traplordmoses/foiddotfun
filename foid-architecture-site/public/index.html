@@ -552,7 +552,7 @@
       <h2>culture, ritual,<br>identity &mdash; <span>on chain</span></h2>
       <div class="tagline">memes are culture. culture deserves permanence.</div>
       <div class="pills">
-        <div class="pill"><b>5</b> apps</div>
+        <div class="pill"><b>4</b> apps</div>
         <div class="pill"><b>15</b> contracts</div>
         <div class="pill"><b>22</b> hooks</div>
         <div class="pill"><b>19</b> API routes</div>
@@ -570,7 +570,6 @@
   <div class="tabs">
     <button class="tab active" onclick="showTab('overview',this)">Overview</button>
     <button class="tab" onclick="showTab('swipe',this)" style="color:var(--pink-soft)">Swipe</button>
-    <button class="tab" onclick="showTab('gallery',this)">Gallery</button>
     <button class="tab" onclick="showTab('loreboard',this)" style="color:var(--gold)">Loreboard</button>
     <button class="tab" onclick="showTab('prayer',this)">Prayer <span class="badge" style="background:rgba(62,238,196,0.15);color:var(--cyan);border:1px solid rgba(62,238,196,0.3);">RITUAL</span></button>
     <button class="tab" onclick="showTab('mifoid',this)" style="color:var(--purple)">MiFOID <span class="badge" style="background:rgba(192,132,252,0.15);color:var(--purple);border:1px solid rgba(192,132,252,0.3);">AGENT</span></button>
@@ -590,34 +589,25 @@
       <div style="position:relative;z-index:1;">
         <div class="hero-label" style="color:var(--pink);">THE THESIS</div>
         <div class="hero-title">the internet's permanent memory</div>
-        <div class="hero-body">memes are the folklore of the internet. they emerge, mutate, and vanish &mdash; unless someone decides they matter enough to preserve. foid.fun is a platform for <strong>permanent meme culture</strong> &mdash; democratic curation, on-chain identity, and daily ritual. five apps, one chain, zero corporate energy. every piece of culture that gets canonized stays forever.</div>
+        <div class="hero-body">memes are the folklore of the internet. they emerge, mutate, and vanish &mdash; unless someone decides they matter enough to preserve. foid.fun is a platform for <strong>permanent meme culture</strong> &mdash; democratic curation, on-chain identity, and daily ritual. four apps, one chain, zero corporate energy. every piece of culture that gets approved stays forever.</div>
       </div>
     </div>
 
     <!-- 5 APPS -->
     <div class="sh">
-      <h3>five apps, one world</h3>
+      <h3>four apps, one world</h3>
       <div class="sh-line"></div>
       <div class="sh-badge t-pink">all connected &middot; all on-chain</div>
     </div>
 
-    <div class="g g5" style="margin-bottom:36px;">
+    <div class="g g4" style="margin-bottom:36px;">
       <div class="exe" style="border-color:rgba(255,105,180,0.2);">
         <div class="exe-bar"><div class="dots"><i></i><i></i><i></i></div><div class="exe-name">swipe.exe</div></div>
         <div class="exe-body" style="text-align:center;">
           <div style="font-size:32px;margin-bottom:10px;">&#x1F44D;</div>
           <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--pink);margin-bottom:8px;">SWIPE</div>
-          <div class="n-body">propose memes. swipe to vote. approved images get canonized to the gallery forever.</div>
+          <div class="n-body">the placement feed. swipe through loreboard images with grid coordinates. vote to approve or reject.</div>
           <div class="tag t-pink" style="margin-top:12px;">EIP-712 VOTING</div>
-        </div>
-      </div>
-      <div class="exe" style="border-color:rgba(212,168,67,0.2);">
-        <div class="exe-bar"><div class="dots"><i></i><i></i><i></i></div><div class="exe-name">gallery.exe</div></div>
-        <div class="exe-body" style="text-align:center;">
-          <div style="font-size:32px;margin-bottom:10px;">&#x1F5BC;</div>
-          <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px;">GALLERY</div>
-          <div class="n-body">the internet's hottest pop-up gallery. permanent exhibition for canonized culture.</div>
-          <div class="tag t-gold" style="margin-top:12px;">FOIDTREST</div>
         </div>
       </div>
       <div class="exe" style="border-color:rgba(212,168,67,0.2);">
@@ -625,7 +615,7 @@
         <div class="exe-body" style="text-align:center;">
           <div style="font-size:32px;margin-bottom:10px;">&#x1F5FA;</div>
           <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px;">LOREBOARD</div>
-          <div class="n-body">infinite canvas. place images on the grid. pay-to-place with community governance.</div>
+          <div class="n-body">infinite canvas. place images on the grid. pay-to-place. voting happens on swipe.</div>
           <div class="tag t-gold" style="margin-top:12px;">8192&times;8192</div>
         </div>
       </div>
@@ -657,42 +647,42 @@
 
     <div class="g g-flow" style="margin-bottom:40px;">
       <div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.65);text-align:center;margin-bottom:10px;">01 &mdash; PROPOSE</div>
-        <div class="node c-pink">
-          <span class="n-icon">&#x1F4F8;</span>
-          <div class="n-title" style="color:var(--pink);">Upload Meme</div>
-          <div class="n-body">Upload image to IPFS. Pay 0.001 ETH. Calls Swipe.propose(ipfsCid).</div>
-          <div class="tag t-pink">SWIPE</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.65);text-align:center;margin-bottom:10px;">01 &mdash; PLACE</div>
+        <div class="node c-gold">
+          <span class="n-icon">&#x1F4CD;</span>
+          <div class="n-title" style="color:var(--gold);">Place on Board</div>
+          <div class="n-body">Upload image to IPFS. Pick grid coordinates. Pay 0.001 ETH. Appears on Loreboard.</div>
+          <div class="tag t-gold">LOREBOARD</div>
         </div>
       </div>
       <div class="arrow" style="color:var(--pink);padding-top:40px;">&rarr;</div>
       <div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.65);text-align:center;margin-bottom:10px;">02 &mdash; VOTE</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.65);text-align:center;margin-bottom:10px;">02 &mdash; SWIPE</div>
         <div class="node c-pink">
           <span class="n-icon">&#x1F91A;</span>
-          <div class="n-title" style="color:var(--pink);">Swipe to Vote</div>
-          <div class="n-body">Community swipes right (approve) or left (reject). EIP-712 signed votes collected off-chain.</div>
+          <div class="n-title" style="color:var(--pink);">Community Votes</div>
+          <div class="n-body">Placement appears in Swipe feed with grid coordinates. Swipe right/left. EIP-712 signed votes.</div>
           <div class="tag t-pink">EIP-712</div>
         </div>
       </div>
       <div class="arrow" style="color:var(--gold);padding-top:40px;">&rarr;</div>
       <div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.65);text-align:center;margin-bottom:10px;">03 &mdash; CANONIZE</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.65);text-align:center;margin-bottom:10px;">03 &mdash; FINALIZE</div>
         <div class="node c-gold">
-          <span class="n-icon">&#x2728;</span>
+          <span class="n-icon">&#x2696;</span>
           <div class="n-title" style="color:var(--gold);">Finalize On-Chain</div>
-          <div class="n-body">Approved: FoidTrest entry created forever. Rejected: proposal fades into the void.</div>
-          <div class="tag t-gold">PERMANENT</div>
+          <div class="n-body">Swipe.finalize() with collected signatures. Contract verifies and tallies. Majority wins.</div>
+          <div class="tag t-gold">ON-CHAIN</div>
         </div>
       </div>
-      <div class="arrow" style="color:var(--gold);padding-top:40px;">&rarr;</div>
+      <div class="arrow" style="color:var(--green);padding-top:40px;">&rarr;</div>
       <div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.65);text-align:center;margin-bottom:10px;">04 &mdash; EXHIBIT</div>
-        <div class="node c-gold">
-          <span class="n-icon">&#x1F3DB;</span>
-          <div class="n-title" style="color:var(--gold);">Gallery Forever</div>
-          <div class="n-body">Canonized memes displayed permanently. Creator + timestamp recorded. The grid remembers.</div>
-          <div class="tag t-gold">FOIDTREST</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.65);text-align:center;margin-bottom:10px;">04 &mdash; RESULT</div>
+        <div class="node c-green">
+          <span class="n-icon">&#x2714;</span>
+          <div class="n-title" style="color:var(--green);">Stays or Goes</div>
+          <div class="n-body">Approved: placement stays on the board permanently. Rejected: removed from the grid.</div>
+          <div class="tag t-green">PERMANENT</div>
         </div>
       </div>
     </div>
@@ -704,7 +694,7 @@
         <div class="quote-sub">loreboard permanence</div>
       </div>
       <div class="quote">
-        <div class="quote-text">what gets canonized matters.</div>
+        <div class="quote-text">swipe decides what stays.</div>
         <div class="quote-sub">curation philosophy</div>
       </div>
       <div class="quote">
@@ -721,18 +711,25 @@
     <div class="hero">
       <div class="hero-glow" style="background:var(--pink);"></div>
       <div style="position:relative;z-index:1;">
-        <div class="hero-label" style="color:var(--pink);">SWIPE.EXE &mdash; DEMOCRATIC MEME CURATION</div>
-        <div class="hero-title">propose a meme. let the people decide.</div>
-        <div class="hero-body">tinder for memes. users propose images and the community votes by swiping. approved proposals get <strong>canonized to the Gallery</strong> &mdash; permanently on-chain. voting uses <strong>EIP-712 typed signatures</strong> collected off-chain, then batch-submitted to the Swipe smart contract for finalization.</div>
+        <div class="hero-label" style="color:var(--pink);">SWIPE.EXE &mdash; PLACEMENT FEED &amp; VOTING</div>
+        <div class="hero-title">swipe through the board. curate the grid.</div>
+        <div class="hero-body">the swipe feed shows every loreboard placement as a card. each card displays the image alongside its <strong>grid coordinates</strong> so you know exactly where it lives on the board. swipe right to approve, left to reject. voting uses <strong>EIP-712 typed signatures</strong> collected off-chain, then batch-submitted to the Swipe smart contract for finalization.</div>
       </div>
+    </div>
+
+    <div class="sh"><h3>The Swipe Card</h3><div class="sh-line"></div><div class="sh-badge t-pink">PLACEMENT CONTEXT</div></div>
+    <div class="g g3" style="margin-bottom:36px;">
+      <div class="node c-pink"><span class="n-icon">&#x1F5BC;</span><div class="n-title" style="color:var(--pink);">Placement Image</div><div class="n-body">The image from IPFS, displayed as the main card visual. Full preview before you vote.</div><div class="tag t-pink">IPFS</div></div>
+      <div class="node c-gold"><span class="n-icon">&#x1F4CD;</span><div class="n-title" style="color:var(--gold);">Grid Coordinate</div><div class="n-body">Shows (x, y) position and (w &times; h) size on the loreboard. Gives context for where this placement lives on the canvas.</div><div class="tag t-gold">LOCATION</div></div>
+      <div class="node c-cyan"><span class="n-icon">&#x1F91A;</span><div class="n-title" style="color:var(--cyan);">Swipe to Vote</div><div class="n-body">Right = approve, left = reject. EIP-712 signed vote. Weighted by prayer streak tier + MiFOID bonus.</div><div class="tag t-cyan">EIP-712</div></div>
     </div>
 
     <div class="sh"><h3>Proposal Lifecycle</h3><div class="sh-line"></div><div class="sh-badge t-pink">Swipe.sol</div></div>
     <div class="g g4" style="margin-bottom:36px;">
-      <div class="node c-pink"><span class="n-icon">&#x1F4E4;</span><div class="n-title" style="color:var(--pink);">1. Submit Proposal</div><div class="n-body">Upload image (max 5MB) &rarr; pinned to IPFS &rarr; Swipe.propose(ipfsCid) with 0.001 ETH fee.</div><div class="tag t-pink">PAYABLE</div></div>
+      <div class="node c-pink"><span class="n-icon">&#x1F4E4;</span><div class="n-title" style="color:var(--pink);">1. Place on Board</div><div class="n-body">User places image on the loreboard grid. Placement appears in the swipe feed for community review.</div><div class="tag t-pink">FEED ENTRY</div></div>
       <div class="node c-pink"><span class="n-icon">&#x23F3;</span><div class="n-title" style="color:var(--pink);">2. Voting Window</div><div class="n-body">Community swipes on the card. Right = approve, left = reject. EIP-712 signed votes stored via API.</div><div class="tag t-pink">TIME-LIMITED</div></div>
       <div class="node c-gold"><span class="n-icon">&#x2696;</span><div class="n-title" style="color:var(--gold);">3. Finalization</div><div class="n-body">Swipe.finalize(proposalId, signatures[]). Contract verifies sigs and tallies. Majority wins.</div><div class="tag t-gold">ON-CHAIN</div></div>
-      <div class="node c-green"><span class="n-icon">&#x2714;</span><div class="n-title" style="color:var(--green);">4. Canonized or Rejected</div><div class="n-body">Approved: FoidTrest entry created, meme permanent. Rejected: proposal marked failed.</div><div class="tag t-green">PERMANENT</div></div>
+      <div class="node c-green"><span class="n-icon">&#x2714;</span><div class="n-title" style="color:var(--green);">4. Approved or Removed</div><div class="n-body">Approved: placement stays on the board permanently. Rejected: placement removed from the grid.</div><div class="tag t-green">PERMANENT</div></div>
     </div>
 
     <div class="sh"><h3>EIP-712 Vote Signing</h3><div class="sh-line"></div><div class="sh-badge t-cyan">off-chain &rarr; on-chain</div></div>
@@ -761,7 +758,7 @@
     <div class="g g3" style="margin-bottom:36px;">
       <div class="node c-pink" style="text-align:center;padding:24px;">
         <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--pink);margin-bottom:10px;">/swipe</div>
-        <div class="n-body">Main swipe interface. Card stack with gestures. "Live" and "Closed" tabs. Polls /api/swipe/proposals every 15s.</div>
+        <div class="n-body">Placement feed. Card stack with swipe gestures. Each card shows the image + grid coordinates. "Live" and "Closed" tabs.</div>
         <div class="tag t-pink" style="margin-top:12px;">SWIPE GESTURES</div>
       </div>
       <div class="node c-pink" style="text-align:center;padding:24px;">
@@ -771,7 +768,7 @@
       </div>
       <div class="node c-pink" style="text-align:center;padding:24px;">
         <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--pink);margin-bottom:10px;">/swipe/[id]</div>
-        <div class="n-body">Single proposal detail. Swipe or button voting. Real-time progress bar. Timer countdown.</div>
+        <div class="n-body">Single placement detail. Swipe or button voting. Grid coordinate context. Real-time progress bar.</div>
         <div class="tag t-pink" style="margin-top:12px;">DETAIL VIEW</div>
       </div>
     </div>
@@ -779,48 +776,11 @@
     <div class="code-block">
       <div style="font-size:11px;color:var(--pink);margin-bottom:14px;">API ROUTES</div>
       <div style="font-size:11px;line-height:2.4;color:rgba(255,255,255,0.6);">
-        <div><span style="color:var(--green)">GET</span>&nbsp; <span style="color:rgba(255,255,255,0.8)">/api/swipe/proposals</span> &mdash; batch getProposal() via multicall</div>
+        <div><span style="color:var(--green)">GET</span>&nbsp; <span style="color:rgba(255,255,255,0.8)">/api/swipe/proposals</span> &mdash; fetches loreboard placements as swipe cards</div>
         <div><span style="color:var(--gold)">POST</span> <span style="color:rgba(255,255,255,0.8)">/api/swipe/vote</span> &mdash; stores signed vote { proposalId, approve, signature, voter }</div>
         <div><span style="color:var(--green)">GET</span>&nbsp; <span style="color:rgba(255,255,255,0.8)">/api/swipe/vote?proposalId=X</span> &mdash; returns { forCount, againstCount, votes[] }</div>
         <div><span style="color:var(--gold)">POST</span> <span style="color:rgba(255,255,255,0.8)">/api/ipfs-upload</span> &mdash; pins image to IPFS, returns CID</div>
       </div>
-    </div>
-  </div>
-
-  <!-- ════════════════════════════════════════════
-       GALLERY
-  ════════════════════════════════════════════ -->
-  <div id="panel-gallery" class="panel">
-    <div class="hero">
-      <div class="hero-glow" style="background:var(--gold);"></div>
-      <div style="position:relative;z-index:1;">
-        <div class="hero-label" style="color:var(--gold);">GALLERY.EXE &mdash; FOIDTREST</div>
-        <div class="hero-title">the internet's hottest pop-up gallery</div>
-        <div class="hero-body">permanent exhibition for canonized memes. every entry earned its place through community consensus. once canonized, it stays on the FoidTrest contract forever. the gallery reads directly from on-chain data &mdash; no centralized database, no takedowns. <strong>the grid remembers.</strong></div>
-      </div>
-    </div>
-
-    <div class="sh"><h3>How the Gallery Works</h3><div class="sh-line"></div><div class="sh-badge t-gold">FoidTrest</div></div>
-    <div class="g g3" style="margin-bottom:36px;">
-      <div class="node c-gold"><span class="n-icon">&#x1F3C6;</span><div class="n-title" style="color:var(--gold);">Win Swipe Vote</div><div class="n-body">Proposal passes. Swipe.finalize() marks canonized and creates a FoidTrest entry with the IPFS CID.</div><div class="tag t-gold">ENTRY GATE</div></div>
-      <div class="node c-gold"><span class="n-icon">&#x1F4BE;</span><div class="n-title" style="color:var(--gold);">On-Chain Entry</div><div class="n-body">FoidTrest stores: id, creator, ipfsCid, title, description, placedAt, path, visible. Immutable record.</div><div class="tag t-gold">IMMUTABLE</div></div>
-      <div class="node c-gold"><span class="n-icon">&#x1F5BC;</span><div class="n-title" style="color:var(--gold);">Gallery Display</div><div class="n-body">Frontend reads entryCount() then batch loads via multicall. Responsive grid. IPFS images with loading states.</div><div class="tag t-gold">LIVE</div></div>
-    </div>
-
-    <div class="code-block" style="margin-bottom:24px;">
-      <div style="font-size:11px;color:var(--gold);margin-bottom:14px;">TRESTENTRY &mdash; ON-CHAIN SCHEMA</div>
-      <div style="font-size:11px;line-height:2.2;color:rgba(255,255,255,0.6);">
-        <div><span style="color:var(--gold)">id</span>: bigint &mdash; unique entry identifier</div>
-        <div><span style="color:var(--gold)">creator</span>: address &mdash; who proposed the meme</div>
-        <div><span style="color:var(--gold)">ipfsCid</span>: string &mdash; IPFS content identifier</div>
-        <div><span style="color:var(--gold)">placedAt</span>: uint256 &mdash; unix timestamp of canonization</div>
-        <div><span style="color:var(--gold)">visible</span>: bool &mdash; display flag</div>
-      </div>
-    </div>
-
-    <div class="g g2">
-      <div class="glass-light"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:8px;">NO GOVERNANCE</div><div class="n-body" style="font-size:12px;line-height:1.7;">gallery entries are permanent in V1. once canonized, they stay forever. governance only exists on the Loreboard.</div></div>
-      <div class="glass-light"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:8px;">DIRECT PLACEMENT RETIRED</div><div class="n-body" style="font-size:12px;line-height:1.7;">the only way in is winning a Swipe vote. culture earns its place through consensus, not payment.</div></div>
     </div>
   </div>
 
@@ -832,24 +792,16 @@
       <div class="hero-glow" style="background:var(--gold);"></div>
       <div style="position:relative;z-index:1;">
         <div class="hero-label" style="color:var(--gold);">LOREBOARD.EXE &mdash; INFINITE CANVAS</div>
-        <div class="hero-title">the grid. collaborative. permanent. governed.</div>
-        <div class="hero-body">an 8192&times;8192 cell infinite canvas. pay-to-place model with a flat 0.001 ETH fee. community governance handles moderation &mdash; flag placements, trigger removal votes, resolve democratically. no central authority. the board polices itself.</div>
+        <div class="hero-title">the grid. collaborative. permanent.</div>
+        <div class="hero-body">an 8192&times;8192 cell infinite canvas. pay-to-place model with a flat 0.001 ETH fee. placements appear on the board and get fed into <strong>Swipe</strong> for community voting. the board is the canvas &mdash; swipe is where the people decide what stays.</div>
       </div>
     </div>
 
     <div class="sh"><h3>Place on the Grid</h3><div class="sh-line"></div><div class="sh-badge t-gold">SwipeLoreboard.sol</div></div>
-    <div class="g g4" style="margin-bottom:36px;">
+    <div class="g g3" style="margin-bottom:36px;">
       <div class="node c-gold"><span class="n-icon">&#x1F5BC;</span><div class="n-title" style="color:var(--gold);">1. Choose Position</div><div class="n-body">Navigate infinite canvas (pinch zoom, pan). Select region. Upload image. 32px cells.</div></div>
       <div class="node c-gold"><span class="n-icon">&#x1F4B0;</span><div class="n-title" style="color:var(--gold);">2. Pay Flat Fee</div><div class="n-body">SwipeLoreboard.place(x, y, w, h, cidBytes) with 0.001 ETH. No bidding &mdash; instant.</div><div class="tag t-gold">0.001 ETH</div></div>
-      <div class="node c-green"><span class="n-icon">&#x2705;</span><div class="n-title" style="color:var(--green);">3. Placed Immediately</div><div class="n-body">PlacementCreated event. Image appears on board. Coords + CID stored on-chain.</div></div>
-      <div class="node c-red"><span class="n-icon">&#x1F6E1;</span><div class="n-title" style="color:var(--red);">4. Community Governed</div><div class="n-body">Flag inappropriate placements. Enough flags = removal vote. Majority removes it.</div><div class="tag t-red">GOVERNANCE</div></div>
-    </div>
-
-    <div class="sh"><h3>Flag &amp; Removal</h3><div class="sh-line"></div><div class="sh-badge t-red">moderation</div></div>
-    <div class="g g3" style="margin-bottom:36px;">
-      <div class="node c-red"><span class="n-icon">&#x1F6A9;</span><div class="n-title" style="color:var(--red);">Flag Placement</div><div class="n-body">Any user flags by calling flagPlacement(placementId) + paying flag fee. One flag per address per placement.</div><div class="tag t-red">PAYABLE</div></div>
-      <div class="node c-red"><span class="n-icon">&#x2696;</span><div class="n-title" style="color:var(--red);">Removal Vote</div><div class="n-body">When flagCount reaches threshold, removal vote created. Community votes support/oppose within time window.</div><div class="tag t-red">THRESHOLD</div></div>
-      <div class="node c-green"><span class="n-icon">&#x1F3DB;</span><div class="n-title" style="color:var(--green);">Resolve</div><div class="n-body">resolveRemovalVote(voteId). Majority for removal = placement removed. Otherwise stays.</div><div class="tag t-green">DEMOCRATIC</div></div>
+      <div class="node c-pink"><span class="n-icon">&#x1F91A;</span><div class="n-title" style="color:var(--pink);">3. Fed to Swipe</div><div class="n-body">Placement appears in the Swipe feed with grid coordinates. Community votes to approve or reject.</div><div class="tag t-pink">SWIPE FEED</div></div>
     </div>
 
     <div class="g g3">
@@ -1395,20 +1347,20 @@
     <div class="g g2" style="margin-bottom:28px;">
       <div class="node c-pink" style="padding:20px;">
         <div style="font-size:22px;margin-bottom:10px;">&#x1F5F3;&#xFE0F;</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--pink);margin-bottom:8px;">Swipe Proposals</div>
-        <div class="n-body" style="font-size:12px;line-height:1.6;">EIP-712 off-chain signed votes. Approve or reject community meme proposals. Passing proposals get canonized to the Gallery.</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--pink);margin-bottom:8px;">Swipe &mdash; Placement Voting</div>
+        <div class="n-body" style="font-size:12px;line-height:1.6;">EIP-712 off-chain signed votes. Approve or reject loreboard placements. Each swipe card shows the image + grid coordinates.</div>
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);">
           <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);">DOMAIN: FoidSwipe &middot; VERSION: 1 &middot; CHAIN: 20994</div>
           <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);margin-top:4px;">TYPES: proposalId, approve, deadline</div>
         </div>
       </div>
       <div class="node c-gold" style="padding:20px;">
-        <div style="font-size:22px;margin-bottom:10px;">&#x1F6A9;</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);margin-bottom:8px;">Loreboard Flags &amp; Removal</div>
-        <div class="n-body" style="font-size:12px;line-height:1.6;">On-chain governance for board placements. Flag content &rarr; if threshold met, removal vote triggers &rarr; weighted vote decides removal.</div>
+        <div style="font-size:22px;margin-bottom:10px;">&#x1F5FA;</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);margin-bottom:8px;">Loreboard &mdash; Board Governance</div>
+        <div class="n-body" style="font-size:12px;line-height:1.6;">Placements go through Swipe for community approval. Approved placements stay permanently. Rejected placements get removed from the grid.</div>
         <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);">flagPlacement() &rarr; voteOnRemoval() &rarr; resolveRemovalVote()</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);margin-top:4px;">flagFeeWei: 0.001 ETH &middot; flagThreshold: configurable</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);">place() &rarr; swipe feed &rarr; finalize() &rarr; stays or removed</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);margin-top:4px;">placeFee: 0.001 ETH &middot; vote weight: streak + MiFOID</div>
         </div>
       </div>
     </div>
@@ -1488,7 +1440,7 @@
         How Users Move Through foid.fun
       </h2>
       <p style="max-width:540px;margin:0 auto;font-size:13px;color:rgba(255,255,255,0.7);line-height:1.7;">
-        Five interconnected apps. One ecosystem. Here's how a user navigates from entry to influence.
+        Four interconnected apps. One ecosystem. Here's how a user navigates from entry to influence.
       </p>
     </div>
 
@@ -1523,40 +1475,40 @@
     </div>
 
     <!-- Flow 2: Meme Creator Journey -->
-    <div class="sh"><h3>Meme Creator Journey</h3><div class="sh-line"></div><div class="sh-badge t-pink">SWIPE &rarr; GALLERY</div></div>
+    <div class="sh"><h3>Placement Creator Journey</h3><div class="sh-line"></div><div class="sh-badge t-gold">BOARD &rarr; SWIPE</div></div>
     <div style="position:relative;margin:20px 0 36px;">
       <div style="display:flex;align-items:stretch;gap:0;flex-wrap:wrap;">
-        <div style="flex:1;min-width:120px;background:linear-gradient(135deg,rgba(255,105,180,0.15),rgba(255,105,180,0.05));border:1px solid rgba(255,105,180,0.25);border-radius:14px 0 0 14px;padding:16px;text-align:center;">
+        <div style="flex:1;min-width:120px;background:linear-gradient(135deg,rgba(212,168,67,0.15),rgba(212,168,67,0.05));border:1px solid rgba(212,168,67,0.25);border-radius:14px 0 0 14px;padding:16px;text-align:center;">
           <div style="font-size:20px;margin-bottom:6px;">&#x1F3A8;</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--pink);margin-bottom:4px;">Create Meme</div>
-          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Upload image</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);margin-bottom:4px;">Create Image</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Upload to IPFS</div>
         </div>
-        <div style="display:flex;align-items:center;color:var(--pink);font-weight:700;padding:0 2px;">&rarr;</div>
-        <div style="flex:1;min-width:120px;background:linear-gradient(135deg,rgba(255,105,180,0.12),rgba(255,105,180,0.04));border:1px solid rgba(255,105,180,0.2);padding:16px;text-align:center;">
-          <div style="font-size:20px;margin-bottom:6px;">&#x1F4E4;</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--pink);margin-bottom:4px;">Pin to IPFS</div>
-          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Get CID</div>
-        </div>
-        <div style="display:flex;align-items:center;color:var(--pink);font-weight:700;padding:0 2px;">&rarr;</div>
-        <div style="flex:1;min-width:120px;background:linear-gradient(135deg,rgba(255,105,180,0.12),rgba(255,105,180,0.04));border:1px solid rgba(255,105,180,0.2);padding:16px;text-align:center;">
-          <div style="font-size:20px;margin-bottom:6px;">&#x1F4DD;</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--pink);margin-bottom:4px;">Propose</div>
-          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Swipe.propose()</div>
-        </div>
-        <div style="display:flex;align-items:center;color:var(--pink);font-weight:700;padding:0 2px;">&rarr;</div>
+        <div style="display:flex;align-items:center;color:var(--gold);font-weight:700;padding:0 2px;">&rarr;</div>
         <div style="flex:1;min-width:120px;background:linear-gradient(135deg,rgba(212,168,67,0.12),rgba(212,168,67,0.04));border:1px solid rgba(212,168,67,0.2);padding:16px;text-align:center;">
-          <div style="font-size:20px;margin-bottom:6px;">&#x1F5F3;&#xFE0F;</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);margin-bottom:4px;">Community Votes</div>
-          <div style="font-size:9px;color:rgba(255,255,255,0.65);">EIP-712 sigs</div>
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F4CD;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);margin-bottom:4px;">Pick Grid Spot</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Choose coordinates</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--gold);font-weight:700;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:120px;background:linear-gradient(135deg,rgba(212,168,67,0.12),rgba(212,168,67,0.04));border:1px solid rgba(212,168,67,0.2);padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F4B0;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);margin-bottom:4px;">Pay &amp; Place</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">0.001 ETH</div>
         </div>
         <div style="display:flex;align-items:center;color:var(--pink);font-weight:700;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:120px;background:linear-gradient(135deg,rgba(255,105,180,0.12),rgba(255,105,180,0.04));border:1px solid rgba(255,105,180,0.2);padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F91A;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--pink);margin-bottom:4px;">Swipe Feed</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Community votes</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--green);font-weight:700;padding:0 2px;">&rarr;</div>
         <div style="flex:1;min-width:120px;background:linear-gradient(135deg,rgba(76,175,80,0.15),rgba(76,175,80,0.05));border:1px solid rgba(76,175,80,0.25);border-radius:0 14px 14px 0;padding:16px;text-align:center;">
-          <div style="font-size:20px;margin-bottom:6px;">&#x1F3DB;&#xFE0F;</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--green);margin-bottom:4px;">Gallery</div>
-          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Canonized forever</div>
+          <div style="font-size:20px;margin-bottom:6px;">&#x2714;&#xFE0F;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--green);margin-bottom:4px;">Stays or Goes</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Permanent result</div>
         </div>
       </div>
-      <div style="text-align:center;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.6);">If rejected: proposal closed. Creator can resubmit.</div>
+      <div style="text-align:center;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.6);">If rejected: placement removed from the grid. Creator can place again.</div>
     </div>
 
     <!-- Flow 3: Loreboard Placement -->
@@ -1663,11 +1615,11 @@
     <div class="sh"><h3>App Interconnections</h3><div class="sh-line"></div></div>
     <div class="code-block" style="margin:20px 0;">
       <div style="font-family:'JetBrains Mono',monospace;font-size:11px;line-height:2.4;color:rgba(255,255,255,0.6);">
-        <div><span style="color:var(--pink);">Swipe</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> canonize </span>──&gt; <span style="color:var(--green);">Gallery</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· winning proposal becomes permanent entry</span></div>
+        <div><span style="color:var(--gold);">Loreboard</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> placements </span>──&gt; <span style="color:var(--pink);">Swipe</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· every placement feeds into swipe for voting</span></div>
+        <div><span style="color:var(--pink);">Swipe</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> approve/reject </span>──&gt; <span style="color:var(--gold);">Loreboard</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· community decides what stays on the grid</span></div>
         <div><span style="color:var(--cyan);">Prayer</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> streak tier </span>──&gt; <span style="color:var(--purple);">Voting Power</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· daily prayer builds multiplier</span></div>
         <div><span style="color:var(--purple);">MiFOID</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> +50 bonus </span>──&gt; <span style="color:var(--purple);">Voting Power</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· NFT ownership adds flat weight</span></div>
-        <div><span style="color:var(--purple);">Voting Power</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> weights </span>──&gt; <span style="color:var(--pink);">Swipe</span> + <span style="color:var(--gold);">Loreboard</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· governs both apps</span></div>
-        <div><span style="color:var(--gold);">Loreboard</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> flag/remove </span>──&gt; <span style="color:var(--red);">Governance</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· community moderation</span></div>
+        <div><span style="color:var(--purple);">Voting Power</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> weights </span>──&gt; <span style="color:var(--pink);">Swipe</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· weighted votes on all placements</span></div>
         <div><span style="color:var(--purple);">MiFOID</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> mint event </span>──&gt; <span style="color:var(--purple);">Foid Mommy</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· triggers agent-side render</span></div>
       </div>
     </div>
@@ -1677,8 +1629,8 @@
     <div class="g g3" style="margin:20px 0;">
       <div class="glass-light" style="padding:18px;">
         <div style="font-size:20px;margin-bottom:8px;">&#x1F3A8;</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--pink);margin-bottom:6px;">Meme Creator</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.6;">Enters via <b style="color:var(--pink);">/swipe/submit</b>. Creates and proposes memes. Aims for Gallery canonization. May also place on Loreboard.</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--pink);margin-bottom:6px;">Creator</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.6;">Enters via <b style="color:var(--gold);">/board</b>. Places images on the loreboard grid. Placements go to <b style="color:var(--pink);">/swipe</b> for community voting.</div>
       </div>
       <div class="glass-light" style="padding:18px;">
         <div style="font-size:20px;margin-bottom:8px;">&#x1F9D8;</div>
