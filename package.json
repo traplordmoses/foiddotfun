@@ -5,7 +5,7 @@
     "start": "next start -p $PORT"
   },
   "engines": {
-    "node": ">=18"
+    "node": "22.x"
   },
   "dependencies": {
     "bs58": "^6.0.0",
