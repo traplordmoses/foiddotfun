@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>foid.fun — system architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap"></noscript>
+<style>
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --pink: #FF69B4;
+    --pink-soft: #ff8ec7;
+    --gold: #D4A843;
+    --cyan: #3EEEC4;
+    --purple: #C084FC;
+    --sky: #5B8FC4;
+    --azure: #8BBAE8;
+    --navy: #0D1B2A;
+    --green: #4CAF50;
+    --red: #FF5555;
+    --bubble: #E8F0FF;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    color: #fff;
+    background: linear-gradient(170deg, #4a7eb0 0%, #6ba3d6 15%, #8bbae8 35%, #7dadd4 55%, #5b8fc4 75%, #4a7eb0 100%);
+    /* background-attachment: fixed removed — causes repaint on every scroll */
+  }
+
+  /* ── ANIMATED BACKGROUND ── */
+  .bg-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  /* Aurora streaks */
+  .aurora {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(50px);
+    opacity: 0.18;
+    animation: drift 20s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+  .aurora-1 { width: 600px; height: 250px; background: linear-gradient(135deg, #4AA8B8, #3EEEC4); top: 5%; left: -5%; animation-delay: 0s; }
+  .aurora-2 { width: 500px; height: 200px; background: linear-gradient(135deg, #FF69B4, #A855F7); top: 30%; right: -10%; animation-delay: -7s; animation-duration: 25s; }
+  .aurora-3 { width: 700px; height: 300px; background: linear-gradient(135deg, #6B9FD4, #4AA8B8); bottom: 10%; left: 20%; animation-delay: -12s; animation-duration: 30s; }
+  .aurora-4 { width: 400px; height: 180px; background: linear-gradient(135deg, #D4A843, #FF69B4); top: 60%; right: 15%; animation-delay: -4s; opacity: 0.12; }
+
+  @keyframes drift {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    33% { transform: translate(30px, -20px) rotate(2deg); }
+    66% { transform: translate(-20px, 15px) rotate(-1deg); }
+    100% { transform: translate(10px, -10px) rotate(1deg); }
+  }
+
+  /* Floating bubbles */
+  .bubble {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.3), rgba(255,255,255,0.05) 60%, transparent 70%);
+    border: 1px solid rgba(255,255,255,0.15);
+    animation: float-up linear infinite;
+    box-shadow: inset 0 -4px 8px rgba(255,255,255,0.06);
+    will-change: transform, opacity;
+  }
+
+  @keyframes float-up {
+    0% { transform: translateY(100vh) scale(0.5); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(-120px) scale(1); opacity: 0; }
+  }
+
+  /* Sparkle dots */
+  .sparkle {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.8);
+    animation: twinkle 3s ease-in-out infinite;
+    will-change: opacity, transform;
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0; transform: scale(0.5); }
+    50% { opacity: 1; transform: scale(1.5); }
+  }
+
+  /* Noise texture — disabled for performance (was SVG feTurbulence filter) */
+  .noise { display: none; }
+
+  /* ── MAIN WRAP ── */
+  .wrap {
+    position: relative;
+    z-index: 2;
+    padding: 60px 40px 100px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin-bottom: 64px;
+  }
+  .header h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    font-weight: 500;
+  }
+  .header h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-shadow: 0 2px 30px rgba(0,0,0,0.15);
+  }
+  .header h2 span {
+    background: linear-gradient(135deg, var(--pink), #ff8ec7, #e040fb);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .tagline {
+    font-size: 14px;
+    color: rgba(255,255,255,0.6);
+    margin-top: 14px;
+    font-weight: 300;
+    letter-spacing: 0.04em;
+  }
+  .pills {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+  .pill {
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.8);
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .pill:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.3); }
+  .pill b { font-weight: 700; }
+  .pill.accent { border-color: var(--pink); color: var(--pink-soft); }
+  .pill.accent2 { border-color: var(--cyan); color: var(--cyan); }
+
+  .version {
+    text-align: right;
+  }
+  .version-badge {
+    display: inline-block;
+    padding: 8px 18px;
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--gold);
+    background: rgba(13,27,42,0.8);
+    border: 1px solid rgba(212,168,67,0.3);
+  }
+  .version-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.35);
+    margin-top: 10px;
+  }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 48px;
+    padding: 6px;
+    background: rgba(13,27,42,0.6);
+    border-radius: 14px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08);
+    flex-wrap: wrap;
+  }
+  .tab {
+    padding: 10px 18px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    color: rgba(255,255,255,0.4);
+    background: none;
+    border: none;
+    border-radius: 10px;
+    transition: all 0.25s;
+    position: relative;
+  }
+  .tab:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.05); }
+  .tab.active {
+    color: #fff;
+    background: rgba(255,105,180,0.15);
+    border: 1px solid rgba(255,105,180,0.3);
+    box-shadow: 0 0 20px rgba(255,105,180,0.1);
+  }
+  .tab .badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 5px;
+    vertical-align: middle;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .panel { display: none; content-visibility: hidden; }
+  .panel.active { display: block; content-visibility: visible; animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── GLASS CARD ── */
+  .glass {
+    background: rgba(13,27,42,0.7);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 24px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    contain: layout style paint;
+  }
+  .glass:hover {
+    border-color: rgba(255,255,255,0.15);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+  }
+  .glass-light {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 24px;
+    contain: layout style paint;
+  }
+
+  /* ── EXE WINDOW ── */
+  .exe {
+    background: rgba(13,27,42,0.75);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: border-color 0.35s, box-shadow 0.35s;
+    contain: layout style paint;
+  }
+  .exe:hover {
+    border-color: rgba(255,255,255,0.2);
+    box-shadow: 0 12px 48px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.08);
+  }
+  .exe-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .dots { display: flex; gap: 6px; }
+  .dots i { width: 10px; height: 10px; border-radius: 50%; display: block; }
+  .dots i:nth-child(1) { background: #FF5F57; box-shadow: 0 0 6px rgba(255,95,87,0.4); }
+  .dots i:nth-child(2) { background: #FEBC2E; box-shadow: 0 0 6px rgba(254,188,46,0.4); }
+  .dots i:nth-child(3) { background: #28C840; box-shadow: 0 0 6px rgba(40,200,64,0.4); }
+  .exe-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+  }
+  .exe-body { padding: 20px; }
+
+  /* ── HERO ── */
+  .hero {
+    position: relative;
+    border-radius: 24px;
+    padding: 40px;
+    margin-bottom: 40px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(13,27,42,0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 24px;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(255,105,180,0.3), transparent 50%, rgba(62,238,196,0.2));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  .hero-glow {
+    position: absolute;
+    width: 350px;
+    height: 350px;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.15;
+    pointer-events: none;
+    top: -80px;
+    right: -60px;
+  }
+  .hero-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    margin-bottom: 14px;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .hero-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(18px, 2.5vw, 24px);
+    font-weight: 800;
+    margin-bottom: 16px;
+    letter-spacing: 0.03em;
+    line-height: 1.3;
+  }
+  .hero-body {
+    font-size: 14px;
+    color: rgba(255,255,255,0.55);
+    line-height: 1.9;
+    max-width: 780px;
+    font-weight: 300;
+  }
+  .hero-body strong { color: rgba(255,255,255,0.9); font-weight: 600; }
+
+  /* ── SECTION HEAD ── */
+  .sh {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 40px 0 20px;
+  }
+  .sh h3 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: rgba(255,255,255,0.85);
+  }
+  .sh-line { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.15), transparent); }
+  .sh-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  /* ── NODE CARD ── */
+  .node {
+    background: rgba(13,27,42,0.7);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 18px 16px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    position: relative;
+    overflow: hidden;
+    contain: layout style paint;
+  }
+  .node::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    border-radius: 14px 14px 0 0;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .node:hover {
+    border-color: rgba(255,255,255,0.15);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+  }
+  .node:hover::before { opacity: 1; }
+  .node.c-pink { border-color: rgba(255,105,180,0.2); }
+  .node.c-pink::before { background: linear-gradient(90deg, var(--pink), transparent); }
+  .node.c-pink:hover { border-color: rgba(255,105,180,0.35); box-shadow: 0 12px 40px rgba(255,105,180,0.1); }
+  .node.c-cyan { border-color: rgba(62,238,196,0.2); }
+  .node.c-cyan::before { background: linear-gradient(90deg, var(--cyan), transparent); }
+  .node.c-cyan:hover { border-color: rgba(62,238,196,0.35); box-shadow: 0 12px 40px rgba(62,238,196,0.1); }
+  .node.c-gold { border-color: rgba(212,168,67,0.2); }
+  .node.c-gold::before { background: linear-gradient(90deg, var(--gold), transparent); }
+  .node.c-gold:hover { border-color: rgba(212,168,67,0.35); box-shadow: 0 12px 40px rgba(212,168,67,0.1); }
+  .node.c-purple { border-color: rgba(192,132,252,0.2); }
+  .node.c-purple::before { background: linear-gradient(90deg, var(--purple), transparent); }
+  .node.c-purple:hover { border-color: rgba(192,132,252,0.35); box-shadow: 0 12px 40px rgba(192,132,252,0.1); }
+  .node.c-green { border-color: rgba(76,175,80,0.2); }
+  .node.c-green::before { background: linear-gradient(90deg, var(--green), transparent); }
+  .node.c-red { border-color: rgba(255,85,85,0.2); }
+  .node.c-red::before { background: linear-gradient(90deg, var(--red), transparent); }
+
+  .n-icon { font-size: 20px; margin-bottom: 10px; display: block; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3)); }
+  .n-title { font-size: 12px; font-weight: 700; margin-bottom: 6px; line-height: 1.3; }
+  .n-body { font-size: 10px; color: rgba(255,255,255,0.65); line-height: 1.6; }
+
+  .tag {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 0.06em;
+    font-weight: 500;
+  }
+  .t-pink { background: rgba(255,105,180,0.1); color: var(--pink); border: 1px solid rgba(255,105,180,0.25); }
+  .t-cyan { background: rgba(62,238,196,0.1); color: var(--cyan); border: 1px solid rgba(62,238,196,0.25); }
+  .t-gold { background: rgba(212,168,67,0.1); color: var(--gold); border: 1px solid rgba(212,168,67,0.25); }
+  .t-purple { background: rgba(192,132,252,0.1); color: var(--purple); border: 1px solid rgba(192,132,252,0.25); }
+  .t-green { background: rgba(76,175,80,0.1); color: var(--green); border: 1px solid rgba(76,175,80,0.25); }
+  .t-red { background: rgba(255,85,85,0.1); color: var(--red); border: 1px solid rgba(255,85,85,0.25); }
+  .t-muted { background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.35); border: 1px solid rgba(255,255,255,0.08); }
+
+  /* ── FLOW ARROW ── */
+  .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    animation: pulse-arrow 2s ease-in-out infinite;
+  }
+  @keyframes pulse-arrow { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+  /* ── CODE BLOCK ── */
+  .code-block {
+    background: rgba(13,27,42,0.8);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    contain: layout style paint;
+  }
+
+  /* ── QUOTE BLOCK ── */
+  .quote {
+    text-align: center;
+    padding: 28px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    transition: background 0.3s;
+  }
+  .quote:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.15); }
+  .quote-text {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    letter-spacing: 0.02em;
+  }
+  .quote-sub {
+    font-size: 10px;
+    color: rgba(255,255,255,0.3);
+    margin-top: 8px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── GRID HELPERS ── */
+  .g { display: grid; gap: 14px; }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .g5 { grid-template-columns: repeat(5, 1fr); }
+  .g-flow { grid-template-columns: 1fr 40px 1fr 40px 1fr 40px 1fr; align-items: start; }
+  .g-flow5 { grid-template-columns: 1fr 36px 1fr 36px 1fr 36px 1fr 36px 1fr; align-items: start; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .wrap { padding: 30px 16px 60px; }
+    .g3, .g4, .g5 { grid-template-columns: repeat(2, 1fr); }
+    .g-flow, .g-flow5 { grid-template-columns: 1fr; }
+    .arrow { transform: rotate(90deg); padding: 8px 0; }
+    .tabs { gap: 4px; padding: 4px; }
+    .tab { padding: 8px 10px; font-size: 9px; }
+  }
+
+  /* ── REDUCED MOTION ── */
+  @media (prefers-reduced-motion: reduce) {
+    .aurora, .bubble, .sparkle, .arrow { animation: none !important; }
+    .bubble, .sparkle { display: none; }
+    .panel.active { animation: none; }
+    * { transition-duration: 0.01ms !important; }
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ═══ BACKGROUND LAYER ═══ -->
+<div class="bg-layer">
+  <div class="aurora aurora-1"></div>
+  <div class="aurora aurora-2"></div>
+  <div class="aurora aurora-3"></div>
+  <div class="aurora aurora-4"></div>
+</div>
+<div class="noise"></div>
+
+<!-- Bubbles injected by JS -->
+<div class="bg-layer" id="bubbles"></div>
+<div class="bg-layer" id="sparkles"></div>
+
+<div class="wrap">
+
+  <!-- ════════════ HEADER ════════════ -->
+  <div class="header">
+    <div>
+      <h1>foid.fun &mdash; system architecture</h1>
+      <h2>culture, ritual,<br>identity &mdash; <span>on chain</span></h2>
+      <div class="tagline">memes are culture. culture deserves permanence.</div>
+      <div class="pills">
+        <div class="pill"><b>5</b> apps</div>
+        <div class="pill"><b>15</b> contracts</div>
+        <div class="pill"><b>22</b> hooks</div>
+        <div class="pill"><b>19</b> API routes</div>
+        <div class="pill accent2"><b>Fluent L2</b></div>
+        <div class="pill accent"><b>EIP-712</b> voting</div>
+      </div>
+    </div>
+    <div class="version">
+      <div class="version-badge">v1.0 &mdash; mainnet &mdash; chain 20994</div>
+      <div class="version-sub">Next.js 14 &middot; TypeScript &middot; Wagmi &middot; Viem &middot; Tailwind</div>
+    </div>
+  </div>
+
+  <!-- ════════════ TABS ════════════ -->
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('overview',this)">Overview</button>
+    <button class="tab" onclick="showTab('swipe',this)" style="color:var(--pink-soft)">Swipe</button>
+    <button class="tab" onclick="showTab('gallery',this)">Gallery</button>
+    <button class="tab" onclick="showTab('loreboard',this)" style="color:var(--gold)">Loreboard</button>
+    <button class="tab" onclick="showTab('prayer',this)">Prayer <span class="badge" style="background:rgba(62,238,196,0.15);color:var(--cyan);border:1px solid rgba(62,238,196,0.3);">RITUAL</span></button>
+    <button class="tab" onclick="showTab('mifoid',this)" style="color:var(--purple)">MiFOID <span class="badge" style="background:rgba(192,132,252,0.15);color:var(--purple);border:1px solid rgba(192,132,252,0.3);">AGENT</span></button>
+    <button class="tab" onclick="showTab('voting',this)">Voting</button>
+    <button class="tab" onclick="showTab('flows',this)" style="color:var(--gold)">User Flows</button>
+    <button class="tab" onclick="showTab('contracts',this)">Contracts <span class="badge" style="background:rgba(76,175,80,0.15);color:var(--green);border:1px solid rgba(76,175,80,0.3);">15</span></button>
+    <button class="tab" onclick="showTab('arch',this)">Architecture</button>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       OVERVIEW
+  ════════════════════════════════════════════ -->
+  <div id="panel-overview" class="panel active">
+
+    <div class="hero">
+      <div class="hero-glow" style="background:var(--pink);"></div>
+      <div style="position:relative;z-index:1;">
+        <div class="hero-label" style="color:var(--pink);">THE THESIS</div>
+        <div class="hero-title">the internet's permanent memory</div>
+        <div class="hero-body">memes are the folklore of the internet. they emerge, mutate, and vanish &mdash; unless someone decides they matter enough to preserve. foid.fun is a platform for <strong>permanent meme culture</strong> &mdash; democratic curation, on-chain identity, and daily ritual. five apps, one chain, zero corporate energy. every piece of culture that gets canonized stays forever.</div>
+      </div>
+    </div>
+
+    <!-- 5 APPS -->
+    <div class="sh">
+      <h3>five apps, one world</h3>
+      <div class="sh-line"></div>
+      <div class="sh-badge t-pink">all connected &middot; all on-chain</div>
+    </div>
+
+    <div class="g g5" style="margin-bottom:36px;">
+      <div class="exe" style="border-color:rgba(255,105,180,0.2);">
+        <div class="exe-bar"><div class="dots"><i></i><i></i><i></i></div><div class="exe-name">swipe.exe</div></div>
+        <div class="exe-body" style="text-align:center;">
+          <div style="font-size:32px;margin-bottom:10px;">&#x1F44D;</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--pink);margin-bottom:8px;">SWIPE</div>
+          <div class="n-body">propose memes. swipe to vote. approved images get canonized to the gallery forever.</div>
+          <div class="tag t-pink" style="margin-top:12px;">EIP-712 VOTING</div>
+        </div>
+      </div>
+      <div class="exe" style="border-color:rgba(212,168,67,0.2);">
+        <div class="exe-bar"><div class="dots"><i></i><i></i><i></i></div><div class="exe-name">gallery.exe</div></div>
+        <div class="exe-body" style="text-align:center;">
+          <div style="font-size:32px;margin-bottom:10px;">&#x1F5BC;</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px;">GALLERY</div>
+          <div class="n-body">the internet's hottest pop-up gallery. permanent exhibition for canonized culture.</div>
+          <div class="tag t-gold" style="margin-top:12px;">FOIDTREST</div>
+        </div>
+      </div>
+      <div class="exe" style="border-color:rgba(212,168,67,0.2);">
+        <div class="exe-bar"><div class="dots"><i></i><i></i><i></i></div><div class="exe-name">loreboard.exe</div></div>
+        <div class="exe-body" style="text-align:center;">
+          <div style="font-size:32px;margin-bottom:10px;">&#x1F5FA;</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px;">LOREBOARD</div>
+          <div class="n-body">infinite canvas. place images on the grid. pay-to-place with community governance.</div>
+          <div class="tag t-gold" style="margin-top:12px;">8192&times;8192</div>
+        </div>
+      </div>
+      <div class="exe" style="border-color:rgba(62,238,196,0.2);">
+        <div class="exe-bar"><div class="dots"><i></i><i></i><i></i></div><div class="exe-name">pray.exe</div></div>
+        <div class="exe-body" style="text-align:center;">
+          <div style="font-size:32px;margin-bottom:10px;">&#x1F56F;</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--cyan);margin-bottom:8px;">PRAYER</div>
+          <div class="n-body">daily AI ritual with foid mommy. share feelings. build streaks. hashes on-chain.</div>
+          <div class="tag t-cyan" style="margin-top:12px;">DAILY RITUAL</div>
+        </div>
+      </div>
+      <div class="exe" style="border-color:rgba(192,132,252,0.2);">
+        <div class="exe-bar"><div class="dots"><i></i><i></i><i></i></div><div class="exe-name">mifoid.exe</div></div>
+        <div class="exe-body" style="text-align:center;">
+          <div style="font-size:32px;margin-bottom:10px;">&#x1F47E;</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--purple);margin-bottom:8px;">MIFOID</div>
+          <div class="n-body">3,333 agent-generated identity NFTs. custom-rendered by Foid Mommy. each one becomes a living AI agent.</div>
+          <div class="tag t-purple" style="margin-top:12px;">0.01-0.02 ETH</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLOW -->
+    <div class="sh">
+      <h3>how everything connects</h3>
+      <div class="sh-line"></div>
+    </div>
+
+    <div class="g g-flow" style="margin-bottom:40px;">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.65);text-align:center;margin-bottom:10px;">01 &mdash; PROPOSE</div>
+        <div class="node c-pink">
+          <span class="n-icon">&#x1F4F8;</span>
+          <div class="n-title" style="color:var(--pink);">Upload Meme</div>
+          <div class="n-body">Upload image to IPFS. Pay 0.001 ETH. Calls Swipe.propose(ipfsCid).</div>
+          <div class="tag t-pink">SWIPE</div>
+        </div>
+      </div>
+      <div class="arrow" style="color:var(--pink);padding-top:40px;">&rarr;</div>
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.65);text-align:center;margin-bottom:10px;">02 &mdash; VOTE</div>
+        <div class="node c-pink">
+          <span class="n-icon">&#x1F91A;</span>
+          <div class="n-title" style="color:var(--pink);">Swipe to Vote</div>
+          <div class="n-body">Community swipes right (approve) or left (reject). EIP-712 signed votes collected off-chain.</div>
+          <div class="tag t-pink">EIP-712</div>
+        </div>
+      </div>
+      <div class="arrow" style="color:var(--gold);padding-top:40px;">&rarr;</div>
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.65);text-align:center;margin-bottom:10px;">03 &mdash; CANONIZE</div>
+        <div class="node c-gold">
+          <span class="n-icon">&#x2728;</span>
+          <div class="n-title" style="color:var(--gold);">Finalize On-Chain</div>
+          <div class="n-body">Approved: FoidTrest entry created forever. Rejected: proposal fades into the void.</div>
+          <div class="tag t-gold">PERMANENT</div>
+        </div>
+      </div>
+      <div class="arrow" style="color:var(--gold);padding-top:40px;">&rarr;</div>
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.15em;color:rgba(255,255,255,0.65);text-align:center;margin-bottom:10px;">04 &mdash; EXHIBIT</div>
+        <div class="node c-gold">
+          <span class="n-icon">&#x1F3DB;</span>
+          <div class="n-title" style="color:var(--gold);">Gallery Forever</div>
+          <div class="n-body">Canonized memes displayed permanently. Creator + timestamp recorded. The grid remembers.</div>
+          <div class="tag t-gold">FOIDTREST</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUOTES -->
+    <div class="g g3">
+      <div class="quote">
+        <div class="quote-text">the grid remembers.</div>
+        <div class="quote-sub">loreboard permanence</div>
+      </div>
+      <div class="quote">
+        <div class="quote-text">what gets canonized matters.</div>
+        <div class="quote-sub">curation philosophy</div>
+      </div>
+      <div class="quote">
+        <div class="quote-text">not a game. a practice.</div>
+        <div class="quote-sub">prayer terminal ethos</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       SWIPE
+  ════════════════════════════════════════════ -->
+  <div id="panel-swipe" class="panel">
+    <div class="hero">
+      <div class="hero-glow" style="background:var(--pink);"></div>
+      <div style="position:relative;z-index:1;">
+        <div class="hero-label" style="color:var(--pink);">SWIPE.EXE &mdash; DEMOCRATIC MEME CURATION</div>
+        <div class="hero-title">propose a meme. let the people decide.</div>
+        <div class="hero-body">tinder for memes. users propose images and the community votes by swiping. approved proposals get <strong>canonized to the Gallery</strong> &mdash; permanently on-chain. voting uses <strong>EIP-712 typed signatures</strong> collected off-chain, then batch-submitted to the Swipe smart contract for finalization.</div>
+      </div>
+    </div>
+
+    <div class="sh"><h3>Proposal Lifecycle</h3><div class="sh-line"></div><div class="sh-badge t-pink">Swipe.sol</div></div>
+    <div class="g g4" style="margin-bottom:36px;">
+      <div class="node c-pink"><span class="n-icon">&#x1F4E4;</span><div class="n-title" style="color:var(--pink);">1. Submit Proposal</div><div class="n-body">Upload image (max 5MB) &rarr; pinned to IPFS &rarr; Swipe.propose(ipfsCid) with 0.001 ETH fee.</div><div class="tag t-pink">PAYABLE</div></div>
+      <div class="node c-pink"><span class="n-icon">&#x23F3;</span><div class="n-title" style="color:var(--pink);">2. Voting Window</div><div class="n-body">Community swipes on the card. Right = approve, left = reject. EIP-712 signed votes stored via API.</div><div class="tag t-pink">TIME-LIMITED</div></div>
+      <div class="node c-gold"><span class="n-icon">&#x2696;</span><div class="n-title" style="color:var(--gold);">3. Finalization</div><div class="n-body">Swipe.finalize(proposalId, signatures[]). Contract verifies sigs and tallies. Majority wins.</div><div class="tag t-gold">ON-CHAIN</div></div>
+      <div class="node c-green"><span class="n-icon">&#x2714;</span><div class="n-title" style="color:var(--green);">4. Canonized or Rejected</div><div class="n-body">Approved: FoidTrest entry created, meme permanent. Rejected: proposal marked failed.</div><div class="tag t-green">PERMANENT</div></div>
+    </div>
+
+    <div class="sh"><h3>EIP-712 Vote Signing</h3><div class="sh-line"></div><div class="sh-badge t-cyan">off-chain &rarr; on-chain</div></div>
+    <div class="g g2" style="margin-bottom:36px;">
+      <div class="code-block">
+        <div style="font-size:11px;color:var(--cyan);margin-bottom:12px;">EIP-712 DOMAIN</div>
+        <div style="font-size:11px;line-height:2.2;color:rgba(255,255,255,0.6);">
+          <div><span style="color:var(--cyan)">name:</span> <span style="color:var(--green)">"FoidSwipe"</span></div>
+          <div><span style="color:var(--cyan)">version:</span> <span style="color:var(--green)">"1"</span></div>
+          <div><span style="color:var(--cyan)">chainId:</span> <span style="color:var(--gold)">20994</span></div>
+          <div><span style="color:var(--cyan)">verifyingContract:</span> <span style="color:var(--pink)">CONTRACTS.SWIPE</span></div>
+        </div>
+      </div>
+      <div class="code-block">
+        <div style="font-size:11px;color:var(--cyan);margin-bottom:12px;">SWIPEVOTE TYPE</div>
+        <div style="font-size:11px;line-height:2.2;color:rgba(255,255,255,0.6);">
+          <div><span style="color:var(--pink)">proposalId:</span> uint256</div>
+          <div><span style="color:var(--pink)">approve:</span> bool</div>
+          <div><span style="color:var(--pink)">deadline:</span> uint256</div>
+          <div style="margin-top:10px;color:rgba(255,255,255,0.2);">signed via walletClient.signTypedData()</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sh"><h3>Frontend Pages</h3><div class="sh-line"></div></div>
+    <div class="g g3" style="margin-bottom:36px;">
+      <div class="node c-pink" style="text-align:center;padding:24px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--pink);margin-bottom:10px;">/swipe</div>
+        <div class="n-body">Main swipe interface. Card stack with gestures. "Live" and "Closed" tabs. Polls /api/swipe/proposals every 15s.</div>
+        <div class="tag t-pink" style="margin-top:12px;">SWIPE GESTURES</div>
+      </div>
+      <div class="node c-pink" style="text-align:center;padding:24px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--pink);margin-bottom:10px;">/swipe/submit</div>
+        <div class="n-body">Proposal submission. Image upload with preview. IPFS pinning. Wallet-connected tx signing.</div>
+        <div class="tag t-pink" style="margin-top:12px;">IPFS UPLOAD</div>
+      </div>
+      <div class="node c-pink" style="text-align:center;padding:24px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--pink);margin-bottom:10px;">/swipe/[id]</div>
+        <div class="n-body">Single proposal detail. Swipe or button voting. Real-time progress bar. Timer countdown.</div>
+        <div class="tag t-pink" style="margin-top:12px;">DETAIL VIEW</div>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div style="font-size:11px;color:var(--pink);margin-bottom:14px;">API ROUTES</div>
+      <div style="font-size:11px;line-height:2.4;color:rgba(255,255,255,0.6);">
+        <div><span style="color:var(--green)">GET</span>&nbsp; <span style="color:rgba(255,255,255,0.8)">/api/swipe/proposals</span> &mdash; batch getProposal() via multicall</div>
+        <div><span style="color:var(--gold)">POST</span> <span style="color:rgba(255,255,255,0.8)">/api/swipe/vote</span> &mdash; stores signed vote { proposalId, approve, signature, voter }</div>
+        <div><span style="color:var(--green)">GET</span>&nbsp; <span style="color:rgba(255,255,255,0.8)">/api/swipe/vote?proposalId=X</span> &mdash; returns { forCount, againstCount, votes[] }</div>
+        <div><span style="color:var(--gold)">POST</span> <span style="color:rgba(255,255,255,0.8)">/api/ipfs-upload</span> &mdash; pins image to IPFS, returns CID</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       GALLERY
+  ════════════════════════════════════════════ -->
+  <div id="panel-gallery" class="panel">
+    <div class="hero">
+      <div class="hero-glow" style="background:var(--gold);"></div>
+      <div style="position:relative;z-index:1;">
+        <div class="hero-label" style="color:var(--gold);">GALLERY.EXE &mdash; FOIDTREST</div>
+        <div class="hero-title">the internet's hottest pop-up gallery</div>
+        <div class="hero-body">permanent exhibition for canonized memes. every entry earned its place through community consensus. once canonized, it stays on the FoidTrest contract forever. the gallery reads directly from on-chain data &mdash; no centralized database, no takedowns. <strong>the grid remembers.</strong></div>
+      </div>
+    </div>
+
+    <div class="sh"><h3>How the Gallery Works</h3><div class="sh-line"></div><div class="sh-badge t-gold">FoidTrest</div></div>
+    <div class="g g3" style="margin-bottom:36px;">
+      <div class="node c-gold"><span class="n-icon">&#x1F3C6;</span><div class="n-title" style="color:var(--gold);">Win Swipe Vote</div><div class="n-body">Proposal passes. Swipe.finalize() marks canonized and creates a FoidTrest entry with the IPFS CID.</div><div class="tag t-gold">ENTRY GATE</div></div>
+      <div class="node c-gold"><span class="n-icon">&#x1F4BE;</span><div class="n-title" style="color:var(--gold);">On-Chain Entry</div><div class="n-body">FoidTrest stores: id, creator, ipfsCid, title, description, placedAt, path, visible. Immutable record.</div><div class="tag t-gold">IMMUTABLE</div></div>
+      <div class="node c-gold"><span class="n-icon">&#x1F5BC;</span><div class="n-title" style="color:var(--gold);">Gallery Display</div><div class="n-body">Frontend reads entryCount() then batch loads via multicall. Responsive grid. IPFS images with loading states.</div><div class="tag t-gold">LIVE</div></div>
+    </div>
+
+    <div class="code-block" style="margin-bottom:24px;">
+      <div style="font-size:11px;color:var(--gold);margin-bottom:14px;">TRESTENTRY &mdash; ON-CHAIN SCHEMA</div>
+      <div style="font-size:11px;line-height:2.2;color:rgba(255,255,255,0.6);">
+        <div><span style="color:var(--gold)">id</span>: bigint &mdash; unique entry identifier</div>
+        <div><span style="color:var(--gold)">creator</span>: address &mdash; who proposed the meme</div>
+        <div><span style="color:var(--gold)">ipfsCid</span>: string &mdash; IPFS content identifier</div>
+        <div><span style="color:var(--gold)">placedAt</span>: uint256 &mdash; unix timestamp of canonization</div>
+        <div><span style="color:var(--gold)">visible</span>: bool &mdash; display flag</div>
+      </div>
+    </div>
+
+    <div class="g g2">
+      <div class="glass-light"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:8px;">NO GOVERNANCE</div><div class="n-body" style="font-size:12px;line-height:1.7;">gallery entries are permanent in V1. once canonized, they stay forever. governance only exists on the Loreboard.</div></div>
+      <div class="glass-light"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:8px;">DIRECT PLACEMENT RETIRED</div><div class="n-body" style="font-size:12px;line-height:1.7;">the only way in is winning a Swipe vote. culture earns its place through consensus, not payment.</div></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       LOREBOARD
+  ════════════════════════════════════════════ -->
+  <div id="panel-loreboard" class="panel">
+    <div class="hero">
+      <div class="hero-glow" style="background:var(--gold);"></div>
+      <div style="position:relative;z-index:1;">
+        <div class="hero-label" style="color:var(--gold);">LOREBOARD.EXE &mdash; INFINITE CANVAS</div>
+        <div class="hero-title">the grid. collaborative. permanent. governed.</div>
+        <div class="hero-body">an 8192&times;8192 cell infinite canvas. pay-to-place model with a flat 0.001 ETH fee. community governance handles moderation &mdash; flag placements, trigger removal votes, resolve democratically. no central authority. the board polices itself.</div>
+      </div>
+    </div>
+
+    <div class="sh"><h3>Place on the Grid</h3><div class="sh-line"></div><div class="sh-badge t-gold">SwipeLoreboard.sol</div></div>
+    <div class="g g4" style="margin-bottom:36px;">
+      <div class="node c-gold"><span class="n-icon">&#x1F5BC;</span><div class="n-title" style="color:var(--gold);">1. Choose Position</div><div class="n-body">Navigate infinite canvas (pinch zoom, pan). Select region. Upload image. 32px cells.</div></div>
+      <div class="node c-gold"><span class="n-icon">&#x1F4B0;</span><div class="n-title" style="color:var(--gold);">2. Pay Flat Fee</div><div class="n-body">SwipeLoreboard.place(x, y, w, h, cidBytes) with 0.001 ETH. No bidding &mdash; instant.</div><div class="tag t-gold">0.001 ETH</div></div>
+      <div class="node c-green"><span class="n-icon">&#x2705;</span><div class="n-title" style="color:var(--green);">3. Placed Immediately</div><div class="n-body">PlacementCreated event. Image appears on board. Coords + CID stored on-chain.</div></div>
+      <div class="node c-red"><span class="n-icon">&#x1F6E1;</span><div class="n-title" style="color:var(--red);">4. Community Governed</div><div class="n-body">Flag inappropriate placements. Enough flags = removal vote. Majority removes it.</div><div class="tag t-red">GOVERNANCE</div></div>
+    </div>
+
+    <div class="sh"><h3>Flag &amp; Removal</h3><div class="sh-line"></div><div class="sh-badge t-red">moderation</div></div>
+    <div class="g g3" style="margin-bottom:36px;">
+      <div class="node c-red"><span class="n-icon">&#x1F6A9;</span><div class="n-title" style="color:var(--red);">Flag Placement</div><div class="n-body">Any user flags by calling flagPlacement(placementId) + paying flag fee. One flag per address per placement.</div><div class="tag t-red">PAYABLE</div></div>
+      <div class="node c-red"><span class="n-icon">&#x2696;</span><div class="n-title" style="color:var(--red);">Removal Vote</div><div class="n-body">When flagCount reaches threshold, removal vote created. Community votes support/oppose within time window.</div><div class="tag t-red">THRESHOLD</div></div>
+      <div class="node c-green"><span class="n-icon">&#x1F3DB;</span><div class="n-title" style="color:var(--green);">Resolve</div><div class="n-body">resolveRemovalVote(voteId). Majority for removal = placement removed. Otherwise stays.</div><div class="tag t-green">DEMOCRATIC</div></div>
+    </div>
+
+    <div class="g g3">
+      <div class="glass-light"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:6px;">CANVAS</div><div class="n-body" style="font-size:11px;line-height:1.7;">8192&times;8192 cells. 32px each. Zoom 0.1x&ndash;5x. Pinch + pan. Mobile-optimized.</div></div>
+      <div class="glass-light"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:6px;">ON-CHAIN DATA</div><div class="n-body" style="font-size:11px;line-height:1.7;">placementCount() + getPlacement(i) via multicall. Each: id, placer, x, y, w, h, cidBytes, removed.</div></div>
+      <div class="glass-light"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:6px;">AGENT BOARD</div><div class="n-body" style="font-size:11px;line-height:1.7;">/board/agents &mdash; parallel board run by automated agents. Separate epoch system.</div></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       PRAYER
+  ════════════════════════════════════════════ -->
+  <div id="panel-prayer" class="panel">
+    <div class="hero">
+      <div class="hero-glow" style="background:var(--cyan);"></div>
+      <div style="position:relative;z-index:1;">
+        <div class="hero-label" style="color:var(--cyan);">PRAY.EXE &mdash; DAILY RITUAL</div>
+        <div class="hero-title">not a game. a practice.</div>
+        <div class="hero-body">foid mommy is an AI oracle for daily reflection. share your emotional state, receive personalized digital-spiritual wisdom, and your prayer hash gets recorded on-chain. <strong>content stays private</strong> &mdash; only keccak256 hashes stored. build streaks, climb 10 tiers, multiply your voting power up to <strong>5x</strong>. prayer is power.</div>
+      </div>
+    </div>
+
+    <!-- PRAYER FLOW -->
+    <div class="sh"><h3>Prayer Flow</h3><div class="sh-line"></div><div class="sh-badge t-cyan">privacy-first &middot; 1 per 24h</div></div>
+    <div class="g g4" style="margin-bottom:36px;">
+      <div class="node c-cyan"><span class="n-icon">&#x1F64F;</span><div class="n-title" style="color:var(--cyan);">1. Choose Feeling</div><div class="n-body">10 emotional categories: Happy, Calm, Hopeful, Stressed, Sad, Angry, Tired, Lost, Guilty, Pain, or Freeform. Label stored as uint256 (1&ndash;10).</div><div class="tag t-cyan">INPUT</div></div>
+      <div class="node c-cyan"><span class="n-icon">&#x1F52E;</span><div class="n-title" style="color:var(--cyan);">2. Foid Mommy Responds</div><div class="n-body">GPT-4o-mini oracle generates personalized wisdom based on your feeling. Reverent but accessible. Digital spirituality in Y2K dialog boxes. Typing SFX for immersion.</div><div class="tag t-cyan">AI ORACLE</div></div>
+      <div class="node c-cyan"><span class="n-icon">&#x1F517;</span><div class="n-title" style="color:var(--cyan);">3. Hash On-Chain</div><div class="n-body">Prayer text hashed locally via keccak256. Only the hash submitted to PrayerRegistry.submitPrayer(hash, label, category). Content never touches the chain.</div><div class="tag t-cyan">PRIVACY</div></div>
+      <div class="node c-green"><span class="n-icon">&#x1F525;</span><div class="n-title" style="color:var(--green);">4. Streak Increments</div><div class="n-body">PrayerMirror updates: currentStreak +1, totalPrayers +1. If streak reaches a new tier threshold, PrayerTiers emits TierUp event. Cooldown resets to 24h.</div><div class="tag t-green">PROGRESSION</div></div>
+    </div>
+
+    <!-- STREAK MECHANICS -->
+    <div class="sh"><h3>Streak Mechanics</h3><div class="sh-line"></div><div class="sh-badge t-cyan">PrayerMirror.sol</div></div>
+    <div class="g g3" style="margin-bottom:36px;">
+      <div class="glass">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:10px;">HOW STREAKS WORK</div>
+        <div class="n-body" style="font-size:11px;line-height:1.8;">
+          <strong style="color:rgba(255,255,255,0.8)">1 prayer per 24 hours.</strong> The contract enforces a cooldown via <span style="color:var(--cyan)">nextAllowedAt(address)</span>. Submit within the window and your streak increments. Miss a day (>24h gap) and the streak resets to zero. your longest streak is tracked separately and never decreases.
+        </div>
+      </div>
+      <div class="glass">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:10px;">WHAT'S TRACKED</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;line-height:2.4;color:rgba(255,255,255,0.6);">
+          <div><span style="color:var(--cyan)">currentStreak</span> &mdash; consecutive days</div>
+          <div><span style="color:var(--cyan)">longestStreak</span> &mdash; all-time best</div>
+          <div><span style="color:var(--cyan)">totalPrayers</span> &mdash; lifetime count</div>
+          <div><span style="color:var(--cyan)">milestones</span> &mdash; milestone count</div>
+          <div><span style="color:var(--cyan)">prayerHash</span> &mdash; last prayer hash</div>
+        </div>
+      </div>
+      <div class="glass">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:10px;">WHAT BREAKS A STREAK</div>
+        <div class="n-body" style="font-size:11px;line-height:1.8;">
+          <strong style="color:var(--red)">Missing a day.</strong> If more than 24 hours pass since your last prayer without submitting a new one, currentStreak resets to 0. Your longestStreak and totalPrayers are unaffected &mdash; only the active streak breaks. start again from Whisper.
+        </div>
+      </div>
+    </div>
+
+    <!-- 10 TIERS TABLE -->
+    <div class="sh"><h3>10 Prayer Tiers</h3><div class="sh-line"></div><div class="sh-badge t-green">PrayerTiers.sol &middot; streak &rarr; power</div></div>
+
+    <div style="background:rgba(13,27,42,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);margin-bottom:36px;">
+      <!-- table header -->
+      <div style="display:grid;grid-template-columns:50px 1fr 80px 90px 80px;padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.06);font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.1em;color:rgba(255,255,255,0.65);text-transform:uppercase;">
+        <div>Lvl</div><div>Tier Name</div><div style="text-align:center;">Days</div><div style="text-align:center;">Multiplier</div><div style="text-align:center;">Power</div>
+      </div>
+      <!-- tier 0 -->
+      <div style="display:grid;grid-template-columns:50px 1fr 80px 90px 80px;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,0.03);align-items:center;font-size:11px;">
+        <div style="font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.6);">0</div>
+        <div style="color:rgba(255,255,255,0.7);">Unranked</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.6);">0</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.6);">0 bps</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.6);">&mdash;</div>
+      </div>
+      <!-- tier 1 -->
+      <div style="display:grid;grid-template-columns:50px 1fr 80px 90px 80px;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,0.03);align-items:center;font-size:11px;">
+        <div style="font-family:'JetBrains Mono',monospace;color:var(--cyan);">1</div>
+        <div><strong style="color:rgba(255,255,255,0.85);">Whisper</strong></div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.65);">1</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--cyan);">100 bps</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.6);">1x</div>
+      </div>
+      <!-- tier 2 -->
+      <div style="display:grid;grid-template-columns:50px 1fr 80px 90px 80px;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,0.03);align-items:center;font-size:11px;">
+        <div style="font-family:'JetBrains Mono',monospace;color:var(--cyan);">2</div>
+        <div><strong style="color:rgba(255,255,255,0.85);">Ember</strong></div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.65);">3</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--cyan);">125 bps</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.6);">1.25x</div>
+      </div>
+      <!-- tier 3 -->
+      <div style="display:grid;grid-template-columns:50px 1fr 80px 90px 80px;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,0.03);align-items:center;font-size:11px;">
+        <div style="font-family:'JetBrains Mono',monospace;color:var(--cyan);">3</div>
+        <div><strong style="color:rgba(255,255,255,0.85);">Devotee</strong></div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.65);">7</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--cyan);">150 bps</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.6);">1.5x</div>
+      </div>
+      <!-- tier 4 -->
+      <div style="display:grid;grid-template-columns:50px 1fr 80px 90px 80px;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,0.03);align-items:center;font-size:11px;">
+        <div style="font-family:'JetBrains Mono',monospace;color:var(--cyan);">4</div>
+        <div><strong style="color:rgba(255,255,255,0.85);">Flame Keeper</strong></div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.65);">14</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--cyan);">175 bps</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.6);">1.75x</div>
+      </div>
+      <!-- tier 5 -->
+      <div style="display:grid;grid-template-columns:50px 1fr 80px 90px 80px;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,0.03);align-items:center;font-size:11px;background:rgba(62,238,196,0.03);">
+        <div style="font-family:'JetBrains Mono',monospace;color:var(--cyan);">5</div>
+        <div><strong style="color:var(--cyan);">Covenant</strong></div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.65);">21</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--cyan);">200 bps</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--cyan);">2x</div>
+      </div>
+      <!-- tier 6 -->
+      <div style="display:grid;grid-template-columns:50px 1fr 80px 90px 80px;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,0.03);align-items:center;font-size:11px;">
+        <div style="font-family:'JetBrains Mono',monospace;color:var(--cyan);">6</div>
+        <div><strong style="color:rgba(255,255,255,0.85);">Oracle</strong></div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.65);">30</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--cyan);">250 bps</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.6);">2.5x</div>
+      </div>
+      <!-- tier 7 -->
+      <div style="display:grid;grid-template-columns:50px 1fr 80px 90px 80px;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,0.03);align-items:center;font-size:11px;">
+        <div style="font-family:'JetBrains Mono',monospace;color:var(--cyan);">7</div>
+        <div><strong style="color:rgba(255,255,255,0.85);">Ascendant</strong></div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.65);">45</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--cyan);">300 bps</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.6);">3x</div>
+      </div>
+      <!-- tier 8 -->
+      <div style="display:grid;grid-template-columns:50px 1fr 80px 90px 80px;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,0.03);align-items:center;font-size:11px;">
+        <div style="font-family:'JetBrains Mono',monospace;color:var(--cyan);">8</div>
+        <div><strong style="color:rgba(255,255,255,0.85);">Archon</strong></div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.65);">60</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--cyan);">350 bps</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.6);">3.5x</div>
+      </div>
+      <!-- tier 9 -->
+      <div style="display:grid;grid-template-columns:50px 1fr 80px 90px 80px;padding:10px 20px;border-bottom:1px solid rgba(255,255,255,0.03);align-items:center;font-size:11px;background:rgba(62,238,196,0.03);">
+        <div style="font-family:'JetBrains Mono',monospace;color:var(--cyan);">9</div>
+        <div><strong style="color:var(--cyan);">Eternal Witness</strong></div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.65);">75</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--cyan);">400 bps</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--cyan);">4x</div>
+      </div>
+      <!-- tier 10 -->
+      <div style="display:grid;grid-template-columns:50px 1fr 80px 90px 80px;padding:14px 20px;align-items:center;font-size:11px;background:linear-gradient(90deg,rgba(62,238,196,0.08),rgba(255,105,180,0.05));">
+        <div style="font-family:'JetBrains Mono',monospace;color:var(--pink);font-weight:700;">10</div>
+        <div><strong style="color:var(--pink);">Foid Sovereign</strong></div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--pink);font-weight:700;">90</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--pink);font-weight:700;">500 bps</div>
+        <div style="text-align:center;font-family:'JetBrains Mono',monospace;color:var(--pink);font-weight:700;">5x</div>
+      </div>
+    </div>
+
+    <!-- VOTING POWER -->
+    <div class="sh"><h3>Streak &rarr; Voting Power</h3><div class="sh-line"></div><div class="sh-badge t-green">StreakVotingPower.sol</div></div>
+
+    <div class="g g2" style="margin-bottom:36px;">
+      <div class="code-block">
+        <div style="font-size:11px;color:var(--green);margin-bottom:14px;">VOTING POWER FORMULA</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.8);line-height:2;margin-bottom:16px;">
+          <span style="color:var(--cyan)">weight</span> = (<span style="color:var(--gold)">baseWeight</span> &times; <span style="color:var(--cyan)">tierMultiplierBps</span> / 100) + <span style="color:var(--purple)">mifoidBonus</span>
+        </div>
+        <div style="font-size:10px;line-height:2.2;color:rgba(255,255,255,0.7);">
+          <div><span style="color:var(--gold)">baseWeight</span> &mdash; base voting power (e.g. 100)</div>
+          <div><span style="color:var(--cyan)">tierMultiplierBps</span> &mdash; from tier table (100&ndash;500 bps)</div>
+          <div><span style="color:var(--purple)">mifoidBonus</span> &mdash; flat bonus for MiFOID NFT holders</div>
+        </div>
+      </div>
+      <div class="code-block">
+        <div style="font-size:11px;color:var(--green);margin-bottom:14px;">EXAMPLE CALCULATIONS</div>
+        <div style="font-size:10px;line-height:2.4;color:rgba(255,255,255,0.6);">
+          <div><span style="color:rgba(255,255,255,0.6)">Day 1 (Whisper):</span> (100 &times; 100 / 100) = <span style="color:var(--cyan)">100</span> power</div>
+          <div><span style="color:rgba(255,255,255,0.6)">Day 21 (Covenant):</span> (100 &times; 200 / 100) = <span style="color:var(--cyan)">200</span> power</div>
+          <div><span style="color:rgba(255,255,255,0.6)">Day 30 (Oracle):</span> (100 &times; 250 / 100) = <span style="color:var(--cyan)">250</span> power</div>
+          <div><span style="color:rgba(255,255,255,0.6)">Day 90 (Sovereign):</span> (100 &times; 500 / 100) = <span style="color:var(--pink);font-weight:700;">500</span> power</div>
+          <div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;">
+            <span style="color:rgba(255,255,255,0.6)">+ MiFOID holder:</span> add flat <span style="color:var(--purple)">+50</span> bonus on top
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTRACTS -->
+    <div class="sh"><h3>Prayer Contracts</h3><div class="sh-line"></div></div>
+    <div class="g g4" style="margin-bottom:36px;">
+      <div class="glass">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:8px;">PRAYER_REGISTRY</div>
+        <div class="n-body" style="font-size:10px;line-height:1.7;">submitPrayer(hash, label, category). Enforces 24h cooldown via nextAllowedAt(). Emits PrayerSubmitted event.</div>
+      </div>
+      <div class="glass">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:8px;">PRAYER_MIRROR</div>
+        <div class="n-body" style="font-size:10px;line-height:1.7;">get(address) returns (currentStreak, longestStreak, totalPrayers). Read-only stats mirror.</div>
+      </div>
+      <div class="glass">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:8px;">PRAYER_TIERS</div>
+        <div class="n-body" style="font-size:10px;line-height:1.7;">getTier(days) returns (level, name, bps). highestTier(address) tracks personal best. Emits TierUp events.</div>
+      </div>
+      <div class="glass">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);margin-bottom:8px;">STREAK_VOTING_POWER</div>
+        <div class="n-body" style="font-size:10px;line-height:1.7;">votingPowerOf(voter, epochId). Reads Mirror + Tiers + MiFOID. Powers governance across all apps.</div>
+      </div>
+    </div>
+
+    <!-- PIPELINE SUMMARY -->
+    <div style="background:rgba(13,27,42,0.5);border:1px solid rgba(62,238,196,0.15);border-radius:16px;padding:28px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);position:relative;overflow:hidden;">
+      <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;border-radius:50%;background:var(--cyan);filter:blur(80px);opacity:0.08;pointer-events:none;"></div>
+      <div style="position:relative;z-index:1;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);letter-spacing:0.15em;margin-bottom:14px;">THE FULL PIPELINE</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:11px;">
+          <div style="background:rgba(62,238,196,0.1);border:1px solid rgba(62,238,196,0.25);border-radius:8px;padding:8px 14px;color:var(--cyan);">daily prayer</div>
+          <div style="color:rgba(255,255,255,0.6);">&rarr;</div>
+          <div style="background:rgba(62,238,196,0.1);border:1px solid rgba(62,238,196,0.25);border-radius:8px;padding:8px 14px;color:var(--cyan);">streak +1</div>
+          <div style="color:rgba(255,255,255,0.6);">&rarr;</div>
+          <div style="background:rgba(62,238,196,0.1);border:1px solid rgba(62,238,196,0.25);border-radius:8px;padding:8px 14px;color:var(--cyan);">tier threshold</div>
+          <div style="color:rgba(255,255,255,0.6);">&rarr;</div>
+          <div style="background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.25);border-radius:8px;padding:8px 14px;color:var(--green);">multiplier (1x&ndash;5x)</div>
+          <div style="color:rgba(255,255,255,0.6);">&rarr;</div>
+          <div style="background:rgba(255,105,180,0.1);border:1px solid rgba(255,105,180,0.25);border-radius:8px;padding:8px 14px;color:var(--pink);">governance power</div>
+        </div>
+        <div style="margin-top:16px;font-size:12px;color:rgba(255,255,255,0.6);line-height:1.7;">
+          your voting weight on Swipe and Loreboard governance is directly tied to your prayer practice. a Foid Sovereign at 90 days has <strong style="color:var(--pink);">5x the voting power</strong> of a Whisper at day 1. consistency compounds. miss a day and you start over.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       MIFOID
+  ════════════════════════════════════════════ -->
+  <div id="panel-mifoid" class="panel">
+    <div class="hero">
+      <div class="hero-glow" style="background:var(--purple);"></div>
+      <div style="position:relative;z-index:1;">
+        <div class="hero-label" style="color:var(--purple);">MIFOID.EXE &mdash; THE WORLD'S FIRST AGENT-GENERATED NFT COLLECTION</div>
+        <div class="hero-title">3,333 born, not generated.</div>
+        <div class="hero-body">each MiFOID is custom-assembled and rendered in real-time by an AI agent called <strong>Foid Mommy</strong> when a user mints. no pre-generated images. you pick your traits, pay on-chain, and foid mommy opens a headless Blender instance, assembles your 3D character from hand-designed layers, renders a high-quality snapshot, uploads it to IPFS, and writes the tokenURI back on-chain. then your MiFOID <strong>comes alive</strong> &mdash; each one becomes a living AI sub-agent with its own personality on Telegram.</div>
+      </div>
+    </div>
+
+    <!-- CORE FEATURES -->
+    <div class="sh"><h3>What Makes MiFOID Different</h3><div class="sh-line"></div><div class="sh-badge t-purple">3,333 supply &middot; agent-rendered</div></div>
+    <div class="g g4" style="margin-bottom:36px;">
+      <div class="node c-purple" style="text-align:center;padding:24px;"><div style="font-size:28px;margin-bottom:10px;">&#x1F9EC;</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px;">TRAIT SELECTION</div><div class="n-body">Milady Maker-style trait picker. Hat, Shirt, Glasses, Hair, Eyes, Eye Color, Earrings, Necklaces, Mouth, Brows, Face, and more. Every combination must be unique &mdash; enforced by trait hash on-chain.</div></div>
+      <div class="node c-purple" style="text-align:center;padding:24px;"><div style="font-size:28px;margin-bottom:10px;">&#x1F916;</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px;">AGENT-RENDERED</div><div class="n-body">Not pre-generated. Foid Mommy assembles 3D layers in Blender, renders via Eevee, uploads to IPFS, and writes tokenURI on-chain. Each one born on demand.</div></div>
+      <div class="node c-purple" style="text-align:center;padding:24px;"><div style="font-size:28px;margin-bottom:10px;">&#x1F4AC;</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px;">LIVING AGENT</div><div class="n-body">Each minted MiFOID becomes a living AI sub-agent on Telegram. Personality shaped by traits. Builds memory over time. Powered by Qwen via Ollama.</div></div>
+      <div class="node c-purple" style="text-align:center;padding:24px;"><div style="font-size:28px;margin-bottom:10px;">&#x2696;</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px;">GOVERNANCE BOOST</div><div class="n-body">MiFOID holders get a flat <strong style="color:var(--purple)">+50 bonus</strong> on StreakVotingPower, added on top of their prayer tier multiplier (1x&ndash;5x). Stacks with prayer practice.</div></div>
+    </div>
+
+    <!-- TIERED MINT -->
+    <div class="sh"><h3>Tiered Mint Pricing</h3><div class="sh-line"></div><div class="sh-badge t-purple">auto-tiered by supply</div></div>
+    <div class="g g3" style="margin-bottom:36px;">
+      <div class="node c-purple" style="padding:24px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:12px;right:12px;" class="tag t-purple">GENESIS</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--purple);margin-bottom:4px;">TIER 1</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:#fff;margin:10px 0;">0.01 ETH</div>
+        <div class="n-body">MiFOIDs #1 &ndash; #1,000</div>
+        <div style="margin-top:12px;height:4px;border-radius:2px;background:rgba(192,132,252,0.15);overflow:hidden;"><div style="width:30%;height:100%;border-radius:2px;background:var(--purple);"></div></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);margin-top:6px;">1,000 available</div>
+      </div>
+      <div class="node c-purple" style="padding:24px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:12px;right:12px;" class="tag t-purple">AWAKENED</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--purple);margin-bottom:4px;">TIER 2</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:#fff;margin:10px 0;">0.015 ETH</div>
+        <div class="n-body">MiFOIDs #1,001 &ndash; #2,500</div>
+        <div style="margin-top:12px;height:4px;border-radius:2px;background:rgba(192,132,252,0.15);overflow:hidden;"><div style="width:45%;height:100%;border-radius:2px;background:var(--purple);"></div></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);margin-top:6px;">1,500 available</div>
+      </div>
+      <div class="node c-purple" style="padding:24px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:12px;right:12px;" class="tag t-pink">ASCENDED</div>
+        <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--pink);margin-bottom:4px;">TIER 3</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:#fff;margin:10px 0;">0.02 ETH</div>
+        <div class="n-body">MiFOIDs #2,501 &ndash; #3,333</div>
+        <div style="margin-top:12px;height:4px;border-radius:2px;background:rgba(255,105,180,0.15);overflow:hidden;"><div style="width:25%;height:100%;border-radius:2px;background:var(--pink);"></div></div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);margin-top:6px;">833 available</div>
+      </div>
+    </div>
+
+    <!-- FOID MOMMY PIPELINE -->
+    <div class="sh"><h3>Foid Mommy Agent Pipeline</h3><div class="sh-line"></div><div class="sh-badge t-purple">foid_mommy_agent.exe</div></div>
+
+    <div style="background:rgba(13,27,42,0.5);border:1px solid rgba(192,132,252,0.15);border-radius:16px;padding:28px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);position:relative;overflow:hidden;margin-bottom:36px;">
+      <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;border-radius:50%;background:var(--purple);filter:blur(80px);opacity:0.08;pointer-events:none;"></div>
+      <div style="position:relative;z-index:1;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);letter-spacing:0.15em;margin-bottom:18px;">MINT EVENT &rarr; LIVING NFT</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:10px;">
+          <div style="background:rgba(192,132,252,0.1);border:1px solid rgba(192,132,252,0.25);border-radius:8px;padding:10px 14px;">
+            <div style="color:var(--purple);font-weight:700;margin-bottom:3px;">1. Mint Event</div>
+            <div style="color:rgba(255,255,255,0.7);font-size:9px;">user pays + tx confirmed</div>
+          </div>
+          <div style="color:rgba(255,255,255,0.2);">&rarr;</div>
+          <div style="background:rgba(192,132,252,0.1);border:1px solid rgba(192,132,252,0.25);border-radius:8px;padding:10px 14px;">
+            <div style="color:var(--purple);font-weight:700;margin-bottom:3px;">2. Chain Listener</div>
+            <div style="color:rgba(255,255,255,0.7);font-size:9px;">daemon detects mint event</div>
+          </div>
+          <div style="color:rgba(255,255,255,0.2);">&rarr;</div>
+          <div style="background:rgba(192,132,252,0.1);border:1px solid rgba(192,132,252,0.25);border-radius:8px;padding:10px 14px;">
+            <div style="color:var(--purple);font-weight:700;margin-bottom:3px;">3. Read Traits</div>
+            <div style="color:rgba(255,255,255,0.7);font-size:9px;">decode tx calldata</div>
+          </div>
+          <div style="color:rgba(255,255,255,0.2);">&rarr;</div>
+          <div style="background:rgba(192,132,252,0.1);border:1px solid rgba(192,132,252,0.25);border-radius:8px;padding:10px 14px;">
+            <div style="color:var(--purple);font-weight:700;margin-bottom:3px;">4. Blender Render</div>
+            <div style="color:rgba(255,255,255,0.7);font-size:9px;">headless Eevee + 3D layers</div>
+          </div>
+          <div style="color:rgba(255,255,255,0.2);">&rarr;</div>
+          <div style="background:rgba(192,132,252,0.1);border:1px solid rgba(192,132,252,0.25);border-radius:8px;padding:10px 14px;">
+            <div style="color:var(--purple);font-weight:700;margin-bottom:3px;">5. IPFS Upload</div>
+            <div style="color:rgba(255,255,255,0.7);font-size:9px;">image + metadata via Pinata</div>
+          </div>
+          <div style="color:rgba(255,255,255,0.2);">&rarr;</div>
+          <div style="background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.25);border-radius:8px;padding:10px 14px;">
+            <div style="color:var(--green);font-weight:700;margin-bottom:3px;">6. Set tokenURI</div>
+            <div style="color:rgba(255,255,255,0.7);font-size:9px;">IPFS hash written on-chain</div>
+          </div>
+          <div style="color:rgba(255,255,255,0.2);">&rarr;</div>
+          <div style="background:rgba(255,105,180,0.1);border:1px solid rgba(255,105,180,0.25);border-radius:8px;padding:10px 14px;">
+            <div style="color:var(--pink);font-weight:700;margin-bottom:3px;">7. Telegram DM</div>
+            <div style="color:rgba(255,255,255,0.7);font-size:9px;">render delivered to user</div>
+          </div>
+        </div>
+        <div style="margin-top:18px;font-size:11px;color:rgba(255,255,255,0.6);line-height:1.7;">
+          foid mommy is an always-on daemon monitoring the Fluent chain for mint events. all MiFOID assets exist as layers in Blender files designed by Alan. she assembles the correct combination, renders with Eevee, pins to IPFS, finalizes on-chain, and DMs the holder on Telegram with an ETA during processing and the completed render when done.
+        </div>
+      </div>
+    </div>
+
+    <!-- SUB-AGENT SYSTEM -->
+    <div class="sh"><h3>Sub-Agent System</h3><div class="sh-line"></div><div class="sh-badge t-purple">3,333 living agents</div></div>
+    <div class="g g2" style="margin-bottom:36px;">
+      <div class="glass">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:10px;">EACH MIFOID = A LIVING AGENT</div>
+        <div class="n-body" style="font-size:11px;line-height:1.8;">
+          when minted, foid mommy spawns a <strong style="color:rgba(255,255,255,0.8)">sub-agent instance</strong> for each MiFOID. each has its own chatbot personality on Telegram, shaped by the traits the user selected &mdash; closed eyes + concerned brows = introspective personality. users can "pray with their MiFOID" through one-on-one conversations. each agent builds memory and context over time. the more you interact, the more it knows you.
+        </div>
+      </div>
+      <div class="glass">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:10px;">AGENT ARCHITECTURE</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;line-height:2.4;color:rgba(255,255,255,0.6);">
+          <div><span style="color:var(--purple)">LLM:</span> Qwen (open-source) via Ollama</div>
+          <div><span style="color:var(--purple)">Cost:</span> zero API fees &mdash; runs locally</div>
+          <div><span style="color:var(--purple)">Orchestrator:</span> Foid Mommy routes msgs</div>
+          <div><span style="color:var(--purple)">Memory:</span> persistent per-agent context</div>
+          <div><span style="color:var(--purple)">Personality:</span> derived from trait combo</div>
+          <div><span style="color:var(--purple)">Future:</span> trading, content, delegation</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GOVERNANCE MULTIPLIER -->
+    <div class="sh"><h3>MiFOID Governance Multiplier</h3><div class="sh-line"></div><div class="sh-badge t-green">StreakVotingPower.sol</div></div>
+    <div class="g g2" style="margin-bottom:36px;">
+      <div class="code-block">
+        <div style="font-size:11px;color:var(--purple);margin-bottom:14px;">MIFOID HOLDER BONUS</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.8);line-height:2;margin-bottom:14px;">
+          <span style="color:var(--cyan)">weight</span> = (<span style="color:var(--gold)">base</span> &times; <span style="color:var(--cyan)">tierBps</span> / 100) + <span style="color:var(--purple)">mifoidBonus</span>
+        </div>
+        <div class="n-body" style="font-size:11px;line-height:1.8;">
+          MiFOID holders receive a <strong style="color:var(--purple)">flat +50 bonus</strong> added after the prayer tier multiplier. this means a Foid Sovereign (5x) with a MiFOID has 550 voting power vs 500 without. the bonus is additive, not multiplicative &mdash; it rewards holding regardless of prayer streak level.
+        </div>
+      </div>
+      <div class="code-block">
+        <div style="font-size:11px;color:var(--purple);margin-bottom:14px;">EXAMPLE WITH MIFOID</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;line-height:2.4;color:rgba(255,255,255,0.6);">
+          <div><span style="color:rgba(255,255,255,0.6)">Whisper (1x) + MiFOID:</span> 100 + 50 = <span style="color:var(--purple)">150</span></div>
+          <div><span style="color:rgba(255,255,255,0.6)">Covenant (2x) + MiFOID:</span> 200 + 50 = <span style="color:var(--purple)">250</span></div>
+          <div><span style="color:rgba(255,255,255,0.6)">Oracle (2.5x) + MiFOID:</span> 250 + 50 = <span style="color:var(--purple)">300</span></div>
+          <div><span style="color:rgba(255,255,255,0.6)">Sovereign (5x) + MiFOID:</span> 500 + 50 = <span style="color:var(--pink);font-weight:700;">550</span></div>
+          <div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;color:rgba(255,255,255,0.65);">
+            vs. Sovereign without MiFOID: 500
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROVENANCE + IDENTITY -->
+    <div class="sh"><h3>Provenance &amp; Identity</h3><div class="sh-line"></div></div>
+    <div class="g g4" style="margin-bottom:36px;">
+      <div class="node c-purple" style="text-align:center;padding:24px;"><div style="font-size:28px;margin-bottom:10px;">&#x1F48E;</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px;">PROVENANCE</div><div class="n-body">"Body count" tracks transfers. Genesis holders (never transferred) get exclusive "virgin chat" access with Foid Mommy.</div></div>
+      <div class="node c-purple" style="text-align:center;padding:24px;"><div style="font-size:28px;margin-bottom:10px;">&#x1F3A8;</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px;">3D RENDER</div><div class="n-body">Anime-influenced characters. Streetwear + tactical kawaii. Hand-designed Blender layers by Alan, assembled per-mint by Foid Mommy.</div></div>
+      <div class="node c-purple" style="text-align:center;padding:24px;"><div style="font-size:28px;margin-bottom:10px;">&#x1F512;</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px;">UNIQUENESS</div><div class="n-body">Smart contract enforces trait hash uniqueness. No two MiFOIDs can share the same trait combination. traitHash mapping on-chain.</div></div>
+      <div class="node c-purple" style="text-align:center;padding:24px;"><div style="font-size:28px;margin-bottom:10px;">&#x1F47E;</div><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px;">VISUAL PACKAGING</div><div class="n-body">MiFOIDs displayed in translucent Y2K-inspired frames. Frutiger Aero aesthetic. Designed to feel like opening a new program &mdash; your agent booting up for the first time.</div></div>
+    </div>
+
+    <!-- DEDICATED SERVER -->
+    <div class="sh"><h3>Foid Mommy's Body</h3><div class="sh-line"></div><div class="sh-badge t-purple">dedicated server</div></div>
+    <div class="exe" style="border-color:rgba(192,132,252,0.2);margin-bottom:36px;">
+      <div class="exe-bar"><div class="dots"><i></i><i></i><i></i></div><div class="exe-name">foid_mommy_server.exe</div></div>
+      <div class="exe-body">
+        <div class="g g2">
+          <div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:10px;">HARDWARE</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;line-height:2.4;color:rgba(255,255,255,0.6);">
+              <div><span style="color:rgba(255,255,255,0.7)">CPU:</span> AMD Ryzen 7 7700X</div>
+              <div><span style="color:rgba(255,255,255,0.7)">GPU:</span> RTX 5060 Ti 16GB</div>
+              <div><span style="color:rgba(255,255,255,0.7)">RAM:</span> 32GB DDR5-6000</div>
+              <div><span style="color:rgba(255,255,255,0.7)">Storage:</span> 1TB NVMe</div>
+            </div>
+          </div>
+          <div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:10px;">SOFTWARE</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:10px;line-height:2.4;color:rgba(255,255,255,0.6);">
+              <div><span style="color:rgba(255,255,255,0.7)">OS:</span> Ubuntu Server</div>
+              <div><span style="color:rgba(255,255,255,0.7)">Render:</span> Blender headless (Eevee)</div>
+              <div><span style="color:rgba(255,255,255,0.7)">LLM:</span> Ollama + Qwen (quantized)</div>
+              <div><span style="color:rgba(255,255,255,0.7)">Daemons:</span> Python chain listener + agent orchestrator</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.06);font-size:10px;color:rgba(255,255,255,0.7);line-height:1.7;">
+          GPU handles Blender renders and quantized Qwen inference sequentially. Blender files contain all MiFOID asset layers designed by Alan &mdash; Foid Mommy selects and composites the correct layers per mint.
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVITY PIPELINE -->
+    <div class="glass-light" style="margin-bottom:36px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:14px;">ACTIVITY &rarr; TRAIT &amp; AGENT PIPELINE</div>
+      <div class="g g4">
+        <div><div style="font-size:12px;color:var(--cyan);font-weight:600;margin-bottom:6px;">Daily Prayers</div><div class="n-body" style="font-size:10px;">&rarr; streak progression &rarr; spiritual trait unlock &rarr; agent personality depth</div></div>
+        <div><div style="font-size:12px;color:var(--gold);font-weight:600;margin-bottom:6px;">Loreboard Placements</div><div class="n-body" style="font-size:10px;">&rarr; creative activity score &rarr; visual customization &rarr; agent creative mode</div></div>
+        <div><div style="font-size:12px;color:var(--pink);font-weight:600;margin-bottom:6px;">Swipe Proposals</div><div class="n-body" style="font-size:10px;">&rarr; curation participation &rarr; trait modifications &rarr; agent curation skill</div></div>
+        <div><div style="font-size:12px;color:var(--purple);font-weight:600;margin-bottom:6px;">Agent Conversations</div><div class="n-body" style="font-size:10px;">&rarr; memory depth &rarr; personality refinement &rarr; unique agent evolution</div></div>
+      </div>
+    </div>
+
+    <!-- QUOTE -->
+    <div class="quote">
+      <div class="quote-text">every mifoid is born, not generated. foid mommy renders each one into existence.</div>
+      <div class="quote-sub">agent-generated identity</div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       CONTRACTS
+  ════════════════════════════════════════════ -->
+  <div id="panel-contracts" class="panel">
+    <div class="sh" style="margin-top:0;"><h3>Smart Contract Map</h3><div class="sh-line"></div><div class="sh-badge t-green">Fluent L2 &middot; Chain 20994</div></div>
+
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--pink);margin:28px 0 12px;letter-spacing:0.12em;">SWIPE CLUSTER</div>
+    <div class="g g3" style="margin-bottom:28px;">
+      <div class="node c-pink" style="padding:18px;"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--pink);margin-bottom:6px;">Swipe.sol</div><div class="n-body">Core proposals + EIP-712 voting. propose(), getProposal(), finalize().</div><div class="tag t-pink" style="margin-top:10px;">CORE</div></div>
+      <div class="node c-pink" style="padding:18px;"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--pink);margin-bottom:6px;">SwipeLoreboard.sol</div><div class="n-body">Grid placements + flag/removal governance. place(), getPlacement().</div><div class="tag t-pink" style="margin-top:10px;">BOARD V1</div></div>
+      <div class="node c-cyan" style="padding:18px;"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);margin-bottom:6px;">StreakVotingPower.sol</div><div class="n-body">Voting weight from prayer streak tier. Powers governance across all apps.</div><div class="tag t-cyan" style="margin-top:10px;">POWER</div></div>
+    </div>
+
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);margin:0 0 12px;letter-spacing:0.12em;">GALLERY CLUSTER</div>
+    <div class="g g3" style="margin-bottom:28px;">
+      <div class="node c-gold" style="padding:18px;"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);margin-bottom:6px;">FoidTrest.sol</div><div class="n-body">Permanent gallery. entryCount(), getEntry(). IPFS CIDs, creators, timestamps. Immutable.</div><div class="tag t-gold" style="margin-top:10px;">PERMANENT</div></div>
+      <div class="node" style="padding:18px;opacity:0.5;"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:6px;">FoidTrestDirect.sol</div><div class="n-body">Legacy direct placement. Retired in V1.</div><div class="tag t-muted" style="margin-top:10px;">DEPRECATED</div></div>
+      <div class="node" style="padding:18px;opacity:0.5;"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:6px;">FoidTrestGovernance.sol</div><div class="n-body">Legacy gallery governance. Retired.</div><div class="tag t-muted" style="margin-top:10px;">DEPRECATED</div></div>
+    </div>
+
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);margin:0 0 12px;letter-spacing:0.12em;">PRAYER CLUSTER</div>
+    <div class="g g3" style="margin-bottom:28px;">
+      <div class="node c-cyan" style="padding:18px;"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);margin-bottom:6px;">PrayerRegistry.sol</div><div class="n-body">Prayer submission + hash storage. Core entry point.</div><div class="tag t-cyan" style="margin-top:10px;">CORE</div></div>
+      <div class="node c-cyan" style="padding:18px;"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);margin-bottom:6px;">PrayerMirror.sol</div><div class="n-body">Streak, longest, total, milestones.</div><div class="tag t-cyan" style="margin-top:10px;">STATS</div></div>
+      <div class="node c-cyan" style="padding:18px;"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);margin-bottom:6px;">PrayerTiers.sol</div><div class="n-body">Tier from streak. Maps to voting power.</div><div class="tag t-cyan" style="margin-top:10px;">TIERS</div></div>
+    </div>
+
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);margin:0 0 12px;letter-spacing:0.12em;">MIFOID CLUSTER</div>
+    <div class="g g3" style="margin-bottom:28px;">
+      <div class="node c-purple" style="padding:18px;"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);margin-bottom:6px;">MiFOID.sol</div><div class="n-body">ERC-721 with trait hash uniqueness, tiered pricing, tokenURI updates. mint(), setTokenURI(), traitHash mapping.</div><div class="tag t-purple" style="margin-top:10px;">NFT</div></div>
+      <div class="node c-purple" style="padding:18px;"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);margin-bottom:6px;">FoidMommy.sol</div><div class="n-body">Agent registry. Tracks render queue, job status, IPFS CIDs. Off-chain agent reads events.</div><div class="tag t-purple" style="margin-top:10px;">AGENT</div></div>
+      <div class="node c-purple" style="padding:18px;"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);margin-bottom:6px;">StreakVotingPower.sol</div><div class="n-body">Reads MiFOID balance for +50 governance bonus. Shared with prayer streak tier.</div><div class="tag t-purple" style="margin-top:10px;">POWER</div></div>
+    </div>
+
+    <!-- FEES -->
+    <div class="code-block" style="margin-top:24px;">
+      <div style="font-size:11px;color:var(--gold);margin-bottom:16px;">FEE SCHEDULE</div>
+      <div class="g g4" style="font-family:'JetBrains Mono',monospace;font-size:11px;">
+        <div><div style="color:var(--pink);margin-bottom:6px;">Swipe Submit</div><div style="color:#fff;font-size:16px;font-weight:700;">0.001 ETH</div></div>
+        <div><div style="color:var(--gold);margin-bottom:6px;">Board Place</div><div style="color:#fff;font-size:16px;font-weight:700;">0.001 ETH</div></div>
+        <div><div style="color:var(--red);margin-bottom:6px;">Flag Fee</div><div style="color:#fff;font-size:16px;font-weight:700;">0.001 ETH</div></div>
+        <div><div style="color:var(--purple);margin-bottom:6px;">MiFOID Mint</div><div style="color:#fff;font-size:16px;font-weight:700;">0.01 — 0.02 ETH</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       VOTING
+  ════════════════════════════════════════════ -->
+  <div id="panel-voting" class="panel">
+    <div class="sh" style="margin-top:0;"><h3>Governance &amp; Voting</h3><div class="sh-line"></div><div class="sh-badge t-cyan">On-Chain Weight</div></div>
+
+    <!-- Hero -->
+    <div class="hero" style="text-align:center;padding:36px 24px;">
+      <div style="font-size:42px;margin-bottom:12px;">&#x2696;&#xFE0F;</div>
+      <h2 style="font-family:'Orbitron',sans-serif;font-size:clamp(18px,2.5vw,26px);font-weight:800;margin-bottom:10px;">
+        Weighted Governance
+      </h2>
+      <p style="max-width:580px;margin:0 auto;font-size:13px;color:rgba(255,255,255,0.7);line-height:1.7;">
+        Every vote in the FOID ecosystem carries a weight computed from your prayer streak tier and MiFOID holdings. The more committed you are, the more influence you carry. No token-weighted voting — <span style="color:var(--cyan);">devotion is the currency.</span>
+      </p>
+    </div>
+
+    <!-- How weight is computed -->
+    <div class="sh"><h3>Weight Formula</h3><div class="sh-line"></div><div class="sh-badge t-purple">StreakVotingPower.sol</div></div>
+    <div class="code-block" style="margin:20px 0 28px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--cyan);margin-bottom:14px;letter-spacing:0.02em;">
+        weight = (baseWeight &times; tierMultiplierBps / 100) + mifoidBonus
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:16px;">
+        <div style="flex:1;min-width:140px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:6px;">baseWeight</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.65);line-height:1.6;">Fixed at <span style="color:#fff;">100</span>. Same for every voter.</div>
+        </div>
+        <div style="flex:1;min-width:140px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:6px;">tierMultiplierBps</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.65);line-height:1.6;">Basis points from prayer tier. Ranges from <span style="color:#fff;">0</span> (Unranked) to <span style="color:#fff;">500</span> (Foid Sovereign = 5&times;).</div>
+        </div>
+        <div style="flex:1;min-width:140px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px;">mifoidBonus</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.65);line-height:1.6;">Flat <span style="color:var(--purple);font-weight:600;">+50</span> if voter holds &ge;1 MiFOID NFT. Stacks on top of streak multiplier.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Example calculations -->
+    <div class="sh"><h3>Example Weights</h3><div class="sh-line"></div></div>
+    <div class="g g3" style="margin-bottom:28px;">
+      <div class="glass" style="text-align:center;padding:20px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:28px;font-weight:800;color:rgba(255,255,255,0.2);margin-bottom:8px;">0</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,0.6);margin-bottom:4px;">Unranked, no MiFOID</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.7);">(100 &times; 0 / 100) + 0 = 0</div>
+      </div>
+      <div class="glass" style="text-align:center;padding:20px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:28px;font-weight:800;color:var(--cyan);margin-bottom:8px;">250</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:4px;">Oracle (Tier 6, 30d)</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.7);">(100 &times; 250 / 100) + 0 = 250</div>
+      </div>
+      <div class="glass" style="text-align:center;padding:20px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:28px;font-weight:800;color:var(--purple);margin-bottom:8px;">550</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:4px;">Foid Sovereign + MiFOID</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.7);">(100 &times; 500 / 100) + 50 = 550</div>
+      </div>
+    </div>
+
+    <!-- Where voting is used -->
+    <div class="sh"><h3>Where Voting Applies</h3><div class="sh-line"></div></div>
+    <div class="g g2" style="margin-bottom:28px;">
+      <div class="node c-pink" style="padding:20px;">
+        <div style="font-size:22px;margin-bottom:10px;">&#x1F5F3;&#xFE0F;</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--pink);margin-bottom:8px;">Swipe Proposals</div>
+        <div class="n-body" style="font-size:12px;line-height:1.6;">EIP-712 off-chain signed votes. Approve or reject community meme proposals. Passing proposals get canonized to the Gallery.</div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);">DOMAIN: FoidSwipe &middot; VERSION: 1 &middot; CHAIN: 20994</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);margin-top:4px;">TYPES: proposalId, approve, deadline</div>
+        </div>
+      </div>
+      <div class="node c-gold" style="padding:20px;">
+        <div style="font-size:22px;margin-bottom:10px;">&#x1F6A9;</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);margin-bottom:8px;">Loreboard Flags &amp; Removal</div>
+        <div class="n-body" style="font-size:12px;line-height:1.6;">On-chain governance for board placements. Flag content &rarr; if threshold met, removal vote triggers &rarr; weighted vote decides removal.</div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);">flagPlacement() &rarr; voteOnRemoval() &rarr; resolveRemovalVote()</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);margin-top:4px;">flagFeeWei: 0.001 ETH &middot; flagThreshold: configurable</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Streak tiers quick ref -->
+    <div class="sh"><h3>Prayer Tier Quick Reference</h3><div class="sh-line"></div><div class="sh-badge t-cyan">10 Tiers</div></div>
+    <div class="code-block" style="margin:20px 0 28px;">
+      <div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:6px 20px;font-family:'JetBrains Mono',monospace;font-size:11px;align-items:center;">
+        <div style="color:rgba(255,255,255,0.65);font-size:9px;">TIER</div><div style="color:rgba(255,255,255,0.65);font-size:9px;">NAME</div><div style="color:rgba(255,255,255,0.65);font-size:9px;">DAYS</div><div style="color:rgba(255,255,255,0.65);font-size:9px;">MULTI</div>
+        <div style="color:rgba(255,255,255,0.65);">0</div><div style="color:rgba(255,255,255,0.6);">Unranked</div><div style="color:rgba(255,255,255,0.6);">0</div><div style="color:rgba(255,255,255,0.65);">0&times;</div>
+        <div style="color:rgba(255,255,255,0.65);">1</div><div style="color:rgba(255,255,255,0.6);">Whisper</div><div>1</div><div style="color:var(--cyan);">1&times;</div>
+        <div style="color:rgba(255,255,255,0.65);">2</div><div style="color:rgba(255,255,255,0.6);">Ember</div><div>3</div><div style="color:var(--cyan);">1.25&times;</div>
+        <div style="color:rgba(255,255,255,0.65);">3</div><div style="color:rgba(255,255,255,0.6);">Devotee</div><div>7</div><div style="color:var(--cyan);">1.5&times;</div>
+        <div style="color:rgba(255,255,255,0.65);">4</div><div style="color:rgba(255,255,255,0.6);">Flame Keeper</div><div>14</div><div style="color:var(--cyan);">1.75&times;</div>
+        <div style="color:rgba(255,255,255,0.65);">5</div><div style="color:rgba(255,255,255,0.6);">Covenant</div><div>21</div><div style="color:var(--cyan);">2&times;</div>
+        <div style="color:rgba(255,255,255,0.6);">6</div><div style="color:var(--cyan);">Oracle</div><div>30</div><div style="color:var(--cyan);">2.5&times;</div>
+        <div style="color:rgba(255,255,255,0.6);">7</div><div style="color:var(--cyan);">Ascendant</div><div>45</div><div style="color:var(--cyan);">3&times;</div>
+        <div style="color:rgba(255,255,255,0.7);">8</div><div style="color:var(--gold);">Archon</div><div>60</div><div style="color:var(--gold);">3.5&times;</div>
+        <div style="color:rgba(255,255,255,0.7);">9</div><div style="color:var(--gold);">Eternal Witness</div><div>75</div><div style="color:var(--gold);">4&times;</div>
+        <div style="color:rgba(255,255,255,0.8);">10</div><div style="color:var(--pink);">Foid Sovereign</div><div style="color:var(--pink);">90</div><div style="color:var(--pink);font-weight:700;">5&times;</div>
+      </div>
+    </div>
+
+    <!-- MiFOID bonus callout -->
+    <div style="background:linear-gradient(135deg, rgba(192,132,252,0.12), rgba(192,132,252,0.04));border:1px solid rgba(192,132,252,0.25);border-radius:16px;padding:20px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+      <div style="font-size:36px;">&#x1F9EC;</div>
+      <div style="flex:1;min-width:200px;">
+        <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;color:var(--purple);margin-bottom:6px;">MiFOID Governance Bonus</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.65);line-height:1.6;">
+          Holding at least one MiFOID NFT grants a flat <span style="color:var(--purple);font-weight:700;">+50</span> added to your voting weight after the streak multiplier is applied. This incentivizes long-term collection and participation in the agent ecosystem.
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline -->
+    <div style="margin-top:32px;">
+      <div class="sh"><h3>Vote Lifecycle</h3><div class="sh-line"></div></div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:16px;">
+        <div class="glass" style="padding:14px 16px;text-align:center;flex:1;min-width:100px;">
+          <div style="font-size:18px;margin-bottom:6px;">&#x1F6D0;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--cyan);">Pray Daily</div>
+        </div>
+        <div style="color:var(--pink);font-weight:700;font-size:16px;">&rarr;</div>
+        <div class="glass" style="padding:14px 16px;text-align:center;flex:1;min-width:100px;">
+          <div style="font-size:18px;margin-bottom:6px;">&#x1F525;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);">Build Streak</div>
+        </div>
+        <div style="color:var(--pink);font-weight:700;font-size:16px;">&rarr;</div>
+        <div class="glass" style="padding:14px 16px;text-align:center;flex:1;min-width:100px;">
+          <div style="font-size:18px;margin-bottom:6px;">&#x2B06;&#xFE0F;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--cyan);">Tier Up</div>
+        </div>
+        <div style="color:var(--pink);font-weight:700;font-size:16px;">&rarr;</div>
+        <div class="glass" style="padding:14px 16px;text-align:center;flex:1;min-width:100px;">
+          <div style="font-size:18px;margin-bottom:6px;">&#x2696;&#xFE0F;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--purple);">Vote w/ Weight</div>
+        </div>
+        <div style="color:var(--pink);font-weight:700;font-size:16px;">&rarr;</div>
+        <div class="glass" style="padding:14px 16px;text-align:center;flex:1;min-width:100px;">
+          <div style="font-size:18px;margin-bottom:6px;">&#x1F3DB;&#xFE0F;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--pink);">Shape the World</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       USER FLOWS
+  ════════════════════════════════════════════ -->
+  <div id="panel-flows" class="panel">
+    <div class="sh" style="margin-top:0;"><h3>User Flows</h3><div class="sh-line"></div><div class="sh-badge t-gold">Visual Maps</div></div>
+
+    <!-- Hero -->
+    <div class="hero" style="text-align:center;padding:36px 24px;">
+      <div style="font-size:42px;margin-bottom:12px;">&#x1F5FA;&#xFE0F;</div>
+      <h2 style="font-family:'Orbitron',sans-serif;font-size:clamp(18px,2.5vw,26px);font-weight:800;margin-bottom:10px;">
+        How Users Move Through foid.fun
+      </h2>
+      <p style="max-width:540px;margin:0 auto;font-size:13px;color:rgba(255,255,255,0.7);line-height:1.7;">
+        Five interconnected apps. One ecosystem. Here's how a user navigates from entry to influence.
+      </p>
+    </div>
+
+    <!-- Flow 1: New User Onboarding -->
+    <div class="sh"><h3>New User Onboarding</h3><div class="sh-line"></div><div class="sh-badge t-cyan">ENTRY</div></div>
+    <div style="position:relative;margin:20px 0 36px;">
+      <div style="display:flex;align-items:stretch;gap:0;flex-wrap:wrap;">
+        <div style="flex:1;min-width:140px;background:linear-gradient(135deg,rgba(91,143,196,0.15),rgba(91,143,196,0.05));border:1px solid rgba(91,143,196,0.25);border-radius:14px 0 0 14px;padding:18px;text-align:center;">
+          <div style="font-size:22px;margin-bottom:8px;">&#x1F310;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sky);margin-bottom:4px;">Visit foid.fun</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.7);">Landing page</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--pink);font-weight:700;font-size:18px;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:140px;background:linear-gradient(135deg,rgba(255,105,180,0.15),rgba(255,105,180,0.05));border:1px solid rgba(255,105,180,0.25);padding:18px;text-align:center;">
+          <div style="font-size:22px;margin-bottom:8px;">&#x1F4B3;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--pink);margin-bottom:4px;">Connect Wallet</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.7);">MetaMask / WalletConnect</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--pink);font-weight:700;font-size:18px;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:140px;background:linear-gradient(135deg,rgba(62,238,196,0.15),rgba(62,238,196,0.05));border:1px solid rgba(62,238,196,0.25);padding:18px;text-align:center;">
+          <div style="font-size:22px;margin-bottom:8px;">&#x1F64F;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:4px;">First Prayer</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.7);">Start streak &rarr; Tier 1</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--pink);font-weight:700;font-size:18px;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:140px;background:linear-gradient(135deg,rgba(192,132,252,0.15),rgba(192,132,252,0.05));border:1px solid rgba(192,132,252,0.25);border-radius:0 14px 14px 0;padding:18px;text-align:center;">
+          <div style="font-size:22px;margin-bottom:8px;">&#x2696;&#xFE0F;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:4px;">Unlocks Voting</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.7);">Weight = 100 (1&times;)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flow 2: Meme Creator Journey -->
+    <div class="sh"><h3>Meme Creator Journey</h3><div class="sh-line"></div><div class="sh-badge t-pink">SWIPE &rarr; GALLERY</div></div>
+    <div style="position:relative;margin:20px 0 36px;">
+      <div style="display:flex;align-items:stretch;gap:0;flex-wrap:wrap;">
+        <div style="flex:1;min-width:120px;background:linear-gradient(135deg,rgba(255,105,180,0.15),rgba(255,105,180,0.05));border:1px solid rgba(255,105,180,0.25);border-radius:14px 0 0 14px;padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F3A8;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--pink);margin-bottom:4px;">Create Meme</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Upload image</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--pink);font-weight:700;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:120px;background:linear-gradient(135deg,rgba(255,105,180,0.12),rgba(255,105,180,0.04));border:1px solid rgba(255,105,180,0.2);padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F4E4;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--pink);margin-bottom:4px;">Pin to IPFS</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Get CID</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--pink);font-weight:700;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:120px;background:linear-gradient(135deg,rgba(255,105,180,0.12),rgba(255,105,180,0.04));border:1px solid rgba(255,105,180,0.2);padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F4DD;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--pink);margin-bottom:4px;">Propose</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Swipe.propose()</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--pink);font-weight:700;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:120px;background:linear-gradient(135deg,rgba(212,168,67,0.12),rgba(212,168,67,0.04));border:1px solid rgba(212,168,67,0.2);padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F5F3;&#xFE0F;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);margin-bottom:4px;">Community Votes</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">EIP-712 sigs</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--pink);font-weight:700;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:120px;background:linear-gradient(135deg,rgba(76,175,80,0.15),rgba(76,175,80,0.05));border:1px solid rgba(76,175,80,0.25);border-radius:0 14px 14px 0;padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F3DB;&#xFE0F;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--green);margin-bottom:4px;">Gallery</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Canonized forever</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.6);">If rejected: proposal closed. Creator can resubmit.</div>
+    </div>
+
+    <!-- Flow 3: Loreboard Placement -->
+    <div class="sh"><h3>Loreboard Placement</h3><div class="sh-line"></div><div class="sh-badge t-gold">PAY &rarr; PLACE</div></div>
+    <div style="position:relative;margin:20px 0 36px;">
+      <div style="display:flex;align-items:stretch;gap:0;flex-wrap:wrap;">
+        <div style="flex:1;min-width:130px;background:linear-gradient(135deg,rgba(212,168,67,0.15),rgba(212,168,67,0.05));border:1px solid rgba(212,168,67,0.25);border-radius:14px 0 0 14px;padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F5BC;&#xFE0F;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);margin-bottom:4px;">Choose Image</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Upload &rarr; IPFS</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--gold);font-weight:700;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:130px;background:linear-gradient(135deg,rgba(212,168,67,0.12),rgba(212,168,67,0.04));border:1px solid rgba(212,168,67,0.2);padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F4CD;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);margin-bottom:4px;">Pick Grid Spot</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Drag rectangle</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--gold);font-weight:700;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:130px;background:linear-gradient(135deg,rgba(212,168,67,0.12),rgba(212,168,67,0.04));border:1px solid rgba(212,168,67,0.2);padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F4B0;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);margin-bottom:4px;">Pay 0.001 ETH</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">place() tx</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--gold);font-weight:700;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:130px;background:linear-gradient(135deg,rgba(76,175,80,0.15),rgba(76,175,80,0.05));border:1px solid rgba(76,175,80,0.25);border-radius:0 14px 14px 0;padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x2705;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--green);margin-bottom:4px;">Live on Board</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Instant placement</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.6);">Community can flag &rarr; removal vote if threshold met</div>
+    </div>
+
+    <!-- Flow 4: MiFOID Mint & Agent -->
+    <div class="sh"><h3>MiFOID Agent Journey</h3><div class="sh-line"></div><div class="sh-badge t-purple">MINT &rarr; LIVE AGENT</div></div>
+    <div style="position:relative;margin:20px 0 36px;">
+      <div style="display:flex;align-items:stretch;gap:0;flex-wrap:wrap;">
+        <div style="flex:1;min-width:110px;background:linear-gradient(135deg,rgba(192,132,252,0.15),rgba(192,132,252,0.05));border:1px solid rgba(192,132,252,0.25);border-radius:14px 0 0 14px;padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F3B0;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--purple);margin-bottom:4px;">Pick Traits</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Trait selector UI</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--purple);font-weight:700;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:110px;background:linear-gradient(135deg,rgba(192,132,252,0.12),rgba(192,132,252,0.04));border:1px solid rgba(192,132,252,0.2);padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F4B0;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--purple);margin-bottom:4px;">Mint</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">0.01-0.02 ETH</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--purple);font-weight:700;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:110px;background:linear-gradient(135deg,rgba(192,132,252,0.1),rgba(192,132,252,0.03));border:1px solid rgba(192,132,252,0.15);padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F469;&#x200D;&#x1F4BB;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--purple);margin-bottom:4px;">Foid Mommy</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Detects mint event</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--purple);font-weight:700;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:110px;background:linear-gradient(135deg,rgba(192,132,252,0.1),rgba(192,132,252,0.03));border:1px solid rgba(192,132,252,0.15);padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F3A8;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--purple);margin-bottom:4px;">Blender Render</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">3D generation</div>
+        </div>
+        <div style="display:flex;align-items:center;color:var(--purple);font-weight:700;padding:0 2px;">&rarr;</div>
+        <div style="flex:1;min-width:110px;background:linear-gradient(135deg,rgba(192,132,252,0.15),rgba(192,132,252,0.05));border:1px solid rgba(192,132,252,0.25);border-radius:0 14px 14px 0;padding:16px;text-align:center;">
+          <div style="font-size:20px;margin-bottom:6px;">&#x1F916;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--purple);margin-bottom:4px;">Living Agent</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Qwen AI + Telegram</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flow 5: Power User / Devotion Loop -->
+    <div class="sh"><h3>Devotion Loop</h3><div class="sh-line"></div><div class="sh-badge t-cyan">RETENTION</div></div>
+    <div style="position:relative;margin:20px 0 36px;">
+      <!-- Circular flow -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:500px;margin:0 auto;">
+        <div class="glass" style="padding:16px;text-align:center;grid-column:2;">
+          <div style="font-size:22px;margin-bottom:6px;">&#x1F64F;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:4px;">Daily Prayer</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Maintain streak</div>
+        </div>
+        <div style="text-align:center;font-size:22px;color:var(--pink);grid-column:3;display:flex;align-items:center;justify-content:center;">&#x2199;&#xFE0F;</div>
+        <div class="glass" style="padding:16px;text-align:center;grid-column:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          <div style="font-size:22px;margin-bottom:6px;">&#x1F3DB;&#xFE0F;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--pink);margin-bottom:4px;">Shape Content</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">Vote on proposals</div>
+        </div>
+        <div></div>
+        <div class="glass" style="padding:16px;text-align:center;grid-column:3;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          <div style="font-size:22px;margin-bottom:6px;">&#x2B06;&#xFE0F;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:4px;">Tier Up</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">More influence</div>
+        </div>
+        <div style="text-align:center;font-size:22px;color:var(--pink);grid-column:1;display:flex;align-items:center;justify-content:center;">&#x2196;&#xFE0F;</div>
+        <div></div>
+        <div class="glass" style="padding:16px;text-align:center;grid-column:2;">
+          <div style="font-size:22px;margin-bottom:6px;">&#x2696;&#xFE0F;</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:4px;">Higher Weight</div>
+          <div style="font-size:9px;color:rgba(255,255,255,0.65);">More governance power</div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:14px;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);">The devotion loop: pray &rarr; tier up &rarr; more weight &rarr; shape the world &rarr; stay devoted</div>
+    </div>
+
+    <!-- Interconnection Map -->
+    <div class="sh"><h3>App Interconnections</h3><div class="sh-line"></div></div>
+    <div class="code-block" style="margin:20px 0;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;line-height:2.4;color:rgba(255,255,255,0.6);">
+        <div><span style="color:var(--pink);">Swipe</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> canonize </span>──&gt; <span style="color:var(--green);">Gallery</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· winning proposal becomes permanent entry</span></div>
+        <div><span style="color:var(--cyan);">Prayer</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> streak tier </span>──&gt; <span style="color:var(--purple);">Voting Power</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· daily prayer builds multiplier</span></div>
+        <div><span style="color:var(--purple);">MiFOID</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> +50 bonus </span>──&gt; <span style="color:var(--purple);">Voting Power</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· NFT ownership adds flat weight</span></div>
+        <div><span style="color:var(--purple);">Voting Power</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> weights </span>──&gt; <span style="color:var(--pink);">Swipe</span> + <span style="color:var(--gold);">Loreboard</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· governs both apps</span></div>
+        <div><span style="color:var(--gold);">Loreboard</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> flag/remove </span>──&gt; <span style="color:var(--red);">Governance</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· community moderation</span></div>
+        <div><span style="color:var(--purple);">MiFOID</span> ──<span style="font-size:9px;color:rgba(255,255,255,0.6);"> mint event </span>──&gt; <span style="color:var(--purple);">Foid Mommy</span> <span style="font-size:9px;color:rgba(255,255,255,0.2);">· triggers agent-side render</span></div>
+      </div>
+    </div>
+
+    <!-- Entry points -->
+    <div class="sh"><h3>Entry Points by Persona</h3><div class="sh-line"></div></div>
+    <div class="g g3" style="margin:20px 0;">
+      <div class="glass-light" style="padding:18px;">
+        <div style="font-size:20px;margin-bottom:8px;">&#x1F3A8;</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--pink);margin-bottom:6px;">Meme Creator</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.6;">Enters via <b style="color:var(--pink);">/swipe/submit</b>. Creates and proposes memes. Aims for Gallery canonization. May also place on Loreboard.</div>
+      </div>
+      <div class="glass-light" style="padding:18px;">
+        <div style="font-size:20px;margin-bottom:8px;">&#x1F9D8;</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:6px;">Devotee</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.6;">Enters via <b style="color:var(--cyan);">/pray</b>. Builds streak daily. Gradually unlocks governance power. Curates content through weighted votes.</div>
+      </div>
+      <div class="glass-light" style="padding:18px;">
+        <div style="font-size:20px;margin-bottom:8px;">&#x1F916;</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple);margin-bottom:6px;">Collector</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.6);line-height:1.6;">Enters via <b style="color:var(--purple);">/mifoid</b>. Mints agent NFTs. Gets governance bonus. Interacts with living AI agents on Telegram.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       ARCHITECTURE
+  ════════════════════════════════════════════ -->
+  <div id="panel-arch" class="panel">
+    <div class="sh" style="margin-top:0;"><h3>Frontend Stack</h3><div class="sh-line"></div><div class="sh-badge t-pink">Next.js 14 &middot; TypeScript</div></div>
+    <div class="g g4" style="margin:24px 0 36px;">
+      <div class="node c-pink" style="text-align:center;padding:20px;"><div style="font-size:24px;margin-bottom:10px;">&#x26A1;</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--pink);margin-bottom:8px;">Next.js 14</div><div class="n-body">App Router. Server + client components. API routes. Dynamic rendering.</div></div>
+      <div class="node c-cyan" style="text-align:center;padding:20px;"><div style="font-size:24px;margin-bottom:10px;">&#x1F517;</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);margin-bottom:8px;">Wagmi + Viem</div><div class="n-body">Wallet, contract reads/writes, EIP-712, multicall, tx lifecycle.</div></div>
+      <div class="node c-gold" style="text-align:center;padding:20px;"><div style="font-size:24px;margin-bottom:10px;">&#x1F3A8;</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);margin-bottom:8px;">Tailwind CSS</div><div class="n-body">Utility-first + custom .exe window chrome. Vista/Y2K theme classes.</div></div>
+      <div class="node c-purple" style="text-align:center;padding:20px;"><div style="font-size:24px;margin-bottom:10px;">&#x1F9F0;</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--purple);margin-bottom:8px;">State</div><div class="n-body">Zustand + React Context + Wagmi hooks. React Hot Toast.</div></div>
+    </div>
+
+    <!-- API ROUTES -->
+    <div class="sh"><h3>API Routes (19)</h3><div class="sh-line"></div></div>
+    <div class="g g3" style="margin-bottom:36px;">
+      <div class="glass"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--pink);margin-bottom:10px;">SWIPE</div><div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.6);line-height:2.2;">/api/swipe/proposals<br>/api/swipe/vote<br>/api/ipfs-upload</div></div>
+      <div class="glass"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:10px;">LOREBOARD</div><div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.6);line-height:2.2;">/api/proposals<br>/api/place<br>/api/propose<br>/api/vote<br>/api/manifest/latest<br>/api/finalize</div></div>
+      <div class="glass"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--cyan);margin-bottom:10px;">AGENTS + SYSTEM</div><div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.6);line-height:2.2;">/api/agent/board<br>/api/agent/propose<br>/api/agent/vote<br>/api/agent/pray<br>/api/foid-mommy<br>/api/health<br>/api/status</div></div>
+    </div>
+
+    <!-- DESIGN LANGUAGE -->
+    <div class="sh"><h3>Design Language</h3><div class="sh-line"></div><div class="sh-badge t-gold">Frutiger Aero / Y2K</div></div>
+    <div class="g g3" style="margin-bottom:36px;">
+      <div class="glass-light"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:8px;">.EXE WINDOW CHROME</div><div class="n-body" style="font-size:11px;line-height:1.7;">Windows XP-era title bars. Colored dots, GALLERY.EXE filenames, frosted glass bodies. AppTitlebar + FoidOSWindow.</div></div>
+      <div class="glass-light"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:8px;">FRUTIGER AERO</div><div class="n-body" style="font-size:11px;line-height:1.7;">Glossy, bubbly, skeuomorphic. Transparent materials, gradients, sparkles. Iridescent blue world (#5B8FC4).</div></div>
+      <div class="glass-light"><div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);margin-bottom:8px;">LIGHT WORLD / DARK PANELS</div><div class="n-body" style="font-size:11px;line-height:1.7;">Ethereal blue background + dark Terminal Navy panels inside. Windows into a machine.</div></div>
+    </div>
+
+    <!-- PALETTE -->
+    <div class="code-block">
+      <div style="font-size:11px;color:var(--gold);margin-bottom:18px;">COLOR PALETTE</div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;">
+        <div style="text-align:center;">
+          <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#5B8FC4,#8BBAE8);box-shadow:0 4px 16px rgba(91,143,196,0.4);margin-bottom:8px;"></div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);">Sky Blue</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#FF69B4,#ff8ec7);box-shadow:0 4px 16px rgba(255,105,180,0.4);margin-bottom:8px;"></div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);">Hot Pink</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#D4A843,#e8c060);box-shadow:0 4px 16px rgba(212,168,67,0.4);margin-bottom:8px;"></div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);">Gold</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#3EEEC4,#5ff5d4);box-shadow:0 4px 16px rgba(62,238,196,0.4);margin-bottom:8px;"></div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);">Cyan</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#C084FC,#d8b4fe);box-shadow:0 4px 16px rgba(192,132,252,0.4);margin-bottom:8px;"></div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);">Purple</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#0D1B2A,#1a3050);box-shadow:0 4px 16px rgba(13,27,42,0.6);border:1px solid rgba(255,255,255,0.1);margin-bottom:8px;"></div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,0.65);">Navy</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- ═══ JS ═══ -->
+<script>
+// Tab switching
+function showTab(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  btn.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Generate floating bubbles (reduced from 15 for perf)
+(function() {
+  const container = document.getElementById('bubbles');
+  const count = 8;
+  for (let i = 0; i < count; i++) {
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    const size = 10 + Math.random() * 50;
+    b.style.width = size + 'px';
+    b.style.height = size + 'px';
+    b.style.left = Math.random() * 100 + '%';
+    b.style.animationDuration = (12 + Math.random() * 20) + 's';
+    b.style.animationDelay = (-Math.random() * 30) + 's';
+    container.appendChild(b);
+  }
+})();
+
+// Generate sparkle dots (reduced from 25 for perf)
+(function() {
+  const container = document.getElementById('sparkles');
+  const count = 12;
+  for (let i = 0; i < count; i++) {
+    const s = document.createElement('div');
+    s.className = 'sparkle';
+    s.style.left = Math.random() * 100 + '%';
+    s.style.top = Math.random() * 100 + '%';
+    s.style.animationDuration = (2 + Math.random() * 4) + 's';
+    s.style.animationDelay = (-Math.random() * 6) + 's';
+    container.appendChild(s);
+  }
+})();
+</script>
+
+</body>
+</html>
