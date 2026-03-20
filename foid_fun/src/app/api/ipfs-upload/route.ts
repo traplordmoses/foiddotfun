@@ -1,5 +1,6 @@
 // /app/api/ipfs-upload/route.ts
 import { NextResponse } from "next/server";
+import { checkRateLimit, recordAction } from "../agent/_lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,13 @@ function bad(msg: string, status = 400) {
 }
 
 export async function POST(req: Request) {
+  // Rate limit by IP (no wallet in request)
+  const ip = (req.headers.get("x-forwarded-for") ?? "unknown").split(",")[0].trim();
+  const rl = checkRateLimit(ip, "ipfs_upload");
+  if (!rl.ok) {
+    return bad(rl.error ?? "Rate limited", 429);
+  }
+
   let body: UploadReq | null = null;
   try { body = await req.json(); } catch { return bad("Invalid JSON body"); }
   if (!body) return bad("Missing body");
@@ -57,6 +65,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: `Pinata upload failed: ${err}` }, { status: 502 });
       }
       const data = await res.json() as { IpfsHash: string };
+      recordAction(ip, "ipfs_upload");
       return NextResponse.json({ cid: data.IpfsHash });
     }
 

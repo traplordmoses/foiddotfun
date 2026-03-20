@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, lazy, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { useBalance } from "wagmi";
 import type { Address } from "viem";
+
+const LinkXAccount = lazy(() => import("./LinkXAccount"));
 
 export interface WalletMenuPillProps {
   address?: string;
@@ -286,6 +288,14 @@ export default function WalletMenuPill({
         </svg>
         Copy Address
       </button>
+      <div style={{
+        padding: "6px 12px",
+        borderBottom: "1px solid rgba(255,255,255,0.1)",
+      }}>
+        <Suspense fallback={null}>
+          <LinkXAccount />
+        </Suspense>
+      </div>
       {isEmbeddedWallet && (
         <>
           <button

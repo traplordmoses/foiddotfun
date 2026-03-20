@@ -105,14 +105,11 @@ export default function ReferendumRail() {
     };
   }, [refresh]);
 
+  // Legacy vote casting — this component is unused in v1 (Swipe handles voting via EIP-712).
+  // Kept for reference; would need wallet address from useAccount() to function properly.
   const cast = async (id: string, yes: boolean, allow: boolean) => {
     if (!allow) return;
-    const voter = "0xDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF";
-    await fetch("/api/vote", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ proposalId: id, voter, vote: yes }),
-    }).catch(() => undefined);
+    console.warn("[ReferendumRail] Legacy vote cast — component is unused in v1");
     refresh();
   };
 

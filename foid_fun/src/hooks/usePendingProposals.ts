@@ -38,7 +38,9 @@ export interface PendingProposal {
   timeRemaining: number;
 }
 
-const VOTING_PERIOD_SECONDS = 72 * 60 * 60; // 72 hours
+// Matches Swipe.votingWindowSeconds default (259200 = 72h).
+// Import from epoch.ts if that module exports VOTE_WINDOW_SECONDS.
+const VOTING_PERIOD_SECONDS = 259200; // 72 hours
 
 export function usePendingProposals() {
   const [proposals, setProposals] = useState<PendingProposal[]>([]);

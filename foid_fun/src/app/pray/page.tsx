@@ -21,9 +21,10 @@ import { parseEventLogs } from "viem";
 import { PrayerErrorBoundary } from "@/components/PrayerErrorBoundary";
 import { getTierFromStreak } from "@/hooks/usePrayerTiers";
 
-/* --- env --- */
-const DEFAULT_FOIP_REGISTRY: Hex = "0x6FC7301fad7Ca0294152b23FD4f0467200376d65";
-const DEFAULT_FOIP_MIRROR: Hex = "0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF";
+/* --- env: prayer contract addresses from canonical config --- */
+import { CONTRACTS } from "@/lib/contracts/addresses";
+const DEFAULT_FOIP_REGISTRY: Hex = CONTRACTS.PRAYER_REGISTRY as Hex;
+const DEFAULT_FOIP_MIRROR: Hex = CONTRACTS.PRAYER_MIRROR as Hex;
 const PRAYER_SELECTOR = "0xedf32f27";
 const PRAYER_CATEGORY = 1n;
 

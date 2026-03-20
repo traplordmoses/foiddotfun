@@ -41,9 +41,14 @@ export async function GET(request: NextRequest) {
   const owner = searchParams.get("owner")?.toLowerCase() ?? null;
 
   try {
-    const swipeLoreboardAddr = CONTRACTS.SWIPE_LOREBOARD as `0x${string}`;
-    if (!swipeLoreboardAddr) {
-      return NextResponse.json({ proposals: [], error: "SwipeLoreboard not configured" });
+    // SwipeLoreboard is not deployed in v1 — return empty instead of erroring.
+    // Board placements now go through Swipe.proposeLoreboard() → /api/swipe/proposals.
+    const swipeLoreboardAddr = (CONTRACTS.SWIPE_LOREBOARD || "") as `0x${string}`;
+    if (!swipeLoreboardAddr || swipeLoreboardAddr.length < 42) {
+      return NextResponse.json({
+        proposals: [],
+        debug: { source: "swipeLoreboard", note: "Not deployed in v1 — use /api/swipe/proposals" },
+      });
     }
 
     const client = createPublicClient({

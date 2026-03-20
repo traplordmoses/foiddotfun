@@ -33,7 +33,7 @@ import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 import { formatEth } from "@/lib/wei";
 import { listProposals } from "@/lib/api";
 import type { ProposalSummary, ListProposalsResponse } from "@/lib/api";
-import { writeSwipeLoreboardPlace } from "@/lib/viem";
+// writeSwipeLoreboardPlace removed — now uses Swipe.proposeLoreboard via hook
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { LoreboardNotification } from "@/components/LoreboardNotification";
@@ -74,7 +74,9 @@ import { parseWeb3Error, isUserRejection } from "@/lib/errors";
 import { insertBoardMessage } from "@/lib/supabase";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PaintEditor } from "@/components/PaintEditor";
-import { useSwipeLoreboardGovernance } from "@/hooks/useSwipeLoreboardGovernance";
+import { useSwipePropose } from "@/hooks/useSwipePropose";
+import { VotingQueue } from "@/components/VotingQueue";
+import { MyProposals } from "@/components/MyProposals";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -336,14 +338,27 @@ function MobileProposeModal({
       const contractRect = worldToContractRect(placementRect);
 
       const normalizedCid = normalizeCidString(cid);
-      await writeSwipeLoreboardPlace({
-        placer: address as `0x${string}`,
-        rect: contractRect,
-        cidBytes: new TextEncoder().encode(normalizedCid),
+
+      // Import and call Swipe.proposeLoreboard() instead of SwipeLoreboard.place()
+      const { getWalletClient, fluentTestnet } = await import("@/lib/viem");
+      const { SWIPE_ABI } = await import("@/lib/contracts/abis/swipe");
+      const { CONTRACTS } = await import("@/lib/contracts/addresses");
+      const walletClient = await getWalletClient();
+      const swipeAddr = CONTRACTS.SWIPE as `0x${string}`;
+      const fee = BigInt(CONTRACTS.SWIPE_SUBMISSION_FEE ?? "1000000000000000");
+
+      await walletClient.writeContract({
+        account: (walletClient.account ?? address) as `0x${string}`,
+        address: swipeAddr,
+        abi: SWIPE_ABI,
+        functionName: "proposeLoreboard",
+        args: [normalizedCid, contractRect.x, contractRect.y, contractRect.w, contractRect.h],
+        value: fee,
+        chain: fluentTestnet,
       });
 
       setStep("done");
-      onSuccess(`Meme placed on board! (${file.name})`);
+      onSuccess(`Proposal submitted! Now in voting queue. (${file.name})`);
     } catch (e: unknown) {
       if (isUserRejection(e)) {
         setStep("pick");
@@ -572,28 +587,15 @@ function BoardPageContent() {
     }
   }, [address, addStatus]);
 
-  // Governance - flagging placements
-  const { flagPlacement, flagFeeWei } = useSwipeLoreboardGovernance();
-  const [flaggedIds, setFlaggedIds] = useState<Set<string>>(new Set());
-  const flagFeeEth = (Number(flagFeeWei) / 1e18).toFixed(3);
+  // Governance - flagging disabled in v1 (SwipeLoreboard not deployed)
+  // Flagging will use FoidTrestGovernance in a future update
+  const { proposeLoreboard: swipeProposeLoreboard } = useSwipePropose();
+  const [flaggedIds] = useState<Set<string>>(new Set());
+  const flagFeeEth = "0.001";
 
-  const handleFlagPlacement = useCallback(async (placementId: string) => {
-    if (!address || !isConnected) {
-      openConnectModal?.();
-      return;
-    }
-    try {
-      // Convert hex placementId to number for the contract call
-      const numericId = Number(BigInt(placementId));
-      await flagPlacement(numericId);
-      setFlaggedIds(prev => new Set(prev).add(placementId));
-      addStatus(`Flagged placement — tx sent`, "success");
-    } catch (err: unknown) {
-      if (isUserRejection(err)) return;
-      const msg = parseWeb3Error(err);
-      addStatus(`Flag failed: ${msg}`, "error");
-    }
-  }, [address, isConnected, openConnectModal, flagPlacement, addStatus]);
+  const handleFlagPlacement = useCallback(async (_placementId: string) => {
+    addStatus("Flagging is not available yet — coming soon", "info");
+  }, [addStatus]);
 
   // UI state
   const [dragOver, setDragOver] = useState(false);
@@ -608,7 +610,7 @@ function BoardPageContent() {
 
   // Board data — proposals are the sole data source
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
-  const [proposalsLoading, setProposalsLoading] = useState(true);
+  const [_proposalsLoading, setProposalsLoading] = useState(true);
   const [proposalDebug, setProposalDebug] = useState<ListProposalsResponse["debug"] | null>(null);
 
   // Derive "placed" items from canonized proposals
@@ -1081,7 +1083,6 @@ function BoardPageContent() {
       if (notTouchingNames.length) throw new Error(`Not touching board: ${notTouchingNames.join(", ")}`);
 
       if (!address) throw new Error("No wallet connected");
-      const account = address;
 
       for (const it of items) {
         addStatus(`Uploading ${it.name}...`, "info");
@@ -1092,16 +1093,18 @@ function BoardPageContent() {
         if (!cid) throw new Error("IPFS upload disabled");
         setCidFor(it.id, cid);
 
-        addStatus(`Submitting ${it.name}...`, "info");
+        addStatus(`Submitting proposal for ${it.name}...`, "info");
         const normalizedCid = normalizeCidString(cid);
-        const onChain = await writeSwipeLoreboardPlace({
-          placer: account as `0x${string}`,
-          rect: onChainRect,
-          cidBytes: new TextEncoder().encode(normalizedCid),
+
+        const result = await swipeProposeLoreboard({
+          ipfsCid: normalizedCid,
+          x: onChainRect.x,
+          y: onChainRect.y,
+          w: onChainRect.w,
+          h: onChainRect.h,
         });
 
-        // Transaction succeeded on-chain!
-        addStatus(`${it.name} on-chain ✓ (tx: ${onChain.txHash.slice(0, 10)}...)`, "success");
+        addStatus(`${it.name} proposed! Now in voting queue. (tx: ${result.txHash.slice(0, 10)}...)`, "success");
       }
 
       clearBoardState?.();
@@ -1464,12 +1467,32 @@ function BoardPageContent() {
                       {items.length > 0 && (
                         <span className="board-actions__pending-line">ready to submit ✓</span>
                       )}
-                      <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "SUBMITTING..." : "SUBMIT PROPOSAL"} disabled={!items.length || submittingProposals} variant="secondary" />
+                      <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "PROPOSING..." : "PROPOSE (0.001 ETH)"} disabled={!items.length || submittingProposals} variant="secondary" />
                     </div>
                     <div className="board-actions__pricing">
-                      0.001 ETH per placement &middot; any size
+                      0.001 ETH to propose &middot; 72h voting &middot; 0.001 ETH to claim
                     </div>
                   </div>
+
+                  {/* Voting Queue */}
+                  <div className="board-section">
+                    <div className="board-section__header">
+                      <span className="board-section__dot" />
+                      <span className="board-section__title">VOTING QUEUE</span>
+                    </div>
+                    <VotingQueue />
+                  </div>
+
+                  {/* My Proposals */}
+                  {isConnected && (
+                    <div className="board-section">
+                      <div className="board-section__header">
+                        <span className="board-section__dot" />
+                        <span className="board-section__title">MY PROPOSALS</span>
+                      </div>
+                      <MyProposals />
+                    </div>
+                  )}
 
                   {/* Chat */}
                   <div className="board-section--chat-wrapper">

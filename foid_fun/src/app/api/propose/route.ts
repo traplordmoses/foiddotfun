@@ -6,6 +6,7 @@ import { addProposal, listAccepted, type Proposal } from "../_store";
 import { ProposalStore, type StoredProposal } from "@/lib/proposalStore";
 import { keccak256, stringToHex } from "viem";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
+import { checkRateLimit, recordAction } from "../agent/_lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,6 +41,12 @@ export async function POST(req: Request) {
   const { owner, cid, rect, bidPerCellWei, name, mime, width, height } = body ?? {};
   if (!owner || !cid || !rect || !bidPerCellWei) {
     return NextResponse.json({ error: "missing fields" }, { status: 400 });
+  }
+
+  // Rate limit by owner wallet
+  const rl = checkRateLimit(owner, "propose");
+  if (!rl.ok) {
+    return NextResponse.json({ error: rl.error }, { status: 429 });
   }
 
   const cells = rectCells(rect);
@@ -112,6 +119,7 @@ export async function POST(req: Request) {
     bidPerCellWei: String(bidPerCellWei),
   };
   ProposalStore.upsert(stored);
+  recordAction(owner, "propose");
 
   return NextResponse.json({
     ok: true,

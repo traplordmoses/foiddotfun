@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Script.sol";
-import "../src/OnePerPlacementVotingPower.sol";
+import "../src/StreakVotingPower.sol";
 import "../src/LoreBoardTreasury.sol";
 import "../src/LoreboardVotingV2.sol";
 import "../src/LoreboardBoardV2.sol";
@@ -29,9 +29,14 @@ contract DeployAgentBoard is Script {
 
         vm.startBroadcast(deployerKey);
 
-        // 1. Voting power source (returns 1 for everyone)
-        OnePerPlacementVotingPower votingPower = new OnePerPlacementVotingPower();
-        console.log("OnePerPlacementVotingPower:", address(votingPower));
+        // 1. Voting power source (flat weight=1, no tiers, no MiFOID bonus)
+        StreakVotingPower votingPower = new StreakVotingPower(
+            address(0xdead), // dummy prayer mirror (unused — no tiers set)
+            address(0),      // no MiFOID
+            1,               // baseWeight = 1 (flat)
+            0                // mifoidBonus = 0
+        );
+        console.log("StreakVotingPower:", address(votingPower));
 
         // 2. Treasury (base fee = 0)
         LoreBoardTreasury treasury = new LoreBoardTreasury(baseFee, operator);

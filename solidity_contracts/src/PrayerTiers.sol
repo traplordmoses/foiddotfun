@@ -36,16 +36,19 @@ contract PrayerTiers {
         prayerMirror = _prayerMirror;
 
         // Tier definitions (index 0 = tier 1, index 9 = tier 10)
-        _tiers[0] = TierDef(1, "Whisper",          1,   100);  // 1x
-        _tiers[1] = TierDef(2, "Ember",            3,   125);  // 1.25x
-        _tiers[2] = TierDef(3, "Devotee",          7,   150);  // 1.5x
-        _tiers[3] = TierDef(4, "Flame Keeper",    14,   175);  // 1.75x
-        _tiers[4] = TierDef(5, "Covenant",        21,   200);  // 2x
-        _tiers[5] = TierDef(6, "Oracle",          30,   250);  // 2.5x
-        _tiers[6] = TierDef(7, "Ascendant",       45,   300);  // 3x
-        _tiers[7] = TierDef(8, "Archon",          60,   350);  // 3.5x
-        _tiers[8] = TierDef(9, "Eternal Witness", 75,   400);  // 4x
-        _tiers[9] = TierDef(10, "Foid Sovereign", 90,   500);  // 5x
+        // Progression rewards sustained daily prayer. Each tier requires consecutive days.
+        // multiplierBps: 100 = 1x, 500 = 5x. Used by StreakVotingPower for vote weighting.
+        // A Foid Sovereign (90 days) has 5x the voting influence of a Whisper (1 day).
+        _tiers[0] = TierDef(1, "Whisper",          1,   100);  // 1x   — first prayer
+        _tiers[1] = TierDef(2, "Ember",            3,   125);  // 1.25x — 3 consecutive days
+        _tiers[2] = TierDef(3, "Devotee",          7,   150);  // 1.5x — one week
+        _tiers[3] = TierDef(4, "Flame Keeper",    14,   175);  // 1.75x — two weeks
+        _tiers[4] = TierDef(5, "Covenant",        21,   200);  // 2x   — three weeks
+        _tiers[5] = TierDef(6, "Oracle",          30,   250);  // 2.5x — one month
+        _tiers[6] = TierDef(7, "Ascendant",       45,   300);  // 3x   — six weeks
+        _tiers[7] = TierDef(8, "Archon",          60,   350);  // 3.5x — two months
+        _tiers[8] = TierDef(9, "Eternal Witness", 75,   400);  // 4x   — ten weeks
+        _tiers[9] = TierDef(10, "Foid Sovereign", 90,   500);  // 5x   — three months
     }
 
     /// @notice Get the tier for a given streak in days.

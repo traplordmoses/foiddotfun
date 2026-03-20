@@ -885,7 +885,7 @@ const sections: Section[] = [
             <p className="aboutMiniCard__body">
               10-tier prayer streak system. Your daily devotion earns multipliers from 1x (Whisper) to 5x (Foid Sovereign). Tiers feed into voting power across the entire ecosystem.
             </p>
-            <a href="https://testnet.fluentscan.xyz/address/0x4eEeD27Bfa0734086FA65082C96DAD014c31EeDB" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+            <a href="https://testnet.fluentscan.xyz/address/0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
@@ -893,7 +893,7 @@ const sections: Section[] = [
             <p className="aboutMiniCard__body">
               Converts prayer streaks into weighted voting power. Higher streaks = more influence on Swipe votes and loreboard governance. Base weight 100, scaled by tier multiplier.
             </p>
-            <a href="https://testnet.fluentscan.xyz/address/0x68F10FC72572B433425AC036740B52AcE51Af1A6" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+            <a href="https://testnet.fluentscan.xyz/address/0x7a889b3d38889E45EE48bbCBc3681a889F87C03e" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
@@ -901,23 +901,22 @@ const sections: Section[] = [
             <p className="aboutMiniCard__body">
               The permanent on-chain gallery. Every meme that wins a Swipe vote gets canonized here forever. Immutable entries, chronological order, community curated.
             </p>
-            <a href="https://testnet.fluentscan.xyz/address/0xdEe866015122c9f3672E18646a172Bd8a1eb2ff1" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+            <a href="https://testnet.fluentscan.xyz/address/0x87Ea24ba4B61BbF35aD1161e11072Dc8Cf0858a6" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Swipe</p>
             <p className="aboutMiniCard__body">
-              Propose a meme, community votes via EIP-712 signed ballots. If more than 51% approve, the meme gets canonized to the Gallery. Replaces the old DuelArena with a cleaner flow.
+              Propose content for the Gallery or Loreboard. Community votes via EIP-712 signed ballots with streak-weighted power. 60% weighted approval required. Loreboard proposals receive a placement voucher on approval.
             </p>
-            <a href="https://testnet.fluentscan.xyz/address/0x0e222432aC1583E47A80228fd664e90ba6f6e37C" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+            <a href="https://testnet.fluentscan.xyz/address/0xddc2623Bd80B1429426e30Be3D02e52ff6f90C44" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">SwipeLoreboard</p>
+            <p className="aboutMiniCard__title">Loreboard</p>
             <p className="aboutMiniCard__body">
-              Pay-to-place spatial board with community governance. Place content on a tile-aligned grid, flag inappropriate content, and vote on removals with streak-weighted power.
+              Community-governed spatial board. All placements go through Swipe voting. The community decides what gets built here. No pay-to-bypass.
             </p>
-            <a href="https://testnet.fluentscan.xyz/address/0xfb2C1aa8E72baEA6872fae120d25Fc30246a27C6" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">

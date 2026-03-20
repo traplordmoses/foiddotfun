@@ -21,7 +21,6 @@
     "vm:smoke": "tsx scripts/loreboardVM-call.ts",
     "verify:latest": "tsx scripts/verify-latest-manifest.ts",
     "demo:one": "pnpm vm:smoke && pnpm tsx scripts/e2e-step3.ts && pnpm verify:latest",
-    "e2e:board": "tsx scripts/e2e-step3-boardv1.ts",
     "debug:receipt": "tsx scripts/debug-receipt-logs.ts",
     "sync:nft": "tsx scripts/sync-live-nft.ts",
     "recover:refunds": "tsx scripts/recover-stuck-refunds.ts",
@@ -29,11 +28,13 @@
     "auto:finalize": "tsx scripts/auto-finalize-cron.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "@rainbow-me/rainbowkit": "2.1.6",
     "@supabase/supabase-js": "^2.81.0",
     "@tanstack/react-query": "5.51.1",
     "@wagmi/connectors": "6.2.0",
     "@wagmi/core": "2.22.1",
+    "better-sqlite3": "11.9.1",
     "bs58": "^6.0.0",
     "butterchurn": "^2.6.7",
     "butterchurn-presets": "^2.4.7",
@@ -55,6 +56,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.19.25",
     "@types/react": "18.3.3",
     "@types/react-dom": "^18.3.0",
@@ -67,6 +69,11 @@
     "tsx": "^4.20.6",
     "typescript": "5.6.3",
     "vitest": "^1.6.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
   },
   "ts-node": {
     "project": "tsconfig.scripts.json"

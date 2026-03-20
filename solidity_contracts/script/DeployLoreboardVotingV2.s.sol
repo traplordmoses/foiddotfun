@@ -3,13 +3,13 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Script.sol";
 import "forge-std/console2.sol";
-import "../src/OnePerPlacementVotingPower.sol";
+import "../src/StreakVotingPower.sol";
 import "../src/LoreboardVotingV2.sol";
 
 contract DeployLoreboardVotingV2 is Script {
     function run()
         external
-        returns (OnePerPlacementVotingPower votingPower, LoreboardVotingV2 voting)
+        returns (StreakVotingPower votingPower, LoreboardVotingV2 voting)
     {
         uint256 pk = vm.envUint("OPERATOR_PK");
         address deployer = vm.addr(pk);
@@ -28,7 +28,7 @@ contract DeployLoreboardVotingV2 is Script {
         vm.startBroadcast(pk);
 
         if (existingVotingPower == address(0)) {
-            votingPower = new OnePerPlacementVotingPower();
+            votingPower = new StreakVotingPower(address(0xdead), address(0), 1, 0);
             existingVotingPower = address(votingPower);
         }
 
@@ -45,7 +45,7 @@ contract DeployLoreboardVotingV2 is Script {
 
         console2.log("chainId", block.chainid);
         console2.log("deployer", deployer);
-        console2.log("OnePerPlacementVotingPower", existingVotingPower);
+        console2.log("StreakVotingPower", existingVotingPower);
         console2.log("LoreboardVotingV2", address(voting));
         console2.log("epochZeroUnix", voting.epochZeroUnix());
         console2.log("epochSeconds", voting.epochSeconds());

@@ -29,10 +29,6 @@ import { hasOverlap } from "@/lib/grid";
 import { uploadJSON } from "@/lib/ipfs";
 import { ProposalStore } from "@/lib/proposalStore";
 import { sortCandidatesByTieBreak } from "@/lib/winnerSelection";
-import {
-  LOREBOARD_VOTING_ADDRESS,
-  loreboardVotingAbi,
-} from "@/contracts/loreboardVoting";
 import { CANONICAL_ADDRESSES, CHAIN_ID, requireCanonicalAddress } from "@/config/canonical";
 
 export const runtime = "nodejs";
@@ -417,6 +413,15 @@ const fakeRootFromIds = (ids: Hex32[]): Hex32 => {
 /* ---------- POST /api/operator/finalize ---------- */
 
 export async function POST(req: NextRequest) {
+  // ── Auth: require OPERATOR_API_KEY header ──
+  const expectedKey = process.env.OPERATOR_API_KEY;
+  if (expectedKey) {
+    const provided = req.headers.get("x-operator-key");
+    if (provided !== expectedKey) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
   const { publicClient, wallet, treasury, manifestStore, loreboardVm } =
     getRuntimeConfig();
   let body: unknown = null;
@@ -647,8 +652,10 @@ export async function POST(req: NextRequest) {
         cid
       );
     } else {
+      // Log full error server-side; return generic message to client
+      console.error("[operator/finalize] Manifest upload error details:", e);
       return NextResponse.json(
-        { error: "Manifest upload failed", details: String(e) },
+        { error: "Manifest upload failed" },
         { status: 500 }
       );
     }

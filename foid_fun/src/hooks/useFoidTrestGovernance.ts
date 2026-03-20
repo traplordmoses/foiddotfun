@@ -16,7 +16,10 @@ export interface RemovalVote {
   removalPassed: boolean;
 }
 
-const govAddress = CONTRACTS.FOID_TREST_GOVERNANCE as `0x${string}`;
+// FoidTrestGovernance is not deployed in v1 — address is empty.
+// All read queries are disabled (enabled: isDeployed). Write callbacks throw early.
+const govAddress = (CONTRACTS.FOID_TREST_GOVERNANCE || "") as `0x${string}`;
+const isDeployed = govAddress.length > 2; // more than just "0x" or ""
 
 /** Read governance config + write actions (flag, vote, resolve). */
 export function useFoidTrestGovernance() {
@@ -26,19 +29,20 @@ export function useFoidTrestGovernance() {
     address: govAddress,
     abi: FOID_TREST_GOVERNANCE_ABI,
     functionName: 'flagFeeWei',
-    query: { enabled: !!govAddress },
+    query: { enabled: isDeployed },
   });
 
   const { data: flagThreshold } = useReadContract({
     address: govAddress,
     abi: FOID_TREST_GOVERNANCE_ABI,
     functionName: 'flagThreshold',
-    query: { enabled: !!govAddress },
+    query: { enabled: isDeployed },
   });
 
   const flagPost = useCallback(async (entryId: number) => {
+    if (!isDeployed) throw new Error("FoidTrestGovernance not deployed yet");
     if (!address) throw new Error("Wallet not connected");
-    const fee = flagFeeWei ?? BigInt(CONTRACTS.FLAG_FEE_WEI);
+    const fee = flagFeeWei ?? BigInt(CONTRACTS.FLAG_FEE_WEI ?? "1000000000000000");
 
     const walletClient = await getWalletClient();
     if (!walletClient) throw new Error("No wallet client");
@@ -54,6 +58,7 @@ export function useFoidTrestGovernance() {
   }, [address, flagFeeWei]);
 
   const voteOnRemoval = useCallback(async (voteId: number, support: boolean) => {
+    if (!isDeployed) throw new Error("FoidTrestGovernance not deployed yet");
     if (!address) throw new Error("Wallet not connected");
 
     const walletClient = await getWalletClient();
@@ -69,6 +74,7 @@ export function useFoidTrestGovernance() {
   }, [address]);
 
   const resolveRemovalVote = useCallback(async (voteId: number) => {
+    if (!isDeployed) throw new Error("FoidTrestGovernance not deployed yet");
     if (!address) throw new Error("Wallet not connected");
 
     const walletClient = await getWalletClient();
@@ -99,7 +105,7 @@ export function useFlagCount(entryId: number) {
     abi: FOID_TREST_GOVERNANCE_ABI,
     functionName: 'getFlagCount',
     args: [BigInt(entryId)],
-    query: { enabled: !!govAddress },
+    query: { enabled: isDeployed },
   });
   return { flagCount: data ? Number(data) : 0, isLoading };
 }
@@ -112,7 +118,7 @@ export function useHasFlagged(entryId: number) {
     abi: FOID_TREST_GOVERNANCE_ABI,
     functionName: 'hasFlagged',
     args: address ? [BigInt(entryId), address] : undefined,
-    query: { enabled: !!govAddress && !!address },
+    query: { enabled: isDeployed && !!address },
   });
   return !!data;
 }
@@ -124,7 +130,7 @@ export function useActiveVote(entryId: number) {
     abi: FOID_TREST_GOVERNANCE_ABI,
     functionName: 'activeVoteForEntry',
     args: [BigInt(entryId)],
-    query: { enabled: !!govAddress },
+    query: { enabled: isDeployed },
   });
   return voteId ? Number(voteId) : 0;
 }
@@ -136,7 +142,7 @@ export function useRemovalVote(voteId: number) {
     abi: FOID_TREST_GOVERNANCE_ABI,
     functionName: 'getVote',
     args: [BigInt(voteId)],
-    query: { enabled: !!govAddress && voteId > 0 },
+    query: { enabled: isDeployed && voteId > 0 },
   });
   return { vote: data as RemovalVote | undefined, isLoading };
 }
@@ -149,7 +155,7 @@ export function useHasVotedOnRemoval(voteId: number) {
     abi: FOID_TREST_GOVERNANCE_ABI,
     functionName: 'hasVotedOnRemoval',
     args: address ? [BigInt(voteId), address] : undefined,
-    query: { enabled: !!govAddress && !!address && voteId > 0 },
+    query: { enabled: isDeployed && !!address && voteId > 0 },
   });
   return !!data;
 }

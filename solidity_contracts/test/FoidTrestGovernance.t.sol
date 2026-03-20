@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {FoidTrest} from "../src/FoidTrest.sol";
 import {FoidTrestDirect} from "../src/FoidTrestDirect.sol";
 import {FoidTrestGovernance} from "../src/FoidTrestGovernance.sol";
-import {OnePerPlacementVotingPower} from "../src/OnePerPlacementVotingPower.sol";
+import {StreakVotingPower} from "../src/StreakVotingPower.sol";
 
 contract FoidTrestGovernanceTest is Test {
     receive() external payable {}
@@ -13,7 +13,7 @@ contract FoidTrestGovernanceTest is Test {
     FoidTrest trest;
     FoidTrestDirect direct;
     FoidTrestGovernance governance;
-    OnePerPlacementVotingPower votingPower;
+    StreakVotingPower votingPower;
 
     address owner = address(this);
     address feeRecipient = address(uint160(uint256(keccak256("feeRecipient"))));
@@ -25,7 +25,7 @@ contract FoidTrestGovernanceTest is Test {
     uint32 constant VOTE_WINDOW = 86400;
 
     function setUp() public {
-        votingPower = new OnePerPlacementVotingPower();
+        votingPower = new StreakVotingPower(address(0xdead), address(0), 1, 0);
         trest = new FoidTrest();
         direct = new FoidTrestDirect(address(trest), feeRecipient, PLACEMENT_FEE);
         governance = new FoidTrestGovernance(

@@ -38,6 +38,12 @@ Thumbs.db
 *.swp
 *.swo
 
+# === SQLite data ===
+data/
+
+# === Generated reports ===
+reports/
+
 # === Deploy platforms ===
 .vercel/
 .netlify/

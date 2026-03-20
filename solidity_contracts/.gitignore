@@ -19,3 +19,4 @@ docs/
 .env.production.local
 
 target
+.vercel

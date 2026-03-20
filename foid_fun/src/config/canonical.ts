@@ -23,12 +23,17 @@ export const CANONICAL_ADDRESSES = {
   vmWrapper: "0x4031762fB8b5d3fcA168AA6555FfC666ED500DaD" as Address,
   vmWasm: "0xBE0ec2117F36797DEf3ab10661464265b2E4df34" as Address,
 
-  // V1 contracts
-  prayerTiers: "0x4eEeD27Bfa0734086FA65082C96DAD014c31EeDB" as Address,
-  streakVotingPower: "0x68F10FC72572B433425AC036740B52AcE51Af1A6" as Address,
-  foidTrest: "0xdEe866015122c9f3672E18646a172Bd8a1eb2ff1" as Address,
-  swipe: "0x0e222432aC1583E47A80228fd664e90ba6f6e37C" as Address,
-  swipeLoreboard: "0xfb2C1aa8E72baEA6872fae120d25Fc30246a27C6" as Address,
+  // V1 contracts (redeployed 2026-03-20 — overpayment fix)
+  prayerTiers: "0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb" as Address,
+  streakVotingPower: "0x7a889b3d38889E45EE48bbCBc3681a889F87C03e" as Address,
+  foidTrest: "0x87Ea24ba4B61BbF35aD1161e11072Dc8Cf0858a6" as Address,
+  swipe: "0xddc2623Bd80B1429426e30Be3D02e52ff6f90C44" as Address,
+  swipeLoreboard: "" as Address, // not deployed in v1 — Swipe handles loreboard proposals natively
+
+  // Standalone contracts
+  engrave: "0xe73f5f91159c2d84b1a66badf701d5312213b66a" as Address,
+  prayerRegistry: "0x6FC7301fad7Ca0294152b23FD4f0467200376d65" as Address,
+  prayerMirror: "0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF" as Address,
 };
 
 const warnOnce = (() => {

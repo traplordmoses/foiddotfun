@@ -51,7 +51,7 @@ export async function GET() {
         });
 
         // viem returns tuple as array or object depending on ABI
-        // Handle both formats
+        // Handle both formats (named struct or positional array)
         let p: {
           id: bigint;
           proposer: string;
@@ -61,10 +61,14 @@ export async function GET() {
           finalized: boolean;
           canonized: boolean;
           trestEntryId: bigint;
+          proposalType: number;
+          gridX: number;
+          gridY: number;
+          gridW: number;
+          gridH: number;
         };
 
         if (Array.isArray(raw)) {
-          // Tuple returned as array
           p = {
             id: raw[0] as bigint,
             proposer: raw[1] as string,
@@ -74,6 +78,11 @@ export async function GET() {
             finalized: raw[5] as boolean,
             canonized: raw[6] as boolean,
             trestEntryId: raw[7] as bigint,
+            proposalType: Number(raw[8] ?? 0),
+            gridX: Number(raw[9] ?? 0),
+            gridY: Number(raw[10] ?? 0),
+            gridW: Number(raw[11] ?? 0),
+            gridH: Number(raw[12] ?? 0),
           };
         } else {
           p = raw as typeof p;
@@ -90,6 +99,11 @@ export async function GET() {
           finalized: p.finalized,
           canonized: p.canonized,
           trestEntryId: Number(p.trestEntryId),
+          proposalType: Number(p.proposalType),
+          gridX: Number(p.gridX),
+          gridY: Number(p.gridY),
+          gridW: Number(p.gridW),
+          gridH: Number(p.gridH),
           forCount: counts.forCount,
           againstCount: counts.againstCount,
         });

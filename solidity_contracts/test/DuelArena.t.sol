@@ -4,12 +4,12 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {FoidTrest} from "../src/FoidTrest.sol";
 import {DuelArena} from "../src/DuelArena.sol";
-import {OnePerPlacementVotingPower} from "../src/OnePerPlacementVotingPower.sol";
+import {StreakVotingPower} from "../src/StreakVotingPower.sol";
 
 contract DuelArenaTest is Test {
     FoidTrest trest;
     DuelArena arena;
-    OnePerPlacementVotingPower votingPower;
+    StreakVotingPower votingPower;
 
     receive() external payable {}
 
@@ -24,7 +24,7 @@ contract DuelArenaTest is Test {
     uint32 constant VOTE_WINDOW = 86400; // 24h
 
     function setUp() public {
-        votingPower = new OnePerPlacementVotingPower();
+        votingPower = new StreakVotingPower(address(0xdead), address(0), 1, 0);
         trest = new FoidTrest();
         arena = new DuelArena(
             address(trest),

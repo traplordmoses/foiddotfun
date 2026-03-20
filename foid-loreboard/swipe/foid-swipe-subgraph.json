@@ -1,0 +1,17 @@
+{
+  "name": "foid-swipe/1.0.0",
+  "version": "1",
+  "abis": {
+    "swipe": {
+      "path": "./abis/swipe.json"
+    }
+  },
+  "instances": [
+    {
+      "abi": "swipe",
+      "address": "0xF64a91305d699307238e1AD832a5B77AF0947145",
+      "startBlock": 21977932,
+      "chain": "fluent-testnet"
+    }
+  ]
+}

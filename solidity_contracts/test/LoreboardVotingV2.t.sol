@@ -3,11 +3,11 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
 import "../src/LoreboardVotingV2.sol";
-import "../src/OnePerPlacementVotingPower.sol";
+import "../src/StreakVotingPower.sol";
 
 contract LoreboardVotingV2Test is Test {
     LoreboardVotingV2 internal voting;
-    OnePerPlacementVotingPower internal votingPower;
+    StreakVotingPower internal votingPower;
 
     address internal admin = address(this);
     address internal voter = address(0xBEEF);
@@ -17,7 +17,7 @@ contract LoreboardVotingV2Test is Test {
     uint32 internal voteWindowSeconds = 259_200;
 
     function setUp() public {
-        votingPower = new OnePerPlacementVotingPower();
+        votingPower = new StreakVotingPower(address(0xdead), address(0), 1, 0);
         voting = new LoreboardVotingV2(
             address(votingPower),
             admin,

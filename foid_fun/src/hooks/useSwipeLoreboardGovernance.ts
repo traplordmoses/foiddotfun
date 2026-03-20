@@ -16,7 +16,10 @@ export interface RemovalVote {
   removalPassed: boolean;
 }
 
-const govAddress = (CONTRACTS.SWIPE_LOREBOARD ?? "") as `0x${string}`;
+// SwipeLoreboard is not deployed in v1 — Swipe handles loreboard proposals natively.
+// All read queries are disabled. Write callbacks throw early with descriptive error.
+const govAddress = (CONTRACTS.SWIPE_LOREBOARD || "") as `0x${string}`;
+const isDeployed = govAddress.length > 2; // more than just "0x" or ""
 
 /** Read governance config + write actions (flag, vote, resolve) for SwipeLoreboard. */
 export function useSwipeLoreboardGovernance() {
@@ -26,19 +29,20 @@ export function useSwipeLoreboardGovernance() {
     address: govAddress,
     abi: SWIPE_LOREBOARD_ABI,
     functionName: 'flagFeeWei',
-    query: { enabled: !!govAddress },
+    query: { enabled: isDeployed },
   });
 
   const { data: flagThreshold } = useReadContract({
     address: govAddress,
     abi: SWIPE_LOREBOARD_ABI,
     functionName: 'flagThreshold',
-    query: { enabled: !!govAddress },
+    query: { enabled: isDeployed },
   });
 
   const flagPlacement = useCallback(async (placementId: number) => {
+    if (!isDeployed) throw new Error("SwipeLoreboard not deployed — flagging unavailable in v1");
     if (!address) throw new Error("Wallet not connected");
-    const fee = flagFeeWei ?? BigInt(CONTRACTS.FLAG_FEE_WEI);
+    const fee = flagFeeWei ?? BigInt(CONTRACTS.FLAG_FEE_WEI ?? "1000000000000000");
 
     const walletClient = await getWalletClient();
     if (!walletClient) throw new Error("No wallet client");
@@ -54,6 +58,7 @@ export function useSwipeLoreboardGovernance() {
   }, [address, flagFeeWei]);
 
   const voteOnRemoval = useCallback(async (voteId: number, support: boolean) => {
+    if (!isDeployed) throw new Error("SwipeLoreboard not deployed — voting unavailable in v1");
     if (!address) throw new Error("Wallet not connected");
 
     const walletClient = await getWalletClient();
@@ -69,6 +74,7 @@ export function useSwipeLoreboardGovernance() {
   }, [address]);
 
   const resolveRemovalVote = useCallback(async (voteId: number) => {
+    if (!isDeployed) throw new Error("SwipeLoreboard not deployed — resolution unavailable in v1");
     if (!address) throw new Error("Wallet not connected");
 
     const walletClient = await getWalletClient();
@@ -99,7 +105,7 @@ export function usePlacementFlagCount(placementId: number) {
     abi: SWIPE_LOREBOARD_ABI,
     functionName: 'getFlagCount',
     args: [BigInt(placementId)],
-    query: { enabled: !!govAddress },
+    query: { enabled: isDeployed },
   });
   return { flagCount: data ? Number(data) : 0, isLoading };
 }
@@ -112,7 +118,7 @@ export function useHasFlaggedPlacement(placementId: number) {
     abi: SWIPE_LOREBOARD_ABI,
     functionName: 'hasFlagged',
     args: address ? [BigInt(placementId), address] : undefined,
-    query: { enabled: !!govAddress && !!address },
+    query: { enabled: isDeployed && !!address },
   });
   return !!data;
 }
@@ -124,7 +130,7 @@ export function useActivePlacementVote(placementId: number) {
     abi: SWIPE_LOREBOARD_ABI,
     functionName: 'activeVoteForPlacement',
     args: [BigInt(placementId)],
-    query: { enabled: !!govAddress },
+    query: { enabled: isDeployed },
   });
   return voteId ? Number(voteId) : 0;
 }
@@ -136,7 +142,7 @@ export function usePlacementRemovalVote(voteId: number) {
     abi: SWIPE_LOREBOARD_ABI,
     functionName: 'getRemovalVote',
     args: [BigInt(voteId)],
-    query: { enabled: !!govAddress && voteId > 0 },
+    query: { enabled: isDeployed && voteId > 0 },
   });
   return { vote: data as RemovalVote | undefined, isLoading };
 }
@@ -149,7 +155,7 @@ export function useHasVotedOnPlacementRemoval(voteId: number) {
     abi: SWIPE_LOREBOARD_ABI,
     functionName: 'hasVotedOnRemoval',
     args: address ? [BigInt(voteId), address] : undefined,
-    query: { enabled: !!govAddress && !!address && voteId > 0 },
+    query: { enabled: isDeployed && !!address && voteId > 0 },
   });
   return !!data;
 }

@@ -11,7 +11,8 @@ import { publicClient, getWalletClient } from "@/lib/viem";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 
-const ENGRAVE_ADDRESS = (process.env.NEXT_PUBLIC_ENGRAVE_ADDRESS ?? "0x0000000000000000000000000000000000000000") as `0x${string}`;
+// Engrave address from canonical config (single source of truth)
+const ENGRAVE_ADDRESS = (CONTRACTS.ENGRAVE || "0x0000000000000000000000000000000000000000") as `0x${string}`;
 const ENGRAVE_DEPLOYED = ENGRAVE_ADDRESS !== "0x0000000000000000000000000000000000000000";
 
 // ── localStorage fallback (used when contract not deployed) ──

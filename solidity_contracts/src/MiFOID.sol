@@ -192,6 +192,21 @@ contract MiFOID is ERC721 {
 
     // ── Internal ──
 
+    /// @dev Override ERC721._update to keep hasMiFOID/tokenOfOwner in sync on transfer.
+    ///      Without this, holdsToken() would be stale after transfers, causing
+    ///      StreakVotingPower to give MiFOID bonus to the wrong wallet.
+    function _update(address to, uint256 tokenId, address auth) internal override returns (address from) {
+        from = super._update(to, tokenId, auth);
+        if (from != address(0)) {
+            hasMiFOID[from] = false;
+            delete tokenOfOwner[from];
+        }
+        if (to != address(0)) {
+            hasMiFOID[to] = true;
+            tokenOfOwner[to] = tokenId;
+        }
+    }
+
     function _readStreak(address user) internal view returns (uint256) {
         (bool ok, bytes memory data) = prayerMirror.staticcall(
             abi.encodeWithSignature("get(address)", user)

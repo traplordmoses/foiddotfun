@@ -1,8 +1,8 @@
-// Server-only in-memory store for demo
+// Persistent SQLite store — replaces the in-memory referendum store.
+// Every export signature is preserved so consumers need zero changes.
 import { type Rect } from "@/lib/grid";
 import { currentEpoch, voteWindowEpochs } from "@/lib/epoch";
-import fs from "fs";
-import path from "path";
+import { getDb } from "@/db/db";
 
 export type Placement = {
   id: string;
@@ -45,98 +45,75 @@ export type StoredManifest = {
   cid: string;
 };
 
-type ManifestEntry = { manifest: Manifest; cid: string | null };
+// ─── Row ↔ Object helpers ───
 
-type StoreShape = {
-  accepted: Placement[];
-  proposals: Proposal[];
-  latestManifest: Manifest | null;
-  latestManifestCID: string | null;
-  manifestHistory: Map<number, ManifestEntry>;
-  yesThreshold: number;
-  quorum: number;
-  voteWindowEpochs: number;
-};
+function placementToRow(p: Placement) {
+  return {
+    id: p.id,
+    owner: p.owner ?? "",
+    cid: p.cid,
+    name: p.name ?? "",
+    mime: p.mime ?? "image/png",
+    rect_x: p.rect.x,
+    rect_y: p.rect.y,
+    rect_w: p.rect.w,
+    rect_h: p.rect.h,
+    cells: p.cells,
+    bid_per_cell_wei: String(p.bidPerCellWei),
+    width: p.width ?? null,
+    height: p.height ?? null,
+  };
+}
 
-const g = globalThis as typeof globalThis & { __REFERENDUM_STORE__?: StoreShape };
-type ManifestCache = {
-  byEpoch: Map<number, StoredManifest>;
-  latestEpoch: number | null;
-};
-const manifestGlobal = globalThis as typeof globalThis & {
-  __MANIFEST_CACHE__?: ManifestCache;
-};
-const PERSIST_PATH = path.join(process.cwd(), ".next-cache", "manifest-latest.json");
+function rowToPlacement(row: Record<string, unknown>): Placement {
+  return {
+    id: row.id as string,
+    owner: row.owner as string,
+    cid: row.cid as string,
+    name: (row.name as string) ?? "",
+    mime: (row.mime as "image/png" | "image/jpeg") ?? "image/png",
+    rect: {
+      x: row.rect_x as number,
+      y: row.rect_y as number,
+      w: row.rect_w as number,
+      h: row.rect_h as number,
+    },
+    cells: row.cells as number,
+    bidPerCellWei: (row.bid_per_cell_wei as string) ?? "0",
+    width: row.width as number | undefined,
+    height: row.height as number | undefined,
+  };
+}
 
-function loadPersistedManifest(): ManifestCache {
-  try {
-    const raw = fs.readFileSync(PERSIST_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    const byEpoch = new Map<number, StoredManifest>();
-    const list: StoredManifest[] = Array.isArray(parsed?.byEpoch) ? parsed.byEpoch : [];
-    for (const rec of list) {
-      if (rec && typeof rec.epoch === "number" && rec.cid) {
-        byEpoch.set(rec.epoch, {
-          ...rec,
-          placements: Array.isArray(rec.placements) ? rec.placements.map(clonePlacement) : [],
-        });
-      }
-    }
-    const latestEpoch =
-      typeof parsed?.latestEpoch === "number" && Number.isFinite(parsed.latestEpoch)
-        ? parsed.latestEpoch
-        : (list.length ? list[list.length - 1]?.epoch ?? null : null);
-    return { byEpoch, latestEpoch };
-  } catch {
-    return { byEpoch: new Map<number, StoredManifest>(), latestEpoch: null };
+function rowToProposal(row: Record<string, unknown>): Proposal {
+  const db = getDb();
+  const voterRows = db
+    .prepare("SELECT voter, vote_yes FROM proposal_voters WHERE proposal_id = ?")
+    .all(row.id as string) as Array<{ voter: string; vote_yes: number }>;
+
+  const voters: Record<string, boolean> = {};
+  for (const v of voterRows) {
+    voters[v.voter] = v.vote_yes === 1;
   }
+
+  return {
+    ...rowToPlacement(row),
+    epochSubmitted: row.epoch_submitted as number,
+    voteEndsAtEpoch: row.vote_ends_at_epoch as number,
+    voteEndsAtSec: row.vote_ends_at_sec as number | undefined,
+    chainId: row.chain_id as string | undefined,
+    isVotable: row.is_votable ? true : undefined,
+    voters,
+    yes: row.yes_count as number,
+    no: row.no_count as number,
+    status: row.status as ProposalStatus,
+    createdAt: row.created_at as number,
+  };
 }
 
-function persistManifestCache(cache: ManifestCache) {
-  try {
-    const dir = path.dirname(PERSIST_PATH);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    const byEpochArr = Array.from(cache.byEpoch.values()).map((rec) => ({
-      ...rec,
-      placements: rec.placements.map(clonePlacement),
-    }));
-    fs.writeFileSync(
-      PERSIST_PATH,
-      JSON.stringify({ latestEpoch: cache.latestEpoch, byEpoch: byEpochArr }, null, 2),
-      "utf8"
-    );
-  } catch {
-    /* best-effort */
-  }
-}
+// ─── Seed data ───
 
-if (!manifestGlobal.__MANIFEST_CACHE__) {
-  manifestGlobal.__MANIFEST_CACHE__ = loadPersistedManifest();
-}
-
-const manifestCache = manifestGlobal.__MANIFEST_CACHE__!;
-
-if (!g.__REFERENDUM_STORE__) {
-  g.__REFERENDUM_STORE__ = {
-    accepted: [],
-    proposals: [],
-    latestManifest: null,
-    latestManifestCID: null,
-    manifestHistory: new Map<number, ManifestEntry>(),
-    yesThreshold: Number(process.env.NEXT_PUBLIC_YES_THRESHOLD ?? 0.51),
-    quorum: Number(process.env.NEXT_PUBLIC_QUORUM ?? 5),
-    voteWindowEpochs: voteWindowEpochs(),
-  } satisfies StoreShape;
-}
-
-const S = g.__REFERENDUM_STORE__!;
-
-const clonePlacement = (p: Placement): Placement => ({
-  ...p,
-  rect: { ...p.rect },
-});
-
-const seedManifest: StoredManifest = {
+const SEED_MANIFEST: StoredManifest = {
   epoch: 0,
   finalizedAt: 0,
   cid: "ipfs://bafkreieo43q5jmr4raj26fslh53px72j7iatscxodxh7ej2v7pddmzuuie",
@@ -147,12 +124,7 @@ const seedManifest: StoredManifest = {
       cid: "QmXuaCr8S7JdggmS9wefhMmtiC4ePHeoAa4hfG5x7uVdpo",
       name: "beliefs.png",
       mime: "image/png",
-      rect: {
-        x: 0,
-        y: 0,
-        w: 736,
-        h: 544,
-      },
+      rect: { x: 0, y: 0, w: 736, h: 544 },
       cells: 391,
       bidPerCellWei: "0",
       width: 736,
@@ -161,98 +133,183 @@ const seedManifest: StoredManifest = {
   ],
 };
 
-if (!manifestCache.byEpoch.size) {
-  manifestCache.byEpoch.set(seedManifest.epoch, {
-    ...seedManifest,
-    placements: seedManifest.placements.map(clonePlacement),
-  });
-  manifestCache.latestEpoch = seedManifest.epoch;
-  persistManifestCache(manifestCache);
+function ensureSeeded() {
+  const db = getDb();
+  const count = db.prepare("SELECT COUNT(*) as c FROM manifests").get() as { c: number };
+  if (count.c === 0) {
+    saveManifestForEpoch(
+      SEED_MANIFEST.epoch,
+      SEED_MANIFEST.placements,
+      SEED_MANIFEST.finalizedAt,
+      SEED_MANIFEST.cid
+    );
+  }
+  const aCount = db.prepare("SELECT COUNT(*) as c FROM accepted_placements").get() as { c: number };
+  if (aCount.c === 0) {
+    const insertAccepted = db.prepare(`
+      INSERT OR REPLACE INTO accepted_placements
+        (id, owner, cid, name, mime, rect_x, rect_y, rect_w, rect_h, cells, bid_per_cell_wei, width, height)
+      VALUES
+        (@id, @owner, @cid, @name, @mime, @rect_x, @rect_y, @rect_w, @rect_h, @cells, @bid_per_cell_wei, @width, @height)
+    `);
+    const tx = db.transaction(() => {
+      for (const p of SEED_MANIFEST.placements) {
+        insertAccepted.run(placementToRow(p));
+      }
+    });
+    tx();
+  }
 }
 
-if (!S.latestManifest) {
-  const manifest: Manifest = {
-    epoch: seedManifest.epoch,
-    finalizedAt: seedManifest.finalizedAt,
-    placements: seedManifest.placements.map(clonePlacement),
-  };
-  S.accepted = seedManifest.placements.map(clonePlacement);
-  setLatestManifest(manifest, seedManifest.cid);
-}
+// Seed on first import
+try { ensureSeeded(); } catch { /* lazy init if DB not ready yet */ }
+
+// ─── getStore (compatibility shim) ───
 
 export function getStore() {
-  return S;
+  return {
+    accepted: listAccepted(),
+    proposals: listProposals(),
+    latestManifest: null,
+    latestManifestCID: latestManifestCID(),
+    manifestHistory: new Map(),
+    yesThreshold: Number(process.env.NEXT_PUBLIC_YES_THRESHOLD ?? 0.51),
+    quorum: Number(process.env.NEXT_PUBLIC_QUORUM ?? 5),
+    voteWindowEpochs: voteWindowEpochs(),
+  };
 }
+
+// ─── Proposals ───
 
 export function addProposal(
   p: Omit<Proposal, "yes" | "no" | "voters" | "status" | "createdAt">
-) {
-  const pr: Proposal = {
+): Proposal {
+  const db = getDb();
+  const now = Date.now();
+  db.prepare(`
+    INSERT INTO proposals
+      (id, owner, cid, name, mime, rect_x, rect_y, rect_w, rect_h, cells,
+       bid_per_cell_wei, width, height, epoch_submitted, vote_ends_at_epoch,
+       vote_ends_at_sec, chain_id, is_votable, yes_count, no_count, status, created_at)
+    VALUES
+      (@id, @owner, @cid, @name, @mime, @rect_x, @rect_y, @rect_w, @rect_h, @cells,
+       @bid_per_cell_wei, @width, @height, @epoch_submitted, @vote_ends_at_epoch,
+       @vote_ends_at_sec, @chain_id, @is_votable, 0, 0, 'proposed', @created_at)
+  `).run({
+    id: p.id,
+    owner: p.owner,
+    cid: p.cid,
+    name: p.name ?? "",
+    mime: p.mime ?? "image/png",
+    rect_x: p.rect.x,
+    rect_y: p.rect.y,
+    rect_w: p.rect.w,
+    rect_h: p.rect.h,
+    cells: p.cells,
+    bid_per_cell_wei: String(p.bidPerCellWei),
+    width: p.width ?? null,
+    height: p.height ?? null,
+    epoch_submitted: p.epochSubmitted,
+    vote_ends_at_epoch: p.voteEndsAtEpoch,
+    vote_ends_at_sec: p.voteEndsAtSec ?? null,
+    chain_id: p.chainId ?? null,
+    is_votable: p.isVotable ? 1 : null,
+    created_at: now,
+  });
+
+  return {
     ...p,
     voters: {},
     yes: 0,
     no: 0,
-    status: "proposed",
-    createdAt: Date.now(),
+    status: "proposed" as ProposalStatus,
+    createdAt: now,
   };
-  S.proposals.push(pr);
-  return pr;
 }
 
-export function listProposals() {
-  return S.proposals.slice();
+export function listProposals(): Proposal[] {
+  const db = getDb();
+  const rows = db.prepare("SELECT * FROM proposals").all() as Record<string, unknown>[];
+  return rows.map(rowToProposal);
 }
 
-export function listAccepted() {
-  return S.accepted.slice();
+export function listAccepted(): Placement[] {
+  const db = getDb();
+  const rows = db.prepare("SELECT * FROM accepted_placements").all() as Record<string, unknown>[];
+  return rows.map(rowToPlacement);
 }
 
 export function replaceAccepted(next: Placement[]) {
-  S.accepted = next;
+  const db = getDb();
+  const insert = db.prepare(`
+    INSERT OR REPLACE INTO accepted_placements
+      (id, owner, cid, name, mime, rect_x, rect_y, rect_w, rect_h, cells, bid_per_cell_wei, width, height)
+    VALUES
+      (@id, @owner, @cid, @name, @mime, @rect_x, @rect_y, @rect_w, @rect_h, @cells, @bid_per_cell_wei, @width, @height)
+  `);
+  const tx = db.transaction(() => {
+    db.prepare("DELETE FROM accepted_placements").run();
+    for (const p of next) {
+      insert.run(placementToRow(p));
+    }
+  });
+  tx();
 }
 
-export function setLatestManifest(m: Manifest, cid: string | null) {
-  S.latestManifest = m;
-  S.latestManifestCID = cid;
-  S.manifestHistory.set(m.epoch, { manifest: m, cid });
-
-  const stored: StoredManifest = {
-    epoch: m.epoch,
-    placements: m.placements.map(clonePlacement),
-    finalizedAt: m.finalizedAt,
-    cid: cid ?? "",
-  };
-  manifestCache.byEpoch.set(m.epoch, stored);
-  const currentLatest = manifestCache.latestEpoch;
-  if (currentLatest === null || m.epoch >= currentLatest) {
-    manifestCache.latestEpoch = m.epoch;
-  }
-  persistManifestCache(manifestCache);
+export function proposalById(id: string): Proposal | null {
+  const db = getDb();
+  const row = db.prepare("SELECT * FROM proposals WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+  if (!row) return null;
+  return rowToProposal(row);
 }
 
-export function latestManifestCID() {
-  return S.latestManifestCID;
-}
+export function vote(proposalId: string, voter: string, yes: boolean): Proposal | null {
+  const db = getDb();
+  const voterKey = voter.toLowerCase();
 
-export function proposalById(id: string) {
-  return S.proposals.find((p) => p.id === id) ?? null;
-}
+  const tx = db.transaction(() => {
+    // Upsert voter record
+    db.prepare(`
+      INSERT INTO proposal_voters (proposal_id, voter, vote_yes)
+      VALUES (?, ?, ?)
+      ON CONFLICT(proposal_id, voter) DO UPDATE SET vote_yes = excluded.vote_yes
+    `).run(proposalId, voterKey, yes ? 1 : 0);
 
-export function vote(proposalId: string, voter: string, yes: boolean) {
-  const p = proposalById(proposalId);
-  if (!p) return null;
-  p.voters[voter.toLowerCase()] = !!yes;
-  const vals = Object.values(p.voters);
-  p.yes = vals.filter((v) => v).length;
-  p.no = vals.length - p.yes;
-  return p;
+    // Recompute yes/no counts
+    const counts = db.prepare(`
+      SELECT
+        SUM(CASE WHEN vote_yes = 1 THEN 1 ELSE 0 END) as yes_count,
+        SUM(CASE WHEN vote_yes = 0 THEN 1 ELSE 0 END) as no_count
+      FROM proposal_voters WHERE proposal_id = ?
+    `).get(proposalId) as { yes_count: number; no_count: number };
+
+    db.prepare("UPDATE proposals SET yes_count = ?, no_count = ? WHERE id = ?")
+      .run(counts.yes_count ?? 0, counts.no_count ?? 0, proposalId);
+  });
+  tx();
+
+  return proposalById(proposalId);
 }
 
 export function gcProposals() {
+  const db = getDb();
   const cur = currentEpoch();
-  S.proposals = S.proposals.filter(
-    (p) => !(p.status !== "proposed" && p.voteEndsAtEpoch + 24 < cur)
-  );
+  db.prepare(`
+    DELETE FROM proposals
+    WHERE status != 'proposed' AND vote_ends_at_epoch + 24 < ?
+  `).run(cur);
+}
+
+// ─── Manifests ───
+
+export function setLatestManifest(m: Manifest, cid: string | null) {
+  saveManifestForEpoch(m.epoch, m.placements, m.finalizedAt, cid ?? "");
+}
+
+export function latestManifestCID(): string | null {
+  const db = getDb();
+  const row = db.prepare("SELECT cid FROM manifests ORDER BY epoch DESC LIMIT 1").get() as { cid: string } | undefined;
+  return row?.cid ?? null;
 }
 
 export function saveManifestForEpoch(
@@ -261,34 +318,36 @@ export function saveManifestForEpoch(
   finalizedAt: number,
   cid: string
 ) {
-  const record: StoredManifest = {
-    epoch,
-    placements: placements.map(clonePlacement),
-    finalizedAt,
-    cid,
-  };
-  manifestCache.byEpoch.set(epoch, record);
-  const currentLatest = manifestCache.latestEpoch;
-  if (currentLatest === null || epoch >= currentLatest) {
-    manifestCache.latestEpoch = epoch;
-  }
-  persistManifestCache(manifestCache);
+  const db = getDb();
+  db.prepare(`
+    INSERT OR REPLACE INTO manifests (epoch, cid, finalized_at, placements_json)
+    VALUES (?, ?, ?, ?)
+  `).run(epoch, cid, finalizedAt, JSON.stringify(placements));
 }
 
 export function getManifestForEpoch(epoch: number): StoredManifest | null {
   if (!Number.isFinite(epoch)) return null;
-  const record = manifestCache.byEpoch.get(epoch);
-  if (!record) return null;
+  const db = getDb();
+  const row = db.prepare("SELECT * FROM manifests WHERE epoch = ?").get(epoch) as Record<string, unknown> | undefined;
+  if (!row) return null;
   return {
-    ...record,
-    placements: record.placements.map(clonePlacement),
+    epoch: row.epoch as number,
+    finalizedAt: row.finalized_at as number,
+    cid: row.cid as string,
+    placements: JSON.parse(row.placements_json as string) as Placement[],
   };
 }
 
 export function getLatestManifest(): StoredManifest | null {
-  const { latestEpoch } = manifestCache;
-  if (latestEpoch == null) return null;
-  return getManifestForEpoch(latestEpoch);
+  const db = getDb();
+  const row = db.prepare("SELECT * FROM manifests ORDER BY epoch DESC LIMIT 1").get() as Record<string, unknown> | undefined;
+  if (!row) return null;
+  return {
+    epoch: row.epoch as number,
+    finalizedAt: row.finalized_at as number,
+    cid: row.cid as string,
+    placements: JSON.parse(row.placements_json as string) as Placement[],
+  };
 }
 
 export function manifestForEpoch(epoch: number | "latest") {
@@ -304,7 +363,7 @@ export function manifestForEpoch(epoch: number | "latest") {
     manifest: {
       epoch: record.epoch,
       finalizedAt: record.finalizedAt,
-      placements: record.placements.map(clonePlacement),
+      placements: record.placements,
     },
     cid: record.cid,
   };

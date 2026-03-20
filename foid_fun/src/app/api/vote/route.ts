@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { currentEpoch } from "@/lib/epoch";
 import { proposalById, vote as voteOn } from "../_store";
+import { checkRateLimit, recordAction } from "../agent/_lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,11 @@ export async function POST(req: Request) {
   const { proposalId, voter, vote } = body ?? {};
   if (!proposalId || !voter || vote == null) {
     return NextResponse.json({ error: "missing fields" }, { status: 400 });
+  }
+
+  const rl = checkRateLimit(voter, "vote");
+  if (!rl.ok) {
+    return NextResponse.json({ error: rl.error }, { status: 429 });
   }
 
   const p = proposalById(proposalId);
@@ -51,6 +57,7 @@ export async function POST(req: Request) {
   }
 
   const yes = vote === true || vote === "yes";
+  recordAction(voter, "vote");
   const updated = voteOn(proposalId, voter, yes);
   if (!updated) {
     return NextResponse.json({ error: "vote failed" }, { status: 500 });

@@ -43,6 +43,17 @@ contract StreakVotingPower is IVotingPower {
     }
 
     /// @notice Calculate voting power for a voter. epochId is ignored (power is live, not snapshotted).
+    /// @dev Weight calculation:
+    ///   1. Start with baseWeight (default 100)
+    ///   2. If PrayerTiers is wired: read streak from PrayerMirror, get tier multiplier
+    ///      - multiplierBps is in basis points: 100=1x, 150=1.5x, 300=3x, 500=5x
+    ///      - weight = (baseWeight * multiplierBps) / 100
+    ///      - If multiplierBps == 0 (unranked/0-day streak), keep baseWeight (everyone can vote)
+    ///   3. If MiFOID is wired and voter holds one: add flat mifoidBonus (default 50)
+    /// Examples (baseWeight=100, mifoidBonus=50):
+    ///   - 0-day streak, no MiFOID  → 100
+    ///   - 7-day Devotee, no MiFOID → 150
+    ///   - 90-day Sovereign + MiFOID → 550
     function votingPowerOf(address voter, uint256 /* epochId */)
         external
         view
@@ -55,12 +66,13 @@ contract StreakVotingPower is IVotingPower {
         if (prayerTiers != address(0)) {
             uint256 streak = _readStreak(voter);
             uint256 multiplierBps = _getTierMultiplier(streak);
+            // Guard: unranked users (0 bps) keep baseWeight instead of getting 0
             if (multiplierBps > 0) {
                 weight = (baseWeight * multiplierBps) / 100;
             }
         }
 
-        // Add MiFOID holder bonus
+        // Add flat MiFOID holder bonus (not a multiplier — additive)
         if (mifoidNFT != address(0) && _holdsMiFOID(voter)) {
             weight += mifoidBonus;
         }
