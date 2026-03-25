@@ -1339,7 +1339,7 @@ function BoardPageContent() {
   // ============================================================================
 
   const mainView = (
-    <main className="board-page relative overflow-hidden flex items-center justify-center" style={{ height: "100vh" }}>
+    <main className="board-page relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center" style={{ height: "100vh" }}>
       {/* Floating particles */}
       <div className="board-particles">
         {boardParticles.map((cfg, i) => (

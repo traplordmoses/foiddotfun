@@ -45,31 +45,29 @@ const tiles = [
   },
 ] as const;
 
-/* Background images — scattered with depth (varying opacity & size for parallax feel) */
-const BG_IMAGES: { src: string; top?: string; left?: string; right?: string; bottom?: string; w: number; rotate: number; opacity: number; delay: string }[] = [
-  // Large, closer images (higher opacity)
-  { src: "/1smile.png",        top: "18%",  left: "1%",   w: 120, rotate: -6,  opacity: 0.16, delay: "0s" },
-  { src: "/w.png",             top: "16%",  right: "1%",  w: 115, rotate: 5,   opacity: 0.15, delay: "0.5s" },
-  { src: "/gameboy_mifoid.png",top: "35%",  left: "2%",   w: 110, rotate: 3,   opacity: 0.13, delay: "1.0s" },
-  { src: "/horns.png",         top: "60%",  right: "2%",  w: 105, rotate: -5,  opacity: 0.14, delay: "0.3s" },
-  // Medium images
-  { src: "/pinkhat.png",       top: "55%",  left: "8%",   w: 85,  rotate: 4,   opacity: 0.11, delay: "0.8s" },
-  { src: "/varsity.png",       top: "25%",  left: "16%",  w: 75,  rotate: -3,  opacity: 0.10, delay: "1.2s" },
-  { src: "/soccer.png",        top: "70%",  right: "10%", w: 80,  rotate: -4,  opacity: 0.11, delay: "0.6s" },
-  { src: "/foidpod.png",       top: "38%",  right: "14%", w: 75,  rotate: 4,   opacity: 0.10, delay: "1.5s" },
-  { src: "/IMG_7266.jpg",      top: "75%",  left: "30%",  w: 90,  rotate: 2,   opacity: 0.09, delay: "0.2s" },
-  // Small, far away images (lower opacity)
-  { src: "/mifoid01.png",      top: "12%",  left: "35%",  w: 50,  rotate: 8,   opacity: 0.07, delay: "1.8s" },
-  { src: "/mifoid02.png",      top: "82%",  left: "55%",  w: 45,  rotate: -7,  opacity: 0.06, delay: "0.9s" },
-  { src: "/mifoid03.png",      top: "45%",  left: "48%",  w: 40,  rotate: 5,   opacity: 0.06, delay: "1.4s" },
-  { src: "/covereye.png",      top: "88%",  right: "30%", w: 55,  rotate: -6,  opacity: 0.07, delay: "0.4s" },
-  { src: "/mifoid05.png",      top: "22%",  right: "32%", w: 42,  rotate: 3,   opacity: 0.06, delay: "1.1s" },
-  { src: "/skirt.png",         top: "65%",  left: "42%",  w: 50,  rotate: -5,  opacity: 0.07, delay: "0.7s" },
-  { src: "/miladysmile.png",   top: "50%",  left: "28%",  w: 48,  rotate: 6,   opacity: 0.06, delay: "1.6s" },
-  { src: "/blackhair.png",     top: "30%",  right: "25%", w: 55,  rotate: -4,  opacity: 0.08, delay: "1.3s" },
-  { src: "/mifoid06.png",      top: "78%",  right: "42%", w: 38,  rotate: 7,   opacity: 0.05, delay: "0.1s" },
-  { src: "/mifoid07.png",      top: "8%",   right: "45%", w: 35,  rotate: -3,  opacity: 0.05, delay: "1.7s" },
-  { src: "/workinglikeadog.png",top: "42%",  right: "38%", w: 45,  rotate: 4,   opacity: 0.06, delay: "0.8s" },
+/* Background images — evenly distributed with depth, no clustering */
+const BG_IMAGES: { src: string; top: string; left?: string; right?: string; w: number; rotate: number; opacity: number; delay: string }[] = [
+  // Left edge — spaced vertically
+  { src: "/1smile.png",         top: "10%",  left: "2%",   w: 105, rotate: -5,  opacity: 0.14, delay: "0s" },
+  { src: "/gameboy_mifoid.png", top: "42%",  left: "1%",   w: 95,  rotate: 3,   opacity: 0.11, delay: "1.0s" },
+  { src: "/pinkhat.png",        top: "74%",  left: "3%",   w: 80,  rotate: 5,   opacity: 0.10, delay: "0.6s" },
+  // Right edge — spaced vertically
+  { src: "/w.png",              top: "12%",  right: "2%",  w: 100, rotate: 5,   opacity: 0.13, delay: "0.4s" },
+  { src: "/horns.png",          top: "46%",  right: "1%",  w: 90,  rotate: -5,  opacity: 0.12, delay: "1.2s" },
+  { src: "/soccer.png",         top: "76%",  right: "3%",  w: 75,  rotate: -3,  opacity: 0.10, delay: "0.8s" },
+  // Inner left — smaller, further
+  { src: "/varsity.png",        top: "24%",  left: "14%",  w: 65,  rotate: -3,  opacity: 0.08, delay: "1.4s" },
+  { src: "/foidpod.png",        top: "60%",  left: "12%",  w: 60,  rotate: 4,   opacity: 0.07, delay: "0.2s" },
+  // Inner right — smaller, further
+  { src: "/blackhair.png",      top: "26%",  right: "13%", w: 60,  rotate: -4,  opacity: 0.08, delay: "1.6s" },
+  { src: "/covereye.png",       top: "62%",  right: "12%", w: 55,  rotate: 3,   opacity: 0.07, delay: "0.3s" },
+  // Deep center — tiny, very faint
+  { src: "/mifoid01.png",       top: "15%",  left: "32%",  w: 40,  rotate: 6,   opacity: 0.05, delay: "1.8s" },
+  { src: "/mifoid05.png",       top: "85%",  left: "38%",  w: 35,  rotate: -4,  opacity: 0.04, delay: "0.9s" },
+  { src: "/mifoid07.png",       top: "15%",  right: "30%", w: 38,  rotate: -3,  opacity: 0.05, delay: "1.1s" },
+  { src: "/IMG_7266.jpg",       top: "82%",  right: "35%", w: 45,  rotate: 2,   opacity: 0.05, delay: "0.5s" },
+  { src: "/miladysmile.png",    top: "50%",  left: "30%",  w: 35,  rotate: 5,   opacity: 0.04, delay: "1.3s" },
+  { src: "/skirt.png",          top: "50%",  right: "28%", w: 35,  rotate: -5,  opacity: 0.04, delay: "0.7s" },
 ];
 
 /* Floating sparkle positions inside the window body */
@@ -169,9 +167,9 @@ export default function LandingPage() {
                 })}
               </div>
 
-              {/* Content — centered, title pushed up */}
-              <div className="relative z-10 flex flex-col items-center h-full px-4 sm:px-10 pt-4 sm:pt-6 pb-4 overflow-y-auto">
-                {/* Title — floating, at top */}
+              {/* Content — centered vertically */}
+              <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 sm:px-10 pt-3 sm:pt-5 pb-3 overflow-y-auto">
+                {/* Title — floating */}
                 <div className="home-float mb-1">
                   <h1 className="home-title font-mono font-bold tracking-[0.22em] uppercase text-center">
                     FOID FOUNDATION
@@ -179,12 +177,12 @@ export default function LandingPage() {
                 </div>
 
                 {/* Pink subtitle */}
-                <p className="home-subtitle font-mono text-xs sm:text-sm tracking-[0.18em] uppercase text-center mb-auto">
+                <p className="home-subtitle font-mono text-xs sm:text-sm tracking-[0.18em] uppercase text-center mb-4 sm:mb-6">
                   the internet&apos;s permanent memory
                 </p>
 
-                {/* Tile grid — hero + 4 secondary, centered in remaining space */}
-                <div className="home-grid w-full max-w-[960px] mb-auto">
+                {/* Tile grid — hero + 4 secondary */}
+                <div className="home-grid w-full max-w-[960px]">
                   {tiles.map((tile, idx) => (
                     <Link
                       key={tile.href}

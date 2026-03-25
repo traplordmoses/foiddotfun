@@ -1371,7 +1371,7 @@ export default function AboutPage() {
   }, [disconnect, openConnectModal]);
 
   return (
-    <main className="about-page relative w-full flex items-center justify-center overflow-hidden max-w-full" style={{ height: "100vh" }}>
+    <main className="about-page relative bg-foid-bg text-white/90 w-full flex items-center justify-center overflow-hidden max-w-full" style={{ height: "100vh" }}>
       <div className="absolute inset-0 pointer-events-none z-0" aria-hidden>
         {bubbleConfigs.map((bubble) => (
           <span
@@ -1405,7 +1405,7 @@ export default function AboutPage() {
 
       <section className="relative z-10 w-full max-w-full px-2 sm:px-4">
         <div className="mx-auto w-full max-w-6xl">
-          <div className="vista-window vista-window--terminal vista-window--enhanced h-[94vh] max-h-[94vh] w-full">
+          <div className="vista-window vista-window--terminal vista-window--enhanced h-[94vh] max-h-[94vh] w-full flex flex-col">
             <AppTitlebar
               title="FOID_ABOUT.EXE"
               chainId={chainId}

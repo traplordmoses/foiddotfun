@@ -476,7 +476,7 @@ function PrayPageContent() {
       </div>
 
       {/* Desktop Layout */}
-      <section className="hidden lg:flex relative z-10 w-full max-w-full px-2 sm:px-4 items-center justify-center" style={{ height: "100vh" }}>
+      <section className="hidden lg:block relative z-10 w-full max-w-full px-2 sm:px-4">
         <div className="mx-auto w-full max-w-6xl">
           <div className="pray-window-frame">
             <div className="vista-window vista-window--terminal vista-window--enhanced h-[94vh] max-h-[94vh] w-full flex flex-col pray-panel pray-panel--main">
