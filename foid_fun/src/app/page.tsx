@@ -45,38 +45,39 @@ const tiles = [
   },
 ] as const;
 
-/* Background images — spread across entire page, no duplicates adjacent, fills center */
+/* Background images — evenly distributed, no clustering, anchor images for weight */
 const BG_IMAGES: { src: string; top: string; left?: string; right?: string; w: number; rotate: number; opacity: number; delay: string }[] = [
-  // === TOP-LEFT quadrant (behind title) ===
-  { src: "/pinkhat.png",        top: "4%",   left: "8%",   w: 80,  rotate: -5,  opacity: 0.11, delay: "0s" },
-  { src: "/mifoid03.png",       top: "14%",  left: "22%",  w: 50,  rotate: 7,   opacity: 0.06, delay: "1.4s" },
-  { src: "/foidpod.png",        top: "6%",   left: "38%",  w: 45,  rotate: -3,  opacity: 0.06, delay: "0.8s" },
-  // === TOP-RIGHT quadrant (behind title) ===
-  { src: "/horns.png",          top: "3%",   right: "10%", w: 75,  rotate: 4,   opacity: 0.10, delay: "0.5s" },
-  { src: "/mifoid06.png",       top: "16%",  right: "26%", w: 48,  rotate: -6,  opacity: 0.06, delay: "1.8s" },
-  { src: "/varsity.png",        top: "8%",   right: "42%", w: 42,  rotate: 3,   opacity: 0.05, delay: "1.1s" },
-  // === MID-LEFT (beside loreboard card — spaced out, not stacking) ===
-  { src: "/gameboy_mifoid.png", top: "34%",  left: "6%",   w: 80,  rotate: 3,   opacity: 0.10, delay: "0.3s" },
-  // === MID-RIGHT (beside loreboard card) ===
-  { src: "/w.png",              top: "30%",  right: "6%",  w: 75,  rotate: -5,  opacity: 0.10, delay: "0.7s" },
-  { src: "/miladysmile.png",    top: "38%",  right: "24%", w: 42,  rotate: 5,   opacity: 0.05, delay: "1.3s" },
-  // === CENTER (subtle depth behind main content) ===
-  { src: "/1smile.png",         top: "22%",  left: "48%",  w: 38,  rotate: 6,   opacity: 0.04, delay: "0.9s" },
-  { src: "/workinglikeadog.png", top: "44%",  left: "38%",  w: 30,  rotate: -7,  opacity: 0.035, delay: "1.9s" },
-  { src: "/_.png",              top: "46%",  right: "36%", w: 28,  rotate: 4,   opacity: 0.03, delay: "0.4s" },
-  // === BOTTOM-LEFT (behind nav buttons — spread out) ===
-  { src: "/covereye.png",       top: "60%",  left: "8%",   w: 65,  rotate: -4,  opacity: 0.08, delay: "0.6s" },
-  { src: "/skirt.png",          top: "78%",  left: "24%",  w: 40,  rotate: -3,  opacity: 0.04, delay: "0.2s" },
+  // === TOP-LEFT (spaced out, not piled in corner) ===
+  { src: "/pinkhat.png",        top: "6%",   left: "10%",  w: 75,  rotate: -5,  opacity: 0.10, delay: "0s" },
+  { src: "/foidpod.png",        top: "18%",  left: "28%",  w: 42,  rotate: 3,   opacity: 0.05, delay: "1.4s" },
+  // === TOP-CENTER (behind FOID FOUNDATION text) ===
+  { src: "/1smile.png",         top: "10%",  left: "46%",  w: 40,  rotate: 6,   opacity: 0.04, delay: "0.9s" },
+  // === TOP-RIGHT (spaced, different sizes) ===
+  { src: "/horns.png",          top: "4%",   right: "12%", w: 70,  rotate: 4,   opacity: 0.09, delay: "0.5s" },
+  { src: "/varsity.png",        top: "16%",  right: "30%", w: 45,  rotate: -3,  opacity: 0.05, delay: "1.1s" },
+  // === MID-LEFT (ANCHOR — larger image, strong presence) ===
+  { src: "/gameboy_mifoid.png", top: "32%",  left: "4%",   w: 100, rotate: 3,   opacity: 0.12, delay: "0.3s" },
+  { src: "/mifoid03.png",       top: "40%",  left: "22%",  w: 38,  rotate: -6,  opacity: 0.04, delay: "1.6s" },
+  // === MID-RIGHT (ANCHOR — larger image) ===
+  { src: "/w.png",              top: "30%",  right: "4%",  w: 95,  rotate: -5,  opacity: 0.11, delay: "0.7s" },
+  { src: "/miladysmile.png",    top: "42%",  right: "22%", w: 40,  rotate: 5,   opacity: 0.04, delay: "1.3s" },
+  // === CENTER (subtle depth) ===
+  { src: "/workinglikeadog.png", top: "38%",  left: "42%",  w: 30,  rotate: -7,  opacity: 0.03, delay: "1.9s" },
+  { src: "/_.png",              top: "48%",  right: "40%", w: 26,  rotate: 4,   opacity: 0.025, delay: "0.4s" },
+  // === BOTTOM-LEFT (balanced with bottom-right) ===
+  { src: "/covereye.png",       top: "58%",  left: "6%",   w: 70,  rotate: -4,  opacity: 0.09, delay: "0.6s" },
+  { src: "/mifoid06.png",       top: "68%",  left: "20%",  w: 48,  rotate: 5,   opacity: 0.05, delay: "1.5s" },
+  { src: "/skirt.png",          top: "78%",  left: "8%",   w: 45,  rotate: -3,  opacity: 0.05, delay: "0.2s" },
+  { src: "/mifoid04.png",       top: "84%",  left: "28%",  w: 38,  rotate: 6,   opacity: 0.04, delay: "0.8s" },
   // === BOTTOM-CENTER ===
-  { src: "/mifoid05.png",       top: "80%",  left: "46%",  w: 35,  rotate: 7,   opacity: 0.035, delay: "1.0s" },
-  // === BOTTOM-RIGHT (more images to balance left side) ===
-  { src: "/blackhair.png",      top: "56%",  right: "8%",  w: 65,  rotate: 3,   opacity: 0.08, delay: "1.2s" },
-  { src: "/mifoid01.png",       top: "62%",  right: "24%", w: 50,  rotate: -5,  opacity: 0.06, delay: "0.1s" },
-  { src: "/soccer.png",         top: "72%",  right: "10%", w: 55,  rotate: 4,   opacity: 0.07, delay: "1.7s" },
-  { src: "/IMG_7266.jpg",       top: "76%",  right: "32%", w: 48,  rotate: -4,  opacity: 0.05, delay: "0.5s" },
-  { src: "/mifoid02.png",       top: "84%",  right: "18%", w: 40,  rotate: 6,   opacity: 0.04, delay: "1.5s" },
-  { src: "/mifoid04.png",       top: "86%",  left: "8%",   w: 42,  rotate: -5,  opacity: 0.04, delay: "0.8s" },
-  { src: "/mifoid08.png",       top: "50%",  left: "46%",  w: 28,  rotate: -3,  opacity: 0.03, delay: "1.6s" },
+  { src: "/mifoid05.png",       top: "80%",  left: "46%",  w: 32,  rotate: 7,   opacity: 0.03, delay: "1.0s" },
+  { src: "/mifoid08.png",       top: "70%",  left: "42%",  w: 28,  rotate: -3,  opacity: 0.025, delay: "1.6s" },
+  // === BOTTOM-RIGHT (balanced with bottom-left) ===
+  { src: "/blackhair.png",      top: "56%",  right: "6%",  w: 68,  rotate: 3,   opacity: 0.08, delay: "1.2s" },
+  { src: "/mifoid01.png",       top: "66%",  right: "22%", w: 50,  rotate: -5,  opacity: 0.06, delay: "0.1s" },
+  { src: "/soccer.png",         top: "76%",  right: "8%",  w: 52,  rotate: 4,   opacity: 0.06, delay: "1.7s" },
+  { src: "/IMG_7266.jpg",       top: "82%",  right: "28%", w: 44,  rotate: -4,  opacity: 0.04, delay: "0.5s" },
+  { src: "/mifoid02.png",       top: "88%",  right: "14%", w: 36,  rotate: 6,   opacity: 0.035, delay: "1.5s" },
 ];
 
 /* Floating sparkles — many, filling the space */
@@ -186,7 +187,7 @@ export default function LandingPage() {
                 })}
               </div>
 
-              {/* Content — compact on mobile, spacious on desktop */}
+              {/* Content — fills entire window body, no dead zones */}
               <div className="relative z-10 flex flex-col h-full px-3 sm:px-8 overflow-hidden">
                 {/* Title zone — compact on mobile, centered on desktop */}
                 <div className="home-title-zone flex flex-col items-center justify-center min-h-0">
@@ -200,8 +201,9 @@ export default function LandingPage() {
                   </p>
                 </div>
 
-                {/* Tile grid — hero + 4 secondary */}
-                <div className="home-grid w-full max-w-[960px] mx-auto pb-2 sm:pb-5 flex-shrink-0">
+                {/* Tile grid — fills remaining space on mobile, pinned bottom on desktop */}
+                <div className="home-grid-wrapper flex-1 sm:flex-none flex flex-col justify-center sm:justify-end pb-2 sm:pb-5 min-h-0">
+                <div className="home-grid w-full max-w-[960px] mx-auto">
                   {tiles.map((tile, idx) => (
                     <Link
                       key={tile.href}
@@ -227,6 +229,7 @@ export default function LandingPage() {
                     </Link>
                   ))}
                 </div>
+                </div> {/* end grid-wrapper */}
               </div> {/* end content */}
             </div>
           </div>
