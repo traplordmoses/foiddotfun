@@ -104,7 +104,7 @@ const sections: Section[] = [
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">👆 swipe</p>
+            <p className="aboutMiniCard__title">🗳️ vote</p>
             <p className="aboutMiniCard__body">
               The governance layer. Propose images to the Loreboard (0.001 ETH), then the community swipes right or left to approve placement. Prayer streaks amplify your voting power. 72-hour window, 51% threshold.
             </p>
@@ -143,7 +143,7 @@ const sections: Section[] = [
           <p>
             ✅ FOID Mommy Terminal (prayer contracts + streaks + tiers)<br/>
             ✅ Loreboard Canvas (spatial grid + voting)<br/>
-            ✅ Swipe (propose memes, community votes, winners canonized)<br/>
+            ✅ Vote (propose memes, community votes, winners canonized)<br/>
             ✅ FoidTrest (permanent on-chain record)<br/>
             ✅ MiFOID NFT contract (ERC-721 with trait evolution)<br/>
             ✅ Democratic voting (72-hour epochs + streak-weighted power)<br/>
@@ -381,7 +381,7 @@ const sections: Section[] = [
     ),
   },
   {
-    id: "swipe",
+    id: "vote",
     navLabel: "VOTE",
     title: "VOTE",
     subtitle: "Swipe. Vote. Canonize.",
@@ -392,7 +392,7 @@ const sections: Section[] = [
             <strong>Two memes enter. One gets immortalized.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            Swipe is the voting mechanism for Loreboard placements. Propose a meme, and let the community swipe right or left. Approved proposals get placed on the Loreboard permanently.
+            Vote is the governance mechanism for Loreboard placements. Propose a meme, and let the community swipe right or left. Approved proposals get placed on the Loreboard permanently.
           </p>
           <p style={{ marginTop: '12px' }}>
             It&apos;s Tinder for memes. Swipe right to accept, swipe left to reject. Your prayer streak gives you more voting power&mdash;show up every day and your voice gets louder.
@@ -411,7 +411,7 @@ const sections: Section[] = [
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">2. swipe &amp; vote</p>
+            <p className="aboutMiniCard__title">2. vote</p>
             <p className="aboutMiniCard__body">
               The community swipes through active proposals. Voting power is weighted by your prayer streak&mdash;longer streak, bigger vote. 24-hour voting window.
             </p>
@@ -700,9 +700,9 @@ const sections: Section[] = [
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">5.5 swipe on memes (optional)</p>
+            <p className="aboutMiniCard__title">5.5 vote on proposals (optional)</p>
             <p className="aboutMiniCard__body">
-              Go to /swipe and swipe through proposed memes. Swipe right to approve, left to reject. Your prayer streak amplifies your voting power. Approved proposals get placed on the Loreboard permanently.
+              Go to /swipe and vote on proposed memes. Swipe right to approve, left to reject. Your prayer streak amplifies your voting power. Approved proposals get placed on the Loreboard permanently.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -759,7 +759,7 @@ const sections: Section[] = [
             <p className="aboutMiniCard__body">
               ✅ Foid Mommy Terminal - pray daily, build streaks, tier system<br/>
               ✅ Loreboard Canvas - propose memes, vote, canonize<br/>
-              ✅ Swipe - propose memes, community swipe-votes, winners canonized<br/>
+              ✅ Vote - propose memes, community votes, winners canonized<br/>
               ✅ FoidTrest - permanent on-chain record of community-approved placements<br/>
               ✅ MiFOID NFT contract - ERC-721 with trait evolution<br/>
               ✅ Agent API - autonomous agents can pray, propose, vote<br/>
@@ -897,7 +897,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">StreakVotingPower</p>
             <p className="aboutMiniCard__body">
-              Converts prayer streaks into weighted voting power. Higher streaks = more influence on Swipe votes and loreboard governance. Base weight 100, scaled by tier multiplier.
+              Converts prayer streaks into weighted voting power. Higher streaks = more influence on governance votes and loreboard decisions. Base weight 100, scaled by tier multiplier.
             </p>
             <a href="https://testnet.fluentscan.xyz/address/0x7a889b3d38889E45EE48bbCBc3681a889F87C03e" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
@@ -911,7 +911,7 @@ const sections: Section[] = [
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">Swipe</p>
+            <p className="aboutMiniCard__title">Vote</p>
             <p className="aboutMiniCard__body">
               Propose content for the Loreboard. Community votes via EIP-712 signed ballots with streak-weighted power. 51% weighted approval required. Approved proposals receive a placement voucher on approval.
             </p>
@@ -921,7 +921,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Loreboard</p>
             <p className="aboutMiniCard__body">
-              Community-governed spatial board. All placements go through Swipe voting. The community decides what gets built here. No pay-to-bypass.
+              Community-governed spatial board. All placements go through community voting. The community decides what gets built here. No pay-to-bypass.
             </p>
           </div>
 

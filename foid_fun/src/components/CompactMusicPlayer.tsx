@@ -248,7 +248,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           position: fixed;
           bottom: 20px;
           left: 20px;
-          z-index: 50;
+          z-index: 48;
           width: 40px;
           height: 40px;
           border-radius: 50%;
@@ -280,7 +280,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           bottom: 0;
           left: 0;
           right: 0;
-          z-index: 50;
+          z-index: 48;
           display: flex;
           align-items: center;
           gap: 12px;
@@ -307,6 +307,13 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         @keyframes foid-bar-glow {
           0% { border-top-color: rgba(6, 182, 212, 0.5); }
           100% { border-top-color: rgba(255, 255, 255, 0.08); }
+        }
+
+        /* On mobile (<1024px), shift music UI above the bottom nav */
+        @media (max-width: 1023px) {
+          :global(.cmp-trigger) { bottom: 80px; }
+          :global(.cmp-bar) { bottom: 64px; }
+          :global(.cmp-hover-zone) { bottom: 64px; }
         }
 
         /* --- SFX toggle --- */

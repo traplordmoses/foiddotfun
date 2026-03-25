@@ -59,6 +59,13 @@ body {
   z-index: 2;
 }
 
+/* On mobile, add extra bottom padding for the fixed bottom nav */
+@media (max-width: 1023px) {
+  .app-viewport {
+    padding-bottom: calc(var(--safe-bottom, 0px) + 80px);
+  }
+}
+
 /* ===== ABOUT PAGE TYPOGRAPHY POLISH (NO LAYOUT / NO GLASS CHANGES) ===== */
 .about-page {
   --about-pad: 22px;
