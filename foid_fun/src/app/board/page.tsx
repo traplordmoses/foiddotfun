@@ -1369,7 +1369,7 @@ function BoardPageContent() {
             />
 
             {/* Main content - align with pray spacing */}
-            <div className="vista-window__body vista-window__body--flush mt-2 pray-panel__body board-body">
+            <div className="vista-window__body vista-window__body--flush mt-2 pray-panel__body board-body foid-iridescent-subtle">
               <div className="board-grid">
                 {/* Canvas */}
                 <div className="board-canvas-wrap flex-1 min-h-0">

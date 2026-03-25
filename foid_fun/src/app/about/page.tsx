@@ -1414,7 +1414,7 @@ export default function AboutPage() {
               onDisconnect={() => disconnect()}
               onSwitchWallet={handleSwitchWallet}
             />
-            <div className="vista-window__body aboutWindowBody flex flex-col md:flex-row gap-3 md:gap-4">
+            <div className="vista-window__body aboutWindowBody foid-iridescent-subtle flex flex-col md:flex-row gap-3 md:gap-4">
               <aside className="aboutSidebar aboutGlassShell flex-shrink-0 w-full md:w-auto">
                 <p className="text-[10px] uppercase tracking-[0.55em] text-white/55 hidden md:block">navigation</p>
                 <nav aria-label="about sections" className="aboutNav mt-0 md:mt-3 flex w-full flex-col md:flex-col">

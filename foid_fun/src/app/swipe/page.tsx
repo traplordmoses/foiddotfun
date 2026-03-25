@@ -726,8 +726,10 @@ export default function SwipePage() {
               onDisconnect={() => disconnect()}
               onSwitchWallet={handleSwitchWallet}
             />
-            <div className="vista-window__body" style={{ overflow: "hidden", flex: 1, minHeight: 0 }}>
+            <div className="vista-window__body foid-iridescent-subtle" style={{ overflow: "hidden", flex: 1, minHeight: 0, position: "relative" }}>
               <div className="p-3 md:p-4 flex flex-col h-full" style={{ minHeight: 0 }}>
+                {/* Ambient focal glow */}
+                <div className="foid-focal-glow" />
                 {/* Compact header */}
                 <div className="flex-shrink-0 flex items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2 min-w-0">

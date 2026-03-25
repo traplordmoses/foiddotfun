@@ -4062,6 +4062,69 @@ body {
   min-height: calc(100vh - 120px);
 }
 
+/* ===== Shared Iridescent & Sparkle System ===== */
+/* Subtle iridescent tint for inner-page window bodies — lighter than MiFOID */
+.foid-iridescent-subtle {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(140, 100, 220, 0.12) 0%,
+      rgba(100, 140, 220, 0.10) 25%,
+      rgba(180, 120, 200, 0.10) 50%,
+      rgba(100, 160, 220, 0.12) 75%,
+      rgba(140, 100, 220, 0.12) 100%
+    ) !important;
+  background-size: 300% 300% !important;
+  animation: foid-iridescent-slow 16s ease infinite !important;
+}
+@keyframes foid-iridescent-slow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Gradient text utility — pink/lavender like MiFOID feature titles */
+.foid-gradient-text {
+  background: linear-gradient(135deg, #c8a0f0 0%, #f0c8e0 50%, #a0c8f0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 8px rgba(200, 160, 240, 0.2));
+}
+
+/* Floating sparkle animation — reusable */
+.foid-float {
+  animation: foid-gentle-float 6s ease-in-out infinite;
+}
+@keyframes foid-gentle-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* Subtle focal glow — behind central content */
+.foid-focal-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 60%;
+  height: 60%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(140, 100, 220, 0.15) 0%,
+    rgba(100, 180, 220, 0.08) 40%,
+    transparent 70%
+  );
+  border-radius: 50%;
+  z-index: 0;
+  animation: foid-focal-pulse 5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes foid-focal-pulse {
+  0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+}
+
 /* ===== Home Page Tiles ===== */
 /* ── Homepage tile grid ─────────────────────── */
 .home-tiles-grid {
@@ -4106,13 +4169,24 @@ body {
   align-items: center;
   justify-content: center;
   height: 200px;
-  transition: box-shadow 0.3s ease;
+  transition: box-shadow 0.3s ease, background 0.3s ease;
+  background: linear-gradient(135deg, rgba(140, 100, 220, 0.05) 0%, rgba(100, 160, 220, 0.04) 50%, rgba(180, 120, 200, 0.05) 100%);
 }
 .home-tile__body--hero {
   height: 260px;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, rgba(255, 107, 213, 0.06) 0%, rgba(168, 85, 247, 0.06) 50%, rgba(114, 225, 255, 0.04) 100%);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(200, 120, 255, 0.15) 0%,
+      rgba(120, 160, 255, 0.12) 25%,
+      rgba(255, 160, 220, 0.12) 50%,
+      rgba(140, 180, 255, 0.14) 75%,
+      rgba(180, 120, 255, 0.15) 100%
+    );
+  background-size: 300% 300%;
+  animation: foid-iridescent-slow 16s ease infinite;
 }
 .home-tile__body--hero::before {
   content: '';
