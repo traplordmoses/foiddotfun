@@ -55,11 +55,11 @@ const BG_IMAGES: { src: string; top: string; left?: string; right?: string; w: n
   // === TOP-RIGHT (spaced, different sizes) ===
   { src: "/horns.png",          top: "4%",   right: "12%", w: 70,  rotate: 4,   opacity: 0.09, delay: "0.5s" },
   { src: "/varsity.png",        top: "16%",  right: "30%", w: 45,  rotate: -3,  opacity: 0.05, delay: "1.1s" },
-  // === MID-LEFT (ANCHOR — larger image, strong presence) ===
-  { src: "/gameboy_mifoid.png", top: "32%",  left: "4%",   w: 100, rotate: 3,   opacity: 0.12, delay: "0.3s" },
+  // === MID-LEFT (ANCHOR — larger image, intentional presence) ===
+  { src: "/gameboy_mifoid.png", top: "32%",  left: "4%",   w: 100, rotate: 3,   opacity: 0.08, delay: "0.3s" },
   { src: "/mifoid03.png",       top: "40%",  left: "22%",  w: 38,  rotate: -6,  opacity: 0.04, delay: "1.6s" },
   // === MID-RIGHT (ANCHOR — larger image) ===
-  { src: "/w.png",              top: "30%",  right: "4%",  w: 95,  rotate: -5,  opacity: 0.11, delay: "0.7s" },
+  { src: "/w.png",              top: "30%",  right: "4%",  w: 95,  rotate: -5,  opacity: 0.08, delay: "0.7s" },
   { src: "/miladysmile.png",    top: "42%",  right: "22%", w: 40,  rotate: 5,   opacity: 0.04, delay: "1.3s" },
   // === CENTER (subtle depth) ===
   { src: "/workinglikeadog.png", top: "38%",  left: "42%",  w: 30,  rotate: -7,  opacity: 0.03, delay: "1.9s" },
@@ -196,13 +196,13 @@ export default function LandingPage() {
                       FOID FOUNDATION
                     </h1>
                   </div>
-                  <p className="home-subtitle font-mono text-[10px] sm:text-sm tracking-[0.18em] uppercase text-center mt-0.5 sm:mt-1">
+                  <p className="home-subtitle font-mono text-[11px] sm:text-[15px] tracking-[0.18em] uppercase text-center mt-2 sm:mt-2.5">
                     the internet&apos;s permanent memory
                   </p>
                 </div>
 
                 {/* Tile grid — fills remaining space on mobile, pinned bottom on desktop */}
-                <div className="home-grid-wrapper flex-1 sm:flex-none flex flex-col justify-center sm:justify-end pb-2 sm:pb-5 min-h-0">
+                <div className="home-grid-wrapper flex-1 sm:flex-1 flex flex-col justify-center sm:justify-end pb-2 sm:pb-3 min-h-0">
                 <div className="home-grid w-full max-w-[960px] mx-auto">
                   {tiles.map((tile, idx) => (
                     <Link
@@ -305,9 +305,11 @@ export default function LandingPage() {
           66% { transform: translateY(-6px) translateX(-8px); }
         }
 
-        /* Background images — very subtle float */
+        /* Background images — subtle float, screen blend removes dark backgrounds */
         :global(.home-bg-float) {
           animation: home-bg-drift 8s ease-in-out infinite;
+          mix-blend-mode: screen;
+          filter: blur(0.5px) saturate(0.6);
         }
         @keyframes home-bg-drift {
           0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
@@ -352,24 +354,24 @@ export default function LandingPage() {
         :global(.home-card--hero) {
           padding: 42px 32px;
           background: rgba(255, 255, 255, 0.08);
-          border: 1.5px solid rgba(245, 160, 192, 0.25);
-          box-shadow: 0 0 20px rgba(245, 160, 192, 0.08), 0 0 40px rgba(168, 130, 255, 0.06);
+          border: 1.5px solid rgba(245, 160, 192, 0.40);
+          box-shadow: 0 0 24px rgba(245, 160, 192, 0.16), 0 0 48px rgba(168, 130, 255, 0.10);
           animation: home-hero-glow 4s ease-in-out infinite;
         }
         @keyframes home-hero-glow {
           0%, 100% {
-            border-color: rgba(245, 160, 192, 0.25);
-            box-shadow: 0 0 20px rgba(245, 160, 192, 0.08), 0 0 40px rgba(168, 130, 255, 0.06);
+            border-color: rgba(245, 160, 192, 0.40);
+            box-shadow: 0 0 24px rgba(245, 160, 192, 0.16), 0 0 48px rgba(168, 130, 255, 0.10);
           }
           50% {
-            border-color: rgba(168, 130, 255, 0.35);
-            box-shadow: 0 0 28px rgba(168, 130, 255, 0.15), 0 0 56px rgba(245, 160, 192, 0.10);
+            border-color: rgba(168, 130, 255, 0.50);
+            box-shadow: 0 0 32px rgba(168, 130, 255, 0.22), 0 0 64px rgba(245, 160, 192, 0.14);
           }
         }
         :global(.home-card--hero:hover) {
           background: rgba(255, 255, 255, 0.14);
-          border-color: rgba(245, 160, 192, 0.45);
-          box-shadow: 0 0 32px rgba(245, 160, 192, 0.2), 0 16px 52px rgba(168, 130, 255, 0.18);
+          border-color: rgba(245, 160, 192, 0.55);
+          box-shadow: 0 0 36px rgba(245, 160, 192, 0.28), 0 16px 56px rgba(168, 130, 255, 0.22);
           animation: none;
         }
 
@@ -409,20 +411,20 @@ export default function LandingPage() {
           filter: drop-shadow(0 0 22px rgba(245, 160, 192, 0.55));
         }
 
-        /* Card description */
+        /* Card description — readable, not squinty */
         :global(.home-card__desc) {
-          font-size: 11px;
+          font-size: 12px;
           line-height: 1.5;
-          color: rgba(255, 255, 255, 0.55);
+          color: rgba(255, 255, 255, 0.70);
           max-width: 480px;
         }
         :global(.home-card--hero .home-card__desc) {
-          font-size: 13px;
-          color: rgba(255, 255, 255, 0.6);
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.72);
           margin-bottom: 14px;
         }
         :global(.home-card:hover .home-card__desc) {
-          color: rgba(255, 255, 255, 0.75);
+          color: rgba(255, 255, 255, 0.85);
         }
 
         /* CTA button on hero */
@@ -449,15 +451,17 @@ export default function LandingPage() {
           color: #fff;
         }
 
-        /* Title zone — flex-1 on desktop to fill and center, compact on mobile */
+        /* Title zone — flex-1 on desktop, compact on mobile */
         :global(.home-title-zone) {
           flex: 1;
-          padding-bottom: 4px;
+          padding-bottom: 0;
+          max-height: 200px;
         }
         @media (max-width: 768px) {
           :global(.home-title-zone) {
             flex: 0 0 auto;
-            padding: 12px 0 8px;
+            padding: 10px 0 4px;
+            max-height: none;
           }
         }
 
