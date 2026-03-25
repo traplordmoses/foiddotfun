@@ -131,7 +131,7 @@ export default function SwipeSubmitPage() {
                   href="/swipe"
                   className="mb-4 inline-flex items-center text-xs text-neutral-400 transition hover:text-purple-400"
                 >
-                  &larr; Back to Swipe
+                  &larr; Back to Vote
                 </Link>
 
                 <h1 className="mb-1 text-base font-bold text-white">Submit a Meme</h1>

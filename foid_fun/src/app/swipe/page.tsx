@@ -720,7 +720,7 @@ export default function SwipePage() {
         <div className="mx-auto w-full max-w-6xl">
           <div className="vista-window vista-window--terminal vista-window--enhanced h-[94vh] max-h-[94vh] w-full flex flex-col">
             <AppTitlebar
-              title="SWIPE.EXE"
+              title="VOTE.EXE"
               connected={isConnected}
               address={address}
               onDisconnect={() => disconnect()}
@@ -735,7 +735,7 @@ export default function SwipePage() {
                       className="text-base sm:text-lg font-black uppercase tracking-[0.15em] text-transparent bg-clip-text flex-shrink-0"
                       style={{ backgroundImage: "linear-gradient(135deg, rgba(168,130,255,1) 0%, rgba(255,255,255,0.95) 50%, rgba(200,160,255,0.9) 100%)" }}
                     >
-                      Swipe
+                      Vote
                     </h1>
                     {/* Inline tabs */}
                     <div className="flex gap-1">
@@ -757,13 +757,6 @@ export default function SwipePage() {
                       <span className="hidden sm:inline text-[10px] text-white/25">{totalOnChain} on-chain</span>
                     )}
                   </div>
-                  <Link
-                    href="/swipe/submit"
-                    className="foid-cta-btn text-[9px] sm:text-[10px] px-2 sm:px-3 py-1 sm:py-1.5 flex-shrink-0 rounded-md"
-                    style={{ background: "linear-gradient(135deg, #e040fb, #f06292)" }}
-                  >
-                    + PROPOSE
-                  </Link>
                 </div>
 
                 {/* Main content area */}
@@ -797,22 +790,32 @@ export default function SwipePage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col flex-1 min-h-0 items-center justify-center text-center">
-                      <div className="mb-3 text-4xl opacity-30">&#x2694;</div>
-                      <h2 className="text-base font-medium text-white/70">
+                    <div className="flex flex-col flex-1 min-h-0 items-center justify-center text-center px-4">
+                      <div className="relative mb-6">
+                        <div className="text-6xl" style={{ filter: "drop-shadow(0 0 20px rgba(168,130,255,0.4))" }}>&#x2694;&#xFE0F;</div>
+                        <div className="absolute inset-0 rounded-full" style={{ background: "radial-gradient(circle, rgba(168,130,255,0.15) 0%, transparent 70%)", filter: "blur(20px)" }} />
+                      </div>
+                      <h2 className="text-lg font-bold tracking-wide text-white/85">
                         {proposals.some((p) => !p.finalized && now < p.votingEndsAt)
-                          ? "You've voted on everything!"
-                          : "No live proposals"}
+                          ? "All caught up!"
+                          : "No active proposals"}
                       </h2>
-                      <p className="mt-1 max-w-sm text-xs text-white/40">
-                        Propose a meme to get the community voting.
+                      <p className="mt-2 max-w-xs text-sm leading-relaxed text-white/45">
+                        {proposals.some((p) => !p.finalized && now < p.votingEndsAt)
+                          ? "You've voted on every proposal. Check back soon — new proposals appear when the community submits images to the Loreboard."
+                          : "The voting queue is empty right now. Head to the Loreboard to propose an image — once submitted, the community can swipe to approve or reject it."}
                       </p>
                       <Link
-                        href="/swipe/submit"
-                        className="foid-cta-btn mt-4"
-                        style={{ background: "linear-gradient(135deg, #e040fb, #f06292)" }}
+                        href="/board"
+                        className="mt-5 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold tracking-wide transition hover:scale-[1.03]"
+                        style={{
+                          background: "linear-gradient(135deg, rgba(168,130,255,0.2), rgba(255,107,213,0.2))",
+                          border: "1px solid rgba(168,130,255,0.3)",
+                          color: "rgba(200,170,255,0.95)",
+                          boxShadow: "0 0 20px rgba(168,130,255,0.15)",
+                        }}
                       >
-                        Propose a Meme
+                        Go to Loreboard <span aria-hidden>&rarr;</span>
                       </Link>
                     </div>
                   )

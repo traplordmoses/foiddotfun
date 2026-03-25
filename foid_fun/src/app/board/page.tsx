@@ -75,8 +75,6 @@ import { insertBoardMessage } from "@/lib/supabase";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PaintEditor } from "@/components/PaintEditor";
 import { useSwipePropose } from "@/hooks/useSwipePropose";
-import { VotingQueue } from "@/components/VotingQueue";
-import { MyProposals } from "@/components/MyProposals";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -1492,7 +1490,6 @@ function BoardPageContent() {
                     </div>
                     <div className="board-actions">
                       <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" />
-                      <Y2kActionButton onClick={handleCreateFromScratch} label="CREATE FROM SCRATCH" variant="secondary" />
                       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onFileChange} />
                       <div className="board-actions__divider" />
                       {items.length > 0 && (
@@ -1504,26 +1501,6 @@ function BoardPageContent() {
                       0.001 ETH to propose &middot; 72h voting &middot; 0.001 ETH to claim
                     </div>
                   </div>
-
-                  {/* Voting Queue */}
-                  <div className="board-section">
-                    <div className="board-section__header">
-                      <span className="board-section__dot" />
-                      <span className="board-section__title">VOTING QUEUE</span>
-                    </div>
-                    <VotingQueue />
-                  </div>
-
-                  {/* My Proposals */}
-                  {isConnected && (
-                    <div className="board-section">
-                      <div className="board-section__header">
-                        <span className="board-section__dot" />
-                        <span className="board-section__title">MY PROPOSALS</span>
-                      </div>
-                      <MyProposals />
-                    </div>
-                  )}
 
                   {/* Chat */}
                   <div className="board-section--chat-wrapper">

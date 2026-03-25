@@ -382,8 +382,8 @@ const sections: Section[] = [
   },
   {
     id: "swipe",
-    navLabel: "SWIPE",
-    title: "SWIPE",
+    navLabel: "VOTE",
+    title: "VOTE",
     subtitle: "Swipe. Vote. Canonize.",
     content: (
       <>
@@ -678,7 +678,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">2. get some eth for gas</p>
             <p className="aboutMiniCard__body">
-              You need a tiny bit of ETH for gas fees (fractions of a cent per transaction). If you&apos;re on testnet, grab free ETH from the <a href="https://testnet.fluent.xyz/dev-portal" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Faucet</a>. On mainnet, you&apos;ll need real ETH&mdash;but gas on Fluent is dirt cheap. Need help? Ping in Discord.
+              You need a tiny bit of ETH for gas fees (fractions of a cent per transaction). Gas on Fluent is dirt cheap. Need help? Ping in Discord.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -1159,9 +1159,9 @@ const sections: Section[] = [
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">How do I get testnet funds?</p>
+            <p className="aboutMiniCard__title">How do I get ETH on Fluent?</p>
             <p className="aboutMiniCard__body">
-              Go to <a href="https://testnet.fluent.xyz/dev-portal" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">testnet.fluent.xyz/dev-portal</a> and hit the faucet. It&apos;ll give you some testnet ETH. Not real money—fake internet money for testing. Need more? Just ask in Discord. Someone will send you some. Community is chill about it.
+              Gas on Fluent is dirt cheap&mdash;fractions of a cent per transaction. You just need a tiny bit of ETH to get started. Bridge from Ethereum or get some from the community. Need help? Just ask in Discord. Community is chill about it.
             </p>
           </div>
 
@@ -1241,7 +1241,7 @@ const sections: Section[] = [
           <p>
             🙏 <Link href="/pray" prefetch className="text-cyan-300 underline font-semibold">Pray with Foid Mommy</Link> — Build your first streak<br/>
             🎨 <Link href="/board" prefetch className="text-cyan-300 underline font-semibold">Propose on Loreboard</Link> — Add your meme to the canon<br/>
-            👆 <Link href="/swipe" prefetch className="text-cyan-300 underline font-semibold">Swipe on Memes</Link> — Vote on what gets canonized<br/>
+            🗳️ <Link href="/swipe" prefetch className="text-cyan-300 underline font-semibold">Vote on Proposals</Link> — Shape what gets canonized<br/>
             🖼️ <Link href="/board" prefetch className="text-cyan-300 underline font-semibold">View the Loreboard</Link> — See the permanent collection<br/>
             🎭 <a href="#mifoids" className="text-cyan-300 underline font-semibold">Learn about MiFOID</a> — See how the NFT works<br/>
             ⭐ <a href="https://github.com/traplordmoses/foiddotfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline font-semibold">Star on GitHub</a> — Support open development

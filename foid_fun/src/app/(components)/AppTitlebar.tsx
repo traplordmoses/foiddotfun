@@ -55,10 +55,9 @@ export default function AppTitlebar({
     { label: "HOME", href: "/" },
     { label: "PRAY", href: "/pray" },
     { label: "BOARD", href: "/board" },
-    { label: "SWIPE", href: "/swipe" },
+    { label: "VOTE", href: "/swipe" },
     { label: "MIFOID", href: "/mifoid" },
     { label: "ABOUT", href: "/about" },
-    { label: "FAUCET", href: "https://testnet.fluent.xyz/dev-portal", external: true },
   ], []);
 
   return (
