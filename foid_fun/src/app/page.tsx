@@ -45,40 +45,40 @@ const tiles = [
   },
 ] as const;
 
-/* Background images — organic, spacious, clustered naturally, fills center too */
+/* Background images — spread across entire page, no duplicates adjacent, fills center */
 const BG_IMAGES: { src: string; top: string; left?: string; right?: string; w: number; rotate: number; opacity: number; delay: string }[] = [
-  // === TOP ZONE (behind FOID FOUNDATION text) — filling the empty center ===
-  { src: "/gameboy_mifoid.png", top: "2%",   left: "30%",  w: 80,  rotate: -4,  opacity: 0.09, delay: "0.5s" },
-  { src: "/1smile.png",         top: "5%",   left: "52%",  w: 65,  rotate: 6,   opacity: 0.08, delay: "1.2s" },
-  { src: "/mifoid04.png",       top: "1%",   right: "32%", w: 55,  rotate: -3,  opacity: 0.07, delay: "0.9s" },
-  { src: "/varsity.png",        top: "12%",  left: "18%",  w: 70,  rotate: 5,   opacity: 0.08, delay: "1.6s" },
-  { src: "/w.png",              top: "10%",  right: "16%", w: 75,  rotate: -5,  opacity: 0.09, delay: "0.3s" },
-  // === LEFT CLUSTER (mid-left, organic grouping, NOT on edge) ===
-  { src: "/pinkhat.png",        top: "30%",  left: "5%",   w: 90,  rotate: -6,  opacity: 0.12, delay: "0s" },
-  { src: "/foidpod.png",        top: "26%",  left: "16%",  w: 55,  rotate: 3,   opacity: 0.07, delay: "1.4s" },
-  { src: "/mifoid02.png",       top: "38%",  left: "10%",  w: 45,  rotate: -4,  opacity: 0.06, delay: "0.7s" },
-  // === RIGHT CLUSTER (mid-right, asymmetric to left) ===
-  { src: "/horns.png",          top: "28%",  right: "7%",  w: 85,  rotate: 4,   opacity: 0.11, delay: "0.8s" },
-  { src: "/mifoid07.png",       top: "24%",  right: "20%", w: 48,  rotate: -6,  opacity: 0.06, delay: "1.8s" },
-  // === CENTER-LEFT (behind loreboard card area) ===
-  { src: "/miladysmile.png",    top: "48%",  left: "22%",  w: 50,  rotate: 5,   opacity: 0.05, delay: "1.1s" },
-  { src: "/mifoid01.png",       top: "55%",  left: "8%",   w: 60,  rotate: -3,  opacity: 0.07, delay: "0.4s" },
-  // === CENTER-RIGHT (behind loreboard card area) ===
-  { src: "/blackhair.png",      top: "46%",  right: "20%", w: 55,  rotate: -4,  opacity: 0.06, delay: "1.3s" },
-  { src: "/covereye.png",       top: "54%",  right: "6%",  w: 65,  rotate: 3,   opacity: 0.08, delay: "0.2s" },
+  // === TOP-LEFT quadrant (behind title) ===
+  { src: "/pinkhat.png",        top: "4%",   left: "8%",   w: 80,  rotate: -5,  opacity: 0.11, delay: "0s" },
+  { src: "/mifoid03.png",       top: "14%",  left: "22%",  w: 50,  rotate: 7,   opacity: 0.06, delay: "1.4s" },
+  { src: "/foidpod.png",        top: "6%",   left: "38%",  w: 45,  rotate: -3,  opacity: 0.06, delay: "0.8s" },
+  // === TOP-RIGHT quadrant (behind title) ===
+  { src: "/horns.png",          top: "3%",   right: "10%", w: 75,  rotate: 4,   opacity: 0.10, delay: "0.5s" },
+  { src: "/mifoid06.png",       top: "16%",  right: "26%", w: 48,  rotate: -6,  opacity: 0.06, delay: "1.8s" },
+  { src: "/varsity.png",        top: "8%",   right: "42%", w: 42,  rotate: 3,   opacity: 0.05, delay: "1.1s" },
+  // === MID-LEFT (beside loreboard card) ===
+  { src: "/gameboy_mifoid.png", top: "32%",  left: "5%",   w: 85,  rotate: 3,   opacity: 0.10, delay: "0.3s" },
+  { src: "/miladysmile.png",    top: "28%",  left: "20%",  w: 45,  rotate: -4,  opacity: 0.05, delay: "1.6s" },
+  // === MID-RIGHT (beside loreboard card) ===
+  { src: "/w.png",              top: "30%",  right: "6%",  w: 80,  rotate: -5,  opacity: 0.10, delay: "0.7s" },
+  { src: "/mifoid07.png",       top: "35%",  right: "22%", w: 42,  rotate: 5,   opacity: 0.05, delay: "1.3s" },
+  // === CENTER (subtle depth behind main content) ===
+  { src: "/1smile.png",         top: "22%",  left: "46%",  w: 38,  rotate: 6,   opacity: 0.04, delay: "0.9s" },
+  { src: "/workinglikeadog.png", top: "42%",  left: "36%",  w: 32,  rotate: -7,  opacity: 0.035, delay: "1.9s" },
+  { src: "/_.png",              top: "44%",  right: "38%", w: 30,  rotate: 4,   opacity: 0.03, delay: "0.4s" },
   // === BOTTOM-LEFT (behind nav buttons) ===
-  { src: "/soccer.png",         top: "70%",  left: "6%",   w: 80,  rotate: 4,   opacity: 0.10, delay: "0.6s" },
-  { src: "/skirt.png",          top: "78%",  left: "18%",  w: 50,  rotate: -5,  opacity: 0.06, delay: "1.5s" },
-  { src: "/mifoid05.png",       top: "85%",  left: "32%",  w: 40,  rotate: 7,   opacity: 0.04, delay: "1.9s" },
-  // === BOTTOM-RIGHT ===
-  { src: "/IMG_7266.jpg",       top: "72%",  right: "8%",  w: 75,  rotate: -3,  opacity: 0.09, delay: "1.0s" },
-  { src: "/mifoid06.png",       top: "82%",  right: "22%", w: 42,  rotate: 5,   opacity: 0.05, delay: "0.1s" },
-  { src: "/mifoid03.png",       top: "88%",  right: "38%", w: 35,  rotate: -4,  opacity: 0.04, delay: "1.7s" },
-  // === SCATTERED TINY (depth, organic randomness) ===
-  { src: "/workinglikeadog.png", top: "18%",  left: "42%",  w: 32,  rotate: -7,  opacity: 0.035, delay: "0.8s" },
-  { src: "/_.png",              top: "40%",  left: "35%",  w: 30,  rotate: 4,   opacity: 0.03, delay: "1.6s" },
-  { src: "/mifoid08.png",       top: "62%",  right: "35%", w: 35,  rotate: -3,  opacity: 0.035, delay: "0.5s" },
-  { src: "/mifoid01.png",       top: "42%",  right: "40%", w: 28,  rotate: 6,   opacity: 0.03, delay: "1.2s" },
+  { src: "/covereye.png",       top: "58%",  left: "6%",   w: 70,  rotate: -4,  opacity: 0.09, delay: "0.6s" },
+  { src: "/mifoid01.png",       top: "68%",  left: "18%",  w: 50,  rotate: 5,   opacity: 0.06, delay: "1.5s" },
+  { src: "/skirt.png",          top: "76%",  left: "30%",  w: 40,  rotate: -3,  opacity: 0.04, delay: "0.2s" },
+  // === BOTTOM-CENTER ===
+  { src: "/mifoid05.png",       top: "82%",  left: "46%",  w: 35,  rotate: 7,   opacity: 0.035, delay: "1.0s" },
+  // === BOTTOM-RIGHT (behind nav buttons) ===
+  { src: "/blackhair.png",      top: "56%",  right: "7%",  w: 65,  rotate: 3,   opacity: 0.08, delay: "1.2s" },
+  { src: "/soccer.png",         top: "66%",  right: "20%", w: 55,  rotate: -5,  opacity: 0.07, delay: "0.1s" },
+  { src: "/IMG_7266.jpg",       top: "78%",  right: "8%",  w: 60,  rotate: 4,   opacity: 0.07, delay: "1.7s" },
+  { src: "/mifoid02.png",       top: "74%",  right: "34%", w: 38,  rotate: -4,  opacity: 0.04, delay: "0.5s" },
+  // === EXTRA FILLS — scattered unique pieces ===
+  { src: "/mifoid08.png",       top: "50%",  left: "48%",  w: 28,  rotate: -3,  opacity: 0.03, delay: "1.5s" },
+  { src: "/mifoid04.png",       top: "88%",  left: "14%",  w: 45,  rotate: 6,   opacity: 0.05, delay: "0.8s" },
 ];
 
 /* Floating sparkles — many, filling the space */
@@ -188,22 +188,22 @@ export default function LandingPage() {
                 })}
               </div>
 
-              {/* Content — fills the space, no dead zones */}
-              <div className="relative z-10 flex flex-col items-center justify-center h-full px-3 sm:px-8 pt-0 pb-2 overflow-y-auto">
-                {/* Title — floating */}
-                <div className="home-float mb-0.5 sm:mb-1">
-                  <h1 className="home-title font-mono font-bold tracking-[0.22em] uppercase text-center">
-                    FOID FOUNDATION
-                  </h1>
+              {/* Content — two-zone layout: title zone takes remaining top, grid zone at bottom */}
+              <div className="relative z-10 flex flex-col h-full px-3 sm:px-8 overflow-hidden">
+                {/* Title zone — centers vertically in the space ABOVE the grid */}
+                <div className="flex-1 flex flex-col items-center justify-center min-h-0">
+                  <div className="home-float">
+                    <h1 className="home-title font-mono font-bold tracking-[0.22em] uppercase text-center">
+                      FOID FOUNDATION
+                    </h1>
+                  </div>
+                  <p className="home-subtitle font-mono text-[10px] sm:text-sm tracking-[0.18em] uppercase text-center mt-1">
+                    the internet&apos;s permanent memory
+                  </p>
                 </div>
 
-                {/* Pink subtitle */}
-                <p className="home-subtitle font-mono text-[10px] sm:text-sm tracking-[0.18em] uppercase text-center mb-3 sm:mb-5">
-                  the internet&apos;s permanent memory
-                </p>
-
-                {/* Tile grid — hero + 4 secondary */}
-                <div className="home-grid w-full max-w-[960px]">
+                {/* Tile grid — hero + 4 secondary, pinned to bottom */}
+                <div className="home-grid w-full max-w-[960px] mx-auto pb-3 sm:pb-5 flex-shrink-0">
                   {tiles.map((tile, idx) => (
                     <Link
                       key={tile.href}
@@ -229,7 +229,7 @@ export default function LandingPage() {
                     </Link>
                   ))}
                 </div>
-              </div>
+              </div> {/* end content */}
             </div>
           </div>
         </div>
@@ -474,27 +474,27 @@ export default function LandingPage() {
         /* Responsive — mobile */
         @media (max-width: 480px) {
           :global(.home-grid) {
-            gap: 10px;
+            gap: 12px;
           }
           :global(.home-card) {
-            padding: 20px 12px;
+            padding: 22px 14px;
           }
           :global(.home-card--hero) {
-            padding: 26px 16px;
+            padding: 28px 18px;
           }
           :global(.home-card__label) {
-            font-size: 14px;
-            letter-spacing: 0.12em;
+            font-size: 15px;
+            letter-spacing: 0.14em;
           }
           :global(.home-card--hero .home-card__label) {
-            font-size: 18px;
+            font-size: 20px;
           }
           :global(.home-card__desc) {
             display: none;
           }
           :global(.home-card__cta) {
             font-size: 11px;
-            padding: 7px 18px;
+            padding: 8px 20px;
           }
         }
       `}</style>
