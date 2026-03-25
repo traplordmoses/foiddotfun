@@ -142,11 +142,12 @@ export default function LandingPage() {
                   fill
                   className="home-collage-bg"
                   style={{
-                    objectFit: "cover",
+                    objectFit: "contain",
                     objectPosition: "center",
                     opacity: 0.10,
                     mixBlendMode: "screen",
                     filter: "blur(0.5px) saturate(0.5)",
+                    transform: "scale(1.15)",
                   }}
                   unoptimized
                 />
@@ -167,7 +168,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* Tile grid — fills remaining space on mobile, pinned bottom on desktop */}
-                <div className="home-grid-wrapper flex-1 flex flex-col justify-center pb-2 sm:pb-0 min-h-0">
+                <div className="home-grid-wrapper flex-1 flex flex-col justify-center pb-2 sm:pb-[5%] min-h-0">
                 <div className="home-grid w-full max-w-[960px] mx-auto">
                   {tiles.map((tile, idx) => (
                     <Link
