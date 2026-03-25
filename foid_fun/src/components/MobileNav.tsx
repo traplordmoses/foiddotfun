@@ -89,8 +89,6 @@ export function MobileNav() {
       style={{
         background: "linear-gradient(180deg, rgba(40, 60, 120, 0.75) 0%, rgba(30, 50, 100, 0.85) 100%)",
         boxShadow: "0 -4px 20px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08)",
-      }}
-      style={{
         paddingBottom: isIOS ? 'env(safe-area-inset-bottom)' : '0',
       }}
     >
