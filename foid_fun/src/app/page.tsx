@@ -1,11 +1,12 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const heroTile = {
   title: "loreboard.app",
   label: "Loreboard",
   href: "/board",
   accent: "#ff6bd5",
-  tagline: "the community canvas — propose, vote, build culture",
+  tagline: "the community canvas . propose . vote . build culture",
   description: "A living collage of community-curated memes. Propose an image, let the community vote, and watch it become permanent on-chain art.",
 } as const;
 
@@ -15,7 +16,7 @@ const tiles = [
     label: "Pray",
     href: "/pray",
     accent: "#00ffff",
-    description: "Daily check-in with Foid Mommy. Build streaks, earn voting power.",
+    description: "Daily on-chain ritual. Build streaks, earn voting power.",
     icon: (
       <svg viewBox="0 0 48 48" fill="none" className="home-tile__svg-icon">
         <circle cx="24" cy="24" r="20" fill="url(#pray-grad)" opacity="0.25" />
@@ -63,7 +64,7 @@ const tiles = [
     label: "About",
     href: "/about",
     accent: "#34d399",
-    description: "Learn how it all works. Contracts, roadmap, FAQ.",
+    description: "Contracts, roadmap, FAQ.",
     icon: (
       <svg viewBox="0 0 48 48" fill="none" className="home-tile__svg-icon">
         <circle cx="24" cy="24" r="20" fill="url(#about-grad)" opacity="0.25" />
@@ -76,22 +77,61 @@ const tiles = [
   },
 ] as const;
 
+/* Floating sparkle positions for homepage */
+const HOME_SPARKLES = [
+  { top: "8%", left: "12%", size: 22, delay: "0s" },
+  { top: "15%", left: "82%", size: 28, delay: "0.6s" },
+  { top: "45%", left: "6%", size: 18, delay: "1.2s" },
+  { top: "60%", left: "90%", size: 24, delay: "0.3s" },
+  { top: "80%", left: "18%", size: 20, delay: "0.9s" },
+  { top: "35%", left: "92%", size: 16, delay: "1.5s" },
+  { top: "72%", left: "85%", size: 26, delay: "0.4s" },
+];
+
 export default function LandingPage() {
   return (
-    <main className="relative isolate min-h-screen bg-foid-bg text-white/90 flex flex-col items-center px-4 pt-12 sm:pt-16 pb-28">
+    <main className="relative isolate min-h-screen bg-foid-bg text-white/90 flex flex-col items-center px-4 pt-12 sm:pt-16 pb-32 sm:pb-36 overflow-hidden">
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
+
+      {/* Floating sparkles & bubbles — MiFOID-style */}
+      <div className="pointer-events-none fixed inset-0 z-[1] overflow-hidden">
+        {HOME_SPARKLES.map((s, i) => (
+          <Image
+            key={i}
+            src="/star-sparkle.png"
+            alt=""
+            width={s.size}
+            height={s.size}
+            className="home-sparkle absolute"
+            style={{ top: s.top, left: s.left, animationDelay: s.delay }}
+            unoptimized
+          />
+        ))}
+        <Image
+          src="/bubble.png" alt="" width={60} height={60}
+          className="home-bubble absolute"
+          style={{ top: "25%", left: "8%", opacity: 0.12 }}
+          unoptimized
+        />
+        <Image
+          src="/bubble.png" alt="" width={40} height={40}
+          className="home-bubble-sm absolute"
+          style={{ top: "65%", left: "88%", opacity: 0.10 }}
+          unoptimized
+        />
+      </div>
 
       <div className="relative z-10 flex flex-col items-center w-full max-w-[1100px]">
         {/* FOID FOUNDATION — top title */}
-        <span className="foid-title foid-title--xl mb-4">
+        <span className="foid-title foid-title--xl mb-3">
           <span aria-hidden className="foid-title__highlight" />
           <span className="foid-title__text">FOID FOUNDATION</span>
           <span aria-hidden className="foid-title__sweep" />
         </span>
 
-        {/* Subtitle */}
-        <p className="text-center text-sm sm:text-base text-white/40 tracking-wide mb-10 sm:mb-14 max-w-md font-light">
-          the internet&apos;s permanent memory — powered by community governance
+        {/* Subtitle — pink gradient text like MiFOID */}
+        <p className="home-subtitle text-center text-sm sm:text-base tracking-[0.15em] mb-10 sm:mb-14 max-w-md font-mono uppercase">
+          the internet&apos;s permanent memory
         </p>
 
         {/* LOREBOARD — hero tile, full width */}
@@ -125,7 +165,7 @@ export default function LandingPage() {
                     <circle cx="32" cy="32" r="3" fill="currentColor" opacity="0.5" />
                   </svg>
                 </div>
-                <span className="home-tile__label home-tile__label--hero">{heroTile.label}</span>
+                <span className="home-tile__label home-tile__label--hero home-tile__label--glow">{heroTile.label}</span>
                 <span className="home-tile__tagline">{heroTile.tagline}</span>
                 <span className="home-tile__description">{heroTile.description}</span>
                 <span className="home-tile__cta">
@@ -152,7 +192,7 @@ export default function LandingPage() {
                 <div className="vista-window__body">
                   <div className="home-tile__body" style={{ borderTop: `2px solid ${tile.accent}33`, "--tile-accent-glow": `${tile.accent}15` } as React.CSSProperties}>
                     <div className="home-tile__icon" style={{ color: tile.accent }}>{tile.icon}</div>
-                    <span className="home-tile__label">{tile.label}</span>
+                    <span className="home-tile__label home-tile__label--glow">{tile.label}</span>
                     <span className="home-tile__tile-desc">{tile.description}</span>
                   </div>
                 </div>
