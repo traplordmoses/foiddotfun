@@ -45,40 +45,7 @@ const tiles = [
   },
 ] as const;
 
-/* Background images — evenly distributed, no clustering, anchor images for weight */
-const BG_IMAGES: { src: string; top: string; left?: string; right?: string; w: number; rotate: number; opacity: number; delay: string }[] = [
-  // === TOP-LEFT (spaced out, not piled in corner) ===
-  { src: "/pinkhat.png",        top: "6%",   left: "10%",  w: 75,  rotate: -5,  opacity: 0.10, delay: "0s" },
-  { src: "/foidpod.png",        top: "18%",  left: "28%",  w: 42,  rotate: 3,   opacity: 0.05, delay: "1.4s" },
-  // === TOP-CENTER (behind FOID FOUNDATION text) ===
-  { src: "/1smile.png",         top: "10%",  left: "46%",  w: 40,  rotate: 6,   opacity: 0.04, delay: "0.9s" },
-  // === TOP-RIGHT (spaced, different sizes) ===
-  { src: "/horns.png",          top: "4%",   right: "12%", w: 70,  rotate: 4,   opacity: 0.09, delay: "0.5s" },
-  { src: "/varsity.png",        top: "16%",  right: "30%", w: 45,  rotate: -3,  opacity: 0.05, delay: "1.1s" },
-  // === MID-LEFT (ANCHOR — larger image, intentional presence) ===
-  { src: "/gameboy_mifoid.png", top: "32%",  left: "4%",   w: 100, rotate: 3,   opacity: 0.08, delay: "0.3s" },
-  { src: "/mifoid03.png",       top: "40%",  left: "22%",  w: 38,  rotate: -6,  opacity: 0.04, delay: "1.6s" },
-  // === MID-RIGHT (ANCHOR — larger image) ===
-  { src: "/w.png",              top: "30%",  right: "4%",  w: 95,  rotate: -5,  opacity: 0.08, delay: "0.7s" },
-  { src: "/miladysmile.png",    top: "42%",  right: "22%", w: 40,  rotate: 5,   opacity: 0.04, delay: "1.3s" },
-  // === CENTER (subtle depth) ===
-  { src: "/workinglikeadog.png", top: "38%",  left: "42%",  w: 30,  rotate: -7,  opacity: 0.03, delay: "1.9s" },
-  { src: "/_.png",              top: "48%",  right: "40%", w: 26,  rotate: 4,   opacity: 0.025, delay: "0.4s" },
-  // === BOTTOM-LEFT (balanced with bottom-right) ===
-  { src: "/covereye.png",       top: "58%",  left: "6%",   w: 70,  rotate: -4,  opacity: 0.09, delay: "0.6s" },
-  { src: "/mifoid06.png",       top: "68%",  left: "20%",  w: 48,  rotate: 5,   opacity: 0.05, delay: "1.5s" },
-  { src: "/skirt.png",          top: "78%",  left: "8%",   w: 45,  rotate: -3,  opacity: 0.05, delay: "0.2s" },
-  { src: "/mifoid04.png",       top: "84%",  left: "28%",  w: 38,  rotate: 6,   opacity: 0.04, delay: "0.8s" },
-  // === BOTTOM-CENTER ===
-  { src: "/mifoid05.png",       top: "80%",  left: "46%",  w: 32,  rotate: 7,   opacity: 0.03, delay: "1.0s" },
-  { src: "/mifoid08.png",       top: "70%",  left: "42%",  w: 28,  rotate: -3,  opacity: 0.025, delay: "1.6s" },
-  // === BOTTOM-RIGHT (balanced with bottom-left) ===
-  { src: "/blackhair.png",      top: "56%",  right: "6%",  w: 68,  rotate: 3,   opacity: 0.08, delay: "1.2s" },
-  { src: "/mifoid01.png",       top: "66%",  right: "22%", w: 50,  rotate: -5,  opacity: 0.06, delay: "0.1s" },
-  { src: "/soccer.png",         top: "76%",  right: "8%",  w: 52,  rotate: 4,   opacity: 0.06, delay: "1.7s" },
-  { src: "/IMG_7266.jpg",       top: "82%",  right: "28%", w: 44,  rotate: -4,  opacity: 0.04, delay: "0.5s" },
-  { src: "/mifoid02.png",       top: "88%",  right: "14%", w: 36,  rotate: 6,   opacity: 0.035, delay: "1.5s" },
-];
+/* Single collage background — designed in Photoshop, covers the whole background */
 
 /* Floating sparkles — many, filling the space */
 const SPARKLES = [
@@ -152,39 +119,37 @@ export default function LandingPage() {
                     unoptimized
                   />
                 ))}
-                <Image
-                  src="/bubble.png" alt="" width={70} height={70}
-                  className="home-bubble absolute"
-                  style={{ top: "30%", left: "6%", opacity: 0.14 }}
-                  unoptimized
-                />
-                <Image
-                  src="/bubble.png" alt="" width={40} height={40}
-                  className="home-bubble-sm absolute"
-                  style={{ top: "70%", left: "88%", opacity: 0.10 }}
-                  unoptimized
-                />
+                {/* Bubbles — scattered throughout for depth */}
+                <Image src="/bubble.png" alt="" width={70} height={70}
+                  className="home-bubble absolute" style={{ top: "25%", left: "6%", opacity: 0.14 }} unoptimized />
+                <Image src="/bubble.png" alt="" width={45} height={45}
+                  className="home-bubble-sm absolute" style={{ top: "15%", left: "75%", opacity: 0.10 }} unoptimized />
+                <Image src="/bubble.png" alt="" width={55} height={55}
+                  className="home-bubble absolute" style={{ top: "55%", left: "85%", opacity: 0.11 }} unoptimized />
+                <Image src="/bubble.png" alt="" width={35} height={35}
+                  className="home-bubble-sm absolute" style={{ top: "70%", left: "12%", opacity: 0.09 }} unoptimized />
+                <Image src="/bubble.png" alt="" width={50} height={50}
+                  className="home-bubble absolute" style={{ top: "80%", left: "50%", opacity: 0.08 }} unoptimized />
+                <Image src="/bubble.png" alt="" width={30} height={30}
+                  className="home-bubble-sm absolute" style={{ top: "40%", left: "45%", opacity: 0.07 }} unoptimized />
               </div>
 
-              {/* Background images — scattered with depth, subtle floating */}
+              {/* Collage background — single designed image covering the window */}
               <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden hidden sm:block">
-                {BG_IMAGES.map((img, i) => {
-                  const pos: React.CSSProperties = {
-                    position: "absolute",
-                    width: img.w,
-                    transform: `rotate(${img.rotate}deg)`,
-                    opacity: img.opacity,
-                    borderRadius: 12,
-                    animationDelay: img.delay,
-                  };
-                  if (img.top) pos.top = img.top;
-                  if (img.left) pos.left = img.left;
-                  if ("right" in img && img.right) pos.right = img.right;
-                  return (
-                    <Image key={i} src={img.src} alt="" width={img.w} height={img.w}
-                      className="w-full h-auto rounded-xl home-bg-float" style={pos} unoptimized />
-                  );
-                })}
+                <Image
+                  src="/homepage-collage.png"
+                  alt=""
+                  fill
+                  className="home-collage-bg"
+                  style={{
+                    objectFit: "cover",
+                    objectPosition: "center",
+                    opacity: 0.10,
+                    mixBlendMode: "screen",
+                    filter: "blur(0.5px) saturate(0.5)",
+                  }}
+                  unoptimized
+                />
               </div>
 
               {/* Content — fills entire window body, no dead zones */}
@@ -202,7 +167,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* Tile grid — fills remaining space on mobile, pinned bottom on desktop */}
-                <div className="home-grid-wrapper flex-1 sm:flex-1 flex flex-col justify-center sm:justify-end pb-2 sm:pb-3 min-h-0">
+                <div className="home-grid-wrapper flex-1 flex flex-col justify-center pb-2 sm:pb-0 min-h-0">
                 <div className="home-grid w-full max-w-[960px] mx-auto">
                   {tiles.map((tile, idx) => (
                     <Link
@@ -305,15 +270,13 @@ export default function LandingPage() {
           66% { transform: translateY(-6px) translateX(-8px); }
         }
 
-        /* Background images — subtle float, screen blend removes dark backgrounds */
-        :global(.home-bg-float) {
-          animation: home-bg-drift 8s ease-in-out infinite;
-          mix-blend-mode: screen;
-          filter: blur(0.5px) saturate(0.6);
+        /* Collage background — very subtle drift */
+        :global(.home-collage-bg) {
+          animation: home-collage-drift 12s ease-in-out infinite;
         }
-        @keyframes home-bg-drift {
-          0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
-          50% { transform: translateY(-6px) rotate(var(--r, 0deg)); }
+        @keyframes home-collage-drift {
+          0%, 100% { transform: scale(1.02) translateY(0); }
+          50% { transform: scale(1.02) translateY(-8px); }
         }
 
         /* Tile grid */
