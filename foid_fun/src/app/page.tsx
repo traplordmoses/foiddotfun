@@ -45,22 +45,31 @@ const tiles = [
   },
 ] as const;
 
-/* Background images — scattered behind buttons at low opacity, various sizes */
-const BG_IMAGES = [
-  { src: "/1smile.png",      top: "32%", left: "3%",  w: 100, rotate: -8 },
-  { src: "/w.png",           top: "28%", right: "2%", w: 95,  rotate: 6 },
-  { src: "/pinkhat.png",     top: "58%", left: "6%",  w: 80,  rotate: 5 },
-  { src: "/horns.png",       top: "55%", right: "4%", w: 85,  rotate: -5 },
-  { src: "/mifoid04.png",    top: "75%", left: "14%", w: 70,  rotate: 3 },
-  { src: "/soccer.png",      top: "72%", right: "12%",w: 75,  rotate: -4 },
-  { src: "/varsity.png",     top: "42%", left: "18%", w: 65,  rotate: -3 },
-  { src: "/foidpod.png",     top: "40%", right: "16%",w: 70,  rotate: 4 },
-  { src: "/covereye.png",    top: "85%", left: "40%", w: 60,  rotate: -6 },
-  { src: "/mifoid02.png",    top: "18%", left: "20%", w: 55,  rotate: 7 },
-  { src: "/mifoid08.png",    top: "20%", right: "18%",w: 60,  rotate: -4 },
-  { src: "/IMG_7266.jpg",    top: "68%", left: "35%", w: 90,  rotate: 2 },
-  { src: "/skirt.png",       top: "48%", left: "42%", w: 55,  rotate: -7 },
-  { src: "/miladysmile.png", top: "30%", left: "45%", w: 50,  rotate: 5 },
+/* Background images — scattered with depth (varying opacity & size for parallax feel) */
+const BG_IMAGES: { src: string; top?: string; left?: string; right?: string; bottom?: string; w: number; rotate: number; opacity: number; delay: string }[] = [
+  // Large, closer images (higher opacity)
+  { src: "/1smile.png",        top: "18%",  left: "1%",   w: 120, rotate: -6,  opacity: 0.16, delay: "0s" },
+  { src: "/w.png",             top: "16%",  right: "1%",  w: 115, rotate: 5,   opacity: 0.15, delay: "0.5s" },
+  { src: "/gameboy_mifoid.png",top: "35%",  left: "2%",   w: 110, rotate: 3,   opacity: 0.13, delay: "1.0s" },
+  { src: "/horns.png",         top: "60%",  right: "2%",  w: 105, rotate: -5,  opacity: 0.14, delay: "0.3s" },
+  // Medium images
+  { src: "/pinkhat.png",       top: "55%",  left: "8%",   w: 85,  rotate: 4,   opacity: 0.11, delay: "0.8s" },
+  { src: "/varsity.png",       top: "25%",  left: "16%",  w: 75,  rotate: -3,  opacity: 0.10, delay: "1.2s" },
+  { src: "/soccer.png",        top: "70%",  right: "10%", w: 80,  rotate: -4,  opacity: 0.11, delay: "0.6s" },
+  { src: "/foidpod.png",       top: "38%",  right: "14%", w: 75,  rotate: 4,   opacity: 0.10, delay: "1.5s" },
+  { src: "/IMG_7266.jpg",      top: "75%",  left: "30%",  w: 90,  rotate: 2,   opacity: 0.09, delay: "0.2s" },
+  // Small, far away images (lower opacity)
+  { src: "/mifoid01.png",      top: "12%",  left: "35%",  w: 50,  rotate: 8,   opacity: 0.07, delay: "1.8s" },
+  { src: "/mifoid02.png",      top: "82%",  left: "55%",  w: 45,  rotate: -7,  opacity: 0.06, delay: "0.9s" },
+  { src: "/mifoid03.png",      top: "45%",  left: "48%",  w: 40,  rotate: 5,   opacity: 0.06, delay: "1.4s" },
+  { src: "/covereye.png",      top: "88%",  right: "30%", w: 55,  rotate: -6,  opacity: 0.07, delay: "0.4s" },
+  { src: "/mifoid05.png",      top: "22%",  right: "32%", w: 42,  rotate: 3,   opacity: 0.06, delay: "1.1s" },
+  { src: "/skirt.png",         top: "65%",  left: "42%",  w: 50,  rotate: -5,  opacity: 0.07, delay: "0.7s" },
+  { src: "/miladysmile.png",   top: "50%",  left: "28%",  w: 48,  rotate: 6,   opacity: 0.06, delay: "1.6s" },
+  { src: "/blackhair.png",     top: "30%",  right: "25%", w: 55,  rotate: -4,  opacity: 0.08, delay: "1.3s" },
+  { src: "/mifoid06.png",      top: "78%",  right: "42%", w: 38,  rotate: 7,   opacity: 0.05, delay: "0.1s" },
+  { src: "/mifoid07.png",      top: "8%",   right: "45%", w: 35,  rotate: -3,  opacity: 0.05, delay: "1.7s" },
+  { src: "/workinglikeadog.png",top: "42%",  right: "38%", w: 45,  rotate: 4,   opacity: 0.06, delay: "0.8s" },
 ];
 
 /* Floating sparkle positions inside the window body */
@@ -139,30 +148,30 @@ export default function LandingPage() {
                 />
               </div>
 
-              {/* Background images — scattered behind cards, low opacity */}
+              {/* Background images — scattered with depth, subtle floating */}
               <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden hidden sm:block">
                 {BG_IMAGES.map((img, i) => {
                   const pos: React.CSSProperties = {
                     position: "absolute",
                     width: img.w,
                     transform: `rotate(${img.rotate}deg)`,
-                    opacity: 0.12,
+                    opacity: img.opacity,
                     borderRadius: 12,
-                    overflow: "hidden" as const,
+                    animationDelay: img.delay,
                   };
                   if (img.top) pos.top = img.top;
                   if (img.left) pos.left = img.left;
                   if ("right" in img && img.right) pos.right = img.right;
                   return (
                     <Image key={i} src={img.src} alt="" width={img.w} height={img.w}
-                      className="w-full h-auto rounded-xl" style={pos} unoptimized />
+                      className="w-full h-auto rounded-xl home-bg-float" style={pos} unoptimized />
                   );
                 })}
               </div>
 
-              {/* Content — centered vertically */}
-              <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 sm:px-10 py-4 overflow-y-auto">
-                {/* Title — floating, bigger */}
+              {/* Content — centered, title pushed up */}
+              <div className="relative z-10 flex flex-col items-center h-full px-4 sm:px-10 pt-4 sm:pt-6 pb-4 overflow-y-auto">
+                {/* Title — floating, at top */}
                 <div className="home-float mb-1">
                   <h1 className="home-title font-mono font-bold tracking-[0.22em] uppercase text-center">
                     FOID FOUNDATION
@@ -170,12 +179,12 @@ export default function LandingPage() {
                 </div>
 
                 {/* Pink subtitle */}
-                <p className="home-subtitle font-mono text-xs sm:text-sm tracking-[0.18em] uppercase text-center mb-6 sm:mb-8">
+                <p className="home-subtitle font-mono text-xs sm:text-sm tracking-[0.18em] uppercase text-center mb-auto">
                   the internet&apos;s permanent memory
                 </p>
 
-                {/* Tile grid — hero + 4 secondary */}
-                <div className="home-grid w-full max-w-[960px]">
+                {/* Tile grid — hero + 4 secondary, centered in remaining space */}
+                <div className="home-grid w-full max-w-[960px] mb-auto">
                   {tiles.map((tile, idx) => (
                     <Link
                       key={tile.href}
@@ -276,6 +285,15 @@ export default function LandingPage() {
           66% { transform: translateY(-6px) translateX(-8px); }
         }
 
+        /* Background images — very subtle float */
+        :global(.home-bg-float) {
+          animation: home-bg-drift 8s ease-in-out infinite;
+        }
+        @keyframes home-bg-drift {
+          0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
+          50% { transform: translateY(-6px) rotate(var(--r, 0deg)); }
+        }
+
         /* Tile grid */
         :global(.home-grid) {
           display: grid;
@@ -314,11 +332,25 @@ export default function LandingPage() {
         :global(.home-card--hero) {
           padding: 42px 32px;
           background: rgba(255, 255, 255, 0.08);
-          border-color: rgba(255, 255, 255, 0.2);
+          border: 1.5px solid rgba(245, 160, 192, 0.25);
+          box-shadow: 0 0 20px rgba(245, 160, 192, 0.08), 0 0 40px rgba(168, 130, 255, 0.06);
+          animation: home-hero-glow 4s ease-in-out infinite;
+        }
+        @keyframes home-hero-glow {
+          0%, 100% {
+            border-color: rgba(245, 160, 192, 0.25);
+            box-shadow: 0 0 20px rgba(245, 160, 192, 0.08), 0 0 40px rgba(168, 130, 255, 0.06);
+          }
+          50% {
+            border-color: rgba(168, 130, 255, 0.35);
+            box-shadow: 0 0 28px rgba(168, 130, 255, 0.15), 0 0 56px rgba(245, 160, 192, 0.10);
+          }
         }
         :global(.home-card--hero:hover) {
           background: rgba(255, 255, 255, 0.14);
-          box-shadow: 0 16px 52px rgba(255, 107, 213, 0.2), 0 0 28px rgba(168, 130, 255, 0.18);
+          border-color: rgba(245, 160, 192, 0.45);
+          box-shadow: 0 0 32px rgba(245, 160, 192, 0.2), 0 16px 52px rgba(168, 130, 255, 0.18);
+          animation: none;
         }
 
         /* Card sparkle decoration */
@@ -349,7 +381,7 @@ export default function LandingPage() {
           transition: filter 0.3s ease;
         }
         :global(.home-card--hero .home-card__label) {
-          font-size: clamp(24px, 3vw, 36px);
+          font-size: clamp(28px, 3.5vw, 42px);
           letter-spacing: 0.28em;
           margin-bottom: 8px;
         }

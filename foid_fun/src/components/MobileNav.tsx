@@ -85,7 +85,11 @@ export function MobileNav() {
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-xl border-t border-white/10"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-2xl border-t border-white/15"
+      style={{
+        background: "linear-gradient(180deg, rgba(40, 60, 120, 0.75) 0%, rgba(30, 50, 100, 0.85) 100%)",
+        boxShadow: "0 -4px 20px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08)",
+      }}
       style={{
         paddingBottom: isIOS ? 'env(safe-area-inset-bottom)' : '0',
       }}
