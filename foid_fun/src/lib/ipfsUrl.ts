@@ -12,7 +12,8 @@ const FALLBACK_GATEWAY_BASES = [
 const PROXY_PATH_RAW = process.env.NEXT_PUBLIC_IPFS_PROXY_PATH?.trim();
 const PROXY_PATH = PROXY_PATH_RAW ? PROXY_PATH_RAW.replace(/\/+$/, "") : null;
 const DEFAULT_PROXY_PATH = "/api/ipfs";
-const PROXY_BASE = (PROXY_PATH ?? DEFAULT_PROXY_PATH).replace(/\/+$/, "") || DEFAULT_PROXY_PATH;
+const _PROXY_BASE = (PROXY_PATH ?? DEFAULT_PROXY_PATH).replace(/\/+$/, "") || DEFAULT_PROXY_PATH;
+void _PROXY_BASE; // reserved for future use
 
 function normalizeGatewayBase(value?: string | null): string | null {
   if (!value) return null;
