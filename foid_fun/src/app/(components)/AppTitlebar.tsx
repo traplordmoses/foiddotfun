@@ -55,7 +55,7 @@ export default function AppTitlebar({
     { label: "HOME", href: "/" },
     { label: "PRAY", href: "/pray" },
     { label: "BOARD", href: "/board" },
-    { label: "VOTE", href: "/swipe" },
+    { label: "VOTE", href: "/vote" },
     { label: "MIFOID", href: "/mifoid" },
     { label: "ABOUT", href: "/about" },
   ], []);
