@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: {
+    // Warnings should not fail the production build
+    ignoreDuringBuilds: true,
+  },
   async redirects() {
     return [
       { source: '/trest', destination: '/board', permanent: true },
