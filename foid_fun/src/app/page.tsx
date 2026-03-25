@@ -45,41 +45,59 @@ const tiles = [
   },
 ] as const;
 
-/* Background images — evenly distributed with depth, no clustering */
+/* Background images — filled and lively, layered with depth */
 const BG_IMAGES: { src: string; top: string; left?: string; right?: string; w: number; rotate: number; opacity: number; delay: string }[] = [
-  // Left edge — spaced vertically
-  { src: "/1smile.png",         top: "10%",  left: "2%",   w: 105, rotate: -5,  opacity: 0.14, delay: "0s" },
-  { src: "/gameboy_mifoid.png", top: "42%",  left: "1%",   w: 95,  rotate: 3,   opacity: 0.11, delay: "1.0s" },
-  { src: "/pinkhat.png",        top: "74%",  left: "3%",   w: 80,  rotate: 5,   opacity: 0.10, delay: "0.6s" },
-  // Right edge — spaced vertically
-  { src: "/w.png",              top: "12%",  right: "2%",  w: 100, rotate: 5,   opacity: 0.13, delay: "0.4s" },
-  { src: "/horns.png",          top: "46%",  right: "1%",  w: 90,  rotate: -5,  opacity: 0.12, delay: "1.2s" },
-  { src: "/soccer.png",         top: "76%",  right: "3%",  w: 75,  rotate: -3,  opacity: 0.10, delay: "0.8s" },
-  // Inner left — smaller, further
-  { src: "/varsity.png",        top: "24%",  left: "14%",  w: 65,  rotate: -3,  opacity: 0.08, delay: "1.4s" },
-  { src: "/foidpod.png",        top: "60%",  left: "12%",  w: 60,  rotate: 4,   opacity: 0.07, delay: "0.2s" },
-  // Inner right — smaller, further
-  { src: "/blackhair.png",      top: "26%",  right: "13%", w: 60,  rotate: -4,  opacity: 0.08, delay: "1.6s" },
-  { src: "/covereye.png",       top: "62%",  right: "12%", w: 55,  rotate: 3,   opacity: 0.07, delay: "0.3s" },
-  // Deep center — tiny, very faint
-  { src: "/mifoid01.png",       top: "15%",  left: "32%",  w: 40,  rotate: 6,   opacity: 0.05, delay: "1.8s" },
-  { src: "/mifoid05.png",       top: "85%",  left: "38%",  w: 35,  rotate: -4,  opacity: 0.04, delay: "0.9s" },
-  { src: "/mifoid07.png",       top: "15%",  right: "30%", w: 38,  rotate: -3,  opacity: 0.05, delay: "1.1s" },
-  { src: "/IMG_7266.jpg",       top: "82%",  right: "35%", w: 45,  rotate: 2,   opacity: 0.05, delay: "0.5s" },
-  { src: "/miladysmile.png",    top: "50%",  left: "30%",  w: 35,  rotate: 5,   opacity: 0.04, delay: "1.3s" },
-  { src: "/skirt.png",          top: "50%",  right: "28%", w: 35,  rotate: -5,  opacity: 0.04, delay: "0.7s" },
+  // === LAYER 1: Large, close (edges) ===
+  { src: "/1smile.png",         top: "5%",   left: "1%",   w: 115, rotate: -5,  opacity: 0.16, delay: "0s" },
+  { src: "/w.png",              top: "4%",   right: "1%",  w: 110, rotate: 5,   opacity: 0.15, delay: "0.4s" },
+  { src: "/gameboy_mifoid.png", top: "34%",  left: "0%",   w: 105, rotate: 3,   opacity: 0.14, delay: "1.0s" },
+  { src: "/horns.png",          top: "36%",  right: "0%",  w: 100, rotate: -5,  opacity: 0.14, delay: "1.2s" },
+  { src: "/pinkhat.png",        top: "66%",  left: "1%",   w: 95,  rotate: 5,   opacity: 0.13, delay: "0.6s" },
+  { src: "/soccer.png",         top: "68%",  right: "1%",  w: 90,  rotate: -3,  opacity: 0.12, delay: "0.8s" },
+  // === LAYER 2: Medium (inner edges) ===
+  { src: "/varsity.png",        top: "14%",  left: "13%",  w: 75,  rotate: -3,  opacity: 0.10, delay: "1.4s" },
+  { src: "/blackhair.png",      top: "16%",  right: "12%", w: 70,  rotate: -4,  opacity: 0.10, delay: "1.6s" },
+  { src: "/foidpod.png",        top: "50%",  left: "11%",  w: 68,  rotate: 4,   opacity: 0.09, delay: "0.2s" },
+  { src: "/covereye.png",       top: "52%",  right: "10%", w: 65,  rotate: 3,   opacity: 0.09, delay: "0.3s" },
+  { src: "/skirt.png",          top: "82%",  left: "12%",  w: 60,  rotate: -5,  opacity: 0.08, delay: "0.7s" },
+  { src: "/IMG_7266.jpg",       top: "84%",  right: "11%", w: 65,  rotate: 2,   opacity: 0.08, delay: "0.5s" },
+  // === LAYER 3: Small (mid-field) ===
+  { src: "/mifoid01.png",       top: "8%",   left: "26%",  w: 48,  rotate: 6,   opacity: 0.06, delay: "1.8s" },
+  { src: "/mifoid07.png",       top: "6%",   right: "25%", w: 45,  rotate: -3,  opacity: 0.06, delay: "1.1s" },
+  { src: "/mifoid02.png",       top: "28%",  left: "24%",  w: 42,  rotate: -6,  opacity: 0.05, delay: "0.9s" },
+  { src: "/mifoid08.png",       top: "30%",  right: "23%", w: 44,  rotate: 4,   opacity: 0.05, delay: "1.5s" },
+  { src: "/miladysmile.png",    top: "56%",  left: "25%",  w: 40,  rotate: 5,   opacity: 0.05, delay: "1.3s" },
+  { src: "/mifoid04.png",       top: "58%",  right: "24%", w: 42,  rotate: -4,  opacity: 0.05, delay: "0.1s" },
+  { src: "/mifoid05.png",       top: "80%",  left: "28%",  w: 38,  rotate: -4,  opacity: 0.04, delay: "1.7s" },
+  { src: "/mifoid06.png",       top: "78%",  right: "27%", w: 36,  rotate: 3,   opacity: 0.04, delay: "0.4s" },
+  // === LAYER 4: Tiny, deep center ===
+  { src: "/mifoid03.png",       top: "18%",  left: "40%",  w: 30,  rotate: 7,   opacity: 0.035, delay: "1.9s" },
+  { src: "/workinglikeadog.png", top: "44%",  left: "38%",  w: 28,  rotate: -5,  opacity: 0.03, delay: "0.6s" },
+  { src: "/_.png",              top: "44%",  right: "36%", w: 30,  rotate: 4,   opacity: 0.03, delay: "1.0s" },
+  { src: "/mifoid01.png",       top: "72%",  left: "42%",  w: 26,  rotate: -3,  opacity: 0.03, delay: "1.4s" },
+  { src: "/mifoid08.png",       top: "70%",  right: "40%", w: 28,  rotate: 5,   opacity: 0.03, delay: "0.8s" },
 ];
 
-/* Floating sparkle positions inside the window body */
+/* Floating sparkles — many, filling the space */
 const SPARKLES = [
-  { top: "10%", left: "8%", size: 24, delay: "0s" },
-  { top: "22%", left: "85%", size: 30, delay: "0.7s" },
-  { top: "48%", left: "5%", size: 20, delay: "1.3s" },
-  { top: "65%", left: "92%", size: 26, delay: "0.4s" },
-  { top: "82%", left: "14%", size: 18, delay: "1.0s" },
-  { top: "38%", left: "90%", size: 22, delay: "1.6s" },
-  { top: "75%", left: "80%", size: 28, delay: "0.2s" },
-  { top: "15%", left: "50%", size: 16, delay: "0.9s" },
+  { top: "4%",  left: "6%",  size: 22, delay: "0s" },
+  { top: "8%",  left: "45%", size: 16, delay: "0.9s" },
+  { top: "6%",  left: "82%", size: 24, delay: "0.3s" },
+  { top: "18%", left: "20%", size: 18, delay: "1.4s" },
+  { top: "22%", left: "65%", size: 26, delay: "0.7s" },
+  { top: "22%", left: "92%", size: 20, delay: "1.1s" },
+  { top: "36%", left: "8%",  size: 22, delay: "0.5s" },
+  { top: "40%", left: "50%", size: 14, delay: "1.8s" },
+  { top: "38%", left: "88%", size: 24, delay: "0.2s" },
+  { top: "52%", left: "15%", size: 20, delay: "1.6s" },
+  { top: "56%", left: "72%", size: 18, delay: "0.8s" },
+  { top: "58%", left: "94%", size: 22, delay: "1.3s" },
+  { top: "68%", left: "5%",  size: 26, delay: "0.4s" },
+  { top: "72%", left: "42%", size: 16, delay: "1.7s" },
+  { top: "70%", left: "78%", size: 24, delay: "0.1s" },
+  { top: "84%", left: "18%", size: 18, delay: "1.0s" },
+  { top: "86%", left: "55%", size: 22, delay: "0.6s" },
+  { top: "88%", left: "85%", size: 20, delay: "1.5s" },
 ];
 
 export default function LandingPage() {
@@ -167,17 +185,17 @@ export default function LandingPage() {
                 })}
               </div>
 
-              {/* Content — centered vertically */}
-              <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 sm:px-10 pt-3 sm:pt-5 pb-3 overflow-y-auto">
+              {/* Content — fills the space evenly */}
+              <div className="relative z-10 flex flex-col items-center justify-center h-full px-3 sm:px-8 py-2 overflow-y-auto">
                 {/* Title — floating */}
-                <div className="home-float mb-1">
+                <div className="home-float mb-0.5 sm:mb-1">
                   <h1 className="home-title font-mono font-bold tracking-[0.22em] uppercase text-center">
                     FOID FOUNDATION
                   </h1>
                 </div>
 
                 {/* Pink subtitle */}
-                <p className="home-subtitle font-mono text-xs sm:text-sm tracking-[0.18em] uppercase text-center mb-4 sm:mb-6">
+                <p className="home-subtitle font-mono text-[10px] sm:text-sm tracking-[0.18em] uppercase text-center mb-3 sm:mb-5">
                   the internet&apos;s permanent memory
                 </p>
 
@@ -427,52 +445,53 @@ export default function LandingPage() {
           color: #fff;
         }
 
-        /* Responsive */
+        /* Responsive — tablet */
         @media (max-width: 768px) {
           :global(.home-grid) {
             grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
+            gap: 14px;
           }
           :global(.home-card) {
-            padding: 18px 12px;
+            padding: 22px 14px;
           }
           :global(.home-card--hero) {
-            padding: 28px 18px;
+            padding: 30px 20px;
           }
           :global(.home-card__label) {
-            font-size: 14px;
-            letter-spacing: 0.14em;
+            font-size: 16px;
+            letter-spacing: 0.16em;
           }
           :global(.home-card--hero .home-card__label) {
-            font-size: 20px;
+            font-size: 22px;
           }
           :global(.home-card__desc) {
             font-size: 10px;
           }
         }
+        /* Responsive — mobile */
         @media (max-width: 480px) {
           :global(.home-grid) {
-            gap: 8px;
+            gap: 10px;
           }
           :global(.home-card) {
-            padding: 14px 10px;
+            padding: 20px 12px;
           }
           :global(.home-card--hero) {
-            padding: 22px 14px;
+            padding: 26px 16px;
           }
           :global(.home-card__label) {
-            font-size: 12px;
-            letter-spacing: 0.1em;
+            font-size: 14px;
+            letter-spacing: 0.12em;
           }
           :global(.home-card--hero .home-card__label) {
-            font-size: 16px;
+            font-size: 18px;
           }
           :global(.home-card__desc) {
             display: none;
           }
           :global(.home-card__cta) {
-            font-size: 10px;
-            padding: 6px 16px;
+            font-size: 11px;
+            padding: 7px 18px;
           }
         }
       `}</style>
