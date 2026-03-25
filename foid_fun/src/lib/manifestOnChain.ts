@@ -15,6 +15,7 @@ const IPFS_GATEWAYS = [
 
 interface ManifestData {
   epoch?: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   placements?: any[];
   finalizedAt?: number;
 }
