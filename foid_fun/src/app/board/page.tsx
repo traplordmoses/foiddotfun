@@ -1020,14 +1020,16 @@ function BoardPageContent() {
 
   // Grid background
   const gridSize = `${TILE}px ${TILE}px`;
+  // Adaptive grid: thicker lines at lower zoom so they remain visible
+  const gridLineW = scale < 0.5 ? 2 : 1;
+  const gridOpacity = Math.min(0.12, 0.07 / Math.max(scale, 0.15));
   const gridBg = useMemo(() => [
-    "linear-gradient(to right, rgba(255,255,255,.07) 1px, transparent 1px)",
-    "linear-gradient(to bottom, rgba(255,255,255,.07) 1px, transparent 1px)",
-    "linear-gradient(to right, rgba(63,221,255,.06) 1px, transparent 1px)",
-    "linear-gradient(to bottom, rgba(63,221,255,.06) 1px, transparent 1px)",
-    "linear-gradient(to bottom, rgba(255,255,255,.045) 1px, transparent 1px)",
-  ].join(", "), []);
-  const gridSizes = `${gridSize}, ${gridSize}, ${gridSize}, ${gridSize}, 100% 6px`;
+    `linear-gradient(to right, rgba(255,255,255,${gridOpacity}) ${gridLineW}px, transparent ${gridLineW}px)`,
+    `linear-gradient(to bottom, rgba(255,255,255,${gridOpacity}) ${gridLineW}px, transparent ${gridLineW}px)`,
+    `linear-gradient(to right, rgba(63,221,255,${gridOpacity * 0.85}) ${gridLineW}px, transparent ${gridLineW}px)`,
+    `linear-gradient(to bottom, rgba(63,221,255,${gridOpacity * 0.85}) ${gridLineW}px, transparent ${gridLineW}px)`,
+  ].join(", "), [gridLineW, gridOpacity]);
+  const gridSizes = `${gridSize}, ${gridSize}, ${gridSize}, ${gridSize}`;
 
   const renderRectFor = useCallback((p: PendingItem): Rect => (activeId === p.id && liveRect) ? liveRect : p.rect, [activeId, liveRect]);
 
@@ -1463,7 +1465,6 @@ function BoardPageContent() {
                     </div>
                     <div className="board-hud">
                       <span>ZOOM: {Math.round(scale * 100)}%</span>
-                      <span>PAN: {Math.round(pan.x)}, {Math.round(pan.y)}</span>
                       <span>MODE: {spaceDown ? "PAN" : "PLACE"}</span>
                     </div>
                     <div className="board-hint-bottom" role="note">scroll to zoom • hold space to pan</div>
@@ -1491,14 +1492,16 @@ function BoardPageContent() {
                     <div className="board-actions">
                       <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" />
                       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onFileChange} />
-                      <div className="board-actions__divider" />
                       {items.length > 0 && (
-                        <span className="board-actions__pending-line">ready to submit ✓</span>
+                        <>
+                          <div className="board-actions__divider" />
+                          <span className="board-actions__pending-line">ready to submit ✓</span>
+                          <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "PROPOSING..." : "PROPOSE (0.001 ETH)"} disabled={!items.length || submittingProposals} variant="secondary" />
+                        </>
                       )}
-                      <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "PROPOSING..." : "PROPOSE (0.001 ETH)"} disabled={!items.length || submittingProposals} variant="secondary" />
                     </div>
                     <div className="board-actions__pricing">
-                      0.001 ETH to propose &middot; 72h voting &middot; 0.001 ETH to claim
+                      0.001 ETH to propose &middot; 72h community voting &middot; 51% to pass
                     </div>
                   </div>
 
@@ -1600,7 +1603,7 @@ function BoardPageContent() {
                 fontSize: 14, color: "rgba(255,255,255,0.6)", lineHeight: 1.6, marginBottom: 24
               }}>
                 The community has 72 hours to vote on your submission.
-                Head to Swipe to vote on other proposals too!
+                Head to Vote to help decide what makes it to the board!
               </p>
               <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
                 <a
@@ -1615,7 +1618,7 @@ function BoardPageContent() {
                     textDecoration: "none",
                   }}
                 >
-                  Go Vote on Swipe →
+                  Go Vote →
                 </a>
                 <button
                   onClick={() => setShowSubmitSuccess(false)}

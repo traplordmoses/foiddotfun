@@ -199,6 +199,50 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   }, [pushHistory]);
 
   // ============================================================================
+  // FLATTEN OVERLAYS — bake overlay images onto draw canvas so eraser/brush work on them
+  // ============================================================================
+
+  const flattenOverlays = useCallback(() => {
+    if (overlays.length === 0) return;
+    const drawCanvas = drawCanvasRef.current;
+    if (!drawCanvas) return;
+    const ctx = drawCanvas.getContext("2d");
+    if (!ctx) return;
+
+    const scaleX = drawCanvas.width / canvasDisplaySize.w;
+    const scaleY = drawCanvas.height / canvasDisplaySize.h;
+
+    let loaded = 0;
+    const total = overlays.length;
+    overlays.forEach((overlay) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        ctx.drawImage(
+          img,
+          overlay.x * scaleX,
+          overlay.y * scaleY,
+          overlay.w * scaleX,
+          overlay.h * scaleY
+        );
+        loaded++;
+        if (loaded === total) {
+          setOverlays([]);
+          pushHistory([]);
+        }
+      };
+      img.onerror = () => {
+        loaded++;
+        if (loaded === total) {
+          setOverlays([]);
+          pushHistory([]);
+        }
+      };
+      img.src = overlay.src;
+    });
+  }, [overlays, canvasDisplaySize, pushHistory]);
+
+  // ============================================================================
   // DRAWING
   // ============================================================================
 
@@ -335,13 +379,21 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     [overlays]
   );
 
+  const resizeStartRef = useRef<{ w: number; h: number; clientX: number; clientY: number } | null>(null);
+
   const startResizeOverlay = useCallback(
     (e: React.MouseEvent | React.TouchEvent, overlayId: string) => {
       e.stopPropagation();
       e.preventDefault();
+      const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+      const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+      const overlay = overlays.find((s) => s.id === overlayId);
+      if (overlay) {
+        resizeStartRef.current = { w: overlay.w, h: overlay.h, clientX, clientY };
+      }
       setResizingOverlay(overlayId);
     },
-    []
+    [overlays]
   );
 
   useEffect(() => {
@@ -366,16 +418,18 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         );
       }
 
-      if (resizingOverlay) {
+      if (resizingOverlay && resizeStartRef.current) {
+        const start = resizeStartRef.current;
+        const dx = clientX - start.clientX;
+        const dy = clientY - start.clientY;
+        // Use the larger delta to maintain aspect ratio
+        const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+        const newSize = Math.max(30, start.w + delta);
         setOverlays((prev) =>
           prev.map((s) => {
             if (s.id !== resizingOverlay) return s;
-            const centerX = canvasOffX + s.x + s.w / 2;
-            const centerY = canvasOffY + s.y + s.h / 2;
-            const dx = clientX - containerRect.left - centerX;
-            const dy = clientY - containerRect.top - centerY;
-            const dist = Math.max(30, Math.sqrt(dx * dx + dy * dy) * 2);
-            return { ...s, w: dist, h: dist };
+            const aspect = start.w / start.h;
+            return { ...s, w: newSize, h: newSize / aspect };
           })
         );
       }
@@ -385,6 +439,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       if (draggingOverlay || resizingOverlay) {
         setDraggingOverlay(null);
         setResizingOverlay(null);
+        resizeStartRef.current = null;
       }
     };
 
@@ -491,12 +546,32 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     const reader = new FileReader();
     reader.onload = () => {
       const dataURL = reader.result as string;
-      setOverlaySrc(dataURL);
-      setTool("stamp");
+      // Load the image to get natural dimensions for proper aspect ratio
+      const img = new Image();
+      img.onload = () => {
+        const aspect = img.naturalWidth / img.naturalHeight;
+        const size = Math.min(200, canvasDisplaySize.w * 0.5, canvasDisplaySize.h * 0.5);
+        const w = aspect >= 1 ? size : size * aspect;
+        const h = aspect >= 1 ? size / aspect : size;
+        const newOverlay: ImageOverlay = {
+          id: generateId(),
+          src: dataURL,
+          x: (canvasDisplaySize.w - w) / 2,
+          y: (canvasDisplaySize.h - h) / 2,
+          w,
+          h,
+        };
+        const updated = [...overlays, newOverlay];
+        setOverlays(updated);
+        pushHistory(updated);
+        setTool("select");
+        setOverlaySrc(null);
+      };
+      img.src = dataURL;
     };
     reader.readAsDataURL(file);
     e.target.value = "";
-  }, []);
+  }, [overlays, pushHistory, canvasDisplaySize]);
 
   // ============================================================================
   // EXPORT / DONE
@@ -870,6 +945,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           }
           active={tool === "draw"}
           onClick={() => {
+            flattenOverlays();
             setTool("draw");
             setOverlaySrc(null);
           }}
@@ -884,6 +960,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           }
           active={tool === "eraser"}
           onClick={() => {
+            flattenOverlays();
             setTool("eraser");
             setOverlaySrc(null);
           }}

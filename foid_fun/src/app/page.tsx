@@ -18,10 +18,10 @@ const tiles = [
     description: "Daily check-in with Foid Mommy. Build streaks, earn voting power.",
     icon: (
       <svg viewBox="0 0 48 48" fill="none" className="home-tile__svg-icon">
-        <circle cx="24" cy="24" r="20" fill="url(#pray-grad)" opacity="0.15" />
-        <path d="M24 8v8m0 16v8M8 24h8m16 0h8" stroke="#00ffff" strokeWidth="2" strokeLinecap="round" />
-        <circle cx="24" cy="24" r="6" stroke="#00ffff" strokeWidth="1.5" fill="none" opacity="0.6" />
-        <circle cx="24" cy="24" r="12" stroke="#00ffff" strokeWidth="1" fill="none" opacity="0.3" />
+        <circle cx="24" cy="24" r="20" fill="url(#pray-grad)" opacity="0.25" />
+        <path d="M24 8v8m0 16v8M8 24h8m16 0h8" stroke="#00ffff" strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="24" cy="24" r="6" stroke="#00ffff" strokeWidth="2" fill="none" opacity="0.8" />
+        <circle cx="24" cy="24" r="12" stroke="#00ffff" strokeWidth="1.2" fill="none" opacity="0.4" />
         <defs><radialGradient id="pray-grad"><stop stopColor="#00ffff" /><stop offset="1" stopColor="transparent" /></radialGradient></defs>
       </svg>
     ),
@@ -34,9 +34,10 @@ const tiles = [
     description: "Swipe right to approve, left to reject. Shape the board.",
     icon: (
       <svg viewBox="0 0 48 48" fill="none" className="home-tile__svg-icon">
-        <circle cx="24" cy="24" r="20" fill="url(#vote-grad)" opacity="0.15" />
-        <path d="M14 24l7 7 13-14" stroke="#a855f7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="24" cy="24" r="16" stroke="#a855f7" strokeWidth="1" fill="none" opacity="0.25" />
+        <circle cx="24" cy="24" r="20" fill="url(#vote-grad)" opacity="0.25" />
+        <path d="M14 24l7 7 13-14" stroke="#a855f7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="24" cy="24" r="16" stroke="#a855f7" strokeWidth="1.2" fill="none" opacity="0.4" />
+        <path d="M10 28l4-4m20-4l4-4" stroke="#a855f7" strokeWidth="1.2" strokeLinecap="round" opacity="0.3" />
         <defs><radialGradient id="vote-grad"><stop stopColor="#a855f7" /><stop offset="1" stopColor="transparent" /></radialGradient></defs>
       </svg>
     ),
@@ -49,10 +50,10 @@ const tiles = [
     description: "3,333 unique agent-rendered NFTs. Your key to the ecosystem.",
     icon: (
       <svg viewBox="0 0 48 48" fill="none" className="home-tile__svg-icon">
-        <circle cx="24" cy="24" r="20" fill="url(#mifoid-grad)" opacity="0.15" />
-        <rect x="14" y="12" width="20" height="24" rx="4" stroke="#818cf8" strokeWidth="1.5" fill="none" opacity="0.5" />
-        <circle cx="24" cy="22" r="5" stroke="#818cf8" strokeWidth="1.5" fill="none" />
-        <path d="M17 32c0-3 3-5 7-5s7 2 7 5" stroke="#818cf8" strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.6" />
+        <circle cx="24" cy="24" r="20" fill="url(#mifoid-grad)" opacity="0.25" />
+        <rect x="14" y="12" width="20" height="24" rx="4" stroke="#818cf8" strokeWidth="2" fill="none" opacity="0.6" />
+        <circle cx="24" cy="22" r="5" stroke="#818cf8" strokeWidth="2" fill="none" opacity="0.8" />
+        <path d="M17 32c0-3 3-5 7-5s7 2 7 5" stroke="#818cf8" strokeWidth="1.8" strokeLinecap="round" fill="none" opacity="0.7" />
         <defs><radialGradient id="mifoid-grad"><stop stopColor="#818cf8" /><stop offset="1" stopColor="transparent" /></radialGradient></defs>
       </svg>
     ),
@@ -65,10 +66,10 @@ const tiles = [
     description: "Learn how it all works. Contracts, roadmap, FAQ.",
     icon: (
       <svg viewBox="0 0 48 48" fill="none" className="home-tile__svg-icon">
-        <circle cx="24" cy="24" r="20" fill="url(#about-grad)" opacity="0.15" />
-        <circle cx="24" cy="24" r="14" stroke="#34d399" strokeWidth="1.5" fill="none" opacity="0.3" />
-        <circle cx="24" cy="18" r="1.5" fill="#34d399" />
-        <path d="M24 23v9" stroke="#34d399" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="24" cy="24" r="20" fill="url(#about-grad)" opacity="0.25" />
+        <circle cx="24" cy="24" r="14" stroke="#34d399" strokeWidth="1.8" fill="none" opacity="0.45" />
+        <circle cx="24" cy="17" r="2" fill="#34d399" opacity="0.9" />
+        <path d="M24 23v10" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" />
         <defs><radialGradient id="about-grad"><stop stopColor="#34d399" /><stop offset="1" stopColor="transparent" /></radialGradient></defs>
       </svg>
     ),
