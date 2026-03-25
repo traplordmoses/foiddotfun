@@ -2,8 +2,10 @@
 const nextConfig = {
   async redirects() {
     return [
-      { source: '/trest', destination: '/gallery', permanent: true },
-      { source: '/trest/:path*', destination: '/gallery/:path*', permanent: true },
+      { source: '/trest', destination: '/board', permanent: true },
+      { source: '/trest/:path*', destination: '/board/:path*', permanent: true },
+      { source: '/gallery', destination: '/board', permanent: true },
+      { source: '/gallery/:path*', destination: '/board/:path*', permanent: true },
       { source: '/duel', destination: '/swipe', permanent: true },
       { source: '/duel/:path*', destination: '/swipe/:path*', permanent: true },
     ];

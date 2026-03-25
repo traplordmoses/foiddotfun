@@ -9,18 +9,36 @@ import { ClientLayout } from "@/components/ClientLayout";
 
 // app/layout.tsx (or wherever your metadata lives)
 export const metadata = {
-  title: "FOID.FUN",
-  description: "Pray with Foid Mommy daily, on Foid.Fun",
+  title: {
+    default: "FOID.FUN",
+    template: "%s | FOID.FUN",
+  },
+  description:
+    "Loreboard — a shared, permanent, on-chain cultural canvas. Propose, vote, and build with the community on Foid.Fun",
   icons: {
     icon: [
-      { url: "/favicon.ico" },                                  // multi-size .ico
+      { url: "/favicon.ico" },
       { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
       { url: "/favicon-16.png", type: "image/png", sizes: "16x16" },
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }], // rename favicon-180.png → apple-touch-icon.png
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
     shortcut: "/favicon.ico",
   },
-  manifest: "/site.webmanifest", // optional, if you use a PWA manifest
+  manifest: "/site.webmanifest",
+  openGraph: {
+    title: "FOID.FUN — Loreboard",
+    description:
+      "A shared, permanent, on-chain cultural canvas governed by the community. Propose images, vote via swipe, and build culture together.",
+    url: "https://www.foid.fun",
+    siteName: "FOID Foundation",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "FOID.FUN — Loreboard",
+    description:
+      "On-chain cultural canvas. Propose, vote, build — governed by the community.",
+  },
 };
 
 const jetbrainsMono = JetBrains_Mono({

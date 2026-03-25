@@ -56,7 +56,6 @@ export default function AppTitlebar({
     { label: "PRAY", href: "/pray" },
     { label: "BOARD", href: "/board" },
     { label: "SWIPE", href: "/swipe" },
-    { label: "GALLERY", href: "/gallery" },
     { label: "MIFOID", href: "/mifoid" },
     { label: "ABOUT", href: "/about" },
     { label: "FAUCET", href: "https://testnet.fluent.xyz/dev-portal", external: true },

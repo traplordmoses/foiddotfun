@@ -106,14 +106,14 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">👆 swipe</p>
             <p className="aboutMiniCard__body">
-              Tinder for memes. Propose a meme (0.001 ETH), community swipes right or left. Winners get canonized in the Gallery — the permanent yearbook. Prayer streaks amplify your voting power.
+              The governance layer. Propose images to the Loreboard (0.001 ETH), then the community swipes right or left to approve placement. Prayer streaks amplify your voting power. 72-hour window, 51% threshold.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">🖼️ gallery</p>
+            <p className="aboutMiniCard__title">🗳️ governance</p>
             <p className="aboutMiniCard__body">
-              The permanent yearbook. Every meme that wins a Swipe vote gets canonized here forever. On-chain, immutable, community-curated. The record of what your community valued.
+              Every placement on the board is a consensus statement. Streak-weighted voting ensures the people who show up every day shape the culture. On-chain, verifiable, democratic.
             </p>
           </div>
 
@@ -144,7 +144,7 @@ const sections: Section[] = [
             ✅ FOID Mommy Terminal (prayer contracts + streaks + tiers)<br/>
             ✅ Loreboard Canvas (spatial grid + voting)<br/>
             ✅ Swipe (propose memes, community votes, winners canonized)<br/>
-            ✅ Gallery / FOIDREST (permanent collection)<br/>
+            ✅ FoidTrest (permanent on-chain record)<br/>
             ✅ MiFOID NFT contract (ERC-721 with trait evolution)<br/>
             ✅ Democratic voting (72-hour epochs + streak-weighted power)<br/>
             ✅ Community governance (flagging + removal votes)<br/>
@@ -392,7 +392,7 @@ const sections: Section[] = [
             <strong>Two memes enter. One gets immortalized.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            Swipe is where community culture gets decided. Propose a meme, get matched against another, and let the community swipe. The winner gets canonized in the Gallery forever.
+            Swipe is the voting mechanism for Loreboard placements. Propose a meme, and let the community swipe right or left. Approved proposals get placed on the Loreboard permanently.
           </p>
           <p style={{ marginTop: '12px' }}>
             It&apos;s Tinder for memes. Swipe right to accept, swipe left to reject. Your prayer streak gives you more voting power&mdash;show up every day and your voice gets louder.
@@ -428,46 +428,52 @@ const sections: Section[] = [
   },
   {
     id: "gallery",
-    navLabel: "GALLERY",
-    title: "GALLERY",
-    subtitle: "The Internet's Hottest Pop-Up Gallery",
+    navLabel: "GOVERNANCE",
+    title: "GOVERNANCE",
+    subtitle: "Democratic Cultural Coordination",
     content: (
       <>
         <GlassPanel>
           <p>
-            <strong>A museum for the internet.</strong>
+            <strong>Every placement is a consensus statement.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            The Gallery is where culture becomes permanent. Every meme that wins a swipe, every image placed directly&mdash;they all live here forever. On-chain. Immutable. A visual record of what your community valued.
+            Nothing gets on the Loreboard without community approval. Every proposal goes through a 72-hour voting window where the community swipes right or left. Votes are weighted by prayer streaks&mdash;the people who show up every day have the loudest voice. 51% approval threshold to pass.
           </p>
           <p style={{ marginTop: '12px' }}>
-            Think of it as a gallery wall that never runs out of space. Every piece has a story: who created it, when it was placed, whether it won a swipe or was placed directly. The community governs the collection&mdash;flag inappropriate content, vote on removals, maintain the culture.
+            Approved placements are minted on-chain permanently. The FoidTrest contract records every successful proposal in chronological order&mdash;an immutable, community-curated record of what your culture valued.
           </p>
         </GlassPanel>
 
         <div style={{ marginTop: '24px' }}>
-          <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>TWO PATHS TO THE GALLERY</p>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>PROPOSAL → VOTE → PLACEMENT</p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">Win a Swipe</p>
+            <p className="aboutMiniCard__title">1. Propose</p>
             <p className="aboutMiniCard__body">
-              Propose your meme. If the community swipes in your favor, your meme gets canonized. Free placement for winners.
+              Submit an image to the Loreboard (0.001 ETH). Choose your spot on the grid. The proposal enters the voting queue.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">Direct Placement</p>
+            <p className="aboutMiniCard__title">2. Community Votes</p>
             <p className="aboutMiniCard__body">
-              Place content directly onto the FOIDREST. Requires a placement fee. Your content goes live immediately and becomes part of the permanent gallery.
+              72-hour window. The community swipes right (approve) or left (reject). Votes are streak-weighted&mdash;longer prayer streaks mean more influence.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">3. Permanent Placement</p>
+            <p className="aboutMiniCard__body">
+              51% approval and the proposal passes. Placement is recorded on-chain, image stored on IPFS. Immutable. Verifiable. Community-curated.
             </p>
           </div>
         </div>
 
         <GlassPanel style={{ marginTop: '16px' }}>
-          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>COMMUNITY GOVERNANCE</p>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>COMMUNITY MODERATION</p>
           <p>
-            The community governs the FOIDREST. Any connected wallet can flag content for review. Once enough flags accumulate, a removal vote triggers automatically. The community votes to keep or remove&mdash;democratic content moderation, fully on-chain.
+            The community also governs what stays. Any connected wallet can flag content for review. Once enough flags accumulate, a removal vote triggers automatically. The community votes to keep or remove&mdash;democratic content moderation, fully on-chain.
           </p>
         </GlassPanel>
       </>
@@ -696,7 +702,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">5.5 swipe on memes (optional)</p>
             <p className="aboutMiniCard__body">
-              Go to /swipe and swipe through proposed memes. Swipe right to canonize, left to pass. Your prayer streak amplifies your voting power. Winners get permanently placed in the Gallery.
+              Go to /swipe and swipe through proposed memes. Swipe right to approve, left to reject. Your prayer streak amplifies your voting power. Approved proposals get placed on the Loreboard permanently.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -754,7 +760,7 @@ const sections: Section[] = [
               ✅ Foid Mommy Terminal - pray daily, build streaks, tier system<br/>
               ✅ Loreboard Canvas - propose memes, vote, canonize<br/>
               ✅ Swipe - propose memes, community swipe-votes, winners canonized<br/>
-              ✅ Gallery / FOIDREST - permanent collection with governance<br/>
+              ✅ FoidTrest - permanent on-chain record of community-approved placements<br/>
               ✅ MiFOID NFT contract - ERC-721 with trait evolution<br/>
               ✅ Agent API - autonomous agents can pray, propose, vote<br/>
               ✅ 16 Solidity smart contracts deployed and working<br/>
@@ -897,9 +903,9 @@ const sections: Section[] = [
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">FoidTrest (Gallery)</p>
+            <p className="aboutMiniCard__title">FoidTrest (Registry)</p>
             <p className="aboutMiniCard__body">
-              The permanent on-chain gallery. Every meme that wins a Swipe vote gets canonized here forever. Immutable entries, chronological order, community curated.
+              The permanent on-chain registry. Every proposal that passes the community vote is recorded here. Immutable entries, chronological order, community curated.
             </p>
             <a href="https://testnet.fluentscan.xyz/address/0x87Ea24ba4B61BbF35aD1161e11072Dc8Cf0858a6" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
@@ -907,7 +913,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Swipe</p>
             <p className="aboutMiniCard__body">
-              Propose content for the Gallery or Loreboard. Community votes via EIP-712 signed ballots with streak-weighted power. 60% weighted approval required. Loreboard proposals receive a placement voucher on approval.
+              Propose content for the Loreboard. Community votes via EIP-712 signed ballots with streak-weighted power. 51% weighted approval required. Approved proposals receive a placement voucher on approval.
             </p>
             <a href="https://testnet.fluentscan.xyz/address/0xddc2623Bd80B1429426e30Be3D02e52ff6f90C44" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
@@ -1218,7 +1224,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">How do I actually start?</p>
             <p className="aboutMiniCard__body">
-              <strong>Three steps:</strong> 1. Click connect → choose FOID Wallet → pick a PIN → passkey prompt → done. (Or use MetaMask if that&apos;s your thing.) 2. Get some ETH for gas (faucet for testnet, or bridge real ETH for mainnet). 3. Start praying → Go to /pray and talk to Foid Mommy. That&apos;s it. You&apos;re in. Then explore /swipe to vote on memes, /board to propose to the Loreboard, and /gallery to see the permanent collection. Your streak starts today. Your MiFOID traits are being determined now. Every day you skip is a day she doesn&apos;t grow.
+              <strong>Three steps:</strong> 1. Click connect → choose FOID Wallet → pick a PIN → passkey prompt → done. (Or use MetaMask if that&apos;s your thing.) 2. Get some ETH for gas (faucet for testnet, or bridge real ETH for mainnet). 3. Start praying → Go to /pray and talk to Foid Mommy. That&apos;s it. You&apos;re in. Then explore /swipe to vote on memes and /board to propose to the Loreboard. Your streak starts today. Your MiFOID traits are being determined now. Every day you skip is a day she doesn&apos;t grow.
             </p>
           </div>
 
@@ -1236,7 +1242,7 @@ const sections: Section[] = [
             🙏 <Link href="/pray" prefetch className="text-cyan-300 underline font-semibold">Pray with Foid Mommy</Link> — Build your first streak<br/>
             🎨 <Link href="/board" prefetch className="text-cyan-300 underline font-semibold">Propose on Loreboard</Link> — Add your meme to the canon<br/>
             👆 <Link href="/swipe" prefetch className="text-cyan-300 underline font-semibold">Swipe on Memes</Link> — Vote on what gets canonized<br/>
-            🖼️ <Link href="/gallery" prefetch className="text-cyan-300 underline font-semibold">Browse the Gallery</Link> — See the permanent collection<br/>
+            🖼️ <Link href="/board" prefetch className="text-cyan-300 underline font-semibold">View the Loreboard</Link> — See the permanent collection<br/>
             🎭 <a href="#mifoids" className="text-cyan-300 underline font-semibold">Learn about MiFOID</a> — See how the NFT works<br/>
             ⭐ <a href="https://github.com/traplordmoses/foiddotfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline font-semibold">Star on GitHub</a> — Support open development
           </p>

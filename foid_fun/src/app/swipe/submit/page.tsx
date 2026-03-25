@@ -181,7 +181,7 @@ export default function SwipeSubmitPage() {
 
                 <div className="mb-4 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2.5 text-[10px] text-white/35">
                   <span className="text-white/50 font-medium">How it works:</span>{" "}
-                  Upload &rarr; pay 0.001 ETH &rarr; community swipes YES/NO &rarr; approved memes join the Gallery
+                  Upload &rarr; pay 0.001 ETH &rarr; community swipes YES/NO &rarr; approved memes get placed on the Loreboard
                 </div>
 
                 {/* Submit button */}

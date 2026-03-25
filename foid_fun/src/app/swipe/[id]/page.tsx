@@ -361,8 +361,8 @@ export default function ProposalDetailPage() {
                   {proposal.canonized ? (
                     <>
                       This meme was canonized to the{" "}
-                      <Link href="/gallery" className="text-purple-400 hover:underline">
-                        Gallery
+                      <Link href="/board" className="text-purple-400 hover:underline">
+                        Loreboard
                       </Link>
                       !
                     </>

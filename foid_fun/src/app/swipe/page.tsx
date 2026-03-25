@@ -312,18 +312,53 @@ function VoteResultText({ direction, trigger }: { direction: "left" | "right" | 
   );
 }
 
-/* ─── Vote count mini-bar ─── */
-function VoteBar({ forCount, againstCount }: { forCount: number; againstCount: number }) {
+/* ─── Countdown timer ─── */
+function useCountdown(votingEndsAt: number) {
+  const [remaining, setRemaining] = useState("");
+  useEffect(() => {
+    const tick = () => {
+      const diff = votingEndsAt - Math.floor(Date.now() / 1000);
+      if (diff <= 0) { setRemaining("ended"); return; }
+      const h = Math.floor(diff / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      setRemaining(h > 0 ? `${h}h ${m}m left` : `${m}m left`);
+    };
+    tick();
+    const id = setInterval(tick, 30_000);
+    return () => clearInterval(id);
+  }, [votingEndsAt]);
+  return remaining;
+}
+
+/* ─── Vote count mini-bar with approval % ─── */
+function VoteBar({ forCount, againstCount, showThreshold }: { forCount: number; againstCount: number; showThreshold?: boolean }) {
   const total = forCount + againstCount;
-  if (total === 0) return null;
+  if (total === 0 && !showThreshold) return null;
+  const pct = total > 0 ? Math.round((forCount / total) * 100) : 0;
+  const passing = pct >= 51;
   return (
-    <div className="flex items-center gap-1.5 text-[9px]">
-      <span className="text-green-400">{forCount}Y</span>
-      <div className="flex h-1 flex-1 overflow-hidden rounded-full bg-neutral-800">
-        <div className="bg-green-500" style={{ width: `${(forCount / total) * 100}%` }} />
-        <div className="bg-red-500" style={{ width: `${(againstCount / total) * 100}%` }} />
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-1.5 text-[9px]">
+        <span className="text-green-400">{forCount}Y</span>
+        <div className="relative flex h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-800">
+          {total > 0 && (
+            <>
+              <div className="bg-green-500 transition-all duration-300" style={{ width: `${(forCount / total) * 100}%` }} />
+              <div className="bg-red-500 transition-all duration-300" style={{ width: `${(againstCount / total) * 100}%` }} />
+            </>
+          )}
+          {/* 51% threshold marker */}
+          <div className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: "51%" }} />
+        </div>
+        <span className="text-red-400">{againstCount}N</span>
       </div>
-      <span className="text-red-400">{againstCount}N</span>
+      {showThreshold && total > 0 && (
+        <div className="flex items-center justify-between text-[9px]">
+          <span className={passing ? "text-green-400" : "text-amber-400"}>
+            {pct}% YES {passing ? "✓" : ""} <span className="text-white/30">(need 51%)</span>
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -344,6 +379,7 @@ function SwipeCard({
 }) {
   const visual = CARD_VISUALS[proposal.id % CARD_VISUALS.length];
   const nextVisual = nextProposal ? CARD_VISUALS[nextProposal.id % CARD_VISUALS.length] : null;
+  const timeLeft = useCountdown(proposal.votingEndsAt);
 
   const { direction, progress, handlers, style, phase } = useSwipeVote({
     threshold: 80,
@@ -436,19 +472,25 @@ function SwipeCard({
           )}
         </div>
 
-        <div className="border-t border-neutral-800 bg-neutral-900/90 px-3 py-2">
+        <div className="border-t border-neutral-800 bg-neutral-900/90 px-3 py-2.5">
           <div className="flex items-center justify-between">
             <div>
               <span className="text-[10px] uppercase tracking-wider text-neutral-500">Prop #{proposal.id}</span>
               <div className="mt-0.5 font-mono text-xs text-neutral-300">{truncateAddress(proposal.proposer)}</div>
             </div>
-            <span className="text-[10px] text-neutral-500 animate-pulse">Swipe to vote</span>
-          </div>
-          {(proposal.forCount > 0 || proposal.againstCount > 0) && (
-            <div className="mt-1.5">
-              <VoteBar forCount={proposal.forCount} againstCount={proposal.againstCount} />
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="text-[10px] text-neutral-500 animate-pulse">Swipe to vote</span>
+              {timeLeft && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/15 px-2 py-0.5 text-[9px] font-semibold text-purple-300 ring-1 ring-purple-500/25">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" />
+                  {timeLeft}
+                </span>
+              )}
             </div>
-          )}
+          </div>
+          <div className="mt-2">
+            <VoteBar forCount={proposal.forCount} againstCount={proposal.againstCount} showThreshold />
+          </div>
         </div>
 
         {/* Bottom glow */}
@@ -805,7 +847,7 @@ export default function SwipePage() {
                           </div>
                           <div className="mt-1.5 flex items-center justify-between text-[10px] text-neutral-400">
                             <span className="font-mono">{truncateAddress(proposal.proposer)}</span>
-                            {proposal.canonized && <span className="text-green-400">Gallery &rarr;</span>}
+                            {proposal.canonized && <span className="text-green-400">On Board &rarr;</span>}
                           </div>
                           {total > 0 && (
                             <div className="mt-1.5">

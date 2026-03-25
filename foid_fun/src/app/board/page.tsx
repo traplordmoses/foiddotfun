@@ -550,6 +550,7 @@ function BoardPageContent() {
   // Desktop paint editor state
   const [desktopPaintFile, setDesktopPaintFile] = useState<File | null>(null);
   const [desktopPaintPos, setDesktopPaintPos] = useState<DropPos | undefined>(undefined);
+  const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
 
   // Pan/zoom - smooth infinite
   const [scale, setScale] = useState(1);
@@ -914,6 +915,34 @@ function BoardPageContent() {
     setDesktopPaintPos(undefined);
   }, []);
 
+  /** Open paint editor with a blank white canvas */
+  const handleCreateFromScratch = useCallback(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, 512, 512);
+    }
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const file = new File([blob], "scratch.jpg", { type: "image/jpeg" });
+        const el = containerRef.current;
+        let pos: DropPos | undefined;
+        if (el) {
+          const r = el.getBoundingClientRect();
+          pos = screenToWorld(r.left + r.width / 2, r.top + r.height / 2);
+        }
+        setDesktopPaintFile(file);
+        setDesktopPaintPos(pos);
+      },
+      "image/jpeg",
+      0.95
+    );
+  }, [screenToWorld]);
+
   const handleFiles = useCallback(async (files: FileList | null, pos?: DropPos) => {
     if (files?.length) await handleSingleFile(files[0], pos);
   }, [handleSingleFile]);
@@ -1120,6 +1149,7 @@ function BoardPageContent() {
         });
       }
       addStatus("All proposals submitted!", "success");
+      setShowSubmitSuccess(true);
     } catch (e: unknown) {
       // Skip user rejection errors (silent)
       if (isUserRejection(e)) {
@@ -1462,6 +1492,7 @@ function BoardPageContent() {
                     </div>
                     <div className="board-actions">
                       <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" />
+                      <Y2kActionButton onClick={handleCreateFromScratch} label="CREATE FROM SCRATCH" variant="secondary" />
                       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onFileChange} />
                       <div className="board-actions__divider" />
                       {items.length > 0 && (
@@ -1558,6 +1589,75 @@ function BoardPageContent() {
         onDone={handleDesktopPaintDone}
         onCancel={handleDesktopPaintCancel}
       />
+    )}
+
+    {/* Post-submission success modal */}
+    {showSubmitSuccess && (
+      <div
+        className="fixed inset-0 z-[9999] flex items-center justify-center"
+        style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
+      >
+        <div
+          className="vista-window"
+          style={{ maxWidth: 440, width: "90%" }}
+        >
+          <div className="vista-window__titlebar">
+            <div className="vista-window__controls" aria-hidden="true">
+              <span className="vista-window__control vista-window__control--minimize" />
+              <span className="vista-window__control vista-window__control--restore" />
+              <span className="vista-window__control vista-window__control--close" />
+            </div>
+            <span className="vista-window__title text-[11px]">proposal_submitted.exe</span>
+          </div>
+          <div className="vista-window__body">
+            <div style={{ padding: "32px 24px", textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
+              <h2 style={{
+                fontSize: 20, fontWeight: 700, letterSpacing: "0.15em",
+                textTransform: "uppercase", color: "#fff", marginBottom: 8,
+                fontFamily: "var(--font-display)"
+              }}>
+                Proposal Live!
+              </h2>
+              <p style={{
+                fontSize: 14, color: "rgba(255,255,255,0.6)", lineHeight: 1.6, marginBottom: 24
+              }}>
+                The community has 72 hours to vote on your submission.
+                Head to Swipe to vote on other proposals too!
+              </p>
+              <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+                <a
+                  href="/swipe"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "10px 24px", borderRadius: 24,
+                    background: "linear-gradient(135deg, rgba(168,85,247,0.4), rgba(255,107,213,0.4))",
+                    border: "1px solid rgba(168,85,247,0.4)",
+                    color: "#fff", fontSize: 13, fontWeight: 600,
+                    letterSpacing: "0.1em", textTransform: "uppercase",
+                    textDecoration: "none",
+                  }}
+                >
+                  Go Vote on Swipe →
+                </a>
+                <button
+                  onClick={() => setShowSubmitSuccess(false)}
+                  style={{
+                    padding: "10px 24px", borderRadius: 24,
+                    background: "rgba(255,255,255,0.08)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600,
+                    letterSpacing: "0.1em", textTransform: "uppercase",
+                    cursor: "pointer",
+                  }}
+                >
+                  Stay Here
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     )}
       <style jsx>{`
         /* Layout - more padding and spacing */
