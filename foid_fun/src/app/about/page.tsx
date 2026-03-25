@@ -1241,7 +1241,7 @@ const sections: Section[] = [
           <p>
             🙏 <Link href="/pray" prefetch className="text-cyan-300 underline font-semibold">Pray with Foid Mommy</Link> — Build your first streak<br/>
             🎨 <Link href="/board" prefetch className="text-cyan-300 underline font-semibold">Propose on Loreboard</Link> — Add your meme to the canon<br/>
-            🗳️ <Link href="/swipe" prefetch className="text-cyan-300 underline font-semibold">Vote on Proposals</Link> — Shape what gets canonized<br/>
+            🗳️ <Link href="/vote" prefetch className="text-cyan-300 underline font-semibold">Vote on Proposals</Link> — Shape what gets canonized<br/>
             🖼️ <Link href="/board" prefetch className="text-cyan-300 underline font-semibold">View the Loreboard</Link> — See the permanent collection<br/>
             🎭 <a href="#mifoids" className="text-cyan-300 underline font-semibold">Learn about MiFOID</a> — See how the NFT works<br/>
             ⭐ <a href="https://github.com/traplordmoses/foiddotfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline font-semibold">Star on GitHub</a> — Support open development
@@ -1414,7 +1414,7 @@ export default function AboutPage() {
               onDisconnect={() => disconnect()}
               onSwitchWallet={handleSwitchWallet}
             />
-            <div className="vista-window__body aboutWindowBody foid-iridescent-subtle flex flex-col md:flex-row gap-3 md:gap-4">
+            <div className="vista-window__body aboutWindowBody foid-iridescent flex flex-col md:flex-row gap-3 md:gap-4">
               <aside className="aboutSidebar aboutGlassShell flex-shrink-0 w-full md:w-auto">
                 <p className="text-[10px] uppercase tracking-[0.55em] text-white/55 hidden md:block">navigation</p>
                 <nav aria-label="about sections" className="aboutNav mt-0 md:mt-3 flex w-full flex-col md:flex-col">

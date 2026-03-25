@@ -32,7 +32,7 @@ const SLIDES: TourSlide[] = [
     title: 'VOTE — SHAPE THE CULTURE',
     body: 'Community members submit memes. You swipe right to approve, left to reject. Approved proposals get placed on the Loreboard permanently — governed by the people who show up.',
     accent: '#a855f7',
-    href: '/swipe',
+    href: '/vote',
     cta: 'Start Voting',
   },
   {

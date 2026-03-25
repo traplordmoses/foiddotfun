@@ -1369,7 +1369,7 @@ function BoardPageContent() {
             />
 
             {/* Main content - align with pray spacing */}
-            <div className="vista-window__body vista-window__body--flush mt-2 pray-panel__body board-body foid-iridescent-subtle">
+            <div className="vista-window__body vista-window__body--flush mt-2 pray-panel__body board-body foid-iridescent">
               <div className="board-grid">
                 {/* Canvas */}
                 <div className="board-canvas-wrap flex-1 min-h-0">
@@ -1607,7 +1607,7 @@ function BoardPageContent() {
               </p>
               <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
                 <a
-                  href="/swipe"
+                  href="/vote"
                   style={{
                     display: "inline-flex", alignItems: "center", gap: 6,
                     padding: "10px 24px", borderRadius: 24,

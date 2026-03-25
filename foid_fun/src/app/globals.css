@@ -4062,22 +4062,46 @@ body {
   min-height: calc(100vh - 120px);
 }
 
-/* ===== Shared Iridescent & Sparkle System ===== */
-/* Subtle iridescent tint for inner-page window bodies — lighter than MiFOID */
+/* ===== Shared Iridescent & Visual Energy System ===== */
+/*
+ * Matches MiFOID's visual language:
+ * - Animated iridescent gradient backgrounds
+ * - Floating sparkle/glow effects
+ * - Gradient text with glow
+ * - Pulsing focal glows
+ */
+
+/* Iridescent background — VISIBLE version matching MiFOID energy */
+.foid-iridescent {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(180, 100, 240, 0.30) 0%,
+      rgba(100, 140, 240, 0.25) 25%,
+      rgba(240, 140, 200, 0.22) 50%,
+      rgba(120, 170, 240, 0.28) 75%,
+      rgba(160, 100, 240, 0.30) 100%
+    ) !important;
+  background-size: 300% 300% !important;
+  animation: foid-iridescent-cycle 12s ease infinite !important;
+}
+
+/* Subtle version for pages where content needs more contrast (board, about) */
 .foid-iridescent-subtle {
   background:
     linear-gradient(
       135deg,
-      rgba(140, 100, 220, 0.12) 0%,
-      rgba(100, 140, 220, 0.10) 25%,
-      rgba(180, 120, 200, 0.10) 50%,
-      rgba(100, 160, 220, 0.12) 75%,
-      rgba(140, 100, 220, 0.12) 100%
+      rgba(160, 90, 220, 0.22) 0%,
+      rgba(90, 130, 220, 0.18) 25%,
+      rgba(220, 120, 190, 0.16) 50%,
+      rgba(100, 150, 220, 0.20) 75%,
+      rgba(150, 90, 220, 0.22) 100%
     ) !important;
   background-size: 300% 300% !important;
-  animation: foid-iridescent-slow 16s ease infinite !important;
+  animation: foid-iridescent-cycle 12s ease infinite !important;
 }
-@keyframes foid-iridescent-slow {
+
+@keyframes foid-iridescent-cycle {
   0%   { background-position: 0% 50%; }
   50%  { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
@@ -4101,28 +4125,29 @@ body {
   50% { transform: translateY(-6px); }
 }
 
-/* Subtle focal glow — behind central content */
+/* Ambient focal glow — radiating warmth behind central content */
 .foid-focal-glow {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 60%;
-  height: 60%;
+  width: 70%;
+  height: 70%;
   transform: translate(-50%, -50%);
   background: radial-gradient(
     ellipse at center,
-    rgba(140, 100, 220, 0.15) 0%,
-    rgba(100, 180, 220, 0.08) 40%,
-    transparent 70%
+    rgba(168, 130, 255, 0.20) 0%,
+    rgba(120, 200, 255, 0.12) 35%,
+    rgba(255, 160, 220, 0.06) 55%,
+    transparent 75%
   );
   border-radius: 50%;
   z-index: 0;
-  animation: foid-focal-pulse 5s ease-in-out infinite;
+  animation: foid-focal-pulse 4s ease-in-out infinite;
   pointer-events: none;
 }
 @keyframes foid-focal-pulse {
   0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
-  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.06); }
 }
 
 /* ===== Home Page Tiles ===== */
@@ -4170,7 +4195,15 @@ body {
   justify-content: center;
   height: 200px;
   transition: box-shadow 0.3s ease, background 0.3s ease;
-  background: linear-gradient(135deg, rgba(140, 100, 220, 0.05) 0%, rgba(100, 160, 220, 0.04) 50%, rgba(180, 120, 200, 0.05) 100%);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(140, 100, 220, 0.14) 0%,
+      rgba(100, 160, 220, 0.10) 50%,
+      rgba(180, 120, 200, 0.14) 100%
+    );
+  background-size: 300% 300%;
+  animation: foid-iridescent-cycle 16s ease infinite;
 }
 .home-tile__body--hero {
   height: 260px;
@@ -4179,14 +4212,14 @@ body {
   background:
     linear-gradient(
       135deg,
-      rgba(200, 120, 255, 0.15) 0%,
-      rgba(120, 160, 255, 0.12) 25%,
-      rgba(255, 160, 220, 0.12) 50%,
-      rgba(140, 180, 255, 0.14) 75%,
-      rgba(180, 120, 255, 0.15) 100%
+      rgba(200, 120, 255, 0.28) 0%,
+      rgba(120, 160, 255, 0.22) 25%,
+      rgba(255, 160, 220, 0.22) 50%,
+      rgba(140, 180, 255, 0.25) 75%,
+      rgba(180, 120, 255, 0.28) 100%
     );
   background-size: 300% 300%;
-  animation: foid-iridescent-slow 16s ease infinite;
+  animation: foid-iridescent-cycle 12s ease infinite;
 }
 .home-tile__body--hero::before {
   content: '';

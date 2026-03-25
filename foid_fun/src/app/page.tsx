@@ -29,7 +29,7 @@ const tiles = [
   {
     title: "vote.exe",
     label: "Vote",
-    href: "/swipe",
+    href: "/vote",
     accent: "#a855f7",
     description: "Swipe right to approve, left to reject. Shape the board.",
     icon: (

@@ -6,8 +6,10 @@ const nextConfig = {
       { source: '/trest/:path*', destination: '/board/:path*', permanent: true },
       { source: '/gallery', destination: '/board', permanent: true },
       { source: '/gallery/:path*', destination: '/board/:path*', permanent: true },
-      { source: '/duel', destination: '/swipe', permanent: true },
-      { source: '/duel/:path*', destination: '/swipe/:path*', permanent: true },
+      { source: '/swipe', destination: '/vote', permanent: true },
+      { source: '/swipe/:path*', destination: '/vote/:path*', permanent: true },
+      { source: '/duel', destination: '/vote', permanent: true },
+      { source: '/duel/:path*', destination: '/vote/:path*', permanent: true },
     ];
   },
   experimental: {

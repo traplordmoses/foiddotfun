@@ -9,7 +9,7 @@ const LINKS: NavLink[] = [
   { href: "/", label: "Home" },
   { href: "/pray", label: "Pray" },
   { href: "/board", label: "Loreboard" },
-  { href: "/swipe", label: "Vote" },
+  { href: "/vote", label: "Vote" },
   { href: "/mifoid", label: "MiFOID" },
   { href: "/about", label: "About" },
 ];

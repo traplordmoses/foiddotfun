@@ -5,7 +5,7 @@ export const metadata = { title: "404" };
 const quickLinks = [
   { href: "/pray", label: "Pray", icon: "🙏" },
   { href: "/board", label: "Loreboard", icon: "🖼️" },
-  { href: "/swipe", label: "Vote", icon: "🗳️" },
+  { href: "/vote", label: "Vote", icon: "🗳️" },
 ] as const;
 
 export default function NotFound() {
