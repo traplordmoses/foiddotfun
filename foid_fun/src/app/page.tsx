@@ -45,6 +45,24 @@ const tiles = [
   },
 ] as const;
 
+/* Background images — scattered behind buttons at low opacity, various sizes */
+const BG_IMAGES = [
+  { src: "/1smile.png",      top: "32%", left: "3%",  w: 100, rotate: -8 },
+  { src: "/w.png",           top: "28%", right: "2%", w: 95,  rotate: 6 },
+  { src: "/pinkhat.png",     top: "58%", left: "6%",  w: 80,  rotate: 5 },
+  { src: "/horns.png",       top: "55%", right: "4%", w: 85,  rotate: -5 },
+  { src: "/mifoid04.png",    top: "75%", left: "14%", w: 70,  rotate: 3 },
+  { src: "/soccer.png",      top: "72%", right: "12%",w: 75,  rotate: -4 },
+  { src: "/varsity.png",     top: "42%", left: "18%", w: 65,  rotate: -3 },
+  { src: "/foidpod.png",     top: "40%", right: "16%",w: 70,  rotate: 4 },
+  { src: "/covereye.png",    top: "85%", left: "40%", w: 60,  rotate: -6 },
+  { src: "/mifoid02.png",    top: "18%", left: "20%", w: 55,  rotate: 7 },
+  { src: "/mifoid08.png",    top: "20%", right: "18%",w: 60,  rotate: -4 },
+  { src: "/IMG_7266.jpg",    top: "68%", left: "35%", w: 90,  rotate: 2 },
+  { src: "/skirt.png",       top: "48%", left: "42%", w: 55,  rotate: -7 },
+  { src: "/miladysmile.png", top: "30%", left: "45%", w: 50,  rotate: 5 },
+];
+
 /* Floating sparkle positions inside the window body */
 const SPARKLES = [
   { top: "10%", left: "8%", size: 24, delay: "0s" },
@@ -121,17 +139,38 @@ export default function LandingPage() {
                 />
               </div>
 
+              {/* Background images — scattered behind cards, low opacity */}
+              <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden hidden sm:block">
+                {BG_IMAGES.map((img, i) => {
+                  const pos: React.CSSProperties = {
+                    position: "absolute",
+                    width: img.w,
+                    transform: `rotate(${img.rotate}deg)`,
+                    opacity: 0.12,
+                    borderRadius: 12,
+                    overflow: "hidden" as const,
+                  };
+                  if (img.top) pos.top = img.top;
+                  if (img.left) pos.left = img.left;
+                  if ("right" in img && img.right) pos.right = img.right;
+                  return (
+                    <Image key={i} src={img.src} alt="" width={img.w} height={img.w}
+                      className="w-full h-auto rounded-xl" style={pos} unoptimized />
+                  );
+                })}
+              </div>
+
               {/* Content — centered vertically */}
-              <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 sm:px-8 py-6 overflow-y-auto">
-                {/* Title — floating at top */}
-                <div className="home-float mb-2">
-                  <h1 className="home-title font-mono font-bold tracking-[0.25em] uppercase text-center">
+              <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 sm:px-10 py-4 overflow-y-auto">
+                {/* Title — floating, bigger */}
+                <div className="home-float mb-1">
+                  <h1 className="home-title font-mono font-bold tracking-[0.22em] uppercase text-center">
                     FOID FOUNDATION
                   </h1>
                 </div>
 
                 {/* Pink subtitle */}
-                <p className="home-subtitle font-mono text-xs sm:text-sm tracking-[0.18em] uppercase text-center mb-8 sm:mb-10">
+                <p className="home-subtitle font-mono text-xs sm:text-sm tracking-[0.18em] uppercase text-center mb-6 sm:mb-8">
                   the internet&apos;s permanent memory
                 </p>
 
@@ -189,9 +228,9 @@ export default function LandingPage() {
           100% { background-position: 0% 50%; }
         }
 
-        /* Title — large, glowing */
+        /* Title — bigger, glowing */
         :global(.home-title) {
-          font-size: clamp(22px, 4vw, 42px);
+          font-size: clamp(28px, 5vw, 54px);
           color: rgba(255, 255, 255, 0.95);
           text-shadow: 0 0 30px rgba(200, 180, 255, 0.3), 0 0 60px rgba(168, 130, 255, 0.15);
         }
@@ -254,7 +293,7 @@ export default function LandingPage() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 24px 16px;
+          padding: 28px 20px;
           border-radius: 14px;
           border: 1px solid rgba(255, 255, 255, 0.15);
           background: rgba(255, 255, 255, 0.06);
@@ -273,7 +312,7 @@ export default function LandingPage() {
           box-shadow: 0 12px 40px rgba(168, 130, 255, 0.2), 0 0 20px rgba(245, 160, 192, 0.15);
         }
         :global(.home-card--hero) {
-          padding: 36px 24px;
+          padding: 42px 32px;
           background: rgba(255, 255, 255, 0.08);
           border-color: rgba(255, 255, 255, 0.2);
         }
