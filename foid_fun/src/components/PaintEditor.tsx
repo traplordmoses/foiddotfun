@@ -422,9 +422,11 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         const start = resizeStartRef.current;
         const dx = clientX - start.clientX;
         const dy = clientY - start.clientY;
-        // Use the larger delta to maintain aspect ratio
+        // Use the larger absolute delta, keeping direction consistent (bottom-right = grow)
         const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
-        const newSize = Math.max(30, start.w + delta);
+        // Only grow when dragging right/down, shrink when left/up — prevent sign flipping
+        const absDelta = (dx + dy) >= 0 ? Math.abs(delta) : -Math.abs(delta);
+        const newSize = Math.max(30, start.w + absDelta);
         setOverlays((prev) =>
           prev.map((s) => {
             if (s.id !== resizingOverlay) return s;
@@ -673,6 +675,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         display: "flex",
         flexDirection: "column",
         background: "rgba(8, 12, 20, 0.98)",
+        paddingBottom: 56, // clear the music player hover zone
       }}
     >
       {/* ============ VISTA-STYLE TITLEBAR ============ */}
