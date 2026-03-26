@@ -144,9 +144,9 @@ export default function LandingPage() {
                   style={{
                     objectFit: "contain",
                     objectPosition: "center 60%",
-                    opacity: 0.05,
+                    opacity: 0.07,
                     mixBlendMode: "screen",
-                    filter: "blur(1px) saturate(0.35)",
+                    filter: "blur(0.5px) saturate(0.4)",
                     transform: "scale(1.35)",
                   }}
                   unoptimized
@@ -432,12 +432,12 @@ export default function LandingPage() {
         @media (min-width: 769px) {
           :global(.home-title-zone) {
             flex: 0 0 auto;
-            padding-top: 32px;
-            padding-bottom: 20px;
+            padding-top: 28px;
+            padding-bottom: 8px;
           }
           :global(.home-grid-wrapper) {
             flex: 1;
-            padding-bottom: 24px;
+            padding-bottom: 12px;
           }
         }
 
