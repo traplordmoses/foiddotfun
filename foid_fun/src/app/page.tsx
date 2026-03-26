@@ -143,19 +143,19 @@ export default function LandingPage() {
                   className="home-collage-bg"
                   style={{
                     objectFit: "contain",
-                    objectPosition: "center",
-                    opacity: 0.06,
+                    objectPosition: "center 60%",
+                    opacity: 0.05,
                     mixBlendMode: "screen",
-                    filter: "blur(0.5px) saturate(0.4)",
+                    filter: "blur(1px) saturate(0.35)",
                     transform: "scale(1.35)",
                   }}
                   unoptimized
                 />
               </div>
 
-              {/* Content — fills entire window body, no dead zones */}
-              <div className="relative z-10 flex flex-col h-full px-3 sm:px-8 overflow-hidden">
-                {/* Title zone — compact on mobile, centered on desktop */}
+              {/* Content — even vertical rhythm, no dead zones */}
+              <div className="home-content-col relative z-10 flex flex-col h-full px-3 sm:px-8 overflow-hidden">
+                {/* Title zone */}
                 <div className="home-title-zone flex flex-col items-center justify-center min-h-0">
                   <div className="home-float">
                     <h1 className="home-title font-mono font-bold tracking-[0.22em] uppercase text-center">
@@ -167,8 +167,8 @@ export default function LandingPage() {
                   </p>
                 </div>
 
-                {/* Tile grid — fills remaining space on mobile, pinned bottom on desktop */}
-                <div className="home-grid-wrapper flex-1 flex flex-col justify-center pb-2 sm:pb-[5%] min-h-0">
+                {/* Tile grid */}
+                <div className="home-grid-wrapper flex flex-col justify-center min-h-0">
                 <div className="home-grid w-full max-w-[960px] mx-auto">
                   {tiles.map((tile, idx) => (
                     <Link
@@ -297,7 +297,7 @@ export default function LandingPage() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 28px 20px;
+          padding: 30px 28px;
           border-radius: 14px;
           border: 1px solid rgba(255, 255, 255, 0.15);
           background: rgba(255, 255, 255, 0.06);
@@ -415,17 +415,29 @@ export default function LandingPage() {
           color: #fff;
         }
 
-        /* Title zone — flex-1 everywhere so title centers between nav and buttons */
-        :global(.home-title-zone) {
-          flex: 1;
-          padding-bottom: 0;
-          max-height: 200px;
-        }
+        /* Mobile: space-evenly so title + buttons distribute across full height */
         @media (max-width: 768px) {
+          :global(.home-content-col) {
+            justify-content: space-evenly !important;
+          }
           :global(.home-title-zone) {
-            flex: 1;
+            flex: 0 0 auto;
             padding: 0;
-            max-height: none;
+          }
+          :global(.home-grid-wrapper) {
+            flex: 0 0 auto;
+          }
+        }
+        /* Desktop: title zone takes measured space */
+        @media (min-width: 769px) {
+          :global(.home-title-zone) {
+            flex: 0 0 auto;
+            padding-top: 32px;
+            padding-bottom: 20px;
+          }
+          :global(.home-grid-wrapper) {
+            flex: 1;
+            padding-bottom: 24px;
           }
         }
 
