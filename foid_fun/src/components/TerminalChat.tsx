@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { insertBoardMessage, subscribeToBoardMessages, supabase, type BoardMessage } from "@/lib/supabase";
+import { insertBoardMessage, subscribeToBoardMessages, supabase, SUPABASE_ENABLED, type BoardMessage } from "@/lib/supabase";
 
 // ============================================================================
 // TYPES
@@ -49,14 +49,14 @@ export function TerminalChat({
 
   // Load recent messages from Supabase on mount (last 24 hours only)
   useEffect(() => {
-    if (!enableSupabase) return;
+    if (!enableSupabase || !SUPABASE_ENABLED || !supabase) return;
 
     const loadMessages = async () => {
       const twentyFourHoursAgo = new Date();
       twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
 
       try {
-        const { data, error } = await supabase
+        const { data, error } = await supabase!
           .from("board_messages")
           .select("*")
           .eq("type", "chat")
@@ -77,7 +77,7 @@ export function TerminalChat({
 
   // Subscribe to real-time messages
   useEffect(() => {
-    if (!enableSupabase) return;
+    if (!enableSupabase || !SUPABASE_ENABLED) return;
 
     const unsubscribe = subscribeToBoardMessages((message) => {
       setSupabaseMessages((prev) => [...prev, message]);

@@ -1,6 +1,6 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 // ============================================================================
 // TYPES
@@ -35,18 +35,25 @@ export type BoardEventInsert = {
 };
 
 // ============================================================================
-// SUPABASE CLIENT
+// SUPABASE CLIENT (gracefully disabled when credentials are placeholders)
 // ============================================================================
 
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    realtime: {
-      params: { eventsPerSecond: 10 },
-    },
-  }
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+
+const isConfigured =
+  supabaseUrl.length > 0 &&
+  supabaseKey.length > 0 &&
+  !supabaseUrl.includes("placeholder") &&
+  !supabaseKey.includes("placeholder");
+
+export const supabase: SupabaseClient | null = isConfigured
+  ? createClient(supabaseUrl, supabaseKey, {
+      realtime: { params: { eventsPerSecond: 10 } },
+    })
+  : null;
+
+export const SUPABASE_ENABLED = isConfigured;
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -58,6 +65,7 @@ export const supabase = createClient(
 export async function insertBoardMessage(
   data: BoardMessageInsert
 ): Promise<BoardMessage | null> {
+  if (!supabase) return null;
   try {
     const { data: message, error } = await supabase
       .from("board_messages")
@@ -83,6 +91,7 @@ export async function insertBoardMessage(
 export async function fetchRecentMessages(
   limit = 100
 ): Promise<BoardMessage[]> {
+  if (!supabase) return [];
   try {
     const { data, error } = await supabase
       .from("board_messages")
@@ -109,6 +118,8 @@ export async function fetchRecentMessages(
 export function subscribeToBoardMessages(
   callback: (message: BoardMessage) => void
 ): () => void {
+  if (!supabase) return () => {};
+
   const channel = supabase
     .channel("board_messages_changes")
     .on<BoardMessage>(

@@ -23,12 +23,13 @@ export const CANONICAL_ADDRESSES = {
   vmWrapper: getAddress("0x4031762fB8b5d3fcA168AA6555FfC666ED500DaD"),
   vmWasm: getAddress("0xBE0ec2117F36797DEf3ab10661464265b2E4df34"),
 
-  // V1 contracts (redeployed 2026-03-20 — overpayment fix)
+  // V1 contracts (multisig-owned, deployed 2026-03-20 / 2026-03-26)
   prayerTiers: getAddress("0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb"),
   streakVotingPower: getAddress("0x7a889b3d38889E45EE48bbCBc3681a889F87C03e"),
   foidTrest: getAddress("0x87Ea24ba4B61BbF35aD1161e11072Dc8Cf0858a6"),
   swipe: getAddress("0xddc2623Bd80B1429426e30Be3D02e52ff6f90C44"),
   swipeLoreboard: getAddress("0x3782BaD8ADa3BD8C98729d4516F600317F3aC362"),
+  multisig: getAddress("0x2379955b597d2a7fc9dbD918306aa59c43eBF6Ed"),
 
   // Standalone contracts
   engrave: getAddress("0xe73f5f91159c2d84b1a66badf701d5312213b66a"),
