@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
       address: swipeLoreboardAddr,
       abi: SWIPE_LOREBOARD_ABI,
       functionName: "getPlacement" as const,
-      args: [BigInt(i + 1)] as const,
+      args: [BigInt(i)] as const,
     }));
 
     const results = await client.multicall({ contracts, allowFailure: true });

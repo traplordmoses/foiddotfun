@@ -634,6 +634,56 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     });
   }, [imageFile, onDone, overlays, canvasDisplaySize]);
 
+  // Save / download the creation
+  const handleSave = useCallback(() => {
+    const bgCanvas = bgCanvasRef.current;
+    const drawCanvas = drawCanvasRef.current;
+    const img = originalImageRef.current;
+    if (!bgCanvas || !drawCanvas || !img) return;
+
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width = img.naturalWidth;
+    exportCanvas.height = img.naturalHeight;
+    const ectx = exportCanvas.getContext("2d");
+    if (!ectx) return;
+
+    ectx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight);
+    ectx.drawImage(drawCanvas, 0, 0, img.naturalWidth, img.naturalHeight);
+
+    const scaleX = img.naturalWidth / canvasDisplaySize.w;
+    const scaleY = img.naturalHeight / canvasDisplaySize.h;
+
+    const overlayPromises = overlays.map((overlay) => {
+      return new Promise<void>((resolve) => {
+        const overlayImg = new Image();
+        overlayImg.crossOrigin = "anonymous";
+        overlayImg.onload = () => {
+          ectx.drawImage(overlayImg, overlay.x * scaleX, overlay.y * scaleY, overlay.w * scaleX, overlay.h * scaleY);
+          resolve();
+        };
+        overlayImg.onerror = () => resolve();
+        overlayImg.src = overlay.src;
+      });
+    });
+
+    Promise.all(overlayPromises).then(() => {
+      exportCanvas.toBlob(
+        (blob) => {
+          if (!blob) return;
+          const name = imageFile.name.replace(/\.[^.]+$/, "") + "_edited.jpg";
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = name;
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+        "image/jpeg",
+        0.92
+      );
+    });
+  }, [imageFile, overlays, canvasDisplaySize]);
+
   // ============================================================================
   // KEYBOARD SHORTCUTS
   // ============================================================================
@@ -1118,6 +1168,43 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
 
         {/* Spacer */}
         <div style={{ flex: 1 }} />
+
+        {/* Save / download */}
+        <button
+          onClick={handleSave}
+          style={{
+            padding: "0 16px",
+            height: 36,
+            borderRadius: 6,
+            border: "1px solid rgba(255,255,255,0.2)",
+            background: "rgba(255,255,255,0.06)",
+            color: "rgba(255,255,255,0.7)",
+            fontSize: 13,
+            fontWeight: 700,
+            fontFamily: "var(--font-terminal), monospace",
+            letterSpacing: "0.1em",
+            cursor: "pointer",
+            transition: "background 0.2s, color 0.2s",
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+          onMouseEnter={(e) => {
+            (e.target as HTMLElement).style.background = "rgba(255,255,255,0.12)";
+            (e.target as HTMLElement).style.color = "rgba(255,255,255,0.95)";
+          }}
+          onMouseLeave={(e) => {
+            (e.target as HTMLElement).style.background = "rgba(255,255,255,0.06)";
+            (e.target as HTMLElement).style.color = "rgba(255,255,255,0.7)";
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ pointerEvents: "none" }}>
+            <path d="M7 2V10M4 7.5L7 10.5L10 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M2 12H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          SAVE
+        </button>
 
         {/* Done CTA */}
         <button
