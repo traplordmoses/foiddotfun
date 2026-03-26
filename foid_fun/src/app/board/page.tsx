@@ -31,9 +31,11 @@ import { convertToJpeg } from "@/lib/imageConvert";
 import { uploadImage } from "@/lib/ipfs";
 import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 import { formatEth } from "@/lib/wei";
+import { useLatestManifestFromChain } from "@/hooks/useLatestManifestFromChain";
+import type { FinalizedPlacement } from "@/lib/types";
+import { getLatestNormalized } from "@/lib/manifest";
 import { listProposals } from "@/lib/api";
 import type { ProposalSummary, ListProposalsResponse } from "@/lib/api";
-// writeSwipeLoreboardPlace removed — now uses Swipe.proposeLoreboard via hook
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { LoreboardNotification } from "@/components/LoreboardNotification";
@@ -213,6 +215,25 @@ const asWorldRect = (value: unknown): Rect => {
   return { x, y, w, h };
 };
 
+
+const normalizePlacements = (list: unknown[]): FinalizedPlacement[] =>
+  list.map((p) => {
+    const placement = isRecord(p) ? p : {};
+    const coerced = asWorldRect(placement.rect ?? placement);
+    // Manifests may contain contract-space coordinates (x/y offset by BOARD_OFFSET).
+    // In world space x is always < BOARD_OFFSET, so values >= BOARD_OFFSET indicate
+    // contract coordinates that need conversion.
+    const needsTransform = coerced.x >= BOARD_OFFSET_X || coerced.y >= BOARD_OFFSET_Y;
+    const rect = needsTransform ? contractToWorldRect(coerced) : coerced;
+    return {
+      ...(placement as FinalizedPlacement),
+      x: rect.x,
+      y: rect.y,
+      w: rect.w,
+      h: rect.h,
+      cells: Number(placement.cells ?? 1),
+    };
+  });
 
 const normalizeProposals = (list: ProposalSummary[] | undefined): ProposalSummary[] =>
   (list ?? []).map((p) => {
@@ -607,16 +628,16 @@ function BoardPageContent() {
   // Mobile detection
   const { isMobile } = useMobile();
 
-  // Board data — proposals are the sole data source
+  // Board data — finalized placements from ManifestStore, proposals from Swipe
+  const [placed, setPlaced] = useState<FinalizedPlacement[]>([]);
+  const [placedEpoch, setPlacedEpoch] = useState<number | null>(null);
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
   const [_proposalsLoading, setProposalsLoading] = useState(true);
   const [proposalDebug, setProposalDebug] = useState<ListProposalsResponse["debug"] | null>(null);
 
-  // Derive "placed" items from canonized proposals
-  const placed = useMemo(
-    () => proposals.filter((p) => p.status === "canonized"),
-    [proposals]
-  );
+  // ManifestStore hook — reads CID from contract, fetches manifest from IPFS
+  const { manifest: latestManifest, epoch: latestManifestEpoch, loading: latestManifestLoading, error: latestManifestError } = useLatestManifestFromChain();
+  const latestFallbackTried = useRef(false);
 
   const [activePlacement, setActivePlacement] = useState<Placement | null>(null);
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
@@ -816,7 +837,7 @@ function BoardPageContent() {
     const rect = snapRect({ x: pos.x, y: pos.y, w: meta.w, h: meta.h });
     const cells = rectCells(rect);
     let status: GhostStatus = "ok";
-    const placedRects = placed.map((pl) => pl.rect);
+    const placedRects = placed.map((pl) => ({ x: pl.x, y: pl.y, w: pl.w, h: pl.h }));
     if (cells > MAX_CELLS_PER_RECT) status = "oversize";
     else if (hasOverlap(rect, placedRects) || hasOverlap(rect, pending.map(storedRectFor))) status = "overlap";
     else if (!isTouching(rect, [...placedRects, ...pending.map(storedRectFor)])) status = "not-touching";
@@ -1039,6 +1060,57 @@ function BoardPageContent() {
     return { ...p, rect: r, cells: cellsNow, totalWei: BigInt(cellsNow) * (BASE_FEE_PER_CELL_WEI + p.tipPerCellWei) };
   });
 
+  // Memoize normalized placements to avoid redundant processing
+  const normalizedManifestPlacements = useMemo(() => {
+    if (!latestManifest?.placements) return [];
+    return normalizePlacements(latestManifest.placements);
+  }, [latestManifest?.placements]);
+
+  // Load finalized placements from ManifestStore → IPFS
+  useEffect(() => {
+    let alive = true;
+    const apply = (placements: FinalizedPlacement[], epochValue: number | null) => {
+      if (!alive) return;
+      setPlaced(placements);
+      setPlacedEpoch(epochValue);
+      if (placements.length) {
+        const last = placements[placements.length - 1];
+        zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
+      }
+    };
+    const loadFallback = async () => {
+      if (latestFallbackTried.current) return;
+      latestFallbackTried.current = true;
+      try {
+        const latest = await getLatestNormalized();
+        if (!alive) return;
+        apply(
+          normalizePlacements(latest.manifest?.placements ?? []),
+          typeof latest.epoch === "number" ? latest.epoch : null
+        );
+      } catch (e: unknown) {
+        if (!alive) return;
+        setPlaced([]);
+        setPlacedEpoch(null);
+        const parsed = parseWeb3Error(e);
+        addStatus(parsed.message, "error");
+      }
+    };
+    if (latestManifestLoading) return;
+    if (latestManifestError) { void loadFallback(); return; }
+    if (normalizedManifestPlacements.length > 0) {
+      const epochValue = typeof latestManifestEpoch === "number"
+        ? latestManifestEpoch
+        : (latestManifest && typeof latestManifest.epoch === "number" ? latestManifest.epoch : null);
+      if (placedEpoch != null && epochValue != null && epochValue < placedEpoch) return;
+      apply(normalizedManifestPlacements, epochValue);
+      latestFallbackTried.current = false;
+      return;
+    }
+    void loadFallback();
+    return () => { alive = false; };
+  }, [normalizedManifestPlacements, latestManifest, latestManifestEpoch, latestManifestLoading, latestManifestError, zoomToRect, placedEpoch, addStatus]);
+
   // Load proposals
   useEffect(() => {
     let alive = true;
@@ -1095,7 +1167,7 @@ function BoardPageContent() {
     setSubmittingProposals(true);
     addStatus("Preparing submissions...", "info");
     try {
-      const placedRects = placed.map((pl) => pl.rect);
+      const placedRects = placed.map((pl) => ({ x: pl.x, y: pl.y, w: pl.w, h: pl.h }));
       const pendingRects = items.map((it) => ({ name: it.name, rect: { ...it.rect } }));
       const overlapNames: string[] = [];
       pendingRects.forEach((c, idx) => {
@@ -1226,14 +1298,14 @@ function BoardPageContent() {
   const boardNodes = useMemo<BoardNode[]>(() => {
     const nodes: BoardNode[] = [];
 
-    // Add finalized placements (canonized proposals)
+    // Add finalized placements from manifest
     placed.forEach((p) => {
       nodes.push({
         id: `placed-${p.id}`,
-        x: p.rect.x,
-        y: p.rect.y,
-        width: p.rect.w,
-        height: p.rect.h,
+        x: p.x,
+        y: p.y,
+        width: p.w,
+        height: p.h,
         content: p.cid,
         type: 'meme',
       });
@@ -1278,7 +1350,7 @@ function BoardPageContent() {
         <MobileProposeModal
           isConnected={isConnected}
           address={address}
-          placedRects={placed.map(p => p.rect)}
+          placedRects={placed.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }))}
           onClose={() => setShowMobilePropose(false)}
           onSuccess={(msg) => {
             addStatus(msg, "success");
@@ -1310,12 +1382,12 @@ function BoardPageContent() {
             setActivePlacement({
               id: placement.id,
               cid: placement.cid,
-              x: placement.rect.x,
-              y: placement.rect.y,
-              width: placement.rect.w,
-              height: placement.rect.h,
+              x: placement.x,
+              y: placement.y,
+              width: placement.w,
+              height: placement.h,
               proposer: (placement.owner ?? "") as `0x${string}`,
-              epochId: placement.epochSubmitted ?? 0,
+              epochId: placedEpoch ?? 0,
             });
           }
         }}
@@ -1396,14 +1468,14 @@ function BoardPageContent() {
                       height: STAGE_CANVAS_H,
                     }}
                     >
-                      {/* Finalized (canonized proposals) */}
+                      {/* Finalized placements from manifest */}
                     {placed.map((p) => {
-                      const sr = toStageRect(p.rect);
+                      const sr = toStageRect({ x: p.x, y: p.y, w: p.w, h: p.h });
                       const isActive = activePlacement?.id === p.id;
                       return (
                         <PlacementCard
                           key={p.id}
-                          placement={{ id: p.id, cid: p.cid, x: sr.x, y: sr.y, width: sr.w, height: sr.h, proposer: (p.owner ?? "") as `0x${string}`, epochId: p.epochSubmitted ?? 0, status: "canonized" }}
+                          placement={{ id: p.id, cid: p.cid, x: sr.x, y: sr.y, width: sr.w, height: sr.h, proposer: (p.owner ?? "") as `0x${string}`, epochId: placedEpoch ?? 0, status: "canonized" }}
                           onOpen={setActivePlacement}
                           onFlag={handleFlagPlacement}
                           isFlagged={flaggedIds.has(p.id)}
