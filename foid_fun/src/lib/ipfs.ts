@@ -1,15 +1,22 @@
 // /src/lib/ipfs.ts
 // Client-safe utilities + a server-safe JSON uploader.
-// Env options: WEB3_STORAGE_TOKEN (preferred) or PINATA_JWT (fallback).
+// Env: PINATA_JWT (required for IPFS uploads).
 
 export { ipfsToHttp, cidToHttpUrl, ipfsUrl } from "./ipfsUrl";
 
 /** Convert a Blob/File to base64 (no data: prefix). */
 async function blobToBase64(b: Blob): Promise<string> {
-  const buf = new Uint8Array(await b.arrayBuffer());
-  let bin = "";
-  for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
-  return btoa(bin);
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      // Strip the "data:...;base64," prefix
+      const idx = dataUrl.indexOf(",");
+      resolve(idx >= 0 ? dataUrl.slice(idx + 1) : dataUrl);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("FileReader failed"));
+    reader.readAsDataURL(b);
+  });
 }
 
 /**
@@ -38,8 +45,14 @@ export async function uploadImage(
       if (res.status === 501) return null; // IPFS not configured — caller should fallback to objectURL
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error ?? `Upload failed with ${res.status}`);
+        // Try JSON first, fall back to raw text for framework-level errors
+        const text = await res.text().catch(() => "");
+        let errMsg: string | undefined;
+        try {
+          const data = JSON.parse(text);
+          errMsg = data?.error;
+        } catch { /* response was not JSON (e.g. HTML error page) */ }
+        throw new Error(errMsg || `Upload failed (${res.status}): ${text.slice(0, 200)}`);
       }
 
       const data = (await res.json()) as { cid: string };
