@@ -663,6 +663,22 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       : "default";
 
   // ============================================================================
+  // MUSIC PLAYER AWARENESS — shift controls up when music bar is visible
+  // ============================================================================
+  const [musicBarHeight, setMusicBarHeight] = useState(0);
+  useEffect(() => {
+    const bar = document.querySelector(".cmp-bar");
+    if (!bar) return;
+    const update = () => {
+      setMusicBarHeight(bar.classList.contains("cmp-bar--visible") ? 48 : 0);
+    };
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(bar, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  // ============================================================================
   // RENDER
   // ============================================================================
 
@@ -675,7 +691,8 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         display: "flex",
         flexDirection: "column",
         background: "rgba(8, 12, 20, 0.98)",
-        paddingBottom: 56, // clear the music player hover zone
+        paddingBottom: musicBarHeight,
+        transition: "padding-bottom 0.3s ease",
       }}
     >
       {/* ============ VISTA-STYLE TITLEBAR ============ */}
