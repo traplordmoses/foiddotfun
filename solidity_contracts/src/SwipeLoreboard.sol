@@ -46,11 +46,13 @@ contract SwipeLoreboard {
     event RemovalVoteCast(uint256 indexed voteId, address indexed voter, bool support, uint256 weight);
     event RemovalVoteResolved(uint256 indexed voteId, uint256 indexed placementId, bool removed);
     event OwnerChanged(address indexed oldOwner, address indexed newOwner);
+    event OperatorChanged(address indexed oldOperator, address indexed newOperator);
     event FeeRecipientChanged(address indexed oldRecipient, address indexed newRecipient);
 
     // ── State ──
 
     address public owner;
+    address public operator;
     address public feeRecipient;
     address public votingPowerSource;
 
@@ -78,20 +80,28 @@ contract SwipeLoreboard {
         _;
     }
 
+    modifier onlyOperator() {
+        require(msg.sender == operator || msg.sender == owner, "Loreboard: not operator");
+        _;
+    }
+
     constructor(
         address _feeRecipient,
         address _votingPowerSource,
         uint256 _placementFeeWei,
         uint256 _flagFeeWei,
         uint8 _flagThreshold,
-        uint32 _removalVoteWindowSeconds
+        uint32 _removalVoteWindowSeconds,
+        address _operator
     ) {
         require(_feeRecipient != address(0), "Loreboard: zero recipient");
         require(_votingPowerSource != address(0), "Loreboard: zero VP");
         require(_flagThreshold > 0, "Loreboard: zero threshold");
         require(_removalVoteWindowSeconds > 0, "Loreboard: zero window");
+        require(_operator != address(0), "Loreboard: zero operator");
 
         owner = msg.sender;
+        operator = _operator;
         feeRecipient = _feeRecipient;
         votingPowerSource = _votingPowerSource;
         placementFeeWei = _placementFeeWei;
@@ -148,6 +158,44 @@ contract SwipeLoreboard {
         }
 
         emit PlacementCreated(placementId, msg.sender, x, y, w, h, cells);
+    }
+
+    /// @notice Operator registers a voted-in placement. No fee required — fee was paid via Swipe.
+    ///         Used by the finalize pipeline after a proposal passes on-chain voting.
+    /// @param placer The original proposer's address (recorded as placement owner)
+    function placeFor(
+        address placer,
+        int32 x,
+        int32 y,
+        uint32 w,
+        uint32 h,
+        bytes calldata cidBytes
+    ) external onlyOperator returns (uint256 placementId) {
+        require(placer != address(0), "Loreboard: zero placer");
+        require(w > 0 && h > 0, "Loreboard: zero size");
+        require(w <= uint32(type(int32).max), "Loreboard: w too large");
+        require(h <= uint32(type(int32).max), "Loreboard: h too large");
+        require(cidBytes.length > 0 && cidBytes.length <= 96, "Loreboard: bad cid");
+
+        uint32 cells = _cellsFor(w, h);
+
+        placementId = placementCount;
+        placements[placementId] = Placement({
+            id: placementId,
+            placer: placer,
+            x: x,
+            y: y,
+            w: w,
+            h: h,
+            cells: cells,
+            cidBytes: cidBytes,
+            placedAt: uint64(block.timestamp),
+            removed: false
+        });
+
+        unchecked { placementCount++; }
+
+        emit PlacementCreated(placementId, placer, x, y, w, h, cells);
     }
 
     // ══════════════════════════════════════════════
@@ -276,6 +324,13 @@ contract SwipeLoreboard {
     function setVotingPowerSource(address newSource) external onlyOwner {
         require(newSource != address(0), "Loreboard: zero address");
         votingPowerSource = newSource;
+    }
+
+    function setOperator(address newOperator) external onlyOwner {
+        require(newOperator != address(0), "Loreboard: zero address");
+        address old = operator;
+        operator = newOperator;
+        emit OperatorChanged(old, newOperator);
     }
 
     function setOwner(address newOwner) external onlyOwner {

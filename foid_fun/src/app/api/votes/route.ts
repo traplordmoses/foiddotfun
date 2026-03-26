@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Legacy voting subgraph — no longer deployed. EIP-712 votes are now in SQLite via /api/swipe/vote.
+// This route is kept for backwards compatibility but will return empty results if subgraph is down.
 const VOTING_URL =
   process.env.GOLDSKY_VOTING_URL ||
-  "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/2.0.1/gn";
+  "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-swipe-fluent-testnet-fluent-testnet/1.2.0/gn";
 
 type GoldskyVoteCast = {
   id: string;

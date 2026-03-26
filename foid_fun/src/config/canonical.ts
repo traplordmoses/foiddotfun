@@ -28,7 +28,7 @@ export const CANONICAL_ADDRESSES = {
   streakVotingPower: "0x7a889b3d38889E45EE48bbCBc3681a889F87C03e" as Address,
   foidTrest: "0x87Ea24ba4B61BbF35aD1161e11072Dc8Cf0858a6" as Address,
   swipe: "0xddc2623Bd80B1429426e30Be3D02e52ff6f90C44" as Address,
-  swipeLoreboard: "" as Address, // not deployed in v1 — Swipe handles loreboard proposals natively
+  swipeLoreboard: "0x3782BaD8ADa3BD8C98729d4516F600317F3aC362" as Address, // deployed with multisig owner + flag/removal governance
 
   // Standalone contracts
   engrave: "0xe73f5f91159c2d84b1a66badf701d5312213b66a" as Address,

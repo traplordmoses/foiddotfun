@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/operator/auto-settle",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

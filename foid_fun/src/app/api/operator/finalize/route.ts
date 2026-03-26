@@ -21,9 +21,12 @@ import {
   setLatestManifest,
   gcProposals,
   saveManifestForEpoch,
+  markFinalized,
   type Placement,
   type Proposal,
 } from "../../_store";
+import { getVotesForProposal } from "@/lib/voteStore";
+import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
 import { loadLatestFinalized } from "@/lib/manifest";
 import { hasOverlap } from "@/lib/grid";
 import { uploadJSON } from "@/lib/ipfs";
@@ -450,8 +453,118 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // All proposals pass — voting removed for v1 mainnet (pay-to-place model)
-  const passed = [...candidates];
+  // ── On-chain vote settlement via Swipe.finalize() ──
+  // Each candidate's EIP-712 signed votes are submitted on-chain.
+  // The Swipe contract verifies signatures, checks weighted voting power,
+  // and enforces the approval threshold (51%).
+  const swipeAddress = CANONICAL_ADDRESSES.swipe as `0x${string}`;
+  const passed: Proposal[] = [];
+  const rejected: Proposal[] = [];
+
+  for (const candidate of candidates) {
+    const onChainId = (candidate as Record<string, unknown>).on_chain_id as number | undefined;
+
+    if (onChainId == null) {
+      // No on-chain proposal ID linked — cannot settle on-chain
+      console.warn(`[finalize] proposal ${candidate.id} has no on_chain_id, skipping`);
+      candidate.status = "rejected";
+      rejected.push(candidate);
+      markFinalized(candidate.id);
+      continue;
+    }
+
+    const votes = getVotesForProposal(onChainId);
+
+    if (votes.voters.length === 0) {
+      // No votes cast — proposal fails (threshold requires totalWeight > 0)
+      console.log(`[finalize] proposal ${candidate.id} (chain=${onChainId}): no votes, rejected`);
+      candidate.status = "rejected";
+      rejected.push(candidate);
+      markFinalized(candidate.id);
+      continue;
+    }
+
+    try {
+      // Call Swipe.finalize() on-chain with the collected EIP-712 signatures
+      const finalizeTxHash = await wallet.writeContract({
+        address: swipeAddress,
+        abi: SWIPE_ABI,
+        functionName: "finalize",
+        args: [
+          BigInt(onChainId),
+          votes.voters.map((v) => v as `0x${string}`),
+          votes.approvals,
+          votes.deadlines.map((d) => BigInt(d)),
+          votes.signatures.map((s) => s as `0x${string}`),
+        ],
+      });
+
+      const finalizeReceipt = await publicClient.waitForTransactionReceipt({
+        hash: finalizeTxHash,
+      });
+
+      if (finalizeReceipt.status !== "success") {
+        console.error(`[finalize] Swipe.finalize reverted for proposal ${onChainId}`);
+        candidate.status = "rejected";
+        rejected.push(candidate);
+        markFinalized(candidate.id);
+        continue;
+      }
+
+      // Parse the Finalized event to check if proposal was approved
+      const finalizedEvent = finalizeReceipt.logs.find((log) => {
+        try {
+          // Finalized event topic: keccak256("Finalized(uint256,bool,uint256,uint256)")
+          return log.topics[0] === keccak256(stringToHex("Finalized(uint256,bool,uint256,uint256)"));
+        } catch {
+          return false;
+        }
+      });
+
+      // Check canonized flag from event data (second field in event data)
+      // If no event found, check the contract state directly
+      let approved = false;
+      if (finalizedEvent && finalizedEvent.data) {
+        // Event data: abi.encode(bool canonized, uint256 weightFor, uint256 weightAgainst)
+        // canonized is the first 32 bytes of data (after topic[0] = event sig, topic[1] = indexed proposalId)
+        const canonizedByte = finalizedEvent.data.slice(0, 66); // 0x + 64 hex chars
+        approved = BigInt(canonizedByte) !== 0n;
+      } else {
+        // Fallback: read proposal state from contract
+        try {
+          const proposal = await publicClient.readContract({
+            address: swipeAddress,
+            abi: SWIPE_ABI,
+            functionName: "proposals",
+            args: [BigInt(onChainId)],
+          }) as unknown as unknown[];
+          // proposals() returns a tuple; canonized is typically index 8
+          approved = Boolean(proposal[8]);
+        } catch {
+          approved = false;
+        }
+      }
+
+      if (approved) {
+        console.log(`[finalize] proposal ${candidate.id} (chain=${onChainId}): APPROVED on-chain`);
+        candidate.status = "accepted";
+        passed.push(candidate);
+      } else {
+        console.log(`[finalize] proposal ${candidate.id} (chain=${onChainId}): REJECTED on-chain (threshold not met)`);
+        candidate.status = "rejected";
+        rejected.push(candidate);
+      }
+
+      markFinalized(candidate.id);
+    } catch (error) {
+      console.error(`[finalize] Swipe.finalize() failed for proposal ${onChainId}:`, error);
+      candidate.status = "rejected";
+      rejected.push(candidate);
+      markFinalized(candidate.id);
+    }
+  }
+
+  console.log(`[finalize] vote settlement complete: ${passed.length} passed, ${rejected.length} rejected`);
 
   const sorted = sortCandidatesByTieBreak(passed);
 
@@ -710,6 +823,49 @@ export async function POST(req: NextRequest) {
   const anchorReceipt = await publicClient.waitForTransactionReceipt({
     hash: anchorTx,
   });
+
+  // ── Register accepted placements on SwipeLoreboard for governance ──
+  const swipeLoreboardAddr = CANONICAL_ADDRESSES.swipeLoreboard as string | undefined;
+  if (swipeLoreboardAddr && swipeLoreboardAddr.length > 2 && swipeLoreboardAddr !== "0x") {
+    const swipeLoreboardAbi = [
+      {
+        name: "placeFor",
+        type: "function",
+        stateMutability: "nonpayable",
+        inputs: [
+          { name: "placer", type: "address" },
+          { name: "x", type: "int32" },
+          { name: "y", type: "int32" },
+          { name: "w", type: "uint32" },
+          { name: "h", type: "uint32" },
+          { name: "cidBytes", type: "bytes" },
+        ],
+        outputs: [{ name: "placementId", type: "uint256" }],
+      },
+    ] as const;
+
+    for (const { placement } of enriched) {
+      try {
+        const cidBytes = new TextEncoder().encode(placement.cid);
+        const placeForTx = await wallet.writeContract({
+          address: swipeLoreboardAddr as `0x${string}`,
+          abi: swipeLoreboardAbi,
+          functionName: "placeFor",
+          args: [
+            (placement.owner || "0x0000000000000000000000000000000000000000") as `0x${string}`,
+            placement.rect.x,
+            placement.rect.y,
+            placement.rect.w,
+            placement.rect.h,
+            `0x${Buffer.from(cidBytes).toString("hex")}` as `0x${string}`,
+          ],
+        });
+        console.log(`[finalize] registered placement ${placement.id} on SwipeLoreboard:`, placeForTx);
+      } catch (err) {
+        console.warn(`[finalize] SwipeLoreboard.placeFor failed for ${placement.id}:`, err);
+      }
+    }
+  }
 
   replaceAccepted(nextAccepted.map(clonePlacement));
   gcProposals();

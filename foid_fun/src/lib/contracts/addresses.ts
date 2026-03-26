@@ -20,7 +20,7 @@ export const CONTRACTS = {
   PRAYER_TIERS: process.env.NEXT_PUBLIC_PRAYER_TIERS ?? CANONICAL_ADDRESSES.prayerTiers,
   ENGRAVE: process.env.NEXT_PUBLIC_ENGRAVE_ADDRESS ?? CANONICAL_ADDRESSES.engrave,
 
-  // ── SwipeLoreboard: not deployed in v1 — Swipe handles loreboard natively ──
+  // ── SwipeLoreboard: deployed — flag/removal governance for board placements ──
   SWIPE_LOREBOARD: process.env.NEXT_PUBLIC_SWIPE_LOREBOARD ?? CANONICAL_ADDRESSES.swipeLoreboard,
 
   // ── FoidTrestGovernance: not deployed yet — governance is post-launch ──

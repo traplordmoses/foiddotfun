@@ -1,0 +1,17 @@
+{
+  "version": "1",
+  "name": "FoidLoreboardGovernance",
+  "abis": {
+    "SwipeLoreboard": {
+      "path": "./abis/SwipeLoreboard.json"
+    }
+  },
+  "instances": [
+    {
+      "abi": "SwipeLoreboard",
+      "address": "0x3782BaD8ADa3BD8C98729d4516F600317F3aC362",
+      "startBlock": 22511104,
+      "chain": "fluent-testnet"
+    }
+  ]
+}

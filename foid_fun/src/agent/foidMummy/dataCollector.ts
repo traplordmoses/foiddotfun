@@ -387,7 +387,7 @@ export async function collectVotingData(period: ReportPeriod): Promise<VotingSta
   // Legacy loreboard votes from existing subgraph
   try {
     const data = (await querySubgraph(
-      SUBGRAPH_URLS.voting,
+      SUBGRAPH_URLS.governance,
       `{
         voteCasts(
           first: 1000

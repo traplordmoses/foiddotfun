@@ -36,6 +36,32 @@ export function useSwipePropose() {
         });
 
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+        // ── Link on-chain proposalId to server-side proposal ──
+        // Parse the LoreboardProposed event from receipt logs to get the on-chain proposalId
+        try {
+          const { parseEventLogs } = await import("viem");
+          const events = parseEventLogs({
+            abi: SWIPE_ABI,
+            logs: receipt.logs,
+            eventName: "LoreboardProposed",
+          });
+          if (events.length > 0) {
+            const onChainId = Number((events[0].args as Record<string, unknown>).proposalId);
+            // POST to /api/propose/link to create the mapping
+            fetch("/api/propose/link", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                localId: args.ipfsCid, // Use CID as local identifier
+                onChainId,
+              }),
+            }).catch((err) => console.warn("[useSwipePropose] link failed:", err));
+          }
+        } catch (err) {
+          console.warn("[useSwipePropose] event parse failed:", err);
+        }
+
         return { txHash, receipt };
       } finally {
         setIsPending(false);

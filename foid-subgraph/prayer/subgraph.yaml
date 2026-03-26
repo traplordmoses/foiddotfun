@@ -1,0 +1,24 @@
+specVersion: 0.0.5
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: PrayerRegistry
+    network: fluent-testnet
+    source:
+      address: "0x6FC7301fad7Ca0294152b23FD4f0467200376d65"
+      abi: PrayerRegistry
+      startBlock: 15774936
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - PrayerSubmitted
+      abis:
+        - name: PrayerRegistry
+          file: ./abis/PrayerRegistry.json
+      eventHandlers:
+        - event: PrayerSubmitted(indexed address,bytes32,uint256)
+          handler: handlePrayerSubmitted
+      file: ./src/mapping.ts

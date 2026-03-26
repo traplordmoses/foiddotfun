@@ -1,0 +1,58 @@
+type Proposed @entity {
+  id: ID!
+  proposalId: BigInt!
+  proposer: Bytes!
+  ipfsCid: String!
+  votingEndsAt: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type LoreboardProposed @entity {
+  id: ID!
+  proposalId: BigInt!
+  proposer: Bytes!
+  ipfsCid: String!
+  x: Int!
+  y: Int!
+  w: Int!
+  h: Int!
+  votingEndsAt: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Finalized @entity {
+  id: ID!
+  proposalId: BigInt!
+  canonized: Boolean!
+  weightFor: BigInt!
+  weightAgainst: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type VoucherIssued @entity {
+  id: ID!
+  proposalId: BigInt!
+  proposer: Bytes!
+  expiresAt: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}
+
+type PlacementClaimed @entity {
+  id: ID!
+  proposalId: BigInt!
+  proposer: Bytes!
+  x: Int!
+  y: Int!
+  w: Int!
+  h: Int!
+  ipfsCid: String!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}

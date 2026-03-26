@@ -156,6 +156,21 @@ function initDb(): Database.Database {
 
   db.exec(SCHEMA);
 
+  // ── Migration: add on_chain_id and finalized_at to proposals ──
+  const cols = db.pragma("table_info(proposals)") as Array<{ name: string }>;
+  const colNames = new Set(cols.map((c) => c.name));
+
+  if (!colNames.has("on_chain_id")) {
+    db.exec("ALTER TABLE proposals ADD COLUMN on_chain_id INTEGER");
+  }
+  if (!colNames.has("finalized_at")) {
+    db.exec("ALTER TABLE proposals ADD COLUMN finalized_at INTEGER");
+  }
+
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_proposals_settle ON proposals(status, vote_ends_at_sec)"
+  );
+
   g.__foid_db__ = db;
   return db;
 }

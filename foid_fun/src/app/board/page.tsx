@@ -77,6 +77,7 @@ import { insertBoardMessage } from "@/lib/supabase";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PaintEditor } from "@/components/PaintEditor";
 import { useSwipePropose } from "@/hooks/useSwipePropose";
+import { useSwipeLoreboardGovernance } from "@/hooks/useSwipeLoreboardGovernance";
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -607,15 +608,31 @@ function BoardPageContent() {
     }
   }, [address, addStatus]);
 
-  // Governance - flagging disabled in v1 (SwipeLoreboard not deployed)
-  // Flagging will use FoidTrestGovernance in a future update
+  // Governance — flagging via SwipeLoreboard contract
   const { proposeLoreboard: swipeProposeLoreboard } = useSwipePropose();
-  const [flaggedIds] = useState<Set<string>>(new Set());
-  const flagFeeEth = "0.001";
+  const { flagPlacement: govFlagPlacement, flagFeeWei } = useSwipeLoreboardGovernance();
+  const [flaggedIds, setFlaggedIds] = useState<Set<string>>(new Set());
+  const flagFeeEth = flagFeeWei ? (Number(flagFeeWei) / 1e18).toString() : "0.001";
 
-  const handleFlagPlacement = useCallback(async (_placementId: string) => {
-    addStatus("Flagging is not available yet — coming soon", "info");
-  }, [addStatus]);
+  const handleFlagPlacement = useCallback(async (placementId: string) => {
+    if (!address) {
+      addStatus("Connect wallet to flag", "info");
+      return;
+    }
+    try {
+      addStatus(`Flagging placement — costs ${flagFeeEth} ETH...`, "info");
+      await govFlagPlacement(Number(placementId));
+      setFlaggedIds((prev) => new Set(prev).add(placementId));
+      addStatus("Placement flagged. If enough flags accumulate, a removal vote will start.", "success");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("not deployed")) {
+        addStatus("Flagging is not available yet — coming soon", "info");
+      } else {
+        addStatus(`Flag failed: ${msg}`, "error");
+      }
+    }
+  }, [address, addStatus, govFlagPlacement, flagFeeEth]);
 
   // UI state
   const [dragOver, setDragOver] = useState(false);

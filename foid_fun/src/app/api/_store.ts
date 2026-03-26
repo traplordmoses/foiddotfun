@@ -111,58 +111,11 @@ function rowToProposal(row: Record<string, unknown>): Proposal {
   };
 }
 
-// ─── Seed data ───
+// ─── Seed data (disabled for mainnet — board starts clean) ───
+// To re-enable seeding for dev, uncomment the ensureSeeded() call below.
 
-const SEED_MANIFEST: StoredManifest = {
-  epoch: 0,
-  finalizedAt: 0,
-  cid: "ipfs://bafkreieo43q5jmr4raj26fslh53px72j7iatscxodxh7ej2v7pddmzuuie",
-  placements: [
-    {
-      id: "0x490ed285f62a371a9d211f82c3111aa1409f3b9075192eb20140d87fe10c0147",
-      owner: "",
-      cid: "QmXuaCr8S7JdggmS9wefhMmtiC4ePHeoAa4hfG5x7uVdpo",
-      name: "beliefs.png",
-      mime: "image/png",
-      rect: { x: 0, y: 0, w: 736, h: 544 },
-      cells: 391,
-      bidPerCellWei: "0",
-      width: 736,
-      height: 544,
-    },
-  ],
-};
-
-function ensureSeeded() {
-  const db = getDb();
-  const count = db.prepare("SELECT COUNT(*) as c FROM manifests").get() as { c: number };
-  if (count.c === 0) {
-    saveManifestForEpoch(
-      SEED_MANIFEST.epoch,
-      SEED_MANIFEST.placements,
-      SEED_MANIFEST.finalizedAt,
-      SEED_MANIFEST.cid
-    );
-  }
-  const aCount = db.prepare("SELECT COUNT(*) as c FROM accepted_placements").get() as { c: number };
-  if (aCount.c === 0) {
-    const insertAccepted = db.prepare(`
-      INSERT OR REPLACE INTO accepted_placements
-        (id, owner, cid, name, mime, rect_x, rect_y, rect_w, rect_h, cells, bid_per_cell_wei, width, height)
-      VALUES
-        (@id, @owner, @cid, @name, @mime, @rect_x, @rect_y, @rect_w, @rect_h, @cells, @bid_per_cell_wei, @width, @height)
-    `);
-    const tx = db.transaction(() => {
-      for (const p of SEED_MANIFEST.placements) {
-        insertAccepted.run(placementToRow(p));
-      }
-    });
-    tx();
-  }
-}
-
-// Seed on first import
-try { ensureSeeded(); } catch { /* lazy init if DB not ready yet */ }
+// function ensureSeeded() { ... }
+// try { ensureSeeded(); } catch { /* lazy init if DB not ready yet */ }
 
 // ─── getStore (compatibility shim) ───
 
@@ -348,6 +301,55 @@ export function getLatestManifest(): StoredManifest | null {
     cid: row.cid as string,
     placements: JSON.parse(row.placements_json as string) as Placement[],
   };
+}
+
+// ─── On-chain linking helpers ───
+
+export function getProposalByOnChainId(onChainId: number): Proposal | null {
+  const db = getDb();
+  const row = db
+    .prepare("SELECT * FROM proposals WHERE on_chain_id = ?")
+    .get(onChainId) as Record<string, unknown> | undefined;
+  if (!row) return null;
+  return rowToProposal(row);
+}
+
+export function linkOnChainId(localId: string, onChainId: number): void {
+  const db = getDb();
+  db.prepare("UPDATE proposals SET on_chain_id = ? WHERE id = ?").run(
+    onChainId,
+    localId
+  );
+}
+
+export function markFinalized(localId: string): void {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  // Determine outcome based on vote counts
+  const row = db
+    .prepare("SELECT yes_count, no_count FROM proposals WHERE id = ?")
+    .get(localId) as { yes_count: number; no_count: number } | undefined;
+
+  const status: ProposalStatus =
+    row && row.yes_count > row.no_count ? "accepted" : "rejected";
+
+  db.prepare(
+    "UPDATE proposals SET finalized_at = ?, status = ? WHERE id = ?"
+  ).run(now, status, localId);
+}
+
+export function getUnfinalizedExpiredProposals(): Proposal[] {
+  const db = getDb();
+  const nowSec = Math.floor(Date.now() / 1000);
+  const rows = db
+    .prepare(
+      `SELECT * FROM proposals
+       WHERE status = 'proposed'
+         AND vote_ends_at_sec < ?
+         AND finalized_at IS NULL`
+    )
+    .all(nowSec) as Record<string, unknown>[];
+  return rows.map(rowToProposal);
 }
 
 export function manifestForEpoch(epoch: number | "latest") {

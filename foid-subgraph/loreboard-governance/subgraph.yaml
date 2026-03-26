@@ -1,0 +1,39 @@
+specVersion: 0.0.5
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: SwipeLoreboard
+    network: fluent-testnet
+    source:
+      address: "0x3782BaD8ADa3BD8C98729d4516F600317F3aC362"
+      abi: SwipeLoreboard
+      startBlock: 22511104
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - PlacementCreated
+        - PlacementFlagged
+        - PlacementRemoved
+        - RemovalVoteStarted
+        - RemovalVoteCast
+        - RemovalVoteResolved
+      abis:
+        - name: SwipeLoreboard
+          file: ./abis/SwipeLoreboard.json
+      eventHandlers:
+        - event: PlacementCreated(indexed uint256,indexed address,int32,int32,uint32,uint32,uint32)
+          handler: handlePlacementCreated
+        - event: PlacementFlagged(indexed uint256,indexed address,uint256)
+          handler: handlePlacementFlagged
+        - event: PlacementRemoved(indexed uint256)
+          handler: handlePlacementRemoved
+        - event: RemovalVoteStarted(indexed uint256,indexed uint256)
+          handler: handleRemovalVoteStarted
+        - event: RemovalVoteCast(indexed uint256,indexed address,bool,uint256)
+          handler: handleRemovalVoteCast
+        - event: RemovalVoteResolved(indexed uint256,indexed uint256,bool)
+          handler: handleRemovalVoteResolved
+      file: ./src/mapping.ts

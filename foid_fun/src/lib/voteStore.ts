@@ -63,6 +63,43 @@ export const voteStore = {
   },
 };
 
+/**
+ * Return all EIP-712 signed votes for a proposal in the array format
+ * expected by Swipe.finalize() on-chain.
+ */
+export function getVotesForProposal(proposalId: number): {
+  voters: string[];
+  approvals: boolean[];
+  deadlines: number[];
+  signatures: string[];
+} {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      "SELECT voter, approve, deadline, signature FROM swipe_votes WHERE proposal_id = ? ORDER BY timestamp ASC"
+    )
+    .all(proposalId) as Array<{
+    voter: string;
+    approve: number;
+    deadline: number;
+    signature: string;
+  }>;
+
+  const voters: string[] = [];
+  const approvals: boolean[] = [];
+  const deadlines: number[] = [];
+  const signatures: string[] = [];
+
+  for (const r of rows) {
+    voters.push(r.voter);
+    approvals.push(r.approve === 1);
+    deadlines.push(r.deadline);
+    signatures.push(r.signature);
+  }
+
+  return { voters, approvals, deadlines, signatures };
+}
+
 export function getVoteCounts(proposalId: number) {
   const db = getDb();
   const row = db.prepare(`

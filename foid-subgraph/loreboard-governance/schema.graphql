@@ -1,0 +1,45 @@
+type Placement @entity {
+  id: ID!
+  placementId: BigInt!
+  placer: Bytes!
+  x: Int!
+  y: Int!
+  w: Int!
+  h: Int!
+  cells: Int!
+  removed: Boolean!
+  flagCount: Int!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}
+
+type PlacementFlag @entity {
+  id: ID!
+  placementId: BigInt!
+  flagger: Bytes!
+  flagCount: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}
+
+type RemovalVote @entity {
+  id: ID!
+  placementId: BigInt!
+  voteId: BigInt!
+  resolved: Boolean!
+  removalPassed: Boolean!
+  votesFor: BigInt!
+  votesAgainst: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}
+
+type RemovalVoteCast @entity {
+  id: ID!
+  voteId: BigInt!
+  voter: Bytes!
+  support: Boolean!
+  weight: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}

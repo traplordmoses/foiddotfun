@@ -1,0 +1,17 @@
+{
+  "version": "1",
+  "name": "FoidPrayer",
+  "abis": {
+    "PrayerRegistry": {
+      "path": "./abis/PrayerRegistry.json"
+    }
+  },
+  "instances": [
+    {
+      "abi": "PrayerRegistry",
+      "address": "0x6FC7301fad7Ca0294152b23FD4f0467200376d65",
+      "startBlock": 15774936,
+      "chain": "fluent-testnet"
+    }
+  ]
+}

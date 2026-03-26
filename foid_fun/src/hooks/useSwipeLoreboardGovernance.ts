@@ -16,8 +16,8 @@ export interface RemovalVote {
   removalPassed: boolean;
 }
 
-// SwipeLoreboard is not deployed in v1 — Swipe handles loreboard proposals natively.
-// All read queries are disabled. Write callbacks throw early with descriptive error.
+// SwipeLoreboard governance: flag/removal voting for board placements.
+// Write callbacks throw early if address is not configured.
 const govAddress = (CONTRACTS.SWIPE_LOREBOARD || "") as `0x${string}`;
 const isDeployed = govAddress.length > 2; // more than just "0x" or ""
 

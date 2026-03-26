@@ -1,0 +1,9 @@
+type PrayerSubmitted @entity {
+  id: ID!
+  user: Bytes!
+  prayerHash: Bytes!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
