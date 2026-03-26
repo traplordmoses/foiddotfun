@@ -144,10 +144,10 @@ export default function LandingPage() {
                   style={{
                     objectFit: "contain",
                     objectPosition: "center",
-                    opacity: 0.10,
+                    opacity: 0.06,
                     mixBlendMode: "screen",
-                    filter: "blur(0.5px) saturate(0.5)",
-                    transform: "scale(1.15)",
+                    filter: "blur(0.5px) saturate(0.4)",
+                    transform: "scale(1.35)",
                   }}
                   unoptimized
                 />
@@ -415,7 +415,7 @@ export default function LandingPage() {
           color: #fff;
         }
 
-        /* Title zone — flex-1 on desktop, compact on mobile */
+        /* Title zone — flex-1 everywhere so title centers between nav and buttons */
         :global(.home-title-zone) {
           flex: 1;
           padding-bottom: 0;
@@ -423,8 +423,8 @@ export default function LandingPage() {
         }
         @media (max-width: 768px) {
           :global(.home-title-zone) {
-            flex: 0 0 auto;
-            padding: 10px 0 4px;
+            flex: 1;
+            padding: 0;
             max-height: none;
           }
         }
