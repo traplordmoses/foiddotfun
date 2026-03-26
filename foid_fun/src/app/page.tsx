@@ -137,7 +137,7 @@ export default function LandingPage() {
               {/* Collage background — single designed image covering the window */}
               <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden hidden sm:block">
                 <Image
-                  src="/homepage-collage.png"
+                  src="/homepager.png"
                   alt=""
                   fill
                   className="home-collage-bg"
