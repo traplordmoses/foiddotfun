@@ -3,11 +3,11 @@ const IPFS_SCHEME_REGEX = /^ipfs:\/\//i;
 const IPFS_PATH_PREFIX = "/ipfs/";
 
 const FALLBACK_GATEWAY_BASES = [
+  "https://gateway.pinata.cloud",
+  "https://cloudflare-ipfs.com",
   "https://ipfs.io",
   "https://dweb.link",
-  "https://gateway.pinata.cloud",
   "https://w3s.link",
-  "https://4everland.io",
 ];
 const PROXY_PATH_RAW = process.env.NEXT_PUBLIC_IPFS_PROXY_PATH?.trim();
 const PROXY_PATH = PROXY_PATH_RAW ? PROXY_PATH_RAW.replace(/\/+$/, "") : null;
