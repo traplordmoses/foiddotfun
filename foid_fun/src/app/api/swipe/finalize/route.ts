@@ -113,10 +113,17 @@ async function readProposal(
 export async function POST(request: NextRequest) {
   const tag = "[api/swipe/finalize]";
 
+  // Auth: require CRON_SECRET via header or query param
+  const { searchParams } = new URL(request.url);
+  const secret = searchParams.get("secret") ?? request.headers.get("x-cron-secret");
+  const expected = process.env.CRON_SECRET;
+  if (!expected || !secret || secret !== expected) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { publicClient, wallet } = getRuntimeConfig();
     const swipeAddress = CANONICAL_ADDRESSES.swipe;
-    const { searchParams } = new URL(request.url);
 
     const dry = searchParams.get("dry") === "1";
     const singleId = searchParams.get("proposalId");
@@ -291,7 +298,7 @@ export async function GET(request: NextRequest) {
   const secret = searchParams.get("secret");
   const expected = process.env.CRON_SECRET;
 
-  if (!expected || secret !== expected) {
+  if (!expected || !secret || secret !== expected) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -151,7 +151,7 @@ function initDb(): Database.Database {
   const db = new Database(DB_PATH);
 
   db.pragma("journal_mode = WAL");
-  db.pragma("synchronous = NORMAL");
+  db.pragma("synchronous = " + (process.env.NODE_ENV === "production" ? "FULL" : "NORMAL"));
   db.pragma("foreign_keys = ON");
 
   db.exec(SCHEMA);
@@ -170,6 +170,20 @@ function initDb(): Database.Database {
   db.exec(
     "CREATE INDEX IF NOT EXISTS idx_proposals_settle ON proposals(status, vote_ends_at_sec)"
   );
+
+  // Composite index for efficient vote queries by proposal + timestamp
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_swipe_votes_proposal_ts ON swipe_votes(proposal_id, timestamp)"
+  );
+
+  // Cleanup: delete votes older than 90 days (they're certainly finalized/abandoned by then)
+  try {
+    const cutoffMs = Date.now() - 90 * 24 * 3600 * 1000;
+    const deleted = db.prepare("DELETE FROM swipe_votes WHERE timestamp < ?").run(cutoffMs);
+    if (deleted.changes > 0) {
+      console.log(`[db] Cleaned up ${deleted.changes} old swipe votes (>90 days)`);
+    }
+  } catch { /* non-critical */ }
 
   g.__foid_db__ = db;
   return db;

@@ -37,6 +37,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid deadline" }, { status: 400 });
     }
 
+    // Reject votes after voting window has closed
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (deadline <= nowSec) {
+      return NextResponse.json({ error: "Voting window has closed" }, { status: 400 });
+    }
+
+    // Reject obviously invalid proposalIds
+    if (proposalId < 0 || proposalId > 1_000_000) {
+      return NextResponse.json({ error: "Invalid proposalId" }, { status: 400 });
+    }
+
     const voterLower = voter.toLowerCase() as `0x${string}`;
 
     // Rate limit

@@ -12,28 +12,28 @@ export const CANONICAL_CHAIN = {
 };
 
 export const CANONICAL_ADDRESSES = {
-  // Legacy loreboard contracts
-  treasury: "0x4A777d8650b3FA2419377F4ffeF0EF8007151536" as Address,
-  manifestStore: "0xeE469D8F9BB2Ace861AA689dE53c016871ad3D10" as Address,
-  voting: "0xEbf065A7ca3917BB5e669982e8C6954cC27A7075" as Address,
-  board: "0xE41B2D418C09Ea928E4F657ED2438f5D01472105" as Address,
-  liveNFT: "0x4b38ad556300fadd6cdc5a9b0b1870e63c0f14e3" as Address,
-  operator: "0x1a2a5E805342D5139111488C59d72832055A3e8F" as Address,
-  votingPowerSource: "0xCCf0ac9c66a68FCb8c438C697EdA87D9766f1Be5" as Address,
-  vmWrapper: "0x4031762fB8b5d3fcA168AA6555FfC666ED500DaD" as Address,
-  vmWasm: "0xBE0ec2117F36797DEf3ab10661464265b2E4df34" as Address,
+  // Legacy loreboard contracts (checksummed via getAddress)
+  treasury: getAddress("0x4A777d8650b3FA2419377F4ffeF0EF8007151536"),
+  manifestStore: getAddress("0xeE469D8F9BB2Ace861AA689dE53c016871ad3D10"),
+  voting: getAddress("0xEbf065A7ca3917BB5e669982e8C6954cC27A7075"),
+  board: getAddress("0xE41B2D418C09Ea928E4F657ED2438f5D01472105"),
+  liveNFT: getAddress("0x4b38ad556300fadd6cdc5a9b0b1870e63c0f14e3"),
+  operator: getAddress("0x1a2a5E805342D5139111488C59d72832055A3e8F"),
+  votingPowerSource: getAddress("0xCCf0ac9c66a68FCb8c438C697EdA87D9766f1Be5"),
+  vmWrapper: getAddress("0x4031762fB8b5d3fcA168AA6555FfC666ED500DaD"),
+  vmWasm: getAddress("0xBE0ec2117F36797DEf3ab10661464265b2E4df34"),
 
   // V1 contracts (redeployed 2026-03-20 — overpayment fix)
-  prayerTiers: "0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb" as Address,
-  streakVotingPower: "0x7a889b3d38889E45EE48bbCBc3681a889F87C03e" as Address,
-  foidTrest: "0x87Ea24ba4B61BbF35aD1161e11072Dc8Cf0858a6" as Address,
-  swipe: "0xddc2623Bd80B1429426e30Be3D02e52ff6f90C44" as Address,
-  swipeLoreboard: "0x3782BaD8ADa3BD8C98729d4516F600317F3aC362" as Address, // deployed with multisig owner + flag/removal governance
+  prayerTiers: getAddress("0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb"),
+  streakVotingPower: getAddress("0x7a889b3d38889E45EE48bbCBc3681a889F87C03e"),
+  foidTrest: getAddress("0x87Ea24ba4B61BbF35aD1161e11072Dc8Cf0858a6"),
+  swipe: getAddress("0xddc2623Bd80B1429426e30Be3D02e52ff6f90C44"),
+  swipeLoreboard: getAddress("0x3782BaD8ADa3BD8C98729d4516F600317F3aC362"),
 
   // Standalone contracts
-  engrave: "0xe73f5f91159c2d84b1a66badf701d5312213b66a" as Address,
-  prayerRegistry: "0x6FC7301fad7Ca0294152b23FD4f0467200376d65" as Address,
-  prayerMirror: "0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF" as Address,
+  engrave: getAddress("0xe73f5f91159c2d84b1a66badf701d5312213b66a"),
+  prayerRegistry: getAddress("0x6FC7301fad7Ca0294152b23FD4f0467200376d65"),
+  prayerMirror: getAddress("0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF"),
 };
 
 const warnOnce = (() => {
