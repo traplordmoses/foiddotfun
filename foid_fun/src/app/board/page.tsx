@@ -1136,18 +1136,15 @@ function BoardPageContent() {
         const response = await listProposals();
         if (!alive) return;
         const normalized = normalizeProposals(response.proposals);
-        startTransition(() => {
-          setProposals(normalized);
-          setProposalDebug(response.debug ?? null);
-          setProposalsLoading(false);
-        });
-      } catch {
+        setProposals(normalized);
+        setProposalDebug(response.debug ?? null);
+        setProposalsLoading(false);
+      } catch (err) {
         if (!alive) return;
-        startTransition(() => {
-          setProposals([]);
-          setProposalDebug(null);
-          setProposalsLoading(false);
-        });
+        console.error("[board] proposals load error:", err);
+        setProposals([]);
+        setProposalDebug(null);
+        setProposalsLoading(false);
       }
     };
     tick();
@@ -1252,13 +1249,14 @@ function BoardPageContent() {
     }
   };
 
+  // Deterministic particles to avoid React hydration mismatch (no Math.random in render)
   const boardParticles = useMemo(
     () =>
-      Array.from({ length: 20 }).map(() => ({
-        left: Math.random() * 100,
-        top: Math.random() * 100,
-        delay: Math.random() * 5,
-        duration: 8 + Math.random() * 12,
+      Array.from({ length: 20 }).map((_, i) => ({
+        left: ((i * 37 + 13) % 100),
+        top: ((i * 53 + 7) % 100),
+        delay: (i * 0.25) % 5,
+        duration: 8 + ((i * 41) % 12),
       })),
     [],
   );
