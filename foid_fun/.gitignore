@@ -49,3 +49,4 @@ reports/
 .netlify/
 .vercel
 .env*.local
+.env.render

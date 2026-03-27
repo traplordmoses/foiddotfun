@@ -1,16 +1,23 @@
 services:
   - type: web
-    name: wfoid-control-panel
-    env: node
+    name: foid-fun
+    runtime: node
     rootDir: foid_fun
     plan: free
+    region: ohio
+    branch: main
     buildCommand: "corepack enable && pnpm install --frozen-lockfile && pnpm run build"
     startCommand: "pnpm run start"
     autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # All app env vars are set in the Render dashboard (not in yaml for security)
+      # Use .env.render file to bulk-import them via Render dashboard
 
   - type: cron
     name: foid-x-bot
-    env: node
+    runtime: node
     rootDir: foid_fun
     schedule: "*/30 * * * *"
     buildCommand: "corepack enable && pnpm install --frozen-lockfile"
