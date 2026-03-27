@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { keccak256, stringToBytes } from "viem";
 import { verifyAgentSignature } from "../_lib/auth";
-import { checkRateLimit, recordAction } from "../_lib/rateLimit";
+import { checkRateLimit, recordAction } from "@/lib/rateLimit";
 import { getRelayerWalletClient, getAgentPublicClient, getRelayerAccount } from "../_lib/relayer";
 import { PRAYER_REGISTRY_ABI } from "@/lib/contracts/abis";
 import { CONTRACTS } from "@/lib/contracts/addresses";

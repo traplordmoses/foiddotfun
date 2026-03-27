@@ -50,6 +50,49 @@ export function useSwipeVote({
     setPhase("entered");
   }, []);
 
+  // Keyboard support: ArrowLeft / ArrowRight to vote
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (phase === "exiting") return;
+      // Don't capture keyboard when user is typing in an input
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        exitDirRef.current = "left";
+        callbackFiredRef.current = true;
+        setPhase("exiting");
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+          navigator.vibrate(15);
+        }
+        setTimeout(() => {
+          onSwipeLeft?.();
+          setDeltaX(0);
+          setIsDragging(false);
+          setPhase("entered");
+        }, 280);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        exitDirRef.current = "right";
+        callbackFiredRef.current = true;
+        setPhase("exiting");
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+          navigator.vibrate(15);
+        }
+        setTimeout(() => {
+          onSwipeRight?.();
+          setDeltaX(0);
+          setIsDragging(false);
+          setPhase("entered");
+        }, 280);
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [phase, onSwipeLeft, onSwipeRight]);
+
   const direction: SwipeDirection =
     deltaX > threshold * 0.6 ? "right" : deltaX < -threshold * 0.6 ? "left" : null;
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { Abi } from "viem";
 import { verifyAgentSignature } from "../_lib/auth";
-import { checkRateLimit, recordAction } from "../_lib/rateLimit";
+import { checkRateLimit, recordAction } from "@/lib/rateLimit";
 import { getRelayerWalletClient, getAgentPublicClient, getRelayerAccount } from "../_lib/relayer";
 import { AGENT_VOTING } from "@/config/agentBoard";
 import VotingAbi from "@/abi/loreboardVoting.json" assert { type: "json" };

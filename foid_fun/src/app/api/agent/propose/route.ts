@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { toHex, decodeEventLog } from "viem";
 import type { Abi } from "viem";
 import { verifyAgentSignature } from "../_lib/auth";
-import { checkRateLimit, recordAction } from "../_lib/rateLimit";
+import { checkRateLimit, recordAction } from "@/lib/rateLimit";
 import { getRelayerWalletClient, getAgentPublicClient, getRelayerAccount } from "../_lib/relayer";
 import { fluentTestnet } from "@/lib/viem";
 import { AGENT_BOARD } from "@/config/agentBoard";

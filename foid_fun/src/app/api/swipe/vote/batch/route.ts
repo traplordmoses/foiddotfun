@@ -1,75 +1,108 @@
-// POST /api/swipe/vote/batch
-// Accepts array of EIP-712 signed votes in one request. Uses SQLite storage.
 import { NextRequest, NextResponse } from "next/server";
-import { verifyTypedData } from "viem";
-import { CONTRACTS, CHAIN_CONFIG } from "@/lib/contracts/addresses";
-import { emitBoardEvent } from "@/lib/supabaseServer";
+import { verifyTypedData, getAddress } from "viem";
+import { addVote, getVoteCounts, hasVoted } from "@/lib/voteStore";
+import { checkRateLimit, recordAction } from "@/lib/rateLimit";
+import { EIP712_DOMAIN, EIP712_TYPES } from "@/lib/swipeConstants";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const SWIPE_DOMAIN = {
-  name: "FoidSwipe",
-  version: "1",
-  chainId: CHAIN_CONFIG.id,
-  verifyingContract: CONTRACTS.SWIPE as `0x${string}`,
-} as const;
-
-const SWIPE_VOTE_TYPES = {
-  SwipeVote: [
-    { name: "proposalId", type: "uint256" },
-    { name: "approve", type: "bool" },
-    { name: "deadline", type: "uint256" },
-  ],
-} as const;
 
 type VoteInput = {
   proposalId: number;
   approve: boolean;
   deadline: number;
   signature: string;
+  voter: string;
+  weight?: number;
+};
+
+type VoteResult = {
+  proposalId: number;
+  ok: boolean;
+  error?: string;
 };
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { votes, voter } = body as { votes: VoteInput[]; voter: string };
+    const { votes } = body as { votes: VoteInput[] };
 
-    if (!voter || typeof voter !== "string") {
-      return NextResponse.json({ error: "Missing voter" }, { status: 400 });
-    }
     if (!Array.isArray(votes) || votes.length === 0) {
-      return NextResponse.json({ error: "Empty votes array" }, { status: 400 });
+      return NextResponse.json(
+        { error: "votes must be a non-empty array" },
+        { status: 400 }
+      );
     }
+
     if (votes.length > 50) {
-      return NextResponse.json({ error: "Too many votes (max 50)" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Maximum 50 votes per batch" },
+        { status: 400 }
+      );
     }
 
-    const voterLower = voter.toLowerCase();
-    const { getDb } = await import("@/db/db");
-    const db = getDb();
+    /* ── Validate all voters are the same address (batch = one user's decisions) ── */
+    const voterAddresses = new Set(votes.map((v) => v.voter?.toLowerCase()));
+    if (voterAddresses.size !== 1) {
+      return NextResponse.json(
+        { error: "All votes in a batch must be from the same voter" },
+        { status: 400 }
+      );
+    }
 
+    let checksummedVoter: string;
+    try {
+      checksummedVoter = getAddress(votes[0].voter);
+    } catch {
+      return NextResponse.json({ error: "Invalid voter address" }, { status: 400 });
+    }
+
+    /* ── Pre-check rate limit for entire batch ── */
+    const limit = checkRateLimit(checksummedVoter, "swipe-vote", votes.length);
+    if (!limit.ok) {
+      return NextResponse.json({ error: limit.error }, { status: 429 });
+    }
+
+    /* ── Process each vote ── */
+    const results: VoteResult[] = [];
     let accepted = 0;
     let rejected = 0;
-    const errors: Array<{ proposalId: number; error: string }> = [];
-    const results: Array<{ proposalId: number; forCount: number; againstCount: number }> = [];
+    const now = Math.floor(Date.now() / 1000);
 
-    for (const v of votes) {
-      const { proposalId, approve, deadline, signature } = v;
+    for (const vote of votes) {
+      const { proposalId, approve, deadline, signature, weight } = vote;
 
-      if (typeof proposalId !== "number" || typeof approve !== "boolean" || typeof deadline !== "number" || !signature) {
+      // Input validation
+      if (
+        typeof proposalId !== "number" ||
+        typeof approve !== "boolean" ||
+        !signature
+      ) {
+        results.push({ proposalId, ok: false, error: "Invalid vote data" });
         rejected++;
-        errors.push({ proposalId: proposalId ?? -1, error: "Invalid fields" });
         continue;
       }
 
-      // Verify EIP-712 signature
-      let valid: boolean;
+      // Deadline check
+      if (typeof deadline === "number" && deadline < now) {
+        results.push({ proposalId, ok: false, error: "Voting deadline passed" });
+        rejected++;
+        continue;
+      }
+
+      // Duplicate check
+      if (hasVoted(proposalId, checksummedVoter)) {
+        results.push({ proposalId, ok: false, error: "Already voted" });
+        rejected++;
+        continue;
+      }
+
+      // Signature verification
       try {
-        valid = await verifyTypedData({
-          address: voterLower as `0x${string}`,
-          domain: SWIPE_DOMAIN,
-          types: SWIPE_VOTE_TYPES,
+        const valid = await verifyTypedData({
+          address: checksummedVoter as `0x${string}`,
+          domain: EIP712_DOMAIN,
+          types: EIP712_TYPES,
           primaryType: "SwipeVote",
           message: {
             proposalId: BigInt(proposalId),
@@ -78,60 +111,41 @@ export async function POST(request: NextRequest) {
           },
           signature: signature as `0x${string}`,
         });
-      } catch {
-        rejected++;
-        errors.push({ proposalId, error: "Invalid signature format" });
-        continue;
-      }
 
-      if (!valid) {
-        rejected++;
-        errors.push({ proposalId, error: "Signature does not match voter" });
-        continue;
-      }
-
-      // Insert into SQLite (UNIQUE constraint prevents duplicates)
-      try {
-        db.prepare(`
-          INSERT INTO swipe_votes (proposal_id, voter, approve, deadline, signature, timestamp)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `).run(proposalId, voterLower, approve ? 1 : 0, deadline, signature, Date.now());
-
-        accepted++;
-        emitBoardEvent({ event_type: "vote_cast", proposal_id: proposalId, data: { voter: voterLower, approve } });
-
-        const counts = db.prepare(`
-          SELECT
-            SUM(CASE WHEN approve = 1 THEN 1 ELSE 0 END) as for_count,
-            SUM(CASE WHEN approve = 0 THEN 1 ELSE 0 END) as against_count
-          FROM swipe_votes WHERE proposal_id = ?
-        `).get(proposalId) as { for_count: number | null; against_count: number | null };
-
-        results.push({
-          proposalId,
-          forCount: counts.for_count ?? 0,
-          againstCount: counts.against_count ?? 0,
-        });
-      } catch (err: unknown) {
-        if (err instanceof Error && err.message.includes("UNIQUE")) {
+        if (!valid) {
+          results.push({ proposalId, ok: false, error: "Invalid signature" });
           rejected++;
-          errors.push({ proposalId, error: "Already voted" });
-        } else {
-          rejected++;
-          errors.push({ proposalId, error: String(err) });
+          continue;
         }
+      } catch {
+        results.push({ proposalId, ok: false, error: "Signature verification failed" });
+        rejected++;
+        continue;
+      }
+
+      // Store in SQLite
+      const inserted = addVote({
+        proposalId,
+        voter: checksummedVoter.toLowerCase(),
+        approve,
+        deadline,
+        signature,
+        weight: typeof weight === "number" ? weight : 100,
+      });
+
+      if (inserted) {
+        recordAction(checksummedVoter, "swipe-vote");
+        results.push({ proposalId, ok: true });
+        accepted++;
+      } else {
+        results.push({ proposalId, ok: false, error: "Already voted (constraint)" });
+        rejected++;
       }
     }
 
-    return NextResponse.json({
-      ok: true,
-      accepted,
-      rejected,
-      results,
-      errors: errors.length > 0 ? errors : undefined,
-    });
+    return NextResponse.json({ results, accepted, rejected });
   } catch (error) {
-    console.error("[api/swipe/vote/batch] Error:", error);
+    console.error("[api/swipe/vote/batch] POST error:", error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }

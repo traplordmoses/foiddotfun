@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { createPublicClient, http } from "viem";
 import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
 import { CONTRACTS } from "@/lib/contracts/addresses";
+import { RPC_URL, CHAIN_CONFIG } from "@/lib/contracts/addresses";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
 import { getVoteCounts } from "@/lib/voteStore";
-import { rpcClient } from "@/lib/rpcClient";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,8 +17,18 @@ export async function GET() {
       return NextResponse.json({ proposals: [], error: "Swipe contract not configured" });
     }
 
+    const client = createPublicClient({
+      chain: {
+        id: CHAIN_CONFIG.id,
+        name: CHAIN_CONFIG.name,
+        nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+        rpcUrls: { default: { http: [RPC_URL] } },
+      },
+      transport: http(RPC_URL),
+    });
+
     // Read proposal count
-    const count = await rpcClient.readContract({
+    const count = await client.readContract({
       address: swipeAddress,
       abi: SWIPE_ABI,
       functionName: "proposalCount",
@@ -28,45 +39,21 @@ export async function GET() {
       return NextResponse.json({ proposals: [], count: 0 });
     }
 
-    // Batch read ALL proposals via multicall (1 RPC call instead of N)
-    const contracts = Array.from({ length: proposalCount }, (_, i) => ({
-      address: swipeAddress,
-      abi: SWIPE_ABI,
-      functionName: "getProposal" as const,
-      args: [BigInt(i)] as const,
-    }));
+    // Read proposals in parallel batches of 5
+    type ProposalTuple = {
+      id: bigint;
+      proposer: string;
+      ipfsCid: string;
+      createdAt: bigint;
+      votingEndsAt: bigint;
+      finalized: boolean;
+      canonized: boolean;
+      trestEntryId: bigint;
+    };
 
-    const results = await rpcClient.multicall({
-      contracts,
-      allowFailure: true,
-    });
-
-    const nowSec = Math.floor(Date.now() / 1000);
-    const proposals = [];
-
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
-      if (result.status !== "success" || !result.result) continue;
-
-      const raw = result.result;
-      let p: {
-        id: bigint;
-        proposer: string;
-        ipfsCid: string;
-        createdAt: bigint;
-        votingEndsAt: bigint;
-        finalized: boolean;
-        canonized: boolean;
-        trestEntryId: bigint;
-        proposalType: number;
-        gridX: number;
-        gridY: number;
-        gridW: number;
-        gridH: number;
-      };
-
+    function parseProposal(raw: unknown): ProposalTuple {
       if (Array.isArray(raw)) {
-        p = {
+        return {
           id: raw[0] as bigint,
           proposer: raw[1] as string,
           ipfsCid: raw[2] as string,
@@ -75,45 +62,53 @@ export async function GET() {
           finalized: raw[5] as boolean,
           canonized: raw[6] as boolean,
           trestEntryId: raw[7] as bigint,
-          proposalType: Number(raw[8] ?? 0),
-          gridX: Number(raw[9] ?? 0),
-          gridY: Number(raw[10] ?? 0),
-          gridW: Number(raw[11] ?? 0),
-          gridH: Number(raw[12] ?? 0),
         };
-      } else {
-        p = raw as typeof p;
       }
+      return raw as ProposalTuple;
+    }
 
-      const counts = getVoteCounts(Number(p.id));
+    const BATCH_SIZE = 5;
+    const proposals = [];
 
-      const status = p.finalized
-        ? p.canonized
-          ? "canonized"
-          : "rejected"
-        : nowSec < Number(p.votingEndsAt)
-          ? "voting"
-          : "expired";
+    for (let batchStart = 0; batchStart < proposalCount; batchStart += BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, proposalCount);
+      const indices = Array.from({ length: batchEnd - batchStart }, (_, j) => batchStart + j);
 
-      proposals.push({
-        id: Number(p.id),
-        proposer: p.proposer,
-        ipfsCid: p.ipfsCid,
-        imageUrl: p.ipfsCid ? cidToHttpUrl(p.ipfsCid) : null,
-        createdAt: Number(p.createdAt),
-        votingEndsAt: Number(p.votingEndsAt),
-        finalized: p.finalized,
-        canonized: p.canonized,
-        trestEntryId: Number(p.trestEntryId),
-        proposalType: p.proposalType,
-        gridX: p.gridX,
-        gridY: p.gridY,
-        gridW: p.gridW,
-        gridH: p.gridH,
-        status,
-        forCount: counts.forCount,
-        againstCount: counts.againstCount,
-      });
+      const batchResults = await Promise.allSettled(
+        indices.map((i) =>
+          client.readContract({
+            address: swipeAddress,
+            abi: SWIPE_ABI,
+            functionName: "getProposal",
+            args: [BigInt(i)],
+          })
+        )
+      );
+
+      for (let j = 0; j < batchResults.length; j++) {
+        const result = batchResults[j];
+        const idx = indices[j];
+        if (result.status === "rejected") {
+          console.error(`[api/swipe/proposals] Failed to read proposal ${idx}:`, result.reason);
+          continue;
+        }
+
+        const p = parseProposal(result.value);
+        const counts = getVoteCounts(Number(p.id));
+        proposals.push({
+          id: Number(p.id),
+          proposer: p.proposer,
+          ipfsCid: p.ipfsCid,
+          imageUrl: p.ipfsCid ? cidToHttpUrl(p.ipfsCid) : null,
+          createdAt: Number(p.createdAt),
+          votingEndsAt: Number(p.votingEndsAt),
+          finalized: p.finalized,
+          canonized: p.canonized,
+          trestEntryId: Number(p.trestEntryId),
+          forCount: counts.forCount,
+          againstCount: counts.againstCount,
+        });
+      }
     }
 
     return NextResponse.json(

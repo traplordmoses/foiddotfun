@@ -1,6 +1,11 @@
-// Persistent swipe vote store — SQLite-backed.
-// Same export signatures as the original in-memory version.
-import { getDb } from "@/db/db";
+import {
+  db,
+  insertVote,
+  getVotesByProposal,
+  getVoteCountsByProposal,
+  hasVoted as hasVotedStmt,
+  getVotesForFinalize as getVotesForFinalizeStmt,
+} from "@/lib/db";
 
 export type StoredVote = {
   proposalId: number;
@@ -8,116 +13,93 @@ export type StoredVote = {
   deadline: number;
   signature: string;
   voter: string;
-  timestamp: number;
-};
-
-type VoteRow = {
-  proposal_id: number;
-  voter: string;
-  approve: number;
-  deadline: number;
-  signature: string;
-  timestamp: number;
-};
-
-function rowToVote(row: VoteRow): StoredVote {
-  return {
-    proposalId: row.proposal_id,
-    approve: row.approve === 1,
-    deadline: row.deadline,
-    signature: row.signature,
-    voter: row.voter,
-    timestamp: row.timestamp,
-  };
-}
-
-// Proxy object that implements Map-like interface backed by SQLite
-export const voteStore = {
-  get(proposalId: number): StoredVote[] | undefined {
-    const db = getDb();
-    const rows = db
-      .prepare("SELECT * FROM swipe_votes WHERE proposal_id = ? ORDER BY timestamp ASC")
-      .all(proposalId) as VoteRow[];
-    return rows.length > 0 ? rows.map(rowToVote) : undefined;
-  },
-
-  set(proposalId: number, votes: StoredVote[]) {
-    const db = getDb();
-    const tx = db.transaction(() => {
-      db.prepare("DELETE FROM swipe_votes WHERE proposal_id = ?").run(proposalId);
-      const insert = db.prepare(`
-        INSERT INTO swipe_votes (proposal_id, voter, approve, deadline, signature, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
-      for (const v of votes) {
-        insert.run(v.proposalId, v.voter, v.approve ? 1 : 0, v.deadline, v.signature, v.timestamp);
-      }
-    });
-    tx();
-  },
-
-  has(proposalId: number): boolean {
-    const db = getDb();
-    const row = db.prepare("SELECT 1 FROM swipe_votes WHERE proposal_id = ? LIMIT 1").get(proposalId);
-    return !!row;
-  },
+  weight?: number;
+  timestamp?: number;
 };
 
 /**
- * Return all EIP-712 signed votes for a proposal in the array format
- * expected by Swipe.finalize() on-chain.
+ * Add a vote to SQLite. Returns true if inserted, false if duplicate (UNIQUE violation).
  */
-export function getVotesForProposal(proposalId: number): {
+export function addVote(vote: StoredVote): boolean {
+  const info = insertVote.run({
+    proposalId: vote.proposalId,
+    voter: vote.voter.toLowerCase(),
+    approve: vote.approve ? 1 : 0,
+    deadline: vote.deadline,
+    signature: vote.signature,
+    weight: vote.weight ?? 100,
+  });
+  return info.changes > 0;
+}
+
+/**
+ * Get vote counts for a proposal.
+ */
+export function getVoteCounts(proposalId: number): {
+  forCount: number;
+  againstCount: number;
+  totalVotes: number;
+} {
+  const row = getVoteCountsByProposal.get(proposalId) as
+    | { forCount: number; againstCount: number; totalVotes: number }
+    | undefined;
+  return row ?? { forCount: 0, againstCount: 0, totalVotes: 0 };
+}
+
+/**
+ * Get all votes for a proposal (for display / API).
+ */
+export function getVotes(proposalId: number): StoredVote[] {
+  const rows = getVotesByProposal.all(proposalId) as Array<{
+    proposalId: number;
+    voter: string;
+    approve: number;
+    deadline: number;
+    signature: string;
+    weight: number;
+    createdAt: number;
+  }>;
+  return rows.map((r) => ({
+    proposalId: r.proposalId,
+    voter: r.voter,
+    approve: r.approve === 1,
+    deadline: r.deadline,
+    signature: r.signature,
+    weight: r.weight,
+    timestamp: r.createdAt,
+  }));
+}
+
+/**
+ * Check if a voter has already voted on a proposal.
+ */
+export function hasVoted(proposalId: number, voter: string): boolean {
+  return !!hasVotedStmt.get(proposalId, voter.toLowerCase());
+}
+
+/**
+ * Get votes for on-chain finalization (arrays matching contract's finalize() args).
+ */
+export function getVotesForFinalize(proposalId: number): {
   voters: string[];
   approvals: boolean[];
   deadlines: number[];
   signatures: string[];
 } {
-  const db = getDb();
-  const rows = db
-    .prepare(
-      "SELECT voter, approve, deadline, signature FROM swipe_votes WHERE proposal_id = ? ORDER BY timestamp ASC"
-    )
-    .all(proposalId) as Array<{
+  const rows = getVotesForFinalizeStmt.all(proposalId) as Array<{
     voter: string;
     approve: number;
     deadline: number;
     signature: string;
   }>;
 
-  const voters: string[] = [];
-  const approvals: boolean[] = [];
-  const deadlines: number[] = [];
-  const signatures: string[] = [];
-
-  for (const r of rows) {
-    voters.push(r.voter);
-    approvals.push(r.approve === 1);
-    deadlines.push(r.deadline);
-    signatures.push(r.signature);
-  }
-
-  return { voters, approvals, deadlines, signatures };
+  return {
+    voters: rows.map((r) => r.voter),
+    approvals: rows.map((r) => r.approve === 1),
+    deadlines: rows.map((r) => r.deadline),
+    signatures: rows.map((r) => r.signature),
+  };
 }
 
-export function getVoteCounts(proposalId: number) {
-  try {
-    const db = getDb();
-    const row = db.prepare(`
-      SELECT
-        SUM(CASE WHEN approve = 1 THEN 1 ELSE 0 END) as for_count,
-        SUM(CASE WHEN approve = 0 THEN 1 ELSE 0 END) as against_count,
-        COUNT(*) as total
-      FROM swipe_votes WHERE proposal_id = ?
-    `).get(proposalId) as { for_count: number | null; against_count: number | null; total: number };
-
-    return {
-      forCount: row.for_count ?? 0,
-      againstCount: row.against_count ?? 0,
-      totalVotes: row.total,
-    };
-  } catch {
-    // SQLite not available (e.g. Vercel serverless) — return zero counts
-    return { forCount: 0, againstCount: 0, totalVotes: 0 };
-  }
-}
+// Re-export db for direct access if needed
+export { db };
