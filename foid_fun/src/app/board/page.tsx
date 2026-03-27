@@ -3,6 +3,8 @@
 // Features: Wallet dropdown, iPod music player, terminal chat with status, infinite smooth zoom
 "use client";
 
+import "./board.css";
+
 import React, {
   Suspense,
   startTransition,
@@ -24,18 +26,15 @@ import {
   WORLD_MAX_X,
   WORLD_MAX_Y,
   worldToContractRect,
-  contractToWorldRect,
 } from "@/lib/boardSpace";
 import { sniffImageType, mimeFromType } from "@/lib/image";
 import { convertToJpeg } from "@/lib/imageConvert";
 import { uploadImage } from "@/lib/ipfs";
-import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
+import { cidToHttpUrl } from "@/lib/ipfsUrl";
 import { formatEth } from "@/lib/wei";
-import { useLatestManifestFromChain } from "@/hooks/useLatestManifestFromChain";
-import type { FinalizedPlacement } from "@/lib/types";
-import { getLatestNormalized } from "@/lib/manifest";
 import { listProposals } from "@/lib/api";
 import type { ProposalSummary, ListProposalsResponse } from "@/lib/api";
+import { writeSwipeLoreboardPlace } from "@/lib/viem";
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { LoreboardNotification } from "@/components/LoreboardNotification";
@@ -45,7 +44,6 @@ import { TerminalChat, type StatusMessage } from "@/components/TerminalChat";
 import { Y2kActionButton } from "@/components/Y2kActionButton";
 import dynamic from "next/dynamic";
 import { useMobile } from "@/hooks/useMobile";
-import { useBoardEvents } from "@/hooks/useBoardEvents";
 import type { BoardNode } from "@/types/mobile";
 
 const MobileBoard = dynamic(
@@ -54,7 +52,7 @@ const MobileBoard = dynamic(
 );
 import { MobileWalletButton } from "@/components/MobileWalletButton";
 import { GestureHint } from "@/components/GestureHint";
-import { MobilePlacementPicker } from "@/components/MobilePlacementPicker";
+// MobilePlacementPicker — used only within MobileProposeModal (extracted)
 import {
   toStageRect,
   snapDown,
@@ -77,29 +75,20 @@ import { parseWeb3Error, isUserRejection } from "@/lib/errors";
 import { insertBoardMessage } from "@/lib/supabase";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PaintEditor } from "@/components/PaintEditor";
-import { useSwipePropose } from "@/hooks/useSwipePropose";
 import { useSwipeLoreboardGovernance } from "@/hooks/useSwipeLoreboardGovernance";
 
 // ============================================================================
-// HELPER FUNCTIONS
+// HELPER FUNCTIONS (extracted to lib/board)
 // ============================================================================
 
-// Debug logger - only logs in development
-const debugWarn = (...args: unknown[]) => {
-  if (process.env.NODE_ENV !== "production") {
-    console.warn(...args);
-  }
-};
-
-const isBytes32Hex = (value?: string): value is `0x${string}` =>
-  typeof value === "string" && /^0x[0-9a-fA-F]{64}$/.test(value);
-
-type EthereumProvider = {
-  request: (args: { method: string; params?: readonly unknown[] }) => Promise<unknown>;
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
+import {
+  debugWarn,
+  normalizeCidString,
+  normalizeProposals,
+  tryNextGateway,
+  getImageSize,
+} from "@/lib/board";
+import { MobileProposeModal } from "@/components/board/MobileProposeModal";
 
 // ============================================================================
 // CONSTANTS
@@ -129,56 +118,7 @@ type Ghost = { rect: Rect; cells: number; status: GhostStatus; totalWei: bigint 
 // (Image and coordinate utilities now imported from /src/lib/)
 // ============================================================================
 
-/**
- * Validate if a string is a valid IPFS CID
- * CIDv0: starts with "Qm" and is 46 characters (base58)
- * CIDv1: starts with "b" and is variable length (base32)
- */
-const isValidCid = (value: string): boolean => {
-  const trimmed = value.trim();
-  // CIDv0 format: Qm... (46 chars, base58)
-  if (/^Qm[1-9A-HJ-NP-Za-km-z]{44}$/.test(trimmed)) return true;
-  // CIDv1 format: b... (base32, variable length)
-  if (/^b[a-z2-7]{58,}$/.test(trimmed)) return true;
-  // Allow dev/test CIDs (for local development)
-  if (/^dev-/.test(trimmed)) return true;
-  return false;
-};
-
-const normalizeCidString = (value: string): string => {
-  const trimmed = value.trim();
-  if (!trimmed) throw new Error("Empty CID");
-
-  let cidPart = trimmed;
-
-  // Extract CID from URL
-  if (/^https?:\/\//i.test(trimmed)) {
-    try {
-      const url = new URL(trimmed);
-      const parts = url.pathname.replace(/^\/+/, "").split("/");
-      cidPart = parts.slice(parts[0] === "ipfs" ? 1 : 0)[0] || "";
-    } catch {
-      throw new Error("Invalid IPFS URL");
-    }
-  } else if (trimmed.startsWith("ipfs://")) {
-    cidPart = trimmed.replace(/^ipfs:\/\//, "");
-  }
-
-  // Validate CID format
-  if (!isValidCid(cidPart)) {
-    throw new Error(`Invalid CID format: ${cidPart.slice(0, 20)}...`);
-  }
-
-  return `ipfs://${cidPart}`;
-};
-
-
-function tryNextGateway(el: HTMLImageElement, cid?: string) {
-  if (!cid) return;
-  const urls = ipfsToHttp(cid);
-  const idx = Number(el.dataset.gatewayIndex ?? "-1") + 1;
-  if (idx < urls.length) { el.src = urls[idx]; el.dataset.gatewayIndex = String(idx); }
-}
+// isValidCid, normalizeCidString, tryNextGateway — imported from @/lib/board
 
 async function getPendingBytes(p: PendingItem): Promise<ArrayBuffer> {
   // Prefer using the File object directly if available
@@ -191,354 +131,10 @@ async function getPendingBytes(p: PendingItem): Promise<ArrayBuffer> {
   return res.arrayBuffer();
 }
 
-const asWorldRect = (value: unknown): Rect => {
-  if (!isRecord(value)) {
-    throw new Error("Invalid rect: expected object");
-  }
-
-  const src = value;
-  const rect = isRecord(src.rect) ? src.rect : src;
-
-  const x = Number(rect.x);
-  const y = Number(rect.y);
-  const w = Number(rect.w ?? rect.width);
-  const h = Number(rect.h ?? rect.height);
-
-  // Validate all fields are valid numbers
-  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(w) || !Number.isFinite(h)) {
-    throw new Error("Invalid rect: non-numeric or missing coordinates");
-  }
-
-  // Validate dimensions are positive
-  if (w < 0 || h < 0) {
-    throw new Error("Invalid rect: negative dimensions");
-  }
-
-  return { x, y, w, h };
-};
+// asWorldRect, normalizeProposals — imported from @/lib/board
 
 
-const normalizePlacements = (list: unknown[]): FinalizedPlacement[] =>
-  list.map((p) => {
-    const placement = isRecord(p) ? p : {};
-    const coerced = asWorldRect(placement.rect ?? placement);
-    // Manifests may contain contract-space coordinates (x/y offset by BOARD_OFFSET).
-    // In world space x is always < BOARD_OFFSET, so values >= BOARD_OFFSET indicate
-    // contract coordinates that need conversion.
-    const needsTransform = coerced.x >= BOARD_OFFSET_X || coerced.y >= BOARD_OFFSET_Y;
-    const rect = needsTransform ? contractToWorldRect(coerced) : coerced;
-    return {
-      ...(placement as FinalizedPlacement),
-      x: rect.x,
-      y: rect.y,
-      w: rect.w,
-      h: rect.h,
-      cells: Number(placement.cells ?? 1),
-    };
-  });
-
-const normalizeProposals = (list: ProposalSummary[] | undefined): ProposalSummary[] =>
-  (list ?? []).map((p) => {
-    // API returns CONTRACT coordinates, convert to WORLD coordinates for rendering
-    const contractRect = asWorldRect(p.rect ?? p);
-    const rect = contractToWorldRect(contractRect);
-    const cells = Math.floor((contractRect.w / TILE) * (contractRect.h / TILE));
-    // Check p.id first (from API), then p.placementId, then p.chainId (legacy)
-    const placementId = isBytes32Hex(p.id) ? p.id : isBytes32Hex(p.placementId) ? p.placementId : isBytes32Hex(p.chainId) ? p.chainId : undefined;
-    // Map yesVotes/noVotes to yes/no for backward compatibility
-    const yes = p.yesVotes ?? p.yes ?? 0;
-    const no = p.noVotes ?? p.no ?? 0;
-    return { ...p, rect, cells, placementId, epochId: p.epochSubmitted ?? 0, yes, no };
-  });
-
-
-// ============================================================================
-// MOBILE PROPOSE MODAL
-// ============================================================================
-
-function MobileProposeModal({
-  isConnected,
-  address,
-  placedRects,
-  onClose,
-  onSuccess,
-}: {
-  isConnected: boolean;
-  address?: string;
-  placedRects: Rect[];
-  onClose: () => void;
-  onSuccess: (msg: string) => void;
-}) {
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [step, setStep] = useState<"pick" | "paint" | "position" | "uploading" | "submitting" | "done" | "error">("pick");
-  const [errorMsg, setErrorMsg] = useState("");
-  const [placementRect, setPlacementRect] = useState<Rect | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const placementFee = process.env.NEXT_PUBLIC_PLACEMENT_FEE_WEI ?? "1000000000000000";
-  const feeEth = (Number(BigInt(placementFee)) / 1e18).toFixed(4);
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (!f.type.startsWith("image/")) {
-      setErrorMsg("Only image files allowed");
-      setStep("error");
-      return;
-    }
-    if (f.size > 10 * 1024 * 1024) {
-      setErrorMsg("File too large (max 10MB)");
-      setStep("error");
-      return;
-    }
-    // Auto-convert non-PNG/JPEG to JPEG
-    let processed = f;
-    if (f.type !== "image/jpeg" && f.type !== "image/png") {
-      try {
-        processed = await convertToJpeg(f);
-      } catch {
-        setErrorMsg("Could not process image");
-        setStep("error");
-        return;
-      }
-    }
-    setFile(processed);
-    setPreview(URL.createObjectURL(processed));
-    setErrorMsg("");
-    setStep("paint");
-  };
-
-  const handlePaintDone = async (editedFile: File) => {
-    setFile(editedFile);
-    if (preview) URL.revokeObjectURL(preview);
-    setPreview(URL.createObjectURL(editedFile));
-
-    // Compute initial placement rect from image dimensions
-    try {
-      const { w, h } = await getImageSizeFromFile(editedFile);
-      let rect = snapRect({ x: 0, y: 0, w, h });
-      rect = capRectToMaxCells(rect, MAX_CELLS_PER_RECT);
-      setPlacementRect(rect);
-      setStep("position");
-    } catch {
-      setPlacementRect(snapRect({ x: 0, y: 0, w: TILE, h: TILE }));
-      setStep("position");
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!file || !address || !isConnected || !placementRect) return;
-
-    // Validate placement
-    if (hasOverlap(placementRect, placedRects)) {
-      setErrorMsg("Placement overlaps an existing meme");
-      setStep("error");
-      return;
-    }
-    if (!isTouching(placementRect, placedRects)) {
-      setErrorMsg("Placement must touch an existing meme on the board");
-      setStep("error");
-      return;
-    }
-
-    try {
-      setStep("uploading");
-
-      // Determine mime type
-      const kind = await sniffImageType(file);
-      const mime = kind ? mimeFromType(kind) : null;
-      if (!mime) throw new Error("Only PNG or JPG images allowed");
-
-      // Upload to IPFS
-      const cid = await uploadImage(file.name, file, mime as "image/png" | "image/jpeg");
-      if (!cid) throw new Error("IPFS upload disabled — configure PINATA_JWT");
-
-      setStep("submitting");
-
-      const contractRect = worldToContractRect(placementRect);
-
-      const normalizedCid = normalizeCidString(cid);
-
-      // Import and call Swipe.proposeLoreboard() instead of SwipeLoreboard.place()
-      const { getWalletClient, fluentTestnet } = await import("@/lib/viem");
-      const { SWIPE_ABI } = await import("@/lib/contracts/abis/swipe");
-      const { CONTRACTS } = await import("@/lib/contracts/addresses");
-      const walletClient = await getWalletClient();
-      const swipeAddr = CONTRACTS.SWIPE as `0x${string}`;
-      const fee = BigInt(CONTRACTS.SWIPE_SUBMISSION_FEE ?? "1000000000000000");
-
-      await walletClient.writeContract({
-        account: (walletClient.account ?? address) as `0x${string}`,
-        address: swipeAddr,
-        abi: SWIPE_ABI,
-        functionName: "proposeLoreboard",
-        args: [normalizedCid, contractRect.x, contractRect.y, contractRect.w, contractRect.h],
-        value: fee,
-        chain: fluentTestnet,
-      });
-
-      setStep("done");
-      onSuccess(`Proposal submitted! Now in voting queue. (${file.name})`);
-    } catch (e: unknown) {
-      if (isUserRejection(e)) {
-        setStep("pick");
-        return;
-      }
-      const parsed = parseWeb3Error(e);
-      setErrorMsg(parsed.message);
-      setStep("error");
-    }
-  };
-
-  // Cleanup preview URL
-  useEffect(() => {
-    return () => { if (preview) URL.revokeObjectURL(preview); };
-  }, [preview]);
-
-  return (
-    <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
-      onClick={(e) => { if (e.target === e.currentTarget && step !== "uploading" && step !== "submitting") onClose(); }}
-    >
-      <div
-        className="w-[90vw] max-w-sm rounded-2xl p-5 relative"
-        style={{
-          background: "linear-gradient(135deg, rgba(20,10,40,0.95), rgba(10,5,30,0.98))",
-          border: "1px solid rgba(224,64,251,0.3)",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.6), 0 0 60px rgba(224,64,251,0.15)",
-        }}
-      >
-        {/* Close button */}
-        {step !== "uploading" && step !== "submitting" && (
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full"
-            style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
-          >
-            ×
-          </button>
-        )}
-
-        <h2 className="text-sm font-bold tracking-widest uppercase mb-4" style={{ color: "#e040fb" }}>
-          Propose Meme
-        </h2>
-
-        {step === "pick" && (
-          <>
-            {!isConnected ? (
-              <p className="text-xs text-white/60 mb-4">Connect your wallet first to propose a meme.</p>
-            ) : (
-              <>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileSelect}
-                />
-
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  className="w-full py-8 rounded-xl border-2 border-dashed mb-4 text-sm"
-                  style={{ borderColor: "rgba(224,64,251,0.3)", color: "rgba(255,255,255,0.6)", background: "rgba(224,64,251,0.05)" }}
-                >
-                  Tap to select image
-                </button>
-
-                <div className="flex items-center justify-between text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
-                  <span>Placement fee</span>
-                  <span className="font-bold" style={{ color: "rgba(255,255,255,0.9)" }}>{feeEth} ETH</span>
-                </div>
-              </>
-            )}
-          </>
-        )}
-
-        {step === "paint" && file && (
-          <PaintEditor
-            imageFile={file}
-            onDone={handlePaintDone}
-            onCancel={() => setStep("pick")}
-          />
-        )}
-
-        {step === "position" && preview && placementRect && (
-          <MobilePlacementPicker
-            previewUrl={preview}
-            rect={placementRect}
-            placedRects={placedRects}
-            onRectChange={setPlacementRect}
-            onConfirm={handleSubmit}
-            onBack={() => setStep("pick")}
-          />
-        )}
-
-        {(step === "uploading" || step === "submitting") && (
-          <div className="py-8 flex flex-col items-center gap-4">
-            <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "#e040fb", borderTopColor: "transparent" }} />
-            <p className="text-sm" style={{ color: "rgba(255,255,255,0.8)" }}>
-              {step === "uploading" ? "Uploading to IPFS..." : "Confirm transaction in wallet..."}
-            </p>
-          </div>
-        )}
-
-        {step === "done" && (
-          <div className="py-8 flex flex-col items-center gap-4">
-            <div className="text-4xl">&#10003;</div>
-            <p className="text-sm font-bold" style={{ color: "rgba(72,255,171,0.95)" }}>Meme placed on board!</p>
-            <button
-              onClick={onClose}
-              className="px-6 py-2 rounded-xl text-sm font-bold"
-              style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)" }}
-            >
-              Done
-            </button>
-          </div>
-        )}
-
-        {step === "error" && (
-          <div className="py-6 flex flex-col items-center gap-4">
-            <p className="text-sm text-center" style={{ color: "rgba(255,71,87,0.9)" }}>{errorMsg}</p>
-            <button
-              onClick={() => { setStep("pick"); setErrorMsg(""); }}
-              className="px-6 py-2 rounded-xl text-sm font-bold"
-              style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)" }}
-            >
-              Try Again
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** Get image dimensions from a File (used by MobileProposeModal) */
-async function getImageSizeFromFile(file: File): Promise<{ w: number; h: number }> {
-  try {
-    const createBitmap = typeof createImageBitmap === "function" ? createImageBitmap : null;
-    const bmp = createBitmap ? await createBitmap(file) : null;
-    if (bmp) {
-      const w = bmp.width, h = bmp.height;
-      bmp.close?.();
-      return { w, h };
-    }
-  } catch { /* fall through */ }
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise<HTMLImageElement>((res, rej) => {
-      const i = new Image();
-      i.onload = () => res(i);
-      i.onerror = rej;
-      i.src = url;
-    });
-    return { w: img.naturalWidth, h: img.naturalHeight };
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
+// MobileProposeModal — imported from @/components/board/MobileProposeModal
 
 // ============================================================================
 // MAIN BOARD PAGE COMPONENT
@@ -571,7 +167,6 @@ function BoardPageContent() {
   // Desktop paint editor state
   const [desktopPaintFile, setDesktopPaintFile] = useState<File | null>(null);
   const [desktopPaintPos, setDesktopPaintPos] = useState<DropPos | undefined>(undefined);
-  const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
 
   // Pan/zoom - smooth infinite
   const [scale, setScale] = useState(1);
@@ -609,31 +204,28 @@ function BoardPageContent() {
     }
   }, [address, addStatus]);
 
-  // Governance — flagging via SwipeLoreboard contract
-  const { proposeLoreboard: swipeProposeLoreboard } = useSwipePropose();
-  const { flagPlacement: govFlagPlacement, flagFeeWei } = useSwipeLoreboardGovernance();
+  // Governance - flagging placements
+  const { flagPlacement, flagFeeWei } = useSwipeLoreboardGovernance();
   const [flaggedIds, setFlaggedIds] = useState<Set<string>>(new Set());
-  const flagFeeEth = flagFeeWei ? (Number(flagFeeWei) / 1e18).toString() : "0.001";
+  const flagFeeEth = (Number(flagFeeWei) / 1e18).toFixed(3);
 
   const handleFlagPlacement = useCallback(async (placementId: string) => {
-    if (!address) {
-      addStatus("Connect wallet to flag", "info");
+    if (!address || !isConnected) {
+      openConnectModal?.();
       return;
     }
     try {
-      addStatus(`Flagging placement — costs ${flagFeeEth} ETH...`, "info");
-      await govFlagPlacement(Number(placementId));
-      setFlaggedIds((prev) => new Set(prev).add(placementId));
-      addStatus("Placement flagged. If enough flags accumulate, a removal vote will start.", "success");
+      // Convert hex placementId to number for the contract call
+      const numericId = Number(BigInt(placementId));
+      await flagPlacement(numericId);
+      setFlaggedIds(prev => new Set(prev).add(placementId));
+      addStatus(`Flagged placement — tx sent`, "success");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("not deployed")) {
-        addStatus("Flagging is not available yet — coming soon", "info");
-      } else {
-        addStatus(`Flag failed: ${msg}`, "error");
-      }
+      if (isUserRejection(err)) return;
+      const msg = parseWeb3Error(err);
+      addStatus(`Flag failed: ${msg}`, "error");
     }
-  }, [address, addStatus, govFlagPlacement, flagFeeEth]);
+  }, [address, isConnected, openConnectModal, flagPlacement, addStatus]);
 
   // UI state
   const [dragOver, setDragOver] = useState(false);
@@ -646,20 +238,16 @@ function BoardPageContent() {
   // Mobile detection
   const { isMobile } = useMobile();
 
-  // Board data — finalized placements from ManifestStore, proposals from Swipe
-  const [placed, setPlaced] = useState<FinalizedPlacement[]>([]);
-  const [placedEpoch, setPlacedEpoch] = useState<number | null>(null);
+  // Board data — proposals are the sole data source
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
-  const [_proposalsLoading, setProposalsLoading] = useState(true);
+  const [proposalsLoading, setProposalsLoading] = useState(true);
   const [proposalDebug, setProposalDebug] = useState<ListProposalsResponse["debug"] | null>(null);
 
-  // Pending swipe voting proposals (no board coords — shown as floating strip)
-  type SwipeVotingProposal = { id: number; ipfsCid: string; imageUrl: string | null; proposer: string; votingEndsAt: number; forCount: number; againstCount: number; status: string; proposalType: number; gridX: number; gridY: number; gridW: number; gridH: number };
-  const [swipeVotingProposals, setSwipeVotingProposals] = useState<SwipeVotingProposal[]>([]);
-
-  // ManifestStore hook — reads CID from contract, fetches manifest from IPFS
-  const { manifest: latestManifest, epoch: latestManifestEpoch, loading: latestManifestLoading, error: latestManifestError } = useLatestManifestFromChain();
-  const latestFallbackTried = useRef(false);
+  // Derive "placed" items from canonized proposals
+  const placed = useMemo(
+    () => proposals.filter((p) => p.status === "canonized"),
+    [proposals]
+  );
 
   const [activePlacement, setActivePlacement] = useState<Placement | null>(null);
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
@@ -815,24 +403,7 @@ function BoardPageContent() {
     };
   }, [pending]);
 
-  async function getImageSize(file: File): Promise<{ w: number; h: number }> {
-    try {
-      const createBitmap = typeof createImageBitmap === "function" ? createImageBitmap : null;
-      const bmp = createBitmap ? await createBitmap(file) : null;
-      if (bmp) {
-        const w = bmp.width, h = bmp.height;
-        bmp.close?.();
-        return { w, h };
-      }
-    } catch (err) {
-      console.warn('[board] createImageBitmap failed, falling back to Image:', err);
-    }
-    const url = URL.createObjectURL(file);
-    try {
-      const img = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-      return { w: img.naturalWidth, h: img.naturalHeight };
-    } finally { URL.revokeObjectURL(url); }
-  }
+  // getImageSize — imported from @/lib/board
 
   const primeGhostMetaFromEvent = useCallback(async (e: React.DragEvent) => {
     if (ghostMetaRef.current) return ghostMetaRef.current;
@@ -859,12 +430,10 @@ function BoardPageContent() {
     const rect = snapRect({ x: pos.x, y: pos.y, w: meta.w, h: meta.h });
     const cells = rectCells(rect);
     let status: GhostStatus = "ok";
-    const placedRects = placed.map((pl) => ({ x: pl.x, y: pl.y, w: pl.w, h: pl.h }));
-    const votingRects = swipeVotingProposals.filter((sp) => sp.gridW > 0).map((sp) => contractToWorldRect({ x: sp.gridX, y: sp.gridY, w: sp.gridW, h: sp.gridH }));
-    const allOccupied = [...placedRects, ...votingRects];
+    const placedRects = placed.map((pl) => pl.rect);
     if (cells > MAX_CELLS_PER_RECT) status = "oversize";
-    else if (hasOverlap(rect, allOccupied) || hasOverlap(rect, pending.map(storedRectFor))) status = "overlap";
-    else if (!isTouching(rect, [...allOccupied, ...pending.map(storedRectFor)])) status = "not-touching";
+    else if (hasOverlap(rect, placedRects) || hasOverlap(rect, pending.map(storedRectFor))) status = "overlap";
+    else if (!isTouching(rect, [...placedRects, ...pending.map(storedRectFor)])) status = "not-touching";
     setGhost({ rect, cells, status, totalWei: BigInt(cells) * BASE_FEE_PER_CELL_WEI });
   }, [pending, placed, storedRectFor]);
 
@@ -958,34 +527,6 @@ function BoardPageContent() {
     setDesktopPaintPos(undefined);
   }, []);
 
-  /** Open paint editor with a blank white canvas */
-  const handleCreateFromScratch = useCallback(() => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, 512, 512);
-    }
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) return;
-        const file = new File([blob], "scratch.jpg", { type: "image/jpeg" });
-        const el = containerRef.current;
-        let pos: DropPos | undefined;
-        if (el) {
-          const r = el.getBoundingClientRect();
-          pos = screenToWorld(r.left + r.width / 2, r.top + r.height / 2);
-        }
-        setDesktopPaintFile(file);
-        setDesktopPaintPos(pos);
-      },
-      "image/jpeg",
-      0.95
-    );
-  }, [screenToWorld]);
-
   const handleFiles = useCallback(async (files: FileList | null, pos?: DropPos) => {
     if (files?.length) await handleSingleFile(files[0], pos);
   }, [handleSingleFile]);
@@ -1065,16 +606,14 @@ function BoardPageContent() {
 
   // Grid background
   const gridSize = `${TILE}px ${TILE}px`;
-  // Adaptive grid: thicker lines at lower zoom so they remain visible
-  const gridLineW = scale < 0.5 ? 2 : 1;
-  const gridOpacity = Math.min(0.12, 0.07 / Math.max(scale, 0.15));
   const gridBg = useMemo(() => [
-    `linear-gradient(to right, rgba(255,255,255,${gridOpacity}) ${gridLineW}px, transparent ${gridLineW}px)`,
-    `linear-gradient(to bottom, rgba(255,255,255,${gridOpacity}) ${gridLineW}px, transparent ${gridLineW}px)`,
-    `linear-gradient(to right, rgba(63,221,255,${gridOpacity * 0.85}) ${gridLineW}px, transparent ${gridLineW}px)`,
-    `linear-gradient(to bottom, rgba(63,221,255,${gridOpacity * 0.85}) ${gridLineW}px, transparent ${gridLineW}px)`,
-  ].join(", "), [gridLineW, gridOpacity]);
-  const gridSizes = `${gridSize}, ${gridSize}, ${gridSize}, ${gridSize}`;
+    "linear-gradient(to right, rgba(255,255,255,.07) 1px, transparent 1px)",
+    "linear-gradient(to bottom, rgba(255,255,255,.07) 1px, transparent 1px)",
+    "linear-gradient(to right, rgba(63,221,255,.06) 1px, transparent 1px)",
+    "linear-gradient(to bottom, rgba(63,221,255,.06) 1px, transparent 1px)",
+    "linear-gradient(to bottom, rgba(255,255,255,.045) 1px, transparent 1px)",
+  ].join(", "), []);
+  const gridSizes = `${gridSize}, ${gridSize}, ${gridSize}, ${gridSize}, 100% 6px`;
 
   const renderRectFor = useCallback((p: PendingItem): Rect => (activeId === p.id && liveRect) ? liveRect : p.rect, [activeId, liveRect]);
 
@@ -1084,63 +623,6 @@ function BoardPageContent() {
     return { ...p, rect: r, cells: cellsNow, totalWei: BigInt(cellsNow) * (BASE_FEE_PER_CELL_WEI + p.tipPerCellWei) };
   });
 
-  // Memoize normalized placements to avoid redundant processing
-  const normalizedManifestPlacements = useMemo(() => {
-    if (!latestManifest?.placements) return [];
-    return normalizePlacements(latestManifest.placements);
-  }, [latestManifest?.placements]);
-
-  // Load finalized placements from ManifestStore → IPFS
-  useEffect(() => {
-    let alive = true;
-    const apply = (placements: FinalizedPlacement[], epochValue: number | null) => {
-      if (!alive) return;
-      // Only update if placements actually changed (prevents flicker from re-renders)
-      setPlaced((prev) => {
-        if (prev.length === placements.length && prev.every((p, i) => p.id === placements[i]?.id)) return prev;
-        return placements;
-      });
-      setPlacedEpoch(epochValue);
-      // Only auto-zoom on first load, not on every poll cycle
-      if (autoZoomedEpochRef.current == null && placements.length) {
-        autoZoomedEpochRef.current = epochValue ?? 0;
-        const last = placements[placements.length - 1];
-        zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
-      }
-    };
-    const loadFallback = async () => {
-      if (latestFallbackTried.current) return;
-      latestFallbackTried.current = true;
-      try {
-        const latest = await getLatestNormalized();
-        if (!alive) return;
-        apply(
-          normalizePlacements(latest.manifest?.placements ?? []),
-          typeof latest.epoch === "number" ? latest.epoch : null
-        );
-      } catch (e: unknown) {
-        if (!alive) return;
-        // Don't clear placed if we already have data from /api/proposals merge
-        setPlaced((prev) => prev.length > 0 ? prev : []);
-        const parsed = parseWeb3Error(e);
-        addStatus(parsed.message, "error");
-      }
-    };
-    if (latestManifestLoading) return;
-    if (latestManifestError) { void loadFallback(); return; }
-    if (normalizedManifestPlacements.length > 0) {
-      const epochValue = typeof latestManifestEpoch === "number"
-        ? latestManifestEpoch
-        : (latestManifest && typeof latestManifest.epoch === "number" ? latestManifest.epoch : null);
-      if (placedEpoch != null && epochValue != null && epochValue < placedEpoch) return;
-      apply(normalizedManifestPlacements, epochValue);
-      latestFallbackTried.current = false;
-      return;
-    }
-    void loadFallback();
-    return () => { alive = false; };
-  }, [normalizedManifestPlacements, latestManifest, latestManifestEpoch, latestManifestLoading, latestManifestError, zoomToRect, placedEpoch, addStatus]);
-
   // Load proposals
   useEffect(() => {
     let alive = true;
@@ -1149,37 +631,18 @@ function BoardPageContent() {
         const response = await listProposals();
         if (!alive) return;
         const normalized = normalizeProposals(response.proposals);
-        setProposals(normalized);
-        setProposalDebug(response.debug ?? null);
-        setProposalsLoading(false);
-
-        // Merge canonized placements from SwipeLoreboard into placed array
-        // (these come from /api/proposals, not the manifest system)
-        const canonized = normalized.filter((p) => p.status === "canonized" && p.cid);
-        if (canonized.length > 0) {
-          setPlaced((prev) => {
-            const existingIds = new Set(prev.map((fp) => fp.id));
-            const newPlacements: FinalizedPlacement[] = canonized
-              .filter((c) => !existingIds.has(String(c.id)))
-              .map((c) => ({
-                id: String(c.id),
-                owner: c.owner ?? c.bidder ?? "",
-                cid: c.cid ?? "",
-                x: c.rect.x,
-                y: c.rect.y,
-                w: c.rect.w,
-                h: c.rect.h,
-                cells: c.cells ?? 0,
-              }));
-            return newPlacements.length > 0 ? [...prev, ...newPlacements] : prev;
-          });
-        }
-      } catch (err) {
+        startTransition(() => {
+          setProposals(normalized);
+          setProposalDebug(response.debug ?? null);
+          setProposalsLoading(false);
+        });
+      } catch {
         if (!alive) return;
-        console.error("[board] proposals load error:", err);
-        setProposals([]);
-        setProposalDebug(null);
-        setProposalsLoading(false);
+        startTransition(() => {
+          setProposals([]);
+          setProposalDebug(null);
+          setProposalsLoading(false);
+        });
       }
     };
     tick();
@@ -1187,36 +650,6 @@ function BoardPageContent() {
     const t = setInterval(tick, 12_000);
     return () => { alive = false; clearInterval(t); };
   }, []);
-
-  // Load swipe voting proposals
-  const refetchSwipeProposals = useCallback(async () => {
-    try {
-      const res = await fetch("/api/swipe/proposals");
-      if (!res.ok) return;
-      const data = await res.json();
-      const voting = (data.proposals ?? []).filter(
-        (p: SwipeVotingProposal) => p.status === "voting",
-      );
-      setSwipeVotingProposals(voting);
-    } catch { /* non-fatal */ }
-  }, []);
-
-  useEffect(() => {
-    refetchSwipeProposals();
-    const interval = setInterval(refetchSwipeProposals, 30_000);
-    return () => clearInterval(interval);
-  }, [refetchSwipeProposals]);
-
-  // Real-time board events — trigger instant refetch on proposal/vote/finalize
-  useBoardEvents(useCallback(() => {
-    refetchSwipeProposals();
-    // Also refetch canonized proposals from SwipeLoreboard
-    listProposals().then((response) => {
-      startTransition(() => {
-        setProposals(normalizeProposals(response.proposals));
-      });
-    }).catch(() => {});
-  }, [refetchSwipeProposals]));
 
   // Arrow keys
   useEffect(() => {
@@ -1246,25 +679,24 @@ function BoardPageContent() {
     setSubmittingProposals(true);
     addStatus("Preparing submissions...", "info");
     try {
-      const placedRects = placed.map((pl) => ({ x: pl.x, y: pl.y, w: pl.w, h: pl.h }));
-      const votingRects = swipeVotingProposals.filter((sp) => sp.gridW > 0).map((sp) => contractToWorldRect({ x: sp.gridX, y: sp.gridY, w: sp.gridW, h: sp.gridH }));
-      const allOccupied = [...placedRects, ...votingRects];
+      const placedRects = placed.map((pl) => pl.rect);
       const pendingRects = items.map((it) => ({ name: it.name, rect: { ...it.rect } }));
       const overlapNames: string[] = [];
       pendingRects.forEach((c, idx) => {
         const peers = pendingRects.filter((_, j) => j !== idx).map((r) => r.rect);
-        if (hasOverlap(c.rect, allOccupied) || hasOverlap(c.rect, peers)) overlapNames.push(c.name);
+        if (hasOverlap(c.rect, placedRects) || hasOverlap(c.rect, peers)) overlapNames.push(c.name);
       });
       if (overlapNames.length) throw new Error(`Overlap: ${overlapNames.join(", ")}`);
 
       const notTouchingNames: string[] = [];
       pendingRects.forEach((c, idx) => {
         const peers = pendingRects.filter((_, j) => j !== idx).map((r) => r.rect);
-        if (!isTouching(c.rect, [...allOccupied, ...peers])) notTouchingNames.push(c.name);
+        if (!isTouching(c.rect, [...placedRects, ...peers])) notTouchingNames.push(c.name);
       });
       if (notTouchingNames.length) throw new Error(`Not touching board: ${notTouchingNames.join(", ")}`);
 
       if (!address) throw new Error("No wallet connected");
+      const account = address;
 
       for (const it of items) {
         addStatus(`Uploading ${it.name}...`, "info");
@@ -1275,18 +707,16 @@ function BoardPageContent() {
         if (!cid) throw new Error("IPFS upload disabled");
         setCidFor(it.id, cid);
 
-        addStatus(`Submitting proposal for ${it.name}...`, "info");
+        addStatus(`Submitting ${it.name}...`, "info");
         const normalizedCid = normalizeCidString(cid);
-
-        const result = await swipeProposeLoreboard({
-          ipfsCid: normalizedCid,
-          x: onChainRect.x,
-          y: onChainRect.y,
-          w: onChainRect.w,
-          h: onChainRect.h,
+        const onChain = await writeSwipeLoreboardPlace({
+          placer: account as `0x${string}`,
+          rect: onChainRect,
+          cidBytes: new TextEncoder().encode(normalizedCid),
         });
 
-        addStatus(`${it.name} proposed! Now in voting queue. (tx: ${result.txHash.slice(0, 10)}...)`, "success");
+        // Transaction succeeded on-chain!
+        addStatus(`${it.name} on-chain ✓ (tx: ${onChain.txHash.slice(0, 10)}...)`, "success");
       }
 
       clearBoardState?.();
@@ -1302,7 +732,6 @@ function BoardPageContent() {
         });
       }
       addStatus("All proposals submitted!", "success");
-      setShowSubmitSuccess(true);
     } catch (e: unknown) {
       // Skip user rejection errors (silent)
       if (isUserRejection(e)) {
@@ -1316,14 +745,13 @@ function BoardPageContent() {
     }
   };
 
-  // Deterministic particles to avoid React hydration mismatch (no Math.random in render)
   const boardParticles = useMemo(
     () =>
-      Array.from({ length: 20 }).map((_, i) => ({
-        left: ((i * 37 + 13) % 100),
-        top: ((i * 53 + 7) % 100),
-        delay: (i * 0.25) % 5,
-        duration: 8 + ((i * 41) % 12),
+      Array.from({ length: 20 }).map(() => ({
+        left: Math.random() * 100,
+        top: Math.random() * 100,
+        delay: Math.random() * 5,
+        duration: 8 + Math.random() * 12,
       })),
     [],
   );
@@ -1380,14 +808,14 @@ function BoardPageContent() {
   const boardNodes = useMemo<BoardNode[]>(() => {
     const nodes: BoardNode[] = [];
 
-    // Add finalized placements from manifest
+    // Add finalized placements (canonized proposals)
     placed.forEach((p) => {
       nodes.push({
         id: `placed-${p.id}`,
-        x: p.x,
-        y: p.y,
-        width: p.w,
-        height: p.h,
+        x: p.rect.x,
+        y: p.rect.y,
+        width: p.rect.w,
+        height: p.rect.h,
         content: p.cid,
         type: 'meme',
       });
@@ -1432,7 +860,7 @@ function BoardPageContent() {
         <MobileProposeModal
           isConnected={isConnected}
           address={address}
-          placedRects={[...placed.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h })), ...swipeVotingProposals.filter(sp => sp.gridW > 0).map(sp => contractToWorldRect({ x: sp.gridX, y: sp.gridY, w: sp.gridW, h: sp.gridH }))]}
+          placedRects={placed.map(p => p.rect)}
           onClose={() => setShowMobilePropose(false)}
           onSuccess={(msg) => {
             addStatus(msg, "success");
@@ -1464,12 +892,12 @@ function BoardPageContent() {
             setActivePlacement({
               id: placement.id,
               cid: placement.cid,
-              x: placement.x,
-              y: placement.y,
-              width: placement.w,
-              height: placement.h,
+              x: placement.rect.x,
+              y: placement.rect.y,
+              width: placement.rect.w,
+              height: placement.rect.h,
               proposer: (placement.owner ?? "") as `0x${string}`,
-              epochId: placedEpoch ?? 0,
+              epochId: placement.epochSubmitted ?? 0,
             });
           }
         }}
@@ -1493,7 +921,7 @@ function BoardPageContent() {
   // ============================================================================
 
   const mainView = (
-    <main className="board-page relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center" style={{ height: "100vh" }}>
+    <main className="board-page relative overflow-hidden flex items-center justify-center" style={{ height: "100vh" }}>
       {/* Floating particles */}
       <div className="board-particles">
         {boardParticles.map((cfg, i) => (
@@ -1523,7 +951,7 @@ function BoardPageContent() {
             />
 
             {/* Main content - align with pray spacing */}
-            <div className="vista-window__body vista-window__body--flush mt-2 pray-panel__body board-body foid-iridescent">
+            <div className="vista-window__body vista-window__body--flush mt-2 pray-panel__body board-body">
               <div className="board-grid">
                 {/* Canvas */}
                 <div className="board-canvas-wrap flex-1 min-h-0">
@@ -1550,14 +978,14 @@ function BoardPageContent() {
                       height: STAGE_CANVAS_H,
                     }}
                     >
-                      {/* Finalized placements from manifest + SwipeLoreboard */}
+                      {/* Finalized (canonized proposals) */}
                     {placed.map((p) => {
-                      const sr = toStageRect({ x: p.x, y: p.y, w: p.w, h: p.h });
+                      const sr = toStageRect(p.rect);
                       const isActive = activePlacement?.id === p.id;
                       return (
                         <PlacementCard
                           key={p.id}
-                          placement={{ id: p.id, cid: p.cid, x: sr.x, y: sr.y, width: sr.w, height: sr.h, proposer: (p.owner ?? "") as `0x${string}`, epochId: placedEpoch ?? 0, status: "canonized" }}
+                          placement={{ id: p.id, cid: p.cid, x: sr.x, y: sr.y, width: sr.w, height: sr.h, proposer: (p.owner ?? "") as `0x${string}`, epochId: p.epochSubmitted ?? 0, status: "canonized" }}
                           onOpen={setActivePlacement}
                           onFlag={handleFlagPlacement}
                           isFlagged={flaggedIds.has(p.id)}
@@ -1570,70 +998,6 @@ function BoardPageContent() {
                             background: "rgba(8,18,36,0.35)",
                           }}
                         />
-                      );
-                    })}
-
-                    {/* Voting proposals (pending — on-chain with grid coords) */}
-                    {swipeVotingProposals.map((sp) => {
-                      if (!sp.gridW || !sp.gridH) return null;
-                      const worldRect = contractToWorldRect({ x: sp.gridX, y: sp.gridY, w: sp.gridW, h: sp.gridH });
-                      const sr = toStageRect(worldRect);
-                      const total = sp.forCount + sp.againstCount;
-                      const pct = total > 0 ? Math.round((sp.forCount / total) * 100) : 0;
-                      const secsLeft = Math.max(0, sp.votingEndsAt - Math.floor(Date.now() / 1000));
-                      const hoursLeft = Math.floor(secsLeft / 3600);
-                      const minsLeft = Math.floor((secsLeft % 3600) / 60);
-                      return (
-                        <a
-                          key={`voting-${sp.id}`}
-                          href={`/vote`}
-                          className="board-voting-proposal"
-                          style={{
-                            position: "absolute",
-                            left: sr.x, top: sr.y, width: sr.w, height: sr.h,
-                            border: "2px dashed rgba(168,85,247,0.6)",
-                            borderRadius: 4,
-                            overflow: "hidden",
-                            cursor: "pointer",
-                            zIndex: 2,
-                            opacity: 0.85,
-                            transition: "opacity 0.2s, border-color 0.2s",
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.borderColor = "rgba(168,85,247,0.95)"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.85"; e.currentTarget.style.borderColor = "rgba(168,85,247,0.6)"; }}
-                        >
-                          {sp.imageUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={sp.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.7 }} draggable={false} loading="eager" decoding="sync" />
-                          ) : (
-                            <div style={{ width: "100%", height: "100%", background: "rgba(168,85,247,0.15)" }} />
-                          )}
-                          {/* VOTING badge */}
-                          <div style={{
-                            position: "absolute", top: 4, left: 4,
-                            background: "rgba(168,85,247,0.9)", color: "#fff",
-                            fontSize: Math.max(8, Math.min(12, sr.w / 12)), fontWeight: 800,
-                            letterSpacing: "0.08em", padding: "2px 6px", borderRadius: 3,
-                            textTransform: "uppercase", lineHeight: 1.2,
-                          }}>
-                            VOTING
-                          </div>
-                          {/* Vote progress + countdown */}
-                          <div style={{
-                            position: "absolute", bottom: 0, left: 0, right: 0,
-                            background: "rgba(0,0,0,0.75)", padding: "3px 6px",
-                            display: "flex", justifyContent: "space-between", alignItems: "center",
-                            fontSize: Math.max(7, Math.min(10, sr.w / 14)),
-                            color: "rgba(255,255,255,0.8)",
-                          }}>
-                            <span>{hoursLeft}h {minsLeft}m</span>
-                            {total > 0 ? (
-                              <span>{pct}% yes ({total} votes)</span>
-                            ) : (
-                              <span>no votes yet</span>
-                            )}
-                          </div>
-                        </a>
                       );
                     })}
 
@@ -1660,7 +1024,7 @@ function BoardPageContent() {
                           onClick={() => setActivePlacement(proposalToPlacement(p))}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={cidToHttpUrl(p.cid)} alt={p.name} className="board-proposal__img" draggable={false} loading="eager" decoding="sync" onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
+                          <img src={cidToHttpUrl(p.cid)} alt={p.name} className="board-proposal__img" draggable={false} loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
                           {isSelectedProposal && <span className="board-proposal__badge">selected</span>}
                         </figure>
                       );
@@ -1672,7 +1036,7 @@ function BoardPageContent() {
                       return (
                         <figure key={p.id} className="board-pending" style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h }}>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={p.previewUrl} alt={p.name} className="board-pending__img" draggable={false} loading="eager" decoding="sync" />
+                          <img src={p.previewUrl} alt={p.name} className="board-pending__img" draggable={false} loading="lazy" />
                           <button className="board-pending__move" onPointerDown={beginMove(p)} type="button">⠿</button>
                           <button className="board-pending__resize" onPointerDown={beginResize(p)} type="button">↘</button>
                           <button className="board-pending__remove" onClick={() => { URL.revokeObjectURL(p.previewUrl); removePending(p.id); }} type="button">×</button>
@@ -1683,11 +1047,10 @@ function BoardPageContent() {
                     </div>
                     <div className="board-hud">
                       <span>ZOOM: {Math.round(scale * 100)}%</span>
+                      <span>PAN: {Math.round(pan.x)}, {Math.round(pan.y)}</span>
                       <span>MODE: {spaceDown ? "PAN" : "PLACE"}</span>
                     </div>
                     <div className="board-hint-bottom" role="note">scroll to zoom • hold space to pan</div>
-
-                    {/* (voting proposals rendered on-canvas above) */}
 
                   {!items.length && !busy && !ghost && !placed.length && (
                     <div className="board-hint">
@@ -1712,16 +1075,14 @@ function BoardPageContent() {
                     <div className="board-actions">
                       <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" />
                       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onFileChange} />
+                      <div className="board-actions__divider" />
                       {items.length > 0 && (
-                        <>
-                          <div className="board-actions__divider" />
-                          <span className="board-actions__pending-line">ready to submit ✓</span>
-                          <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "PROPOSING..." : "PROPOSE (0.001 ETH)"} disabled={!items.length || submittingProposals} variant="secondary" />
-                        </>
+                        <span className="board-actions__pending-line">ready to submit ✓</span>
                       )}
+                      <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "SUBMITTING..." : "SUBMIT PROPOSAL"} disabled={!items.length || submittingProposals} variant="secondary" />
                     </div>
                     <div className="board-actions__pricing">
-                      0.001 ETH to propose
+                      0.001 ETH per placement &middot; any size
                     </div>
                   </div>
 
@@ -1790,800 +1151,6 @@ function BoardPageContent() {
         onCancel={handleDesktopPaintCancel}
       />
     )}
-
-    {/* Post-submission success modal */}
-    {showSubmitSuccess && (
-      <div
-        className="fixed inset-0 z-[9999] flex items-center justify-center"
-        style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
-      >
-        <div
-          className="vista-window"
-          style={{ maxWidth: 440, width: "90%" }}
-        >
-          <div className="vista-window__titlebar">
-            <div className="vista-window__controls" aria-hidden="true">
-              <span className="vista-window__control vista-window__control--minimize" />
-              <span className="vista-window__control vista-window__control--restore" />
-              <span className="vista-window__control vista-window__control--close" />
-            </div>
-            <span className="vista-window__title text-[11px]">proposal_submitted.exe</span>
-          </div>
-          <div className="vista-window__body">
-            <div style={{ padding: "32px 24px", textAlign: "center" }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
-              <h2 style={{
-                fontSize: 20, fontWeight: 700, letterSpacing: "0.15em",
-                textTransform: "uppercase", color: "#fff", marginBottom: 8,
-                fontFamily: "var(--font-display)"
-              }}>
-                Proposal Live!
-              </h2>
-              <p style={{
-                fontSize: 14, color: "rgba(255,255,255,0.6)", lineHeight: 1.6, marginBottom: 24
-              }}>
-                The community has 72 hours to vote on your submission.
-                Head to Vote to help decide what makes it to the board!
-              </p>
-              <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-                <a
-                  href="/vote"
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    padding: "10px 24px", borderRadius: 24,
-                    background: "linear-gradient(135deg, rgba(168,85,247,0.4), rgba(255,107,213,0.4))",
-                    border: "1px solid rgba(168,85,247,0.4)",
-                    color: "#fff", fontSize: 13, fontWeight: 600,
-                    letterSpacing: "0.1em", textTransform: "uppercase",
-                    textDecoration: "none",
-                  }}
-                >
-                  Go Vote →
-                </a>
-                <button
-                  onClick={() => setShowSubmitSuccess(false)}
-                  style={{
-                    padding: "10px 24px", borderRadius: 24,
-                    background: "rgba(255,255,255,0.08)",
-                    border: "1px solid rgba(255,255,255,0.15)",
-                    color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 600,
-                    letterSpacing: "0.1em", textTransform: "uppercase",
-                    cursor: "pointer",
-                  }}
-                >
-                  Stay Here
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )}
-      <style jsx>{`
-        /* Layout - more padding and spacing */
-        .board-page {
-          position: relative;
-          background: transparent !important;
-          overflow: hidden;
-          padding: 0;
-          width: 100%;
-          z-index: 0;
-          overscroll-behavior: contain;
-          --board-radius-lg: 14px;
-          --board-radius-md: 12px;
-          --foid-bg-deepest: #030b12;
-          --foid-panel: rgba(12, 28, 44, 0.58);
-          --foid-panel-strong: rgba(6, 14, 28, 0.78);
-          --foid-glass-highlight: rgba(255, 255, 255, 0.16);
-          --foid-glass-border: rgba(116, 255, 235, 0.25);
-          --foid-accent: rgba(116, 255, 235, 0.95);
-          --foid-accent-soft: rgba(116, 255, 235, 0.28);
-          --foid-glow: rgba(116, 255, 235, 0.2);
-          --foid-text: rgba(255, 255, 255, 0.92);
-          --foid-text-dim: rgba(255, 255, 255, 0.65);
-          --foid-warm: rgba(255, 165, 82, 0.22);
-          --board-border: 1px solid var(--foid-glass-border);
-        }
-        .board-window {
-          min-height: 0;
-        }
-        .board-body {
-          flex: 1 1 auto;
-          min-height: 0;
-          padding: clamp(12px, 1.5vw, 18px);
-          display: flex;
-          flex-direction: column;
-        }
-        .board-grid {
-          flex: 1 1 auto;
-          min-height: 0;
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
-          gap: clamp(12px, 1.5vw, 18px);
-          padding: clamp(10px, 1.5vw, 16px);
-          box-sizing: border-box;
-          height: 100%;
-          align-items: stretch;
-          grid-auto-rows: minmax(0, auto);
-          background:
-            linear-gradient(
-              to right,
-              rgba(140, 235, 255, 0.07) 1px,
-              transparent 1px
-            ),
-            linear-gradient(
-              to bottom,
-              rgba(140, 235, 255, 0.07) 1px,
-              transparent 1px
-            ),
-            linear-gradient(
-              180deg,
-              rgba(92, 191, 232, 0.18) 0%,
-              rgba(8, 18, 30, 0.45) 55%,
-              rgba(5, 10, 22, 0.8) 100%
-            ),
-            linear-gradient(
-              180deg,
-              rgba(255, 255, 255, 0.05) 0%,
-              rgba(255, 255, 255, 0) 65%
-            );
-        }
-
-        /* Vignette - matching pray page */
-        :global(.vignette) {
-          background-color: transparent !important;
-          background-image: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.35) 100%) !important;
-          opacity: 0.55;
-        }
-        
-        /* Particles */
-        .board-particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-        :global(.board-particle) { position: absolute; width: 4px; height: 4px; background: rgba(0, 255, 213, 0.22); border-radius: 50%; animation: float-particle linear infinite; filter: blur(1px); }
-        @keyframes float-particle { 0% { transform: translateY(0) translateX(0); opacity: 0; } 10% { opacity: 0.6; } 90% { opacity: 0.6; } 100% { transform: translateY(-100vh) translateX(50px); opacity: 0; } }
-
-
-        /* Canvas */
-        .board-canvas-wrap {
-          border: none;
-          flex: 1 1 auto;
-          min-height: 0;
-          display: flex;
-          flex-direction: column;
-        }
-        .board-canvas-wrap::before { display: none; }
-        .board-canvas {
-          position: relative;
-          width: 100%;
-          height: 100%;
-          min-height: 0;
-          flex: 1 1 auto;
-          overflow: hidden;
-          background:
-            radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.12), transparent 45%),
-            linear-gradient(180deg, rgba(22, 70, 104, 0.72), rgba(8, 18, 34, 0.9)),
-            var(--foid-panel-strong);
-          touch-action: none;
-        }
-        .board-hud {
-          position: absolute;
-          top: 12px;
-          right: 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          padding: 6px 10px;
-          border-radius: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 35%),
-            var(--foid-panel-strong);
-          backdrop-filter: blur(14px);
-          color: var(--foid-text);
-          font-size: 10px;
-          font-family: var(--font-mono);
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          box-shadow: inset 0 0 14px rgba(0,0,0,0.6);
-          pointer-events: none;
-        }
-        .board-hint-bottom {
-          position: absolute;
-          left: 12px;
-          bottom: 12px;
-          padding: 4px 10px;
-          border-radius: 10px;
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          background: rgba(5, 12, 18, 0.6);
-          color: var(--foid-text-dim);
-          font-size: 9px;
-          font-family: var(--font-mono);
-          letter-spacing: 0.2em;
-          text-transform: uppercase;
-          box-shadow: inset 0 0 12px rgba(0,0,0,0.6);
-          animation: boardHintFade 4s ease forwards;
-          pointer-events: none;
-        }
-        @keyframes boardHintFade {
-          0% { opacity: 1; }
-          60% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        @media (max-width: 1024px) {
-          .board-grid {
-            grid-template-columns: 1fr;
-          }
-          .board-sidebar {
-            width: 100%;
-          }
-          .board-section--chat-wrapper {
-            min-height: 300px;
-            height: auto;
-          }
-          .board-actions__voting {
-            max-height: 120px;
-          }
-          .board-sidebar__scroller {
-            max-height: calc(100svh - 220px - var(--safe-bottom, 0px));
-          }
-        }
-        @media (max-width: 640px) {
-          .board-grid {
-            padding: 12px;
-            gap: 12px;
-          }
-          .board-section--chat-wrapper {
-            min-height: 260px;
-          }
-          .board-section--chat,
-          .board-section--actions,
-          .board-section--music {
-            padding: 12px;
-          }
-          .board-sidebar__scroller {
-            max-height: none;
-          }
-          .board-actions__voting {
-            max-height: 90px;
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .board-hint-bottom { animation: none; }
-        }
-        .board-stage { position: absolute; background-blend-mode: screen; box-shadow: none; }
-        .board-hint { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
-        .board-hint__primary, .board-hint__sub {
-          display: block;
-          text-align: center;
-          font-family: var(--font-terminal);
-          letter-spacing: 0.2em;
-        }
-        .board-hint__primary {
-          font-size: 12px;
-          padding: 12px 28px 6px;
-          border-radius: 16px;
-          border: 1px solid var(--foid-glass-border);
-          background: rgba(255,255,255,0.05);
-          color: var(--foid-text);
-          text-shadow: 0 0 8px rgba(0,0,0,0.6);
-        }
-        .board-hint__sub {
-          font-size: 10px;
-          letter-spacing: 0.08em;
-          color: var(--foid-text-dim);
-          margin-top: 8px;
-        }
-        .board-dragover {
-          position: absolute;
-          inset: 0;
-          border-radius: 14px;
-          pointer-events: none;
-          background: rgba(0, 255, 213, 0.08);
-          box-shadow:
-            0 0 20px rgba(0, 255, 213, 0.45),
-            inset 0 0 28px rgba(0, 255, 213, 0.3);
-          animation: dragGlow 3s ease-in-out infinite;
-        }
-        .board-dragover::before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          background: linear-gradient(120deg, transparent 20%, rgba(255,255,255,0.25) 50%, transparent 80%);
-          opacity: 0.35;
-          animation: dragShimmer 4s linear infinite;
-        }
-        @keyframes dragGlow {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.02); }
-        }
-        @keyframes dragShimmer {
-          0% { transform: translateX(-60%); }
-          100% { transform: translateX(60%); }
-        }
-
-        /* Ghost */
-        .board-ghost { position: absolute; border-radius: 8px; pointer-events: none; outline: 2px dashed; z-index: 3; }
-        .board-ghost__label { position: absolute; left: 4px; top: 4px; font-size: 11px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.2); }
-
-        /* Proposal */
-        .board-proposal { position: absolute; pointer-events: none; z-index: 2; animation: fadeIn 0.3s; }
-        .board-proposal__img { width: 100%; height: 100%; border-radius: 12px; object-fit: contain; outline: 2px dashed rgba(255,200,100,0.8); background: rgba(8,18,36,0.4); }
-        .board-proposal--selected {
-          outline-color: var(--foid-accent);
-          box-shadow: 0 0 18px rgba(0,255,213,0.9), inset 0 0 12px rgba(255,255,255,0.35);
-        }
-        .board-proposal__badge {
-          position: absolute;
-          left: 10px;
-          bottom: 10px;
-          padding: 3px 10px;
-          border-radius: 999px;
-          font-size: 10px;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          background: rgba(0, 0, 0, 0.55);
-          border: 1px solid rgba(255, 255, 255, 0.4);
-          color: var(--foid-text);
-          pointer-events: none;
-        }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        /* Pending */
-        .board-pending { position: absolute; z-index: 3; }
-        .board-pending__img { width: 100%; height: 100%; border-radius: 8px; border: 2px solid rgba(0,208,255,0.8); box-shadow: 0 0 20px rgba(0,208,255,0.4); object-fit: contain; }
-        .board-pending__move, .board-pending__resize, .board-pending__remove { position: absolute; height: 28px; border-radius: 6px; background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.2); font-size: 12px; cursor: pointer; }
-        .board-pending__move { left: 4px; top: 4px; width: 32px; cursor: move; }
-        .board-pending__resize { right: 4px; bottom: 4px; width: 28px; cursor: se-resize; }
-        .board-pending__remove { right: 4px; top: 4px; width: 28px; }
-        .board-pending__remove:hover { background: rgba(255,71,87,0.5); }
-        .board-pending__info { position: absolute; left: 40px; top: 4px; font-size: 10px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.7); color: white; border: 1px solid rgba(255,255,255,0.2); }
-
-        /* Sidebar - more padding and spacing */
-        .board-sidebar {
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          height: 100%;
-          min-height: 0;
-          overflow: hidden;
-          padding: 14px;
-          border-radius: var(--board-radius-lg);
-          border: var(--board-border);
-          background:
-            linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 40%),
-            linear-gradient(180deg, rgba(6, 26, 46, 0.92), rgba(2, 10, 20, 0.95)),
-            linear-gradient(180deg, rgba(32, 108, 146, 0.25), rgba(4, 12, 20, 0.7)),
-            var(--foid-bg-deepest);
-          backdrop-filter: blur(24px) saturate(140%);
-          box-shadow:
-            inset 0 0 25px rgba(255, 255, 255, 0.06),
-            inset 0 0 40px rgba(116, 255, 235, 0.08),
-            0 20px 40px rgba(0, 0, 0, 0.45);
-        }
-        .board-sidebar__scroller {
-          flex: 1;
-          min-height: 0;
-          overflow-y: auto;
-          overscroll-behavior: contain;
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-          padding-right: 4px;
-        }
-        .board-sidebar::after {
-          content: none !important;
-          display: none !important;
-        }
-        .board-section {
-          position: relative;
-          border-radius: var(--board-radius-md);
-          border: var(--board-border);
-          background:
-            linear-gradient(180deg, rgba(12, 58, 80, 0.45), rgba(8, 18, 32, 0.75)),
-            linear-gradient(180deg, var(--foid-glass-highlight), rgba(255, 255, 255, 0) 40%),
-            var(--foid-panel);
-          backdrop-filter: blur(14px) saturate(140%);
-          box-shadow:
-            0 12px 28px rgba(1, 10, 20, 0.45),
-            0 0 16px rgba(116, 255, 235, 0.18),
-            inset 0 1px 0 rgba(255, 255, 255, 0.08),
-            inset 0 -1px 0 rgba(0, 0, 0, 0.35);
-          padding: 14px;
-        }
-        .board-section:not(:last-child)::after {
-          content: "";
-          position: absolute;
-          left: 12px;
-          right: 12px;
-          bottom: 0;
-          height: 1px;
-          background: rgba(255, 255, 255, 0.08);
-        }
-        .board-section--epoch {
-          padding: 10px 12px;
-        }
-        .board-section--epoch .board-section__header {
-          margin-bottom: 0;
-          gap: 6px;
-        }
-        .board-section--debug .debug-stats {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          font-size: 10px;
-          color: rgba(255, 255, 255, 0.8);
-        }
-        .board-section--debug .debug-stats span {
-          padding: 2px 8px;
-          border-radius: 6px;
-          border: 1px solid rgba(255, 255, 255, 0.18);
-          background: rgba(255, 255, 255, 0.04);
-          font-family: var(--font-mono);
-          letter-spacing: 0.06em;
-        }
-        .board-section--debug .debug-missing {
-          margin-top: 6px;
-          font-size: 10px;
-          line-height: 1.3;
-          color: rgba(255, 138, 255, 0.85);
-          word-break: break-word;
-        }
-        .debug-json {
-          margin-top: 8px;
-          padding: 6px;
-          border-radius: 8px;
-          background: rgba(0, 0, 0, 0.45);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          font-family: var(--font-mono);
-          font-size: 10px;
-          max-height: 96px;
-          overflow: auto;
-          white-space: pre-wrap;
-          line-height: 1.4;
-        }
-        .board-section--music {
-          padding: 10px 12px;
-        }
-        .board-section__header--compact {
-          margin-bottom: 6px;
-          gap: 6px;
-        }
-        .board-actions__voting {
-          margin-top: 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .board-section--chat-wrapper,
-        .board-section--music-wrapper {
-          flex-shrink: 0;
-        }
-        .board-section--chat-wrapper {
-          min-height: 320px;
-          flex: 1 1 60%;
-          height: auto;
-        }
-        .board-section--chat {
-          display: flex;
-          flex-direction: column;
-          min-height: 0;
-          overflow: hidden;
-          height: 100%;
-        }
-        .board-section--chat :global(.terminal-chat) {
-          flex: 1;
-          min-height: 0;
-        }
-        .board-section__header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-        .board-section__chip {
-          margin-left: auto;
-          padding: 1px 6px;
-          border-radius: 999px;
-          border: 1px solid rgba(255, 210, 235, 0.45);
-          background: linear-gradient(135deg, rgba(255, 210, 225, 0.25), rgba(255, 150, 195, 0.2));
-          color: rgba(190, 255, 235, 0.9);
-          font-size: 8px;
-          letter-spacing: 0.06em;
-          font-family: var(--font-mono);
-          text-transform: uppercase;
-          box-shadow: 0 0 6px rgba(255, 150, 190, 0.3);
-          backdrop-filter: blur(12px);
-        }
-        .board-section__status {
-          margin-left: auto;
-          padding: 1px 6px;
-          border-radius: 999px;
-          border: 1px solid var(--foid-glass-border);
-          background: rgba(0, 12, 20, 0.6);
-          color: var(--foid-accent);
-          font-size: 9px;
-          font-family: var(--font-mono);
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-        .board-section__status::before {
-          content: "";
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: currentColor;
-        }
-        .board-section__status[data-status="offline"] {
-          color: var(--foid-text-dim);
-          border-color: rgba(255, 255, 255, 0.1);
-        }
-        .board-section__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--foid-accent); box-shadow: 0 0 6px var(--foid-glow), 0 0 12px var(--foid-accent-soft); animation: pulse 2s ease-in-out infinite; }
-        .board-section__title { font-size: 10px; font-weight: 600; letter-spacing: 0.16em; color: var(--foid-accent); text-shadow: 0 0 10px var(--foid-accent-soft); opacity: 0.92; }
-        .board-section__sub { margin-left: auto; font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 0.05em; }
-
-        .board-epoch {
-          display: inline-flex;
-          align-items: baseline;
-          gap: 6px;
-          margin-left: auto;
-        }
-        .board-section--epoch .board-epoch__num {
-          font-size: 10px;
-          font-weight: 600;
-          font-family: var(--font-mono);
-          letter-spacing: 0.2em;
-          color: var(--foid-accent);
-        }
-        .board-section--epoch .board-epoch__time {
-          font-size: 10px;
-          font-weight: 500;
-          font-family: var(--font-mono);
-          letter-spacing: 0.18em;
-          color: rgba(255, 255, 255, 0.65);
-        }
-
-        /* Actions */
-        .board-actions__pending-line {
-          font-size: 10px;
-          letter-spacing: 0.2em;
-          text-transform: uppercase;
-          color: rgba(255, 255, 255, 0.6);
-        }
-        .board-actions { display: flex; flex-direction: column; gap: 5px; }
-        .board-actions__divider { height: 1px; background: rgba(255, 255, 255, 0.08); margin: 3px 0; }
-        .board-actions__pricing { font-size: 11px; color: rgba(255, 255, 255, 0.4); text-align: center; margin-top: 8px; }
-        .board-section--chat :global(.terminal-chat__input-row) {
-          border-top: 1px solid rgba(116, 255, 235, 0.12);
-          padding: 10px 12px;
-        }
-        .board-section--chat :global(.terminal-chat__input) {
-          height: 36px;
-          font-size: 12px;
-        }
-        .board-section--chat :global(.terminal-chat__send) {
-          padding: 8px 14px;
-          font-size: 10px;
-        }
-
-        /* Y2K Button - pink glass pill */
-        :global(.y2k-btn) {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 100%;
-          height: 42px;
-          border-radius: 7px;
-          border: none;
-          background: linear-gradient(135deg, #e040fb, #f06292);
-          overflow: hidden;
-          cursor: pointer;
-          transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-          box-shadow:
-            0 18px 36px rgba(0, 10, 30, 0.28),
-            0 0 32px rgba(255, 150, 190, 0.25),
-            inset 0 1px 0 rgba(255, 255, 255, 0.6),
-            inset 0 -8px 18px rgba(0, 0, 0, 0.22);
-        }
-        :global(.y2k-btn::after) {
-          content: "";
-          position: absolute;
-          inset: 8px 0 30% 0;
-          border-radius: 12px;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0));
-          opacity: 0.55;
-          pointer-events: none;
-        }
-        :global(.y2k-btn:hover) {
-          border-color: rgba(255, 255, 255, 0.9);
-          box-shadow:
-            0 20px 40px rgba(0, 5, 25, 0.4),
-            0 0 38px rgba(255, 190, 220, 0.45),
-            inset 0 1px 0 rgba(255, 255, 255, 0.92),
-            inset 0 -10px 20px rgba(255, 255, 255, 0.35);
-        }
-        :global(.y2k-btn:focus-visible) {
-          outline: 2px solid rgba(160, 255, 240, 0.85);
-          outline-offset: 3px;
-        }
-        :global(.y2k-btn--disabled) {
-          opacity: 0.55;
-          cursor: not-allowed;
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.35),
-            inset 0 -8px 18px rgba(0, 0, 0, 0.2);
-        }
-        :global(.y2k-btn--disabled:hover) {
-          transform: none;
-          border-color: rgba(255, 255, 255, 0.7);
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.35),
-            inset 0 -8px 18px rgba(0, 0, 0, 0.2);
-        }
-        :global(.y2k-btn__reflection) {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 46%;
-          border-radius: 14px 14px 0 0;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.45) 35%, transparent 100%);
-          pointer-events: none;
-        }
-        :global(.y2k-btn__highlight) { position: absolute; inset: 0; border-radius: 14px; pointer-events: none; }
-        :global(.y2k-btn__label) {
-          position: relative;
-          z-index: 2;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: white;
-          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-        }
-        :global(.y2k-btn--secondary) {
-          background:
-            linear-gradient(180deg, rgba(12, 44, 59, 0.95) 0%, rgba(8, 25, 40, 0.95) 70%, rgba(8, 25, 40, 0.9) 100%);
-          border: 2px solid var(--foid-accent-soft);
-          box-shadow:
-            0 8px 16px rgba(0, 0, 0, 0.22),
-            inset 0 1px 0 rgba(255, 255, 255, 0.4),
-            inset 0 -3px 6px rgba(255, 255, 255, 0.2);
-        }
-        :global(.y2k-btn--secondary:hover) {
-          box-shadow:
-            0 10px 20px rgba(0, 0, 0, 0.24),
-            inset 0 1px 0 rgba(255, 255, 255, 0.45),
-            inset 0 -3px 6px rgba(255, 255, 255, 0.25),
-            0 0 18px rgba(0, 255, 213, 0.35);
-        }
-
-        /* Voting */
-        .board-voting { display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; }
-        :global(.voting-item) { display: flex; align-items: center; gap: 6px; padding: 5px; background: rgba(0,0,0,0.2); border-radius: 6px; }
-        :global(.voting-item__thumb) { width: 28px; height: 28px; border-radius: 4px; overflow: hidden; background: rgba(255,255,255,0.1); }
-        :global(.voting-item__thumb img) { width: 100%; height: 100%; object-fit: cover; }
-        :global(.voting-item__info) { display: flex; flex-direction: column; font-size: 9px; color: rgba(255,255,255,0.7); }
-        :global(.voting-item__counts) { margin-left: auto; font-size: 9px; color: rgba(255,255,255,0.5); }
-        :global(.voting-item__status) { margin-left: 0.5rem; font-size: 8px; border-radius: 999px; padding: 1px 6px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.65); border: 1px solid rgba(255,255,255,0.2); }
-        :global(.voting-item__btns) { display: flex; gap: 4px; }
-        :global(.voting-item__yes), :global(.voting-item__no) { width: 22px; height: 22px; border-radius: 50%; border: 1px solid; font-size: 10px; cursor: pointer; transition: all 0.15s; background: transparent; }
-        :global(.voting-item__yes) { border-color: var(--foid-accent-soft); color: var(--foid-accent); }
-        :global(.voting-item__yes:hover:not(:disabled)) { background: var(--foid-accent-soft); }
-        :global(.voting-item__no) { border-color: rgba(255,71,87,0.5); color: #ff4757; }
-        :global(.voting-item__no:hover:not(:disabled)) { background: rgba(255,71,87,0.2); }
-        :global(.voting-item__yes:disabled), :global(.voting-item__no:disabled) { opacity: 0.4; cursor: not-allowed; }
-        :global(.voting-item__yes:focus-visible), :global(.voting-item__no:focus-visible) {
-          outline: 2px solid var(--foid-accent);
-          outline-offset: 3px;
-        }
-
-        /* Terminal Chat - SMALLER text for spaciousness */
-        :global(.terminal-chat) {
-          position: relative;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          min-height: 0;
-          background:
-            linear-gradient(180deg, rgba(16, 36, 55, 0.92), rgba(6, 14, 24, 0.9)),
-            linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 40%),
-            var(--foid-panel-strong);
-          border-radius: var(--board-radius-md);
-          border: var(--board-border);
-          overflow: hidden;
-          font-family: var(--font-terminal);
-          box-shadow:
-            inset 0 2px 6px rgba(255, 255, 255, 0.08),
-            0 0 20px rgba(116, 255, 235, 0.12);
-        }
-        :global(.terminal-chat::before) {
-          content: "";
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 35%);
-          pointer-events: none;
-          opacity: 0.18;
-          mix-blend-mode: screen;
-          z-index: -1;
-        }
-        :global(.terminal-chat::after) {
-          content: "";
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          background-image:
-            linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-          background-size: 100% 3px, 3px 100%;
-          opacity: 0.08;
-          pointer-events: none;
-          mix-blend-mode: screen;
-          z-index: -1;
-        }
-        :global(.terminal-chat__messages) { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; font-size: 11px; line-height: 1.5; position: relative; z-index: 1; }
-        :global(.terminal-chat__line) { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
-        :global(.terminal-chat__time) { color: rgba(255,255,255,0.35); font-size: 9px; }
-        :global(.terminal-chat__user) { color: var(--foid-accent); font-weight: 600; background: var(--foid-accent-soft); padding: 1px 5px; border-radius: 2px; font-size: 9px; }
-        :global(.terminal-chat__system) { color: #ffcc00; font-weight: 600; font-style: italic; font-size: 9px; }
-        :global(.terminal-chat__text) { color: rgba(255,255,255,0.85); font-size: 11px; }
-        :global(.terminal-chat__line--success .terminal-chat__text) { color: var(--foid-accent); }
-        :global(.terminal-chat__line--error .terminal-chat__text) { color: #ff4757; }
-        :global(.terminal-chat__input-row) {
-          display: flex;
-          align-items: center;
-          padding: 10px 12px;
-          gap: 8px;
-          border-top: 1px solid var(--foid-accent-soft);
-          background: rgba(5, 15, 26, 0.85);
-          position: sticky;
-          bottom: 0;
-          backdrop-filter: blur(12px);
-          z-index: 2;
-          overflow: hidden;
-        }
-        :global(.terminal-chat__prompt) { color: var(--foid-accent); margin-right: 6px; font-weight: 600; font-size: 12px; text-shadow: 0 0 8px var(--foid-glow); flex-shrink: 0; }
-        :global(.terminal-chat__input) { flex: 1; min-width: 0; background: rgba(11,24,38,0.55); border: 1px solid var(--foid-accent-soft); border-radius: 4px; outline: none; color: white; font-family: inherit; font-size: 11px; padding: 6px 10px; transition: border-color 0.2s, box-shadow 0.2s; }
-        :global(.terminal-chat__input:focus) { border-color: var(--foid-accent); box-shadow: 0 0 10px var(--foid-glow); }
-        :global(.terminal-chat__input:focus-visible) {
-          outline: 2px solid var(--foid-accent);
-          outline-offset: 3px;
-        }
-        :global(.terminal-chat__input::placeholder) { color: rgba(255,255,255,0.35); }
-        :global(.terminal-chat__line--chat .terminal-chat__text) { color: #ccffd8; }
-        :global(.terminal-chat__send) {
-          padding: 6px 14px;
-          border-radius: 6px;
-          border: 1px solid var(--foid-accent-soft);
-          background: var(--foid-accent-soft);
-          color: var(--foid-accent);
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.15em;
-          text-transform: uppercase;
-          cursor: pointer;
-          transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
-          flex-shrink: 0;
-          white-space: nowrap;
-        }
-        :global(.terminal-chat__send:hover:not(:disabled)) {
-          background: var(--foid-accent);
-          box-shadow:
-            0 0 10px var(--foid-accent-soft),
-            0 0 18px var(--foid-warm);
-          transform: translateY(-1px);
-        }
-        :global(.terminal-chat__send:disabled) {
-          opacity: 0.35;
-          cursor: not-allowed;
-          box-shadow: none;
-          transform: none;
-        }
-        :global(.terminal-chat__send:focus-visible) {
-          outline: 2px solid var(--foid-accent);
-          outline-offset: 3px;
-        }
-
-      `}</style>
     </main>
   );
 
@@ -2603,31 +1170,21 @@ function BoardPageContent() {
   );
 }
 
-// Client-only wrapper — avoids React hydration mismatch (#425/#422) caused by
-// timestamps, wallet state, and random values that differ between server and client.
-function ClientOnly({ children, fallback }: { children: React.ReactNode; fallback: React.ReactNode }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  return mounted ? <>{children}</> : <>{fallback}</>;
-}
-
-const boardFallback = (
-  <main className="min-h-screen w-full flex items-center justify-center px-4">
-    <div className="font-terminal text-xs uppercase tracking-[0.16em] text-white/70 flex items-center gap-3">
-      <span className="inline-block h-4 w-4 rounded-full border-2 border-cyan-100/35 border-t-cyan-100 animate-spin" />
-      loading board...
-    </div>
-  </main>
-);
-
 export default function BoardPage() {
   return (
     <ErrorBoundary title="Board Error" description="Something went wrong loading the board. This has been logged.">
-      <ClientOnly fallback={boardFallback}>
-        <Suspense fallback={boardFallback}>
-          <BoardPageContent />
-        </Suspense>
-      </ClientOnly>
+      <Suspense
+        fallback={
+          <main className="min-h-screen w-full flex items-center justify-center px-4">
+            <div className="font-terminal text-xs uppercase tracking-[0.16em] text-white/70 flex items-center gap-3">
+              <span className="inline-block h-4 w-4 rounded-full border-2 border-cyan-100/35 border-t-cyan-100 animate-spin" />
+              loading board...
+            </div>
+          </main>
+        }
+      >
+        <BoardPageContent />
+      </Suspense>
     </ErrorBoundary>
   );
 }

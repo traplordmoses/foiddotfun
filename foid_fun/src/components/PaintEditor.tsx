@@ -12,7 +12,7 @@ interface PaintEditorProps {
   onCancel: () => void;
 }
 
-type Tool = "select" | "draw" | "eraser" | "stamp";
+type Tool = "select" | "draw" | "eraser" | "stamp" | "text";
 
 interface ImageOverlay {
   id: string;
@@ -23,9 +23,16 @@ interface ImageOverlay {
   h: number;
 }
 
+interface MemeText {
+  top: string;
+  bottom: string;
+  fontSize: number; // 0 = auto
+}
+
 interface HistoryEntry {
   imageData: ImageData;
   overlays: ImageOverlay[];
+  memeText: MemeText;
 }
 
 const PRESET_COLORS = [
@@ -43,6 +50,8 @@ const PRESET_COLORS = [
 
 const MAX_HISTORY = 30;
 const DEFAULT_OVERLAY_SIZE = 80;
+const DEFAULT_MEME_TEXT: MemeText = { top: "", bottom: "", fontSize: 0 };
+const MEME_FONT = "'Impact', 'Arial Black', 'Haettenschweiler', sans-serif";
 
 // ============================================================================
 // HELPERS
@@ -76,6 +85,8 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizingOverlay, setResizingOverlay] = useState<string | null>(null);
   const [canvasDisplaySize, setCanvasDisplaySize] = useState({ w: 0, h: 0 });
+  const [memeText, setMemeText] = useState<MemeText>({ ...DEFAULT_MEME_TEXT });
+  const [showColorPicker, setShowColorPicker] = useState(false);
 
   const originalImageRef = useRef<HTMLImageElement | null>(null);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -130,10 +141,11 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
 
     // Save initial history
     const initialData = drawCtx.getImageData(0, 0, w, h);
-    const entry: HistoryEntry = { imageData: initialData, overlays: [] };
+    const entry: HistoryEntry = { imageData: initialData, overlays: [], memeText: { ...DEFAULT_MEME_TEXT } };
     setHistory([entry]);
     setHistoryIdx(0);
     setOverlays([]);
+    setMemeText({ ...DEFAULT_MEME_TEXT });
   }, []);
 
   // Resize handler
@@ -154,7 +166,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   // ============================================================================
 
   const pushHistory = useCallback(
-    (newOverlays?: ImageOverlay[]) => {
+    (newOverlays?: ImageOverlay[], newMemeText?: MemeText) => {
       const drawCanvas = drawCanvasRef.current;
       if (!drawCanvas) return;
       const ctx = drawCanvas.getContext("2d");
@@ -163,6 +175,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       const entry: HistoryEntry = {
         imageData: data,
         overlays: newOverlays ?? overlays,
+        memeText: newMemeText ?? memeText,
       };
       setHistory((prev) => {
         const truncated = prev.slice(0, historyIdx + 1);
@@ -172,7 +185,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       });
       setHistoryIdx((prev) => Math.min(prev + 1, MAX_HISTORY - 1));
     },
-    [historyIdx, overlays]
+    [historyIdx, overlays, memeText]
   );
 
   const undo = useCallback(() => {
@@ -185,6 +198,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     if (!prev) return;
     ctx.putImageData(prev.imageData, 0, 0);
     setOverlays(prev.overlays);
+    setMemeText(prev.memeText);
     setHistoryIdx((i) => i - 1);
   }, [history, historyIdx]);
 
@@ -195,52 +209,106 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     if (!ctx) return;
     ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
     setOverlays([]);
-    pushHistory([]);
+    const cleared = { ...DEFAULT_MEME_TEXT };
+    setMemeText(cleared);
+    pushHistory([], cleared);
   }, [pushHistory]);
 
   // ============================================================================
-  // FLATTEN OVERLAYS — bake overlay images onto draw canvas so eraser/brush work on them
+  // MEME TEXT RENDERING
   // ============================================================================
 
-  const flattenOverlays = useCallback(() => {
-    if (overlays.length === 0) return;
-    const drawCanvas = drawCanvasRef.current;
-    if (!drawCanvas) return;
-    const ctx = drawCanvas.getContext("2d");
+  const drawMemeTextOnCanvas = useCallback(
+    (ctx: CanvasRenderingContext2D, w: number, h: number, text: MemeText) => {
+      if (!text.top && !text.bottom) return;
+
+      const autoSize = Math.max(16, Math.min(w / 8, h / 6));
+      const size = text.fontSize > 0 ? text.fontSize : autoSize;
+      const padding = w * 0.04;
+      const strokeWidth = Math.max(2, size / 12);
+
+      ctx.font = `900 ${size}px ${MEME_FONT}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.lineJoin = "round";
+      ctx.miterLimit = 2;
+
+      const drawText = (str: string, y: number) => {
+        const upper = str.toUpperCase();
+        // Word-wrap if text is wider than canvas
+        const maxWidth = w - padding * 2;
+        const lines: string[] = [];
+        const words = upper.split(" ");
+        let currentLine = "";
+        for (const word of words) {
+          const test = currentLine ? `${currentLine} ${word}` : word;
+          if (ctx.measureText(test).width > maxWidth && currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = test;
+          }
+        }
+        if (currentLine) lines.push(currentLine);
+
+        let lineY = y;
+        for (const line of lines) {
+          ctx.strokeStyle = "#000000";
+          ctx.lineWidth = strokeWidth;
+          ctx.strokeText(line, w / 2, lineY, maxWidth);
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText(line, w / 2, lineY, maxWidth);
+          lineY += size * 1.15;
+        }
+      };
+
+      if (text.top) {
+        drawText(text.top, h * 0.04);
+      }
+      if (text.bottom) {
+        // Measure lines to position from bottom
+        const upper = text.bottom.toUpperCase();
+        const maxWidth = w - padding * 2;
+        const words = upper.split(" ");
+        let currentLine = "";
+        const lines: string[] = [];
+        for (const word of words) {
+          const test = currentLine ? `${currentLine} ${word}` : word;
+          if (ctx.measureText(test).width > maxWidth && currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = test;
+          }
+        }
+        if (currentLine) lines.push(currentLine);
+        const totalH = lines.length * size * 1.15;
+        const startY = h - totalH - h * 0.04;
+        drawText(text.bottom, startY);
+      }
+    },
+    []
+  );
+
+  // Live preview: draw meme text on a transparent overlay canvas
+  const textCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const textCanvas = textCanvasRef.current;
+    if (!textCanvas || !loaded) return;
+    const { w, h } = canvasDisplaySize;
+    if (!w || !h) return;
+    textCanvas.width = w;
+    textCanvas.height = h;
+    const ctx = textCanvas.getContext("2d");
     if (!ctx) return;
+    ctx.clearRect(0, 0, w, h);
+    drawMemeTextOnCanvas(ctx, w, h, memeText);
+  }, [memeText, canvasDisplaySize, loaded, drawMemeTextOnCanvas]);
 
-    const scaleX = drawCanvas.width / canvasDisplaySize.w;
-    const scaleY = drawCanvas.height / canvasDisplaySize.h;
-
-    let loaded = 0;
-    const total = overlays.length;
-    overlays.forEach((overlay) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        ctx.drawImage(
-          img,
-          overlay.x * scaleX,
-          overlay.y * scaleY,
-          overlay.w * scaleX,
-          overlay.h * scaleY
-        );
-        loaded++;
-        if (loaded === total) {
-          setOverlays([]);
-          pushHistory([]);
-        }
-      };
-      img.onerror = () => {
-        loaded++;
-        if (loaded === total) {
-          setOverlays([]);
-          pushHistory([]);
-        }
-      };
-      img.src = overlay.src;
-    });
-  }, [overlays, canvasDisplaySize, pushHistory]);
+  const commitMemeText = useCallback(() => {
+    pushHistory(undefined, memeText);
+  }, [pushHistory, memeText]);
 
   // ============================================================================
   // DRAWING
@@ -379,21 +447,13 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     [overlays]
   );
 
-  const resizeStartRef = useRef<{ w: number; h: number; clientX: number; clientY: number } | null>(null);
-
   const startResizeOverlay = useCallback(
     (e: React.MouseEvent | React.TouchEvent, overlayId: string) => {
       e.stopPropagation();
       e.preventDefault();
-      const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-      const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-      const overlay = overlays.find((s) => s.id === overlayId);
-      if (overlay) {
-        resizeStartRef.current = { w: overlay.w, h: overlay.h, clientX, clientY };
-      }
       setResizingOverlay(overlayId);
     },
-    [overlays]
+    []
   );
 
   useEffect(() => {
@@ -418,20 +478,16 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         );
       }
 
-      if (resizingOverlay && resizeStartRef.current) {
-        const start = resizeStartRef.current;
-        const dx = clientX - start.clientX;
-        const dy = clientY - start.clientY;
-        // Use the larger absolute delta, keeping direction consistent (bottom-right = grow)
-        const delta = Math.abs(dx) > Math.abs(dy) ? dx : dy;
-        // Only grow when dragging right/down, shrink when left/up — prevent sign flipping
-        const absDelta = (dx + dy) >= 0 ? Math.abs(delta) : -Math.abs(delta);
-        const newSize = Math.max(30, start.w + absDelta);
+      if (resizingOverlay) {
         setOverlays((prev) =>
           prev.map((s) => {
             if (s.id !== resizingOverlay) return s;
-            const aspect = start.w / start.h;
-            return { ...s, w: newSize, h: newSize / aspect };
+            const centerX = canvasOffX + s.x + s.w / 2;
+            const centerY = canvasOffY + s.y + s.h / 2;
+            const dx = clientX - containerRect.left - centerX;
+            const dy = clientY - containerRect.top - centerY;
+            const dist = Math.max(30, Math.sqrt(dx * dx + dy * dy) * 2);
+            return { ...s, w: dist, h: dist };
           })
         );
       }
@@ -441,7 +497,6 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       if (draggingOverlay || resizingOverlay) {
         setDraggingOverlay(null);
         setResizingOverlay(null);
-        resizeStartRef.current = null;
       }
     };
 
@@ -548,32 +603,12 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     const reader = new FileReader();
     reader.onload = () => {
       const dataURL = reader.result as string;
-      // Load the image to get natural dimensions for proper aspect ratio
-      const img = new Image();
-      img.onload = () => {
-        const aspect = img.naturalWidth / img.naturalHeight;
-        const size = Math.min(200, canvasDisplaySize.w * 0.5, canvasDisplaySize.h * 0.5);
-        const w = aspect >= 1 ? size : size * aspect;
-        const h = aspect >= 1 ? size / aspect : size;
-        const newOverlay: ImageOverlay = {
-          id: generateId(),
-          src: dataURL,
-          x: (canvasDisplaySize.w - w) / 2,
-          y: (canvasDisplaySize.h - h) / 2,
-          w,
-          h,
-        };
-        const updated = [...overlays, newOverlay];
-        setOverlays(updated);
-        pushHistory(updated);
-        setTool("select");
-        setOverlaySrc(null);
-      };
-      img.src = dataURL;
+      setOverlaySrc(dataURL);
+      setTool("stamp");
     };
     reader.readAsDataURL(file);
     e.target.value = "";
-  }, [overlays, pushHistory, canvasDisplaySize]);
+  }, []);
 
   // ============================================================================
   // EXPORT / DONE
@@ -621,6 +656,9 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     });
 
     Promise.all(overlayPromises).then(() => {
+      // 4. Draw meme text at full resolution
+      drawMemeTextOnCanvas(ectx, img.naturalWidth, img.naturalHeight, memeText);
+
       exportCanvas.toBlob(
         (blob) => {
           if (!blob) return;
@@ -632,57 +670,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         0.92
       );
     });
-  }, [imageFile, onDone, overlays, canvasDisplaySize]);
-
-  // Save / download the creation
-  const handleSave = useCallback(() => {
-    const bgCanvas = bgCanvasRef.current;
-    const drawCanvas = drawCanvasRef.current;
-    const img = originalImageRef.current;
-    if (!bgCanvas || !drawCanvas || !img) return;
-
-    const exportCanvas = document.createElement("canvas");
-    exportCanvas.width = img.naturalWidth;
-    exportCanvas.height = img.naturalHeight;
-    const ectx = exportCanvas.getContext("2d");
-    if (!ectx) return;
-
-    ectx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight);
-    ectx.drawImage(drawCanvas, 0, 0, img.naturalWidth, img.naturalHeight);
-
-    const scaleX = img.naturalWidth / canvasDisplaySize.w;
-    const scaleY = img.naturalHeight / canvasDisplaySize.h;
-
-    const overlayPromises = overlays.map((overlay) => {
-      return new Promise<void>((resolve) => {
-        const overlayImg = new Image();
-        overlayImg.crossOrigin = "anonymous";
-        overlayImg.onload = () => {
-          ectx.drawImage(overlayImg, overlay.x * scaleX, overlay.y * scaleY, overlay.w * scaleX, overlay.h * scaleY);
-          resolve();
-        };
-        overlayImg.onerror = () => resolve();
-        overlayImg.src = overlay.src;
-      });
-    });
-
-    Promise.all(overlayPromises).then(() => {
-      exportCanvas.toBlob(
-        (blob) => {
-          if (!blob) return;
-          const name = imageFile.name.replace(/\.[^.]+$/, "") + "_edited.jpg";
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = name;
-          a.click();
-          URL.revokeObjectURL(url);
-        },
-        "image/jpeg",
-        0.92
-      );
-    });
-  }, [imageFile, overlays, canvasDisplaySize]);
+  }, [imageFile, onDone, overlays, canvasDisplaySize, memeText, drawMemeTextOnCanvas]);
 
   // ============================================================================
   // KEYBOARD SHORTCUTS
@@ -713,22 +701,6 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       : "default";
 
   // ============================================================================
-  // MUSIC PLAYER AWARENESS — shift controls up when music bar is visible
-  // ============================================================================
-  const [musicBarHeight, setMusicBarHeight] = useState(0);
-  useEffect(() => {
-    const bar = document.querySelector(".cmp-bar");
-    if (!bar) return;
-    const update = () => {
-      setMusicBarHeight(bar.classList.contains("cmp-bar--visible") ? 48 : 0);
-    };
-    update();
-    const observer = new MutationObserver(update);
-    observer.observe(bar, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-
-  // ============================================================================
   // RENDER
   // ============================================================================
 
@@ -741,8 +713,6 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         display: "flex",
         flexDirection: "column",
         background: "rgba(8, 12, 20, 0.98)",
-        paddingBottom: musicBarHeight,
-        transition: "padding-bottom 0.3s ease",
       }}
     >
       {/* ============ VISTA-STYLE TITLEBAR ============ */}
@@ -884,6 +854,20 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
             onTouchEnd={onCanvasTouchEnd}
           />
 
+          {/* Meme text preview canvas */}
+          <canvas
+            ref={textCanvasRef}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              display: "block",
+              pointerEvents: "none",
+              borderRadius: 2,
+              zIndex: 5,
+            }}
+          />
+
           {/* Placed image overlays */}
           {overlays.map((overlay) => (
             <div
@@ -973,269 +957,295 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         )}
       </div>
 
+      {/* ============ TEXT TOOL PANEL (above toolbar when active) ============ */}
+      {tool === "text" && (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 12px",
+            borderTop: "1px solid rgba(0,204,204,0.1)",
+            background: "rgba(16, 20, 32, 0.98)",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "1 1 140px", minWidth: 0 }}>
+            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-terminal), monospace", whiteSpace: "nowrap" }}>TOP</span>
+            <input
+              type="text"
+              placeholder="TOP TEXT"
+              value={memeText.top}
+              onChange={(e) => setMemeText((prev) => ({ ...prev, top: e.target.value }))}
+              onBlur={commitMemeText}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                height: 28,
+                padding: "0 8px",
+                borderRadius: 4,
+                border: "1px solid rgba(0,204,204,0.3)",
+                background: "rgba(0,0,0,0.4)",
+                color: "#fff",
+                fontSize: 12,
+                fontFamily: MEME_FONT,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "1 1 140px", minWidth: 0 }}>
+            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-terminal), monospace", whiteSpace: "nowrap" }}>BTM</span>
+            <input
+              type="text"
+              placeholder="BOTTOM TEXT"
+              value={memeText.bottom}
+              onChange={(e) => setMemeText((prev) => ({ ...prev, bottom: e.target.value }))}
+              onBlur={commitMemeText}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                height: 28,
+                padding: "0 8px",
+                borderRadius: 4,
+                border: "1px solid rgba(0,204,204,0.3)",
+                background: "rgba(0,0,0,0.4)",
+                color: "#fff",
+                fontSize: 12,
+                fontFamily: MEME_FONT,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+              }}
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-terminal), monospace", whiteSpace: "nowrap" }}>
+              {memeText.fontSize > 0 ? `${memeText.fontSize}px` : "AUTO"}
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={120}
+              step={2}
+              value={memeText.fontSize}
+              onChange={(e) => setMemeText((prev) => ({ ...prev, fontSize: Number(e.target.value) }))}
+              onMouseUp={commitMemeText}
+              onTouchEnd={commitMemeText}
+              style={{ width: 70, accentColor: "#00cccc", cursor: "pointer" }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ============ BOTTOM TOOLBAR ============ */}
       <div
         style={{
           display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          gap: 6,
-          padding: "6px 12px",
-          height: 52,
+          flexDirection: "column",
           borderTop: "1px solid rgba(0,204,204,0.1)",
           background: "rgba(16, 20, 32, 0.95)",
           flexShrink: 0,
         }}
       >
-        {/* Tool buttons */}
-        <ToolBtn
-          label="Select"
-          icon={
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M2 1L2 12L5.5 8.5L8.5 13L10 12L7 7.5L11 7L2 1Z" fill="currentColor" />
-            </svg>
-          }
-          active={tool === "select"}
-          onClick={() => {
-            setTool("select");
-            setOverlaySrc(null);
+        {/* Row 1: Tools + Done */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "6px 12px",
+            minHeight: 44,
+            overflowX: "auto",
+            WebkitOverflowScrolling: "touch",
           }}
-        />
-        <ToolBtn
-          label="Draw"
-          icon={
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path
-                d="M10.5 1.5L12.5 3.5L4.5 11.5L1.5 12.5L2.5 9.5L10.5 1.5Z"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                fill="none"
-              />
-            </svg>
-          }
-          active={tool === "draw"}
-          onClick={() => {
-            flattenOverlays();
-            setTool("draw");
-            setOverlaySrc(null);
-          }}
-        />
-        <ToolBtn
-          label="Eraser"
-          icon={
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <rect x="2" y="6" width="10" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
-              <path d="M4 6V4C4 3.4 4.4 3 5 3H9C9.6 3 10 3.4 10 4V6" stroke="currentColor" strokeWidth="1.2" />
-            </svg>
-          }
-          active={tool === "eraser"}
-          onClick={() => {
-            flattenOverlays();
-            setTool("eraser");
-            setOverlaySrc(null);
-          }}
-        />
-
-        <Divider />
-
-        {/* Color swatches */}
-        <div style={{ display: "flex", gap: 3, alignItems: "center", flexWrap: "nowrap" }}>
-          {PRESET_COLORS.map((c) => (
-            <button
-              key={c}
-              title={c}
-              onClick={() => {
-                setColor(c);
-                if (tool !== "draw" && tool !== "eraser") setTool("draw");
-              }}
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: "50%",
-                border: color === c ? "2px solid #00cccc" : "2px solid rgba(255,255,255,0.12)",
-                background: c,
-                cursor: "pointer",
-                flexShrink: 0,
-                boxShadow: color === c ? "0 0 8px rgba(0,204,204,0.4)" : "none",
-                transition: "box-shadow 0.15s",
-              }}
-            />
-          ))}
-        </div>
-
-        <Divider />
-
-        {/* Size slider */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span
-            style={{
-              fontSize: 9,
-              color: "rgba(255,255,255,0.4)",
-              fontFamily: "var(--font-terminal), monospace",
-              whiteSpace: "nowrap",
-            }}
-          >
-            SIZE
-          </span>
+        >
+          {/* Tool buttons */}
+          <ToolBtn
+            label="Draw"
+            icon={
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M10.5 1.5L12.5 3.5L4.5 11.5L1.5 12.5L2.5 9.5L10.5 1.5Z" stroke="currentColor" strokeWidth="1.2" fill="none" />
+              </svg>
+            }
+            active={tool === "draw"}
+            onClick={() => { setTool("draw"); setOverlaySrc(null); }}
+          />
+          <ToolBtn
+            label="Eraser"
+            icon={
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <rect x="2" y="6" width="10" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
+                <path d="M4 6V4C4 3.4 4.4 3 5 3H9C9.6 3 10 3.4 10 4V6" stroke="currentColor" strokeWidth="1.2" />
+              </svg>
+            }
+            active={tool === "eraser"}
+            onClick={() => { setTool("eraser"); setOverlaySrc(null); }}
+          />
+          <ToolBtn
+            label="Text"
+            icon={
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <text x="2" y="12" fontSize="12" fontWeight="900" fontFamily="Impact" fill="currentColor">A</text>
+              </svg>
+            }
+            active={tool === "text"}
+            onClick={() => { setTool("text"); setOverlaySrc(null); }}
+          />
+          <ToolBtn
+            label="Stamp"
+            icon={
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <rect x="1" y="3" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
+                <circle cx="4" cy="6" r="1.2" fill="currentColor" />
+                <path d="M1 10L4.5 7L7 9L9.5 6.5L13 10" stroke="currentColor" strokeWidth="1.2" />
+              </svg>
+            }
+            active={tool === "stamp"}
+            onClick={() => fileInputRef.current?.click()}
+          />
           <input
-            type="range"
-            min={1}
-            max={30}
-            value={brushSize}
-            onChange={(e) => setBrushSize(Number(e.target.value))}
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={handleUploadOverlay}
+          />
+
+          <Divider />
+
+          {/* Color swatch: active color button that toggles palette */}
+          <button
+            title="Color"
+            onClick={() => setShowColorPicker(!showColorPicker)}
             style={{
-              width: 80,
-              accentColor: "#00cccc",
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              border: "2px solid rgba(0,204,204,0.5)",
+              background: color,
               cursor: "pointer",
+              flexShrink: 0,
+              boxShadow: showColorPicker ? "0 0 10px rgba(0,204,204,0.5)" : "0 0 4px rgba(0,0,0,0.4)",
+              transition: "box-shadow 0.15s",
             }}
           />
-          <span
-            style={{
-              fontSize: 9,
-              color: "rgba(255,255,255,0.5)",
-              fontFamily: "var(--font-terminal), monospace",
-              minWidth: 16,
-              textAlign: "center",
-            }}
-          >
-            {brushSize}
-          </span>
-        </div>
 
-        <Divider />
+          {/* Size slider */}
+          <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+            <input
+              type="range"
+              min={1}
+              max={30}
+              value={brushSize}
+              onChange={(e) => setBrushSize(Number(e.target.value))}
+              style={{ width: 60, accentColor: "#00cccc", cursor: "pointer" }}
+            />
+            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-terminal), monospace", minWidth: 16, textAlign: "center" }}>
+              {brushSize}
+            </span>
+          </div>
 
-        {/* + Add Image button */}
-        <ToolBtn
-          label="+ Add Image"
-          icon={
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <rect x="1" y="3" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
-              <circle cx="4" cy="6" r="1.2" fill="currentColor" />
-              <path d="M1 10L4.5 7L7 9L9.5 6.5L13 10" stroke="currentColor" strokeWidth="1.2" />
-            </svg>
-          }
-          active={tool === "stamp"}
-          onClick={() => fileInputRef.current?.click()}
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          style={{ display: "none" }}
-          onChange={handleUploadOverlay}
-        />
+          <Divider />
 
-        {/* Delete last overlay */}
-        <ToolBtn
-          label="Delete"
-          icon={
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3 4H11L10.2 12H3.8L3 4Z" stroke="currentColor" strokeWidth="1.2" fill="none" />
-              <path d="M2 4H12" stroke="currentColor" strokeWidth="1.2" />
-              <path d="M5 4V2.5C5 2.2 5.2 2 5.5 2H8.5C8.8 2 9 2.2 9 2.5V4" stroke="currentColor" strokeWidth="1.2" />
-            </svg>
-          }
-          active={false}
-          onClick={deleteLastOverlay}
-          disabled={overlays.length === 0}
-        />
-
-        {/* Undo */}
-        <ToolBtn
-          label="Undo"
-          icon={
+          {/* Undo */}
+          <ToolBtn label="Undo" icon={
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M4 5L1 8L4 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
               <path d="M1 8H9C11 8 12.5 9.5 12.5 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
             </svg>
-          }
-          active={false}
-          onClick={undo}
-          disabled={historyIdx <= 0}
-        />
+          } active={false} onClick={undo} disabled={historyIdx <= 0} />
 
-        {/* Clear */}
-        <ToolBtn
-          label="Clear"
-          icon={
+          {/* Clear */}
+          <ToolBtn label="Clear" icon={
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
-          }
-          active={false}
-          onClick={clearCanvas}
-        />
+          } active={false} onClick={clearCanvas} />
 
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
+          {/* Spacer */}
+          <div style={{ flex: 1, minWidth: 8 }} />
 
-        {/* Save / download */}
-        <button
-          onClick={handleSave}
-          style={{
-            padding: "0 16px",
-            height: 36,
-            borderRadius: 6,
-            border: "1px solid rgba(255,255,255,0.2)",
-            background: "rgba(255,255,255,0.06)",
-            color: "rgba(255,255,255,0.7)",
-            fontSize: 13,
-            fontWeight: 700,
-            fontFamily: "var(--font-terminal), monospace",
-            letterSpacing: "0.1em",
-            cursor: "pointer",
-            transition: "background 0.2s, color 0.2s",
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-          }}
-          onMouseEnter={(e) => {
-            (e.target as HTMLElement).style.background = "rgba(255,255,255,0.12)";
-            (e.target as HTMLElement).style.color = "rgba(255,255,255,0.95)";
-          }}
-          onMouseLeave={(e) => {
-            (e.target as HTMLElement).style.background = "rgba(255,255,255,0.06)";
-            (e.target as HTMLElement).style.color = "rgba(255,255,255,0.7)";
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ pointerEvents: "none" }}>
-            <path d="M7 2V10M4 7.5L7 10.5L10 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M2 12H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          SAVE
-        </button>
+          {/* Done CTA */}
+          <button
+            onClick={handleDone}
+            style={{
+              padding: "0 20px",
+              height: 34,
+              borderRadius: 6,
+              border: "1px solid rgba(0,204,204,0.6)",
+              background: "linear-gradient(135deg, rgba(0,204,204,0.35), rgba(0,180,180,0.2))",
+              color: "#00cccc",
+              fontSize: 12,
+              fontWeight: 700,
+              fontFamily: "var(--font-terminal), monospace",
+              letterSpacing: "0.1em",
+              cursor: "pointer",
+              boxShadow: "0 0 16px rgba(0,204,204,0.2), inset 0 1px 0 rgba(255,255,255,0.1)",
+              transition: "box-shadow 0.2s, background 0.2s",
+              flexShrink: 0,
+            }}
+          >
+            DONE
+          </button>
+        </div>
 
-        {/* Done CTA */}
-        <button
-          onClick={handleDone}
-          style={{
-            padding: "0 24px",
-            height: 36,
-            borderRadius: 6,
-            border: "1px solid rgba(0,204,204,0.6)",
-            background: "linear-gradient(135deg, rgba(0,204,204,0.35), rgba(0,180,180,0.2))",
-            color: "#00cccc",
-            fontSize: 13,
-            fontWeight: 700,
-            fontFamily: "var(--font-terminal), monospace",
-            letterSpacing: "0.1em",
-            cursor: "pointer",
-            boxShadow: "0 0 16px rgba(0,204,204,0.2), inset 0 1px 0 rgba(255,255,255,0.1)",
-            transition: "box-shadow 0.2s, background 0.2s",
-            flexShrink: 0,
-          }}
-          onMouseEnter={(e) => {
-            (e.target as HTMLElement).style.boxShadow =
-              "0 0 24px rgba(0,204,204,0.4), inset 0 1px 0 rgba(255,255,255,0.1)";
-          }}
-          onMouseLeave={(e) => {
-            (e.target as HTMLElement).style.boxShadow =
-              "0 0 16px rgba(0,204,204,0.2), inset 0 1px 0 rgba(255,255,255,0.1)";
-          }}
-        >
-          DONE
-        </button>
+        {/* Row 2: Color palette (expandable, wraps on mobile) */}
+        {showColorPicker && (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px 8px",
+              borderTop: "1px solid rgba(255,255,255,0.05)",
+            }}
+          >
+            {PRESET_COLORS.map((c) => (
+              <button
+                key={c}
+                title={c}
+                onClick={() => {
+                  setColor(c);
+                  if (tool !== "draw" && tool !== "eraser") setTool("draw");
+                }}
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: "50%",
+                  border: color === c ? "2px solid #00cccc" : "2px solid rgba(255,255,255,0.15)",
+                  background: c,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                  boxShadow: color === c ? "0 0 8px rgba(0,204,204,0.4)" : "none",
+                  transition: "box-shadow 0.15s, border-color 0.15s",
+                }}
+              />
+            ))}
+            {/* Custom hex input */}
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => {
+                setColor(e.target.value);
+                if (tool !== "draw" && tool !== "eraser") setTool("draw");
+              }}
+              title="Custom color"
+              style={{
+                width: 24,
+                height: 24,
+                border: "2px solid rgba(255,255,255,0.15)",
+                borderRadius: "50%",
+                cursor: "pointer",
+                background: "conic-gradient(red,yellow,lime,cyan,blue,magenta,red)",
+                padding: 0,
+                WebkitAppearance: "none",
+                appearance: "none",
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
