@@ -131,6 +131,18 @@ export function MobileBoard({
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-transparent">
+      <style>{`
+        @keyframes mobile-neon-glow {
+          0%, 100% {
+            border-color: rgba(168,85,247,0.5);
+            box-shadow: 0 0 10px rgba(168,85,247,0.3), 0 0 24px rgba(168,85,247,0.1), inset 0 0 6px rgba(168,85,247,0.08);
+          }
+          50% {
+            border-color: rgba(168,85,247,0.9);
+            box-shadow: 0 0 18px rgba(168,85,247,0.55), 0 0 40px rgba(168,85,247,0.25), inset 0 0 12px rgba(168,85,247,0.15);
+          }
+        }
+      `}</style>
       {/* Canvas */}
       <div
         ref={canvasRef}
@@ -158,37 +170,59 @@ export function MobileBoard({
             }}
           />
 
-          {/* Nodes - NO BLACK BOXES! */}
-          {nodes.map((node) => (
-            <motion.div
-              key={node.id}
-              className={`
-                absolute
-                ${selectedNode === node.id ? 'ring-2 ring-white ring-offset-2 ring-offset-transparent' : ''}
-              `}
-              style={{
-                left: node.x,
-                top: node.y,
-                width: node.width,
-                height: node.height,
-              }}
-              whileTap={{ scale: 0.98 }}
-            >
-              {node.type === 'image' || node.type === 'meme' ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={cidToHttpUrl(node.content)}
-                  alt="Board item"
-                  className="w-full h-full object-contain pointer-events-none"
-                  draggable={false}
-                />
-              ) : (
-                <div className="text-white text-sm break-words bg-black/40 backdrop-blur-sm p-3 rounded-lg">
-                  {node.content}
-                </div>
-              )}
-            </motion.div>
-          ))}
+          {/* Nodes */}
+          {nodes.map((node) => {
+            const isVoting = node.id.startsWith('proposal-');
+            return (
+              <motion.div
+                key={node.id}
+                className={`
+                  absolute
+                  ${selectedNode === node.id ? 'ring-2 ring-white ring-offset-2 ring-offset-transparent' : ''}
+                `}
+                style={{
+                  left: node.x,
+                  top: node.y,
+                  width: node.width,
+                  height: node.height,
+                  ...(isVoting ? {
+                    borderRadius: 6,
+                    border: '1.5px solid rgba(168,85,247,0.6)',
+                    boxShadow: '0 0 12px rgba(168,85,247,0.4), 0 0 28px rgba(168,85,247,0.15), inset 0 0 8px rgba(168,85,247,0.1)',
+                    animation: 'mobile-neon-glow 2.5s ease-in-out infinite',
+                    overflow: 'hidden',
+                  } : {}),
+                }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {node.type === 'image' || node.type === 'meme' ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={cidToHttpUrl(node.content)}
+                    alt="Board item"
+                    className="w-full h-full object-contain pointer-events-none"
+                    style={isVoting ? { opacity: 0.6 } : undefined}
+                    draggable={false}
+                  />
+                ) : (
+                  <div className="text-white text-sm break-words bg-black/40 backdrop-blur-sm p-3 rounded-lg">
+                    {node.content}
+                  </div>
+                )}
+                {isVoting && (
+                  <div style={{
+                    position: 'absolute', top: 3, left: 3,
+                    background: 'rgba(168,85,247,0.85)', color: '#fff',
+                    fontSize: 7, fontWeight: 800, letterSpacing: '0.1em',
+                    padding: '1px 4px', borderRadius: 3, lineHeight: '12px',
+                    textTransform: 'uppercase',
+                  }}>
+                    VOTING
+                  </div>
+                )}
+              </motion.div>
+            );
+          })}
         </div>
       </div>
 
