@@ -9,15 +9,12 @@ type Proposal = {
   id: number;
   proposer: string;
   ipfsCid: string;
+  imageUrl?: string | null;
   createdAt: number;
   votingEndsAt: number;
   finalized: boolean;
   canonized: boolean;
-  proposalType: number;
-  gridX: number;
-  gridY: number;
-  gridW: number;
-  gridH: number;
+  status?: string;
   forCount: number;
   againstCount: number;
 };
@@ -79,8 +76,9 @@ export function VotingQueue() {
     return () => clearInterval(interval);
   }, [fetchProposals]);
 
+  const nowSec = Math.floor(Date.now() / 1000);
   const activeProposals = proposals.filter(
-    (p) => !p.finalized && p.proposalType === 1
+    (p) => !p.finalized && p.votingEndsAt > nowSec
   );
 
   const handleVote = useCallback(
@@ -89,7 +87,8 @@ export function VotingQueue() {
       setVoting(proposalId);
 
       try {
-        const deadline = Math.floor(Date.now() / 1000) + 7 * 24 * 3600;
+        const proposal = proposals.find((p) => p.id === proposalId);
+        const deadline = proposal?.votingEndsAt ?? Math.floor(Date.now() / 1000) + 7 * 24 * 3600;
 
         const signature = await signTypedDataAsync({
           domain: SWIPE_DOMAIN,
@@ -203,7 +202,7 @@ export function VotingQueue() {
               </div>
 
               <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)", marginBottom: "6px" }}>
-                Grid: ({p.gridX}, {p.gridY}) {p.gridW}x{p.gridH}px
+                {p.status === "voting" ? "Active vote" : p.ipfsCid ? "Proposal" : ""}
               </div>
 
               {/* Vote bar */}

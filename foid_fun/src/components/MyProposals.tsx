@@ -10,15 +10,12 @@ type Proposal = {
   id: number;
   proposer: string;
   ipfsCid: string;
+  imageUrl?: string | null;
   createdAt: number;
   votingEndsAt: number;
   finalized: boolean;
   canonized: boolean;
-  proposalType: number;
-  gridX: number;
-  gridY: number;
-  gridW: number;
-  gridH: number;
+  status?: string;
   forCount: number;
   againstCount: number;
 };
@@ -180,9 +177,9 @@ function ProposalRow({
           </span>
         </div>
 
-        {p.proposalType === 1 && (
+        {p.status && (
           <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", marginTop: "2px" }}>
-            Grid: ({p.gridX}, {p.gridY}) {p.gridW}x{p.gridH}px
+            {p.status}
           </div>
         )}
       </div>

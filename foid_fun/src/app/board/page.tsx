@@ -43,6 +43,7 @@ import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
 import { TerminalChat, type StatusMessage } from "@/components/TerminalChat";
 import { Y2kActionButton } from "@/components/Y2kActionButton";
+import { VotingQueue } from "@/components/VotingQueue";
 import dynamic from "next/dynamic";
 import { useMobile } from "@/hooks/useMobile";
 import type { BoardNode } from "@/types/mobile";
@@ -1612,6 +1613,15 @@ function BoardPageContent() {
                     <div className="board-actions__pricing">
                       0.001 ETH to propose &middot; 72h community voting &middot; 51% to pass
                     </div>
+                  </div>
+
+                  {/* Voting Queue */}
+                  <div className="board-section board-section--voting">
+                    <div className="board-section__header">
+                      <span className="board-section__dot" style={{ background: "#f59e0b" }} />
+                      <span className="board-section__title">VOTING</span>
+                    </div>
+                    <VotingQueue />
                   </div>
 
                   {/* Chat */}
