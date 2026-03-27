@@ -87,8 +87,8 @@ export function PlacementCard({ placement, onOpen, frameStyle, onFlag, isFlagged
           src={src}
           alt={name ?? ""}
           className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-          loading="lazy"
-          decoding="async"
+          loading="eager"
+          decoding="sync"
           onError={handleError}
           referrerPolicy="no-referrer"
         />
