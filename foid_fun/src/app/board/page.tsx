@@ -2470,21 +2470,31 @@ function BoardPageContent() {
   );
 }
 
+// Client-only wrapper — avoids React hydration mismatch (#425/#422) caused by
+// timestamps, wallet state, and random values that differ between server and client.
+function ClientOnly({ children, fallback }: { children: React.ReactNode; fallback: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted ? <>{children}</> : <>{fallback}</>;
+}
+
+const boardFallback = (
+  <main className="min-h-screen w-full flex items-center justify-center px-4">
+    <div className="font-terminal text-xs uppercase tracking-[0.16em] text-white/70 flex items-center gap-3">
+      <span className="inline-block h-4 w-4 rounded-full border-2 border-cyan-100/35 border-t-cyan-100 animate-spin" />
+      loading board...
+    </div>
+  </main>
+);
+
 export default function BoardPage() {
   return (
     <ErrorBoundary title="Board Error" description="Something went wrong loading the board. This has been logged.">
-      <Suspense
-        fallback={
-          <main className="min-h-screen w-full flex items-center justify-center px-4">
-            <div className="font-terminal text-xs uppercase tracking-[0.16em] text-white/70 flex items-center gap-3">
-              <span className="inline-block h-4 w-4 rounded-full border-2 border-cyan-100/35 border-t-cyan-100 animate-spin" />
-              loading board...
-            </div>
-          </main>
-        }
-      >
-        <BoardPageContent />
-      </Suspense>
+      <ClientOnly fallback={boardFallback}>
+        <Suspense fallback={boardFallback}>
+          <BoardPageContent />
+        </Suspense>
+      </ClientOnly>
     </ErrorBoundary>
   );
 }
