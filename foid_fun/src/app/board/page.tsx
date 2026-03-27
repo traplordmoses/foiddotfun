@@ -1139,6 +1139,28 @@ function BoardPageContent() {
         setProposals(normalized);
         setProposalDebug(response.debug ?? null);
         setProposalsLoading(false);
+
+        // Merge canonized placements from SwipeLoreboard into placed array
+        // (these come from /api/proposals, not the manifest system)
+        const canonized = normalized.filter((p) => p.status === "canonized" && p.cid);
+        if (canonized.length > 0) {
+          setPlaced((prev) => {
+            const existingIds = new Set(prev.map((fp) => fp.id));
+            const newPlacements: FinalizedPlacement[] = canonized
+              .filter((c) => !existingIds.has(String(c.id)))
+              .map((c) => ({
+                id: String(c.id),
+                owner: c.owner ?? c.bidder ?? "",
+                cid: c.cid ?? "",
+                x: c.rect.x,
+                y: c.rect.y,
+                w: c.rect.w,
+                h: c.rect.h,
+                cells: c.cells ?? 0,
+              }));
+            return newPlacements.length > 0 ? [...prev, ...newPlacements] : prev;
+          });
+        }
       } catch (err) {
         if (!alive) return;
         console.error("[board] proposals load error:", err);
@@ -1483,9 +1505,9 @@ function BoardPageContent() {
                       height: STAGE_CANVAS_H,
                     }}
                     >
-                      {/* Finalized placements from manifest */}
+                      {/* Finalized placements from manifest + SwipeLoreboard */}
                     {placed.map((p) => {
-                      const sr = toStageRect(p.rect);
+                      const sr = toStageRect({ x: p.x, y: p.y, w: p.w, h: p.h });
                       const isActive = activePlacement?.id === p.id;
                       return (
                         <PlacementCard
