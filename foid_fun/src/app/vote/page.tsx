@@ -381,36 +381,62 @@ function SwipeCard({
   const nextVisual = nextProposal ? CARD_VISUALS[nextProposal.id % CARD_VISUALS.length] : null;
   const timeLeft = useCountdown(proposal.votingEndsAt);
 
-  const { direction, progress, handlers, style, phase } = useSwipeVote({
-    threshold: 80,
+  const { direction, progress, handlers, style, phase, isDragging } = useSwipeVote({
+    threshold: 100,
     onSwipeRight: () => { onVote(proposal.id, true); onSwipeComplete?.("right"); },
     onSwipeLeft: () => { onVote(proposal.id, false); onSwipeComplete?.("left"); },
   });
 
-  const yesOpacity = direction === "right" ? 0.15 + progress * 0.25 : 0;
-  const noOpacity = direction === "left" ? 0.15 + progress * 0.25 : 0;
+  const yesOpacity = direction === "right" ? 0.2 + progress * 0.35 : progress > 0 && progress < 0.4 ? progress * 0.15 : 0;
+  const noOpacity = direction === "left" ? 0.2 + progress * 0.35 : progress > 0 && progress < 0.4 ? progress * 0.15 : 0;
 
-  // Enhanced stamp: use CSS slam animation when progress > threshold
   const showYesStamp = direction === "right" && progress > 0.3;
   const showNoStamp = direction === "left" && progress > 0.3;
 
+  // Edge glow intensity based on progress
+  const edgeGlowYes = direction === "right" ? progress : 0;
+  const edgeGlowNo = direction === "left" ? progress : 0;
+
   return (
-    <div className="relative mx-auto w-full max-w-md">
+    <div className="relative mx-auto w-full max-w-md" style={{ perspective: "1200px" }}>
+      {/* Shadow card 3 (deepest) */}
+      <div
+        className="absolute inset-0 rounded-2xl bg-neutral-900/30"
+        style={{
+          transform: `scale(${0.88 + progress * 0.02}) translateY(${20 - progress * 6}px)`,
+          transition: isDragging ? "none" : "transform 0.4s ease",
+          zIndex: -2,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+        }}
+      />
+
+      {/* Shadow card 2 */}
+      <div
+        className="absolute inset-0 rounded-2xl bg-neutral-900/50"
+        style={{
+          transform: `scale(${0.92 + progress * 0.03}) translateY(${14 - progress * 5}px)`,
+          transition: isDragging ? "none" : "transform 0.35s ease",
+          zIndex: -1,
+          boxShadow: "0 6px 24px rgba(0,0,0,0.25)",
+        }}
+      />
+
       {/* Next card peek */}
       {nextProposal && (
         <div
-          className="absolute inset-0 rounded-2xl border border-neutral-800 bg-neutral-900/60 overflow-hidden"
+          className="absolute inset-0 rounded-2xl border border-neutral-800 bg-neutral-900/70 overflow-hidden"
           style={{
-            transform: `scale(${0.92 + progress * 0.04}) translateY(${12 - progress * 8}px)`,
-            transition: phase === "exiting" ? "transform 0.28s ease" : "none",
+            transform: `scale(${0.95 + progress * 0.03}) translateY(${8 - progress * 6}px)`,
+            transition: isDragging ? "none" : phase === "exiting" ? "transform 0.35s ease" : "transform 0.3s ease",
             zIndex: 0,
+            boxShadow: "0 8px 30px rgba(0,0,0,0.3)",
           }}
         >
           <div className="w-full aspect-square">
             {nextProposal.ipfsCid ? (
-              <img src={cidToHttpUrl(nextProposal.ipfsCid)} alt="Next" className="h-full w-full object-cover opacity-50" draggable={false} loading="lazy" />
+              <img src={cidToHttpUrl(nextProposal.ipfsCid)} alt="Next" className="h-full w-full object-cover opacity-40" draggable={false} loading="lazy" />
             ) : nextVisual ? (
-              <div className="flex h-full w-full items-center justify-center opacity-50" style={{ background: nextVisual.gradient }}>
+              <div className="flex h-full w-full items-center justify-center opacity-40" style={{ background: nextVisual.gradient }}>
                 <span className="text-5xl">{nextVisual.symbol}</span>
               </div>
             ) : null}
@@ -418,7 +444,7 @@ function SwipeCard({
         </div>
       )}
 
-      {/* Active card with entrance animation */}
+      {/* Active card */}
       <div
         key={cardKey}
         {...handlers}
@@ -427,44 +453,56 @@ function SwipeCard({
           touchAction: "pan-y",
           zIndex: 1,
           position: "relative",
-          animation: phase !== "exiting" && phase !== "dragging" ? "card-enter 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both" : undefined,
+          animation: phase !== "exiting" && !isDragging ? "card-enter 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both" : undefined,
         }}
-        className="relative rounded-2xl border border-neutral-700 bg-neutral-900/95 overflow-hidden select-none shadow-2xl"
+        className="relative rounded-2xl border border-neutral-700 bg-neutral-900/95 overflow-hidden select-none"
       >
-        {/* Color tint overlays */}
-        <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl" style={{ background: `linear-gradient(135deg, rgba(34,197,94,${yesOpacity}) 0%, transparent 60%)` }} />
-        <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl" style={{ background: `linear-gradient(225deg, rgba(239,68,68,${noOpacity}) 0%, transparent 60%)` }} />
+        {/* YES edge glow */}
+        <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl" style={{
+          background: `linear-gradient(135deg, rgba(34,197,94,${yesOpacity}) 0%, transparent 50%)`,
+          boxShadow: edgeGlowYes > 0.3 ? `inset 0 0 ${edgeGlowYes * 60}px rgba(34,197,94,${edgeGlowYes * 0.3}), 0 0 ${edgeGlowYes * 40}px rgba(34,197,94,${edgeGlowYes * 0.2})` : "none",
+          transition: isDragging ? "none" : "box-shadow 0.3s ease",
+        }} />
+        {/* NO edge glow */}
+        <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl" style={{
+          background: `linear-gradient(225deg, rgba(239,68,68,${noOpacity}) 0%, transparent 50%)`,
+          boxShadow: edgeGlowNo > 0.3 ? `inset 0 0 ${edgeGlowNo * 60}px rgba(239,68,68,${edgeGlowNo * 0.3}), 0 0 ${edgeGlowNo * 40}px rgba(239,68,68,${edgeGlowNo * 0.2})` : "none",
+          transition: isDragging ? "none" : "box-shadow 0.3s ease",
+        }} />
 
-        {/* YES stamp — enhanced slam */}
+        {/* YES stamp */}
         <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none" style={{ opacity: direction === "right" ? 1 : 0, transition: "opacity 0.1s ease" }}>
           <span
-            className="rounded-xl border-[3px] border-green-400 px-8 py-3 text-4xl font-black uppercase text-green-400"
+            className="rounded-xl border-[4px] border-green-400 px-10 py-4 text-5xl font-black uppercase text-green-400"
             style={{
-              ["--stamp-rot" as string]: "-12deg",
-              ["--stamp-glow" as string]: "rgba(34,197,94,0.5)",
+              ["--stamp-rot" as string]: "-15deg",
+              ["--stamp-glow" as string]: "rgba(34,197,94,0.6)",
               animation: showYesStamp ? "stamp-slam 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both" : "none",
-              transform: showYesStamp ? undefined : `scale(${0.6 + progress * 0.5}) rotate(-12deg)`,
-              textShadow: "0 0 30px rgba(34,197,94,0.4)",
+              transform: showYesStamp ? undefined : `scale(${0.5 + progress * 0.6}) rotate(-15deg)`,
+              textShadow: "0 0 40px rgba(34,197,94,0.5), 0 0 80px rgba(34,197,94,0.2)",
+              letterSpacing: "0.15em",
             }}
           >YES</span>
         </div>
-        {/* NO stamp — enhanced slam */}
+        {/* NO stamp */}
         <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none" style={{ opacity: direction === "left" ? 1 : 0, transition: "opacity 0.1s ease" }}>
           <span
-            className="rounded-xl border-[3px] border-red-400 px-8 py-3 text-4xl font-black uppercase text-red-400"
+            className="rounded-xl border-[4px] border-red-400 px-10 py-4 text-5xl font-black uppercase text-red-400"
             style={{
-              ["--stamp-rot" as string]: "12deg",
-              ["--stamp-glow" as string]: "rgba(239,68,68,0.5)",
+              ["--stamp-rot" as string]: "15deg",
+              ["--stamp-glow" as string]: "rgba(239,68,68,0.6)",
               animation: showNoStamp ? "stamp-slam 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both" : "none",
-              transform: showNoStamp ? undefined : `scale(${0.6 + progress * 0.5}) rotate(12deg)`,
-              textShadow: "0 0 30px rgba(239,68,68,0.4)",
+              transform: showNoStamp ? undefined : `scale(${0.5 + progress * 0.6}) rotate(15deg)`,
+              textShadow: "0 0 40px rgba(239,68,68,0.5), 0 0 80px rgba(239,68,68,0.2)",
+              letterSpacing: "0.15em",
             }}
-          >NO</span>
+          >NOPE</span>
         </div>
 
+        {/* Image */}
         <div className="w-full aspect-square">
           {proposal.ipfsCid ? (
-            <img src={cidToHttpUrl(proposal.ipfsCid)} alt={`Proposal #${proposal.id}`} className="h-full w-full object-cover" draggable={false} loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, proposal.ipfsCid)} />
+            <img src={cidToHttpUrl(proposal.ipfsCid)} alt={`Proposal #${proposal.id}`} className="h-full w-full object-cover" draggable={false} loading="eager" onError={(e) => tryNextGateway(e.currentTarget, proposal.ipfsCid)} />
           ) : (
             <div className="flex h-full w-full items-center justify-center relative" style={{ background: visual.gradient }}>
               <span className="text-7xl drop-shadow-[0_0_24px_rgba(255,255,255,0.2)]">{visual.symbol}</span>
@@ -472,38 +510,60 @@ function SwipeCard({
           )}
         </div>
 
-        <div className="border-t border-neutral-800 bg-neutral-900/90 px-3 py-2.5">
+        {/* Card info */}
+        <div className="border-t border-neutral-800 bg-neutral-900/90 px-4 py-3">
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-[10px] uppercase tracking-wider text-neutral-500">Prop #{proposal.id}</span>
+              <span className="text-[11px] uppercase tracking-wider text-neutral-500 font-semibold">Prop #{proposal.id}</span>
               <div className="mt-0.5 font-mono text-xs text-neutral-300">{truncateAddress(proposal.proposer)}</div>
             </div>
-            <div className="flex flex-col items-end gap-0.5">
-              <span className="text-[10px] text-neutral-500 animate-pulse">Swipe to vote</span>
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-[10px] text-neutral-400" style={{ animation: "pulse 2s ease-in-out infinite" }}>
+                &#x1F449; Swipe to vote
+              </span>
               {timeLeft && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/15 px-2 py-0.5 text-[9px] font-semibold text-purple-300 ring-1 ring-purple-500/25">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-500/15 px-2.5 py-1 text-[10px] font-semibold text-purple-300 ring-1 ring-purple-500/25">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" />
                   {timeLeft}
                 </span>
               )}
             </div>
           </div>
-          <div className="mt-2">
+          <div className="mt-2.5">
             <VoteBar forCount={proposal.forCount} againstCount={proposal.againstCount} showThreshold />
           </div>
         </div>
 
-        {/* Bottom glow */}
-        <div className="absolute bottom-0 left-0 right-0 h-1 z-20" style={{ background: direction === "right" ? `linear-gradient(90deg, transparent, rgba(34,197,94,${progress}))` : direction === "left" ? `linear-gradient(270deg, transparent, rgba(239,68,68,${progress}))` : "transparent" }} />
+        {/* Bottom glow bar */}
+        <div className="absolute bottom-0 left-0 right-0 h-1.5 z-20" style={{
+          background: direction === "right"
+            ? `linear-gradient(90deg, transparent 20%, rgba(34,197,94,${progress * 0.9}))`
+            : direction === "left"
+            ? `linear-gradient(270deg, transparent 20%, rgba(239,68,68,${progress * 0.9}))`
+            : "transparent",
+          boxShadow: direction === "right"
+            ? `0 0 ${progress * 20}px rgba(34,197,94,${progress * 0.5})`
+            : direction === "left"
+            ? `0 0 ${progress * 20}px rgba(239,68,68,${progress * 0.5})`
+            : "none",
+        }} />
       </div>
 
       {/* Button row */}
-      <div className="mt-3 flex items-center justify-center gap-6">
-        <button onClick={() => { onVote(proposal.id, false); onSwipeComplete?.("left"); }} className="flex items-center justify-center w-14 h-14 rounded-full border-2 border-red-500/30 bg-red-500/5 text-red-400 transition hover:bg-red-500/15 hover:border-red-500/50 active:scale-90">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+      <div className="mt-4 flex items-center justify-center gap-8">
+        <button
+          onClick={() => { onVote(proposal.id, false); onSwipeComplete?.("left"); }}
+          className="group flex items-center justify-center w-16 h-16 rounded-full border-2 border-red-500/30 bg-red-500/5 text-red-400 transition-all duration-200 hover:bg-red-500/20 hover:border-red-500/60 hover:scale-110 active:scale-90"
+          style={{ boxShadow: "0 4px 20px rgba(239,68,68,0.1)" }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-7 h-7 transition-transform group-hover:rotate-12"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
         </button>
-        <button onClick={() => { onVote(proposal.id, true); onSwipeComplete?.("right"); }} className="flex items-center justify-center w-14 h-14 rounded-full border-2 border-green-500/30 bg-green-500/5 text-green-400 transition hover:bg-green-500/15 hover:border-green-500/50 active:scale-90">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>
+        <button
+          onClick={() => { onVote(proposal.id, true); onSwipeComplete?.("right"); }}
+          className="group flex items-center justify-center w-16 h-16 rounded-full border-2 border-green-500/30 bg-green-500/5 text-green-400 transition-all duration-200 hover:bg-green-500/20 hover:border-green-500/60 hover:scale-110 active:scale-90"
+          style={{ boxShadow: "0 4px 20px rgba(34,197,94,0.1)" }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-7 h-7 transition-transform group-hover:scale-110"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>
         </button>
       </div>
     </div>

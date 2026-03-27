@@ -13,10 +13,11 @@ type UseSwipeVoteOptions = {
 
 type UseSwipeVoteReturn = {
   deltaX: number;
+  deltaY: number;
   isDragging: boolean;
   direction: SwipeDirection;
   phase: SwipePhase;
-  progress: number; // 0–1 how close to threshold
+  progress: number;
   handlers: {
     onPointerDown: (e: React.PointerEvent) => void;
     onPointerMove: (e: React.PointerEvent) => void;
@@ -27,30 +28,30 @@ type UseSwipeVoteReturn = {
 };
 
 export function useSwipeVote({
-  threshold = 80,
+  threshold = 100,
   onSwipeLeft,
   onSwipeRight,
 }: UseSwipeVoteOptions = {}): UseSwipeVoteReturn {
   const [deltaX, setDeltaX] = useState(0);
+  const [deltaY, setDeltaY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [phase, setPhase] = useState<SwipePhase>("entered");
   const startXRef = useRef(0);
   const startYRef = useRef(0);
   const activeRef = useRef(false);
-  const lockedRef = useRef(false); // true = horizontal lock confirmed
-  const velocityRef = useRef(0);
-  const lastXRef = useRef(0);
-  const lastTimeRef = useRef(0);
+  const lockedRef = useRef(false);
+  const velocityRef = useRef({ x: 0, y: 0 });
+  const lastPosRef = useRef({ x: 0, y: 0, t: 0 });
   const exitDirRef = useRef<"left" | "right">("right");
+  const exitVelRef = useRef({ x: 0, y: 0 });
   const callbackFiredRef = useRef(false);
 
-  // Enter animation on mount
   useEffect(() => {
     setPhase("entered");
   }, []);
 
   const direction: SwipeDirection =
-    deltaX > threshold ? "right" : deltaX < -threshold ? "left" : null;
+    deltaX > threshold * 0.6 ? "right" : deltaX < -threshold * 0.6 ? "left" : null;
 
   const progress = Math.min(1, Math.abs(deltaX) / threshold);
 
@@ -61,11 +62,11 @@ export function useSwipeVote({
     callbackFiredRef.current = false;
     startXRef.current = e.clientX;
     startYRef.current = e.clientY;
-    lastXRef.current = e.clientX;
-    lastTimeRef.current = Date.now();
-    velocityRef.current = 0;
+    lastPosRef.current = { x: e.clientX, y: e.clientY, t: Date.now() };
+    velocityRef.current = { x: 0, y: 0 };
     setIsDragging(true);
     setDeltaX(0);
+    setDeltaY(0);
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   }, [phase]);
 
@@ -75,12 +76,12 @@ export function useSwipeVote({
     const dx = e.clientX - startXRef.current;
     const dy = e.clientY - startYRef.current;
 
-    // Lock direction after 10px of movement
-    if (!lockedRef.current && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
-      if (Math.abs(dy) > Math.abs(dx)) {
-        // Vertical scroll — release gesture
+    // Lock direction after 8px
+    if (!lockedRef.current && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+      if (Math.abs(dy) > Math.abs(dx) * 1.5) {
         activeRef.current = false;
         setDeltaX(0);
+        setDeltaY(0);
         setIsDragging(false);
         return;
       }
@@ -89,24 +90,20 @@ export function useSwipeVote({
 
     if (!lockedRef.current) return;
 
-    // Track velocity
+    // Track velocity (smoothed over last 2 frames)
     const now = Date.now();
-    const dt = now - lastTimeRef.current;
-    if (dt > 0) {
-      velocityRef.current = (e.clientX - lastXRef.current) / dt;
-    }
-    lastXRef.current = e.clientX;
-    lastTimeRef.current = now;
+    const dt = Math.max(1, now - lastPosRef.current.t);
+    const vx = (e.clientX - lastPosRef.current.x) / dt;
+    const vy = (e.clientY - lastPosRef.current.y) / dt;
+    velocityRef.current = {
+      x: velocityRef.current.x * 0.4 + vx * 0.6,
+      y: velocityRef.current.y * 0.4 + vy * 0.6,
+    };
+    lastPosRef.current = { x: e.clientX, y: e.clientY, t: now };
 
-    // Elastic resistance past threshold
-    const raw = e.clientX - startXRef.current;
-    const sign = raw >= 0 ? 1 : -1;
-    const abs = Math.abs(raw);
-    const dampened = abs > threshold
-      ? threshold + (abs - threshold) * 0.4
-      : abs;
-    setDeltaX(sign * dampened);
-  }, [threshold]);
+    setDeltaX(dx);
+    setDeltaY(dy * 0.4); // dampen vertical
+  }, []);
 
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
@@ -115,32 +112,34 @@ export function useSwipeVote({
 
       const final = e.clientX - startXRef.current;
       const vel = velocityRef.current;
-      // Swipe if past threshold OR fast enough flick (>0.5 px/ms)
-      const swiped = Math.abs(final) > threshold || Math.abs(vel) > 0.5;
+      // Swipe if past threshold OR fast flick (>0.6 px/ms)
+      const swiped = Math.abs(final) > threshold || Math.abs(vel.x) > 0.6;
 
       if (swiped && !callbackFiredRef.current) {
         callbackFiredRef.current = true;
-        const dir = (final > 0 || vel > 0.5) ? "right" : "left";
+        const dir = (final > 0 || vel.x > 0.3) ? "right" : "left";
         exitDirRef.current = dir;
+        exitVelRef.current = { ...vel };
         setPhase("exiting");
 
-        // Haptic feedback
+        // Haptic
         if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-          navigator.vibrate(15);
+          navigator.vibrate(20);
         }
 
         // Fire callback after exit animation
         setTimeout(() => {
           if (dir === "right") onSwipeRight?.();
           else onSwipeLeft?.();
-          // Reset for next card
           setDeltaX(0);
+          setDeltaY(0);
           setIsDragging(false);
           setPhase("entered");
-        }, 280);
+        }, 350);
       } else {
-        // Snap back with spring feel
+        // Spring back
         setDeltaX(0);
+        setDeltaY(0);
         setIsDragging(false);
       }
     },
@@ -150,41 +149,58 @@ export function useSwipeVote({
   const onPointerCancel = useCallback(() => {
     activeRef.current = false;
     setDeltaX(0);
+    setDeltaY(0);
     setIsDragging(false);
   }, []);
 
-  const rotation = deltaX * 0.08;
+  // Rotation pivots from bottom of card — like holding a card at the bottom
+  // Proportional to horizontal offset (more offset = more rotation)
+  const rotation = deltaX * 0.12;
+  // Slight Y-axis tilt for 3D depth feel
+  const tiltY = deltaX * 0.02;
 
   let style: React.CSSProperties;
 
   if (phase === "exiting") {
-    const flyX = exitDirRef.current === "right" ? 600 : -600;
-    const flyRot = exitDirRef.current === "right" ? 25 : -25;
+    const vel = exitVelRef.current;
+    const dir = exitDirRef.current;
+    // Fly in the direction of drag with momentum
+    const flyX = dir === "right" ? Math.max(800, 400 + Math.abs(vel.x) * 600) : Math.min(-800, -400 - Math.abs(vel.x) * 600);
+    const flyY = vel.y * 200;
+    const flyRot = dir === "right" ? 30 + Math.abs(vel.x) * 15 : -30 - Math.abs(vel.x) * 15;
     style = {
-      transform: `translateX(${flyX}px) rotate(${flyRot}deg) scale(0.9)`,
+      transform: `perspective(1200px) translateX(${flyX}px) translateY(${flyY}px) rotate(${flyRot}deg) scale(0.8)`,
       opacity: 0,
-      transition: "transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease",
+      transition: "transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease",
       cursor: "default",
       willChange: "transform, opacity",
+      transformOrigin: "center 80%",
     };
   } else if (isDragging) {
-    const lift = 1 + progress * 0.04; // subtle scale up when dragging
+    const lift = 1 + progress * 0.06;
+    const shadowBlur = 20 + progress * 40;
+    const shadowSpread = progress * 10;
     style = {
-      transform: `translateX(${deltaX}px) rotate(${rotation}deg) scale(${lift})`,
+      transform: `perspective(1200px) translateX(${deltaX}px) translateY(${deltaY}px) rotate(${rotation}deg) rotateY(${tiltY}deg) scale(${lift})`,
       transition: "none",
       cursor: "grabbing",
       willChange: "transform",
+      transformOrigin: "center 80%",
+      boxShadow: `0 ${10 + progress * 20}px ${shadowBlur}px ${shadowSpread}px rgba(0,0,0,0.4)`,
     };
   } else {
     style = {
-      transform: "translateX(0) rotate(0deg) scale(1)",
-      transition: "transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)",
+      transform: "perspective(1200px) translateX(0) translateY(0) rotate(0deg) rotateY(0deg) scale(1)",
+      transition: "transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.5s ease",
       cursor: "grab",
+      transformOrigin: "center 80%",
+      boxShadow: "0 8px 24px 0 rgba(0,0,0,0.25)",
     };
   }
 
   return {
     deltaX,
+    deltaY,
     isDragging,
     direction,
     phase,
