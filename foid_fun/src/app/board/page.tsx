@@ -43,7 +43,6 @@ import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
 import { TerminalChat, type StatusMessage } from "@/components/TerminalChat";
 import { Y2kActionButton } from "@/components/Y2kActionButton";
-import { VotingQueue } from "@/components/VotingQueue";
 import dynamic from "next/dynamic";
 import { useMobile } from "@/hooks/useMobile";
 import type { BoardNode } from "@/types/mobile";
@@ -1089,9 +1088,15 @@ function BoardPageContent() {
     let alive = true;
     const apply = (placements: FinalizedPlacement[], epochValue: number | null) => {
       if (!alive) return;
-      setPlaced(placements);
+      // Only update if placements actually changed (prevents flicker from re-renders)
+      setPlaced((prev) => {
+        if (prev.length === placements.length && prev.every((p, i) => p.id === placements[i]?.id)) return prev;
+        return placements;
+      });
       setPlacedEpoch(epochValue);
-      if (placements.length) {
+      // Only auto-zoom on first load, not on every poll cycle
+      if (autoZoomedEpochRef.current == null && placements.length) {
+        autoZoomedEpochRef.current = epochValue ?? 0;
         const last = placements[placements.length - 1];
         zoomToRect({ x: last.x, y: last.y, w: last.w, h: last.h });
       }
@@ -1108,8 +1113,8 @@ function BoardPageContent() {
         );
       } catch (e: unknown) {
         if (!alive) return;
-        setPlaced([]);
-        setPlacedEpoch(null);
+        // Don't clear placed if we already have data from /api/proposals merge
+        setPlaced((prev) => prev.length > 0 ? prev : []);
         const parsed = parseWeb3Error(e);
         addStatus(parsed.message, "error");
       }
@@ -1552,7 +1557,7 @@ function BoardPageContent() {
                           onClick={() => setActivePlacement(proposalToPlacement(p))}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={cidToHttpUrl(p.cid)} alt={p.name} className="board-proposal__img" draggable={false} loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
+                          <img src={cidToHttpUrl(p.cid)} alt={p.name} className="board-proposal__img" draggable={false} loading="eager" decoding="sync" onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
                           {isSelectedProposal && <span className="board-proposal__badge">selected</span>}
                         </figure>
                       );
@@ -1564,7 +1569,7 @@ function BoardPageContent() {
                       return (
                         <figure key={p.id} className="board-pending" style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h }}>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={p.previewUrl} alt={p.name} className="board-pending__img" draggable={false} loading="lazy" />
+                          <img src={p.previewUrl} alt={p.name} className="board-pending__img" draggable={false} loading="eager" decoding="sync" />
                           <button className="board-pending__move" onPointerDown={beginMove(p)} type="button">⠿</button>
                           <button className="board-pending__resize" onPointerDown={beginResize(p)} type="button">↘</button>
                           <button className="board-pending__remove" onClick={() => { URL.revokeObjectURL(p.previewUrl); removePending(p.id); }} type="button">×</button>
@@ -1613,15 +1618,6 @@ function BoardPageContent() {
                     <div className="board-actions__pricing">
                       0.001 ETH to propose &middot; 72h community voting &middot; 51% to pass
                     </div>
-                  </div>
-
-                  {/* Voting Queue */}
-                  <div className="board-section board-section--voting">
-                    <div className="board-section__header">
-                      <span className="board-section__dot" style={{ background: "#f59e0b" }} />
-                      <span className="board-section__title">VOTING</span>
-                    </div>
-                    <VotingQueue />
                   </div>
 
                   {/* Chat */}
