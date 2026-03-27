@@ -652,6 +652,10 @@ function BoardPageContent() {
   const [_proposalsLoading, setProposalsLoading] = useState(true);
   const [proposalDebug, setProposalDebug] = useState<ListProposalsResponse["debug"] | null>(null);
 
+  // Pending swipe voting proposals (no board coords — shown as floating strip)
+  type SwipeVotingProposal = { id: number; ipfsCid: string; imageUrl: string | null; proposer: string; votingEndsAt: number; forCount: number; againstCount: number; status: string };
+  const [swipeVotingProposals, setSwipeVotingProposals] = useState<SwipeVotingProposal[]>([]);
+
   // ManifestStore hook — reads CID from contract, fetches manifest from IPFS
   const { manifest: latestManifest, epoch: latestManifestEpoch, loading: latestManifestLoading, error: latestManifestError } = useLatestManifestFromChain();
   const latestFallbackTried = useRef(false);
@@ -1181,6 +1185,25 @@ function BoardPageContent() {
     return () => { alive = false; clearInterval(t); };
   }, []);
 
+  // Load swipe voting proposals (pending — no board coords, shown as floating strip)
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/swipe/proposals");
+        if (!res.ok || !alive) return;
+        const data = await res.json();
+        const voting = (data.proposals ?? []).filter(
+          (p: SwipeVotingProposal) => p.status === "voting",
+        );
+        if (alive) setSwipeVotingProposals(voting);
+      } catch { /* non-fatal */ }
+    };
+    load();
+    const interval = setInterval(load, 30_000);
+    return () => { alive = false; clearInterval(interval); };
+  }, []);
+
   // Arrow keys
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1584,6 +1607,47 @@ function BoardPageContent() {
                     </div>
                     <div className="board-hint-bottom" role="note">scroll to zoom • hold space to pan</div>
 
+                    {/* Pending voting proposals strip */}
+                    {swipeVotingProposals.length > 0 && (
+                      <div style={{
+                        position: "absolute", bottom: 28, left: 0, right: 0, zIndex: 30,
+                        display: "flex", justifyContent: "center", gap: 8, padding: "0 12px",
+                        pointerEvents: "none",
+                      }}>
+                        <div style={{
+                          display: "flex", alignItems: "center", gap: 8,
+                          background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)",
+                          borderRadius: 10, padding: "6px 12px",
+                          border: "1px solid rgba(168,85,247,0.3)",
+                          pointerEvents: "auto",
+                        }}>
+                          <span style={{ fontSize: 10, color: "rgba(168,85,247,0.8)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                            {swipeVotingProposals.length} pending
+                          </span>
+                          {swipeVotingProposals.slice(0, 4).map((sp) => (
+                            <a key={sp.id} href={`/vote`} style={{
+                              width: 32, height: 32, borderRadius: 4, overflow: "hidden",
+                              border: "1.5px solid rgba(168,85,247,0.5)",
+                              flexShrink: 0,
+                            }}>
+                              {sp.imageUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={sp.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              ) : (
+                                <div style={{ width: "100%", height: "100%", background: "rgba(168,85,247,0.2)" }} />
+                              )}
+                            </a>
+                          ))}
+                          <a href="/vote" style={{
+                            fontSize: 10, color: "rgba(168,85,247,0.9)", textDecoration: "none",
+                            fontWeight: 600, whiteSpace: "nowrap",
+                          }}>
+                            Vote &rarr;
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
                   {!items.length && !busy && !ghost && !placed.length && (
                     <div className="board-hint">
                       <span className="board-hint__primary">DROP IMAGE TO PROPOSE</span>
@@ -1616,7 +1680,7 @@ function BoardPageContent() {
                       )}
                     </div>
                     <div className="board-actions__pricing">
-                      0.001 ETH to propose &middot; 72h community voting &middot; 51% to pass
+                      0.001 ETH to propose
                     </div>
                   </div>
 
