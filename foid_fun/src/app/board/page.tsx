@@ -1485,7 +1485,7 @@ function BoardPageContent() {
                     >
                       {/* Finalized placements from manifest */}
                     {placed.map((p) => {
-                      const sr = toStageRect({ x: p.x, y: p.y, w: p.w, h: p.h });
+                      const sr = toStageRect(p.rect);
                       const isActive = activePlacement?.id === p.id;
                       return (
                         <PlacementCard
