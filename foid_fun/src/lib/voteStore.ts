@@ -101,18 +101,23 @@ export function getVotesForProposal(proposalId: number): {
 }
 
 export function getVoteCounts(proposalId: number) {
-  const db = getDb();
-  const row = db.prepare(`
-    SELECT
-      SUM(CASE WHEN approve = 1 THEN 1 ELSE 0 END) as for_count,
-      SUM(CASE WHEN approve = 0 THEN 1 ELSE 0 END) as against_count,
-      COUNT(*) as total
-    FROM swipe_votes WHERE proposal_id = ?
-  `).get(proposalId) as { for_count: number | null; against_count: number | null; total: number };
+  try {
+    const db = getDb();
+    const row = db.prepare(`
+      SELECT
+        SUM(CASE WHEN approve = 1 THEN 1 ELSE 0 END) as for_count,
+        SUM(CASE WHEN approve = 0 THEN 1 ELSE 0 END) as against_count,
+        COUNT(*) as total
+      FROM swipe_votes WHERE proposal_id = ?
+    `).get(proposalId) as { for_count: number | null; against_count: number | null; total: number };
 
-  return {
-    forCount: row.for_count ?? 0,
-    againstCount: row.against_count ?? 0,
-    totalVotes: row.total,
-  };
+    return {
+      forCount: row.for_count ?? 0,
+      againstCount: row.against_count ?? 0,
+      totalVotes: row.total,
+    };
+  } catch {
+    // SQLite not available (e.g. Vercel serverless) — return zero counts
+    return { forCount: 0, againstCount: 0, totalVotes: 0 };
+  }
 }
