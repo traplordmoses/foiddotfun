@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyTypedData } from "viem";
 import { CONTRACTS, CHAIN_CONFIG } from "@/lib/contracts/addresses";
+import { emitBoardEvent } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -97,6 +98,7 @@ export async function POST(request: NextRequest) {
         `).run(proposalId, voterLower, approve ? 1 : 0, deadline, signature, Date.now());
 
         accepted++;
+        emitBoardEvent({ event_type: "vote_cast", proposal_id: proposalId, data: { voter: voterLower, approve } });
 
         const counts = db.prepare(`
           SELECT

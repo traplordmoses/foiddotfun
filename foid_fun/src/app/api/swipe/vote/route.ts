@@ -3,6 +3,7 @@ import { verifyTypedData } from "viem";
 import { CONTRACTS, CHAIN_CONFIG } from "@/lib/contracts/addresses";
 import { checkRateLimit, recordAction } from "../../agent/_lib/rateLimit";
 import { getVoteCounts } from "@/lib/voteStore";
+import { emitBoardEvent } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -103,6 +104,9 @@ export async function POST(request: NextRequest) {
     `).get(proposalId) as { for_count: number | null; against_count: number | null };
     const forCount = counts.for_count ?? 0;
     const againstCount = counts.against_count ?? 0;
+
+    // Broadcast real-time event (fire-and-forget)
+    emitBoardEvent({ event_type: "vote_cast", proposal_id: proposalId, data: { voter: voterLower, approve, forCount, againstCount } });
 
     return NextResponse.json({
       ok: true,

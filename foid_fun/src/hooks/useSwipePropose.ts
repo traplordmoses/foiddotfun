@@ -23,6 +23,20 @@ export function useSwipePropose() {
 
       const fee = BigInt(CONTRACTS.SWIPE_SUBMISSION_FEE ?? "1000000000000000");
 
+      // Pre-flight overlap check — abort before gas burn if spot is taken
+      const overlapRes = await fetch(
+        `/api/swipe/check-overlap?x=${args.x}&y=${args.y}&w=${args.w}&h=${args.h}`
+      );
+      if (overlapRes.ok) {
+        const overlapData = await overlapRes.json();
+        if (!overlapData.ok) {
+          const c = overlapData.conflict;
+          throw new Error(
+            `Spot is taken — overlaps ${c.source} ${c.source === "swipe" ? `proposal #${c.proposalId}` : `placement #${c.placementId}`} at (${c.gridX}, ${c.gridY})`
+          );
+        }
+      }
+
       setIsPending(true);
       try {
         const txHash = await walletClient.writeContract({

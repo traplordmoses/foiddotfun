@@ -45,6 +45,7 @@ import { TerminalChat, type StatusMessage } from "@/components/TerminalChat";
 import { Y2kActionButton } from "@/components/Y2kActionButton";
 import dynamic from "next/dynamic";
 import { useMobile } from "@/hooks/useMobile";
+import { useBoardEvents } from "@/hooks/useBoardEvents";
 import type { BoardNode } from "@/types/mobile";
 
 const MobileBoard = dynamic(
@@ -1187,24 +1188,35 @@ function BoardPageContent() {
     return () => { alive = false; clearInterval(t); };
   }, []);
 
-  // Load swipe voting proposals (pending — no board coords, shown as floating strip)
-  useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/swipe/proposals");
-        if (!res.ok || !alive) return;
-        const data = await res.json();
-        const voting = (data.proposals ?? []).filter(
-          (p: SwipeVotingProposal) => p.status === "voting",
-        );
-        if (alive) setSwipeVotingProposals(voting);
-      } catch { /* non-fatal */ }
-    };
-    load();
-    const interval = setInterval(load, 30_000);
-    return () => { alive = false; clearInterval(interval); };
+  // Load swipe voting proposals
+  const refetchSwipeProposals = useCallback(async () => {
+    try {
+      const res = await fetch("/api/swipe/proposals");
+      if (!res.ok) return;
+      const data = await res.json();
+      const voting = (data.proposals ?? []).filter(
+        (p: SwipeVotingProposal) => p.status === "voting",
+      );
+      setSwipeVotingProposals(voting);
+    } catch { /* non-fatal */ }
   }, []);
+
+  useEffect(() => {
+    refetchSwipeProposals();
+    const interval = setInterval(refetchSwipeProposals, 30_000);
+    return () => clearInterval(interval);
+  }, [refetchSwipeProposals]);
+
+  // Real-time board events — trigger instant refetch on proposal/vote/finalize
+  useBoardEvents(useCallback(() => {
+    refetchSwipeProposals();
+    // Also refetch canonized proposals from SwipeLoreboard
+    listProposals().then((response) => {
+      startTransition(() => {
+        setProposals(normalizeProposals(response.proposals));
+      });
+    }).catch(() => {});
+  }, [refetchSwipeProposals]));
 
   // Arrow keys
   useEffect(() => {

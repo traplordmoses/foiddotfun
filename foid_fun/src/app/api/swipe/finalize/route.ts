@@ -13,6 +13,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
 import { CANONICAL_ADDRESSES, CANONICAL_CHAIN, CHAIN_ID } from "@/config/canonical";
 import { getVotesForProposal } from "@/lib/voteStore";
+import { emitBoardEvent } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -267,6 +268,9 @@ export async function POST(request: NextRequest) {
         });
 
         console.log(`${tag} Proposal ${c.proposalId}: ${canonized ? "CANONIZED" : "REJECTED"} (for: ${weightFor}, against: ${weightAgainst})`);
+
+        // Broadcast real-time event
+        emitBoardEvent({ event_type: "proposal_finalized", proposal_id: c.proposalId, data: { canonized, weightFor, weightAgainst, txHash } });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`${tag} Failed to finalize proposal ${c.proposalId}:`, msg);

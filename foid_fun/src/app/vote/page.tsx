@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 import { CHAIN_ID } from "@/config/canonical";
 import { useSwipeVotingPower } from "@/hooks/useSwipeVotingPower";
+import { useBoardEvents } from "@/hooks/useBoardEvents";
 import { playSwipeYes, playSwipeNo } from "@/lib/sfx";
 
 function tryNextGateway(el: HTMLImageElement, cid?: string) {
@@ -653,29 +654,29 @@ export default function SwipePage() {
   });
 
   // Load proposals
-  useEffect(() => {
-    let alive = true;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/swipe/proposals");
-        if (!res.ok) throw new Error("fetch failed");
-        const data = await res.json();
-        if (!alive) return;
-        setProposals(data.proposals ?? []);
-      } catch (err) {
-        console.warn('[swipe] loadProposals non-fatal error:', err);
-        if (!alive) return;
-        setProposals([]);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    };
-    load();
-    const interval = setInterval(load, 15_000);
-    const onVis = () => { if (document.visibilityState === "visible") load(); };
-    document.addEventListener("visibilitychange", onVis);
-    return () => { alive = false; clearInterval(interval); document.removeEventListener("visibilitychange", onVis); };
+  const refetchProposals = useCallback(async () => {
+    try {
+      const res = await fetch("/api/swipe/proposals");
+      if (!res.ok) throw new Error("fetch failed");
+      const data = await res.json();
+      setProposals(data.proposals ?? []);
+    } catch (err) {
+      console.warn('[vote] loadProposals non-fatal error:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    refetchProposals();
+    const interval = setInterval(refetchProposals, 15_000);
+    const onVis = () => { if (document.visibilityState === "visible") refetchProposals(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(interval); document.removeEventListener("visibilitychange", onVis); };
+  }, [refetchProposals]);
+
+  // Real-time updates — refetch on proposal/vote/finalize events
+  useBoardEvents(useCallback(() => { refetchProposals(); }, [refetchProposals]));
 
   // Also check server for user's existing votes
   useEffect(() => {
@@ -894,7 +895,7 @@ export default function SwipePage() {
                     <div className="flex flex-col flex-1 min-h-0 items-center justify-center text-center px-4">
                       <div className="w-full max-w-sm">
                         <h2 className="text-lg font-bold text-white/80 mb-3">Review your votes</h2>
-                        <div className="space-y-2 max-h-[40vh] overflow-auto mb-4">
+                        <div className="space-y-2 max-h-[32vh] sm:max-h-[40vh] overflow-auto mb-4">
                           {Array.from(pendingDecisions.entries()).map(([pid, approve]) => {
                             const p = proposals.find((pp) => pp.id === pid);
                             return (
@@ -936,7 +937,7 @@ export default function SwipePage() {
                         <button
                           onClick={handleBatchSign}
                           disabled={batchSigning}
-                          className="w-full rounded-lg py-3 text-sm font-bold uppercase tracking-wider transition"
+                          className="w-full rounded-lg py-3 sm:py-3 text-sm font-bold uppercase tracking-wider transition touch-manipulation min-h-[48px]"
                           style={{
                             background: batchSigning
                               ? "linear-gradient(135deg, #555, #444)"

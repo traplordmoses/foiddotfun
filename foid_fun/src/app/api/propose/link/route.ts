@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { linkOnChainId } from "../../_store";
+import { emitBoardEvent } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,9 @@ export async function POST(request: NextRequest) {
     linkOnChainId(localId, onChainId);
 
     console.log(`[propose/link] linked local=${localId} → chain=${onChainId}`);
+
+    // Broadcast real-time event (fire-and-forget)
+    emitBoardEvent({ event_type: "proposal_created", proposal_id: onChainId, data: { localId } });
 
     return NextResponse.json({ ok: true, localId, onChainId });
   } catch (error) {

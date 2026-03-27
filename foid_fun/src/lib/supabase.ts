@@ -20,6 +20,20 @@ export type BoardMessageInsert = {
   type: "chat" | "status";
 };
 
+export type BoardEvent = {
+  id: string;
+  created_at: string;
+  event_type: "proposal_created" | "vote_cast" | "proposal_finalized";
+  proposal_id: number | null;
+  data: Record<string, unknown>;
+};
+
+export type BoardEventInsert = {
+  event_type: BoardEvent["event_type"];
+  proposal_id?: number | null;
+  data?: Record<string, unknown>;
+};
+
 // ============================================================================
 // SUPABASE CLIENT
 // ============================================================================
@@ -113,6 +127,59 @@ export function subscribeToBoardMessages(
     .subscribe();
 
   // Return unsubscribe function
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+// ============================================================================
+// BOARD EVENTS (real-time proposal/vote/finalization updates)
+// ============================================================================
+
+/**
+ * Insert a board event (proposal created, vote cast, proposal finalized).
+ * Non-blocking — failures are logged but don't throw.
+ */
+export async function insertBoardEvent(
+  data: BoardEventInsert
+): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from("board_events")
+      .insert(data);
+
+    if (error) {
+      console.warn("[supabase] insertBoardEvent error:", error.message);
+    }
+  } catch (err) {
+    console.warn("[supabase] insertBoardEvent failed:", err);
+  }
+}
+
+/**
+ * Subscribe to board events in real-time.
+ * Returns unsubscribe function.
+ */
+export function subscribeToBoardEvents(
+  callback: (event: BoardEvent) => void
+): () => void {
+  const channel = supabase
+    .channel("board_events_changes")
+    .on<BoardEvent>(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "board_events",
+      },
+      (payload) => {
+        if (payload.new) {
+          callback(payload.new);
+        }
+      }
+    )
+    .subscribe();
+
   return () => {
     supabase.removeChannel(channel);
   };
