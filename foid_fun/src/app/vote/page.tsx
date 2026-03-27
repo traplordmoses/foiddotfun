@@ -12,6 +12,7 @@ import { useSwipeVote } from "@/hooks/useSwipeVote";
 import toast from "react-hot-toast";
 import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 import { CHAIN_ID } from "@/config/canonical";
+import { useSwipeVotingPower } from "@/hooks/useSwipeVotingPower";
 import { playSwipeYes, playSwipeNo } from "@/lib/sfx";
 
 function tryNextGateway(el: HTMLImageElement, cid?: string) {
@@ -574,12 +575,18 @@ function SwipeCard({
 export default function SwipePage() {
   const { address, isConnected } = useAccount();
   const { disconnect, switchWallet } = useSwitchWallet();
+  const { votingPower, multiplier, tierName, isLoading: powerLoading } = useSwipeVotingPower();
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"active" | "completed">("active");
   const [proposals, setProposals] = useState<SwipeProposal[]>([]);
   const [votedIds, setVotedIds] = useState<Set<number>>(new Set());
   const votedIdsRef = useRef(votedIds);
   votedIdsRef.current = votedIds;
+
+  // Batch mode: store decisions locally, sign all at end
+  const [pendingDecisions, setPendingDecisions] = useState<Map<number, boolean>>(new Map());
+  const [batchSigning, setBatchSigning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ signed: 0, total: 0 });
 
   // Streak + particle state
   const [sessionVoteCount, setSessionVoteCount] = useState(0);
@@ -705,70 +712,91 @@ export default function SwipePage() {
   const closedProposals = proposals.filter((p) => p.finalized || now >= p.votingEndsAt);
   const currentProposal = activeProposals[0] ?? null;
 
-  // Sign EIP-712 and submit vote inline on each swipe
+  // Defer vote decision — record locally, sign later in batch
   const handleVote = useCallback(
-    async (proposalId: number, approve: boolean) => {
-      const proposal = proposals.find((p) => p.id === proposalId);
-      if (!proposal) return;
-
+    (proposalId: number, approve: boolean) => {
       if (!isConnected || !address) {
         toast.error("Connect wallet to vote");
         return;
       }
-
-      // Optimistically mark as voted — card disappears immediately
+      setPendingDecisions((prev) => {
+        const next = new Map(prev);
+        next.set(proposalId, approve);
+        return next;
+      });
       setVotedIds((prev) => {
         const next = new Set(prev);
         next.add(proposalId);
-        saveVotedIds(address, next);
         return next;
       });
+    },
+    [address, isConnected]
+  );
 
-      // Sign EIP-712 and submit in background
-      try {
-        const walletClient = await getWalletClient();
-        const signature = await walletClient.signTypedData({
-          account: walletClient.account ?? address,
-          domain: EIP712_DOMAIN,
-          types: EIP712_TYPES,
-          primaryType: "SwipeVote",
-          message: {
-            proposalId: BigInt(proposalId),
-            approve,
-            deadline: BigInt(proposal.votingEndsAt),
-          },
-        });
+  // Batch sign all pending decisions
+  const handleBatchSign = useCallback(async () => {
+    if (!address || !isConnected || pendingDecisions.size === 0) return;
+    setBatchSigning(true);
+    const entries = Array.from(pendingDecisions.entries());
+    setBatchProgress({ signed: 0, total: entries.length });
 
-        const res = await fetch("/api/swipe/vote", {
+    const signedVotes: Array<{ proposalId: number; approve: boolean; deadline: number; signature: string }> = [];
+
+    try {
+      const walletClient = await getWalletClient();
+
+      for (const [proposalId, approve] of entries) {
+        const proposal = proposals.find((p) => p.id === proposalId);
+        if (!proposal) continue;
+
+        try {
+          const signature = await walletClient.signTypedData({
+            account: walletClient.account ?? address,
+            domain: EIP712_DOMAIN,
+            types: EIP712_TYPES,
+            primaryType: "SwipeVote",
+            message: {
+              proposalId: BigInt(proposalId),
+              approve,
+              deadline: BigInt(proposal.votingEndsAt),
+            },
+          });
+          signedVotes.push({ proposalId, approve, deadline: proposal.votingEndsAt, signature });
+          setBatchProgress((prev) => ({ ...prev, signed: prev.signed + 1 }));
+        } catch {
+          toast.error("Signing cancelled");
+          break;
+        }
+      }
+
+      if (signedVotes.length > 0) {
+        const res = await fetch("/api/swipe/vote/batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            proposalId,
-            approve,
-            deadline: proposal.votingEndsAt,
-            signature,
-            voter: address,
-          }),
+          body: JSON.stringify({ votes: signedVotes, voter: address }),
         });
 
         if (res.ok) {
-          toast.success(approve ? "Signed YES" : "Signed NO", { duration: 1500 });
-        } else if (res.status !== 409) {
-          throw new Error("Vote submission failed");
+          const data = await res.json();
+          toast.success(`${data.accepted} vote${data.accepted !== 1 ? "s" : ""} submitted!`, { duration: 2500 });
+          saveVotedIds(address, votedIds);
+          setPendingDecisions(new Map());
+        } else {
+          toast.error("Batch submission failed");
         }
-      } catch (err) {
-        // Undo optimistic vote on failure
-        setVotedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(proposalId);
-          saveVotedIds(address, next);
-          return next;
-        });
-        toast.error(err instanceof Error ? err.message : "Signing failed");
+      } else {
+        // All cancelled — undo decisions
+        for (const [pid] of entries) {
+          setVotedIds((prev) => { const next = new Set(prev); next.delete(pid); return next; });
+        }
+        setPendingDecisions(new Map());
       }
-    },
-    [address, isConnected, proposals]
-  );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Signing failed");
+    } finally {
+      setBatchSigning(false);
+    }
+  }, [address, isConnected, pendingDecisions, proposals, votedIds]);
 
   const handleSwitchWallet = switchWallet;
   const totalOnChain = proposalCount !== undefined ? Number(proposalCount) : 0;
@@ -847,8 +875,86 @@ export default function SwipePage() {
                         onSwipeComplete={handleSwipeComplete}
                         cardKey={cardKey}
                       />
-                      <div className="flex-shrink-0 text-center text-[10px] text-white/25 mt-1">
-                        {activeProposals.length} remaining
+                      <div className="flex-shrink-0 text-center mt-1 space-y-0.5">
+                        {address && multiplier > 0 && !powerLoading && (
+                          <div className="text-[10px] text-purple-300/60">
+                            Your vote weighs {multiplier.toFixed(1)}x{tierName ? ` (${tierName})` : ""}
+                          </div>
+                        )}
+                        <div className="text-[10px] text-white/25">
+                          {activeProposals.length} remaining
+                          {pendingDecisions.size > 0 && (
+                            <span className="ml-2 text-purple-400/50">{pendingDecisions.size} queued</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : pendingDecisions.size > 0 ? (
+                    /* ─── Batch summary ─── */
+                    <div className="flex flex-col flex-1 min-h-0 items-center justify-center text-center px-4">
+                      <div className="w-full max-w-sm">
+                        <h2 className="text-lg font-bold text-white/80 mb-3">Review your votes</h2>
+                        <div className="space-y-2 max-h-[40vh] overflow-auto mb-4">
+                          {Array.from(pendingDecisions.entries()).map(([pid, approve]) => {
+                            const p = proposals.find((pp) => pp.id === pid);
+                            return (
+                              <div key={pid} className="flex items-center gap-3 rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2">
+                                {p?.ipfsCid ? (
+                                  <img src={cidToHttpUrl(p.ipfsCid)} alt="" className="w-10 h-10 rounded object-cover flex-shrink-0" />
+                                ) : (
+                                  <div className="w-10 h-10 rounded bg-neutral-800 flex-shrink-0" />
+                                )}
+                                <span className="text-xs text-white/50 flex-shrink-0">#{pid}</span>
+                                <span className="flex-1" />
+                                <span className={`text-xs font-bold uppercase ${approve ? "text-green-400" : "text-red-400"}`}>
+                                  {approve ? "YES" : "NO"}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    setPendingDecisions((prev) => { const next = new Map(prev); next.delete(pid); return next; });
+                                    setVotedIds((prev) => { const next = new Set(prev); next.delete(pid); return next; });
+                                  }}
+                                  className="text-white/20 hover:text-white/60 text-xs ml-1"
+                                  title="Undo"
+                                >
+                                  &#x2715;
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="text-xs text-white/40 mb-3">
+                          {Array.from(pendingDecisions.values()).filter(Boolean).length} YES
+                          {" / "}
+                          {Array.from(pendingDecisions.values()).filter((v) => !v).length} NO
+                          {multiplier > 0 && !powerLoading && (
+                            <span className="ml-2 text-purple-400">
+                              {multiplier.toFixed(1)}x weight{tierName ? ` (${tierName})` : ""}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={handleBatchSign}
+                          disabled={batchSigning}
+                          className="w-full rounded-lg py-3 text-sm font-bold uppercase tracking-wider transition"
+                          style={{
+                            background: batchSigning
+                              ? "linear-gradient(135deg, #555, #444)"
+                              : "linear-gradient(135deg, #e040fb, #f06292)",
+                          }}
+                        >
+                          {batchSigning
+                            ? `Signing ${batchProgress.signed}/${batchProgress.total}...`
+                            : `Sign All (${pendingDecisions.size} vote${pendingDecisions.size !== 1 ? "s" : ""})`}
+                        </button>
+                        {batchSigning && (
+                          <div className="mt-2 h-1 rounded-full bg-neutral-800 overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300"
+                              style={{ width: `${batchProgress.total > 0 ? (batchProgress.signed / batchProgress.total) * 100 : 0}%` }}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -864,8 +970,8 @@ export default function SwipePage() {
                       </h2>
                       <p className="mt-2 max-w-xs text-sm leading-relaxed text-white/45">
                         {proposals.some((p) => !p.finalized && now < p.votingEndsAt)
-                          ? "You've voted on every proposal. Check back soon — new proposals appear when the community submits images to the Loreboard."
-                          : "The voting queue is empty right now. Head to the Loreboard to propose an image — once submitted, the community can swipe to approve or reject it."}
+                          ? "You've voted on every proposal. Check back soon."
+                          : "The voting queue is empty. Head to the Loreboard to propose an image."}
                       </p>
                       <Link
                         href="/board"

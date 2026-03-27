@@ -16,6 +16,19 @@ services:
       # Use .env.render file to bulk-import them via Render dashboard
 
   - type: cron
+    name: foid-finalize
+    runtime: node
+    rootDir: foid_fun
+    schedule: "0 * * * *"
+    buildCommand: "echo 'no build needed'"
+    startCommand: "curl -sf \"${FOID_APP_URL}/api/swipe/finalize?secret=${CRON_SECRET}\" || echo 'finalize skipped'"
+    envVars:
+      - key: FOID_APP_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+
+  - type: cron
     name: foid-x-bot
     runtime: node
     rootDir: foid_fun

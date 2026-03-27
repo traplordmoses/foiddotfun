@@ -280,3 +280,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
+
+// GET handler for cron jobs — protected by CRON_SECRET query param
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const secret = searchParams.get("secret");
+  const expected = process.env.CRON_SECRET;
+
+  if (!expected || secret !== expected) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Delegate to POST handler logic
+  return POST(request);
+}
