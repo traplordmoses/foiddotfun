@@ -283,6 +283,31 @@ export const SWIPE_ABI = [
             "name": "trestEntryId",
             "type": "uint256",
             "internalType": "uint256"
+          },
+          {
+            "name": "proposalType",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "gridX",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "gridY",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "gridW",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "gridH",
+            "type": "uint32",
+            "internalType": "uint32"
           }
         ]
       }

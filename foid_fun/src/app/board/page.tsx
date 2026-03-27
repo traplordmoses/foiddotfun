@@ -653,7 +653,7 @@ function BoardPageContent() {
   const [proposalDebug, setProposalDebug] = useState<ListProposalsResponse["debug"] | null>(null);
 
   // Pending swipe voting proposals (no board coords — shown as floating strip)
-  type SwipeVotingProposal = { id: number; ipfsCid: string; imageUrl: string | null; proposer: string; votingEndsAt: number; forCount: number; againstCount: number; status: string };
+  type SwipeVotingProposal = { id: number; ipfsCid: string; imageUrl: string | null; proposer: string; votingEndsAt: number; forCount: number; againstCount: number; status: string; proposalType: number; gridX: number; gridY: number; gridW: number; gridH: number };
   const [swipeVotingProposals, setSwipeVotingProposals] = useState<SwipeVotingProposal[]>([]);
 
   // ManifestStore hook — reads CID from contract, fetches manifest from IPFS
@@ -859,9 +859,11 @@ function BoardPageContent() {
     const cells = rectCells(rect);
     let status: GhostStatus = "ok";
     const placedRects = placed.map((pl) => ({ x: pl.x, y: pl.y, w: pl.w, h: pl.h }));
+    const votingRects = swipeVotingProposals.filter((sp) => sp.gridW > 0).map((sp) => contractToWorldRect({ x: sp.gridX, y: sp.gridY, w: sp.gridW, h: sp.gridH }));
+    const allOccupied = [...placedRects, ...votingRects];
     if (cells > MAX_CELLS_PER_RECT) status = "oversize";
-    else if (hasOverlap(rect, placedRects) || hasOverlap(rect, pending.map(storedRectFor))) status = "overlap";
-    else if (!isTouching(rect, [...placedRects, ...pending.map(storedRectFor)])) status = "not-touching";
+    else if (hasOverlap(rect, allOccupied) || hasOverlap(rect, pending.map(storedRectFor))) status = "overlap";
+    else if (!isTouching(rect, [...allOccupied, ...pending.map(storedRectFor)])) status = "not-touching";
     setGhost({ rect, cells, status, totalWei: BigInt(cells) * BASE_FEE_PER_CELL_WEI });
   }, [pending, placed, storedRectFor]);
 
@@ -1233,18 +1235,20 @@ function BoardPageContent() {
     addStatus("Preparing submissions...", "info");
     try {
       const placedRects = placed.map((pl) => ({ x: pl.x, y: pl.y, w: pl.w, h: pl.h }));
+      const votingRects = swipeVotingProposals.filter((sp) => sp.gridW > 0).map((sp) => contractToWorldRect({ x: sp.gridX, y: sp.gridY, w: sp.gridW, h: sp.gridH }));
+      const allOccupied = [...placedRects, ...votingRects];
       const pendingRects = items.map((it) => ({ name: it.name, rect: { ...it.rect } }));
       const overlapNames: string[] = [];
       pendingRects.forEach((c, idx) => {
         const peers = pendingRects.filter((_, j) => j !== idx).map((r) => r.rect);
-        if (hasOverlap(c.rect, placedRects) || hasOverlap(c.rect, peers)) overlapNames.push(c.name);
+        if (hasOverlap(c.rect, allOccupied) || hasOverlap(c.rect, peers)) overlapNames.push(c.name);
       });
       if (overlapNames.length) throw new Error(`Overlap: ${overlapNames.join(", ")}`);
 
       const notTouchingNames: string[] = [];
       pendingRects.forEach((c, idx) => {
         const peers = pendingRects.filter((_, j) => j !== idx).map((r) => r.rect);
-        if (!isTouching(c.rect, [...placedRects, ...peers])) notTouchingNames.push(c.name);
+        if (!isTouching(c.rect, [...allOccupied, ...peers])) notTouchingNames.push(c.name);
       });
       if (notTouchingNames.length) throw new Error(`Not touching board: ${notTouchingNames.join(", ")}`);
 
@@ -1416,7 +1420,7 @@ function BoardPageContent() {
         <MobileProposeModal
           isConnected={isConnected}
           address={address}
-          placedRects={placed.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }))}
+          placedRects={[...placed.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h })), ...swipeVotingProposals.filter(sp => sp.gridW > 0).map(sp => contractToWorldRect({ x: sp.gridX, y: sp.gridY, w: sp.gridW, h: sp.gridH }))]}
           onClose={() => setShowMobilePropose(false)}
           onSuccess={(msg) => {
             addStatus(msg, "success");
@@ -1557,6 +1561,70 @@ function BoardPageContent() {
                       );
                     })}
 
+                    {/* Voting proposals (pending — on-chain with grid coords) */}
+                    {swipeVotingProposals.map((sp) => {
+                      if (!sp.gridW || !sp.gridH) return null;
+                      const worldRect = contractToWorldRect({ x: sp.gridX, y: sp.gridY, w: sp.gridW, h: sp.gridH });
+                      const sr = toStageRect(worldRect);
+                      const total = sp.forCount + sp.againstCount;
+                      const pct = total > 0 ? Math.round((sp.forCount / total) * 100) : 0;
+                      const secsLeft = Math.max(0, sp.votingEndsAt - Math.floor(Date.now() / 1000));
+                      const hoursLeft = Math.floor(secsLeft / 3600);
+                      const minsLeft = Math.floor((secsLeft % 3600) / 60);
+                      return (
+                        <a
+                          key={`voting-${sp.id}`}
+                          href={`/vote`}
+                          className="board-voting-proposal"
+                          style={{
+                            position: "absolute",
+                            left: sr.x, top: sr.y, width: sr.w, height: sr.h,
+                            border: "2px dashed rgba(168,85,247,0.6)",
+                            borderRadius: 4,
+                            overflow: "hidden",
+                            cursor: "pointer",
+                            zIndex: 2,
+                            opacity: 0.85,
+                            transition: "opacity 0.2s, border-color 0.2s",
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.borderColor = "rgba(168,85,247,0.95)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.85"; e.currentTarget.style.borderColor = "rgba(168,85,247,0.6)"; }}
+                        >
+                          {sp.imageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={sp.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.7 }} draggable={false} loading="eager" decoding="sync" />
+                          ) : (
+                            <div style={{ width: "100%", height: "100%", background: "rgba(168,85,247,0.15)" }} />
+                          )}
+                          {/* VOTING badge */}
+                          <div style={{
+                            position: "absolute", top: 4, left: 4,
+                            background: "rgba(168,85,247,0.9)", color: "#fff",
+                            fontSize: Math.max(8, Math.min(12, sr.w / 12)), fontWeight: 800,
+                            letterSpacing: "0.08em", padding: "2px 6px", borderRadius: 3,
+                            textTransform: "uppercase", lineHeight: 1.2,
+                          }}>
+                            VOTING
+                          </div>
+                          {/* Vote progress + countdown */}
+                          <div style={{
+                            position: "absolute", bottom: 0, left: 0, right: 0,
+                            background: "rgba(0,0,0,0.75)", padding: "3px 6px",
+                            display: "flex", justifyContent: "space-between", alignItems: "center",
+                            fontSize: Math.max(7, Math.min(10, sr.w / 14)),
+                            color: "rgba(255,255,255,0.8)",
+                          }}>
+                            <span>{hoursLeft}h {minsLeft}m</span>
+                            {total > 0 ? (
+                              <span>{pct}% yes ({total} votes)</span>
+                            ) : (
+                              <span>no votes yet</span>
+                            )}
+                          </div>
+                        </a>
+                      );
+                    })}
+
                     {/* Ghost */}
                     {ghost && (() => {
                       const sr = toStageRect(ghost.rect);
@@ -1607,46 +1675,7 @@ function BoardPageContent() {
                     </div>
                     <div className="board-hint-bottom" role="note">scroll to zoom • hold space to pan</div>
 
-                    {/* Pending voting proposals strip */}
-                    {swipeVotingProposals.length > 0 && (
-                      <div style={{
-                        position: "absolute", bottom: 28, left: 0, right: 0, zIndex: 30,
-                        display: "flex", justifyContent: "center", gap: 8, padding: "0 12px",
-                        pointerEvents: "none",
-                      }}>
-                        <div style={{
-                          display: "flex", alignItems: "center", gap: 8,
-                          background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)",
-                          borderRadius: 10, padding: "6px 12px",
-                          border: "1px solid rgba(168,85,247,0.3)",
-                          pointerEvents: "auto",
-                        }}>
-                          <span style={{ fontSize: 10, color: "rgba(168,85,247,0.8)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                            {swipeVotingProposals.length} pending
-                          </span>
-                          {swipeVotingProposals.slice(0, 4).map((sp) => (
-                            <a key={sp.id} href={`/vote`} style={{
-                              width: 32, height: 32, borderRadius: 4, overflow: "hidden",
-                              border: "1.5px solid rgba(168,85,247,0.5)",
-                              flexShrink: 0,
-                            }}>
-                              {sp.imageUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={sp.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                              ) : (
-                                <div style={{ width: "100%", height: "100%", background: "rgba(168,85,247,0.2)" }} />
-                              )}
-                            </a>
-                          ))}
-                          <a href="/vote" style={{
-                            fontSize: 10, color: "rgba(168,85,247,0.9)", textDecoration: "none",
-                            fontWeight: 600, whiteSpace: "nowrap",
-                          }}>
-                            Vote &rarr;
-                          </a>
-                        </div>
-                      </div>
-                    )}
+                    {/* (voting proposals rendered on-canvas above) */}
 
                   {!items.length && !busy && !ghost && !placed.length && (
                     <div className="board-hint">

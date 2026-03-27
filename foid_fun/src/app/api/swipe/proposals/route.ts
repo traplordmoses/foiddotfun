@@ -27,7 +27,6 @@ export async function GET() {
       transport: http(RPC_URL),
     });
 
-    // Read proposal count
     const count = await client.readContract({
       address: swipeAddress,
       abi: SWIPE_ABI,
@@ -40,9 +39,8 @@ export async function GET() {
     }
 
     const nowSec = Math.floor(Date.now() / 1000);
-
-    // Read proposals individually (more reliable than multicall on some chains)
     const proposals = [];
+
     for (let i = 0; i < proposalCount; i++) {
       try {
         const raw = await client.readContract({
@@ -52,7 +50,7 @@ export async function GET() {
           args: [BigInt(i)],
         });
 
-        // viem returns tuple as array or object depending on ABI
+        // Handle both array and named-struct return formats
         let p: {
           id: bigint;
           proposer: string;
@@ -62,6 +60,11 @@ export async function GET() {
           finalized: boolean;
           canonized: boolean;
           trestEntryId: bigint;
+          proposalType: number;
+          gridX: number;
+          gridY: number;
+          gridW: number;
+          gridH: number;
         };
 
         if (Array.isArray(raw)) {
@@ -74,6 +77,11 @@ export async function GET() {
             finalized: raw[5] as boolean,
             canonized: raw[6] as boolean,
             trestEntryId: raw[7] as bigint,
+            proposalType: Number(raw[8] ?? 0),
+            gridX: Number(raw[9] ?? 0),
+            gridY: Number(raw[10] ?? 0),
+            gridW: Number(raw[11] ?? 0),
+            gridH: Number(raw[12] ?? 0),
           };
         } else {
           p = raw as typeof p;
@@ -99,6 +107,11 @@ export async function GET() {
           finalized: p.finalized,
           canonized: p.canonized,
           trestEntryId: Number(p.trestEntryId),
+          proposalType: p.proposalType,
+          gridX: p.gridX,
+          gridY: p.gridY,
+          gridW: p.gridW,
+          gridH: p.gridH,
           status,
           forCount: counts.forCount,
           againstCount: counts.againstCount,
