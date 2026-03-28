@@ -19,6 +19,17 @@ export const EIP712_TYPES = {
   ],
 } as const;
 
+export const EIP712_BATCH_TYPES = {
+  SwipeVoteBatch: [
+    { name: "votes", type: "SwipeVoteItem[]" },
+    { name: "deadline", type: "uint256" },
+  ],
+  SwipeVoteItem: [
+    { name: "proposalId", type: "uint256" },
+    { name: "approve", type: "bool" },
+  ],
+} as const;
+
 /* ─── UI helpers ─── */
 
 export function tryNextGateway(el: HTMLImageElement, cid?: string) {

@@ -15,7 +15,7 @@ import { cidToHttpUrl } from "@/lib/ipfsUrl";
 import { playSwipeYes, playSwipeNo } from "@/lib/sfx";
 import {
   EIP712_DOMAIN,
-  EIP712_TYPES,
+  EIP712_BATCH_TYPES,
   tryNextGateway,
   truncateAddress,
   CARD_VISUALS,
@@ -100,6 +100,10 @@ function injectKeyframes() {
       0% { transform: scale(0.8); opacity: 1; }
       40% { transform: scale(1.0); opacity: 1; }
       100% { transform: scale(1.0); opacity: 0; }
+    }
+    @keyframes hot-pulse {
+      0%, 100% { box-shadow: 0 0 8px rgba(251,191,36,0.3); }
+      50% { box-shadow: 0 0 20px rgba(251,191,36,0.6), 0 0 40px rgba(251,191,36,0.2); }
     }
   `;
   document.head.appendChild(style);
@@ -319,6 +323,22 @@ function SwipeCard({
   const visual = CARD_VISUALS[proposal.id % CARD_VISUALS.length];
   const nextVisual = nextProposal ? CARD_VISUALS[nextProposal.id % CARD_VISUALS.length] : null;
 
+  // Sentiment-aware border color
+  const totalVotes = proposal.forCount + proposal.againstCount;
+  const sentimentRatio = totalVotes > 0 ? proposal.forCount / totalVotes : 0.5;
+  const sentimentBorder = totalVotes > 0
+    ? sentimentRatio > 0.5
+      ? `rgba(34, 197, 94, ${0.2 + (sentimentRatio - 0.5) * 1.2})`
+      : `rgba(239, 68, 68, ${0.2 + (0.5 - sentimentRatio) * 1.2})`
+    : undefined;
+  const sentimentGlow = totalVotes > 0
+    ? sentimentRatio > 0.5
+      ? `rgba(34, 197, 94, ${(sentimentRatio - 0.5) * 0.4})`
+      : `rgba(239, 68, 68, ${(0.5 - sentimentRatio) * 0.4})`
+    : undefined;
+  const HOT_THRESHOLD = 10;
+  const isHot = totalVotes >= HOT_THRESHOLD;
+
   const { direction, progress, handlers, style, phase } = useSwipeVote({
     threshold: 80,
     onSwipeRight: () => { onVote(proposal.id, true); onSwipeComplete?.("right"); },
@@ -371,9 +391,33 @@ function SwipeCard({
           zIndex: 1,
           position: "relative",
           animation: phase !== "exiting" && phase !== "dragging" ? "card-enter 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both" : undefined,
+          ...((totalVotes > 0 && sentimentBorder) ? {
+            boxShadow: `0 0 0 1px ${sentimentBorder}, 0 0 20px ${sentimentGlow}, 0 8px 24px 0 rgba(0,0,0,0.25)`,
+          } : {
+            boxShadow: "0 8px 24px 0 rgba(0,0,0,0.25)",
+          }),
         }}
-        className="relative rounded-2xl border border-neutral-700 bg-neutral-900/95 overflow-hidden select-none shadow-2xl"
+        className={`relative rounded-2xl bg-neutral-900/95 overflow-hidden select-none ${totalVotes > 0 ? "" : "border border-neutral-700"}`}
       >
+        {/* Vote count badge */}
+        {totalVotes > 0 && (
+          <div className="absolute top-2 right-2 z-30 pointer-events-none">
+            <span className="inline-flex items-center gap-1 rounded-full bg-black/60 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-white/80 border border-white/10">
+              {totalVotes} vote{totalVotes !== 1 ? "s" : ""}
+            </span>
+          </div>
+        )}
+        {/* Hot indicator */}
+        {isHot && (
+          <div className="absolute top-2 left-2 z-30 pointer-events-none">
+            <span
+              className="inline-flex items-center rounded-full bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-bold text-amber-400"
+              style={{ animation: "hot-pulse 2s ease-in-out infinite" }}
+            >
+              HOT
+            </span>
+          </div>
+        )}
         {/* Color tint overlays */}
         <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl" style={{ background: `linear-gradient(135deg, rgba(34,197,94,${yesOpacity}) 0%, transparent 60%)` }} />
         <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl" style={{ background: `linear-gradient(225deg, rgba(239,68,68,${noOpacity}) 0%, transparent 60%)` }} />
@@ -435,20 +479,26 @@ function SwipeCard({
       </div>
 
       {/* Button row */}
-      <div className="mt-3 flex items-center justify-center gap-6">
+      <div className="mt-3 flex items-center justify-center gap-8">
         <button
           aria-label="Vote NO"
           onClick={() => { onVote(proposal.id, false); onSwipeComplete?.("left"); }}
-          className="flex items-center justify-center w-14 h-14 rounded-full border-2 border-red-500/30 bg-red-500/5 text-red-400 transition hover:bg-red-500/15 hover:border-red-500/50 active:scale-90"
+          className="flex flex-col items-center gap-1"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+          <div className="flex items-center justify-center w-16 h-16 rounded-full border-2 border-red-500/30 bg-red-500/5 text-red-400 transition hover:bg-red-500/15 hover:border-red-500/50 active:scale-90">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-7 h-7"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-red-400/60">NO</span>
         </button>
         <button
           aria-label="Vote YES"
           onClick={() => { onVote(proposal.id, true); onSwipeComplete?.("right"); }}
-          className="flex items-center justify-center w-14 h-14 rounded-full border-2 border-green-500/30 bg-green-500/5 text-green-400 transition hover:bg-green-500/15 hover:border-green-500/50 active:scale-90"
+          className="flex flex-col items-center gap-1"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>
+          <div className="flex items-center justify-center w-16 h-16 rounded-full border-2 border-green-500/30 bg-green-500/5 text-green-400 transition hover:bg-green-500/15 hover:border-green-500/50 active:scale-90">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-7 h-7"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-green-400/60">YES</span>
         </button>
       </div>
     </div>
@@ -457,7 +507,7 @@ function SwipeCard({
 
 /* ─── Page ─── */
 export default function SwipePage() {
-  const { address, isConnected, connector } = useAccount();
+  const { address, isConnected } = useAccount();
   const { disconnect, switchWallet } = useSwitchWallet();
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"active" | "completed">("active");
@@ -492,10 +542,7 @@ export default function SwipePage() {
   });
   const voteWeight = rawVoteWeight ? Number(rawVoteWeight) : 100;
 
-  // Detect FOID wallet
-  const isFoidWallet = connector?.id === "foid-embedded" || connector?.id === "embeddedConnector";
-
-  // Batch mode state (FOID wallet only)
+  // Batch mode state (all wallets)
   type PendingDecision = { proposalId: number; approve: boolean };
   const [pendingDecisions, setPendingDecisions] = useState<PendingDecision[]>([]);
   const [batchPhase, setBatchPhase] = useState<"swiping" | "summary" | "signing" | "done">("swiping");
@@ -618,10 +665,10 @@ export default function SwipePage() {
 
   // Auto-transition to summary for FOID wallet users
   useEffect(() => {
-    if (isFoidWallet && activeProposals.length === 0 && pendingDecisions.length > 0 && batchPhase === "swiping") {
+    if (activeProposals.length === 0 && pendingDecisions.length > 0 && batchPhase === "swiping") {
       setBatchPhase("summary");
     }
-  }, [isFoidWallet, activeProposals.length, pendingDecisions.length, batchPhase]);
+  }, [activeProposals.length, pendingDecisions.length, batchPhase]);
 
   // Empty state countdown: find soonest votingEndsAt among proposals user has voted on
   const votedActiveProposals = proposals.filter(
@@ -659,165 +706,92 @@ export default function SwipePage() {
         return next;
       });
 
-      // FOID wallet: accumulate decisions for batch signing
-      if (isFoidWallet) {
-        setPendingDecisions((prev) => {
-          // Don't add duplicates
-          if (prev.some((d) => d.proposalId === proposalId)) return prev;
-          return [...prev, { proposalId, approve }];
-        });
-        return;
-      }
-
-      // Non-FOID wallet: sign per swipe (existing flow)
-      try {
-        const walletClient = await getWalletClient();
-        const signature = await walletClient.signTypedData({
-          account: walletClient.account ?? address,
-          domain: EIP712_DOMAIN,
-          types: EIP712_TYPES,
-          primaryType: "SwipeVote",
-          message: {
-            proposalId: BigInt(proposalId),
-            approve,
-            deadline: BigInt(proposal.votingEndsAt),
-          },
-        });
-
-        const res = await fetch("/api/swipe/vote", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            proposalId,
-            approve,
-            deadline: proposal.votingEndsAt,
-            signature,
-            voter: address,
-          }),
-        });
-
-        if (res.ok) {
-          toast.success(approve ? "Signed YES" : "Signed NO", { duration: 1500 });
-        } else if (res.status !== 409) {
-          throw new Error("Vote submission failed");
-        }
-      } catch (err) {
-        // Undo optimistic vote on failure
-        setVotedIds((prev) => {
-          const next = new Set(prev);
-          next.delete(proposalId);
-          saveVotedIds(address, next);
-          return next;
-        });
-        toast.error(err instanceof Error ? err.message : "Signing failed");
-      }
+      // ALL wallets: accumulate decisions for batch signing
+      setPendingDecisions((prev) => {
+        if (prev.some((d) => d.proposalId === proposalId)) return prev;
+        return [...prev, { proposalId, approve }];
+      });
+      // Signing happens later in handleBatchSign
     },
-    [address, isConnected, proposals, isFoidWallet]
+    [address, isConnected, proposals]
   );
 
-  // Batch sign all pending decisions (FOID wallet)
+  // Batch sign all pending decisions — ONE signature for all votes
   const handleBatchSign = useCallback(async () => {
     if (!address || pendingDecisions.length === 0) return;
 
     setBatchPhase("signing");
-    setSigningProgress({ current: 0, total: pendingDecisions.length });
-
-    const signed: {
-      proposalId: number;
-      approve: boolean;
-      deadline: number;
-      signature: string;
-      voter: string;
-    }[] = [];
-    const failed: number[] = [];
+    setSigningProgress({ current: 0, total: 1 });
 
     try {
       const walletClient = await getWalletClient();
 
-      for (let i = 0; i < pendingDecisions.length; i++) {
-        const d = pendingDecisions[i];
-        const proposal = proposals.find((p) => p.id === d.proposalId);
-        if (!proposal) {
-          failed.push(d.proposalId);
-          continue;
-        }
+      // Compute shared deadline: minimum votingEndsAt across all pending proposals
+      const deadline = Math.min(
+        ...pendingDecisions.map((d) => {
+          const p = proposals.find((pr) => pr.id === d.proposalId);
+          return p ? p.votingEndsAt : Infinity;
+        })
+      );
 
-        setSigningProgress({ current: i + 1, total: pendingDecisions.length });
-
-        try {
-          const signature = await walletClient.signTypedData({
-            account: walletClient.account ?? address,
-            domain: EIP712_DOMAIN,
-            types: EIP712_TYPES,
-            primaryType: "SwipeVote",
-            message: {
-              proposalId: BigInt(d.proposalId),
-              approve: d.approve,
-              deadline: BigInt(proposal.votingEndsAt),
-            },
-          });
-
-          signed.push({
-            proposalId: d.proposalId,
-            approve: d.approve,
-            deadline: proposal.votingEndsAt,
-            signature,
-            voter: address,
-          });
-        } catch (err) {
-          console.warn(`[swipe] batch sign failed for proposal ${d.proposalId}:`, err);
-          failed.push(d.proposalId);
-        }
-      }
-
-      if (signed.length === 0) {
-        toast.error("All signatures failed");
+      if (deadline === Infinity || deadline < Math.floor(Date.now() / 1000)) {
+        toast.error("Some proposals have expired");
         setBatchPhase("summary");
         return;
       }
 
-      // Batch POST
+      // ONE signature for the entire batch
+      setSigningProgress({ current: 1, total: 1 });
+      const batchSignature = await walletClient.signTypedData({
+        account: walletClient.account ?? address,
+        domain: EIP712_DOMAIN,
+        types: EIP712_BATCH_TYPES,
+        primaryType: "SwipeVoteBatch",
+        message: {
+          votes: pendingDecisions.map((d) => ({
+            proposalId: BigInt(d.proposalId),
+            approve: d.approve,
+          })),
+          deadline: BigInt(deadline),
+        },
+      });
+
+      // Submit to batch API with new format
       const res = await fetch("/api/swipe/vote/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          votes: signed,
+          votes: pendingDecisions.map((d) => ({
+            proposalId: d.proposalId,
+            approve: d.approve,
+          })),
+          batchSignature,
+          deadline,
+          voter: address,
           weight: voteWeight,
         }),
       });
 
       if (res.ok) {
-        // Save voted IDs to localStorage
+        const data = await res.json();
         setVotedIds((prev) => {
           const next = new Set(prev);
-          for (const s of signed) {
-            next.add(s.proposalId);
+          for (const d of pendingDecisions) {
+            next.add(d.proposalId);
           }
           saveVotedIds(address, next);
           return next;
         });
         setBatchPhase("done");
-        if (failed.length > 0) {
-          toast(`${signed.length} votes cast, ${failed.length} failed`, { icon: "!" });
+        if (data.rejected > 0) {
+          toast(`${data.accepted} votes cast, ${data.rejected} failed`, { icon: "!" });
         }
       } else {
         throw new Error("Batch submission failed");
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Batch signing failed");
+      toast.error(err instanceof Error ? err.message : "Signing failed");
       setBatchPhase("summary");
-
-      // Revert failed votes from localStorage
-      if (failed.length > 0) {
-        setVotedIds((prev) => {
-          const next = new Set(prev);
-          for (const id of failed) {
-            next.delete(id);
-          }
-          saveVotedIds(address, next);
-          return next;
-        });
-      }
     }
   }, [address, pendingDecisions, proposals, voteWeight]);
 
@@ -867,6 +841,12 @@ export default function SwipePage() {
                     {totalOnChain > 0 && (
                       <span className="hidden sm:inline text-[10px] text-white/25">{totalOnChain} on-chain</span>
                     )}
+                    {/* Tier badge — visible to all connected wallets */}
+                    {isConnected && address && (
+                      <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-purple-600/15 border border-purple-500/20 px-2 py-0.5 text-[9px] font-semibold text-purple-300">
+                        {tierLabel(voteWeight)} {tierMultiplier(voteWeight)}
+                      </span>
+                    )}
                   </div>
                   <Link
                     href="/swipe/submit"
@@ -884,7 +864,7 @@ export default function SwipePage() {
                   </div>
                 ) : tab === "active" ? (
                   /* ── Batch phase rendering (FOID wallet) ── */
-                  isFoidWallet && batchPhase === "summary" ? (
+                  batchPhase === "summary" ? (
                     <div className="flex flex-col flex-1 min-h-0 overflow-auto">
                       {/* Vote weight badge */}
                       <div className="text-center mb-4">
@@ -954,14 +934,14 @@ export default function SwipePage() {
                         </button>
                       </div>
                     </div>
-                  ) : isFoidWallet && batchPhase === "signing" ? (
+                  ) : batchPhase === "signing" ? (
                     <div className="flex flex-col flex-1 items-center justify-center gap-4">
                       <div className="h-10 w-10 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
                       <p className="text-sm text-white/70">
-                        Signing {signingProgress.current}/{signingProgress.total}...
+                        Signing batch of {pendingDecisions.length} vote{pendingDecisions.length !== 1 ? "s" : ""}...
                       </p>
                     </div>
-                  ) : isFoidWallet && batchPhase === "done" ? (
+                  ) : batchPhase === "done" ? (
                     <div className="flex flex-col flex-1 items-center justify-center text-center gap-4">
                       <div className="text-4xl">{"\u2705"}</div>
                       <h2 className="text-lg font-bold text-white">{pendingDecisions.length} votes cast!</h2>
@@ -1036,7 +1016,7 @@ export default function SwipePage() {
                                 {proposal.canonized ? "Canonized" : "Rejected"}
                               </span>
                             </div>
-                            <div className="overflow-hidden rounded-lg bg-neutral-800/50">
+                            <div className="overflow-hidden rounded-lg bg-neutral-800/50 relative">
                               <div className="aspect-square max-h-[160px]">
                                 {proposal.ipfsCid ? (
                                   <img src={cidToHttpUrl(proposal.ipfsCid)} alt={`Proposal #${proposal.id}`} className="h-full w-full object-cover" loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, proposal.ipfsCid)} />
@@ -1046,6 +1026,24 @@ export default function SwipePage() {
                                   </div>
                                 )}
                               </div>
+                              {/* Watermark overlay */}
+                              {proposal.finalized && (
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                  <span
+                                    className={`text-lg sm:text-xl font-black uppercase tracking-[0.15em] opacity-40 select-none ${
+                                      proposal.canonized ? "text-green-400" : "text-red-400"
+                                    }`}
+                                    style={{
+                                      transform: "rotate(-30deg)",
+                                      textShadow: proposal.canonized
+                                        ? "0 0 20px rgba(34,197,94,0.3)"
+                                        : "0 0 20px rgba(239,68,68,0.3)",
+                                    }}
+                                  >
+                                    {proposal.canonized ? "CANONIZED" : "REJECTED"}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                             <div className="mt-1.5 flex items-center justify-between text-[10px] text-neutral-400">
                               <span className="font-mono">{truncateAddress(proposal.proposer)}</span>
