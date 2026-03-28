@@ -4,6 +4,7 @@ import { listProposals } from "../_store";
 import { currentEpoch } from "@/lib/epoch";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const BASE = BigInt(process.env.NEXT_PUBLIC_BASE_FEE_PER_CELL_WEI ?? "0");
 

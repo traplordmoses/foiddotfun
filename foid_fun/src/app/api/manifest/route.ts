@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLatestManifest, getManifestForEpoch } from "../_store";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const epochParam = url.searchParams.get("epoch");

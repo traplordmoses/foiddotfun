@@ -5,6 +5,7 @@ import type { PlacementIntent } from "@/lib/types";
 import { getEpochInfo } from "@/lib/epoch";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const MAX_CELLS = Number(process.env.NEXT_PUBLIC_MAX_CELLS_PER_RECT ?? 400);
 const ETH_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;

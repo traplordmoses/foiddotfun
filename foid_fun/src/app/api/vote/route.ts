@@ -5,6 +5,7 @@ import { proposalById, vote as voteOn } from "../_store";
 import { checkRateLimit, recordAction } from "../agent/_lib/rateLimit";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type VoteReq = {
   proposalId: string;

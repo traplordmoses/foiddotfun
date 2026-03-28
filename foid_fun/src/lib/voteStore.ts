@@ -1,5 +1,5 @@
 import {
-  db,
+  getDb,
   insertVote,
   getVotesByProposal,
   getVoteCountsByProposal,
@@ -21,7 +21,7 @@ export type StoredVote = {
  * Add a vote to SQLite. Returns true if inserted, false if duplicate (UNIQUE violation).
  */
 export function addVote(vote: StoredVote): boolean {
-  const info = insertVote.run({
+  const info = insertVote().run({
     proposalId: vote.proposalId,
     voter: vote.voter.toLowerCase(),
     approve: vote.approve ? 1 : 0,
@@ -40,7 +40,7 @@ export function getVoteCounts(proposalId: number): {
   againstCount: number;
   totalVotes: number;
 } {
-  const row = getVoteCountsByProposal.get(proposalId) as
+  const row = getVoteCountsByProposal().get(proposalId) as
     | { forCount: number; againstCount: number; totalVotes: number }
     | undefined;
   return row ?? { forCount: 0, againstCount: 0, totalVotes: 0 };
@@ -50,7 +50,7 @@ export function getVoteCounts(proposalId: number): {
  * Get all votes for a proposal (for display / API).
  */
 export function getVotes(proposalId: number): StoredVote[] {
-  const rows = getVotesByProposal.all(proposalId) as Array<{
+  const rows = getVotesByProposal().all(proposalId) as Array<{
     proposalId: number;
     voter: string;
     approve: number;
@@ -74,7 +74,7 @@ export function getVotes(proposalId: number): StoredVote[] {
  * Check if a voter has already voted on a proposal.
  */
 export function hasVoted(proposalId: number, voter: string): boolean {
-  return !!hasVotedStmt.get(proposalId, voter.toLowerCase());
+  return !!hasVotedStmt().get(proposalId, voter.toLowerCase());
 }
 
 /**
@@ -86,7 +86,7 @@ export function getVotesForFinalize(proposalId: number): {
   deadlines: number[];
   signatures: string[];
 } {
-  const rows = getVotesForFinalizeStmt.all(proposalId) as Array<{
+  const rows = getVotesForFinalizeStmt().all(proposalId) as Array<{
     voter: string;
     approve: number;
     deadline: number;
@@ -101,5 +101,5 @@ export function getVotesForFinalize(proposalId: number): {
   };
 }
 
-// Re-export db for direct access if needed
-export { db };
+// Re-export getDb for direct access if needed
+export { getDb };

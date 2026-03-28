@@ -24,10 +24,10 @@ export function checkRateLimit(
 
   // Prune old entries periodically (every ~100 checks)
   if (Math.random() < 0.01) {
-    pruneOldRateLimits.run(cutoff);
+    pruneOldRateLimits().run(cutoff);
   }
 
-  const row = countRecentActions.get(w, action, cutoff) as { cnt: number } | undefined;
+  const row = countRecentActions().get(w, action, cutoff) as { cnt: number } | undefined;
   const used = row?.cnt ?? 0;
 
   if (used + batchSize > max) {
@@ -45,5 +45,5 @@ export function checkRateLimit(
  * Record that an action was taken (call after successful execution).
  */
 export function recordAction(wallet: string, action: ActionType): void {
-  insertRateLimit.run(wallet.toLowerCase(), action, Date.now());
+  insertRateLimit().run(wallet.toLowerCase(), action, Date.now());
 }

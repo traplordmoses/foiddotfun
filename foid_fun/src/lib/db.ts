@@ -1,11 +1,17 @@
 import Database from "better-sqlite3";
 import path from "path";
+import fs from "fs";
 
-/* ─── HMR-safe singleton ─── */
+/* ─── HMR-safe singleton (lazy — never opened at import time) ─── */
 const g = globalThis as typeof globalThis & { __foidDb?: Database.Database };
 
 function initDb(): Database.Database {
-  const dbPath = path.join(process.cwd(), "data", "foid.db");
+  const dataDir = path.join(process.cwd(), "data");
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
+  const dbPath = path.join(dataDir, "foid.db");
   const db = new Database(dbPath);
 
   db.pragma("journal_mode = WAL");
@@ -81,53 +87,71 @@ function initDb(): Database.Database {
   return db;
 }
 
-if (!g.__foidDb) {
-  g.__foidDb = initDb();
+/** Lazy accessor — DB is only opened on first actual use, never at import time. */
+export function getDb(): Database.Database {
+  if (!g.__foidDb) {
+    g.__foidDb = initDb();
+  }
+  return g.__foidDb;
 }
 
-export const db: Database.Database = g.__foidDb!;
+/* ─── Lazy prepared statements ─── */
 
-/* ─── Prepared statements ─── */
+export function insertVote() {
+  return getDb().prepare(`
+    INSERT OR IGNORE INTO swipe_votes (proposal_id, voter, approve, deadline, signature, weight)
+    VALUES (@proposalId, @voter, @approve, @deadline, @signature, @weight)
+  `);
+}
 
-export const insertVote = db.prepare(`
-  INSERT OR IGNORE INTO swipe_votes (proposal_id, voter, approve, deadline, signature, weight)
-  VALUES (@proposalId, @voter, @approve, @deadline, @signature, @weight)
-`);
+export function getVotesByProposal() {
+  return getDb().prepare(`
+    SELECT proposal_id AS proposalId, voter, approve, deadline, signature, weight, created_at AS createdAt
+    FROM swipe_votes WHERE proposal_id = ?
+  `);
+}
 
-export const getVotesByProposal = db.prepare(`
-  SELECT proposal_id AS proposalId, voter, approve, deadline, signature, weight, created_at AS createdAt
-  FROM swipe_votes WHERE proposal_id = ?
-`);
+export function getVoteCountsByProposal() {
+  return getDb().prepare(`
+    SELECT
+      SUM(CASE WHEN approve = 1 THEN 1 ELSE 0 END) AS forCount,
+      SUM(CASE WHEN approve = 0 THEN 1 ELSE 0 END) AS againstCount,
+      COUNT(*) AS totalVotes
+    FROM swipe_votes WHERE proposal_id = ?
+  `);
+}
 
-export const getVoteCountsByProposal = db.prepare(`
-  SELECT
-    SUM(CASE WHEN approve = 1 THEN 1 ELSE 0 END) AS forCount,
-    SUM(CASE WHEN approve = 0 THEN 1 ELSE 0 END) AS againstCount,
-    COUNT(*) AS totalVotes
-  FROM swipe_votes WHERE proposal_id = ?
-`);
+export function hasVoted() {
+  return getDb().prepare(`
+    SELECT 1 FROM swipe_votes WHERE proposal_id = ? AND voter = ? LIMIT 1
+  `);
+}
 
-export const hasVoted = db.prepare(`
-  SELECT 1 FROM swipe_votes WHERE proposal_id = ? AND voter = ? LIMIT 1
-`);
-
-export const getVotesForFinalize = db.prepare(`
-  SELECT voter, approve, deadline, signature
-  FROM swipe_votes WHERE proposal_id = ?
-  ORDER BY created_at ASC
-`);
+export function getVotesForFinalize() {
+  return getDb().prepare(`
+    SELECT voter, approve, deadline, signature
+    FROM swipe_votes WHERE proposal_id = ?
+    ORDER BY created_at ASC
+  `);
+}
 
 /* ── Rate limit helpers ── */
 
-export const insertRateLimit = db.prepare(`
-  INSERT INTO rate_limits (wallet, action, timestamp) VALUES (?, ?, ?)
-`);
+export function insertRateLimit() {
+  return getDb().prepare(`
+    INSERT INTO rate_limits (wallet, action, timestamp) VALUES (?, ?, ?)
+  `);
+}
 
-export const countRecentActions = db.prepare(`
-  SELECT COUNT(*) AS cnt FROM rate_limits
-  WHERE wallet = ? AND action = ? AND timestamp > ?
-`);
+export function countRecentActions() {
+  return getDb().prepare(`
+    SELECT COUNT(*) AS cnt FROM rate_limits
+    WHERE wallet = ? AND action = ? AND timestamp > ?
+  `);
+}
 
-export const pruneOldRateLimits = db.prepare(`
-  DELETE FROM rate_limits WHERE timestamp < ?
-`);
+export function pruneOldRateLimits() {
+  return getDb().prepare(`
+    DELETE FROM rate_limits WHERE timestamp < ?
+  `);
+}
