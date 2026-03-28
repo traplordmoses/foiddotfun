@@ -55,7 +55,7 @@ export default function WalletMenuPill({
     let cancelled = false;
     (async () => {
       try {
-        const { load } = await import("@/lib/embeddedWallet");
+        const { load } = await import("@/lib/wallet");
         const wallet = load();
         if (!cancelled) setPasskeyStatus(wallet?.prfActive ?? null);
       } catch {
@@ -173,7 +173,7 @@ export default function WalletMenuPill({
 
   const handleExportKey = async () => {
     try {
-      const { getSession } = await import("@/lib/embeddedWallet");
+      const { getSession } = await import("@/lib/wallet");
       const session = getSession();
       if (session) {
         await navigator.clipboard.writeText(session.privateKey);
@@ -184,7 +184,7 @@ export default function WalletMenuPill({
         const { requestWalletUnlock } = await import("@/lib/connectors/onboardingBridge");
         const result = await requestWalletUnlock();
         if (result) {
-          const { setSession } = await import("@/lib/embeddedWallet");
+          const { setSession } = await import("@/lib/wallet");
           setSession(result.privateKey, result.address);
           await navigator.clipboard.writeText(result.privateKey);
           setExportStatus("copied");
@@ -315,7 +315,7 @@ export default function WalletMenuPill({
             className="aero-wallet-menu__item"
             onClick={async () => {
               try {
-                const { load: loadWallet } = await import("@/lib/embeddedWallet");
+                const { load: loadWallet } = await import("@/lib/wallet");
                 const wallet = loadWallet();
                 if (!wallet) return;
                 const blob = new Blob([JSON.stringify(wallet, null, 2)], { type: "application/json" });

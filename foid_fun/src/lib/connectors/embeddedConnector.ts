@@ -1,5 +1,8 @@
 /**
- * Custom wagmi v2 connector for the FOID embedded wallet.
+ * Custom wagmi v2 connector for the FOID embedded wallet v3.
+ *
+ * v3: Signing operations are routed through the Web Worker session.
+ * The main thread never holds the raw private key.
  *
  * - On first connect: triggers create or unlock modal via onboardingBridge
  * - On reconnect (page reload): loads address only, defers unlock to first sign
@@ -7,15 +10,14 @@
  */
 import { createConnector } from "@wagmi/core";
 import {
-  createWalletClient,
   fallback,
   http,
   toHex,
   type EIP1193RequestFn,
   type Address,
 } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
 import { TARGET_CHAIN, TARGET_CHAIN_ID } from "@/lib/chain";
+import { WORKER_MANAGED_KEY } from "@/lib/wallet/constants";
 
 type EIP1193Provider = { request: EIP1193RequestFn };
 
@@ -31,14 +33,6 @@ const PRIMARY_RPC =
 const FALLBACK_RPC = "https://rpc.testnet.fluent.xyz";
 
 const RPC_URLS = [PRIMARY_RPC, FALLBACK_RPC];
-
-const resilientTransport = fallback(
-  [
-    http(PRIMARY_RPC, { retryCount: 3, retryDelay: 500 }),
-    http(FALLBACK_RPC, { retryCount: 2, retryDelay: 1000 }),
-  ],
-  { rank: false },
-);
 
 /** Fetch with retry across multiple RPCs */
 async function rpcFetch(method: string, params?: unknown[]): Promise<unknown> {
@@ -79,16 +73,19 @@ async function rpcFetch(method: string, params?: unknown[]): Promise<unknown> {
  * triggers the unlock modal and waits for user to enter PIN + biometric.
  */
 async function ensureUnlocked(): Promise<{ privateKey: string; address: string }> {
-  const { getSession, setSession } = await import("@/lib/embeddedWallet");
+  const { getSession, setSession, refreshSession } = await import("@/lib/wallet");
   const session = getSession();
-  if (session) return session;
+  if (session) {
+    await refreshSession();
+    return session;
+  }
 
   const { requestWalletUnlock } = await import("./onboardingBridge");
   const result = await requestWalletUnlock();
   if (!result) throw new Error("Wallet unlock cancelled");
 
-  setSession(result.privateKey, result.address);
-  return result;
+  await setSession(result.privateKey, result.address);
+  return { privateKey: WORKER_MANAGED_KEY, address: result.address };
 }
 
 export function embeddedWalletConnector() {
@@ -105,7 +102,7 @@ export function embeddedWalletConnector() {
         typeof window !== "undefined" &&
         localStorage.getItem(ACTIVE_KEY) === "true"
       ) {
-        const { getStoredAddress } = await import("@/lib/embeddedWallet");
+        const { getStoredAddress } = await import("@/lib/wallet");
         const addr = getStoredAddress();
         if (addr) _address = addr as Address;
       }
@@ -114,7 +111,7 @@ export function embeddedWalletConnector() {
     async connect(parameters?: { chainId?: number; isReconnecting?: boolean }) {
       const { chainId, isReconnecting } = parameters ?? {};
       const { exists, getStoredAddress, setSession } = await import(
-        "@/lib/embeddedWallet"
+        "@/lib/wallet"
       );
 
       if (isReconnecting) {
@@ -166,13 +163,13 @@ export function embeddedWalletConnector() {
       _provider = null;
       _address = null;
       localStorage.removeItem(ACTIVE_KEY);
-      const { clearSession } = await import("@/lib/embeddedWallet");
+      const { clearSession } = await import("@/lib/wallet");
       clearSession();
     },
 
     async getAccounts() {
       if (_address) return [_address];
-      const { getStoredAddress } = await import("@/lib/embeddedWallet");
+      const { getStoredAddress } = await import("@/lib/wallet");
       const addr = getStoredAddress();
       if (addr) {
         _address = addr as Address;
@@ -212,34 +209,37 @@ export function embeddedWalletConnector() {
             }
 
             case "personal_sign": {
-              const [message, address] = params as [string, string];
-              const { privateKey } = await ensureUnlocked();
-              const account = privateKeyToAccount(
-                privateKey as `0x${string}`,
-              );
-              if (
-                account.address.toLowerCase() !== address.toLowerCase()
-              ) {
-                throw new Error("Address mismatch");
+              const [message] = params as [string, string];
+              const session = await ensureUnlocked();
+
+              if (session.privateKey === WORKER_MANAGED_KEY) {
+                const { sessionSign } = await import("@/lib/wallet");
+                return sessionSign(message);
               }
+
+              // Legacy fallback
+              const { privateKeyToAccount } = await import("viem/accounts");
+              const account = privateKeyToAccount(
+                session.privateKey as `0x${string}`,
+              );
               return account.signMessage({
                 message: { raw: message as `0x${string}` },
               });
             }
 
             case "eth_signTypedData_v4": {
-              const [address, typedDataJson] = params as [string, string];
-              const { privateKey } = await ensureUnlocked();
-              const account = privateKeyToAccount(
-                privateKey as `0x${string}`,
-              );
-              if (
-                account.address.toLowerCase() !== address.toLowerCase()
-              ) {
-                throw new Error("Address mismatch");
-              }
+              const [, typedDataJson] = params as [string, string];
+              const session = await ensureUnlocked();
               const typedData = JSON.parse(typedDataJson);
-              return account.signTypedData({
+
+              if (session.privateKey === WORKER_MANAGED_KEY) {
+                const { sessionSignTypedData } = await import("@/lib/wallet");
+                return sessionSignTypedData(typedData);
+              }
+
+              const { privateKeyToAccount: pka } = await import("viem/accounts");
+              const account2 = pka(session.privateKey as `0x${string}`);
+              return account2.signTypedData({
                 domain: typedData.domain,
                 types: typedData.types,
                 primaryType: typedData.primaryType,
@@ -249,14 +249,44 @@ export function embeddedWalletConnector() {
 
             case "eth_sendTransaction": {
               const [tx] = params as [Record<string, string>];
-              const { privateKey } = await ensureUnlocked();
-              const account = privateKeyToAccount(
-                privateKey as `0x${string}`,
-              );
+              const session = await ensureUnlocked();
+
+              if (session.privateKey === WORKER_MANAGED_KEY) {
+                const { sessionSignTransaction } = await import("@/lib/wallet");
+                const nonce = Number(
+                  await rpcFetch("eth_getTransactionCount", [session.address, "pending"]),
+                );
+                const gasPrice = BigInt((await rpcFetch("eth_gasPrice")) as string);
+                const gas = tx.gas
+                  ? BigInt(tx.gas)
+                  : BigInt((await rpcFetch("eth_estimateGas", [tx])) as string);
+                const transaction = {
+                  to: tx.to as Address,
+                  value: tx.value ? BigInt(tx.value) : 0n,
+                  data: (tx.data as `0x${string}`) ?? undefined,
+                  gas,
+                  gasPrice,
+                  nonce,
+                  chainId: TARGET_CHAIN_ID,
+                };
+                const signedTx = await sessionSignTransaction(transaction);
+                return rpcFetch("eth_sendRawTransaction", [signedTx]);
+              }
+
+              // Legacy fallback
+              const { privateKeyToAccount: pka2 } = await import("viem/accounts");
+              const { createWalletClient } = await import("viem");
+              const account3 = pka2(session.privateKey as `0x${string}`);
               const walletClient = createWalletClient({
-                account,
+                account: account3,
                 chain: TARGET_CHAIN,
-                transport: resilientTransport,
+                transport: fallback(
+                  [
+                    http(PRIMARY_RPC, { retryCount: 3, retryDelay: 500 }),
+                    http(FALLBACK_RPC, { retryCount: 2, retryDelay: 1000 }),
+                  ],
+                  { rank: false },
+                ),
               });
               return walletClient.sendTransaction({
                 to: tx.to as Address,
@@ -297,7 +327,7 @@ export function embeddedWalletConnector() {
       _provider = null;
       _address = null;
       localStorage.removeItem(ACTIVE_KEY);
-      import("@/lib/embeddedWallet").then(({ clearSession }) =>
+      import("@/lib/wallet").then(({ clearSession }) =>
         clearSession(),
       );
     },

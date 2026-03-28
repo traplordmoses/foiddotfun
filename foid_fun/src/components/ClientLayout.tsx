@@ -7,7 +7,7 @@ import CompactMusicPlayer from '@/components/CompactMusicPlayer';
 import FoidWalletOnboarding from '@/components/FoidWalletOnboarding';
 import FoidOnboardingTour from '@/components/FoidOnboardingTour';
 import { useMobile } from '@/hooks/useMobile';
-import { clearSession } from '@/lib/embeddedWallet';
+import { clearSession } from '@/lib/wallet';
 
 export function ClientLayout() {
   const { isMobile } = useMobile();

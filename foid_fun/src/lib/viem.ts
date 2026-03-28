@@ -89,7 +89,7 @@ function isEmbeddedWalletActive(): boolean {
 /** Create a wallet client using the correct provider (embedded or injected) */
 async function createActiveWalletClient() {
   if (isEmbeddedWalletActive()) {
-    const { getSession, setSession } = await import("@/lib/embeddedWallet");
+    const { getSession, setSession } = await import("@/lib/wallet");
     let session = getSession();
 
     if (!session) {
