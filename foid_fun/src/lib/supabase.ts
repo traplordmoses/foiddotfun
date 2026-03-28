@@ -154,6 +154,7 @@ export function subscribeToBoardMessages(
 export async function insertBoardEvent(
   data: BoardEventInsert
 ): Promise<void> {
+  if (!supabase) return;
   try {
     const { error } = await supabase
       .from("board_events")
@@ -174,6 +175,8 @@ export async function insertBoardEvent(
 export function subscribeToBoardEvents(
   callback: (event: BoardEvent) => void
 ): () => void {
+  if (!supabase) return () => {};
+
   const channel = supabase
     .channel("board_events_changes")
     .on<BoardEvent>(
@@ -192,6 +195,6 @@ export function subscribeToBoardEvents(
     .subscribe();
 
   return () => {
-    supabase.removeChannel(channel);
+    supabase!.removeChannel(channel);
   };
 }
