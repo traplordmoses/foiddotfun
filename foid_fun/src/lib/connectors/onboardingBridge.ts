@@ -13,7 +13,7 @@ const CREATE_EVENT = "foid-wallet:request-create";
 const UNLOCK_EVENT = "foid-wallet:request-unlock";
 const WINDOW_KEY = "__foidWalletResolve";
 
-export type WalletResult = { address: string; privateKey: string } | null;
+export type WalletResult = { address: string; privateKey: string; mnemonic?: string } | null;
 type Resolver = (result: WalletResult) => void;
 
 declare global {

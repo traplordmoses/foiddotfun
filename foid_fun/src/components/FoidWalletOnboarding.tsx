@@ -7,12 +7,13 @@ import {
   unlock,
   load,
   save,
-  exists,
   importWallet,
-} from '@/lib/embeddedWallet';
+  restoreFromMnemonic,
+  validateMnemonic,
+} from '@/lib/wallet';
 
-type Mode = 'create' | 'unlock' | 'restore';
-type Step = 'explain' | 'pin' | 'working' | 'backup' | 'restore-input';
+type Mode = 'create' | 'unlock' | 'restore' | 'restore-mnemonic';
+type Step = 'explain' | 'pin' | 'working' | 'mnemonic' | 'backup' | 'restore-input' | 'restore-mnemonic-input';
 
 export default function FoidWalletOnboarding() {
   const [open, setOpen] = useState(false);
@@ -28,6 +29,9 @@ export default function FoidWalletOnboarding() {
   const [copied, setCopied] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [restoreJson, setRestoreJson] = useState('');
+  const [mnemonic, setMnemonic] = useState<string | null>(null);
+  const [mnemonicWritten, setMnemonicWritten] = useState(false);
+  const [restoreMnemonic, setRestoreMnemonic] = useState('');
   const pinRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -75,6 +79,9 @@ export default function FoidWalletOnboarding() {
     setCopied(false);
     setDownloaded(false);
     setRestoreJson('');
+    setMnemonic(null);
+    setMnemonicWritten(false);
+    setRestoreMnemonic('');
   }
 
   function dismissRainbowKit() {
@@ -228,11 +235,12 @@ export default function FoidWalletOnboarding() {
         save(result.wallet);
         setAddress(result.wallet.address);
         setPrfActive(result.prfActive);
+        setMnemonic(result.mnemonic);
 
         // Unlock immediately to get private key for session
         const unlocked = await unlock(result.wallet, pin);
         setPrivateKey(unlocked.privateKey);
-        setStep('backup');
+        setStep('mnemonic');
       } else {
         const wallet = load();
         if (!wallet) {
@@ -300,8 +308,10 @@ export default function FoidWalletOnboarding() {
             {step === 'explain' && 'Setup'}
             {step === 'pin' && (mode === 'create' ? 'Choose a PIN' : mode === 'unlock' ? 'Enter PIN' : 'Restore')}
             {step === 'working' && (mode === 'create' ? 'Creating...' : 'Unlocking...')}
+            {step === 'mnemonic' && 'Your Seed Phrase'}
             {step === 'backup' && 'Save Your Backup'}
-            {step === 'restore-input' && 'Restore Wallet'}
+            {step === 'restore-input' && 'Restore from Backup'}
+            {step === 'restore-mnemonic-input' && 'Restore from Seed Phrase'}
           </div>
         </div>
 
@@ -321,8 +331,8 @@ export default function FoidWalletOnboarding() {
               authentication.
             </p>
             <p className="text-xs text-white/50 leading-relaxed">
-              No browser extension needed. No seed phrase. Just a short PIN and
-              your passkey. Your PIN is never stored anywhere.
+              No browser extension needed. You&apos;ll get a 12-word seed phrase
+              for recovery, protected by a PIN and passkey. Your PIN is never stored.
             </p>
             <div className="flex gap-3 pt-2">
               <button
@@ -338,16 +348,27 @@ export default function FoidWalletOnboarding() {
                 Create New
               </button>
             </div>
-            {/* Restore option */}
-            <button
-              onClick={() => {
-                setMode('restore');
-                setStep('restore-input');
-              }}
-              className="w-full text-center text-[11px] text-white/35 hover:text-white/60 transition-colors pt-1"
-            >
-              Have a backup? Restore existing wallet
-            </button>
+            {/* Restore options */}
+            <div className="flex flex-col gap-1 pt-1">
+              <button
+                onClick={() => {
+                  setMode('restore');
+                  setStep('restore-input');
+                }}
+                className="w-full text-center text-[11px] text-white/35 hover:text-white/60 transition-colors"
+              >
+                Have a backup file? Restore from backup
+              </button>
+              <button
+                onClick={() => {
+                  setMode('restore-mnemonic');
+                  setStep('restore-mnemonic-input');
+                }}
+                className="w-full text-center text-[11px] text-white/35 hover:text-white/60 transition-colors"
+              >
+                Have a seed phrase? Restore from words
+              </button>
+            </div>
           </div>
         )}
 
@@ -431,7 +452,65 @@ export default function FoidWalletOnboarding() {
           </div>
         )}
 
-        {/* Step: Backup (after create) */}
+        {/* Step: Mnemonic (after create, before backup) */}
+        {step === 'mnemonic' && mnemonic && (
+          <div className="space-y-4">
+            <div
+              className="rounded-lg px-3 py-2.5 text-xs"
+              style={{
+                background: 'rgba(255,184,0,0.06)',
+                border: '1px solid rgba(255,184,0,0.2)',
+                color: 'rgba(255,184,0,0.85)',
+              }}
+            >
+              <div className="flex items-center gap-2 mb-1" style={{ fontWeight: 600 }}>
+                <span style={{ fontSize: 13 }}>{'\u26A0'}</span>
+                Write these words down in order
+              </div>
+              <p style={{ color: 'rgba(255,184,0,0.6)', fontSize: 11, lineHeight: 1.5, paddingLeft: 22 }}>
+                This is the ONLY way to recover your wallet if you lose your device and backup file.
+                Write them on paper and store it safely. Never share them with anyone.
+              </p>
+            </div>
+
+            {/* 3x4 grid of words */}
+            <div className="grid grid-cols-3 gap-2">
+              {mnemonic.split(' ').map((word, i) => (
+                <div
+                  key={i}
+                  className="rounded-lg border border-white/10 bg-black/30 px-2 py-2 text-center"
+                  style={{ userSelect: 'none' }}
+                >
+                  <span className="text-[10px] text-white/30 mr-1">{i + 1}.</span>
+                  <span className="text-sm font-mono text-white/90">{word}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Confirmation checkbox */}
+            <label className="flex items-start gap-2.5 cursor-pointer group pt-1">
+              <input
+                type="checkbox"
+                checked={mnemonicWritten}
+                onChange={(e) => setMnemonicWritten(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-white/30 bg-black/40 accent-white"
+              />
+              <span className="text-xs text-white/60 group-hover:text-white/80 leading-relaxed">
+                I have written down my seed phrase and stored it safely
+              </span>
+            </label>
+
+            <button
+              onClick={() => setStep('backup')}
+              disabled={!mnemonicWritten}
+              className="w-full rounded-lg bg-white px-4 py-3 text-sm font-bold text-black transition hover:bg-white/90 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Continue
+            </button>
+          </div>
+        )}
+
+        {/* Step: Backup (after mnemonic) */}
         {step === 'backup' && (
           <div className="space-y-4">
             {/* Security status */}
@@ -494,20 +573,12 @@ export default function FoidWalletOnboarding() {
                 {downloaded ? 'Downloaded!' : 'Download Backup File'}
               </button>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={emailBackup}
-                  className="flex-1 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-medium text-white/60 transition hover:bg-white/10 hover:text-white/80"
-                >
-                  Email to myself
-                </button>
-                <button
-                  onClick={copyBackup}
-                  className="flex-1 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-medium text-white/60 transition hover:bg-white/10 hover:text-white/80"
-                >
-                  {copied ? 'Copied!' : 'Copy to clipboard'}
-                </button>
-              </div>
+              <button
+                onClick={copyBackup}
+                className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-medium text-white/60 transition hover:bg-white/10 hover:text-white/80"
+              >
+                {copied ? 'Copied!' : 'Copy to clipboard'}
+              </button>
             </div>
 
             <button
@@ -596,6 +667,103 @@ export default function FoidWalletOnboarding() {
               <button
                 onClick={handleRestore}
                 disabled={!restoreJson.trim() || pin.length < 6}
+                className="flex-1 rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-black transition hover:bg-white/90 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Restore Wallet
+              </button>
+            </div>
+          </div>
+        )}
+        {/* Step: Restore from mnemonic */}
+        {step === 'restore-mnemonic-input' && (
+          <div className="space-y-4">
+            <p className="text-sm text-white/80 leading-relaxed">
+              Enter your 12-word seed phrase to restore your wallet.
+              You&apos;ll choose a new PIN to protect it on this device.
+            </p>
+
+            <div>
+              <label className="block text-xs text-white/50 tracking-widest uppercase mb-2">
+                Seed Phrase (12 words)
+              </label>
+              <textarea
+                value={restoreMnemonic}
+                onChange={(e) => setRestoreMnemonic(e.target.value)}
+                placeholder="word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12"
+                rows={3}
+                className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-xs text-white placeholder:text-white/20 focus:border-white/30 focus:outline-none font-mono resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs text-white/50 tracking-widest uppercase mb-2">
+                Choose a new PIN (6+ characters)
+              </label>
+              <div className="relative">
+                <input
+                  type={showPin ? 'text' : 'password'}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  placeholder="Enter new PIN"
+                  autoComplete="off"
+                  className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2.5 pr-16 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none font-mono tracking-wider"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPin(!showPin)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-white/40 hover:text-white/60 px-2 py-1"
+                >
+                  {showPin ? 'HIDE' : 'SHOW'}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => {
+                  setMode('create');
+                  setStep('explain');
+                  setRestoreMnemonic('');
+                  setPin('');
+                  setError(null);
+                }}
+                className="flex-1 rounded-lg border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/70 transition hover:bg-white/10"
+              >
+                Back
+              </button>
+              <button
+                onClick={async () => {
+                  setError(null);
+                  const words = restoreMnemonic.trim();
+                  if (!words || !validateMnemonic(words)) {
+                    setError('Invalid seed phrase. Please check your 12 words.');
+                    return;
+                  }
+                  if (pin.length < 6) {
+                    setError('PIN must be at least 6 characters.');
+                    return;
+                  }
+                  setStep('working');
+                  try {
+                    const userId = crypto.randomUUID();
+                    const result = await restoreFromMnemonic(words, userId, 'FOID Wallet', pin);
+                    save(result.wallet);
+                    const unlocked = await unlock(result.wallet, pin);
+                    setAddress(unlocked.address);
+                    setPrivateKey(unlocked.privateKey);
+                    setOpen(false);
+                    restoreRainbowKit();
+                    resolveWalletRequest({
+                      address: unlocked.address,
+                      privateKey: unlocked.privateKey,
+                    });
+                  } catch (err) {
+                    const msg = err instanceof Error ? err.message : 'Restore failed';
+                    setError(msg);
+                    setStep('restore-mnemonic-input');
+                  }
+                }}
+                disabled={!restoreMnemonic.trim() || pin.length < 6}
                 className="flex-1 rounded-lg bg-white px-4 py-2.5 text-sm font-bold text-black transition hover:bg-white/90 disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Restore Wallet
