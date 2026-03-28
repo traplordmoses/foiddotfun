@@ -29,6 +29,7 @@
     "auto:finalize": "tsx scripts/auto-finalize-cron.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "@rainbow-me/rainbowkit": "2.1.6",
     "@supabase/supabase-js": "^2.81.0",
     "@tanstack/react-query": "5.51.1",

@@ -25,7 +25,7 @@ import {
   type Placement,
   type Proposal,
 } from "../../_store";
-import { getVotesForProposal } from "@/lib/voteStore";
+import { getVotesForFinalize } from "@/lib/voteStore";
 import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
 import { loadLatestFinalized } from "@/lib/manifest";
 import { hasOverlap } from "@/lib/grid";
@@ -473,7 +473,7 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    const votes = getVotesForProposal(onChainId);
+    const votes = getVotesForFinalize(onChainId);
 
     if (votes.voters.length === 0) {
       // No votes cast — proposal fails (threshold requires totalWeight > 0)

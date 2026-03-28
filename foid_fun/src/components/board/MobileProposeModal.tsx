@@ -5,7 +5,7 @@ import { TILE, snapRect, hasOverlap, isTouching, type Rect } from "@/lib/grid";
 import { sniffImageType, mimeFromType } from "@/lib/image";
 import { convertToJpeg } from "@/lib/imageConvert";
 import { uploadImage } from "@/lib/ipfs";
-import { writeSwipeLoreboardPlace } from "@/lib/viem";
+import { useSwipePropose } from "@/hooks/useSwipePropose";
 import { worldToContractRect } from "@/lib/boardSpace";
 import { capRectToMaxCells, MAX_CELLS_PER_RECT } from "@/lib/boardImages";
 import { parseWeb3Error, isUserRejection } from "@/lib/errors";
@@ -58,6 +58,7 @@ export function MobileProposeModal({
   onClose: () => void;
   onSuccess: (msg: string) => void;
 }) {
+  const { proposeLoreboard } = useSwipePropose();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [step, setStep] = useState<"pick" | "paint" | "position" | "uploading" | "submitting" | "done" | "error">("pick");
@@ -142,10 +143,12 @@ export function MobileProposeModal({
 
       const contractRect = worldToContractRect(placementRect);
       const normalizedCid = normalizeCidString(cid);
-      await writeSwipeLoreboardPlace({
-        placer: address as `0x${string}`,
-        rect: contractRect,
-        cidBytes: new TextEncoder().encode(normalizedCid),
+      await proposeLoreboard({
+        ipfsCid: normalizedCid,
+        x: contractRect.x,
+        y: contractRect.y,
+        w: contractRect.w,
+        h: contractRect.h,
       });
 
       setStep("done");

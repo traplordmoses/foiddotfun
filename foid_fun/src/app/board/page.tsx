@@ -34,7 +34,7 @@ import { cidToHttpUrl } from "@/lib/ipfsUrl";
 import { formatEth } from "@/lib/wei";
 import { listProposals } from "@/lib/api";
 import type { ProposalSummary, ListProposalsResponse } from "@/lib/api";
-import { writeSwipeLoreboardPlace } from "@/lib/viem";
+import { useSwipePropose } from "@/hooks/useSwipePropose";
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { LoreboardNotification } from "@/components/LoreboardNotification";
@@ -156,6 +156,7 @@ function BoardPageContent() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
+  const { proposeLoreboard } = useSwipePropose();
   const handleSwitchWallet = useCallback(() => {
     disconnect();
     setTimeout(() => openConnectModal?.(), 100);
@@ -709,10 +710,12 @@ function BoardPageContent() {
 
         addStatus(`Submitting ${it.name}...`, "info");
         const normalizedCid = normalizeCidString(cid);
-        const onChain = await writeSwipeLoreboardPlace({
-          placer: account as `0x${string}`,
-          rect: onChainRect,
-          cidBytes: new TextEncoder().encode(normalizedCid),
+        const onChain = await proposeLoreboard({
+          ipfsCid: normalizedCid,
+          x: onChainRect.x,
+          y: onChainRect.y,
+          w: onChainRect.w,
+          h: onChainRect.h,
         });
 
         // Transaction succeeded on-chain!
