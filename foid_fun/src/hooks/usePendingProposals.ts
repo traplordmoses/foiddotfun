@@ -1,30 +1,33 @@
 // hooks/usePendingProposals.ts
-// FIXED VERSION - Uses event-based querying instead of non-existent contract method
+// Queries LoreboardProposed events from the Swipe contract to find
+// active voting proposals with their board coordinates.
 
 import { useEffect, useState } from "react";
 import { usePublicClient } from "wagmi";
 import { CHAIN_ID, CANONICAL_ADDRESSES } from "@/config/canonical";
 import { debug } from "@/lib/debug";
 
-const LOREBOARD_V2_ADDRESS = CANONICAL_ADDRESSES.board as `0x${string}`;
-const VOTING_CONTRACT_ADDRESS = CANONICAL_ADDRESSES.voting as `0x${string}`;
+// The Swipe contract emits LoreboardProposed events with rect coordinates.
+const SWIPE_ADDRESS = CANONICAL_ADDRESSES.swipe as `0x${string}`;
 
-// ABI for voting contract
-const VOTING_ABI = [
-  {
-    name: "getVotes",
-    type: "function",
-    stateMutability: "view",
-    inputs: [{ name: "proposalId", type: "bytes32" }],
-    outputs: [
-      { name: "yes", type: "uint256" },
-      { name: "no", type: "uint256" },
-    ],
-  },
-] as const;
+const LOREBOARD_PROPOSED_EVENT = {
+  type: "event" as const,
+  name: "LoreboardProposed" as const,
+  inputs: [
+    { name: "proposalId", type: "uint256" as const, indexed: true, internalType: "uint256" as const },
+    { name: "proposer", type: "address" as const, indexed: true, internalType: "address" as const },
+    { name: "ipfsCid", type: "string" as const, indexed: false, internalType: "string" as const },
+    { name: "x", type: "int32" as const, indexed: false, internalType: "int32" as const },
+    { name: "y", type: "int32" as const, indexed: false, internalType: "int32" as const },
+    { name: "w", type: "uint32" as const, indexed: false, internalType: "uint32" as const },
+    { name: "h", type: "uint32" as const, indexed: false, internalType: "uint32" as const },
+    { name: "votingEndsAt", type: "uint64" as const, indexed: false, internalType: "uint64" as const },
+  ],
+};
 
 export interface PendingProposal {
   id: string;
+  proposalId: number;
   proposer: string;
   cid: string;
   x: number;
@@ -38,9 +41,8 @@ export interface PendingProposal {
   timeRemaining: number;
 }
 
-// Matches Swipe.votingWindowSeconds default (259200 = 72h).
-// Import from epoch.ts if that module exports VOTE_WINDOW_SECONDS.
-const VOTING_PERIOD_SECONDS = 259200; // 72 hours
+// Default voting window — used as fallback for block range calculation
+const DEFAULT_VOTING_WINDOW = 259200; // 72 hours
 
 export function usePendingProposals() {
   const [proposals, setProposals] = useState<PendingProposal[]>([]);
@@ -56,131 +58,106 @@ export function usePendingProposals() {
     const loadProposals = async () => {
       if (!publicClient) {
         debug.log("[usePendingProposals] No public client");
+        setLoading(false);
+        return;
+      }
+
+      if (!SWIPE_ADDRESS) {
+        debug.log("[usePendingProposals] No Swipe contract address");
+        setLoading(false);
         return;
       }
 
       try {
-        debug.log("[usePendingProposals] 📡 Loading pending proposals from events...");
+        debug.log("[usePendingProposals] Loading LoreboardProposed events from Swipe contract...");
 
-        // Get current timestamp for filtering
         const currentTime = Math.floor(Date.now() / 1000);
-        const votingPeriodStart = currentTime - VOTING_PERIOD_SECONDS;
 
-        // Get recent block range
+        // Search enough blocks to cover the voting window (~2s block time)
         const latestBlock = await publicClient.getBlockNumber();
-        const blocksToSearch = BigInt(Math.floor(VOTING_PERIOD_SECONDS / 2)); // ~2s block time
+        const blocksToSearch = BigInt(Math.floor(DEFAULT_VOTING_WINDOW / 2));
         const fromBlock = latestBlock > blocksToSearch ? latestBlock - blocksToSearch : 0n;
 
-        debug.log(`[usePendingProposals] Searching blocks ${fromBlock} to ${latestBlock}`);
+        debug.log(`[usePendingProposals] Searching blocks ${fromBlock} to ${latestBlock} on Swipe ${SWIPE_ADDRESS}`);
 
-        // Fetch PlacementProposed events
+        // Fetch LoreboardProposed events from the Swipe contract
         const logs = await publicClient.getLogs({
-          address: LOREBOARD_V2_ADDRESS,
-          event: {
-            type: 'event',
-            name: 'PlacementProposed',
-            inputs: [
-              { name: 'id', type: 'bytes32', indexed: true },
-              { name: 'proposer', type: 'address', indexed: true },
-              { name: 'cid', type: 'string', indexed: false },
-              { name: 'x', type: 'int256', indexed: false },
-              { name: 'y', type: 'int256', indexed: false },
-              { name: 'w', type: 'uint256', indexed: false },
-              { name: 'h', type: 'uint256', indexed: false },
-              { name: 'submittedAt', type: 'uint256', indexed: false },
-            ],
-          },
+          address: SWIPE_ADDRESS,
+          event: LOREBOARD_PROPOSED_EVENT,
           fromBlock,
           toBlock: latestBlock,
         });
 
-        debug.log(`[usePendingProposals] Found ${logs.length} PlacementProposed events`);
+        debug.log(`[usePendingProposals] Found ${logs.length} LoreboardProposed events`);
 
         if (!alive) return;
 
-        // Parse events and filter to active proposals
-        const parsedLogs = logs.map((log) => {
-          const args = log.args as {
-            id: `0x${string}`;
-            proposer: `0x${string}`;
-            cid: string;
-            x: bigint;
-            y: bigint;
-            w: bigint;
-            h: bigint;
-            submittedAt: bigint;
-          };
-          const submitTime = Number(args.submittedAt);
-          const voteEndsAt = submitTime + VOTING_PERIOD_SECONDS;
-          const timeRemaining = Math.max(0, voteEndsAt - currentTime);
-          return { args, submitTime, voteEndsAt, timeRemaining };
-        }).filter((p) => p.timeRemaining > 0);
+        // Parse events and filter to active proposals (voting not ended)
+        const activeLogs = logs
+          .map((log) => {
+            const args = log.args as {
+              proposalId: bigint;
+              proposer: `0x${string}`;
+              ipfsCid: string;
+              x: number;
+              y: number;
+              w: number;
+              h: number;
+              votingEndsAt: bigint;
+            };
+            const voteEndsAt = Number(args.votingEndsAt);
+            const timeRemaining = Math.max(0, voteEndsAt - currentTime);
+            return { args, voteEndsAt, timeRemaining, blockNumber: log.blockNumber };
+          })
+          .filter((p) => p.timeRemaining > 0);
 
-        // Batch all getVotes calls into a single multicall
-        let voteResults: { yes: bigint; no: bigint }[];
-        if (parsedLogs.length > 0) {
-          try {
-            const multicallResults = await publicClient.multicall({
-              contracts: parsedLogs.map((p) => ({
-                address: VOTING_CONTRACT_ADDRESS,
-                abi: VOTING_ABI,
-                functionName: "getVotes" as const,
-                args: [p.args.id] as const,
-              })),
-            });
-            voteResults = multicallResults.map((r) => {
-              if (r.status === "success") {
-                const [yes, no] = r.result as [bigint, bigint];
-                return { yes, no };
+        debug.log(`[usePendingProposals] ${activeLogs.length} active (voting not ended)`);
+
+        // Also check which proposals are finalized via /api/swipe/proposals
+        // to exclude finalized ones
+        let finalizedIds = new Set<number>();
+        try {
+          const res = await fetch("/api/swipe/proposals");
+          if (res.ok) {
+            const data = await res.json();
+            const swipeProposals = data.proposals ?? [];
+            for (const p of swipeProposals) {
+              if (p.finalized) {
+                finalizedIds.add(p.id);
               }
-              return { yes: 0n, no: 0n };
-            });
-          } catch (err) {
-            debug.warn('[usePendingProposals] multicall failed, falling back to individual calls:', err);
-            voteResults = await Promise.all(
-              parsedLogs.map(async (p) => {
-                try {
-                  const [yes, no] = await publicClient.readContract({
-                    address: VOTING_CONTRACT_ADDRESS,
-                    abi: VOTING_ABI,
-                    functionName: "getVotes",
-                    args: [p.args.id],
-                  });
-                  return { yes, no };
-                } catch {
-                  return { yes: 0n, no: 0n };
-                }
-              })
-            );
+            }
           }
-        } else {
-          voteResults = [];
+        } catch {
+          debug.warn("[usePendingProposals] Failed to fetch finalized status, showing all active");
         }
 
-        const proposalsWithVotes = parsedLogs.map((p, i) => ({
-          id: p.args.id,
+        const nonFinalized = activeLogs.filter(
+          (p) => !finalizedIds.has(Number(p.args.proposalId))
+        );
+
+        const activeProposals: PendingProposal[] = nonFinalized.map((p) => ({
+          id: `0x${p.args.proposalId.toString(16).padStart(64, "0")}`,
+          proposalId: Number(p.args.proposalId),
           proposer: p.args.proposer,
-          cid: p.args.cid,
+          cid: p.args.ipfsCid,
           x: Number(p.args.x),
           y: Number(p.args.y),
           w: Number(p.args.w),
           h: Number(p.args.h),
-          submittedAt: p.submitTime,
-          votesYes: voteResults[i].yes,
-          votesNo: voteResults[i].no,
+          submittedAt: 0, // not in the event, use 0
+          votesYes: 0n,
+          votesNo: 0n,
           voteEndsAt: p.voteEndsAt,
           timeRemaining: p.timeRemaining,
         }));
 
-        const activeProposals = proposalsWithVotes as PendingProposal[];
-
         if (alive) {
           setProposals(activeProposals);
           setError(null);
-          debug.log(`[usePendingProposals] ✅ Loaded ${activeProposals.length} active proposals`);
+          debug.log(`[usePendingProposals] Loaded ${activeProposals.length} pending proposals`);
         }
       } catch (err) {
-        debug.error("[usePendingProposals] ❌ Error:", err);
+        debug.error("[usePendingProposals] Error:", err);
         if (alive) {
           setError(err instanceof Error ? err : new Error(String(err)));
         }
@@ -193,7 +170,7 @@ export function usePendingProposals() {
 
     loadProposals();
 
-    // Refresh every 120 seconds to update vote counts and time remaining
+    // Refresh every 120 seconds
     intervalId = setInterval(() => {
       void loadProposals();
     }, 120000);
