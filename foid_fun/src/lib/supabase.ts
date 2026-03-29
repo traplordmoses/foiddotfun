@@ -47,11 +47,17 @@ const isConfigured =
   !supabaseUrl.includes("placeholder") &&
   !supabaseKey.includes("placeholder");
 
-export const supabase: SupabaseClient | null = isConfigured
-  ? createClient(supabaseUrl, supabaseKey, {
-      realtime: { params: { eventsPerSecond: 10 } },
-    })
-  : null;
+let _supabase: SupabaseClient | null = null;
+try {
+  _supabase = isConfigured
+    ? createClient(supabaseUrl, supabaseKey, {
+        realtime: { params: { eventsPerSecond: 10 } },
+      })
+    : null;
+} catch (err) {
+  console.warn("[supabase] Failed to create client:", err);
+}
+export const supabase: SupabaseClient | null = _supabase;
 
 export const SUPABASE_ENABLED = isConfigured;
 
@@ -120,27 +126,32 @@ export function subscribeToBoardMessages(
 ): () => void {
   if (!supabase) return () => {};
 
-  const channel = supabase
-    .channel("board_messages_changes")
-    .on<BoardMessage>(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "board_messages",
-      },
-      (payload) => {
-        if (payload.new) {
-          callback(payload.new);
+  try {
+    const channel = supabase
+      .channel("board_messages_changes")
+      .on<BoardMessage>(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "board_messages",
+        },
+        (payload) => {
+          if (payload.new) {
+            callback(payload.new);
+          }
         }
-      }
-    )
-    .subscribe();
+      )
+      .subscribe();
 
-  // Return unsubscribe function
-  return () => {
-    supabase.removeChannel(channel);
-  };
+    // Return unsubscribe function
+    return () => {
+      supabase!.removeChannel(channel);
+    };
+  } catch (err) {
+    console.warn("[supabase] subscribeToBoardMessages failed:", err);
+    return () => {};
+  }
 }
 
 // ============================================================================
@@ -177,24 +188,29 @@ export function subscribeToBoardEvents(
 ): () => void {
   if (!supabase) return () => {};
 
-  const channel = supabase
-    .channel("board_events_changes")
-    .on<BoardEvent>(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "board_events",
-      },
-      (payload) => {
-        if (payload.new) {
-          callback(payload.new);
+  try {
+    const channel = supabase
+      .channel("board_events_changes")
+      .on<BoardEvent>(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "board_events",
+        },
+        (payload) => {
+          if (payload.new) {
+            callback(payload.new);
+          }
         }
-      }
-    )
-    .subscribe();
+      )
+      .subscribe();
 
-  return () => {
-    supabase!.removeChannel(channel);
-  };
+    return () => {
+      supabase!.removeChannel(channel);
+    };
+  } catch (err) {
+    console.warn("[supabase] subscribeToBoardEvents failed:", err);
+    return () => {};
+  }
 }
