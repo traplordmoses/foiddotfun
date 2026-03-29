@@ -49,6 +49,11 @@ export async function GET() {
       finalized: boolean;
       canonized: boolean;
       trestEntryId: bigint;
+      proposalType: number;
+      gridX: number;
+      gridY: number;
+      gridW: number;
+      gridH: number;
     };
 
     function parseProposal(raw: unknown): ProposalTuple {
@@ -62,6 +67,11 @@ export async function GET() {
           finalized: raw[5] as boolean,
           canonized: raw[6] as boolean,
           trestEntryId: raw[7] as bigint,
+          proposalType: Number(raw[8] ?? 0),
+          gridX: Number(raw[9] ?? 0),
+          gridY: Number(raw[10] ?? 0),
+          gridW: Number(raw[11] ?? 0),
+          gridH: Number(raw[12] ?? 0),
         };
       }
       return raw as ProposalTuple;
@@ -107,6 +117,11 @@ export async function GET() {
           trestEntryId: Number(p.trestEntryId),
           forCount: counts.forCount,
           againstCount: counts.againstCount,
+          proposalType: p.proposalType,
+          gridX: p.gridX,
+          gridY: p.gridY,
+          gridW: p.gridW,
+          gridH: p.gridH,
         });
       }
     }

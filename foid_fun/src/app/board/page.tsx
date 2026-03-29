@@ -89,7 +89,6 @@ import {
   getImageSize,
 } from "@/lib/board";
 import { MobileProposeModal } from "@/components/board/MobileProposeModal";
-import { usePendingProposals } from "@/hooks/usePendingProposals";
 
 // ============================================================================
 // CONSTANTS
@@ -245,8 +244,11 @@ function BoardPageContent() {
   const [proposalsLoading, setProposalsLoading] = useState(true);
   const [proposalDebug, setProposalDebug] = useState<ListProposalsResponse["debug"] | null>(null);
 
-  // Pending proposals from on-chain events (voting in progress)
-  const { proposals: pendingOnChain, loading: pendingLoading } = usePendingProposals();
+  // Pending proposals from Swipe contract (voting in progress) — fetched via API
+  const [swipeVotingProposals, setSwipeVotingProposals] = useState<Array<{
+    id: number; cid: string; x: number; y: number; w: number; h: number;
+    proposer: string; votingEndsAt: number; forCount: number; againstCount: number;
+  }>>([]);
 
   // Derive "placed" items from canonized proposals
   const placed = useMemo(
@@ -436,13 +438,13 @@ function BoardPageContent() {
     const cells = rectCells(rect);
     let status: GhostStatus = "ok";
     const placedRects = placed.map((pl) => pl.rect);
-    const pendingOnChainRects = pendingOnChain.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }));
-    const allOccupiedRects = [...placedRects, ...pendingOnChainRects];
+    const swipeVotingProposalsRects = swipeVotingProposals.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }));
+    const allOccupiedRects = [...placedRects, ...swipeVotingProposalsRects];
     if (cells > MAX_CELLS_PER_RECT) status = "oversize";
     else if (hasOverlap(rect, allOccupiedRects) || hasOverlap(rect, pending.map(storedRectFor))) status = "overlap";
     else if (!isTouching(rect, [...allOccupiedRects, ...pending.map(storedRectFor)])) status = "not-touching";
     setGhost({ rect, cells, status, totalWei: BigInt(cells) * BASE_FEE_PER_CELL_WEI });
-  }, [pending, placed, pendingOnChain, storedRectFor]);
+  }, [pending, placed, swipeVotingProposals, storedRectFor]);
 
   // Debounced ghost refresh to reduce CPU usage during drag
   const ghostDebounceRef = useRef<number | null>(null);
@@ -630,17 +632,47 @@ function BoardPageContent() {
     return { ...p, rect: r, cells: cellsNow, totalWei: BigInt(cellsNow) * (BASE_FEE_PER_CELL_WEI + p.tipPerCellWei) };
   });
 
-  // Load proposals
+  // Load proposals (canonized from /api/proposals + voting from /api/swipe/proposals)
   useEffect(() => {
     let alive = true;
     const tick = async () => {
       try {
-        const response = await listProposals();
+        // Fetch both endpoints in parallel
+        const [boardRes, swipeRes] = await Promise.allSettled([
+          listProposals(),
+          fetch("/api/swipe/proposals").then(r => r.ok ? r.json() : { proposals: [] }),
+        ]);
+
         if (!alive) return;
-        const normalized = normalizeProposals(response.proposals);
+
+        // Canonized placements from board API
+        const boardData = boardRes.status === "fulfilled" ? boardRes.value : { proposals: [], debug: null };
+        const normalized = normalizeProposals(boardData.proposals);
+
+        // Active voting proposals from swipe API (with grid coordinates)
+        const swipeData = swipeRes.status === "fulfilled" ? swipeRes.value : { proposals: [] };
+        const now = Math.floor(Date.now() / 1000);
+        const activeSwipe = (swipeData.proposals ?? [])
+          .filter((p: { finalized: boolean; canonized: boolean; votingEndsAt: number; gridW?: number }) =>
+            !p.finalized && !p.canonized && p.votingEndsAt > now && (p.gridW ?? 0) > 0
+          )
+          .map((p: { id: number; ipfsCid: string; gridX: number; gridY: number; gridW: number; gridH: number; proposer: string; votingEndsAt: number; forCount: number; againstCount: number }) => ({
+            id: p.id,
+            cid: p.ipfsCid,
+            x: p.gridX,
+            y: p.gridY,
+            w: p.gridW,
+            h: p.gridH,
+            proposer: p.proposer,
+            votingEndsAt: p.votingEndsAt,
+            forCount: p.forCount ?? 0,
+            againstCount: p.againstCount ?? 0,
+          }));
+
         startTransition(() => {
           setProposals(normalized);
-          setProposalDebug(response.debug ?? null);
+          setProposalDebug(boardData.debug ?? null);
+          setSwipeVotingProposals(activeSwipe);
           setProposalsLoading(false);
         });
       } catch {
@@ -648,12 +680,12 @@ function BoardPageContent() {
         startTransition(() => {
           setProposals([]);
           setProposalDebug(null);
+          setSwipeVotingProposals([]);
           setProposalsLoading(false);
         });
       }
     };
     tick();
-    // Slightly slower polling reduces render churn in this heavy route.
     const t = setInterval(tick, 12_000);
     return () => { alive = false; clearInterval(t); };
   }, []);
@@ -847,7 +879,7 @@ function BoardPageContent() {
 
     // Add pending on-chain proposals (from PlacementProposed events)
     const existingIds = new Set(nodes.map(n => n.id));
-    pendingOnChain.forEach((p) => {
+    swipeVotingProposals.forEach((p) => {
       const nodeId = `pending-${p.id}`;
       if (existingIds.has(nodeId)) return;
       nodes.push({
@@ -862,7 +894,7 @@ function BoardPageContent() {
     });
 
     return nodes;
-  }, [placed, proposals, pendingOnChain]);
+  }, [placed, proposals, swipeVotingProposals]);
 
   const mobileView = (
     <div className="h-screen w-screen bg-transparent relative">
@@ -885,17 +917,34 @@ function BoardPageContent() {
         <MobileProposeModal
           isConnected={isConnected}
           address={address}
-          placedRects={[...placed.map(p => p.rect), ...pendingOnChain.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }))]}
+          placedRects={[...placed.map(p => p.rect), ...swipeVotingProposals.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }))]}
           onClose={() => setShowMobilePropose(false)}
           onSuccess={(msg) => {
             addStatus(msg, "success");
             setShowMobilePropose(false);
-            // Refresh proposals
-            listProposals().then((response) => {
+            // Refresh both canonized and voting proposals
+            Promise.allSettled([
+              listProposals(),
+              fetch("/api/swipe/proposals").then(r => r.ok ? r.json() : { proposals: [] }),
+            ]).then(([boardRes, swipeRes]) => {
               startTransition(() => {
-                setProposals(normalizeProposals(response.proposals));
+                if (boardRes.status === "fulfilled") {
+                  setProposals(normalizeProposals(boardRes.value.proposals));
+                }
+                if (swipeRes.status === "fulfilled") {
+                  const now = Math.floor(Date.now() / 1000);
+                  const active = (swipeRes.value.proposals ?? [])
+                    .filter((p: { finalized: boolean; canonized: boolean; votingEndsAt: number; gridW?: number }) =>
+                      !p.finalized && !p.canonized && p.votingEndsAt > now && (p.gridW ?? 0) > 0
+                    )
+                    .map((p: { id: number; ipfsCid: string; gridX: number; gridY: number; gridW: number; gridH: number; proposer: string; votingEndsAt: number; forCount: number; againstCount: number }) => ({
+                      id: p.id, cid: p.ipfsCid, x: p.gridX, y: p.gridY, w: p.gridW, h: p.gridH,
+                      proposer: p.proposer, votingEndsAt: p.votingEndsAt, forCount: p.forCount ?? 0, againstCount: p.againstCount ?? 0,
+                    }));
+                  setSwipeVotingProposals(active);
+                }
               });
-            }).catch(() => {});
+            });
           }}
         />
       )}
@@ -1051,6 +1100,37 @@ function BoardPageContent() {
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={cidToHttpUrl(p.cid)} alt={p.name} className="board-proposal__img" draggable={false} loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
                           {isSelectedProposal && <span className="board-proposal__badge">selected</span>}
+                        </figure>
+                      );
+                    })}
+
+                    {/* Swipe voting proposals (active votes with grid positions) */}
+                    {swipeVotingProposals.map((p) => {
+                      const sr = toStageRect({ x: p.x, y: p.y, w: p.w, h: p.h });
+                      return (
+                        <figure
+                          key={`swipe-${p.id}`}
+                          className="board-proposal"
+                          style={{
+                            left: sr.x, top: sr.y, width: sr.w, height: sr.h,
+                            cursor: "pointer",
+                            outline: "2px dashed rgba(255,180,0,0.7)",
+                            outlineOffset: -2,
+                          }}
+                          title={`Proposal #${p.id} — voting in progress`}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={cidToHttpUrl(p.cid)} alt={`Proposal #${p.id}`} className="board-proposal__img" draggable={false} loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
+                          <span style={{
+                            position: "absolute", bottom: 2, left: 2, right: 2,
+                            fontSize: 9, fontWeight: 700, textAlign: "center",
+                            background: "rgba(0,0,0,0.7)", color: "rgba(255,180,0,0.9)",
+                            borderRadius: 2, padding: "1px 4px",
+                            fontFamily: "var(--font-terminal), monospace",
+                            letterSpacing: "0.05em",
+                          }}>
+                            VOTING #{p.id}
+                          </span>
                         </figure>
                       );
                     })}

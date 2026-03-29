@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useRef, useState, useEffect, useMemo } from "react";
+import React, { useRef, useState, useEffect, useMemo, useCallback } from "react";
 import { TILE, snapRect, hasOverlap, isTouching, type Rect } from "@/lib/grid";
-import { usePendingProposals } from "@/hooks/usePendingProposals";
 import { sniffImageType, mimeFromType } from "@/lib/image";
 import { convertToJpeg } from "@/lib/imageConvert";
 import { uploadImage } from "@/lib/ipfs";
@@ -60,11 +59,29 @@ export function MobileProposeModal({
   onSuccess: (msg: string) => void;
 }) {
   const { proposeLoreboard } = useSwipePropose();
-  const { proposals: pendingOnChain } = usePendingProposals();
-  const pendingVoteRects = useMemo(
-    () => pendingOnChain.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h })),
-    [pendingOnChain]
-  );
+
+  // Fetch active voting proposals with grid coordinates from the API
+  const [pendingVoteRects, setPendingVoteRects] = useState<Rect[]>([]);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/swipe/proposals")
+      .then(r => r.ok ? r.json() : { proposals: [] })
+      .then(data => {
+        if (!alive) return;
+        const now = Math.floor(Date.now() / 1000);
+        const rects = (data.proposals ?? [])
+          .filter((p: { finalized: boolean; canonized: boolean; votingEndsAt: number; gridW?: number }) =>
+            !p.finalized && !p.canonized && p.votingEndsAt > now && (p.gridW ?? 0) > 0
+          )
+          .map((p: { gridX: number; gridY: number; gridW: number; gridH: number }) => ({
+            x: p.gridX, y: p.gridY, w: p.gridW, h: p.gridH,
+          }));
+        setPendingVoteRects(rects);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
   // Include pending vote rects in overlap checks
   const allOccupiedRects = useMemo(() => [...placedRects, ...pendingVoteRects], [placedRects, pendingVoteRects]);
   const [file, setFile] = useState<File | null>(null);
