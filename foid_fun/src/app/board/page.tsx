@@ -26,6 +26,7 @@ import {
   WORLD_MAX_X,
   WORLD_MAX_Y,
   worldToContractRect,
+  contractToWorldRect,
 } from "@/lib/boardSpace";
 import { sniffImageType, mimeFromType } from "@/lib/image";
 import { convertToJpeg } from "@/lib/imageConvert";
@@ -656,18 +657,22 @@ function BoardPageContent() {
           .filter((p: { finalized: boolean; canonized: boolean; votingEndsAt: number; gridW?: number }) =>
             !p.finalized && !p.canonized && p.votingEndsAt > now && (p.gridW ?? 0) > 0
           )
-          .map((p: { id: number; ipfsCid: string; gridX: number; gridY: number; gridW: number; gridH: number; proposer: string; votingEndsAt: number; forCount: number; againstCount: number }) => ({
-            id: p.id,
-            cid: p.ipfsCid,
-            x: p.gridX,
-            y: p.gridY,
-            w: p.gridW,
-            h: p.gridH,
-            proposer: p.proposer,
-            votingEndsAt: p.votingEndsAt,
-            forCount: p.forCount ?? 0,
-            againstCount: p.againstCount ?? 0,
-          }));
+          .map((p: { id: number; ipfsCid: string; gridX: number; gridY: number; gridW: number; gridH: number; proposer: string; votingEndsAt: number; forCount: number; againstCount: number }) => {
+            // Convert from contract space to world space
+            const worldRect = contractToWorldRect({ x: p.gridX, y: p.gridY, w: p.gridW, h: p.gridH });
+            return {
+              id: p.id,
+              cid: p.ipfsCid,
+              x: worldRect.x,
+              y: worldRect.y,
+              w: worldRect.w,
+              h: worldRect.h,
+              proposer: p.proposer,
+              votingEndsAt: p.votingEndsAt,
+              forCount: p.forCount ?? 0,
+              againstCount: p.againstCount ?? 0,
+            };
+          });
 
         startTransition(() => {
           setProposals(normalized);
@@ -937,10 +942,13 @@ function BoardPageContent() {
                     .filter((p: { finalized: boolean; canonized: boolean; votingEndsAt: number; gridW?: number }) =>
                       !p.finalized && !p.canonized && p.votingEndsAt > now && (p.gridW ?? 0) > 0
                     )
-                    .map((p: { id: number; ipfsCid: string; gridX: number; gridY: number; gridW: number; gridH: number; proposer: string; votingEndsAt: number; forCount: number; againstCount: number }) => ({
-                      id: p.id, cid: p.ipfsCid, x: p.gridX, y: p.gridY, w: p.gridW, h: p.gridH,
-                      proposer: p.proposer, votingEndsAt: p.votingEndsAt, forCount: p.forCount ?? 0, againstCount: p.againstCount ?? 0,
-                    }));
+                    .map((p: { id: number; ipfsCid: string; gridX: number; gridY: number; gridW: number; gridH: number; proposer: string; votingEndsAt: number; forCount: number; againstCount: number }) => {
+                      const wr = contractToWorldRect({ x: p.gridX, y: p.gridY, w: p.gridW, h: p.gridH });
+                      return {
+                        id: p.id, cid: p.ipfsCid, x: wr.x, y: wr.y, w: wr.w, h: wr.h,
+                        proposer: p.proposer, votingEndsAt: p.votingEndsAt, forCount: p.forCount ?? 0, againstCount: p.againstCount ?? 0,
+                      };
+                    });
                   setSwipeVotingProposals(active);
                 }
               });

@@ -6,7 +6,7 @@ import { sniffImageType, mimeFromType } from "@/lib/image";
 import { convertToJpeg } from "@/lib/imageConvert";
 import { uploadImage } from "@/lib/ipfs";
 import { useSwipePropose } from "@/hooks/useSwipePropose";
-import { worldToContractRect } from "@/lib/boardSpace";
+import { worldToContractRect, contractToWorldRect } from "@/lib/boardSpace";
 import { capRectToMaxCells, MAX_CELLS_PER_RECT } from "@/lib/boardImages";
 import { parseWeb3Error, isUserRejection } from "@/lib/errors";
 import { PaintEditor } from "@/components/PaintEditor";
@@ -73,9 +73,9 @@ export function MobileProposeModal({
           .filter((p: { finalized: boolean; canonized: boolean; votingEndsAt: number; gridW?: number }) =>
             !p.finalized && !p.canonized && p.votingEndsAt > now && (p.gridW ?? 0) > 0
           )
-          .map((p: { gridX: number; gridY: number; gridW: number; gridH: number }) => ({
-            x: p.gridX, y: p.gridY, w: p.gridW, h: p.gridH,
-          }));
+          .map((p: { gridX: number; gridY: number; gridW: number; gridH: number }) =>
+            contractToWorldRect({ x: p.gridX, y: p.gridY, w: p.gridW, h: p.gridH })
+          );
         setPendingVoteRects(rects);
       })
       .catch(() => {});
