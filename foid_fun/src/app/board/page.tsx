@@ -1119,33 +1119,29 @@ function BoardPageContent() {
                       );
                     })}
 
-                    {/* Swipe voting proposals (active votes with grid positions) */}
+                    {/* Swipe voting proposals — ghost placement with neon glow */}
                     {swipeVotingProposals.map((p) => {
                       const sr = toStageRect({ x: p.x, y: p.y, w: p.w, h: p.h });
                       return (
                         <figure
                           key={`swipe-${p.id}`}
-                          className="board-proposal"
+                          className="board-voting-ghost"
                           style={{
                             left: sr.x, top: sr.y, width: sr.w, height: sr.h,
                             cursor: "pointer",
-                            outline: "2px dashed rgba(255,180,0,0.7)",
-                            outlineOffset: -2,
                           }}
                           title={`Proposal #${p.id} — voting in progress`}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={cidToHttpUrl(p.cid)} alt={`Proposal #${p.id}`} className="board-proposal__img" draggable={false} loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
-                          <span style={{
-                            position: "absolute", bottom: 2, left: 2, right: 2,
-                            fontSize: 9, fontWeight: 700, textAlign: "center",
-                            background: "rgba(0,0,0,0.7)", color: "rgba(255,180,0,0.9)",
-                            borderRadius: 2, padding: "1px 4px",
-                            fontFamily: "var(--font-terminal), monospace",
-                            letterSpacing: "0.05em",
-                          }}>
-                            VOTING #{p.id} &middot; {p.forCount}Y / {p.againstCount}N
-                          </span>
+                          <img src={cidToHttpUrl(p.cid)} alt={`Proposal #${p.id}`} className="board-voting-ghost__img" draggable={false} loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
+                          <div className="board-voting-ghost__badge">
+                            <span>VOTING #{p.id}</span>
+                            <div className="board-voting-ghost__votes">
+                              <span className="yes">{p.forCount}Y</span>
+                              <span className="sep">/</span>
+                              <span className="no">{p.againstCount}N</span>
+                            </div>
+                          </div>
                         </figure>
                       );
                     })}

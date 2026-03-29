@@ -999,7 +999,11 @@ export default function SwipePage() {
                   closedProposals.length > 0 ? (
                   <div className="flex-1 min-h-0 overflow-auto mt-1 grid gap-3 sm:grid-cols-2 auto-rows-min">
                     {closedProposals.map((proposal) => {
-                      const total = proposal.forCount + proposal.againstCount;
+                      const forC = proposal.forCount ?? 0;
+                      const againstC = proposal.againstCount ?? 0;
+                      const total = forC + againstC;
+                      const pct = total > 0 ? Math.round((forC / total) * 100) : 0;
+                      const passing = pct >= 51;
                       const myChoice = voteChoices.get(proposal.id);
                       return (
                         <Link
@@ -1035,15 +1039,36 @@ export default function SwipePage() {
                               )}
                             </div>
                           </div>
+                          {/* Vote score */}
+                          <div className="mt-2 rounded-lg bg-neutral-800/60 px-2.5 py-1.5">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-green-400 text-[10px] font-bold">{forC}Y</span>
+                                <span className="text-white/20 text-[9px]">vs</span>
+                                <span className="text-red-400 text-[10px] font-bold">{againstC}N</span>
+                              </div>
+                              {total > 0 && (
+                                <span className={`text-[9px] font-semibold ${passing ? "text-green-400" : "text-red-400"}`}>
+                                  {pct}%
+                                </span>
+                              )}
+                            </div>
+                            <div className="relative flex h-1.5 overflow-hidden rounded-full bg-neutral-700/50">
+                              {total > 0 ? (
+                                <>
+                                  <div className="bg-green-500 transition-all duration-300" style={{ width: `${(forC / total) * 100}%` }} />
+                                  <div className="bg-red-500 transition-all duration-300" style={{ width: `${(againstC / total) * 100}%` }} />
+                                </>
+                              ) : (
+                                <div className="flex-1 bg-neutral-600/40" />
+                              )}
+                              <div className="absolute top-0 bottom-0 w-px bg-white/30" style={{ left: "51%" }} />
+                            </div>
+                          </div>
                           <div className="mt-1.5 flex items-center justify-between text-[10px] text-neutral-400">
                             <span className="font-mono">{truncateAddress(proposal.proposer)}</span>
                             {proposal.canonized && <span className="text-green-400">On Board &rarr;</span>}
                           </div>
-                          {total > 0 && (
-                            <div className="mt-1.5">
-                              <VoteBar forCount={proposal.forCount} againstCount={proposal.againstCount} />
-                            </div>
-                          )}
                         </Link>
                       );
                     })}
@@ -1060,14 +1085,20 @@ export default function SwipePage() {
                     return myVotedProposals.length > 0 ? (
                       <div className="flex-1 min-h-0 overflow-auto mt-1 grid gap-3 sm:grid-cols-2 auto-rows-min">
                         {myVotedProposals.map((proposal) => {
-                          const total = proposal.forCount + proposal.againstCount;
+                          const forC = proposal.forCount ?? 0;
+                          const againstC = proposal.againstCount ?? 0;
+                          const total = forC + againstC;
+                          const pct = total > 0 ? Math.round((forC / total) * 100) : 0;
+                          const passing = pct >= 51;
                           const myChoice = voteChoices.get(proposal.id);
                           const pending = pendingDecisions.has(proposal.id);
+                          const isLive = !proposal.finalized && now < proposal.votingEndsAt;
                           return (
                             <div
                               key={proposal.id}
-                              className="block rounded-xl border border-neutral-800 bg-neutral-900/40 p-2"
+                              className="block rounded-xl border border-neutral-800 bg-neutral-900/40 p-2 relative overflow-hidden"
                             >
+                              {/* Status ribbon */}
                               <div className="mb-1.5 flex items-center justify-between">
                                 <span className="text-[10px] text-white/40">Prop #{proposal.id}</span>
                                 <div className="flex items-center gap-1.5">
@@ -1077,13 +1108,18 @@ export default function SwipePage() {
                                     {myChoice === true ? "YES" : myChoice === false ? "NO" : "Voted"}
                                     {pending && " (pending)"}
                                   </span>
-                                  {proposal.finalized && (
+                                  {proposal.finalized ? (
                                     <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase ${
                                       proposal.canonized ? "bg-green-600/15 text-green-400/70" : "bg-red-600/15 text-red-400/70"
                                     }`}>
                                       {proposal.canonized ? "Passed" : "Failed"}
                                     </span>
-                                  )}
+                                  ) : isLive ? (
+                                    <span className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase bg-purple-600/20 text-purple-300 ring-1 ring-purple-500/25">
+                                      <span className="inline-block h-1 w-1 rounded-full bg-purple-400 animate-pulse mr-1 align-middle" />
+                                      Live
+                                    </span>
+                                  ) : null}
                                 </div>
                               </div>
                               <div className="overflow-hidden rounded-lg bg-neutral-800/50">
@@ -1097,15 +1133,40 @@ export default function SwipePage() {
                                   )}
                                 </div>
                               </div>
+                              {/* Vote score section */}
+                              <div className="mt-2 rounded-lg bg-neutral-800/60 px-2.5 py-2">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-green-400 text-xs font-bold">{forC} YES</span>
+                                    <span className="text-white/20">vs</span>
+                                    <span className="text-red-400 text-xs font-bold">{againstC} NO</span>
+                                  </div>
+                                  {total > 0 && (
+                                    <span className={`text-[10px] font-semibold ${passing ? "text-green-400" : "text-amber-400"}`}>
+                                      {pct}% {passing ? "passing" : "failing"}
+                                    </span>
+                                  )}
+                                </div>
+                                {/* Progress bar */}
+                                <div className="relative flex h-2 overflow-hidden rounded-full bg-neutral-700/50">
+                                  {total > 0 ? (
+                                    <>
+                                      <div className="bg-green-500 transition-all duration-300 rounded-l-full" style={{ width: `${(forC / total) * 100}%` }} />
+                                      <div className="bg-red-500 transition-all duration-300 rounded-r-full" style={{ width: `${(againstC / total) * 100}%` }} />
+                                    </>
+                                  ) : (
+                                    <div className="flex-1 bg-neutral-600/40 rounded-full" />
+                                  )}
+                                  <div className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: "51%" }} />
+                                </div>
+                                {total === 0 && (
+                                  <div className="text-[9px] text-white/25 mt-1 text-center">No votes recorded yet</div>
+                                )}
+                              </div>
                               <div className="mt-1.5 flex items-center justify-between text-[10px] text-neutral-400">
                                 <span className="font-mono">{truncateAddress(proposal.proposer)}</span>
                                 {proposal.canonized && <span className="text-green-400">On Board</span>}
                               </div>
-                              {total > 0 && (
-                                <div className="mt-1.5">
-                                  <VoteBar forCount={proposal.forCount} againstCount={proposal.againstCount} showThreshold />
-                                </div>
-                              )}
                             </div>
                           );
                         })}
