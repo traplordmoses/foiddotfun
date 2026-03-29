@@ -35,17 +35,19 @@ interface HistoryEntry {
   memeText: MemeText;
 }
 
-const PRESET_COLORS = [
-  "#ffffff",
-  "#000000",
-  "#ff0000",
-  "#0066ff",
-  "#00cc44",
-  "#ffdd00",
-  "#ff69b4",
-  "#00cccc",
-  "#ff8800",
-  "#aa44ff",
+// FOID Foundation brand colors + essential drawing colors
+const FOID_COLORS = [
+  "#00cccc", // FOID teal
+  "#a855f7", // FOID purple
+  "#e040fb", // FOID magenta
+  "#f06292", // FOID pink
+  "#74ffeb", // FOID mint
+  "#00ddff", // FOID cyan
+] as const;
+
+const STANDARD_COLORS = [
+  "#ffffff", "#000000", "#ff0000", "#0066ff",
+  "#00cc44", "#ffdd00", "#ff8800", "#ff69b4",
 ] as const;
 
 const MAX_HISTORY = 30;
@@ -66,10 +68,16 @@ function generateId(): string {
 // ============================================================================
 
 export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
-  // Hide music controls while paint editor is open
+  // Track music bar expansion to add bottom padding
+  const [musicBarVisible, setMusicBarVisible] = useState(false);
   useEffect(() => {
-    document.body.classList.add("paint-editor-active");
-    return () => { document.body.classList.remove("paint-editor-active"); };
+    // Watch for music bar expansion by checking for the visible class
+    const observer = new MutationObserver(() => {
+      const bar = document.querySelector('.cmp-bar--visible');
+      setMusicBarVisible(!!bar);
+    });
+    observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
   }, []);
 
   // Canvas refs
@@ -785,6 +793,8 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         display: "flex",
         flexDirection: "column",
         background: "rgba(8, 12, 20, 0.98)",
+        paddingBottom: musicBarVisible ? 48 : 0,
+        transition: "padding-bottom 0.2s ease",
       }}
     >
       {/* ============ VISTA-STYLE TITLEBAR ============ */}
@@ -1202,40 +1212,83 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
 
           <Divider />
 
-          {/* Color swatch: opens native color picker directly */}
+          {/* Color picker with FOID + standard colors */}
           <div style={{ position: "relative", flexShrink: 0 }}>
             <button
               title="Pick color"
-              onClick={() => colorInputRef.current?.click()}
+              onClick={() => setShowColorPicker(!showColorPicker)}
               style={{
                 width: 28,
                 height: 28,
                 borderRadius: "50%",
-                border: "2px solid rgba(0,204,204,0.5)",
+                border: showColorPicker ? "2px solid rgba(0,204,204,0.8)" : "2px solid rgba(0,204,204,0.5)",
                 background: color,
                 cursor: "pointer",
-                boxShadow: "0 0 4px rgba(0,0,0,0.4)",
-                transition: "box-shadow 0.15s",
+                boxShadow: showColorPicker ? "0 0 10px rgba(0,204,204,0.5)" : "0 0 4px rgba(0,0,0,0.4)",
+                transition: "box-shadow 0.15s, border-color 0.15s",
               }}
             />
-            <input
-              ref={colorInputRef}
-              type="color"
-              value={color}
-              onChange={(e) => {
-                setColor(e.target.value);
-                if (tool !== "draw" && tool !== "eraser") setTool("draw");
-              }}
-              style={{
+            {showColorPicker && (
+              <div style={{
                 position: "absolute",
-                top: 0,
-                left: 0,
-                width: 28,
-                height: 28,
-                opacity: 0,
-                cursor: "pointer",
-              }}
-            />
+                bottom: "100%",
+                left: "50%",
+                transform: "translateX(-50%)",
+                marginBottom: 6,
+                padding: 10,
+                borderRadius: 10,
+                background: "rgba(16, 20, 32, 0.98)",
+                border: "1px solid rgba(0,204,204,0.25)",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                zIndex: 20,
+                width: 180,
+              }}>
+                {/* FOID brand colors */}
+                <div style={{ fontSize: 8, color: "rgba(0,204,204,0.7)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", marginBottom: 4, textTransform: "uppercase" }}>FOID</div>
+                <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
+                  {FOID_COLORS.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => { setColor(c); setShowColorPicker(false); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }}
+                      style={{
+                        width: 24, height: 24, borderRadius: 6,
+                        border: color === c ? "2px solid #fff" : "1px solid rgba(255,255,255,0.15)",
+                        background: c, cursor: "pointer", flexShrink: 0,
+                        boxShadow: color === c ? `0 0 8px ${c}80` : "none",
+                      }}
+                    />
+                  ))}
+                </div>
+                {/* Standard colors */}
+                <div style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", marginBottom: 4, textTransform: "uppercase" }}>Standard</div>
+                <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
+                  {STANDARD_COLORS.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => { setColor(c); setShowColorPicker(false); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }}
+                      style={{
+                        width: 24, height: 24, borderRadius: 6,
+                        border: color === c ? "2px solid #00cccc" : `1px solid ${c === "#000000" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)"}`,
+                        background: c, cursor: "pointer", flexShrink: 0,
+                        boxShadow: color === c ? "0 0 6px rgba(0,204,204,0.4)" : "none",
+                      }}
+                    />
+                  ))}
+                </div>
+                {/* Custom color picker */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", textTransform: "uppercase" }}>Custom</span>
+                  <input
+                    ref={colorInputRef}
+                    type="color"
+                    value={color}
+                    onChange={(e) => { setColor(e.target.value); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }}
+                    style={{ width: 32, height: 24, cursor: "pointer", border: "none", borderRadius: 4, padding: 0 }}
+                  />
+                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-terminal), monospace" }}>{color}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Brush size dropdown */}
@@ -1265,17 +1318,19 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
               <div style={{
                 position: "absolute",
                 bottom: "100%",
-                left: 0,
-                marginBottom: 4,
-                padding: 6,
-                borderRadius: 8,
+                left: "50%",
+                transform: "translateX(-50%)",
+                marginBottom: 6,
+                padding: 8,
+                borderRadius: 10,
                 background: "rgba(16, 20, 32, 0.98)",
-                border: "1px solid rgba(0,204,204,0.2)",
+                border: "1px solid rgba(0,204,204,0.25)",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
                 display: "flex",
-                gap: 4,
+                gap: 5,
                 flexWrap: "wrap",
-                width: 160,
-                zIndex: 10,
+                width: 170,
+                zIndex: 20,
               }}>
                 {[2, 4, 8, 12, 16, 24, 30].map(size => (
                   <button
@@ -1357,40 +1412,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           </button>
         </div>
 
-        {/* Row 2: Quick color presets */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "4px 12px 6px",
-            borderTop: "1px solid rgba(255,255,255,0.05)",
-            overflowX: "auto",
-            WebkitOverflowScrolling: "touch",
-          }}
-        >
-          {PRESET_COLORS.map((c) => (
-            <button
-              key={c}
-              title={c}
-              onClick={() => {
-                setColor(c);
-                if (tool !== "draw" && tool !== "eraser") setTool("draw");
-              }}
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: "50%",
-                border: color === c ? "2px solid #00cccc" : "1px solid rgba(255,255,255,0.15)",
-                background: c,
-                cursor: "pointer",
-                flexShrink: 0,
-                boxShadow: color === c ? "0 0 6px rgba(0,204,204,0.4)" : "none",
-                transition: "box-shadow 0.15s, border-color 0.15s",
-              }}
-            />
-          ))}
-        </div>
+        {/* Color presets removed — integrated into color picker popup */}
       </div>
     </div>
   );

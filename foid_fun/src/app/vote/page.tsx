@@ -680,28 +680,36 @@ export default function SwipePage() {
   // Real-time updates — refetch on proposal/vote/finalize events
   useBoardEvents(useCallback(() => { refetchProposals(); }, [refetchProposals]));
 
-  // Also check server for user's existing votes
+  // Also check server for user's existing votes + load vote directions
   useEffect(() => {
     if (!address || proposals.length === 0) return;
     let alive = true;
     const checkVotes = async () => {
       const local = getVotedIds(address);
+      const newChoices = new Map<number, boolean>();
       for (const p of proposals) {
-        if (local.has(p.id)) continue;
         try {
           const res = await fetch(`/api/swipe/vote?proposalId=${p.id}`);
           if (!res.ok) continue;
           const data = await res.json();
-          const userVoted = (data.votes ?? []).some(
+          const userVote = (data.votes ?? []).find(
             (v: { voter: string }) => v.voter.toLowerCase() === address.toLowerCase()
           );
-          if (userVoted) local.add(p.id);
+          if (userVote) {
+            local.add(p.id);
+            newChoices.set(p.id, userVote.approve === true || userVote.approve === 1);
+          }
         } catch (err) { console.warn('[swipe] checkVotes non-fatal error for proposal:', p.id, err); }
       }
       if (!alive) return;
-      if (local.size > votedIdsRef.current.size) {
-        saveVotedIds(address, local);
-        setVotedIds(new Set(local));
+      saveVotedIds(address, local);
+      setVotedIds(new Set(local));
+      if (newChoices.size > 0) {
+        setVoteChoices(prev => {
+          const merged = new Map(prev);
+          newChoices.forEach((v, k) => merged.set(k, v));
+          return merged;
+        });
       }
     };
     checkVotes();
