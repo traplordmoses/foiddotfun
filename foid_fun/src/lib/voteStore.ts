@@ -41,9 +41,14 @@ export function getVoteCounts(proposalId: number): {
   totalVotes: number;
 } {
   const row = getVoteCountsByProposal().get(proposalId) as
-    | { forCount: number; againstCount: number; totalVotes: number }
+    | { forCount: number | null; againstCount: number | null; totalVotes: number | null }
     | undefined;
-  return row ?? { forCount: 0, againstCount: 0, totalVotes: 0 };
+  // SQLite SUM() returns NULL when no rows match, so coalesce individual fields
+  return {
+    forCount: row?.forCount ?? 0,
+    againstCount: row?.againstCount ?? 0,
+    totalVotes: row?.totalVotes ?? 0,
+  };
 }
 
 /**

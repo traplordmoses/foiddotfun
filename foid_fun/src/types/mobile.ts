@@ -6,6 +6,11 @@ export interface BoardNode {
   height: number;
   content: string;
   type: 'text' | 'image' | 'meme';
+  /** 'voting' for proposals under vote, 'canonized' for finalized placements */
+  status?: 'voting' | 'canonized';
+  /** Vote counts (only for voting proposals) */
+  forCount?: number;
+  againstCount?: number;
 }
 
 export interface Point {

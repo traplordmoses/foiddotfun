@@ -14,6 +14,9 @@ interface BoardNode {
   height: number;
   content: string;
   type: 'text' | 'image' | 'meme';
+  status?: 'voting' | 'canonized';
+  forCount?: number;
+  againstCount?: number;
 }
 
 interface MobileBoardProps {
@@ -172,7 +175,7 @@ export function MobileBoard({
 
           {/* Nodes */}
           {nodes.map((node) => {
-            const isVoting = node.id.startsWith('proposal-');
+            const isVoting = node.status === 'voting' || node.id.startsWith('proposal-') || node.id.startsWith('pending-');
             return (
               <motion.div
                 key={node.id}
@@ -217,7 +220,9 @@ export function MobileBoard({
                     padding: '1px 4px', borderRadius: 3, lineHeight: '12px',
                     textTransform: 'uppercase',
                   }}>
-                    VOTING
+                    VOTING {(node.forCount ?? 0) + (node.againstCount ?? 0) > 0
+                      ? `${node.forCount ?? 0}Y / ${node.againstCount ?? 0}N`
+                      : ''}
                   </div>
                 )}
               </motion.div>

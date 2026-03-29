@@ -864,6 +864,7 @@ function BoardPageContent() {
         height: p.rect.h,
         content: p.cid,
         type: 'meme',
+        status: 'canonized',
       });
     });
 
@@ -879,6 +880,9 @@ function BoardPageContent() {
           height: p.rect.h,
           content: p.cid,
           type: 'meme',
+          status: 'voting',
+          forCount: p.yesVotes ?? p.yes ?? 0,
+          againstCount: p.noVotes ?? p.no ?? 0,
         });
       });
 
@@ -895,6 +899,9 @@ function BoardPageContent() {
         height: p.h,
         content: p.cid,
         type: 'meme',
+        status: 'voting',
+        forCount: p.forCount,
+        againstCount: p.againstCount,
       });
     });
 
@@ -1137,7 +1144,7 @@ function BoardPageContent() {
                             fontFamily: "var(--font-terminal), monospace",
                             letterSpacing: "0.05em",
                           }}>
-                            VOTING #{p.id}
+                            VOTING #{p.id} &middot; {p.forCount}Y / {p.againstCount}N
                           </span>
                         </figure>
                       );
