@@ -502,6 +502,14 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
         }
 
+        /* --- Hide when paint editor is open --- */
+        :global(body.paint-editor-active .cmp-trigger),
+        :global(body.paint-editor-active .cmp-hover-zone),
+        :global(body.paint-editor-active .cmp-bar) {
+          display: none !important;
+          pointer-events: none !important;
+        }
+
         /* --- Close button --- */
         :global(.cmp-close-btn) {
           display: flex;

@@ -89,6 +89,7 @@ import {
   getImageSize,
 } from "@/lib/board";
 import { MobileProposeModal } from "@/components/board/MobileProposeModal";
+import { usePendingProposals } from "@/hooks/usePendingProposals";
 
 // ============================================================================
 // CONSTANTS
@@ -243,6 +244,9 @@ function BoardPageContent() {
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
   const [proposalsLoading, setProposalsLoading] = useState(true);
   const [proposalDebug, setProposalDebug] = useState<ListProposalsResponse["debug"] | null>(null);
+
+  // Pending proposals from on-chain events (voting in progress)
+  const { proposals: pendingOnChain, loading: pendingLoading } = usePendingProposals();
 
   // Derive "placed" items from canonized proposals
   const placed = useMemo(
@@ -432,11 +436,13 @@ function BoardPageContent() {
     const cells = rectCells(rect);
     let status: GhostStatus = "ok";
     const placedRects = placed.map((pl) => pl.rect);
+    const pendingOnChainRects = pendingOnChain.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }));
+    const allOccupiedRects = [...placedRects, ...pendingOnChainRects];
     if (cells > MAX_CELLS_PER_RECT) status = "oversize";
-    else if (hasOverlap(rect, placedRects) || hasOverlap(rect, pending.map(storedRectFor))) status = "overlap";
-    else if (!isTouching(rect, [...placedRects, ...pending.map(storedRectFor)])) status = "not-touching";
+    else if (hasOverlap(rect, allOccupiedRects) || hasOverlap(rect, pending.map(storedRectFor))) status = "overlap";
+    else if (!isTouching(rect, [...allOccupiedRects, ...pending.map(storedRectFor)])) status = "not-touching";
     setGhost({ rect, cells, status, totalWei: BigInt(cells) * BASE_FEE_PER_CELL_WEI });
-  }, [pending, placed, storedRectFor]);
+  }, [pending, placed, pendingOnChain, storedRectFor]);
 
   // Debounced ghost refresh to reduce CPU usage during drag
   const ghostDebounceRef = useRef<number | null>(null);
@@ -824,7 +830,7 @@ function BoardPageContent() {
       });
     });
 
-    // Add voting proposals
+    // Add voting proposals from listProposals
     proposals
       .filter((p) => p.status === "voting" && p.isVotable)
       .forEach((p) => {
@@ -839,8 +845,24 @@ function BoardPageContent() {
         });
       });
 
+    // Add pending on-chain proposals (from PlacementProposed events)
+    const existingIds = new Set(nodes.map(n => n.id));
+    pendingOnChain.forEach((p) => {
+      const nodeId = `pending-${p.id}`;
+      if (existingIds.has(nodeId)) return;
+      nodes.push({
+        id: nodeId,
+        x: p.x,
+        y: p.y,
+        width: p.w,
+        height: p.h,
+        content: p.cid,
+        type: 'meme',
+      });
+    });
+
     return nodes;
-  }, [placed, proposals]);
+  }, [placed, proposals, pendingOnChain]);
 
   const mobileView = (
     <div className="h-screen w-screen bg-transparent relative">
@@ -863,7 +885,7 @@ function BoardPageContent() {
         <MobileProposeModal
           isConnected={isConnected}
           address={address}
-          placedRects={placed.map(p => p.rect)}
+          placedRects={[...placed.map(p => p.rect), ...pendingOnChain.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }))]}
           onClose={() => setShowMobilePropose(false)}
           onSuccess={(msg) => {
             addStatus(msg, "success");

@@ -578,9 +578,11 @@ export default function SwipePage() {
   const { disconnect, switchWallet } = useSwitchWallet();
   const { votingPower, multiplier, tierName, isLoading: powerLoading } = useSwipeVotingPower();
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"active" | "completed">("active");
+  const [tab, setTab] = useState<"active" | "completed" | "history">("active");
   const [proposals, setProposals] = useState<SwipeProposal[]>([]);
   const [votedIds, setVotedIds] = useState<Set<number>>(new Set());
+  // Track vote choices: proposalId -> true (YES) / false (NO)
+  const [voteChoices, setVoteChoices] = useState<Map<number, boolean>>(new Map());
   const votedIdsRef = useRef(votedIds);
   votedIdsRef.current = votedIds;
 
@@ -730,6 +732,11 @@ export default function SwipePage() {
         next.add(proposalId);
         return next;
       });
+      setVoteChoices((prev) => {
+        const next = new Map(prev);
+        next.set(proposalId, approve);
+        return next;
+      });
     },
     [address, isConnected]
   );
@@ -830,7 +837,7 @@ export default function SwipePage() {
                     </h1>
                     {/* Inline tabs */}
                     <div className="flex gap-1">
-                      {(["active", "completed"] as const).map((t) => (
+                      {(["active", "completed", "history"] as const).map((t) => (
                         <button
                           key={t}
                           onClick={() => setTab(t)}
@@ -840,7 +847,7 @@ export default function SwipePage() {
                               : "text-white/35 hover:text-white/60"
                           }`}
                         >
-                          {t === "active" ? `Live (${activeProposals.length})` : `Closed (${closedProposals.length})`}
+                          {t === "active" ? `Live (${activeProposals.length})` : t === "completed" ? `Closed (${closedProposals.length})` : `My Votes (${votedIds.size})`}
                         </button>
                       ))}
                     </div>
@@ -988,10 +995,12 @@ export default function SwipePage() {
                       </Link>
                     </div>
                   )
-                ) : closedProposals.length > 0 ? (
+                ) : tab === "completed" ? (
+                  closedProposals.length > 0 ? (
                   <div className="flex-1 min-h-0 overflow-auto mt-1 grid gap-3 sm:grid-cols-2 auto-rows-min">
                     {closedProposals.map((proposal) => {
                       const total = proposal.forCount + proposal.againstCount;
+                      const myChoice = voteChoices.get(proposal.id);
                       return (
                         <Link
                           key={proposal.id}
@@ -1000,11 +1009,20 @@ export default function SwipePage() {
                         >
                           <div className="mb-1.5 flex items-center justify-between">
                             <span className="text-[10px] text-white/40">Prop #{proposal.id}</span>
-                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase ${
-                              proposal.canonized ? "bg-green-600/20 text-green-400" : "bg-red-600/20 text-red-400"
-                            }`}>
-                              {proposal.canonized ? "Canonized" : "Rejected"}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {votedIds.has(proposal.id) && (
+                                <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase ${
+                                  myChoice === true ? "bg-green-600/20 text-green-400" : myChoice === false ? "bg-red-600/20 text-red-400" : "bg-purple-600/20 text-purple-300"
+                                }`}>
+                                  {myChoice === true ? "You: YES" : myChoice === false ? "You: NO" : "Voted"}
+                                </span>
+                              )}
+                              <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase ${
+                                proposal.canonized ? "bg-green-600/20 text-green-400" : "bg-red-600/20 text-red-400"
+                              }`}>
+                                {proposal.canonized ? "Canonized" : "Rejected"}
+                              </span>
+                            </div>
                           </div>
                           <div className="overflow-hidden rounded-lg bg-neutral-800/50">
                             <div className="aspect-square max-h-[160px]">
@@ -1030,11 +1048,78 @@ export default function SwipePage() {
                       );
                     })}
                   </div>
-                ) : (
+                  ) : (
                   <div className="flex flex-col flex-1 min-h-0 items-center justify-center text-center">
                     <div className="mb-3 text-4xl opacity-30">&#x2694;</div>
                     <h2 className="text-base font-medium text-white/70">No closed proposals yet</h2>
                   </div>
+                  )
+                ) : /* history tab */ (
+                  (() => {
+                    const myVotedProposals = proposals.filter(p => votedIds.has(p.id));
+                    return myVotedProposals.length > 0 ? (
+                      <div className="flex-1 min-h-0 overflow-auto mt-1 grid gap-3 sm:grid-cols-2 auto-rows-min">
+                        {myVotedProposals.map((proposal) => {
+                          const total = proposal.forCount + proposal.againstCount;
+                          const myChoice = voteChoices.get(proposal.id);
+                          const pending = pendingDecisions.has(proposal.id);
+                          return (
+                            <div
+                              key={proposal.id}
+                              className="block rounded-xl border border-neutral-800 bg-neutral-900/40 p-2"
+                            >
+                              <div className="mb-1.5 flex items-center justify-between">
+                                <span className="text-[10px] text-white/40">Prop #{proposal.id}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
+                                    myChoice === true ? "bg-green-600/25 text-green-400 ring-1 ring-green-500/30" : myChoice === false ? "bg-red-600/25 text-red-400 ring-1 ring-red-500/30" : "bg-purple-600/20 text-purple-300"
+                                  }`}>
+                                    {myChoice === true ? "YES" : myChoice === false ? "NO" : "Voted"}
+                                    {pending && " (pending)"}
+                                  </span>
+                                  {proposal.finalized && (
+                                    <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase ${
+                                      proposal.canonized ? "bg-green-600/15 text-green-400/70" : "bg-red-600/15 text-red-400/70"
+                                    }`}>
+                                      {proposal.canonized ? "Passed" : "Failed"}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="overflow-hidden rounded-lg bg-neutral-800/50">
+                                <div className="aspect-square max-h-[160px]">
+                                  {proposal.ipfsCid ? (
+                                    <img src={cidToHttpUrl(proposal.ipfsCid)} alt={`Proposal #${proposal.id}`} className="h-full w-full object-cover" loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, proposal.ipfsCid)} />
+                                  ) : (
+                                    <div className="flex h-full items-center justify-center" style={{ background: CARD_VISUALS[proposal.id % CARD_VISUALS.length].gradient }}>
+                                      <span className="text-xl">{CARD_VISUALS[proposal.id % CARD_VISUALS.length].symbol}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="mt-1.5 flex items-center justify-between text-[10px] text-neutral-400">
+                                <span className="font-mono">{truncateAddress(proposal.proposer)}</span>
+                                {proposal.canonized && <span className="text-green-400">On Board</span>}
+                              </div>
+                              {total > 0 && (
+                                <div className="mt-1.5">
+                                  <VoteBar forCount={proposal.forCount} againstCount={proposal.againstCount} showThreshold />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col flex-1 min-h-0 items-center justify-center text-center px-4">
+                        <div className="mb-3 text-4xl opacity-30">&#x1F5F3;</div>
+                        <h2 className="text-base font-medium text-white/70">No votes yet</h2>
+                        <p className="mt-2 text-sm text-white/40">
+                          Swipe on proposals in the Live tab to start voting.
+                        </p>
+                      </div>
+                    );
+                  })()
                 )}
               </div>
             </div>

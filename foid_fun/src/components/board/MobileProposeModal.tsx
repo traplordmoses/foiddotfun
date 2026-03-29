@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import { TILE, snapRect, hasOverlap, isTouching, type Rect } from "@/lib/grid";
+import { usePendingProposals } from "@/hooks/usePendingProposals";
 import { sniffImageType, mimeFromType } from "@/lib/image";
 import { convertToJpeg } from "@/lib/imageConvert";
 import { uploadImage } from "@/lib/ipfs";
@@ -59,6 +60,13 @@ export function MobileProposeModal({
   onSuccess: (msg: string) => void;
 }) {
   const { proposeLoreboard } = useSwipePropose();
+  const { proposals: pendingOnChain } = usePendingProposals();
+  const pendingVoteRects = useMemo(
+    () => pendingOnChain.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h })),
+    [pendingOnChain]
+  );
+  // Include pending vote rects in overlap checks
+  const allOccupiedRects = useMemo(() => [...placedRects, ...pendingVoteRects], [placedRects, pendingVoteRects]);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [step, setStep] = useState<"pick" | "paint" | "position" | "uploading" | "submitting" | "done" | "error">("pick");
@@ -118,12 +126,12 @@ export function MobileProposeModal({
   const handleSubmit = async () => {
     if (!file || !address || !isConnected || !placementRect) return;
 
-    if (hasOverlap(placementRect, placedRects)) {
-      setErrorMsg("Placement overlaps an existing meme");
+    if (hasOverlap(placementRect, allOccupiedRects)) {
+      setErrorMsg("Placement overlaps an existing or pending meme");
       setStep("error");
       return;
     }
-    if (!isTouching(placementRect, placedRects)) {
+    if (!isTouching(placementRect, allOccupiedRects)) {
       setErrorMsg("Placement must touch an existing meme on the board");
       setStep("error");
       return;
@@ -238,6 +246,7 @@ export function MobileProposeModal({
             previewUrl={preview}
             rect={placementRect}
             placedRects={placedRects}
+            pendingRects={pendingVoteRects}
             onRectChange={setPlacementRect}
             onConfirm={handleSubmit}
             onBack={() => setStep("pick")}

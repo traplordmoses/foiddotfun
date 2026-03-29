@@ -66,6 +66,12 @@ function generateId(): string {
 // ============================================================================
 
 export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
+  // Hide music controls while paint editor is open
+  useEffect(() => {
+    document.body.classList.add("paint-editor-active");
+    return () => { document.body.classList.remove("paint-editor-active"); };
+  }, []);
+
   // Canvas refs
   const bgCanvasRef = useRef<HTMLCanvasElement>(null);
   const drawCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -77,6 +83,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   const [brushSize, setBrushSize] = useState(8);
   const [isDrawing, setIsDrawing] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [fileName, setFileName] = useState(() => imageFile.name.replace(/\.[^.]+$/, ""));
   const [overlays, setOverlays] = useState<ImageOverlay[]>([]);
   const [overlaySrc, setOverlaySrc] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -87,6 +94,14 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   const [canvasDisplaySize, setCanvasDisplaySize] = useState({ w: 0, h: 0 });
   const [memeText, setMemeText] = useState<MemeText>({ ...DEFAULT_MEME_TEXT });
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showBrushMenu, setShowBrushMenu] = useState(false);
+  const colorInputRef = useRef<HTMLInputElement>(null);
+
+  // Zoom/pan state for canvas
+  const [viewScale, setViewScale] = useState(1);
+  const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
+  const pinchRef = useRef<{ dist: number; scale: number; cx: number; cy: number; ox: number; oy: number } | null>(null);
+  const panRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
 
   const originalImageRef = useRef<HTMLImageElement | null>(null);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -662,7 +677,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       exportCanvas.toBlob(
         (blob) => {
           if (!blob) return;
-          const name = imageFile.name.replace(/\.[^.]+$/, "") + "_edited.jpg";
+          const name = (fileName || imageFile.name.replace(/\.[^.]+$/, "")) + ".jpg";
           const file = new File([blob], name, { type: "image/jpeg" });
           onDone(file);
         },
@@ -686,6 +701,63 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [undo]);
+
+  // ============================================================================
+  // ZOOM/PAN GESTURES (two-finger pinch + pan on canvas container)
+  // ============================================================================
+
+  const handleContainerTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      // Start pinch zoom
+      const t1 = e.touches[0], t2 = e.touches[1];
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const cx = (t1.clientX + t2.clientX) / 2;
+      const cy = (t1.clientY + t2.clientY) / 2;
+      pinchRef.current = { dist, scale: viewScale, cx, cy, ox: viewOffset.x, oy: viewOffset.y };
+      panRef.current = null;
+    } else if (e.touches.length === 1 && tool === "select") {
+      // Single finger pan in select mode
+      const t = e.touches[0];
+      panRef.current = { x: t.clientX, y: t.clientY, ox: viewOffset.x, oy: viewOffset.y };
+    }
+  }, [viewScale, viewOffset, tool]);
+
+  const handleContainerTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchRef.current) {
+      e.preventDefault();
+      const t1 = e.touches[0], t2 = e.touches[1];
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const newScale = Math.min(5, Math.max(0.5, pinchRef.current.scale * (dist / pinchRef.current.dist)));
+      const cx = (t1.clientX + t2.clientX) / 2;
+      const cy = (t1.clientY + t2.clientY) / 2;
+      const dx = cx - pinchRef.current.cx;
+      const dy = cy - pinchRef.current.cy;
+      setViewScale(newScale);
+      setViewOffset({ x: pinchRef.current.ox + dx, y: pinchRef.current.oy + dy });
+    } else if (e.touches.length === 1 && panRef.current && tool === "select") {
+      const t = e.touches[0];
+      setViewOffset({
+        x: panRef.current.ox + (t.clientX - panRef.current.x),
+        y: panRef.current.oy + (t.clientY - panRef.current.y),
+      });
+    }
+  }, [tool]);
+
+  const handleContainerTouchEnd = useCallback(() => {
+    pinchRef.current = null;
+    panRef.current = null;
+  }, []);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const factor = Math.exp(-e.deltaY * 0.003);
+    setViewScale(s => Math.min(5, Math.max(0.5, s * factor)));
+  }, []);
+
+  const resetZoom = useCallback(() => {
+    setViewScale(1);
+    setViewOffset({ x: 0, y: 0 });
+  }, []);
 
   // ============================================================================
   // CURSOR
@@ -794,6 +866,10 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           position: "relative",
           background: "rgba(8, 12, 20, 0.95)",
         }}
+        onTouchStart={handleContainerTouchStart}
+        onTouchMove={handleContainerTouchMove}
+        onTouchEnd={handleContainerTouchEnd}
+        onWheel={handleWheel}
       >
         {!loaded && (
           <div
@@ -814,6 +890,9 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
             position: "relative",
             display: loaded ? "block" : "none",
             lineHeight: 0,
+            transform: `translate(${viewOffset.x}px, ${viewOffset.y}px) scale(${viewScale})`,
+            transformOrigin: "center center",
+            transition: pinchRef.current ? "none" : "transform 0.15s ease-out",
           }}
         >
           {/* Background canvas (image) */}
@@ -933,16 +1012,25 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           overflow: "hidden",
         }}
       >
-        <span
+        <input
+          type="text"
+          value={fileName}
+          onChange={(e) => setFileName(e.target.value)}
           style={{
             fontSize: 9,
-            color: "rgba(255,255,255,0.35)",
+            color: "rgba(255,255,255,0.5)",
             fontFamily: "var(--font-terminal), monospace",
             whiteSpace: "nowrap",
+            background: "transparent",
+            border: "none",
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+            outline: "none",
+            padding: "0 2px",
+            minWidth: 60,
+            maxWidth: 180,
           }}
-        >
-          {imageFile.name}
-        </span>
+          title="Edit filename"
+        />
         {originalImageRef.current && (
           <span
             style={{
@@ -1114,36 +1202,106 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
 
           <Divider />
 
-          {/* Color swatch: active color button that toggles palette */}
-          <button
-            title="Color"
-            onClick={() => setShowColorPicker(!showColorPicker)}
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: "50%",
-              border: "2px solid rgba(0,204,204,0.5)",
-              background: color,
-              cursor: "pointer",
-              flexShrink: 0,
-              boxShadow: showColorPicker ? "0 0 10px rgba(0,204,204,0.5)" : "0 0 4px rgba(0,0,0,0.4)",
-              transition: "box-shadow 0.15s",
-            }}
-          />
-
-          {/* Size slider */}
-          <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
-            <input
-              type="range"
-              min={1}
-              max={30}
-              value={brushSize}
-              onChange={(e) => setBrushSize(Number(e.target.value))}
-              style={{ width: 60, accentColor: "#00cccc", cursor: "pointer" }}
+          {/* Color swatch: opens native color picker directly */}
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <button
+              title="Pick color"
+              onClick={() => colorInputRef.current?.click()}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                border: "2px solid rgba(0,204,204,0.5)",
+                background: color,
+                cursor: "pointer",
+                boxShadow: "0 0 4px rgba(0,0,0,0.4)",
+                transition: "box-shadow 0.15s",
+              }}
             />
-            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-terminal), monospace", minWidth: 16, textAlign: "center" }}>
+            <input
+              ref={colorInputRef}
+              type="color"
+              value={color}
+              onChange={(e) => {
+                setColor(e.target.value);
+                if (tool !== "draw" && tool !== "eraser") setTool("draw");
+              }}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: 28,
+                height: 28,
+                opacity: 0,
+                cursor: "pointer",
+              }}
+            />
+          </div>
+
+          {/* Brush size dropdown */}
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <button
+              title="Brush size"
+              onClick={() => setShowBrushMenu(!showBrushMenu)}
+              style={{
+                height: 36,
+                padding: "0 10px",
+                borderRadius: 5,
+                border: showBrushMenu ? "1px solid rgba(0,204,204,0.5)" : "1px solid rgba(255,255,255,0.1)",
+                background: showBrushMenu ? "rgba(0,204,204,0.12)" : "rgba(255,255,255,0.04)",
+                color: showBrushMenu ? "#00cccc" : "rgba(255,255,255,0.65)",
+                fontSize: 11,
+                fontFamily: "var(--font-terminal), monospace",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <div style={{ width: Math.min(brushSize, 14), height: Math.min(brushSize, 14), borderRadius: "50%", background: "currentColor" }} />
               {brushSize}
-            </span>
+            </button>
+            {showBrushMenu && (
+              <div style={{
+                position: "absolute",
+                bottom: "100%",
+                left: 0,
+                marginBottom: 4,
+                padding: 6,
+                borderRadius: 8,
+                background: "rgba(16, 20, 32, 0.98)",
+                border: "1px solid rgba(0,204,204,0.2)",
+                display: "flex",
+                gap: 4,
+                flexWrap: "wrap",
+                width: 160,
+                zIndex: 10,
+              }}>
+                {[2, 4, 8, 12, 16, 24, 30].map(size => (
+                  <button
+                    key={size}
+                    onClick={() => { setBrushSize(size); setShowBrushMenu(false); }}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 6,
+                      border: brushSize === size ? "1px solid rgba(0,204,204,0.6)" : "1px solid rgba(255,255,255,0.1)",
+                      background: brushSize === size ? "rgba(0,204,204,0.15)" : "rgba(255,255,255,0.04)",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 2,
+                      color: brushSize === size ? "#00cccc" : "rgba(255,255,255,0.5)",
+                    }}
+                  >
+                    <div style={{ width: Math.min(size, 16), height: Math.min(size, 16), borderRadius: "50%", background: "currentColor" }} />
+                    <span style={{ fontSize: 7, fontFamily: "var(--font-terminal), monospace" }}>{size}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <Divider />
@@ -1162,6 +1320,15 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
               <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           } active={false} onClick={clearCanvas} />
+
+          <Divider />
+
+          {/* Zoom controls */}
+          <ToolBtn label="+" icon={null} active={false} onClick={() => setViewScale(s => Math.min(5, s * 1.3))} />
+          <ToolBtn label="-" icon={null} active={false} onClick={() => setViewScale(s => Math.max(0.5, s / 1.3))} />
+          {viewScale !== 1 && (
+            <ToolBtn label={`${Math.round(viewScale * 100)}%`} icon={null} active={false} onClick={resetZoom} />
+          )}
 
           {/* Spacer */}
           <div style={{ flex: 1, minWidth: 8 }} />
@@ -1190,62 +1357,40 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           </button>
         </div>
 
-        {/* Row 2: Color palette (expandable, wraps on mobile) */}
-        {showColorPicker && (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: 6,
-              padding: "6px 12px 8px",
-              borderTop: "1px solid rgba(255,255,255,0.05)",
-            }}
-          >
-            {PRESET_COLORS.map((c) => (
-              <button
-                key={c}
-                title={c}
-                onClick={() => {
-                  setColor(c);
-                  if (tool !== "draw" && tool !== "eraser") setTool("draw");
-                }}
-                style={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: "50%",
-                  border: color === c ? "2px solid #00cccc" : "2px solid rgba(255,255,255,0.15)",
-                  background: c,
-                  cursor: "pointer",
-                  flexShrink: 0,
-                  boxShadow: color === c ? "0 0 8px rgba(0,204,204,0.4)" : "none",
-                  transition: "box-shadow 0.15s, border-color 0.15s",
-                }}
-              />
-            ))}
-            {/* Custom hex input */}
-            <input
-              type="color"
-              value={color}
-              onChange={(e) => {
-                setColor(e.target.value);
+        {/* Row 2: Quick color presets */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "4px 12px 6px",
+            borderTop: "1px solid rgba(255,255,255,0.05)",
+            overflowX: "auto",
+            WebkitOverflowScrolling: "touch",
+          }}
+        >
+          {PRESET_COLORS.map((c) => (
+            <button
+              key={c}
+              title={c}
+              onClick={() => {
+                setColor(c);
                 if (tool !== "draw" && tool !== "eraser") setTool("draw");
               }}
-              title="Custom color"
               style={{
-                width: 24,
-                height: 24,
-                border: "2px solid rgba(255,255,255,0.15)",
+                width: 20,
+                height: 20,
                 borderRadius: "50%",
+                border: color === c ? "2px solid #00cccc" : "1px solid rgba(255,255,255,0.15)",
+                background: c,
                 cursor: "pointer",
-                background: "conic-gradient(red,yellow,lime,cyan,blue,magenta,red)",
-                padding: 0,
-                WebkitAppearance: "none",
-                appearance: "none",
+                flexShrink: 0,
+                boxShadow: color === c ? "0 0 6px rgba(0,204,204,0.4)" : "none",
+                transition: "box-shadow 0.15s, border-color 0.15s",
               }}
             />
-          </div>
-        )}
+          ))}
+        </div>
       </div>
     </div>
   );
