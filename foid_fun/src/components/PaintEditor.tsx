@@ -50,7 +50,8 @@ const STANDARD_COLORS = [
   "#00cc44", "#ffdd00", "#ff8800", "#ff69b4",
 ] as const;
 
-const MAX_HISTORY = 30;
+const DEFAULT_MAX_HISTORY = 30;
+const HISTORY_MEMORY_BUDGET = 100 * 1024 * 1024; // 100MB for history snapshots
 const DEFAULT_OVERLAY_SIZE = 80;
 const DEFAULT_MEME_TEXT: MemeText = { top: "", bottom: "", fontSize: 0 };
 const MEME_FONT = "'Impact', 'Arial Black', 'Haettenschweiler', sans-serif";
@@ -89,6 +90,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   const [tool, setTool] = useState<Tool>("draw");
   const [color, setColor] = useState("#ff0000");
   const [brushSize, setBrushSize] = useState(8);
+  const [brushOpacity, setBrushOpacity] = useState(1);
   const [isDrawing, setIsDrawing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [fileName, setFileName] = useState(() => imageFile.name.replace(/\.[^.]+$/, ""));
@@ -103,6 +105,9 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   const [memeText, setMemeText] = useState<MemeText>({ ...DEFAULT_MEME_TEXT });
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showBrushMenu, setShowBrushMenu] = useState(false);
+  const [selectedOverlay, setSelectedOverlay] = useState<string | null>(null);
+  const [clearPending, setClearPending] = useState(false);
+  const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const colorInputRef = useRef<HTMLInputElement>(null);
 
   // Zoom/pan state for canvas
@@ -185,8 +190,17 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   }, [loaded, initCanvas]);
 
   // ============================================================================
-  // HISTORY
+  // HISTORY (with redo support + dynamic memory management)
   // ============================================================================
+
+  // Dynamic max history based on canvas size (memory budget)
+  const maxHistory = React.useMemo(() => {
+    const { w, h } = canvasDisplaySize;
+    if (!w || !h) return DEFAULT_MAX_HISTORY;
+    const bytesPerSnapshot = w * h * 4; // RGBA
+    const limit = Math.max(10, Math.floor(HISTORY_MEMORY_BUDGET / bytesPerSnapshot));
+    return Math.min(limit, 80); // cap at 80 entries
+  }, [canvasDisplaySize]);
 
   const pushHistory = useCallback(
     (newOverlays?: ImageOverlay[], newMemeText?: MemeText) => {
@@ -203,12 +217,12 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       setHistory((prev) => {
         const truncated = prev.slice(0, historyIdx + 1);
         const next = [...truncated, entry];
-        if (next.length > MAX_HISTORY) next.shift();
+        if (next.length > maxHistory) next.shift();
         return next;
       });
-      setHistoryIdx((prev) => Math.min(prev + 1, MAX_HISTORY - 1));
+      setHistoryIdx((prev) => Math.min(prev + 1, maxHistory - 1));
     },
-    [historyIdx, overlays, memeText]
+    [historyIdx, overlays, memeText, maxHistory]
   );
 
   const undo = useCallback(() => {
@@ -225,17 +239,41 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     setHistoryIdx((i) => i - 1);
   }, [history, historyIdx]);
 
-  const clearCanvas = useCallback(() => {
+  const redo = useCallback(() => {
+    if (historyIdx >= history.length - 1) return;
+    const drawCanvas = drawCanvasRef.current;
+    if (!drawCanvas) return;
+    const ctx = drawCanvas.getContext("2d");
+    if (!ctx) return;
+    const next = history[historyIdx + 1];
+    if (!next) return;
+    ctx.putImageData(next.imageData, 0, 0);
+    setOverlays(next.overlays);
+    setMemeText(next.memeText);
+    setHistoryIdx((i) => i + 1);
+  }, [history, historyIdx]);
+
+  const handleClearClick = useCallback(() => {
+    if (!clearPending) {
+      setClearPending(true);
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+      clearTimerRef.current = setTimeout(() => setClearPending(false), 2000);
+      return;
+    }
+    // Confirmed — clear everything
+    if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+    setClearPending(false);
     const drawCanvas = drawCanvasRef.current;
     if (!drawCanvas) return;
     const ctx = drawCanvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
     setOverlays([]);
+    setSelectedOverlay(null);
     const cleared = { ...DEFAULT_MEME_TEXT };
     setMemeText(cleared);
     pushHistory([], cleared);
-  }, [pushHistory]);
+  }, [clearPending, pushHistory]);
 
   // ============================================================================
   // MEME TEXT RENDERING
@@ -362,9 +400,11 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
 
       if (tool === "eraser") {
         ctx.globalCompositeOperation = "destination-out";
+        ctx.globalAlpha = 1;
         ctx.strokeStyle = "rgba(0,0,0,1)";
       } else {
         ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = brushOpacity;
         ctx.strokeStyle = color;
       }
       ctx.lineWidth = brushSize;
@@ -372,8 +412,9 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       ctx.lineJoin = "round";
       ctx.stroke();
       ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
     },
-    [tool, color, brushSize]
+    [tool, color, brushSize, brushOpacity]
   );
 
   const startDraw = useCallback(
@@ -613,6 +654,14 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     if (overlays.length === 0) return;
     const updated = overlays.slice(0, -1);
     setOverlays(updated);
+    setSelectedOverlay(null);
+    pushHistory(updated);
+  }, [overlays, pushHistory]);
+
+  const deleteOverlay = useCallback((id: string) => {
+    const updated = overlays.filter((o) => o.id !== id);
+    setOverlays(updated);
+    setSelectedOverlay(null);
     pushHistory(updated);
   }, [overlays, pushHistory]);
 
@@ -682,18 +731,24 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       // 4. Draw meme text at full resolution
       drawMemeTextOnCanvas(ectx, img.naturalWidth, img.naturalHeight, memeText);
 
+      // Detect export format: preserve PNG transparency, otherwise export JPEG
+      const isPng = imageFile.type === "image/png" || imageFile.name.toLowerCase().endsWith(".png");
+      const mimeType = isPng ? "image/png" : "image/jpeg";
+      const ext = isPng ? ".png" : ".jpg";
+      const quality = isPng ? undefined : 0.92;
+
       exportCanvas.toBlob(
         (blob) => {
           if (!blob) return;
-          const name = (fileName || imageFile.name.replace(/\.[^.]+$/, "")) + ".jpg";
-          const file = new File([blob], name, { type: "image/jpeg" });
+          const name = (fileName || imageFile.name.replace(/\.[^.]+$/, "")) + ext;
+          const file = new File([blob], name, { type: mimeType });
           onDone(file);
         },
-        "image/jpeg",
-        0.92
+        mimeType,
+        quality
       );
     });
-  }, [imageFile, onDone, overlays, canvasDisplaySize, memeText, drawMemeTextOnCanvas]);
+  }, [imageFile, onDone, overlays, canvasDisplaySize, memeText, drawMemeTextOnCanvas, fileName]);
 
   // ============================================================================
   // KEYBOARD SHORTCUTS
@@ -701,14 +756,59 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Don't intercept when typing in inputs
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      // Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z = redo
       if ((e.ctrlKey || e.metaKey) && e.key === "z") {
         e.preventDefault();
-        undo();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+        return;
+      }
+      // Ctrl/Cmd+Y = redo (Windows)
+      if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      // Delete selected overlay
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedOverlay) {
+        e.preventDefault();
+        deleteOverlay(selectedOverlay);
+        return;
+      }
+
+      // Escape to deselect overlay or close popups
+      if (e.key === "Escape") {
+        setSelectedOverlay(null);
+        setShowColorPicker(false);
+        setShowBrushMenu(false);
+        return;
+      }
+
+      // Tool shortcuts
+      if (e.key === "b" || e.key === "B") { setTool("draw"); setOverlaySrc(null); }
+      if (e.key === "e" || e.key === "E") { setTool("eraser"); setOverlaySrc(null); }
+      if (e.key === "t" || e.key === "T") { setTool("text"); setOverlaySrc(null); }
+      if (e.key === "v" || e.key === "V") { setTool("select"); setOverlaySrc(null); }
+
+      // Brush size: [ = decrease, ] = increase
+      if (e.key === "[" || e.key === "-") {
+        setBrushSize((s) => Math.max(1, s - (s > 10 ? 4 : 2)));
+      }
+      if (e.key === "]" || e.key === "=" || e.key === "+") {
+        setBrushSize((s) => Math.min(100, s + (s >= 10 ? 4 : 2)));
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [undo]);
+  }, [undo, redo, selectedOverlay, deleteOverlay]);
 
   // ============================================================================
   // ZOOM/PAN GESTURES (two-finger pinch + pan on canvas container)
@@ -768,17 +868,27 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   }, []);
 
   // ============================================================================
-  // CURSOR
+  // BRUSH PREVIEW CURSOR (dynamic SVG circle)
   // ============================================================================
 
-  const cursorStyle =
-    tool === "stamp"
-      ? "copy"
-      : tool === "draw"
-      ? "crosshair"
-      : tool === "eraser"
-      ? "crosshair"
-      : "default";
+  const cursorStyle = React.useMemo(() => {
+    if (tool === "stamp") return "copy";
+    if (tool !== "draw" && tool !== "eraser") return "default";
+
+    // Generate a circle SVG cursor that matches brush size + color
+    const displaySize = Math.max(4, Math.min(brushSize, 64)); // cap cursor size for usability
+    const svgSize = displaySize + 4; // padding for stroke
+    const center = svgSize / 2;
+    const radius = displaySize / 2;
+    const strokeColor = tool === "eraser" ? "rgba(255,255,255,0.8)" : color;
+    const fillColor = tool === "eraser"
+      ? "rgba(255,255,255,0.15)"
+      : `${color}${Math.round(brushOpacity * 0.3 * 255).toString(16).padStart(2, "0")}`;
+
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${svgSize}' height='${svgSize}'><circle cx='${center}' cy='${center}' r='${radius}' fill='${fillColor}' stroke='${strokeColor}' stroke-width='1'/><circle cx='${center}' cy='${center}' r='1' fill='${strokeColor}'/></svg>`;
+    const encoded = encodeURIComponent(svg);
+    return `url("data:image/svg+xml,${encoded}") ${center} ${center}, crosshair`;
+  }, [tool, brushSize, color, brushOpacity]);
 
   // ============================================================================
   // RENDER
@@ -880,7 +990,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         onTouchMove={handleContainerTouchMove}
         onTouchEnd={handleContainerTouchEnd}
         onWheel={handleWheel}
-        onClick={() => { setShowColorPicker(false); setShowBrushMenu(false); }}
+        onClick={() => { setShowColorPicker(false); setShowBrushMenu(false); setSelectedOverlay(null); }}
       >
         {!loaded && (
           <div
@@ -959,53 +1069,91 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           />
 
           {/* Placed image overlays */}
-          {overlays.map((overlay) => (
-            <div
-              key={overlay.id}
-              style={{
-                position: "absolute",
-                left: overlay.x,
-                top: overlay.y,
-                width: overlay.w,
-                height: overlay.h,
-                cursor: draggingOverlay === overlay.id ? "grabbing" : "grab",
-                userSelect: "none",
-                touchAction: "none",
-                zIndex: 10,
-              }}
-              onMouseDown={(e) => startDragOverlay(e, overlay.id)}
-              onTouchStart={(e) => startDragOverlay(e, overlay.id)}
-            >
-              <img
-                src={overlay.src}
-                alt=""
-                draggable={false}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "contain",
-                  pointerEvents: "none",
-                }}
-              />
-              {/* Resize handle */}
+          {overlays.map((overlay) => {
+            const isSelected = selectedOverlay === overlay.id;
+            return (
               <div
+                key={overlay.id}
                 style={{
                   position: "absolute",
-                  right: -4,
-                  bottom: -4,
-                  width: 12,
-                  height: 12,
-                  background: "#00cccc",
-                  border: "1px solid rgba(0,0,0,0.3)",
+                  left: overlay.x,
+                  top: overlay.y,
+                  width: overlay.w,
+                  height: overlay.h,
+                  cursor: draggingOverlay === overlay.id ? "grabbing" : "grab",
+                  userSelect: "none",
+                  touchAction: "none",
+                  zIndex: isSelected ? 12 : 10,
+                  outline: isSelected ? "2px solid #00cccc" : "none",
+                  outlineOffset: 2,
                   borderRadius: 2,
-                  cursor: "nwse-resize",
-                  zIndex: 11,
                 }}
-                onMouseDown={(e) => startResizeOverlay(e, overlay.id)}
-                onTouchStart={(e) => startResizeOverlay(e, overlay.id)}
-              />
-            </div>
-          ))}
+                onMouseDown={(e) => { setSelectedOverlay(overlay.id); startDragOverlay(e, overlay.id); }}
+                onTouchStart={(e) => { setSelectedOverlay(overlay.id); startDragOverlay(e, overlay.id); }}
+                onClick={(e) => { e.stopPropagation(); setSelectedOverlay(overlay.id); }}
+              >
+                <img
+                  src={overlay.src}
+                  alt=""
+                  draggable={false}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    pointerEvents: "none",
+                  }}
+                />
+                {/* Delete button (visible when selected) */}
+                {isSelected && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteOverlay(overlay.id); }}
+                    onTouchStart={(e) => { e.stopPropagation(); }}
+                    style={{
+                      position: "absolute",
+                      top: -10,
+                      right: -10,
+                      width: 22,
+                      height: 22,
+                      borderRadius: "50%",
+                      background: "rgba(255, 60, 60, 0.9)",
+                      border: "2px solid rgba(255,255,255,0.8)",
+                      color: "#fff",
+                      fontSize: 12,
+                      fontWeight: 900,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      lineHeight: 1,
+                      zIndex: 13,
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
+                    }}
+                    title="Delete sticker"
+                  >
+                    &times;
+                  </button>
+                )}
+                {/* Resize handle */}
+                <div
+                  style={{
+                    position: "absolute",
+                    right: -4,
+                    bottom: -4,
+                    width: isSelected ? 16 : 12,
+                    height: isSelected ? 16 : 12,
+                    background: "#00cccc",
+                    border: isSelected ? "2px solid rgba(255,255,255,0.6)" : "1px solid rgba(0,0,0,0.3)",
+                    borderRadius: 2,
+                    cursor: "nwse-resize",
+                    zIndex: 13,
+                    transition: "width 0.1s, height 0.1s",
+                  }}
+                  onMouseDown={(e) => startResizeOverlay(e, overlay.id)}
+                  onTouchStart={(e) => startResizeOverlay(e, overlay.id)}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -1054,6 +1202,36 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
             {originalImageRef.current.naturalWidth}x{originalImageRef.current.naturalHeight}
           </span>
         )}
+        {/* Mode indicator badge */}
+        <span
+          style={{
+            fontSize: 8,
+            color: tool === "draw" ? "#00cccc" : tool === "eraser" ? "#ff8800" : tool === "text" ? "#a855f7" : tool === "stamp" ? "#f06292" : "rgba(255,255,255,0.4)",
+            fontFamily: "var(--font-terminal), monospace",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            background: tool === "draw" ? "rgba(0,204,204,0.1)" : tool === "eraser" ? "rgba(255,136,0,0.1)" : tool === "text" ? "rgba(168,85,247,0.1)" : tool === "stamp" ? "rgba(240,98,146,0.1)" : "transparent",
+            padding: "1px 6px",
+            borderRadius: 3,
+            border: `1px solid ${tool === "draw" ? "rgba(0,204,204,0.2)" : tool === "eraser" ? "rgba(255,136,0,0.2)" : tool === "text" ? "rgba(168,85,247,0.2)" : tool === "stamp" ? "rgba(240,98,146,0.2)" : "rgba(255,255,255,0.06)"}`,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {tool === "draw" ? "BRUSH" : tool === "eraser" ? "ERASER" : tool === "text" ? "MEME TXT" : tool === "stamp" ? "STAMP" : "SELECT"}
+          {(tool === "draw" || tool === "eraser") && ` ${brushSize}px`}
+          {tool === "draw" && brushOpacity < 1 && ` ${Math.round(brushOpacity * 100)}%`}
+        </span>
+        {/* Export format indicator */}
+        <span
+          style={{
+            fontSize: 8,
+            color: imageFile.type === "image/png" || imageFile.name.toLowerCase().endsWith(".png") ? "rgba(116,255,235,0.5)" : "rgba(255,255,255,0.25)",
+            fontFamily: "var(--font-terminal), monospace",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {imageFile.type === "image/png" || imageFile.name.toLowerCase().endsWith(".png") ? "PNG" : "JPG"}
+        </span>
       </div>
 
       {/* ============ TEXT TOOL PANEL (above toolbar when active) ============ */}
@@ -1149,19 +1327,17 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           overflow: "visible",
         }}
       >
-        {/* Row 1: Tools + Done */}
+        {/* Row 1: Drawing Tools + Color + Brush Size */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: 4,
-            padding: "6px 12px",
+            padding: "6px 12px 2px",
             minHeight: 44,
             overflow: "visible",
-            flexWrap: "wrap",
           }}
         >
-          {/* Tool buttons */}
           <ToolBtn
             label="Draw"
             icon={
@@ -1215,11 +1391,11 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
 
           <Divider />
 
-          {/* Color picker with FOID + standard colors */}
+          {/* Color picker */}
           <div style={{ position: "relative", flexShrink: 0 }}>
             <button
               title="Pick color"
-              onClick={() => { setShowColorPicker(!showColorPicker); setShowBrushMenu(false); }}
+              onClick={(e) => { e.stopPropagation(); setShowColorPicker(!showColorPicker); setShowBrushMenu(false); }}
               style={{
                 width: 28,
                 height: 28,
@@ -1232,21 +1408,23 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
               }}
             />
             {showColorPicker && (
-              <div style={{
-                position: "absolute",
-                bottom: "100%",
-                left: "50%",
-                transform: "translateX(-50%)",
-                marginBottom: 6,
-                padding: 10,
-                borderRadius: 10,
-                background: "rgba(16, 20, 32, 0.98)",
-                border: "1px solid rgba(0,204,204,0.25)",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-                zIndex: 20,
-                width: 180,
-              }}>
-                {/* FOID brand colors */}
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  position: "absolute",
+                  bottom: "100%",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  marginBottom: 6,
+                  padding: 10,
+                  borderRadius: 10,
+                  background: "rgba(16, 20, 32, 0.98)",
+                  border: "1px solid rgba(0,204,204,0.25)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                  zIndex: 20,
+                  width: 180,
+                }}
+              >
                 <div style={{ fontSize: 8, color: "rgba(0,204,204,0.7)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", marginBottom: 4, textTransform: "uppercase" }}>FOID</div>
                 <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
                   {FOID_COLORS.map(c => (
@@ -1262,7 +1440,6 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
                     />
                   ))}
                 </div>
-                {/* Standard colors */}
                 <div style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", marginBottom: 4, textTransform: "uppercase" }}>Standard</div>
                 <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
                   {STANDARD_COLORS.map(c => (
@@ -1278,7 +1455,6 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
                     />
                   ))}
                 </div>
-                {/* Custom color picker */}
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", textTransform: "uppercase" }}>Custom</span>
                   <input
@@ -1297,8 +1473,8 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           {/* Brush size dropdown */}
           <div style={{ position: "relative", flexShrink: 0 }}>
             <button
-              title="Brush size"
-              onClick={() => { setShowBrushMenu(!showBrushMenu); setShowColorPicker(false); }}
+              title="Brush size & opacity"
+              onClick={(e) => { e.stopPropagation(); setShowBrushMenu(!showBrushMenu); setShowColorPicker(false); }}
               style={{
                 height: 36,
                 padding: "0 10px",
@@ -1318,23 +1494,26 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
               {brushSize}
             </button>
             {showBrushMenu && (
-              <div style={{
-                position: "absolute",
-                bottom: "100%",
-                left: "50%",
-                transform: "translateX(-50%)",
-                marginBottom: 6,
-                padding: 8,
-                borderRadius: 10,
-                background: "rgba(16, 20, 32, 0.98)",
-                border: "1px solid rgba(0,204,204,0.25)",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-                display: "flex",
-                gap: 5,
-                flexWrap: "wrap",
-                width: 170,
-                zIndex: 20,
-              }}>
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  position: "absolute",
+                  bottom: "100%",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  marginBottom: 6,
+                  padding: 8,
+                  borderRadius: 10,
+                  background: "rgba(16, 20, 32, 0.98)",
+                  border: "1px solid rgba(0,204,204,0.25)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+                  display: "flex",
+                  gap: 5,
+                  flexWrap: "wrap",
+                  width: 170,
+                  zIndex: 20,
+                }}
+              >
                 {[2, 4, 8, 12, 16, 24, 30].map(size => (
                   <button
                     key={size}
@@ -1358,9 +1537,8 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
                     <span style={{ fontSize: 7, fontFamily: "var(--font-terminal), monospace" }}>{size}</span>
                   </button>
                 ))}
-                {/* Custom size input */}
                 <div style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, marginTop: 4, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                  <span style={{ fontSize: 8, color: "rgba(0,204,204,0.7)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", textTransform: "uppercase", whiteSpace: "nowrap" }}>Custom</span>
+                  <span style={{ fontSize: 8, color: "rgba(0,204,204,0.7)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", textTransform: "uppercase", whiteSpace: "nowrap" }}>Size</span>
                   <input
                     type="number"
                     min={1}
@@ -1392,38 +1570,24 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
                   />
                   <span style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-terminal), monospace" }}>px</span>
                 </div>
+                <div style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, marginTop: 4, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                  <span style={{ fontSize: 8, color: "rgba(0,204,204,0.7)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", textTransform: "uppercase", whiteSpace: "nowrap" }}>Opacity</span>
+                  <input
+                    type="range"
+                    min={5}
+                    max={100}
+                    value={Math.round(brushOpacity * 100)}
+                    onChange={(e) => setBrushOpacity(Number(e.target.value) / 100)}
+                    style={{ flex: 1, accentColor: "#00cccc", cursor: "pointer", height: 14 }}
+                  />
+                  <span style={{ fontSize: 9, color: "#00cccc", fontFamily: "var(--font-terminal), monospace", minWidth: 28, textAlign: "right" }}>{Math.round(brushOpacity * 100)}%</span>
+                </div>
               </div>
             )}
           </div>
 
-          <Divider />
-
-          {/* Undo */}
-          <ToolBtn label="Undo" icon={
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M4 5L1 8L4 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-              <path d="M1 8H9C11 8 12.5 9.5 12.5 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-            </svg>
-          } active={false} onClick={undo} disabled={historyIdx <= 0} />
-
-          {/* Clear */}
-          <ToolBtn label="Clear" icon={
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          } active={false} onClick={clearCanvas} />
-
-          <Divider />
-
-          {/* Zoom controls */}
-          <ToolBtn label="+" icon={null} active={false} onClick={() => setViewScale(s => Math.min(5, s * 1.3))} />
-          <ToolBtn label="-" icon={null} active={false} onClick={() => setViewScale(s => Math.max(0.5, s / 1.3))} />
-          {viewScale !== 1 && (
-            <ToolBtn label={`${Math.round(viewScale * 100)}%`} icon={null} active={false} onClick={resetZoom} />
-          )}
-
-          {/* Spacer */}
-          <div style={{ flex: 1, minWidth: 8 }} />
+          {/* Spacer pushes DONE to right */}
+          <div style={{ flex: 1, minWidth: 4 }} />
 
           {/* Done CTA */}
           <button
@@ -1449,7 +1613,135 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           </button>
         </div>
 
-        {/* Color presets removed — integrated into color picker popup */}
+        {/* Row 2: Undo/Redo + Clear + Zoom */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "2px 12px 6px",
+            minHeight: 36,
+          }}
+        >
+          {/* Undo */}
+          <ToolBtn label="Undo" icon={
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M4 5L1 8L4 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+              <path d="M1 8H9C11 8 12.5 9.5 12.5 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+            </svg>
+          } active={false} onClick={undo} disabled={historyIdx <= 0} />
+
+          {/* Redo */}
+          <ToolBtn label="Redo" icon={
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M10 5L13 8L10 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+              <path d="M13 8H5C3 8 1.5 9.5 1.5 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+            </svg>
+          } active={false} onClick={redo} disabled={historyIdx >= history.length - 1} />
+
+          <Divider />
+
+          {/* Clear with confirmation */}
+          <button
+            title={clearPending ? "Tap again to confirm clear" : "Clear all edits"}
+            onClick={handleClearClick}
+            style={{
+              height: 32,
+              padding: "0 10px",
+              borderRadius: 5,
+              border: clearPending ? "1px solid rgba(255, 60, 60, 0.6)" : "1px solid rgba(255,255,255,0.1)",
+              background: clearPending ? "rgba(255, 60, 60, 0.15)" : "rgba(255,255,255,0.04)",
+              color: clearPending ? "#ff6666" : "rgba(255,255,255,0.65)",
+              fontSize: 11,
+              fontFamily: "var(--font-terminal), monospace",
+              letterSpacing: "0.04em",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              flexShrink: 0,
+              transition: "all 0.15s",
+              animation: clearPending ? "none" : undefined,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            {clearPending ? "Sure?" : "Clear"}
+          </button>
+
+          <Divider />
+
+          {/* Zoom controls with label */}
+          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.08em", textTransform: "uppercase", flexShrink: 0 }}>
+            Zoom
+          </span>
+          <button
+            title="Zoom out"
+            onClick={() => setViewScale(s => Math.max(0.5, s / 1.3))}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 4,
+              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.04)",
+              color: "rgba(255,255,255,0.55)",
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            -
+          </button>
+          <button
+            title={viewScale === 1 ? "100%" : "Reset zoom"}
+            onClick={resetZoom}
+            style={{
+              height: 28,
+              padding: "0 6px",
+              borderRadius: 4,
+              border: viewScale !== 1 ? "1px solid rgba(0,204,204,0.3)" : "1px solid rgba(255,255,255,0.1)",
+              background: viewScale !== 1 ? "rgba(0,204,204,0.08)" : "rgba(255,255,255,0.04)",
+              color: viewScale !== 1 ? "#00cccc" : "rgba(255,255,255,0.4)",
+              fontSize: 10,
+              fontFamily: "var(--font-terminal), monospace",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              minWidth: 38,
+              transition: "all 0.15s",
+            }}
+          >
+            {Math.round(viewScale * 100)}%
+          </button>
+          <button
+            title="Zoom in"
+            onClick={() => setViewScale(s => Math.min(5, s * 1.3))}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 4,
+              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.04)",
+              color: "rgba(255,255,255,0.55)",
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            +
+          </button>
+        </div>
       </div>
     </div>
   );
