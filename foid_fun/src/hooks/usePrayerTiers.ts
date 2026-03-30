@@ -81,11 +81,16 @@ export function usePrayerTiers(address?: string) {
   });
 
   const tier = tierData
-    ? {
-        level: Number((tierData as readonly [number, string, bigint])[0]),
-        name: (tierData as readonly [number, string, bigint])[1] as string,
-        multiplierBps: Number((tierData as readonly [number, string, bigint])[2]),
-      }
+    ? (() => {
+        const level = Number((tierData as readonly [number, string, bigint])[0]);
+        // Override contract name with local TIERS (contract may still have old names)
+        const localTier = TIERS.find(t => t.level === level);
+        return {
+          level,
+          name: localTier?.name ?? (tierData as readonly [number, string, bigint])[1] as string,
+          multiplierBps: Number((tierData as readonly [number, string, bigint])[2]),
+        };
+      })()
     : null;
 
   return {

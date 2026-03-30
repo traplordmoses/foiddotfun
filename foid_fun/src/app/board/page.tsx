@@ -73,7 +73,7 @@ import {
   MAX_CELLS_PER_RECT,
 } from "@/lib/boardImages";
 import { parseWeb3Error, isUserRejection } from "@/lib/errors";
-import { insertBoardMessage } from "@/lib/supabase";
+
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PaintEditor } from "@/components/PaintEditor";
 import { useSwipeLoreboardGovernance } from "@/hooks/useSwipeLoreboardGovernance";
@@ -187,24 +187,10 @@ function BoardPageContent() {
   const addStatus = useCallback((text: string, type: StatusMessage["type"] = "info") => {
     setStatusMessages(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, text, type, timestamp: new Date() }]);
   }, []);
-  const handleChatSend = useCallback(async (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed || !address) return;
-
-    try {
-      // Save to Supabase - real-time subscription will handle display
-      await insertBoardMessage({
-        wallet_address: address,
-        message: trimmed,
-        type: "chat",
-      });
-      // No longer adding to statusMessages - Supabase real-time handles it!
-    } catch (error) {
-      console.error("Failed to send chat message:", error);
-      // Only show error as status message
-      addStatus("Failed to send message", "error");
-    }
-  }, [address, addStatus]);
+  const handleChatSend = useCallback(async (_text: string) => {
+    // TerminalChat handles insertBoardMessage + optimistic display directly.
+    // Nothing extra needed here.
+  }, []);
 
   // Governance - flagging placements
   const { flagPlacement, flagFeeWei } = useSwipeLoreboardGovernance();

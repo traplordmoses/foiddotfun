@@ -98,6 +98,19 @@ export function TerminalChat({
     setIsSending(true);
     setInput("");
 
+    // Optimistic: show the message immediately so the user sees it right away
+    const optimisticId = `local-${Date.now()}-${Math.random()}`;
+    setSupabaseMessages((prev) => [
+      ...prev,
+      {
+        id: optimisticId,
+        created_at: new Date().toISOString(),
+        wallet_address: walletAddress || null,
+        message: trimmed,
+        type: "chat",
+      },
+    ]);
+
     try {
       // Save to Supabase if enabled
       if (enableSupabase) {

@@ -97,7 +97,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
 
   // Responsive: detect narrow screens for compact toolbar
   useEffect(() => {
-    const check = () => setIsCompact(window.innerWidth < 420);
+    const check = () => setIsCompact(window.innerWidth < 768);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
@@ -1466,489 +1466,139 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       >
         {/* ---- MOBILE: Expanded secondary tools panel ---- */}
         {isCompact && showMoreTools && (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: 6,
-              padding: "8px 10px",
-              borderBottom: "1px solid rgba(0,204,204,0.08)",
-            }}
-          >
-            <ToolBtn
-              label=""
-              icon={
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <text x="2" y="12" fontSize="12" fontWeight="900" fontFamily="Impact" fill="currentColor">A</text>
-                </svg>
-              }
-              active={tool === "text"}
-              onClick={() => { setTool("text"); setOverlaySrc(null); haptic("light"); }}
-            />
-            <ToolBtn
-              label=""
-              icon={
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <rect x="1" y="3" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                  <circle cx="4" cy="6" r="1.2" fill="currentColor" />
-                  <path d="M1 10L4.5 7L7 9L9.5 6.5L13 10" stroke="currentColor" strokeWidth="1.2" />
-                </svg>
-              }
-              active={tool === "stamp"}
-              onClick={() => { fileInputRef.current?.click(); haptic("light"); }}
-            />
-            <ToolBtn
-              label=""
-              icon={
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M11.5 2.5L9.5 4.5M9.5 4.5L5 9L4 10.5L3.5 10L5 9L9.5 4.5Z" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" />
-                  <path d="M2 12L3.5 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  <circle cx="11.5" cy="2.5" r="1.5" stroke="currentColor" strokeWidth="1" fill="none" />
-                </svg>
-              }
-              active={tool === "eyedropper"}
-              onClick={() => { setTool("eyedropper"); setOverlaySrc(null); haptic("light"); }}
-            />
-            <ToolBtn label="" icon={
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M10 5L13 8L10 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-                <path d="M13 8H5C3 8 1.5 9.5 1.5 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-              </svg>
-            } active={false} onClick={() => { redo(); haptic("light"); }} disabled={historyIdx >= history.length - 1} />
-
-            <Divider />
-
-            {/* Clear */}
-            <button
-              title={clearPending ? "Tap again to confirm" : "Clear all edits"}
-              onClick={handleClearClick}
-              style={{
-                height: 32,
-                padding: "0 8px",
-                borderRadius: 5,
-                border: clearPending ? "1px solid rgba(255, 60, 60, 0.6)" : "1px solid rgba(255,255,255,0.1)",
-                background: clearPending ? "rgba(255, 60, 60, 0.15)" : "rgba(255,255,255,0.04)",
-                color: clearPending ? "#ff6666" : "rgba(255,255,255,0.65)",
-                fontSize: 11,
-                fontFamily: "var(--font-terminal), monospace",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 3,
-                flexShrink: 0,
-                transition: "all 0.15s",
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-              {clearPending ? "Sure?" : ""}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, padding: "8px 10px", borderBottom: "1px solid rgba(0,204,204,0.08)" }}>
+            <ToolBtn label="" icon={<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><text x="2" y="12" fontSize="12" fontWeight="900" fontFamily="Impact" fill="currentColor">A</text></svg>}
+              active={tool === "text"} onClick={() => { setTool("text"); setOverlaySrc(null); setShowMoreTools(false); haptic("light"); }} />
+            <ToolBtn label="" icon={<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" /><circle cx="4" cy="6" r="1.2" fill="currentColor" /><path d="M1 10L4.5 7L7 9L9.5 6.5L13 10" stroke="currentColor" strokeWidth="1.2" /></svg>}
+              active={tool === "stamp"} onClick={() => { fileInputRef.current?.click(); setShowMoreTools(false); haptic("light"); }} />
+            <ToolBtn label="" icon={<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M11.5 2.5L9.5 4.5M9.5 4.5L5 9L4 10.5L3.5 10L5 9L9.5 4.5Z" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" /><path d="M2 12L3.5 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><circle cx="11.5" cy="2.5" r="1.5" stroke="currentColor" strokeWidth="1" fill="none" /></svg>}
+              active={tool === "eyedropper"} onClick={() => { setTool("eyedropper"); setOverlaySrc(null); setShowMoreTools(false); haptic("light"); }} />
+            <ToolBtn label="" icon={<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M10 5L13 8L10 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" /><path d="M13 8H5C3 8 1.5 9.5 1.5 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" /></svg>}
+              active={false} onClick={() => { redo(); haptic("light"); }} disabled={historyIdx >= history.length - 1} />
+            <button title={clearPending ? "Tap again" : "Clear"} onClick={handleClearClick}
+              style={{ height: 36, padding: "0 10px", borderRadius: 5, border: clearPending ? "1px solid rgba(255, 60, 60, 0.6)" : "1px solid rgba(255,255,255,0.1)", background: clearPending ? "rgba(255, 60, 60, 0.15)" : "rgba(255,255,255,0.04)", color: clearPending ? "#ff6666" : "rgba(255,255,255,0.65)", fontSize: 11, fontFamily: "var(--font-terminal), monospace", cursor: "pointer", display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3L11 11M11 3L3 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+              {clearPending ? "Sure?" : "Clear"}
             </button>
-
-            <Divider />
-
-            {/* Zoom */}
-            <button
-              title="Zoom out"
-              onClick={() => setViewScale(s => Math.max(0.5, s / 1.3))}
-              style={{
-                width: 28, height: 28, borderRadius: 4,
-                border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)",
-                color: "rgba(255,255,255,0.55)", fontSize: 14, fontWeight: 700, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-              }}
-            >-</button>
-            <button
-              title={viewScale === 1 ? "100%" : "Reset zoom"}
-              onClick={resetZoom}
-              style={{
-                height: 28, padding: "0 6px", borderRadius: 4, minWidth: 38,
-                border: viewScale !== 1 ? "1px solid rgba(0,204,204,0.3)" : "1px solid rgba(255,255,255,0.1)",
-                background: viewScale !== 1 ? "rgba(0,204,204,0.08)" : "rgba(255,255,255,0.04)",
-                color: viewScale !== 1 ? "#00cccc" : "rgba(255,255,255,0.4)",
-                fontSize: 10, fontFamily: "var(--font-terminal), monospace", cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-              }}
-            >{Math.round(viewScale * 100)}%</button>
-            <button
-              title="Zoom in"
-              onClick={() => setViewScale(s => Math.min(5, s * 1.3))}
-              style={{
-                width: 28, height: 28, borderRadius: 4,
-                border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)",
-                color: "rgba(255,255,255,0.55)", fontSize: 14, fontWeight: 700, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-              }}
-            >+</button>
-
-            <Divider />
-
-            {/* Draw Lock */}
-            <button
-              title={drawLock ? "Draw lock ON" : "Draw lock OFF"}
-              onClick={() => { setDrawLock(l => !l); haptic(drawLock ? "light" : "medium"); }}
-              style={{
-                height: 28, padding: "0 8px", borderRadius: 4,
-                border: drawLock ? "1px solid rgba(255,136,0,0.5)" : "1px solid rgba(255,255,255,0.1)",
-                background: drawLock ? "rgba(255,136,0,0.12)" : "rgba(255,255,255,0.04)",
-                color: drawLock ? "#ff8800" : "rgba(255,255,255,0.4)",
-                fontSize: 10, fontFamily: "var(--font-terminal), monospace", cursor: "pointer",
-                display: "flex", alignItems: "center", gap: 3, flexShrink: 0, transition: "all 0.15s",
-              }}
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                {drawLock ? (
-                  <>
-                    <rect x="2" y="5" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                    <path d="M4 5V3.5C4 2.1 5.1 1 6.5 1H5.5C6.9 1 8 2.1 8 3.5V5" stroke="currentColor" strokeWidth="1.2" />
-                  </>
-                ) : (
-                  <>
-                    <rect x="2" y="5" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                    <path d="M4 5V3.5C4 2.1 4.6 1 6 1C7.4 1 8 2.1 8 3.5" stroke="currentColor" strokeWidth="1.2" />
-                  </>
-                )}
-              </svg>
-            </button>
-
             {/* Brush size */}
             <div style={{ position: "relative", flexShrink: 0 }}>
-              <button
-                title="Brush size & opacity"
-                onClick={(e) => { e.stopPropagation(); setShowBrushMenu(!showBrushMenu); setShowColorPicker(false); }}
-                style={{
-                  height: 32, padding: "0 8px", borderRadius: 5,
-                  border: showBrushMenu ? "1px solid rgba(0,204,204,0.5)" : "1px solid rgba(255,255,255,0.1)",
-                  background: showBrushMenu ? "rgba(0,204,204,0.12)" : "rgba(255,255,255,0.04)",
-                  color: showBrushMenu ? "#00cccc" : "rgba(255,255,255,0.65)",
-                  fontSize: 11, fontFamily: "var(--font-terminal), monospace", cursor: "pointer",
-                  display: "flex", alignItems: "center", gap: 4,
-                }}
-              >
+              <button title="Brush size" onClick={(e) => { e.stopPropagation(); setShowBrushMenu(!showBrushMenu); setShowColorPicker(false); }}
+                style={{ height: 36, padding: "0 10px", borderRadius: 5, border: showBrushMenu ? "1px solid rgba(0,204,204,0.5)" : "1px solid rgba(255,255,255,0.1)", background: showBrushMenu ? "rgba(0,204,204,0.12)" : "rgba(255,255,255,0.04)", color: showBrushMenu ? "#00cccc" : "rgba(255,255,255,0.65)", fontSize: 11, fontFamily: "var(--font-terminal), monospace", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
                 <div style={{ width: Math.min(brushSize, 14), height: Math.min(brushSize, 14), borderRadius: "50%", background: "currentColor" }} />
-                {brushSize}
+                {brushSize}px
               </button>
               {showBrushMenu && (
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)",
-                    marginBottom: 6, padding: 8, borderRadius: 10,
-                    background: "rgba(16, 20, 32, 0.98)", border: "1px solid rgba(0,204,204,0.25)",
-                    boxShadow: "0 8px 32px rgba(0,0,0,0.6)", display: "flex", gap: 5, flexWrap: "wrap", width: 170, zIndex: 20,
-                  }}
-                >
+                <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", marginBottom: 6, padding: 8, borderRadius: 10, background: "rgba(16, 20, 32, 0.98)", border: "1px solid rgba(0,204,204,0.25)", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", display: "flex", gap: 5, flexWrap: "wrap", width: 170, zIndex: 20 }}>
                   {[2, 4, 8, 12, 16, 24, 30].map(size => (
-                    <button
-                      key={size}
-                      onClick={() => { setBrushSize(size); setShowBrushMenu(false); }}
-                      style={{
-                        width: 32, height: 32, borderRadius: 6,
-                        border: brushSize === size ? "1px solid rgba(0,204,204,0.6)" : "1px solid rgba(255,255,255,0.1)",
-                        background: brushSize === size ? "rgba(0,204,204,0.15)" : "rgba(255,255,255,0.04)",
-                        cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
-                        color: brushSize === size ? "#00cccc" : "rgba(255,255,255,0.5)",
-                      }}
-                    >
+                    <button key={size} onClick={() => { setBrushSize(size); setShowBrushMenu(false); }} style={{ width: 36, height: 36, borderRadius: 6, border: brushSize === size ? "1px solid rgba(0,204,204,0.6)" : "1px solid rgba(255,255,255,0.1)", background: brushSize === size ? "rgba(0,204,204,0.15)" : "rgba(255,255,255,0.04)", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, color: brushSize === size ? "#00cccc" : "rgba(255,255,255,0.5)" }}>
                       <div style={{ width: Math.min(size, 16), height: Math.min(size, 16), borderRadius: "50%", background: "currentColor" }} />
                       <span style={{ fontSize: 7, fontFamily: "var(--font-terminal), monospace" }}>{size}</span>
                     </button>
                   ))}
-                  <div style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, marginTop: 4, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                    <span style={{ fontSize: 8, color: "rgba(0,204,204,0.7)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", textTransform: "uppercase", whiteSpace: "nowrap" }}>Opacity</span>
-                    <input
-                      type="range" min={5} max={100}
-                      value={Math.round(brushOpacity * 100)}
-                      onChange={(e) => setBrushOpacity(Number(e.target.value) / 100)}
-                      style={{ flex: 1, accentColor: "#00cccc", cursor: "pointer", height: 14 }}
-                    />
-                    <span style={{ fontSize: 9, color: "#00cccc", fontFamily: "var(--font-terminal), monospace", minWidth: 28, textAlign: "right" }}>{Math.round(brushOpacity * 100)}%</span>
-                  </div>
                 </div>
               )}
             </div>
+            {/* Lock */}
+            <button title={drawLock ? "Draw lock ON" : "Draw lock OFF"} onClick={() => { setDrawLock(l => !l); haptic(drawLock ? "light" : "medium"); }}
+              style={{ height: 36, padding: "0 10px", borderRadius: 5, border: drawLock ? "1px solid rgba(255,136,0,0.5)" : "1px solid rgba(255,255,255,0.1)", background: drawLock ? "rgba(255,136,0,0.12)" : "rgba(255,255,255,0.04)", color: drawLock ? "#ff8800" : "rgba(255,255,255,0.4)", fontSize: 10, fontFamily: "var(--font-terminal), monospace", cursor: "pointer", display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                {drawLock ? (<><rect x="2" y="5" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" /><path d="M4 5V3.5C4 2.1 5.1 1 6.5 1H5.5C6.9 1 8 2.1 8 3.5V5" stroke="currentColor" strokeWidth="1.2" /></>) : (<><rect x="2" y="5" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" /><path d="M4 5V3.5C4 2.1 4.6 1 6 1C7.4 1 8 2.1 8 3.5" stroke="currentColor" strokeWidth="1.2" /></>)}
+              </svg>
+              {drawLock ? "On" : "Lock"}
+            </button>
           </div>
         )}
 
-        {/* ---- MOBILE: Single compact toolbar row ---- */}
+        {/* ---- MOBILE: Main toolbar row ---- */}
         {isCompact ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "6px 8px",
-              minHeight: 48,
-              overflow: "visible",
-            }}
-          >
-            <ToolBtn
-              label=""
-              icon={
-                <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
-                  <path d="M10.5 1.5L12.5 3.5L4.5 11.5L1.5 12.5L2.5 9.5L10.5 1.5Z" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                </svg>
-              }
-              active={tool === "draw"}
-              onClick={() => { setTool("draw"); setOverlaySrc(null); haptic("light"); }}
-            />
-            <ToolBtn
-              label=""
-              icon={
-                <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
-                  <rect x="2" y="6" width="10" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                  <path d="M4 6V4C4 3.4 4.4 3 5 3H9C9.6 3 10 3.4 10 4V6" stroke="currentColor" strokeWidth="1.2" />
-                </svg>
-              }
-              active={tool === "eraser"}
-              onClick={() => { setTool("eraser"); setOverlaySrc(null); haptic("light"); }}
-            />
+          <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 8px", minHeight: 48, overflow: "visible" }}>
+            <ToolBtn label="" icon={<svg width="18" height="18" viewBox="0 0 14 14" fill="none"><path d="M10.5 1.5L12.5 3.5L4.5 11.5L1.5 12.5L2.5 9.5L10.5 1.5Z" stroke="currentColor" strokeWidth="1.2" fill="none" /></svg>}
+              active={tool === "draw"} onClick={() => { setTool("draw"); setOverlaySrc(null); haptic("light"); }} />
+            <ToolBtn label="" icon={<svg width="18" height="18" viewBox="0 0 14 14" fill="none"><rect x="2" y="6" width="10" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" /><path d="M4 6V4C4 3.4 4.4 3 5 3H9C9.6 3 10 3.4 10 4V6" stroke="currentColor" strokeWidth="1.2" /></svg>}
+              active={tool === "eraser"} onClick={() => { setTool("eraser"); setOverlaySrc(null); haptic("light"); }} />
 
-            {/* Color picker */}
+            {/* Color */}
             <div style={{ position: "relative", flexShrink: 0 }}>
-              <button
-                title="Pick color"
-                onClick={(e) => { e.stopPropagation(); setShowColorPicker(!showColorPicker); setShowBrushMenu(false); }}
-                style={{
-                  width: 32, height: 32, borderRadius: "50%",
-                  border: showColorPicker ? "2px solid rgba(0,204,204,0.8)" : "2px solid rgba(0,204,204,0.5)",
-                  background: color, cursor: "pointer",
-                  boxShadow: showColorPicker ? "0 0 10px rgba(0,204,204,0.5)" : "0 0 4px rgba(0,0,0,0.4)",
-                  transition: "box-shadow 0.15s, border-color 0.15s",
-                }}
-              />
+              <button title="Color" onClick={(e) => { e.stopPropagation(); setShowColorPicker(!showColorPicker); setShowBrushMenu(false); }}
+                style={{ width: 36, height: 36, borderRadius: "50%", border: showColorPicker ? "2px solid rgba(0,204,204,0.8)" : "2px solid rgba(0,204,204,0.5)", background: color, cursor: "pointer", boxShadow: showColorPicker ? "0 0 10px rgba(0,204,204,0.5)" : "0 0 4px rgba(0,0,0,0.4)" }} />
               {showColorPicker && (
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)",
-                    marginBottom: 6, padding: 10, borderRadius: 10,
-                    background: "rgba(16, 20, 32, 0.98)", border: "1px solid rgba(0,204,204,0.25)",
-                    boxShadow: "0 8px 32px rgba(0,0,0,0.6)", zIndex: 20, width: 180,
-                  }}
-                >
+                <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", marginBottom: 6, padding: 10, borderRadius: 10, background: "rgba(16, 20, 32, 0.98)", border: "1px solid rgba(0,204,204,0.25)", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", zIndex: 20, width: 200 }}>
                   <div style={{ fontSize: 8, color: "rgba(0,204,204,0.7)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", marginBottom: 4, textTransform: "uppercase" }}>FOID</div>
-                  <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
-                    {FOID_COLORS.map(c => (
-                      <button key={c} onClick={() => { setColor(c); setShowColorPicker(false); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }}
-                        style={{ width: 28, height: 28, borderRadius: 6, border: color === c ? "2px solid #fff" : "1px solid rgba(255,255,255,0.15)", background: c, cursor: "pointer", flexShrink: 0, boxShadow: color === c ? `0 0 8px ${c}80` : "none" }}
-                      />
-                    ))}
+                  <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                    {FOID_COLORS.map(c => (<button key={c} onClick={() => { setColor(c); setShowColorPicker(false); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }} style={{ width: 32, height: 32, borderRadius: 6, border: color === c ? "2px solid #fff" : "1px solid rgba(255,255,255,0.15)", background: c, cursor: "pointer", flexShrink: 0, boxShadow: color === c ? `0 0 8px ${c}80` : "none" }} />))}
                   </div>
                   <div style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", marginBottom: 4, textTransform: "uppercase" }}>Standard</div>
-                  <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
-                    {STANDARD_COLORS.map(c => (
-                      <button key={c} onClick={() => { setColor(c); setShowColorPicker(false); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }}
-                        style={{ width: 28, height: 28, borderRadius: 6, border: color === c ? "2px solid #00cccc" : `1px solid ${c === "#000000" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)"}`, background: c, cursor: "pointer", flexShrink: 0, boxShadow: color === c ? "0 0 6px rgba(0,204,204,0.4)" : "none" }}
-                      />
-                    ))}
+                  <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                    {STANDARD_COLORS.map(c => (<button key={c} onClick={() => { setColor(c); setShowColorPicker(false); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }} style={{ width: 32, height: 32, borderRadius: 6, border: color === c ? "2px solid #00cccc" : `1px solid ${c === "#000000" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)"}`, background: c, cursor: "pointer", flexShrink: 0, boxShadow: color === c ? "0 0 6px rgba(0,204,204,0.4)" : "none" }} />))}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", textTransform: "uppercase" }}>Custom</span>
-                    <input ref={colorInputRef} type="color" value={color}
-                      onChange={(e) => { setColor(e.target.value); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }}
-                      style={{ width: 32, height: 24, cursor: "pointer", border: "none", borderRadius: 4, padding: 0 }}
-                    />
-                    <span style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-terminal), monospace" }}>{color}</span>
+                    <input ref={colorInputRef} type="color" value={color} onChange={(e) => { setColor(e.target.value); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }} style={{ width: 36, height: 28, cursor: "pointer", border: "none", borderRadius: 4, padding: 0 }} />
                   </div>
                 </div>
               )}
             </div>
 
             {/* Undo */}
-            <ToolBtn label="" icon={
-              <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
-                <path d="M4 5L1 8L4 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-                <path d="M1 8H9C11 8 12.5 9.5 12.5 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-              </svg>
-            } active={false} onClick={() => { undo(); haptic("light"); }} disabled={historyIdx <= 0} />
+            <ToolBtn label="" icon={<svg width="18" height="18" viewBox="0 0 14 14" fill="none"><path d="M4 5L1 8L4 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" /><path d="M1 8H9C11 8 12.5 9.5 12.5 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" /></svg>}
+              active={false} onClick={() => { undo(); haptic("light"); }} disabled={historyIdx <= 0} />
 
-            {/* More toggle */}
-            <button
-              title="More tools"
-              onClick={() => { setShowMoreTools(v => !v); haptic("light"); }}
-              style={{
-                width: 40, height: 40, borderRadius: 6,
-                border: showMoreTools ? "1px solid rgba(0,204,204,0.5)" : "1px solid rgba(255,255,255,0.15)",
-                background: showMoreTools ? "rgba(0,204,204,0.12)" : "rgba(255,255,255,0.04)",
-                color: showMoreTools ? "#00cccc" : "rgba(255,255,255,0.55)",
-                fontSize: 18, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                transition: "all 0.15s",
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <circle cx="3" cy="8" r="1.5" fill="currentColor" />
-                <circle cx="8" cy="8" r="1.5" fill="currentColor" />
-                <circle cx="13" cy="8" r="1.5" fill="currentColor" />
-              </svg>
+            {/* More */}
+            <button title="More tools" onClick={() => { setShowMoreTools(v => !v); haptic("light"); }}
+              style={{ width: 44, height: 44, borderRadius: 8, border: showMoreTools ? "1px solid rgba(0,204,204,0.5)" : "1px solid rgba(255,255,255,0.15)", background: showMoreTools ? "rgba(0,204,204,0.12)" : "rgba(255,255,255,0.04)", color: showMoreTools ? "#00cccc" : "rgba(255,255,255,0.55)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><circle cx="3" cy="8" r="1.5" fill="currentColor" /><circle cx="8" cy="8" r="1.5" fill="currentColor" /><circle cx="13" cy="8" r="1.5" fill="currentColor" /></svg>
             </button>
 
             <div style={{ flex: 1, minWidth: 4 }} />
 
-            {/* Done CTA */}
-            <button
-              onClick={handleDone}
-              style={{
-                padding: "0 16px", height: 40, borderRadius: 6,
-                border: "1px solid rgba(0,204,204,0.6)",
-                background: "linear-gradient(135deg, rgba(0,204,204,0.35), rgba(0,180,180,0.2))",
-                color: "#00cccc", fontSize: 12, fontWeight: 700,
-                fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", cursor: "pointer",
-                boxShadow: "0 0 16px rgba(0,204,204,0.2), inset 0 1px 0 rgba(255,255,255,0.1)",
-                transition: "box-shadow 0.2s, background 0.2s", flexShrink: 0,
-              }}
-            >
+            {/* DONE — large, always visible */}
+            <button onClick={handleDone}
+              style={{ padding: "0 20px", height: 44, borderRadius: 8, border: "1px solid rgba(0,204,204,0.7)", background: "linear-gradient(135deg, rgba(0,204,204,0.4), rgba(0,180,180,0.25))", color: "#00cccc", fontSize: 14, fontWeight: 700, fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", cursor: "pointer", boxShadow: "0 0 20px rgba(0,204,204,0.25), inset 0 1px 0 rgba(255,255,255,0.1)", flexShrink: 0 }}>
               DONE
             </button>
           </div>
         ) : (
-        /* ---- DESKTOP: Original two-row toolbar ---- */
-        <>
-        {/* Row 1: Drawing Tools + Color + Brush Size */}
+        /* ---- DESKTOP: Single-row toolbar ---- */
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: 4,
-            padding: "6px 12px 2px",
+            padding: "6px 12px",
             minHeight: 44,
             overflow: "visible",
           }}
         >
-          <ToolBtn
-            label="Draw"
-            icon={
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M10.5 1.5L12.5 3.5L4.5 11.5L1.5 12.5L2.5 9.5L10.5 1.5Z" stroke="currentColor" strokeWidth="1.2" fill="none" />
-              </svg>
-            }
-            active={tool === "draw"}
-            onClick={() => { setTool("draw"); setOverlaySrc(null); haptic("light"); }}
-          />
-          <ToolBtn
-            label="Eraser"
-            icon={
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <rect x="2" y="6" width="10" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                <path d="M4 6V4C4 3.4 4.4 3 5 3H9C9.6 3 10 3.4 10 4V6" stroke="currentColor" strokeWidth="1.2" />
-              </svg>
-            }
-            active={tool === "eraser"}
-            onClick={() => { setTool("eraser"); setOverlaySrc(null); haptic("light"); }}
-          />
-          <ToolBtn
-            label="Text"
-            icon={
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <text x="2" y="12" fontSize="12" fontWeight="900" fontFamily="Impact" fill="currentColor">A</text>
-              </svg>
-            }
-            active={tool === "text"}
-            onClick={() => { setTool("text"); setOverlaySrc(null); haptic("light"); }}
-          />
-          <ToolBtn
-            label="Stamp"
-            icon={
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <rect x="1" y="3" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                <circle cx="4" cy="6" r="1.2" fill="currentColor" />
-                <path d="M1 10L4.5 7L7 9L9.5 6.5L13 10" stroke="currentColor" strokeWidth="1.2" />
-              </svg>
-            }
-            active={tool === "stamp"}
-            onClick={() => { fileInputRef.current?.click(); haptic("light"); }}
-          />
-          {/* Eyedropper (color picker from canvas) */}
-          <ToolBtn
-            label="Pick"
-            icon={
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M11.5 2.5L9.5 4.5M9.5 4.5L5 9L4 10.5L3.5 10L5 9L9.5 4.5Z" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" />
-                <path d="M2 12L3.5 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                <circle cx="11.5" cy="2.5" r="1.5" stroke="currentColor" strokeWidth="1" fill="none" />
-              </svg>
-            }
-            active={tool === "eyedropper"}
-            onClick={() => { setTool("eyedropper"); setOverlaySrc(null); haptic("light"); }}
-          />
+          <ToolBtn label="Draw" icon={<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M10.5 1.5L12.5 3.5L4.5 11.5L1.5 12.5L2.5 9.5L10.5 1.5Z" stroke="currentColor" strokeWidth="1.2" fill="none" /></svg>}
+            active={tool === "draw"} onClick={() => { setTool("draw"); setOverlaySrc(null); haptic("light"); }} />
+          <ToolBtn label="Eraser" icon={<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="6" width="10" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" /><path d="M4 6V4C4 3.4 4.4 3 5 3H9C9.6 3 10 3.4 10 4V6" stroke="currentColor" strokeWidth="1.2" /></svg>}
+            active={tool === "eraser"} onClick={() => { setTool("eraser"); setOverlaySrc(null); haptic("light"); }} />
+          <ToolBtn label="Text" icon={<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><text x="2" y="12" fontSize="12" fontWeight="900" fontFamily="Impact" fill="currentColor">A</text></svg>}
+            active={tool === "text"} onClick={() => { setTool("text"); setOverlaySrc(null); haptic("light"); }} />
+          <ToolBtn label="Stamp" icon={<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" /><circle cx="4" cy="6" r="1.2" fill="currentColor" /><path d="M1 10L4.5 7L7 9L9.5 6.5L13 10" stroke="currentColor" strokeWidth="1.2" /></svg>}
+            active={tool === "stamp"} onClick={() => { fileInputRef.current?.click(); haptic("light"); }} />
+          <ToolBtn label="Pick" icon={<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M11.5 2.5L9.5 4.5M9.5 4.5L5 9L4 10.5L3.5 10L5 9L9.5 4.5Z" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" /><path d="M2 12L3.5 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><circle cx="11.5" cy="2.5" r="1.5" stroke="currentColor" strokeWidth="1" fill="none" /></svg>}
+            active={tool === "eyedropper"} onClick={() => { setTool("eyedropper"); setOverlaySrc(null); haptic("light"); }} />
 
           <Divider />
 
           {/* Color picker */}
           <div style={{ position: "relative", flexShrink: 0 }}>
-            <button
-              title="Pick color"
-              onClick={(e) => { e.stopPropagation(); setShowColorPicker(!showColorPicker); setShowBrushMenu(false); }}
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: "50%",
-                border: showColorPicker ? "2px solid rgba(0,204,204,0.8)" : "2px solid rgba(0,204,204,0.5)",
-                background: color,
-                cursor: "pointer",
-                boxShadow: showColorPicker ? "0 0 10px rgba(0,204,204,0.5)" : "0 0 4px rgba(0,0,0,0.4)",
-                transition: "box-shadow 0.15s, border-color 0.15s",
-              }}
-            />
+            <button title="Pick color" onClick={(e) => { e.stopPropagation(); setShowColorPicker(!showColorPicker); setShowBrushMenu(false); }}
+              style={{ width: 28, height: 28, borderRadius: "50%", border: showColorPicker ? "2px solid rgba(0,204,204,0.8)" : "2px solid rgba(0,204,204,0.5)", background: color, cursor: "pointer", boxShadow: showColorPicker ? "0 0 10px rgba(0,204,204,0.5)" : "0 0 4px rgba(0,0,0,0.4)", transition: "box-shadow 0.15s, border-color 0.15s" }} />
             {showColorPicker && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  position: "absolute",
-                  bottom: "100%",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  marginBottom: 6,
-                  padding: 10,
-                  borderRadius: 10,
-                  background: "rgba(16, 20, 32, 0.98)",
-                  border: "1px solid rgba(0,204,204,0.25)",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-                  zIndex: 20,
-                  width: 180,
-                }}
-              >
+              <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", marginBottom: 6, padding: 10, borderRadius: 10, background: "rgba(16, 20, 32, 0.98)", border: "1px solid rgba(0,204,204,0.25)", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", zIndex: 20, width: 180 }}>
                 <div style={{ fontSize: 8, color: "rgba(0,204,204,0.7)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", marginBottom: 4, textTransform: "uppercase" }}>FOID</div>
                 <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
-                  {FOID_COLORS.map(c => (
-                    <button
-                      key={c}
-                      onClick={() => { setColor(c); setShowColorPicker(false); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }}
-                      style={{
-                        width: 24, height: 24, borderRadius: 6,
-                        border: color === c ? "2px solid #fff" : "1px solid rgba(255,255,255,0.15)",
-                        background: c, cursor: "pointer", flexShrink: 0,
-                        boxShadow: color === c ? `0 0 8px ${c}80` : "none",
-                      }}
-                    />
-                  ))}
+                  {FOID_COLORS.map(c => (<button key={c} onClick={() => { setColor(c); setShowColorPicker(false); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }} style={{ width: 24, height: 24, borderRadius: 6, border: color === c ? "2px solid #fff" : "1px solid rgba(255,255,255,0.15)", background: c, cursor: "pointer", flexShrink: 0, boxShadow: color === c ? `0 0 8px ${c}80` : "none" }} />))}
                 </div>
                 <div style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", marginBottom: 4, textTransform: "uppercase" }}>Standard</div>
                 <div style={{ display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }}>
-                  {STANDARD_COLORS.map(c => (
-                    <button
-                      key={c}
-                      onClick={() => { setColor(c); setShowColorPicker(false); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }}
-                      style={{
-                        width: 24, height: 24, borderRadius: 6,
-                        border: color === c ? "2px solid #00cccc" : `1px solid ${c === "#000000" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)"}`,
-                        background: c, cursor: "pointer", flexShrink: 0,
-                        boxShadow: color === c ? "0 0 6px rgba(0,204,204,0.4)" : "none",
-                      }}
-                    />
-                  ))}
+                  {STANDARD_COLORS.map(c => (<button key={c} onClick={() => { setColor(c); setShowColorPicker(false); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }} style={{ width: 24, height: 24, borderRadius: 6, border: color === c ? "2px solid #00cccc" : `1px solid ${c === "#000000" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)"}`, background: c, cursor: "pointer", flexShrink: 0, boxShadow: color === c ? "0 0 6px rgba(0,204,204,0.4)" : "none" }} />))}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", textTransform: "uppercase" }}>Custom</span>
-                  <input
-                    ref={colorInputRef}
-                    type="color"
-                    value={color}
-                    onChange={(e) => { setColor(e.target.value); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }}
-                    style={{ width: 32, height: 24, cursor: "pointer", border: "none", borderRadius: 4, padding: 0 }}
-                  />
+                  <input ref={colorInputRef} type="color" value={color} onChange={(e) => { setColor(e.target.value); if (tool !== "draw" && tool !== "eraser") setTool("draw"); }} style={{ width: 32, height: 24, cursor: "pointer", border: "none", borderRadius: 4, padding: 0 }} />
                   <span style={{ fontSize: 9, color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-terminal), monospace" }}>{color}</span>
                 </div>
               </div>
@@ -1957,315 +1607,65 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
 
           {/* Brush size dropdown */}
           <div style={{ position: "relative", flexShrink: 0 }}>
-            <button
-              title="Brush size & opacity"
-              onClick={(e) => { e.stopPropagation(); setShowBrushMenu(!showBrushMenu); setShowColorPicker(false); }}
-              style={{
-                height: 36,
-                padding: "0 10px",
-                borderRadius: 5,
-                border: showBrushMenu ? "1px solid rgba(0,204,204,0.5)" : "1px solid rgba(255,255,255,0.1)",
-                background: showBrushMenu ? "rgba(0,204,204,0.12)" : "rgba(255,255,255,0.04)",
-                color: showBrushMenu ? "#00cccc" : "rgba(255,255,255,0.65)",
-                fontSize: 11,
-                fontFamily: "var(--font-terminal), monospace",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
+            <button title="Brush size & opacity" onClick={(e) => { e.stopPropagation(); setShowBrushMenu(!showBrushMenu); setShowColorPicker(false); }}
+              style={{ height: 32, padding: "0 8px", borderRadius: 5, border: showBrushMenu ? "1px solid rgba(0,204,204,0.5)" : "1px solid rgba(255,255,255,0.1)", background: showBrushMenu ? "rgba(0,204,204,0.12)" : "rgba(255,255,255,0.04)", color: showBrushMenu ? "#00cccc" : "rgba(255,255,255,0.65)", fontSize: 11, fontFamily: "var(--font-terminal), monospace", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
               <div style={{ width: Math.min(brushSize, 14), height: Math.min(brushSize, 14), borderRadius: "50%", background: "currentColor" }} />
               {brushSize}
             </button>
             {showBrushMenu && (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                  position: "absolute",
-                  bottom: "100%",
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  marginBottom: 6,
-                  padding: 8,
-                  borderRadius: 10,
-                  background: "rgba(16, 20, 32, 0.98)",
-                  border: "1px solid rgba(0,204,204,0.25)",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-                  display: "flex",
-                  gap: 5,
-                  flexWrap: "wrap",
-                  width: 170,
-                  zIndex: 20,
-                }}
-              >
+              <div onClick={(e) => e.stopPropagation()} style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", marginBottom: 6, padding: 8, borderRadius: 10, background: "rgba(16, 20, 32, 0.98)", border: "1px solid rgba(0,204,204,0.25)", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", display: "flex", gap: 5, flexWrap: "wrap", width: 170, zIndex: 20 }}>
                 {[2, 4, 8, 12, 16, 24, 30].map(size => (
-                  <button
-                    key={size}
-                    onClick={() => { setBrushSize(size); setShowBrushMenu(false); }}
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 6,
-                      border: brushSize === size ? "1px solid rgba(0,204,204,0.6)" : "1px solid rgba(255,255,255,0.1)",
-                      background: brushSize === size ? "rgba(0,204,204,0.15)" : "rgba(255,255,255,0.04)",
-                      cursor: "pointer",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 2,
-                      color: brushSize === size ? "#00cccc" : "rgba(255,255,255,0.5)",
-                    }}
-                  >
+                  <button key={size} onClick={() => { setBrushSize(size); setShowBrushMenu(false); }} style={{ width: 32, height: 32, borderRadius: 6, border: brushSize === size ? "1px solid rgba(0,204,204,0.6)" : "1px solid rgba(255,255,255,0.1)", background: brushSize === size ? "rgba(0,204,204,0.15)" : "rgba(255,255,255,0.04)", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, color: brushSize === size ? "#00cccc" : "rgba(255,255,255,0.5)" }}>
                     <div style={{ width: Math.min(size, 16), height: Math.min(size, 16), borderRadius: "50%", background: "currentColor" }} />
                     <span style={{ fontSize: 7, fontFamily: "var(--font-terminal), monospace" }}>{size}</span>
                   </button>
                 ))}
                 <div style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, marginTop: 4, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                  <span style={{ fontSize: 8, color: "rgba(0,204,204,0.7)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", textTransform: "uppercase", whiteSpace: "nowrap" }}>Size</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    defaultValue={brushSize}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        const val = Math.max(1, Math.min(100, Number((e.target as HTMLInputElement).value) || 8));
-                        setBrushSize(val);
-                        setShowBrushMenu(false);
-                      }
-                    }}
-                    onBlur={(e) => {
-                      const val = Math.max(1, Math.min(100, Number(e.target.value) || 8));
-                      setBrushSize(val);
-                    }}
-                    style={{
-                      width: 48,
-                      height: 24,
-                      borderRadius: 4,
-                      border: "1px solid rgba(0,204,204,0.3)",
-                      background: "rgba(0,0,0,0.4)",
-                      color: "#00cccc",
-                      fontSize: 11,
-                      fontFamily: "var(--font-terminal), monospace",
-                      textAlign: "center",
-                      outline: "none",
-                    }}
-                  />
-                  <span style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-terminal), monospace" }}>px</span>
-                </div>
-                <div style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, marginTop: 4, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
                   <span style={{ fontSize: 8, color: "rgba(0,204,204,0.7)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", textTransform: "uppercase", whiteSpace: "nowrap" }}>Opacity</span>
-                  <input
-                    type="range"
-                    min={5}
-                    max={100}
-                    value={Math.round(brushOpacity * 100)}
-                    onChange={(e) => setBrushOpacity(Number(e.target.value) / 100)}
-                    style={{ flex: 1, accentColor: "#00cccc", cursor: "pointer", height: 14 }}
-                  />
+                  <input type="range" min={5} max={100} value={Math.round(brushOpacity * 100)} onChange={(e) => setBrushOpacity(Number(e.target.value) / 100)} style={{ flex: 1, accentColor: "#00cccc", cursor: "pointer", height: 14 }} />
                   <span style={{ fontSize: 9, color: "#00cccc", fontFamily: "var(--font-terminal), monospace", minWidth: 28, textAlign: "right" }}>{Math.round(brushOpacity * 100)}%</span>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Spacer pushes DONE to right */}
-          <div style={{ flex: 1, minWidth: 4 }} />
+          <Divider />
 
-          {/* Done CTA */}
-          <button
-            onClick={handleDone}
-            style={{
-              padding: "0 20px",
-              height: 34,
-              borderRadius: 6,
-              border: "1px solid rgba(0,204,204,0.6)",
-              background: "linear-gradient(135deg, rgba(0,204,204,0.35), rgba(0,180,180,0.2))",
-              color: "#00cccc",
-              fontSize: 12,
-              fontWeight: 700,
-              fontFamily: "var(--font-terminal), monospace",
-              letterSpacing: "0.1em",
-              cursor: "pointer",
-              boxShadow: "0 0 16px rgba(0,204,204,0.2), inset 0 1px 0 rgba(255,255,255,0.1)",
-              transition: "box-shadow 0.2s, background 0.2s",
-              flexShrink: 0,
-            }}
-          >
-            DONE
-          </button>
-        </div>
-
-        {/* Row 2: Undo/Redo + Clear + Zoom */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            padding: "2px 12px 6px",
-            minHeight: 36,
-          }}
-        >
-          {/* Undo */}
-          <ToolBtn label="Undo" icon={
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M4 5L1 8L4 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-              <path d="M1 8H9C11 8 12.5 9.5 12.5 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-            </svg>
-          } active={false} onClick={() => { undo(); haptic("light"); }} disabled={historyIdx <= 0} />
-
-          {/* Redo */}
-          <ToolBtn label="Redo" icon={
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M10 5L13 8L10 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-              <path d="M13 8H5C3 8 1.5 9.5 1.5 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-            </svg>
-          } active={false} onClick={() => { redo(); haptic("light"); }} disabled={historyIdx >= history.length - 1} />
+          {/* Undo / Redo */}
+          <ToolBtn label="Undo" icon={<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M4 5L1 8L4 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" /><path d="M1 8H9C11 8 12.5 9.5 12.5 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" /></svg>}
+            active={false} onClick={() => { undo(); haptic("light"); }} disabled={historyIdx <= 0} />
+          <ToolBtn label="Redo" icon={<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M10 5L13 8L10 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" /><path d="M13 8H5C3 8 1.5 9.5 1.5 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" /></svg>}
+            active={false} onClick={() => { redo(); haptic("light"); }} disabled={historyIdx >= history.length - 1} />
 
           <Divider />
 
-          {/* Clear with confirmation */}
-          <button
-            title={clearPending ? "Tap again to confirm clear" : "Clear all edits"}
-            onClick={handleClearClick}
-            style={{
-              height: 32,
-              padding: "0 10px",
-              borderRadius: 5,
-              border: clearPending ? "1px solid rgba(255, 60, 60, 0.6)" : "1px solid rgba(255,255,255,0.1)",
-              background: clearPending ? "rgba(255, 60, 60, 0.15)" : "rgba(255,255,255,0.04)",
-              color: clearPending ? "#ff6666" : "rgba(255,255,255,0.65)",
-              fontSize: 11,
-              fontFamily: "var(--font-terminal), monospace",
-              letterSpacing: "0.04em",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              flexShrink: 0,
-              transition: "all 0.15s",
-              animation: clearPending ? "none" : undefined,
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+          {/* Clear */}
+          <button title={clearPending ? "Tap again to confirm clear" : "Clear all edits"} onClick={handleClearClick}
+            style={{ height: 32, padding: "0 10px", borderRadius: 5, border: clearPending ? "1px solid rgba(255, 60, 60, 0.6)" : "1px solid rgba(255,255,255,0.1)", background: clearPending ? "rgba(255, 60, 60, 0.15)" : "rgba(255,255,255,0.04)", color: clearPending ? "#ff6666" : "rgba(255,255,255,0.65)", fontSize: 11, fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.04em", cursor: "pointer", display: "flex", alignItems: "center", gap: 5, flexShrink: 0, transition: "all 0.15s" }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3L11 11M11 3L3 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
             {clearPending ? "Sure?" : "Clear"}
           </button>
 
-          <Divider />
+          {/* Zoom */}
+          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.08em", textTransform: "uppercase", flexShrink: 0, marginLeft: 2 }}>Zoom</span>
+          <button title="Zoom out" onClick={() => setViewScale(s => Math.max(0.5, s / 1.3))} style={{ width: 28, height: 28, borderRadius: 4, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.55)", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>-</button>
+          <button title={viewScale === 1 ? "100%" : "Reset zoom"} onClick={resetZoom} style={{ height: 28, padding: "0 6px", borderRadius: 4, border: viewScale !== 1 ? "1px solid rgba(0,204,204,0.3)" : "1px solid rgba(255,255,255,0.1)", background: viewScale !== 1 ? "rgba(0,204,204,0.08)" : "rgba(255,255,255,0.04)", color: viewScale !== 1 ? "#00cccc" : "rgba(255,255,255,0.4)", fontSize: 10, fontFamily: "var(--font-terminal), monospace", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, minWidth: 38, transition: "all 0.15s" }}>{Math.round(viewScale * 100)}%</button>
+          <button title="Zoom in" onClick={() => setViewScale(s => Math.min(5, s * 1.3))} style={{ width: 28, height: 28, borderRadius: 4, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.55)", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>+</button>
 
-          {/* Zoom controls with label */}
-          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.08em", textTransform: "uppercase", flexShrink: 0 }}>
-            Zoom
-          </span>
-          <button
-            title="Zoom out"
-            onClick={() => setViewScale(s => Math.max(0.5, s / 1.3))}
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 4,
-              border: "1px solid rgba(255,255,255,0.1)",
-              background: "rgba(255,255,255,0.04)",
-              color: "rgba(255,255,255,0.55)",
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            -
-          </button>
-          <button
-            title={viewScale === 1 ? "100%" : "Reset zoom"}
-            onClick={resetZoom}
-            style={{
-              height: 28,
-              padding: "0 6px",
-              borderRadius: 4,
-              border: viewScale !== 1 ? "1px solid rgba(0,204,204,0.3)" : "1px solid rgba(255,255,255,0.1)",
-              background: viewScale !== 1 ? "rgba(0,204,204,0.08)" : "rgba(255,255,255,0.04)",
-              color: viewScale !== 1 ? "#00cccc" : "rgba(255,255,255,0.4)",
-              fontSize: 10,
-              fontFamily: "var(--font-terminal), monospace",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              minWidth: 38,
-              transition: "all 0.15s",
-            }}
-          >
-            {Math.round(viewScale * 100)}%
-          </button>
-          <button
-            title="Zoom in"
-            onClick={() => setViewScale(s => Math.min(5, s * 1.3))}
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 4,
-              border: "1px solid rgba(255,255,255,0.1)",
-              background: "rgba(255,255,255,0.04)",
-              color: "rgba(255,255,255,0.55)",
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            +
-          </button>
-
-          {/* Draw Lock toggle — prevents accidental zoom while drawing on mobile */}
-          <Divider />
-          <button
-            title={drawLock ? "Draw lock ON — two-finger zoom disabled" : "Draw lock OFF — two-finger zoom enabled"}
-            onClick={() => { setDrawLock(l => !l); haptic(drawLock ? "light" : "medium"); }}
-            style={{
-              height: 28,
-              padding: "0 8px",
-              borderRadius: 4,
-              border: drawLock ? "1px solid rgba(255,136,0,0.5)" : "1px solid rgba(255,255,255,0.1)",
-              background: drawLock ? "rgba(255,136,0,0.12)" : "rgba(255,255,255,0.04)",
-              color: drawLock ? "#ff8800" : "rgba(255,255,255,0.4)",
-              fontSize: 10,
-              fontFamily: "var(--font-terminal), monospace",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 3,
-              flexShrink: 0,
-              transition: "all 0.15s",
-            }}
-          >
+          {/* Lock */}
+          <button title={drawLock ? "Draw lock ON" : "Draw lock OFF"} onClick={() => { setDrawLock(l => !l); haptic(drawLock ? "light" : "medium"); }}
+            style={{ height: 28, padding: "0 8px", borderRadius: 4, border: drawLock ? "1px solid rgba(255,136,0,0.5)" : "1px solid rgba(255,255,255,0.1)", background: drawLock ? "rgba(255,136,0,0.12)" : "rgba(255,255,255,0.04)", color: drawLock ? "#ff8800" : "rgba(255,255,255,0.4)", fontSize: 10, fontFamily: "var(--font-terminal), monospace", cursor: "pointer", display: "flex", alignItems: "center", gap: 3, flexShrink: 0, transition: "all 0.15s" }}>
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              {drawLock ? (
-                <>
-                  <rect x="2" y="5" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                  <path d="M4 5V3.5C4 2.1 5.1 1 6.5 1H5.5C6.9 1 8 2.1 8 3.5V5" stroke="currentColor" strokeWidth="1.2" />
-                </>
-              ) : (
-                <>
-                  <rect x="2" y="5" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
-                  <path d="M4 5V3.5C4 2.1 4.6 1 6 1C7.4 1 8 2.1 8 3.5" stroke="currentColor" strokeWidth="1.2" />
-                </>
-              )}
+              {drawLock ? (<><rect x="2" y="5" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" /><path d="M4 5V3.5C4 2.1 5.1 1 6.5 1H5.5C6.9 1 8 2.1 8 3.5V5" stroke="currentColor" strokeWidth="1.2" /></>) : (<><rect x="2" y="5" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" /><path d="M4 5V3.5C4 2.1 4.6 1 6 1C7.4 1 8 2.1 8 3.5" stroke="currentColor" strokeWidth="1.2" /></>)}
             </svg>
             {drawLock ? "Locked" : "Lock"}
           </button>
+
+          <div style={{ flex: 1, minWidth: 4 }} />
+
+          {/* Done CTA */}
+          <button onClick={handleDone} style={{ padding: "0 20px", height: 34, borderRadius: 6, border: "1px solid rgba(0,204,204,0.6)", background: "linear-gradient(135deg, rgba(0,204,204,0.35), rgba(0,180,180,0.2))", color: "#00cccc", fontSize: 12, fontWeight: 700, fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", cursor: "pointer", boxShadow: "0 0 16px rgba(0,204,204,0.2), inset 0 1px 0 rgba(255,255,255,0.1)", transition: "box-shadow 0.2s, background 0.2s", flexShrink: 0 }}>DONE</button>
         </div>
-        </>
         )}
       </div>
     </div>

@@ -934,15 +934,15 @@ const sections: Section[] = [
     id: "wallet-security",
     navLabel: "WALLET & SECURITY",
     title: "WALLET & SECURITY",
-    subtitle: "How FOID Wallet Works Under the Hood",
+    subtitle: "How FOID Wallet v3 Works Under the Hood",
     content: (
       <>
         <GlassPanel>
           <p>
-            <strong>No extension. No seed phrase. Just a PIN and your passkey.</strong>
+            <strong>No extension. No seed phrase to memorize. Just a PIN and your passkey.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            Most people who want to interact with FOID on mobile don&apos;t have MetaMask installed. FOID Wallet lets anyone spin up a wallet in 30 seconds &mdash; just a PIN and a passkey (Touch ID / Face ID). No seed phrase, no extension, no friction.
+            Most people who want to interact with FOID on mobile don&apos;t have MetaMask installed. FOID Wallet v3 lets anyone spin up a wallet in 30 seconds &mdash; just a PIN and a passkey (Touch ID / Face ID). A 12-word recovery phrase is generated for backup, but you never need to manage it day-to-day. No extension, no friction.
           </p>
           <p style={{ marginTop: '12px' }}>
             It&apos;s not designed for holding serious value &mdash; use MetaMask or a hardware wallet for that. Think of it as a vibe-coded wallet for putting $10-100 in to interact with FOID, hold a MiFOID, place on the Loreboard. Open source &mdash; inspect it yourself.
@@ -957,19 +957,19 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">1. Create</p>
             <p className="aboutMiniCard__body">
-              A fresh Ethereum private key is generated client-side via <code className="text-cyan-300">crypto.getRandomValues()</code>. You pick a PIN (6+ chars). A WebAuthn passkey is created (Touch ID / Face ID / Windows Hello). The PIN is run through PBKDF2 (600k iterations, SHA-256) to derive an encryption key. If your device supports WebAuthn PRF, a second key from biometric data via HKDF is XOR&apos;d with the PIN key &mdash; requiring both factors. Your private key is encrypted with AES-256-GCM. Only the encrypted blob is stored in localStorage. The PIN is never stored anywhere.
+              A 12-word BIP-39 mnemonic is generated and a private key derived via BIP-44 HD derivation. You pick a PIN (6+ chars). A WebAuthn passkey is created (Touch ID / Face ID / Windows Hello). The PIN is run through Argon2id (64MB memory-hard) to derive an encryption key &mdash; falling back to PBKDF2 (600k iterations) on devices without WASM. If your device supports WebAuthn PRF, a second key from biometric data is XOR&apos;d with the PIN key &mdash; requiring both factors. Your private key + mnemonic are encrypted with AES-256-GCM. Vault integrity sealed with HMAC-SHA-256. Only the encrypted blob is stored in localStorage. The PIN is never stored anywhere.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">2. Unlock</p>
             <p className="aboutMiniCard__body">
-              Enter PIN, passkey prompt fires (biometric). PIN + PRF output re-derive the same encryption key. AES-GCM decrypts the private key into memory. A 30-minute session begins &mdash; auto-locks on timeout or page close.
+              Enter PIN, passkey prompt fires (biometric). PIN attempts are rate-limited with exponential backoff &mdash; too many wrong tries and you wait. Vault HMAC is verified for tamper detection. PIN + PRF output re-derive the same encryption key. AES-GCM decrypts the private key into a Web Worker &mdash; never on the main thread. A 30-minute session begins, auto-locks on timeout or page close.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">3. Sign</p>
             <p className="aboutMiniCard__body">
-              Transactions go through the embedded connector (wagmi-compatible). Value capped at 1 ETH per transaction to prevent catastrophic loss. Destination address validated before signing. Session refreshes on each sign operation. No popups &mdash; signing happens locally because your key is already decrypted in memory.
+              Transactions go through the embedded connector (wagmi-compatible). Value capped at 1 ETH per transaction to prevent catastrophic loss. Signing happens in the Web Worker where the key lives &mdash; XSS on the main thread cannot read it. Session refreshes on each sign operation. No popups, no extensions.
             </p>
           </div>
         </div>
@@ -982,13 +982,13 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Encryption at Rest</p>
             <p className="aboutMiniCard__body">
-              AES-256-GCM (12-byte IV, 32-byte salt). The encrypted blob in localStorage is useless without the PIN.
+              AES-256-GCM (12-byte IV, 32-byte salt). The encrypted blob in localStorage is useless without the PIN. Vault integrity verified via HMAC-SHA-256 &mdash; tampered vaults are rejected.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Key Derivation</p>
             <p className="aboutMiniCard__body">
-              PBKDF2 with 600k iterations. Brute-forcing a 6-char PIN would take significant compute.
+              Argon2id with 64MB memory-hard parameters (primary). Fallback: PBKDF2 with 600k iterations for devices without WASM. GPU brute-force attacks are impractical against either.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -998,21 +998,21 @@ const sections: Section[] = [
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">Session Isolation</p>
+            <p className="aboutMiniCard__title">Worker Session Isolation</p>
             <p className="aboutMiniCard__body">
-              Private key held in a JavaScript closure, not module-scope globals. 30-min auto-lock. Sensitive byte arrays explicitly zeroed after use.
+              Decrypted private key lives inside a Web Worker &mdash; never on the main thread. XSS cannot read Worker memory. 30-min auto-lock. Sensitive byte arrays explicitly zeroed after use.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">Transaction Limits</p>
+            <p className="aboutMiniCard__title">PIN Rate-Limiting</p>
             <p className="aboutMiniCard__body">
-              Max 1 ETH per tx. Server-side relayer capped at 500 tx/day. If anything is compromised, damage is bounded.
+              Exponential backoff on wrong PIN attempts with vault-stamped nonce. Prevents brute-force even with physical access to the device.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">Export Protection</p>
+            <p className="aboutMiniCard__title">Recovery &amp; Export</p>
             <p className="aboutMiniCard__body">
-              Private key export requires double-tap confirmation. Clipboard auto-clears after 30 seconds. Backup file encrypted with your PIN.
+              BIP-39 12-word seed phrase for recovery. Restore on any device with your words + a new PIN. Private key export requires double-tap confirmation. Clipboard auto-clears after 30 seconds. v1 wallets auto-migrate to v3 on unlock.
             </p>
           </div>
         </div>

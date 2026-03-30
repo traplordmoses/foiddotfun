@@ -84,14 +84,14 @@ export default function LandingPage() {
 
   return (
     <main
-      className="home-page relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center flex-1"
-      style={{ height: "100%", touchAction: "none", overscrollBehavior: "none" }}
+      className="home-page relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center"
+      style={{ height: "100vh", touchAction: "none", overscrollBehavior: "none" }}
     >
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
 
-      <section className="relative z-10 w-full max-w-full px-2 sm:px-4 h-full">
-        <div className="mx-auto w-full max-w-6xl h-full">
-          <div className="vista-window vista-window--terminal vista-window--enhanced h-full w-full flex flex-col">
+      <section className="relative z-10 w-full max-w-full px-2 sm:px-4">
+        <div className="mx-auto w-full max-w-6xl">
+          <div className="vista-window vista-window--terminal vista-window--enhanced h-[94vh] max-h-[94vh] w-full flex flex-col">
             <AppTitlebar
               title="FOID_FOUNDATION.EXE"
               connected={mounted && isConnected}
