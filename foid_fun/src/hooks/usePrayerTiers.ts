@@ -6,16 +6,16 @@ import { PRAYER_TIERS_ABI } from '@/lib/contracts/abis';
 
 // Tier definitions matching PrayerTiers.sol
 const TIERS = [
-  { level: 1,  name: "Whisper",          minDays: 1,  multiplierBps: 100 },
-  { level: 2,  name: "Ember",            minDays: 3,  multiplierBps: 125 },
-  { level: 3,  name: "Devotee",          minDays: 7,  multiplierBps: 150 },
-  { level: 4,  name: "Flame Keeper",     minDays: 14, multiplierBps: 175 },
-  { level: 5,  name: "Covenant",         minDays: 21, multiplierBps: 200 },
-  { level: 6,  name: "Oracle",           minDays: 30, multiplierBps: 250 },
-  { level: 7,  name: "Ascendant",        minDays: 45, multiplierBps: 300 },
-  { level: 8,  name: "Archon",           minDays: 60, multiplierBps: 350 },
-  { level: 9,  name: "Eternal Witness",  minDays: 75, multiplierBps: 400 },
-  { level: 10, name: "Foid Sovereign",   minDays: 90, multiplierBps: 500 },
+  { level: 1,  name: "Lurker",            minDays: 1,  multiplierBps: 100 },
+  { level: 2,  name: "NPC",              minDays: 3,  multiplierBps: 125 },
+  { level: 3,  name: "Tapped In",        minDays: 7,  multiplierBps: 150 },
+  { level: 4,  name: "Locked In",        minDays: 14, multiplierBps: 175 },
+  { level: 5,  name: "Certified",        minDays: 21, multiplierBps: 200 },
+  { level: 6,  name: "Undeniable",       minDays: 30, multiplierBps: 250 },
+  { level: 7,  name: "Built Different",  minDays: 45, multiplierBps: 300 },
+  { level: 8,  name: "Inevitable",       minDays: 60, multiplierBps: 350 },
+  { level: 9,  name: "Transcendent",     minDays: 75, multiplierBps: 400 },
+  { level: 10, name: "Mommy Milker",     minDays: 90, multiplierBps: 500 },
 ] as const;
 
 export interface TierInfo {

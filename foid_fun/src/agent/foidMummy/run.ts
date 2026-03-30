@@ -48,14 +48,14 @@ function buildPeriod(fromDate: string | null, toDate: string | null): ReportPeri
 function mockData(period: ReportPeriod): WeeklyData {
   // ── 8 wallets with varied streaks and tiers ──
   const wallets = {
-    sovereign: "0x7a3df2b10000000000000000000000000000f2b1",  // 92-day streak, Foid Sovereign
-    oracle:    "0xaa11cc2200000000000000000000000000002c3d",  // 31-day streak, Oracle
-    devotee:   "0xbb22dd3300000000000000000000000000003e4f",  // 7-day streak, Devotee
+    sovereign: "0x7a3df2b10000000000000000000000000000f2b1",  // 92-day streak, Mommy Milker
+    oracle:    "0xaa11cc2200000000000000000000000000002c3d",  // 31-day streak, Undeniable
+    devotee:   "0xbb22dd3300000000000000000000000000003e4f",  // 7-day streak, Tapped In
     fallen:    "0xcc33ee4400000000000000000000000000004f5a",  // 0-day streak, WAS 30 days (fell off)
-    keeper:    "0xdd44ff5500000000000000000000000000005a6b",  // 14-day streak, Flame Keeper
-    newbie:    "0xee55006600000000000000000000000000006b7c",  // 1-day streak, Whisper (brand new)
-    covenant:  "0xff66117700000000000000000000000000007c8d",  // 21-day streak, Covenant
-    ember:     "0x0077228800000000000000000000000000008d9e",  // 4-day streak, Ember
+    keeper:    "0xdd44ff5500000000000000000000000000005a6b",  // 14-day streak, Locked In
+    newbie:    "0xee55006600000000000000000000000000006b7c",  // 1-day streak, Lurker (brand new)
+    covenant:  "0xff66117700000000000000000000000000007c8d",  // 21-day streak, Certified
+    ember:     "0x0077228800000000000000000000000000008d9e",  // 4-day streak, NPC
   };
 
   return {
@@ -65,13 +65,13 @@ function mockData(period: ReportPeriod): WeeklyData {
       uniquePrayers: 8,
       prayers: [],
       streaks: [
-        { wallet: wallets.sovereign, currentStreak: 92, longestStreak: 92, totalPrayers: 247, tierLevel: 10, tierName: "Foid Sovereign", votingPower: 500 },
-        { wallet: wallets.oracle,    currentStreak: 31, longestStreak: 31, totalPrayers: 88,  tierLevel: 6,  tierName: "Oracle",         votingPower: 250 },
-        { wallet: wallets.covenant,  currentStreak: 21, longestStreak: 25, totalPrayers: 62,  tierLevel: 5,  tierName: "Covenant",       votingPower: 200 },
-        { wallet: wallets.keeper,    currentStreak: 14, longestStreak: 14, totalPrayers: 38,  tierLevel: 4,  tierName: "Flame Keeper",   votingPower: 175 },
-        { wallet: wallets.devotee,   currentStreak: 7,  longestStreak: 12, totalPrayers: 29,  tierLevel: 3,  tierName: "Devotee",        votingPower: 150 },
-        { wallet: wallets.ember,     currentStreak: 4,  longestStreak: 4,  totalPrayers: 4,   tierLevel: 2,  tierName: "Ember",          votingPower: 125 },
-        { wallet: wallets.newbie,    currentStreak: 1,  longestStreak: 1,  totalPrayers: 1,   tierLevel: 1,  tierName: "Whisper",        votingPower: 100 },
+        { wallet: wallets.sovereign, currentStreak: 92, longestStreak: 92, totalPrayers: 247, tierLevel: 10, tierName: "Mommy Milker",     votingPower: 500 },
+        { wallet: wallets.oracle,    currentStreak: 31, longestStreak: 31, totalPrayers: 88,  tierLevel: 6,  tierName: "Undeniable",       votingPower: 250 },
+        { wallet: wallets.covenant,  currentStreak: 21, longestStreak: 25, totalPrayers: 62,  tierLevel: 5,  tierName: "Certified",        votingPower: 200 },
+        { wallet: wallets.keeper,    currentStreak: 14, longestStreak: 14, totalPrayers: 38,  tierLevel: 4,  tierName: "Locked In",        votingPower: 175 },
+        { wallet: wallets.devotee,   currentStreak: 7,  longestStreak: 12, totalPrayers: 29,  tierLevel: 3,  tierName: "Tapped In",        votingPower: 150 },
+        { wallet: wallets.ember,     currentStreak: 4,  longestStreak: 4,  totalPrayers: 4,   tierLevel: 2,  tierName: "NPC",              votingPower: 125 },
+        { wallet: wallets.newbie,    currentStreak: 1,  longestStreak: 1,  totalPrayers: 1,   tierLevel: 1,  tierName: "Lurker",           votingPower: 100 },
         // The fallen: 0-day streak but 30-day longest — clearly fell off
         { wallet: wallets.fallen,    currentStreak: 0,  longestStreak: 30, totalPrayers: 115, tierLevel: 0,  tierName: "Unranked",       votingPower: 100 },
       ],

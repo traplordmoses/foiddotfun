@@ -28,10 +28,10 @@ export const CARD_VISUALS = [
 /* ─── Vote weight tier labels ─── */
 
 export function tierLabel(weight: number): string {
-  if (weight >= 500) return "Foid Sovereign";
-  if (weight >= 250) return "Oracle";
-  if (weight >= 150) return "Devotee";
-  return "Whisper";
+  if (weight >= 500) return "Mommy Milker";
+  if (weight >= 250) return "Undeniable";
+  if (weight >= 150) return "Tapped In";
+  return "Lurker";
 }
 
 export function tierMultiplier(weight: number): string {

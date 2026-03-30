@@ -268,13 +268,13 @@ const sections: Section[] = [
             Your streak unlocks tiers that multiply your voting power across the entire ecosystem:
           </p>
           <p style={{ marginTop: '12px', fontFamily: 'var(--font-terminal, monospace)', fontSize: '12px', lineHeight: '1.8' }}>
-            Day 1: Whisper (1x) &bull; Day 3: Ember (1.25x) &bull; Day 7: Devotee (1.5x)<br/>
-            Day 14: Flame Keeper (1.75x) &bull; Day 21: Covenant (2x) &bull; Day 30: Oracle (2.5x)<br/>
-            Day 45: Ascendant (3x) &bull; Day 60: Archon (3.5x) &bull; Day 75: Eternal Witness (4x)<br/>
-            Day 90: <strong>Foid Sovereign (5x)</strong>
+            Day 1: Lurker (1x) &bull; Day 3: NPC (1.25x) &bull; Day 7: Tapped In (1.5x)<br/>
+            Day 14: Locked In (1.75x) &bull; Day 21: Certified (2x) &bull; Day 30: Undeniable (2.5x)<br/>
+            Day 45: Built Different (3x) &bull; Day 60: Inevitable (3.5x) &bull; Day 75: Transcendent (4x)<br/>
+            Day 90: <strong>Mommy Milker (5x)</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            Hold a MiFOID NFT? <strong>+50 flat voting bonus</strong> on top of your tier multiplier. A Foid Sovereign with a MiFOID has 550 voting weight — the maximum influence possible.
+            Hold a MiFOID NFT? <strong>+50 flat voting bonus</strong> on top of your tier multiplier. A Mommy Milker with a MiFOID has 550 voting weight &mdash; the maximum influence possible.
           </p>
         </GlassPanel>
       </>
@@ -445,7 +445,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">2. community votes</p>
             <p className="aboutMiniCard__body">
-              72-hour window. Swipe right or left. Every vote is on-chain, weighted by your prayer streak. A 90-day Foid Sovereign&apos;s vote is worth 5x an unranked voter&apos;s. Requires 3 unique voters minimum.
+              72-hour window. Swipe right or left. Every vote is on-chain, weighted by your prayer streak. A 90-day Mommy Milker&apos;s vote is worth 5x an unranked voter&apos;s. Requires 3 unique voters minimum.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -834,7 +834,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">PrayerTiers</p>
             <p className="aboutMiniCard__body">
-              10-tier prayer streak system. Your daily devotion earns multipliers from 1x (Whisper) to 5x (Foid Sovereign). Tiers feed into voting power across the entire ecosystem.
+              10-tier prayer streak system. Your daily devotion earns multipliers from 1x (Lurker) to 5x (Mommy Milker). Tiers feed into voting power across the entire ecosystem.
             </p>
             <a href="https://testnet.fluentscan.xyz/address/0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>

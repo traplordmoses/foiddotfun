@@ -132,16 +132,16 @@ export function AppContext() {
               <div className="flex items-center justify-between text-xs">
                 <span className="text-white/70 underline decoration-white/20 underline-offset-2">Streak Tier</span>
                 <span className="font-semibold text-purple-300">
-                  {stats.currentStreak >= 90 ? "Foid Sovereign" :
-                   stats.currentStreak >= 75 ? "Eternal Witness" :
-                   stats.currentStreak >= 60 ? "Archon" :
-                   stats.currentStreak >= 45 ? "Ascendant" :
-                   stats.currentStreak >= 30 ? "Oracle" :
-                   stats.currentStreak >= 21 ? "Covenant" :
-                   stats.currentStreak >= 14 ? "Flame Keeper" :
-                   stats.currentStreak >= 7 ? "Devotee" :
-                   stats.currentStreak >= 3 ? "Ember" :
-                   stats.currentStreak >= 1 ? "Whisper" : "Unranked"}
+                  {stats.currentStreak >= 90 ? "Mommy Milker" :
+                   stats.currentStreak >= 75 ? "Transcendent" :
+                   stats.currentStreak >= 60 ? "Inevitable" :
+                   stats.currentStreak >= 45 ? "Built Different" :
+                   stats.currentStreak >= 30 ? "Undeniable" :
+                   stats.currentStreak >= 21 ? "Certified" :
+                   stats.currentStreak >= 14 ? "Locked In" :
+                   stats.currentStreak >= 7 ? "Tapped In" :
+                   stats.currentStreak >= 3 ? "NPC" :
+                   stats.currentStreak >= 1 ? "Lurker" : "Unranked"}
                 </span>
               </div>
             ) : (
