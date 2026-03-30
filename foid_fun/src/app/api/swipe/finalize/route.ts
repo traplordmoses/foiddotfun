@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, createWalletClient, http, type Hash } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
+import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { CONTRACTS, RPC_URL, CHAIN_CONFIG } from "@/lib/contracts/addresses";
-import { getVotesForFinalize, getVoteCounts } from "@/lib/voteStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,12 +30,11 @@ function validateSecret(request: NextRequest): boolean {
 type FinalizeResult = {
   proposalId: number;
   status: "finalized" | "failed" | "skipped";
-  canonized?: boolean;
+  approved?: boolean;
   weightFor?: string;
   weightAgainst?: string;
   txHash?: string;
   error?: string;
-  voteCount?: number;
 };
 
 export async function POST(request: NextRequest) {
@@ -52,10 +50,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const swipeAddress = CONTRACTS.SWIPE as `0x${string}`;
-  if (!swipeAddress) {
+  const contractAddress = CONTRACTS.SWIPE as `0x${string}`;
+  if (!contractAddress) {
     return NextResponse.json(
-      { error: "Swipe contract not configured" },
+      { error: "Loreboard contract not configured" },
       { status: 500 }
     );
   }
@@ -69,10 +67,9 @@ export async function POST(request: NextRequest) {
       transport: http(RPC_URL),
     });
 
-    // Read proposal count
     const count = (await publicClient.readContract({
-      address: swipeAddress,
-      abi: SWIPE_ABI,
+      address: contractAddress,
+      abi: LOREBOARD_ABI,
       functionName: "proposalCount",
     })) as bigint;
 
@@ -80,85 +77,65 @@ export async function POST(request: NextRequest) {
     const now = Math.floor(Date.now() / 1000);
     const results: FinalizeResult[] = [];
 
-    // Process each proposal sequentially (nonce safety)
     for (let i = 0; i < proposalCount; i++) {
       try {
         const raw = (await publicClient.readContract({
-          address: swipeAddress,
-          abi: SWIPE_ABI,
+          address: contractAddress,
+          abi: LOREBOARD_ABI,
           functionName: "getProposal",
           args: [BigInt(i)],
         })) as {
-          id: bigint;
-          proposer: string;
-          ipfsCid: string;
-          createdAt: bigint;
-          votingEndsAt: bigint;
           finalized: boolean;
-          canonized: boolean;
-          trestEntryId: bigint;
+          votingEndsAt: bigint;
         };
 
-        // Skip already finalized
-        if (raw.finalized) {
-          continue;
-        }
+        if (raw.finalized) continue;
+        if (Number(raw.votingEndsAt) > now) continue;
 
-        // Skip still-active proposals
-        if (Number(raw.votingEndsAt) > now) {
-          continue;
-        }
-
-        // Ready to finalize
-        const votes = getVotesForFinalize(i);
-        const counts = getVoteCounts(i);
+        const [rawFor, rawAgainst] = await Promise.all([
+          publicClient.readContract({
+            address: contractAddress,
+            abi: LOREBOARD_ABI,
+            functionName: "voteWeightFor",
+            args: [BigInt(i)],
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: contractAddress,
+            abi: LOREBOARD_ABI,
+            functionName: "voteWeightAgainst",
+            args: [BigInt(i)],
+          }) as Promise<bigint>,
+        ]);
 
         console.log(
-          `[finalize] Proposal #${i}: ${counts.forCount} yes, ${counts.againstCount} no, ${votes.voters.length} total signatures`
+          `[finalize] Proposal #${i}: ${rawFor} weightFor, ${rawAgainst} weightAgainst`
         );
 
-        // Call finalize on-chain
         const hash: Hash = await walletClient.writeContract({
-          address: swipeAddress,
-          abi: SWIPE_ABI,
+          address: contractAddress,
+          abi: LOREBOARD_ABI,
           functionName: "finalize",
-          args: [
-            BigInt(i),
-            votes.voters.map((v) => v as `0x${string}`),
-            votes.approvals,
-            votes.deadlines.map((d) => BigInt(d)),
-            votes.signatures.map((s) => s as `0x${string}`),
-          ],
+          args: [BigInt(i)],
         });
 
-        // Wait for receipt
         const receipt = await publicClient.waitForTransactionReceipt({
           hash,
           timeout: 60_000,
         });
 
         // Parse Finalized event from logs
-        let canonized = false;
-        let weightFor = "0";
-        let weightAgainst = "0";
+        let approved = false;
+        let weightFor = rawFor.toString();
+        let weightAgainst = rawAgainst.toString();
 
         for (const log of receipt.logs) {
           try {
-            // Finalized event topic
-            if (log.topics[0] && log.data) {
-              // Simple approach: check if this looks like our Finalized event
-              const proposalIdTopic = log.topics[1];
-              if (proposalIdTopic) {
-                const pId = Number(BigInt(proposalIdTopic));
-                if (pId === i) {
-                  // Decode data: (bool canonized, uint256 weightFor, uint256 weightAgainst)
-                  const data = log.data;
-                  if (data.length >= 194) {
-                    canonized = BigInt("0x" + data.slice(2, 66)) !== 0n;
-                    weightFor = BigInt("0x" + data.slice(66, 130)).toString();
-                    weightAgainst = BigInt("0x" + data.slice(130, 194)).toString();
-                  }
-                }
+            if (log.topics[0] && log.data && log.topics[1]) {
+              const pId = Number(BigInt(log.topics[1]));
+              if (pId === i && log.data.length >= 194) {
+                approved = BigInt("0x" + log.data.slice(2, 66)) !== 0n;
+                weightFor = BigInt("0x" + log.data.slice(66, 130)).toString();
+                weightAgainst = BigInt("0x" + log.data.slice(130, 194)).toString();
               }
             }
           } catch {
@@ -169,15 +146,14 @@ export async function POST(request: NextRequest) {
         results.push({
           proposalId: i,
           status: "finalized",
-          canonized,
+          approved,
           weightFor,
           weightAgainst,
           txHash: hash,
-          voteCount: votes.voters.length,
         });
 
         console.log(
-          `[finalize] Proposal #${i}: ${canonized ? "CANONIZED" : "REJECTED"} (for: ${weightFor}, against: ${weightAgainst}) tx: ${hash}`
+          `[finalize] Proposal #${i}: ${approved ? "APPROVED" : "REJECTED"} (for: ${weightFor}, against: ${weightAgainst}) tx: ${hash}`
         );
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
@@ -188,7 +164,6 @@ export async function POST(request: NextRequest) {
           status: "failed",
           error: errorMsg,
         });
-        // Continue to next proposal — don't let one failure stop others
       }
     }
 
@@ -213,16 +188,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const swipeAddress = CONTRACTS.SWIPE as `0x${string}`;
-  if (!swipeAddress) {
-    return NextResponse.json({ error: "Swipe contract not configured" }, { status: 500 });
+  const contractAddress = CONTRACTS.SWIPE as `0x${string}`;
+  if (!contractAddress) {
+    return NextResponse.json({ error: "Loreboard contract not configured" }, { status: 500 });
   }
 
   try {
     const publicClient = createPublicClient({ chain, transport: http(RPC_URL) });
     const count = (await publicClient.readContract({
-      address: swipeAddress,
-      abi: SWIPE_ABI,
+      address: contractAddress,
+      abi: LOREBOARD_ABI,
       functionName: "proposalCount",
     })) as bigint;
 
@@ -230,16 +205,15 @@ export async function GET(request: NextRequest) {
     const ready: Array<{
       proposalId: number;
       votingEndsAt: number;
-      forCount: number;
-      againstCount: number;
-      totalVotes: number;
+      weightFor: string;
+      weightAgainst: string;
     }> = [];
 
     for (let i = 0; i < Number(count); i++) {
       try {
         const raw = (await publicClient.readContract({
-          address: swipeAddress,
-          abi: SWIPE_ABI,
+          address: contractAddress,
+          abi: LOREBOARD_ABI,
           functionName: "getProposal",
           args: [BigInt(i)],
         })) as {
@@ -248,11 +222,25 @@ export async function GET(request: NextRequest) {
         };
 
         if (!raw.finalized && Number(raw.votingEndsAt) < now) {
-          const counts = getVoteCounts(i);
+          const [weightFor, weightAgainst] = await Promise.all([
+            publicClient.readContract({
+              address: contractAddress,
+              abi: LOREBOARD_ABI,
+              functionName: "voteWeightFor",
+              args: [BigInt(i)],
+            }) as Promise<bigint>,
+            publicClient.readContract({
+              address: contractAddress,
+              abi: LOREBOARD_ABI,
+              functionName: "voteWeightAgainst",
+              args: [BigInt(i)],
+            }) as Promise<bigint>,
+          ]);
           ready.push({
             proposalId: i,
             votingEndsAt: Number(raw.votingEndsAt),
-            ...counts,
+            weightFor: weightFor.toString(),
+            weightAgainst: weightAgainst.toString(),
           });
         }
       } catch {

@@ -1,12 +1,8 @@
-export const SWIPE_ABI = [
+// Loreboard ABI — auto-generated from forge build output
+export const LOREBOARD_ABI = [
   {
     "type": "constructor",
     "inputs": [
-      {
-        "name": "_gallery",
-        "type": "address",
-        "internalType": "address"
-      },
       {
         "name": "_votingPowerSource",
         "type": "address",
@@ -63,45 +59,6 @@ export const SWIPE_ABI = [
   },
   {
     "type": "function",
-    "name": "TYPE_GALLERY",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "uint8"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "TYPE_LOREBOARD",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "uint8"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "VOTE_TYPEHASH",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "approvalThresholdBps",
     "inputs": [],
     "outputs": [
@@ -115,59 +72,47 @@ export const SWIPE_ABI = [
   },
   {
     "type": "function",
-    "name": "claimVoucher",
+    "name": "castVote",
     "inputs": [
       {
         "name": "proposalId",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "approve",
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "outputs": [],
-    "stateMutability": "payable"
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
-    "name": "eip712Domain",
+    "name": "currentManifestCID",
     "inputs": [],
     "outputs": [
       {
-        "name": "fields",
-        "type": "bytes1",
-        "internalType": "bytes1"
-      },
-      {
-        "name": "name",
+        "name": "",
         "type": "string",
         "internalType": "string"
-      },
-      {
-        "name": "version",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "chainId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "verifyingContract",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "salt",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "extensions",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "emergencyRemove",
+    "inputs": [
+      {
+        "name": "placementId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -190,26 +135,6 @@ export const SWIPE_ABI = [
         "name": "proposalId",
         "type": "uint256",
         "internalType": "uint256"
-      },
-      {
-        "name": "voters",
-        "type": "address[]",
-        "internalType": "address[]"
-      },
-      {
-        "name": "approvals",
-        "type": "bool[]",
-        "internalType": "bool[]"
-      },
-      {
-        "name": "deadlines",
-        "type": "uint256[]",
-        "internalType": "uint256[]"
-      },
-      {
-        "name": "signatures",
-        "type": "bytes[]",
-        "internalType": "bytes[]"
       }
     ],
     "outputs": [],
@@ -217,13 +142,66 @@ export const SWIPE_ABI = [
   },
   {
     "type": "function",
-    "name": "gallery",
-    "inputs": [],
+    "name": "getPlacement",
+    "inputs": [
+      {
+        "name": "placementId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "outputs": [
       {
         "name": "",
-        "type": "address",
-        "internalType": "contract FoidTrest"
+        "type": "tuple",
+        "internalType": "struct Loreboard.Placement",
+        "components": [
+          {
+            "name": "proposalId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "placer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "ipfsCid",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "x",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "y",
+            "type": "int32",
+            "internalType": "int32"
+          },
+          {
+            "name": "w",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "h",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "placedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "removed",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
       }
     ],
     "stateMutability": "view"
@@ -242,7 +220,7 @@ export const SWIPE_ABI = [
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct Swipe.Proposal",
+        "internalType": "struct Loreboard.Proposal",
         "components": [
           {
             "name": "id",
@@ -275,19 +253,14 @@ export const SWIPE_ABI = [
             "internalType": "bool"
           },
           {
-            "name": "canonized",
+            "name": "approved",
             "type": "bool",
             "internalType": "bool"
           },
           {
-            "name": "trestEntryId",
+            "name": "placementId",
             "type": "uint256",
             "internalType": "uint256"
-          },
-          {
-            "name": "proposalType",
-            "type": "uint8",
-            "internalType": "uint8"
           },
           {
             "name": "gridX",
@@ -316,10 +289,57 @@ export const SWIPE_ABI = [
   },
   {
     "type": "function",
-    "name": "getVoucher",
+    "name": "hasVoted",
     "inputs": [
       {
-        "name": "proposalId",
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "latest",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "version",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "root",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "cid",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "manifestCidAt",
+    "inputs": [
+      {
+        "name": "",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -327,25 +347,53 @@ export const SWIPE_ABI = [
     "outputs": [
       {
         "name": "",
-        "type": "tuple",
-        "internalType": "struct Swipe.PlacementVoucher",
-        "components": [
-          {
-            "name": "issuedAt",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "expiresAt",
-            "type": "uint64",
-            "internalType": "uint64"
-          },
-          {
-            "name": "claimed",
-            "type": "bool",
-            "internalType": "bool"
-          }
-        ]
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "manifestRootOf",
+    "inputs": [
+      {
+        "name": "version",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "manifestVersion",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "minVoterQuorum",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -378,7 +426,7 @@ export const SWIPE_ABI = [
   },
   {
     "type": "function",
-    "name": "placementFee",
+    "name": "placementCount",
     "inputs": [],
     "outputs": [
       {
@@ -404,105 +452,7 @@ export const SWIPE_ABI = [
   },
   {
     "type": "function",
-    "name": "proposals",
-    "inputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "id",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "proposer",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "ipfsCid",
-        "type": "string",
-        "internalType": "string"
-      },
-      {
-        "name": "createdAt",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "votingEndsAt",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "finalized",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "canonized",
-        "type": "bool",
-        "internalType": "bool"
-      },
-      {
-        "name": "trestEntryId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "proposalType",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "gridX",
-        "type": "int32",
-        "internalType": "int32"
-      },
-      {
-        "name": "gridY",
-        "type": "int32",
-        "internalType": "int32"
-      },
-      {
-        "name": "gridW",
-        "type": "uint32",
-        "internalType": "uint32"
-      },
-      {
-        "name": "gridH",
-        "type": "uint32",
-        "internalType": "uint32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "propose",
-    "inputs": [
-      {
-        "name": "ipfsCid",
-        "type": "string",
-        "internalType": "string"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "proposalId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "payable"
-  },
-  {
-    "type": "function",
-    "name": "proposeLoreboard",
     "inputs": [
       {
         "name": "ipfsCid",
@@ -541,6 +491,19 @@ export const SWIPE_ABI = [
   },
   {
     "type": "function",
+    "name": "removePlacement",
+    "inputs": [
+      {
+        "name": "placementId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setApprovalThreshold",
     "inputs": [
       {
@@ -560,6 +523,37 @@ export const SWIPE_ABI = [
         "name": "newRecipient",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setManifestCID",
+    "inputs": [
+      {
+        "name": "cid",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "claimedPlacementCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setMinVoterQuorum",
+    "inputs": [
+      {
+        "name": "newQuorum",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -593,19 +587,6 @@ export const SWIPE_ABI = [
   },
   {
     "type": "function",
-    "name": "setPlacementFee",
-    "inputs": [
-      {
-        "name": "newFee",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "setSubmissionFee",
     "inputs": [
       {
@@ -632,21 +613,65 @@ export const SWIPE_ABI = [
   },
   {
     "type": "function",
-    "name": "setVoucherDuration",
-    "inputs": [
+    "name": "submissionFee",
+    "inputs": [],
+    "outputs": [
       {
-        "name": "newDuration",
-        "type": "uint32",
-        "internalType": "uint32"
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
+    "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "submissionFee",
-    "inputs": [],
+    "name": "uniqueVoterCount",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "voteWeightAgainst",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "voteWeightFor",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "outputs": [
       {
         "name": "",
@@ -683,73 +708,6 @@ export const SWIPE_ABI = [
     "stateMutability": "view"
   },
   {
-    "type": "function",
-    "name": "voucherDurationSeconds",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint32",
-        "internalType": "uint32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "vouchers",
-    "inputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "issuedAt",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "expiresAt",
-        "type": "uint64",
-        "internalType": "uint64"
-      },
-      {
-        "name": "claimed",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "event",
-    "name": "Canonized",
-    "inputs": [
-      {
-        "name": "proposalId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "trestEntryId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "EIP712DomainChanged",
-    "inputs": [],
-    "anonymous": false
-  },
-  {
     "type": "event",
     "name": "FeeRecipientChanged",
     "inputs": [
@@ -779,7 +737,7 @@ export const SWIPE_ABI = [
         "internalType": "uint256"
       },
       {
-        "name": "canonized",
+        "name": "approved",
         "type": "bool",
         "indexed": false,
         "internalType": "bool"
@@ -801,55 +759,44 @@ export const SWIPE_ABI = [
   },
   {
     "type": "event",
-    "name": "LoreboardProposed",
+    "name": "ManifestUpdated",
     "inputs": [
       {
-        "name": "proposalId",
-        "type": "uint256",
-        "indexed": true,
-        "internalType": "uint256"
-      },
-      {
-        "name": "proposer",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "ipfsCid",
+        "name": "newCid",
         "type": "string",
         "indexed": false,
         "internalType": "string"
       },
       {
-        "name": "x",
-        "type": "int32",
+        "name": "version",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "int32"
+        "internalType": "uint256"
       },
       {
-        "name": "y",
-        "type": "int32",
+        "name": "placementCountAtUpdate",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "int32"
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MinVoterQuorumChanged",
+    "inputs": [
+      {
+        "name": "oldQuorum",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       },
       {
-        "name": "w",
-        "type": "uint32",
+        "name": "newQuorum",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "uint32"
-      },
-      {
-        "name": "h",
-        "type": "uint32",
-        "indexed": false,
-        "internalType": "uint32"
-      },
-      {
-        "name": "votingEndsAt",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -894,8 +841,14 @@ export const SWIPE_ABI = [
   },
   {
     "type": "event",
-    "name": "PlacementClaimed",
+    "name": "PlacementCreated",
     "inputs": [
+      {
+        "name": "placementId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
       {
         "name": "proposalId",
         "type": "uint256",
@@ -903,7 +856,7 @@ export const SWIPE_ABI = [
         "internalType": "uint256"
       },
       {
-        "name": "submitter",
+        "name": "placer",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -943,6 +896,112 @@ export const SWIPE_ABI = [
   },
   {
     "type": "event",
+    "name": "PlacementEmergencyRemoved",
+    "inputs": [
+      {
+        "name": "placementId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "removedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PlacementSelfRemoved",
+    "inputs": [
+      {
+        "name": "placementId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "placer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProposalCreated",
+    "inputs": [
+      {
+        "name": "proposalId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "proposer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "ipfsCid",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "x",
+        "type": "int32",
+        "indexed": false,
+        "internalType": "int32"
+      },
+      {
+        "name": "y",
+        "type": "int32",
+        "indexed": false,
+        "internalType": "int32"
+      },
+      {
+        "name": "w",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "h",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "votingEndsAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProposalOverlapRejected",
+    "inputs": [
+      {
+        "name": "proposalId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "ProposalRejected",
     "inputs": [
       {
@@ -968,38 +1027,45 @@ export const SWIPE_ABI = [
   },
   {
     "type": "event",
-    "name": "Proposed",
+    "name": "SubmissionFeeChanged",
     "inputs": [
       {
-        "name": "proposalId",
+        "name": "oldFee",
         "type": "uint256",
-        "indexed": true,
+        "indexed": false,
         "internalType": "uint256"
       },
       {
-        "name": "proposer",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "ipfsCid",
-        "type": "string",
+        "name": "newFee",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "string"
-      },
-      {
-        "name": "votingEndsAt",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
   },
   {
     "type": "event",
-    "name": "VoucherIssued",
+    "name": "ThresholdChanged",
+    "inputs": [
+      {
+        "name": "oldThreshold",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "newThreshold",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "VoteCast",
     "inputs": [
       {
         "name": "proposalId",
@@ -1008,61 +1074,44 @@ export const SWIPE_ABI = [
         "internalType": "uint256"
       },
       {
-        "name": "submitter",
+        "name": "voter",
         "type": "address",
         "indexed": true,
         "internalType": "address"
       },
       {
-        "name": "expiresAt",
-        "type": "uint64",
+        "name": "approve",
+        "type": "bool",
         "indexed": false,
-        "internalType": "uint64"
+        "internalType": "bool"
+      },
+      {
+        "name": "weight",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
   },
   {
-    "type": "error",
-    "name": "ECDSAInvalidSignature",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "ECDSAInvalidSignatureLength",
+    "type": "event",
+    "name": "VotingWindowChanged",
     "inputs": [
       {
-        "name": "length",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "ECDSAInvalidSignatureS",
-    "inputs": [
+        "name": "oldWindow",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
       {
-        "name": "s",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "name": "newWindow",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
       }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "InvalidShortString",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "StringTooLong",
-    "inputs": [
-      {
-        "name": "str",
-        "type": "string",
-        "internalType": "string"
-      }
-    ]
+    ],
+    "anonymous": false
   }
 ] as const;
+

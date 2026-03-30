@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useAccount, useSignTypedData } from "wagmi";
+import { useAccount } from "wagmi";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
-import { CONTRACTS, CHAIN_CONFIG } from "@/lib/contracts/addresses";
+import { CONTRACTS } from "@/lib/contracts/addresses";
+import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 
 type Proposal = {
   id: number;
@@ -13,7 +14,7 @@ type Proposal = {
   createdAt: number;
   votingEndsAt: number;
   finalized: boolean;
-  canonized: boolean;
+  approved: boolean;
   status?: string;
   forCount: number;
   againstCount: number;
@@ -35,24 +36,8 @@ function timeRemaining(endsAt: number): string {
   return `${mins}m left`;
 }
 
-const SWIPE_DOMAIN = {
-  name: "FoidSwipe",
-  version: "1",
-  chainId: CHAIN_CONFIG.id,
-  verifyingContract: CONTRACTS.SWIPE as `0x${string}`,
-} as const;
-
-const SWIPE_VOTE_TYPES = {
-  SwipeVote: [
-    { name: "proposalId", type: "uint256" },
-    { name: "approve", type: "bool" },
-    { name: "deadline", type: "uint256" },
-  ],
-} as const;
-
 export function VotingQueue() {
   const { address } = useAccount();
-  const { signTypedDataAsync } = useSignTypedData();
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [votedOn, setVotedOn] = useState<Set<number>>(new Set());
@@ -81,49 +66,35 @@ export function VotingQueue() {
     (p) => !p.finalized && p.votingEndsAt > nowSec
   );
 
+  // On-chain vote via castVote()
   const handleVote = useCallback(
     async (proposalId: number, approve: boolean) => {
       if (!address) return;
       setVoting(proposalId);
 
       try {
-        const proposal = proposals.find((p) => p.id === proposalId);
-        const deadline = proposal?.votingEndsAt ?? Math.floor(Date.now() / 1000) + 7 * 24 * 3600;
+        const { getWalletClient, fluentTestnet } = await import("@/lib/viem");
+        const walletClient = await getWalletClient();
+        const contractAddr = CONTRACTS.SWIPE as `0x${string}`;
 
-        const signature = await signTypedDataAsync({
-          domain: SWIPE_DOMAIN,
-          types: SWIPE_VOTE_TYPES,
-          primaryType: "SwipeVote",
-          message: {
-            proposalId: BigInt(proposalId),
-            approve,
-            deadline: BigInt(deadline),
-          },
+        await walletClient.writeContract({
+          account: (walletClient.account ?? address) as `0x${string}`,
+          address: contractAddr,
+          abi: LOREBOARD_ABI,
+          functionName: "castVote",
+          args: [BigInt(proposalId), approve],
+          chain: fluentTestnet,
         });
 
-        const res = await fetch("/api/swipe/vote", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            proposalId,
-            approve,
-            deadline,
-            signature,
-            voter: address,
-          }),
-        });
-
-        if (res.ok) {
-          setVotedOn((prev) => new Set(prev).add(proposalId));
-          fetchProposals();
-        }
+        setVotedOn((prev) => new Set(prev).add(proposalId));
+        fetchProposals();
       } catch {
         // user rejected or error
       } finally {
         setVoting(null);
       }
     },
-    [address, signTypedDataAsync, fetchProposals]
+    [address, fetchProposals]
   );
 
   if (loading) {
@@ -163,7 +134,6 @@ export function VotingQueue() {
               gap: "10px",
             }}
           >
-            {/* Thumbnail */}
             {imageUrl && (
               <div
                 style={{
@@ -183,7 +153,6 @@ export function VotingQueue() {
               </div>
             )}
 
-            {/* Info */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div
                 style={{
@@ -205,7 +174,6 @@ export function VotingQueue() {
                 {p.status === "voting" ? "Active vote" : p.ipfsCid ? "Proposal" : ""}
               </div>
 
-              {/* Vote bar */}
               <div
                 style={{
                   height: "4px",
@@ -220,7 +188,7 @@ export function VotingQueue() {
                     height: "100%",
                     width: `${pct}%`,
                     background:
-                      pct >= 60
+                      pct >= 51
                         ? "rgba(62,238,196,0.7)"
                         : "rgba(255,184,0,0.7)",
                     transition: "width 0.3s",

@@ -1,34 +1,4 @@
-import { CHAIN_ID } from "@/config/canonical";
-import { CONTRACTS } from "@/lib/contracts/addresses";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
-
-/* ─── EIP-712 domain & types (shared between client + server) ─── */
-
-export const EIP712_DOMAIN = {
-  name: "FoidSwipe",
-  version: "1",
-  chainId: CHAIN_ID,
-  verifyingContract: CONTRACTS.SWIPE as `0x${string}`,
-} as const;
-
-export const EIP712_TYPES = {
-  SwipeVote: [
-    { name: "proposalId", type: "uint256" },
-    { name: "approve", type: "bool" },
-    { name: "deadline", type: "uint256" },
-  ],
-} as const;
-
-export const EIP712_BATCH_TYPES = {
-  SwipeVoteBatch: [
-    { name: "votes", type: "SwipeVoteItem[]" },
-    { name: "deadline", type: "uint256" },
-  ],
-  SwipeVoteItem: [
-    { name: "proposalId", type: "uint256" },
-    { name: "approve", type: "bool" },
-  ],
-} as const;
 
 /* ─── UI helpers ─── */
 

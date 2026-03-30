@@ -14,7 +14,7 @@ type Proposal = {
   createdAt: number;
   votingEndsAt: number;
   finalized: boolean;
-  canonized: boolean;
+  approved: boolean;
   status?: string;
   forCount: number;
   againstCount: number;
@@ -37,10 +37,7 @@ function timeUntil(ts: number): string {
 
 export function MyProposals() {
   const { address } = useAccount();
-  const { claimVoucher, isPending } = useSwipePropose();
   const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [vouchers, setVouchers] = useState<Record<number, VoucherInfo>>({});
-  const [claiming, setClaiming] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -53,8 +50,6 @@ export function MyProposals() {
       );
       setProposals(mine);
 
-      // Fetch voucher info for approved loreboard proposals
-      // (would need a dedicated API endpoint or on-chain read — for now use finalization status)
     } catch {
       // silent
     }
@@ -66,25 +61,6 @@ export function MyProposals() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const handleClaim = useCallback(
-    async (proposalId: number) => {
-      setClaiming(proposalId);
-      setError(null);
-      try {
-        await claimVoucher(proposalId);
-        fetchData();
-      } catch (err) {
-        if (!isUserRejection(err)) {
-          const parsed = parseWeb3Error(err);
-          setError(parsed.message);
-        }
-      } finally {
-        setClaiming(null);
-      }
-    },
-    [claimVoucher, fetchData]
-  );
-
   if (!address) return null;
   if (proposals.length === 0) {
     return (
@@ -95,8 +71,8 @@ export function MyProposals() {
   }
 
   const active = proposals.filter((p) => !p.finalized);
-  const approved = proposals.filter((p) => p.finalized && p.canonized);
-  const rejected = proposals.filter((p) => p.finalized && !p.canonized);
+  const approved = proposals.filter((p) => p.finalized && p.approved);
+  const rejected = proposals.filter((p) => p.finalized && !p.approved);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -111,13 +87,7 @@ export function MyProposals() {
       ))}
 
       {approved.map((p) => (
-        <ProposalRow
-          key={p.id}
-          proposal={p}
-          status="approved"
-          onClaim={() => handleClaim(p.id)}
-          isClaiming={claiming === p.id || isPending}
-        />
+        <ProposalRow key={p.id} proposal={p} status="approved" />
       ))}
 
       {rejected.map((p) => (

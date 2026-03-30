@@ -23,8 +23,8 @@ export const CONTRACTS = {
   PRAYER_TIERS: env("NEXT_PUBLIC_PRAYER_TIERS") ?? CANONICAL_ADDRESSES.prayerTiers,
   ENGRAVE: env("NEXT_PUBLIC_ENGRAVE_ADDRESS") ?? CANONICAL_ADDRESSES.engrave,
 
-  // ── SwipeLoreboard: deployed — flag/removal governance for board placements ──
-  SWIPE_LOREBOARD: env("NEXT_PUBLIC_SWIPE_LOREBOARD") ?? CANONICAL_ADDRESSES.swipeLoreboard,
+  // ── SwipeLoreboard: legacy — replaced by unified Loreboard contract ──
+  SWIPE_LOREBOARD: env("NEXT_PUBLIC_SWIPE_LOREBOARD") ?? "",
 
   // ── FoidTrestGovernance: not deployed yet — governance is post-launch ──
   FOID_TREST_GOVERNANCE: "",

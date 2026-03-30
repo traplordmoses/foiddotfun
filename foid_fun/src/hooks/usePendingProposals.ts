@@ -1,5 +1,5 @@
 // hooks/usePendingProposals.ts
-// Queries LoreboardProposed events from the Swipe contract to find
+// Queries ProposalCreated events from the Loreboard contract to find
 // active voting proposals with their board coordinates.
 
 import { useEffect, useState } from "react";
@@ -7,12 +7,12 @@ import { usePublicClient } from "wagmi";
 import { CHAIN_ID, CANONICAL_ADDRESSES } from "@/config/canonical";
 import { debug } from "@/lib/debug";
 
-// The Swipe contract emits LoreboardProposed events with rect coordinates.
-const SWIPE_ADDRESS = CANONICAL_ADDRESSES.swipe as `0x${string}`;
+// The Loreboard contract emits ProposalCreated events with rect coordinates.
+const LOREBOARD_ADDRESS = CANONICAL_ADDRESSES.loreboard as `0x${string}`;
 
-const LOREBOARD_PROPOSED_EVENT = {
+const PROPOSAL_CREATED_EVENT = {
   type: "event" as const,
-  name: "LoreboardProposed" as const,
+  name: "ProposalCreated" as const,
   inputs: [
     { name: "proposalId", type: "uint256" as const, indexed: true, internalType: "uint256" as const },
     { name: "proposer", type: "address" as const, indexed: true, internalType: "address" as const },
@@ -62,7 +62,7 @@ export function usePendingProposals() {
         return;
       }
 
-      if (!SWIPE_ADDRESS) {
+      if (!LOREBOARD_ADDRESS) {
         debug.log("[usePendingProposals] No Swipe contract address");
         setLoading(false);
         return;
@@ -78,12 +78,12 @@ export function usePendingProposals() {
         const blocksToSearch = BigInt(Math.floor(DEFAULT_VOTING_WINDOW / 2));
         const fromBlock = latestBlock > blocksToSearch ? latestBlock - blocksToSearch : 0n;
 
-        debug.log(`[usePendingProposals] Searching blocks ${fromBlock} to ${latestBlock} on Swipe ${SWIPE_ADDRESS}`);
+        debug.log(`[usePendingProposals] Searching blocks ${fromBlock} to ${latestBlock} on Swipe ${LOREBOARD_ADDRESS}`);
 
         // Fetch LoreboardProposed events from the Swipe contract
         const logs = await publicClient.getLogs({
-          address: SWIPE_ADDRESS,
-          event: LOREBOARD_PROPOSED_EVENT,
+          address: LOREBOARD_ADDRESS,
+          event: PROPOSAL_CREATED_EVENT,
           fromBlock,
           toBlock: latestBlock,
         });

@@ -97,23 +97,16 @@ const sections: Section[] = [
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">🎨 loreboard canvas</p>
+            <p className="aboutMiniCard__title">🎨 loreboard</p>
             <p className="aboutMiniCard__body">
-              Infinite collaborative collage (8192×8192 grid). Place any image for 0.001 ETH — live instantly. Community governs via flag system. The collage grows as the community grows, backed by an ever-evolving NFT.
+              A shared, permanent, on-chain cultural canvas. Propose a placement (0.001 ETH), the community votes for 72 hours, and approved content is recorded on-chain forever. Streak-weighted governance. 51% threshold + 3-voter quorum. On-chain overlap prevention. The board grows as the community grows, backed by an ever-evolving 1/1 NFT.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">🗳️ vote</p>
+            <p className="aboutMiniCard__title">🗳️ swipe</p>
             <p className="aboutMiniCard__body">
-              The governance layer. Propose images to the Loreboard (0.001 ETH), then the community swipes right or left to approve placement. Prayer streaks amplify your voting power. 72-hour window, 51% threshold.
-            </p>
-          </div>
-
-          <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">🗳️ governance</p>
-            <p className="aboutMiniCard__body">
-              Every placement on the board is a consensus statement. Streak-weighted voting ensures the people who show up every day shape the culture. On-chain, verifiable, democratic.
+              The voting UX. Swipe right to approve, left to reject. Your prayer streak amplifies your voting power — the people who show up every day have the loudest voice. Every vote is on-chain, verifiable, and weighted by commitment.
             </p>
           </div>
 
@@ -141,17 +134,16 @@ const sections: Section[] = [
         <GlassPanel style={{ marginTop: '16px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>STATUS</p>
           <p>
-            ✅ FOID Mommy Terminal (prayer contracts + streaks + tiers)<br/>
-            ✅ Loreboard Canvas (spatial grid + voting)<br/>
-            ✅ Vote (propose memes, community votes, winners canonized)<br/>
-            ✅ FoidTrest (permanent on-chain record)<br/>
+            ✅ FOID Mommy Terminal (prayer contracts + streaks + 10-tier system)<br/>
+            ✅ Loreboard (propose → 72h vote → permanent on-chain placement)<br/>
+            ✅ Swipe voting (on-chain, streak-weighted, 51% + 3-voter quorum)<br/>
+            ✅ On-chain overlap prevention (no duplicate placements)<br/>
+            ✅ Manifest history + 1/1 board NFT (auto-updates on placement)<br/>
             ✅ MiFOID NFT contract (ERC-721 with trait evolution)<br/>
-            ✅ Democratic voting (72-hour epochs + streak-weighted power)<br/>
-            ✅ Community governance (flagging + removal votes)<br/>
-            ✅ On-chain finalization (manifests → IPFS)<br/>
-            ✅ Live NFT (updates with each epoch)<br/>
+            ✅ Self-remove + emergency multisig removal<br/>
+            ✅ 2-of-3 multisig securing all board contracts<br/>
             ✅ Agent API (autonomous agents can pray, propose, vote)<br/>
-            ✅ 11+ finalized epochs with real usage
+            ✅ Permissionless finalization (anyone can finalize after voting window)
           </p>
         </GlassPanel>
       </>
@@ -306,10 +298,10 @@ const sections: Section[] = [
             <strong>Loreboard is permanent.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            A shared canvas where communities propose what matters, vote democratically, and canonize winners forever. It&apos;s r/place except the canvas never resets. It&apos;s Know Your Meme except the community decides what&apos;s canonical.
+            A shared canvas where communities propose what matters, vote democratically, and record placements forever. It&apos;s r/place except the canvas never resets. It&apos;s Know Your Meme except the community decides what&apos;s permanent.
           </p>
           <p style={{ marginTop: '12px' }}>
-            Every finalized epoch becomes a snapshot of what your community valued in that moment. Come back in five years and see exactly how your corner of the internet evolved.
+            Every approved placement is a snapshot of what your community valued in that moment. Come back in five years and see exactly how your corner of the internet evolved.
           </p>
           <p style={{ marginTop: '12px' }}>
             Not just a meme board. <strong>A cultural record.</strong>
@@ -330,13 +322,13 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">2. vote</p>
             <p className="aboutMiniCard__body">
-              72-hour democratic window. Every connected wallet can vote yes or no. 51%+ approval + quorum required. No shortcuts. No buying your way in.
+              72-hour democratic window. Swipe right or left. Votes weighted by prayer streak. 51% approval + 3 unique voters required. No shortcuts. No buying your way in.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">3. canonize forever</p>
+            <p className="aboutMiniCard__title">3. permanent placement</p>
             <p className="aboutMiniCard__body">
-              Winners are immortalized. Placement recorded on-chain. Image stored on IPFS. This is the record. Permanent. Verifiable. Yours.
+              Approved placements are recorded directly on-chain. Image stored on IPFS. The board NFT updates automatically. This is the record. Permanent. Verifiable. Yours.
             </p>
           </div>
         </div>
@@ -357,10 +349,48 @@ const sections: Section[] = [
           </p>
         </GlassPanel>
 
+        <div style={{ marginTop: '24px' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>THREE INTERLOCKING LOOPS</p>
+          <p style={{ marginBottom: '16px', color: 'rgba(255, 255, 255, 0.7)' }}>
+            Loreboard runs on three systems that reinforce each other. None works alone. Together, they produce a democratic, on-chain cultural record with earned governance.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">loop 01 — commitment</p>
+            <p className="aboutMiniCard__body">
+              A daily ritual that signals commitment to the community. For FOID, this is Prayer &mdash; a one-tap on-chain check-in that builds a consecutive streak. The streak is not a vanity metric. It is a governance credential. The longer your streak, the more influence you earn over what gets placed on the board.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">loop 02 — governance</p>
+            <p className="aboutMiniCard__body">
+              Someone submits a placement to the board with a 0.001 ETH fee. The community has 72 hours to vote. Swipe right: this earns a spot. Swipe left: no. Votes are weighted by check-in streak &mdash; the people who show up every day have the most say over what gets built.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">loop 03 — permanence</p>
+            <p className="aboutMiniCard__body">
+              An approved placement is recorded on-chain and lives on the board permanently. Every placement is a verifiable statement: this community decided this matters. The board becomes the most honest representation of what a community actually values.
+            </p>
+          </div>
+        </div>
+
+        <GlassPanel style={{ marginTop: '16px' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>THE FLYWHEEL</p>
+          <p style={{ textAlign: 'center', fontFamily: 'var(--font-terminal, monospace)', fontSize: '13px', letterSpacing: '0.5px' }}>
+            check in daily &rarr; build streak &rarr; earn vote weight &rarr; govern placements &rarr; board grows &rarr; show up again
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            The key insight: <strong>streak is not just a number &mdash; it&apos;s zoning power.</strong> The person who checks in every day is accumulating influence over what gets built on the board permanently. That changes the meaning of showing up.
+          </p>
+        </GlassPanel>
+
         <GlassPanel style={{ marginTop: '16px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>THE TECHNOLOGY</p>
           <p>
-            Built for permanence: Smart contracts (Solidity on Fluent), Storage (IPFS for images, on-chain for state), Indexing (Goldsky subgraph makes queries instant), Voting (72-hour epochs with democratic thresholds + streak-weighted power), NFT (ERC-721 updates after each finalization).
+            Built for permanence: One unified Loreboard contract (Solidity on Fluent) handles proposals, on-chain voting, placements, manifest history, and overlap prevention. Storage on IPFS for images, on-chain for state. Indexing via Goldsky subgraph. Voting is direct on-chain with streak-weighted power, 51% threshold, 3-voter quorum. The 1/1 board NFT (ERC-721) auto-updates when the manifest changes. All secured by a 2-of-3 multisig.
           </p>
           <p style={{ marginTop: '12px' }}>
             Fluent&apos;s blended execution means voting feels Web2-fast with Web3 guarantees. No waiting for blocks. No gas wars. Just democracy at scale.
@@ -370,11 +400,13 @@ const sections: Section[] = [
         <GlassPanel style={{ marginTop: '16px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>CURRENT STATUS</p>
           <p>
-            ✅ 11+ finalized epochs<br/>
-            ✅ Democratic voting (1 vote per wallet)<br/>
-            ✅ Automatic finalization<br/>
-            ✅ IPFS + on-chain storage<br/>
-            ✅ Live NFT reflects current state
+            ✅ Unified Loreboard contract (propose + vote + finalize + placement)<br/>
+            ✅ On-chain overlap prevention<br/>
+            ✅ Permissionless finalization (anyone can trigger after window)<br/>
+            ✅ 3-voter quorum + 51% streak-weighted threshold<br/>
+            ✅ Manifest history with staleness check<br/>
+            ✅ 1/1 board NFT auto-updates via manifest sync<br/>
+            ✅ Self-remove + multisig emergency removal
           </p>
         </GlassPanel>
       </>
@@ -384,96 +416,50 @@ const sections: Section[] = [
     id: "vote",
     navLabel: "VOTE",
     title: "VOTE",
-    subtitle: "Swipe. Vote. Canonize.",
+    subtitle: "Swipe Right. Swipe Left. Permanent.",
     content: (
       <>
         <GlassPanel>
           <p>
-            <strong>Two memes enter. One gets immortalized.</strong>
+            <strong>Swipe right: &quot;this earns a spot.&quot; Swipe left: &quot;no.&quot;</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            Vote is the governance mechanism for Loreboard placements. Propose a meme, and let the community swipe right or left. Approved proposals get placed on the Loreboard permanently.
+            Swipe is the voting UX for the Loreboard. Someone proposes a placement, and the community has 72 hours to decide if it belongs. Votes are weighted by prayer streak &mdash; the people who show up every day have the most influence over what gets built permanently.
           </p>
           <p style={{ marginTop: '12px' }}>
-            It&apos;s Tinder for memes. Swipe right to accept, swipe left to reject. Your prayer streak gives you more voting power&mdash;show up every day and your voice gets louder.
+            It&apos;s Tinder for culture. Swipe right to approve, swipe left to reject. If 51% of weighted votes approve and at least 3 unique wallets participated, the placement is recorded on-chain forever. If it fails, it&apos;s gone. No archive. No consolation. That finality is what makes a yes mean something.
           </p>
         </GlassPanel>
 
         <div style={{ marginTop: '24px' }}>
-          <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>HOW IT WORKS</p>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>THE LOOP</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">1. submit</p>
+            <p className="aboutMiniCard__title">1. propose</p>
             <p className="aboutMiniCard__body">
-              Propose your meme. It enters a queue and gets automatically matched with another submission. Small entry fee keeps the pool clean.
+              Choose your spot on the grid. Upload your image. Pay 0.001 ETH. The contract checks for overlaps on-chain &mdash; you can&apos;t propose over existing placements. Your proposal enters the voting queue.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">2. vote</p>
+            <p className="aboutMiniCard__title">2. community votes</p>
             <p className="aboutMiniCard__body">
-              The community swipes through active proposals. Voting power is weighted by your prayer streak&mdash;longer streak, bigger vote. 24-hour voting window.
+              72-hour window. Swipe right or left. Every vote is on-chain, weighted by your prayer streak. A 90-day Foid Sovereign&apos;s vote is worth 5x an unranked voter&apos;s. Requires 3 unique voters minimum.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">3. winner takes all</p>
+            <p className="aboutMiniCard__title">3. permanent or gone</p>
             <p className="aboutMiniCard__body">
-              The winning meme gets permanently placed on the FOIDREST. The loser fades into history. Culture decided by the community, not algorithms.
-            </p>
-          </div>
-        </div>
-      </>
-    ),
-  },
-  {
-    id: "gallery",
-    navLabel: "GOVERNANCE",
-    title: "GOVERNANCE",
-    subtitle: "Democratic Cultural Coordination",
-    content: (
-      <>
-        <GlassPanel>
-          <p>
-            <strong>Every placement is a consensus statement.</strong>
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            Nothing gets on the Loreboard without community approval. Every proposal goes through a 72-hour voting window where the community swipes right or left. Votes are weighted by prayer streaks&mdash;the people who show up every day have the loudest voice. 51% approval threshold to pass.
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            Approved placements are minted on-chain permanently. The FoidTrest contract records every successful proposal in chronological order&mdash;an immutable, community-curated record of what your culture valued.
-          </p>
-        </GlassPanel>
-
-        <div style={{ marginTop: '24px' }}>
-          <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>PROPOSAL → VOTE → PLACEMENT</p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">1. Propose</p>
-            <p className="aboutMiniCard__body">
-              Submit an image to the Loreboard (0.001 ETH). Choose your spot on the grid. The proposal enters the voting queue.
-            </p>
-          </div>
-          <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">2. Community Votes</p>
-            <p className="aboutMiniCard__body">
-              72-hour window. The community swipes right (approve) or left (reject). Votes are streak-weighted&mdash;longer prayer streaks mean more influence.
-            </p>
-          </div>
-          <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">3. Permanent Placement</p>
-            <p className="aboutMiniCard__body">
-              51% approval and the proposal passes. Placement is recorded on-chain, image stored on IPFS. Immutable. Verifiable. Community-curated.
+              51% weighted approval? Placement recorded on-chain permanently. The board NFT updates. Everyone can see what the community decided. Below threshold? Gone forever. Culture decided by the community, not algorithms.
             </p>
           </div>
         </div>
 
         <GlassPanel style={{ marginTop: '16px' }}>
-          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>COMMUNITY MODERATION</p>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>CONTENT MODERATION (v1)</p>
           <p>
-            The community also governs what stays. Any connected wallet can flag content for review. Once enough flags accumulate, a removal vote triggers automatically. The community votes to keep or remove&mdash;democratic content moderation, fully on-chain.
+            <strong>Self-remove:</strong> The original placer can remove their own content at any time. <strong>Emergency removal:</strong> The 2-of-3 multisig can remove harmful or illegal content. Both actions are transparent &mdash; every removal emits an on-chain event recording who did it and why. Community-driven flagging + voting removal is planned for v2 when the community is large enough to resist sybil attacks.
           </p>
         </GlassPanel>
       </>
@@ -694,15 +680,9 @@ const sections: Section[] = [
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">5. vote on placements (optional)</p>
+            <p className="aboutMiniCard__title">5. vote on proposals (optional)</p>
             <p className="aboutMiniCard__body">
-              Browse active proposals on the board. See something you like? Vote yes. See something mid? Vote no. Voting is free (just gas). This is how we collectively decide what gets preserved forever. Your vote matters.
-            </p>
-          </div>
-          <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">5.5 vote on proposals (optional)</p>
-            <p className="aboutMiniCard__body">
-              Go to /swipe and vote on proposed memes. Swipe right to approve, left to reject. Your prayer streak amplifies your voting power. Approved proposals get placed on the Loreboard permanently.
+              Go to /swipe and vote on active proposals. Swipe right to approve, left to reject. Every vote is on-chain, weighted by your prayer streak. 51% weighted approval + 3 unique voters to pass. This is how the community decides what gets built permanently.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -743,68 +723,56 @@ const sections: Section[] = [
       <>
         <GlassPanel>
           <p>
-            <strong>We&apos;re not doing a big reveal. We&apos;re building in the open.</strong>
+            Loreboard is not an app. It is not a meme gallery. It is not a feature inside a product.
           </p>
           <p style={{ marginTop: '12px' }}>
-            Everything&apos;s been battle-tested. Mainnet makes it real. MiFOID adds identity. Then we see what happens.
+            <strong>Loreboard is a new primitive for how communities build culture, accumulate identity, and coordinate on-chain.</strong> It turns contribution into status, status into access, and access into influence over what gets built next.
           </p>
           <p style={{ marginTop: '12px' }}>
-            Each phase builds on the last. Some things will change. Some will fail. That&apos;s how this works.
+            FOID Foundation is the first community deployed on Loreboard. There will be others.
           </p>
         </GlassPanel>
 
-        <div className="aboutRoadmapGrid grid gap-4 md:grid-cols-3 w-full" style={{ marginTop: '16px' }}>
-          <div className="aboutMiniCard aboutGlassCard aboutRoadmapCard">
-            <p className="aboutMiniCard__title">right now (live)</p>
+        <div className="grid gap-4 md:grid-cols-2" style={{ marginTop: '16px' }}>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">phase 1 &mdash; the primitive (now)</p>
             <p className="aboutMiniCard__body">
-              ✅ Foid Mommy Terminal - pray daily, build streaks, tier system<br/>
-              ✅ Loreboard Canvas - propose memes, vote, canonize<br/>
-              ✅ Vote - propose memes, community votes, winners canonized<br/>
-              ✅ FoidTrest - permanent on-chain record of community-approved placements<br/>
-              ✅ MiFOID NFT contract - ERC-721 with trait evolution<br/>
-              ✅ Agent API - autonomous agents can pray, propose, vote<br/>
-              ✅ 16 Solidity smart contracts deployed and working<br/>
-              ✅ 11+ finalized epochs with real community voting<br/>
-              ✅ Goldsky subgraph indexing everything<br/>
-              ✅ IPFS storage handling manifests + images
+              The core loop is live: Prayer (daily check-in that builds governance credentials), Swipe (streak-weighted voting on proposed placements), and the Loreboard itself (permanent on-chain canvas). One unified contract handles proposals, voting, finalization, and placement recording. 2-of-3 multisig secures everything. 1/1 board NFT updates with each placement. The infrastructure is built.
             </p>
           </div>
 
-          <div className="aboutMiniCard aboutGlassCard aboutRoadmapCard">
-            <p className="aboutMiniCard__title">mainnet launch — imminent</p>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">phase 2 &mdash; identity (mainnet + mifoid)</p>
             <p className="aboutMiniCard__body">
-              🚀 Fluent mainnet launch<br/>
-              🚀 Real ETH economy (no more testnet)<br/>
-              🚀 Optimized contracts (gas efficiency)<br/>
-              🚀 Production monitoring<br/>
-              🚀 Broader public access<br/>
-              🚀 Stakes get real
+              Fluent mainnet launch makes it real. MiFOID adds the identity layer &mdash; 3,333 AI-generated 3D NFTs, each custom-rendered by Foid Mummy. Persistent agent companions on Telegram. Trait evolution from on-chain activity. The Nunnery for diamond hands. Your MiFOID reflects your commitment.
             </p>
           </div>
 
-          <div className="aboutMiniCard aboutGlassCard aboutRoadmapCard">
-            <p className="aboutMiniCard__title">Q2/Q3 2026 (mifoid drop)</p>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">phase 3 &mdash; the agent layer</p>
             <p className="aboutMiniCard__body">
-              🎨 MiFOID minting (3,333 supply at 0.01 ETH)<br/>
-              🎨 Trait evolution system<br/>
-              🎨 The Nunnery (virgin holders only)<br/>
-              🎨 Body count tracking<br/>
-              🎨 Mobile-optimized experience
+              Foid Mummy becomes the autonomous narrator of on-chain activity. Weekly reports reacting to prayer streaks, board votes, and community drama. Personalized MiFOID reactions rendered in real-time via Blender. Sub-agent companions with persistent memory that evolve through your conversations. Your on-chain behavior becomes shareable content. The marketing engine runs itself.
             </p>
           </div>
 
-          <div className="aboutMiniCard aboutGlassCard aboutRoadmapCard">
-            <p className="aboutMiniCard__title">2027 (foidspace social layer)</p>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">phase 4 &mdash; the network</p>
             <p className="aboutMiniCard__body">
-              🔮 User profiles (speculation)<br/>
-              🔮 More gated chat rooms<br/>
-              🔮 Customizable MiFOIDs<br/>
-              🔮 Full social graph<br/>
-              🔮 Futarchy experiments<br/>
-              🔮 Companion mini-games
+              Once FOID proves the model, Loreboard becomes available to other communities on Fluent. Each deployment gets: the board, a customizable check-in ritual, the governance framework, and the option to deploy a narrator agent. Reputation signal composable with Fluent Connect and Fluent Prints. The primitive grows. The network effect compounds.
             </p>
           </div>
         </div>
+
+        <GlassPanel style={{ marginTop: '16px' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>THE LINE</p>
+          <p style={{ textAlign: 'center', fontSize: '15px', letterSpacing: '0.3px' }}>
+            Loreboard turns culture into status and status into access.<br/>
+            The community decides what gets built here.
+          </p>
+          <p style={{ marginTop: '12px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}>
+            FOID is the first city. Loreboard is the zoning law.
+          </p>
+        </GlassPanel>
 
         <GlassPanel style={{ marginTop: '16px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>HOW WE GOT HERE</p>
@@ -812,36 +780,13 @@ const sections: Section[] = [
             Solo founder. Self-taught coder. One and a half years from zero to this.
           </p>
           <p style={{ marginTop: '12px' }}>
-            🥇 1st place Infrastructure at Token2049 hackathon<br/>
-            🏆 Won at ETH Global<br/>
-            💰 First grant from Fluent Labs ($6k over 3 months)<br/>
-            🏠 Spent 4 weeks at <a href="https://testnet.fluent.xyz/shiphouse" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Shiphouse</a> in Buenos Aires<br/>
-            📰 Featured in Nasdaq article on Fluent ecosystem<br/>
-            💬 Real users showing up daily
+            1st place Infrastructure at Token2049 hackathon. Won at ETH Global. First grant from Fluent Labs. Spent 4 weeks at{" "}
+            <a href="https://testnet.fluent.xyz/shiphouse" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Shiphouse</a>{" "}
+            in Buenos Aires. Featured in Nasdaq article on Fluent ecosystem.
           </p>
           <p style={{ marginTop: '12px' }}>
             <strong>Started as:</strong> &quot;What if there was a way to save memes on-chain?&quot;<br/>
-            <strong>Became:</strong> Infrastructure for cultural coordination
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            No team. No investors (yet). No fancy marketing budget. Just building something people want, one prayer at a time.
-          </p>
-        </GlassPanel>
-
-        <GlassPanel style={{ marginTop: '16px' }}>
-          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>WHAT&apos;S NEXT</p>
-          <p>
-            <strong>Immediate priorities:</strong>
-          </p>
-          <p style={{ marginTop: '8px' }}>
-            1. Fluent mainnet launch<br/>
-            2. Ship mobile PWA (so it works like a real app)<br/>
-            3. MiFOID devotion campaign + mint<br/>
-            4. Expand agent ecosystem<br/>
-            5. Keep shipping
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            <strong>Long-term vision:</strong> Build the permanent memory layer for internet culture. Not just for humans—for anyone coordinating culture together.
+            <strong>Became:</strong> Infrastructure for cultural coordination.
           </p>
         </GlassPanel>
 
@@ -903,26 +848,27 @@ const sections: Section[] = [
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">FoidTrest (Registry)</p>
-            <p className="aboutMiniCard__body">
-              The permanent on-chain registry. Every proposal that passes the community vote is recorded here. Immutable entries, chronological order, community curated.
-            </p>
-            <a href="https://testnet.fluentscan.xyz/address/0x87Ea24ba4B61BbF35aD1161e11072Dc8Cf0858a6" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
-          </div>
-
-          <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">Vote</p>
-            <p className="aboutMiniCard__body">
-              Propose content for the Loreboard. Community votes via EIP-712 signed ballots with streak-weighted power. 51% weighted approval required. Approved proposals receive a placement voucher on approval.
-            </p>
-            <a href="https://testnet.fluentscan.xyz/address/0xddc2623Bd80B1429426e30Be3D02e52ff6f90C44" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
-          </div>
-
-          <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Loreboard</p>
             <p className="aboutMiniCard__body">
-              Community-governed spatial board. All placements go through community voting. The community decides what gets built here. No pay-to-bypass.
+              The unified governance + placement contract. Propose placements, vote on-chain with streak-weighted power, 51% approval + 3-voter quorum. Approved placements recorded permanently. On-chain overlap prevention. Manifest history for NFT integration. Self-remove + emergency multisig removal.
             </p>
+            <a href="https://testnet.fluentscan.xyz/address/0xF9b72062A7e5933692CcBd247d70a9cdB40E0eC7" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">LoreboardLiveNFT</p>
+            <p className="aboutMiniCard__body">
+              The 1/1 board NFT (ERC-721). Metadata auto-updates when the manifest changes via syncLatest(). On-chain SVG with epoch and manifest root. The ever-evolving artifact of community culture.
+            </p>
+            <a href="https://testnet.fluentscan.xyz/address/0x9E17B30a41546E854778d91d6Ef0C0D982d49012" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+          </div>
+
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">FoidMultisig</p>
+            <p className="aboutMiniCard__body">
+              2-of-3 multisig wallet that owns all board contracts. Controls parameters, security, and emergency removal. The trust layer until community governance is mature enough for a DAO transition.
+            </p>
+            <a href="https://testnet.fluentscan.xyz/address/0x2379955b597d2a7fc9dbD918306aa59c43eBF6Ed" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
@@ -931,49 +877,42 @@ const sections: Section[] = [
               ERC-721 with trait hash uniqueness enforcement, auto-ascending tiered pricing (Genesis/Awakened/Ascended), and mutable tokenURI for agent-rendered metadata updates.
             </p>
           </div>
-
-          <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">StreakVotingPower</p>
-            <p className="aboutMiniCard__body">
-              Aggregates prayer tier multiplier + MiFOID bonus into a single votingPowerOf(voter, epochId) query. Base weight 100, scaled by tier, +50 for MiFOID holders.
-            </p>
-          </div>
         </div>
 
         <div style={{ marginTop: '24px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>LEGACY CONTRACTS</p>
           <p style={{ marginBottom: '16px', color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.85rem' }}>
-            Earlier contracts still live on-chain. The loreboard infrastructure powers the canvas experience.
+            Earlier contracts remain on-chain for historical record. These are superseded by the unified Loreboard contract above.
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.7 }}>
+          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Prayer Mirror</p>
             <p className="aboutMiniCard__body">On-chain prayer streak oracle.</p>
             <a href="https://testnet.fluentscan.xyz/address/0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
           </div>
-          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.7 }}>
+          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Loreboard Voting</p>
             <p className="aboutMiniCard__body">Rolling-window vote system for board placements.</p>
             <a href="https://testnet.fluentscan.xyz/address/0xEbf065A7ca3917BB5e669982e8C6954cC27A7075" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
           </div>
-          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.7 }}>
+          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Loreboard Board</p>
             <p className="aboutMiniCard__body">Tile-aligned placement proposals + treasury escrow.</p>
             <a href="https://testnet.fluentscan.xyz/address/0xE41B2D418C09Ea928E4F657ED2438f5D01472105" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
           </div>
-          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.7 }}>
+          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Loreboard Treasury</p>
             <p className="aboutMiniCard__body">Escrow and settlement for board proposals.</p>
             <a href="https://testnet.fluentscan.xyz/address/0x4A777d8650b3FA2419377F4ffeF0EF8007151536" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
           </div>
-          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.7 }}>
+          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Prayer Registry</p>
             <p className="aboutMiniCard__body">On-chain prayer hash storage.</p>
             <a href="https://testnet.fluentscan.xyz/address/0x6FC7301fad7Ca0294152b23FD4f0467200376d65" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
           </div>
-          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.7 }}>
+          <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Manifest Store</p>
             <p className="aboutMiniCard__body">Epoch manifest anchoring for loreboard state.</p>
             <a href="https://testnet.fluentscan.xyz/address/0xeE469D8F9BB2Ace861AA689dE53c016871ad3D10" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
@@ -1003,86 +942,98 @@ const sections: Section[] = [
             <strong>No extension. No seed phrase. Just a PIN and your passkey.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            FOID Wallet is a browser-native embedded wallet. When you click &quot;FOID Wallet&quot; in the connect modal, a private key is generated locally in your browser using <code className="text-cyan-300">crypto.getRandomValues()</code> via viem. That key gets encrypted with AES-256-GCM&mdash;the encryption key is derived from a PIN you choose (6+ characters) via PBKDF2 with 600,000 iterations. Your PIN is NEVER stored anywhere. You must remember it.
+            Most people who want to interact with FOID on mobile don&apos;t have MetaMask installed. FOID Wallet lets anyone spin up a wallet in 30 seconds &mdash; just a PIN and a passkey (Touch ID / Face ID). No seed phrase, no extension, no friction.
           </p>
           <p style={{ marginTop: '12px' }}>
-            On top of the PIN, your device&apos;s passkey (Face ID, Touch ID, Windows Hello) provides biometric authentication. If your device supports WebAuthn PRF, the PRF output is XOR&apos;d with the PIN-derived key&mdash;meaning an attacker needs BOTH your PIN and your biometric to decrypt. The encrypted wallet is stored in localStorage (safe because it&apos;s encrypted). Session auto-locks after 30 minutes of inactivity.
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            <strong>Transactions are instant and silent.</strong> Because the key lives on your device, FOID signs transactions locally without any popup or confirmation dialog. When you swipe on a meme, your EIP-712 signature is created automatically in the background. This is by design&mdash;it&apos;s what makes the experience feel native instead of clunky.
+            It&apos;s not designed for holding serious value &mdash; use MetaMask or a hardware wallet for that. Think of it as a vibe-coded wallet for putting $10-100 in to interact with FOID, hold a MiFOID, place on the Loreboard. Open source &mdash; inspect it yourself.
           </p>
         </GlassPanel>
 
         <div style={{ marginTop: '24px' }}>
-          <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>HOW YOUR KEY IS PROTECTED</p>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>HOW IT WORKS</p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">1. Create</p>
+            <p className="aboutMiniCard__body">
+              A fresh Ethereum private key is generated client-side via <code className="text-cyan-300">crypto.getRandomValues()</code>. You pick a PIN (6+ chars). A WebAuthn passkey is created (Touch ID / Face ID / Windows Hello). The PIN is run through PBKDF2 (600k iterations, SHA-256) to derive an encryption key. If your device supports WebAuthn PRF, a second key from biometric data via HKDF is XOR&apos;d with the PIN key &mdash; requiring both factors. Your private key is encrypted with AES-256-GCM. Only the encrypted blob is stored in localStorage. The PIN is never stored anywhere.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">2. Unlock</p>
+            <p className="aboutMiniCard__body">
+              Enter PIN, passkey prompt fires (biometric). PIN + PRF output re-derive the same encryption key. AES-GCM decrypts the private key into memory. A 30-minute session begins &mdash; auto-locks on timeout or page close.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">3. Sign</p>
+            <p className="aboutMiniCard__body">
+              Transactions go through the embedded connector (wagmi-compatible). Value capped at 1 ETH per transaction to prevent catastrophic loss. Destination address validated before signing. Session refreshes on each sign operation. No popups &mdash; signing happens locally because your key is already decrypted in memory.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ marginTop: '24px' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>SECURITY LAYERS</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">Key Generation</p>
+            <p className="aboutMiniCard__title">Encryption at Rest</p>
             <p className="aboutMiniCard__body">
-              A standard Ethereum private key is generated using <code className="text-cyan-300">crypto.getRandomValues()</code> via viem&mdash;the same cryptographically secure randomness that banks use. The key is created entirely in your browser. It never touches a server.
+              AES-256-GCM (12-byte IV, 32-byte salt). The encrypted blob in localStorage is useless without the PIN.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">PIN Encryption</p>
+            <p className="aboutMiniCard__title">Key Derivation</p>
             <p className="aboutMiniCard__body">
-              Your PIN (6+ chars) is run through PBKDF2 with 600,000 iterations to derive an encryption key. That key encrypts your private key with AES-256-GCM. The PIN is never stored anywhere&mdash;not in memory, not on disk, not on any server. You must remember it.
+              PBKDF2 with 600k iterations. Brute-forcing a 6-char PIN would take significant compute.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">Passkey + PRF Layer</p>
+            <p className="aboutMiniCard__title">Dual-Factor Encryption</p>
             <p className="aboutMiniCard__body">
-              If your device supports WebAuthn PRF, the PRF output is XOR&apos;d with the PIN-derived key. This means an attacker needs BOTH your PIN and your biometric to decrypt. Two independent factors, not just one.
+              If device supports PRF: encryption key = PIN-derived key XOR biometric-derived key. Need both to decrypt.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">Backup &amp; Recovery</p>
+            <p className="aboutMiniCard__title">Session Isolation</p>
             <p className="aboutMiniCard__body">
-              Download your encrypted backup file, email it to yourself, or copy to clipboard&mdash;3 options. Restore your wallet anytime from backup + your original PIN. Your key, your control. We don&apos;t custody anything.
+              Private key held in a JavaScript closure, not module-scope globals. 30-min auto-lock. Sensitive byte arrays explicitly zeroed after use.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">Transaction Limits</p>
+            <p className="aboutMiniCard__body">
+              Max 1 ETH per tx. Server-side relayer capped at 500 tx/day. If anything is compromised, damage is bounded.
+            </p>
+          </div>
+          <div className="aboutMiniCard aboutGlassCard">
+            <p className="aboutMiniCard__title">Export Protection</p>
+            <p className="aboutMiniCard__body">
+              Private key export requires double-tap confirmation. Clipboard auto-clears after 30 seconds. Backup file encrypted with your PIN.
             </p>
           </div>
         </div>
 
         <GlassPanel style={{ marginTop: '16px' }}>
-          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>EIP-712 TYPED SIGNATURES</p>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>ON-CHAIN VOTING</p>
           <p>
-            When you swipe to vote on a meme, FOID creates an <strong>EIP-712 typed data signature</strong>. This is the same standard used by OpenSea, Uniswap, and every major dApp for secure, human-readable signing.
+            When you swipe to vote on a proposal, FOID sends a direct on-chain transaction to <code className="text-cyan-300">castVote(proposalId, approve)</code>. Your vote is recorded permanently on the Loreboard contract &mdash; weighted by your prayer streak, verifiable by anyone.
           </p>
           <p style={{ marginTop: '12px' }}>
-            The signature includes the proposal ID, your vote (yes/no), and a deadline&mdash;structured and verifiable. With the embedded wallet, this signature is created instantly and silently because your key is already decrypted in memory. With MetaMask or other external wallets, you&apos;ll see a popup showing exactly what you&apos;re signing.
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            These signatures are collected off-chain and verified on-chain when the vote is finalized. The smart contract uses <code className="text-cyan-300">ECDSA.recover()</code> to cryptographically verify every single vote came from a real wallet.
-          </p>
-        </GlassPanel>
-
-        <GlassPanel style={{ marginTop: '16px' }}>
-          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>WHY NO CONFIRMATION POPUP?</p>
-          <p>
-            Traditional wallets show a popup for every action because they don&apos;t trust the dApp. That makes sense when you&apos;re on a random website.
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            FOID Wallet is different&mdash;it&apos;s built into the app. The key never leaves your browser. There&apos;s no middleman. When you swipe, the app signs locally with your key. No network request to sign. No external process. Just math happening on your device.
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            <strong>The tradeoff:</strong> Faster, smoother UX. But you should understand that every swipe is a real cryptographic signature. If you prefer explicit confirmation for each action, connect MetaMask instead&mdash;you&apos;ll get the standard popup flow.
+            Vote tallies are stored on-chain: <code className="text-cyan-300">voteWeightFor</code> and <code className="text-cyan-300">voteWeightAgainst</code> per proposal. After the 72-hour window, anyone can call <code className="text-cyan-300">finalize()</code> &mdash; the contract applies the 51% threshold and 3-voter quorum deterministically. No off-chain collection. No batch signatures. Pure on-chain democracy.
           </p>
         </GlassPanel>
 
         <GlassPanel style={{ marginTop: '16px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>WHAT COSTS MONEY?</p>
-          <p>
-            Most actions on FOID are free (just gas, which is fractions of a cent on Fluent). But some actions have explicit fees:
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            &bull; <strong>Proposing a meme:</strong> 0.001 ETH submission fee (keeps spam out)<br/>
-            &bull; <strong>Voting/swiping:</strong> Free (off-chain EIP-712 signature, no gas)<br/>
-            &bull; <strong>Praying:</strong> Gas only (a few cents)<br/>
+          <p style={{ marginTop: '8px' }}>
+            &bull; <strong>Proposing a placement:</strong> 0.001 ETH submission fee (keeps spam out)<br/>
+            &bull; <strong>Voting/swiping:</strong> On-chain transaction (just gas, fractions of a cent on Fluent)<br/>
+            &bull; <strong>Praying:</strong> Gas only (fractions of a cent)<br/>
             &bull; <strong>MiFOID mint:</strong> 0.01 ETH
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            With the embedded wallet, transactions happen silently. We always show a toast notification when a signed action completes so you know what happened.
           </p>
         </GlassPanel>
       </>
@@ -1120,14 +1071,14 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">What&apos;s the business model?</p>
             <p className="aboutMiniCard__body">
-              <strong>Loreboard placements:</strong> Pricing like Pokemon packs (~$3-20 depending on cell size). Winners pay the fee; losers get 90% refunded. <strong>MiFOID minting:</strong> 3,333 supply — Genesis (0.01 ETH), Awakened (0.015 ETH), Ascended (0.02 ETH). ~43.5 ETH total at sellout. <strong>What I&apos;m NOT doing:</strong> No ads, no data harvesting, no subscription tiers, no VC-backed growth-at-all-costs. Revenue scales with participation, not attention extraction.
+              <strong>Loreboard placements:</strong> 0.001 ETH flat fee to propose. If your proposal passes the community vote, the placement is recorded permanently &mdash; that&apos;s it, one payment. If it fails, the fee is gone (keeps proposals serious). <strong>MiFOID minting:</strong> 3,333 supply &mdash; Genesis (0.01 ETH), Awakened (0.015 ETH), Ascended (0.02 ETH). ~43.5 ETH total at sellout. <strong>What I&apos;m NOT doing:</strong> No ads, no data harvesting, no subscription tiers, no VC-backed growth-at-all-costs. Revenue scales with participation, not attention extraction.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Who&apos;s behind this?</p>
             <p className="aboutMiniCard__body">
-              Solo founder. Zero coding experience a year and a half ago. Learned everything from AI, YouTube, and trial and error. Spent 4 weeks at <a href="https://testnet.fluent.xyz/shiphouse" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Shiphouse</a> in Buenos Aires. <strong>Built solo:</strong> 16 Solidity smart contracts, full-stack Next.js app, Goldsky subgraph, IPFS integration, AI oracle system, agent API, live updating NFT. Won 1st place Infrastructure at Token2049, won at ETH Global, got a grant from Fluent Labs, shipped 11+ epochs with real users. <strong>This isn&apos;t a side project. This is the thing.</strong>
+              Solo founder. Zero coding experience a year and a half ago. Learned everything from AI, YouTube, and trial and error. Spent 4 weeks at <a href="https://testnet.fluent.xyz/shiphouse" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Shiphouse</a> in Buenos Aires. <strong>Built solo:</strong> Full Solidity contract suite, full-stack Next.js app, Goldsky subgraph, IPFS integration, AI oracle system, agent API, live updating NFT. Won 1st place Infrastructure at Token2049, won at ETH Global, got a grant from Fluent Labs. <strong>This isn&apos;t a side project. This is the thing.</strong>
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -1140,7 +1091,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">How much does this cost?</p>
             <p className="aboutMiniCard__body">
-              <strong>Prayers:</strong> just gas (couple cents). <strong>Voting/swiping:</strong> FREE (off-chain signatures, no gas). <strong>Loreboard proposals:</strong> placement fee (~$3-20 depending on cell size; if you win, you pay; if you lose, 90% refunded). <strong>MiFOID mint:</strong> 0.01 ETH. No subscriptions. No premium tiers. No hidden costs.
+              <strong>Prayers:</strong> just gas (fractions of a cent). <strong>Voting/swiping:</strong> just gas (on-chain transaction, fractions of a cent on Fluent). <strong>Loreboard proposals:</strong> 0.001 ETH flat fee. If approved, your placement is permanent. If rejected, fee is non-refundable (keeps proposals serious). <strong>MiFOID mint:</strong> 0.01 ETH. No subscriptions. No premium tiers. No hidden costs.
             </p>
           </div>
 
@@ -1175,7 +1126,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">How does Loreboard voting work?</p>
             <p className="aboutMiniCard__body">
-              <strong>The cycle:</strong> Someone proposes a meme (pays a fee based on cell size) → Voting opens for 72 hours → Community votes yes/no (free, just gas) → After 72 hours, votes are tallied → Winners need 51%+ approval → <strong>Winners pay the fee</strong> (you bought your permanent spot) → <strong>Losers get refunded</strong> minus ~10% anti-spam fee. So basically: Good proposal that wins? You pay, but you earned a permanent spot. Bad proposal that loses? You get 90% back, lose 10% for wasting everyone&apos;s time.
+              <strong>The loop:</strong> Someone proposes a placement on the board (0.001 ETH flat fee, choose your grid position). The contract checks for overlaps on-chain. Voting opens for 72 hours. Community swipes right or left &mdash; votes are weighted by prayer streak. After 72 hours, anyone can call finalize(). Requires 51% weighted approval AND at least 3 unique voters. If it passes, the placement is recorded on-chain permanently and the board NFT updates. If it fails, it&apos;s gone forever. One payment. One vote. One board.
             </p>
           </div>
 
@@ -1241,7 +1192,7 @@ const sections: Section[] = [
           <p>
             🙏 <Link href="/pray" prefetch className="text-cyan-300 underline font-semibold">Pray with Foid Mommy</Link> — Build your first streak<br/>
             🎨 <Link href="/board" prefetch className="text-cyan-300 underline font-semibold">Propose on Loreboard</Link> — Add your meme to the canon<br/>
-            🗳️ <Link href="/vote" prefetch className="text-cyan-300 underline font-semibold">Vote on Proposals</Link> — Shape what gets canonized<br/>
+            🗳️ <Link href="/vote" prefetch className="text-cyan-300 underline font-semibold">Vote on Proposals</Link> — Shape what gets built permanently<br/>
             🖼️ <Link href="/board" prefetch className="text-cyan-300 underline font-semibold">View the Loreboard</Link> — See the permanent collection<br/>
             🎭 <a href="#mifoids" className="text-cyan-300 underline font-semibold">Learn about MiFOID</a> — See how the NFT works<br/>
             ⭐ <a href="https://github.com/traplordmoses/foiddotfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline font-semibold">Star on GitHub</a> — Support open development
@@ -1481,8 +1432,8 @@ export default function AboutPage() {
           box-shadow:
             inset 0 0 0 1px rgba(255, 255, 255, 0.06),
             0 10px 24px rgba(0, 0, 0, 0.24);
-          backdrop-filter: blur(26px);
-          -webkit-backdrop-filter: blur(26px);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
         }
 
         .aboutPane::before,
@@ -1503,8 +1454,8 @@ export default function AboutPage() {
           box-shadow:
             inset 0 0 0 1px rgba(255, 255, 255, 0.06),
             0 10px 24px rgba(0, 0, 0, 0.24);
-          backdrop-filter: blur(26px);
-          -webkit-backdrop-filter: blur(26px);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
         }
 
         .aboutGlassCard > * {
@@ -1601,27 +1552,27 @@ export default function AboutPage() {
         .aboutSidebar {
           width: var(--about-sidebar-w);
           max-width: 100%;
-          padding: 16px;
+          padding: 14px 12px;
         }
 
         .aboutNav {
-          gap: 10px;
+          gap: 8px;
           display: flex;
           flex-direction: column;
         }
 
         .aboutNavButton {
-          min-height: 44px;
-          height: calc(var(--about-nav-h, 44px));
-          padding: 0 18px;
-          border-radius: 12px;
-          font-size: 11px;
-          letter-spacing: 0.08em;
+          min-height: 40px;
+          height: 40px;
+          padding: 0 16px;
+          border-radius: 10px;
+          font-size: 10.5px;
+          letter-spacing: 0.1em;
           text-transform: uppercase;
-          background: rgba(255, 255, 255, 0.1);
-          border-color: rgba(255, 255, 255, 0.2);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(255, 255, 255, 0.15);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
           transform: translateY(0);
           justify-content: center;
           flex: 0 0 auto;
@@ -1643,8 +1594,8 @@ export default function AboutPage() {
         .aboutNavButton:hover {
           background: rgba(255, 255, 255, 0.15);
           border-color: rgba(255, 255, 255, 0.3);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
           transform: translateY(-1px);
           color: rgba(255, 255, 255, 0.92);
         }
@@ -1652,9 +1603,9 @@ export default function AboutPage() {
         .aboutNavButton--active {
           background: rgba(255, 255, 255, 0.2);
           border-color: rgba(255, 255, 255, 0.3);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
         }
 
         .aboutNavButton--active::before {
@@ -1703,6 +1654,7 @@ export default function AboutPage() {
           scrollbar-gutter: stable;
           scrollbar-width: thin;
           scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+          -webkit-overflow-scrolling: touch;
         }
 
         .aboutContentScroll::-webkit-scrollbar {

@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { createPublicClient, http } from "viem";
-import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
+import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { RPC_URL, CHAIN_CONFIG } from "@/lib/contracts/addresses";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
-import { getVoteCounts } from "@/lib/voteStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,9 +11,9 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    const swipeAddress = CONTRACTS.SWIPE as `0x${string}`;
-    if (!swipeAddress) {
-      return NextResponse.json({ proposals: [], error: "Swipe contract not configured" });
+    const contractAddress = CONTRACTS.SWIPE as `0x${string}`;
+    if (!contractAddress) {
+      return NextResponse.json({ proposals: [], error: "Loreboard contract not configured" });
     }
 
     const client = createPublicClient({
@@ -27,10 +26,9 @@ export async function GET() {
       transport: http(RPC_URL),
     });
 
-    // Read proposal count
     const count = await client.readContract({
-      address: swipeAddress,
-      abi: SWIPE_ABI,
+      address: contractAddress,
+      abi: LOREBOARD_ABI,
       functionName: "proposalCount",
     }) as bigint;
 
@@ -39,7 +37,8 @@ export async function GET() {
       return NextResponse.json({ proposals: [], count: 0 });
     }
 
-    // Read proposals in parallel batches of 5
+    // New Loreboard Proposal struct:
+    // id, proposer, ipfsCid, createdAt, votingEndsAt, finalized, approved, placementId, gridX, gridY, gridW, gridH
     type ProposalTuple = {
       id: bigint;
       proposer: string;
@@ -47,9 +46,8 @@ export async function GET() {
       createdAt: bigint;
       votingEndsAt: bigint;
       finalized: boolean;
-      canonized: boolean;
-      trestEntryId: bigint;
-      proposalType: number;
+      approved: boolean;
+      placementId: bigint;
       gridX: number;
       gridY: number;
       gridW: number;
@@ -65,13 +63,12 @@ export async function GET() {
           createdAt: raw[3] as bigint,
           votingEndsAt: raw[4] as bigint,
           finalized: raw[5] as boolean,
-          canonized: raw[6] as boolean,
-          trestEntryId: raw[7] as bigint,
-          proposalType: Number(raw[8] ?? 0),
-          gridX: Number(raw[9] ?? 0),
-          gridY: Number(raw[10] ?? 0),
-          gridW: Number(raw[11] ?? 0),
-          gridH: Number(raw[12] ?? 0),
+          approved: raw[6] as boolean,
+          placementId: raw[7] as bigint,
+          gridX: Number(raw[8] ?? 0),
+          gridY: Number(raw[9] ?? 0),
+          gridW: Number(raw[10] ?? 0),
+          gridH: Number(raw[11] ?? 0),
         };
       }
       return raw as ProposalTuple;
@@ -87,8 +84,8 @@ export async function GET() {
       const batchResults = await Promise.allSettled(
         indices.map((i) =>
           client.readContract({
-            address: swipeAddress,
-            abi: SWIPE_ABI,
+            address: contractAddress,
+            abi: LOREBOARD_ABI,
             functionName: "getProposal",
             args: [BigInt(i)],
           })
@@ -104,7 +101,31 @@ export async function GET() {
         }
 
         const p = parseProposal(result.value);
-        const counts = getVoteCounts(Number(p.id));
+
+        // Read on-chain vote tallies
+        let forCount = 0;
+        let againstCount = 0;
+        try {
+          const [rawFor, rawAgainst] = await Promise.all([
+            client.readContract({
+              address: contractAddress,
+              abi: LOREBOARD_ABI,
+              functionName: "voteWeightFor",
+              args: [BigInt(p.id)],
+            }) as Promise<bigint>,
+            client.readContract({
+              address: contractAddress,
+              abi: LOREBOARD_ABI,
+              functionName: "voteWeightAgainst",
+              args: [BigInt(p.id)],
+            }) as Promise<bigint>,
+          ]);
+          forCount = Number(rawFor);
+          againstCount = Number(rawAgainst);
+        } catch {
+          // Non-fatal: vote count read failed
+        }
+
         proposals.push({
           id: Number(p.id),
           proposer: p.proposer,
@@ -113,11 +134,10 @@ export async function GET() {
           createdAt: Number(p.createdAt),
           votingEndsAt: Number(p.votingEndsAt),
           finalized: p.finalized,
-          canonized: p.canonized,
-          trestEntryId: Number(p.trestEntryId),
-          forCount: counts.forCount,
-          againstCount: counts.againstCount,
-          proposalType: p.proposalType,
+          approved: p.approved,
+          placementId: Number(p.placementId),
+          forCount,
+          againstCount,
           gridX: p.gridX,
           gridY: p.gridY,
           gridW: p.gridW,

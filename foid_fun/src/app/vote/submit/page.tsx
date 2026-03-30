@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getWalletClient } from "@/lib/viem";
 import { CONTRACTS } from "@/lib/contracts/addresses";
-import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
+import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { convertToJpeg } from "@/lib/imageConvert";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import toast from "react-hot-toast";
@@ -96,9 +96,9 @@ export default function SwipeSubmitPage() {
       const hash = await walletClient.writeContract({
         account: walletClient.account ?? address,
         address: contractAddress,
-        abi: SWIPE_ABI,
+        abi: LOREBOARD_ABI,
         functionName: "propose",
-        args: [cid],
+        args: [cid, 0, 0, 64, 64],
         value: BigInt(CONTRACTS.SWIPE_SUBMISSION_FEE ?? "0"),
       });
 

@@ -1,10 +1,9 @@
 // GET /api/swipe/check-overlap?x=N&y=N&w=N&h=N
-// Pre-flight check before proposeLoreboard() — rejects if the rect
-// overlaps any existing voting or canonized placement.
-// Uses multicall for O(1) RPC calls instead of O(n).
+// Pre-flight check before propose() — rejects if the rect
+// overlaps any existing voting or approved placement.
+// The contract also enforces this on-chain, but this saves gas on revert.
 import { NextRequest, NextResponse } from "next/server";
-import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
-import { SWIPE_LOREBOARD_ABI } from "@/lib/contracts/abis/swipeLoreboard";
+import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { overlap, type Rect } from "@/lib/grid";
 import { rpcClient } from "@/lib/rpcClient";
@@ -28,22 +27,21 @@ export async function GET(request: NextRequest) {
   const candidate: Rect = { x, y, w, h };
 
   try {
-    const swipeAddr = CONTRACTS.SWIPE as `0x${string}`;
-    const loreboardAddr = (CONTRACTS.SWIPE_LOREBOARD || "") as `0x${string}`;
+    const contractAddr = CONTRACTS.SWIPE as `0x${string}`;
 
-    // Check voting proposals from Swipe contract (multicall batch)
-    if (swipeAddr) {
-      const count = await rpcClient.readContract({
-        address: swipeAddr,
-        abi: SWIPE_ABI,
+    if (contractAddr) {
+      // Check proposals (voting or approved — skip finalized+rejected)
+      const proposalCount = await rpcClient.readContract({
+        address: contractAddr,
+        abi: LOREBOARD_ABI,
         functionName: "proposalCount",
       }) as bigint;
 
-      const n = Math.min(Number(count), MAX_PROPOSALS_TO_CHECK);
+      const n = Math.min(Number(proposalCount), MAX_PROPOSALS_TO_CHECK);
       if (n > 0) {
         const contracts = Array.from({ length: n }, (_, i) => ({
-          address: swipeAddr,
-          abi: SWIPE_ABI,
+          address: contractAddr,
+          abi: LOREBOARD_ABI,
           functionName: "getProposal" as const,
           args: [BigInt(i)] as const,
         }));
@@ -55,54 +53,58 @@ export async function GET(request: NextRequest) {
           const raw = results[i].result;
           if (!raw) continue;
           const p = Array.isArray(raw) ? raw : Object.values(raw as Record<string, unknown>);
+
+          // Loreboard Proposal struct field order:
+          // [0] id, [1] proposer, [2] ipfsCid, [3] createdAt, [4] votingEndsAt,
+          // [5] finalized, [6] approved, [7] placementId,
+          // [8] gridX, [9] gridY, [10] gridW, [11] gridH
           const finalized = p[5] as boolean;
-          const canonized = p[6] as boolean;
-          const gw = Number(p[11] ?? 0);
-          const gh = Number(p[12] ?? 0);
+          const approved = p[6] as boolean;
+          const gw = Number(p[10] ?? 0);
+          const gh = Number(p[11] ?? 0);
 
           // Skip finalized+rejected proposals (their spot is free)
-          if (finalized && !canonized) continue;
+          if (finalized && !approved) continue;
           if (gw <= 0 || gh <= 0) continue;
 
-          const rect: Rect = { x: Number(p[9] ?? 0), y: Number(p[10] ?? 0), w: gw, h: gh };
+          const rect: Rect = { x: Number(p[8] ?? 0), y: Number(p[9] ?? 0), w: gw, h: gh };
           if (overlap(candidate, rect)) {
             return NextResponse.json({
               ok: false,
-              conflict: { source: "swipe", proposalId: i, ...rect },
+              conflict: { source: "swipe", proposalId: i, gridX: rect.x, gridY: rect.y },
             });
           }
         }
       }
-    }
 
-    // Check canonized placements from SwipeLoreboard (multicall batch)
-    if (loreboardAddr && loreboardAddr.length >= 42) {
-      const count = await rpcClient.readContract({
-        address: loreboardAddr,
-        abi: SWIPE_LOREBOARD_ABI,
+      // Also check finalized placements (in case a proposal is still voting
+      // but a placement already occupies the spot)
+      const placementCount = await rpcClient.readContract({
+        address: contractAddr,
+        abi: LOREBOARD_ABI,
         functionName: "placementCount",
       }) as bigint;
 
-      const n = Math.min(Number(count), MAX_PROPOSALS_TO_CHECK);
-      if (n > 0) {
-        const contracts = Array.from({ length: n }, (_, i) => ({
-          address: loreboardAddr,
-          abi: SWIPE_LOREBOARD_ABI,
+      const pn = Math.min(Number(placementCount), MAX_PROPOSALS_TO_CHECK);
+      if (pn > 0) {
+        const placementContracts = Array.from({ length: pn }, (_, i) => ({
+          address: contractAddr,
+          abi: LOREBOARD_ABI,
           functionName: "getPlacement" as const,
           args: [BigInt(i)] as const,
         }));
 
-        const results = await rpcClient.multicall({ contracts, allowFailure: true });
+        const placementResults = await rpcClient.multicall({ contracts: placementContracts, allowFailure: true });
 
-        for (let i = 0; i < results.length; i++) {
-          if (results[i].status !== "success" || !results[i].result) continue;
-          const p = results[i].result as { x: number; y: number; w: number; h: number; removed: boolean };
-          if (p.removed) continue;
-          const rect: Rect = { x: Number(p.x), y: Number(p.y), w: Number(p.w), h: Number(p.h) };
+        for (let i = 0; i < placementResults.length; i++) {
+          if (placementResults[i].status !== "success" || !placementResults[i].result) continue;
+          const pl = placementResults[i].result as { x: number; y: number; w: number; h: number; removed: boolean };
+          if (pl.removed) continue;
+          const rect: Rect = { x: Number(pl.x), y: Number(pl.y), w: Number(pl.w), h: Number(pl.h) };
           if (overlap(candidate, rect)) {
             return NextResponse.json({
               ok: false,
-              conflict: { source: "loreboard", placementId: i, ...rect },
+              conflict: { source: "loreboard", placementId: i, gridX: rect.x, gridY: rect.y },
             });
           }
         }

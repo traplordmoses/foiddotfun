@@ -64,6 +64,7 @@ contract DeployV1 is Script {
             address(votingPower),
             operator,
             feeRecipient,
+            address(0),         // loreboardVoting — wired later via setLoreboardVoting()
             submissionFee,
             votingWindowSeconds
         );

@@ -21,7 +21,7 @@ services:
     rootDir: foid_fun
     schedule: "0 * * * *"
     buildCommand: "echo 'no build needed'"
-    startCommand: "curl -sf \"${FOID_APP_URL}/api/swipe/finalize?secret=${CRON_SECRET}\" || echo 'finalize skipped'"
+    startCommand: "curl -sf -X POST -H \"x-cron-secret: ${CRON_SECRET}\" \"${FOID_APP_URL}/api/swipe/finalize\" || echo 'finalize skipped'"
     envVars:
       - key: FOID_APP_URL
         sync: false

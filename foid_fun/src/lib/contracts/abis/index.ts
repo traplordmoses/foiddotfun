@@ -11,6 +11,6 @@ export * from "./foidTrestGovernance";
 export * from "./mifoid";
 export * from "./streakVotingPower";
 export * from "./prayerTiers";
-export * from "./swipe";
+export * from "./loreboard";
 export * from "./swipeLoreboard";
 export * from "./engrave";

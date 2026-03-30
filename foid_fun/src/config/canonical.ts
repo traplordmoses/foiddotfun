@@ -27,7 +27,9 @@ export const CANONICAL_ADDRESSES = {
   prayerTiers: getAddress("0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb"),
   streakVotingPower: getAddress("0x7a889b3d38889E45EE48bbCBc3681a889F87C03e"),
   foidTrest: getAddress("0x87Ea24ba4B61BbF35aD1161e11072Dc8Cf0858a6"),
-  swipe: getAddress("0xddc2623Bd80B1429426e30Be3D02e52ff6f90C44"),
+  swipe: getAddress("0xF9b72062A7e5933692CcBd247d70a9cdB40E0eC7"),  // Loreboard (replaces legacy Swipe v2 at 0x60A865...)
+  loreboard: getAddress("0xF9b72062A7e5933692CcBd247d70a9cdB40E0eC7"),
+  loreboardLiveNFT: getAddress("0x9E17B30a41546E854778d91d6Ef0C0D982d49012"),
   swipeLoreboard: getAddress("0x3782BaD8ADa3BD8C98729d4516F600317F3aC362"),
   multisig: getAddress("0x2379955b597d2a7fc9dbD918306aa59c43eBF6Ed"),
 

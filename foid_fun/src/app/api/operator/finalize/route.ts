@@ -25,8 +25,8 @@ import {
   type Placement,
   type Proposal,
 } from "../../_store";
-import { getVotesForFinalize } from "@/lib/voteStore";
-import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
+// Legacy SQLite vote store removed — votes are on-chain now
+import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { loadLatestFinalized } from "@/lib/manifest";
 import { hasOverlap } from "@/lib/grid";
 import { uploadJSON } from "@/lib/ipfs";
@@ -473,30 +473,15 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    const votes = getVotesForFinalize(onChainId);
-
-    if (votes.voters.length === 0) {
-      // No votes cast — proposal fails (threshold requires totalWeight > 0)
-      console.log(`[finalize] proposal ${candidate.id} (chain=${onChainId}): no votes, rejected`);
-      candidate.status = "rejected";
-      rejected.push(candidate);
-      markFinalized(candidate.id);
-      continue;
-    }
+    // On-chain voting — the contract handles zero-vote rejection automatically
 
     try {
-      // Call Swipe.finalize() on-chain with the collected EIP-712 signatures
+      // Call Loreboard.finalize() on-chain (single arg — permissionless, tallies are on-chain)
       const finalizeTxHash = await wallet.writeContract({
         address: swipeAddress,
-        abi: SWIPE_ABI,
+        abi: LOREBOARD_ABI,
         functionName: "finalize",
-        args: [
-          BigInt(onChainId),
-          votes.voters.map((v) => v as `0x${string}`),
-          votes.approvals,
-          votes.deadlines.map((d) => BigInt(d)),
-          votes.signatures.map((s) => s as `0x${string}`),
-        ],
+        args: [BigInt(onChainId)],
       });
 
       const finalizeReceipt = await publicClient.waitForTransactionReceipt({
@@ -521,25 +506,24 @@ export async function POST(req: NextRequest) {
         }
       });
 
-      // Check canonized flag from event data (second field in event data)
+      // Check approved flag from event data (second field in event data)
       // If no event found, check the contract state directly
       let approved = false;
       if (finalizedEvent && finalizedEvent.data) {
-        // Event data: abi.encode(bool canonized, uint256 weightFor, uint256 weightAgainst)
-        // canonized is the first 32 bytes of data (after topic[0] = event sig, topic[1] = indexed proposalId)
-        const canonizedByte = finalizedEvent.data.slice(0, 66); // 0x + 64 hex chars
-        approved = BigInt(canonizedByte) !== 0n;
+        // Event data: abi.encode(bool approved, uint256 weightFor, uint256 weightAgainst)
+        // approved is the first 32 bytes of data (after topic[0] = event sig, topic[1] = indexed proposalId)
+        const approvedByte = finalizedEvent.data.slice(0, 66); // 0x + 64 hex chars
+        approved = BigInt(approvedByte) !== 0n;
       } else {
-        // Fallback: read proposal state from contract
+        // Fallback: read proposal state via getProposal()
         try {
           const proposal = await publicClient.readContract({
             address: swipeAddress,
-            abi: SWIPE_ABI,
-            functionName: "proposals",
+            abi: LOREBOARD_ABI,
+            functionName: "getProposal",
             args: [BigInt(onChainId)],
-          }) as unknown as unknown[];
-          // proposals() returns a tuple; canonized is typically index 8
-          approved = Boolean(proposal[8]);
+          }) as unknown as { approved: boolean };
+          approved = Boolean(proposal.approved);
         } catch {
           approved = false;
         }

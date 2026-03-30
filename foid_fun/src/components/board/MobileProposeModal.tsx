@@ -58,7 +58,7 @@ export function MobileProposeModal({
   onClose: () => void;
   onSuccess: (msg: string) => void;
 }) {
-  const { proposeLoreboard } = useSwipePropose();
+  const { propose: proposeLoreboard } = useSwipePropose();
 
   // Fetch active voting proposals with grid coordinates from the API
   const [pendingVoteRects, setPendingVoteRects] = useState<Rect[]>([]);
@@ -70,8 +70,8 @@ export function MobileProposeModal({
         if (!alive) return;
         const now = Math.floor(Date.now() / 1000);
         const rects = (data.proposals ?? [])
-          .filter((p: { finalized: boolean; canonized: boolean; votingEndsAt: number; gridW?: number }) =>
-            !p.finalized && !p.canonized && p.votingEndsAt > now && (p.gridW ?? 0) > 0
+          .filter((p: { finalized: boolean; approved: boolean; votingEndsAt: number; gridW?: number }) =>
+            !p.finalized && !p.approved && p.votingEndsAt > now && (p.gridW ?? 0) > 0
           )
           .map((p: { gridX: number; gridY: number; gridW: number; gridH: number }) =>
             contractToWorldRect({ x: p.gridX, y: p.gridY, w: p.gridW, h: p.gridH })

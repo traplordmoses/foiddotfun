@@ -5,7 +5,7 @@ import { useAccount, useReadContract } from "wagmi";
 import { useSwitchWallet } from "@/hooks/useSwitchWallet";
 import Link from "next/link";
 import { CONTRACTS } from "@/lib/contracts/addresses";
-import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
+import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { getWalletClient } from "@/lib/viem";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { useSwipeVote } from "@/hooks/useSwipeVote";
@@ -27,22 +27,25 @@ function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+/** localStorage key includes contract address to isolate votes per deployment */
+function votedIdsKey(wallet: string): string {
+  const contract = (CONTRACTS.SWIPE ?? "").toLowerCase().slice(0, 10);
+  return `foid-voted-${contract}-${wallet.toLowerCase()}`;
+}
+
 /** Read voted proposal IDs from localStorage for a given wallet */
 function getVotedIds(wallet?: string): Set<number> {
   if (!wallet) return new Set();
   try {
-    const raw = localStorage.getItem(`foid-swipe-voted-${wallet.toLowerCase()}`);
+    const raw = localStorage.getItem(votedIdsKey(wallet));
     if (!raw) return new Set();
     return new Set(JSON.parse(raw) as number[]);
-  } catch (err) { console.warn('[swipe] getVotedIds parse error:', err); return new Set(); }
+  } catch (err) { console.warn('[vote] getVotedIds parse error:', err); return new Set(); }
 }
 
 /** Save voted proposal IDs to localStorage */
 function saveVotedIds(wallet: string, ids: Set<number>) {
-  localStorage.setItem(
-    `foid-swipe-voted-${wallet.toLowerCase()}`,
-    JSON.stringify([...ids])
-  );
+  localStorage.setItem(votedIdsKey(wallet), JSON.stringify([...ids]));
 }
 
 type SwipeProposal = {
@@ -52,7 +55,7 @@ type SwipeProposal = {
   createdAt: number;
   votingEndsAt: number;
   finalized: boolean;
-  canonized: boolean;
+  approved: boolean;
   trestEntryId: number;
   forCount: number;
   againstCount: number;
@@ -66,21 +69,6 @@ const CARD_VISUALS = [
   { gradient: "linear-gradient(135deg, #2e2e0a 0%, #6e6e1a 50%, #29290c 100%)", symbol: "\u{1F525}" },
   { gradient: "linear-gradient(135deg, #0a0a2e 0%, #1a1a6e 50%, #0c0c29 100%)", symbol: "\u{1F30C}" },
 ];
-
-const EIP712_DOMAIN = {
-  name: "FoidSwipe",
-  version: "1",
-  chainId: CHAIN_ID,
-  verifyingContract: CONTRACTS.SWIPE as `0x${string}`,
-};
-
-const EIP712_TYPES = {
-  SwipeVote: [
-    { name: "proposalId", type: "uint256" },
-    { name: "approve", type: "bool" },
-    { name: "deadline", type: "uint256" },
-  ],
-} as const;
 
 /* ─── CSS keyframes injected once ─── */
 const KEYFRAMES_ID = "swipe-polish-keyframes";
@@ -650,7 +638,7 @@ export default function SwipePage() {
 
   const { data: proposalCount } = useReadContract({
     address: contractAddr,
-    abi: SWIPE_ABI,
+    abi: LOREBOARD_ABI,
     functionName: "proposalCount",
     query: { enabled: hasContract },
   });
@@ -680,41 +668,38 @@ export default function SwipePage() {
   // Real-time updates — refetch on proposal/vote/finalize events
   useBoardEvents(useCallback(() => { refetchProposals(); }, [refetchProposals]));
 
-  // Also check server for user's existing votes + load vote directions
+  // Check on-chain hasVoted for each proposal (replaces old SQLite check)
   useEffect(() => {
-    if (!address || proposals.length === 0) return;
+    if (!address || !contractAddr || proposals.length === 0) return;
     let alive = true;
-    const checkVotes = async () => {
-      const local = getVotedIds(address);
-      const newChoices = new Map<number, boolean>();
-      for (const p of proposals) {
-        try {
-          const res = await fetch(`/api/swipe/vote?proposalId=${p.id}`);
-          if (!res.ok) continue;
-          const data = await res.json();
-          const userVote = (data.votes ?? []).find(
-            (v: { voter: string }) => v.voter.toLowerCase() === address.toLowerCase()
-          );
-          if (userVote) {
-            local.add(p.id);
-            newChoices.set(p.id, userVote.approve === true || userVote.approve === 1);
-          }
-        } catch (err) { console.warn('[swipe] checkVotes non-fatal error for proposal:', p.id, err); }
-      }
-      if (!alive) return;
-      saveVotedIds(address, local);
-      setVotedIds(new Set(local));
-      if (newChoices.size > 0) {
-        setVoteChoices(prev => {
-          const merged = new Map(prev);
-          newChoices.forEach((v, k) => merged.set(k, v));
-          return merged;
+    const checkOnChainVotes = async () => {
+      try {
+        const { createPublicClient, http } = await import("viem");
+        const { LOREBOARD_ABI } = await import("@/lib/contracts/abis/loreboard");
+        const client = createPublicClient({
+          chain: { id: CHAIN_ID, name: "Fluent", nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [process.env.NEXT_PUBLIC_RPC_URL ?? process.env.NEXT_PUBLIC_FLUENT_RPC ?? "https://rpc.testnet.fluent.xyz"] } } },
+          transport: http(),
         });
-      }
+        const local = getVotedIds(address);
+        for (const p of proposals) {
+          try {
+            const voted = await client.readContract({
+              address: contractAddr,
+              abi: LOREBOARD_ABI,
+              functionName: "hasVoted",
+              args: [BigInt(p.id), address as `0x${string}`],
+            }) as boolean;
+            if (voted) local.add(p.id);
+          } catch { /* non-fatal */ }
+        }
+        if (!alive) return;
+        saveVotedIds(address, local);
+        setVotedIds(new Set(local));
+      } catch (err) { console.warn("[vote] on-chain vote check failed:", err); }
     };
-    checkVotes();
+    checkOnChainVotes();
     return () => { alive = false; };
-  }, [address, proposals]);
+  }, [address, contractAddr, proposals]);
 
   const now = Math.floor(Date.now() / 1000);
   const activeProposals = proposals.filter(
@@ -749,57 +734,46 @@ export default function SwipePage() {
     [address, isConnected]
   );
 
-  // Batch sign all pending decisions
+  // Submit all pending decisions as on-chain castVote() transactions
   const handleBatchSign = useCallback(async () => {
     if (!address || !isConnected || pendingDecisions.size === 0) return;
     setBatchSigning(true);
     const entries = Array.from(pendingDecisions.entries());
     setBatchProgress({ signed: 0, total: entries.length });
 
-    const signedVotes: Array<{ proposalId: number; approve: boolean; deadline: number; signature: string }> = [];
+    let submitted = 0;
 
     try {
       const walletClient = await getWalletClient();
+      const { fluentTestnet } = await import("@/lib/viem");
 
       for (const [proposalId, approve] of entries) {
-        const proposal = proposals.find((p) => p.id === proposalId);
-        if (!proposal) continue;
-
         try {
-          const signature = await walletClient.signTypedData({
-            account: walletClient.account ?? address,
-            domain: EIP712_DOMAIN,
-            types: EIP712_TYPES,
-            primaryType: "SwipeVote",
-            message: {
-              proposalId: BigInt(proposalId),
-              approve,
-              deadline: BigInt(proposal.votingEndsAt),
-            },
+          await walletClient.writeContract({
+            account: (walletClient.account ?? address) as `0x${string}`,
+            address: contractAddr,
+            abi: LOREBOARD_ABI,
+            functionName: "castVote",
+            args: [BigInt(proposalId), approve],
+            chain: fluentTestnet,
           });
-          signedVotes.push({ proposalId, approve, deadline: proposal.votingEndsAt, signature });
+          submitted++;
           setBatchProgress((prev) => ({ ...prev, signed: prev.signed + 1 }));
-        } catch {
-          toast.error("Signing cancelled");
-          break;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes("rejected") || msg.includes("denied") || msg.includes("cancelled")) {
+            toast.error("Transaction cancelled");
+            break;
+          }
+          toast.error(`Vote on #${proposalId} failed`);
         }
       }
 
-      if (signedVotes.length > 0) {
-        const res = await fetch("/api/swipe/vote/batch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ votes: signedVotes, voter: address }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          toast.success(`${data.accepted} vote${data.accepted !== 1 ? "s" : ""} submitted!`, { duration: 2500 });
-          saveVotedIds(address, votedIds);
-          setPendingDecisions(new Map());
-        } else {
-          toast.error("Batch submission failed");
-        }
+      if (submitted > 0) {
+        toast.success(`${submitted} vote${submitted !== 1 ? "s" : ""} submitted on-chain!`, { duration: 2500 });
+        saveVotedIds(address, votedIds);
+        setPendingDecisions(new Map());
+        refetchProposals();
       } else {
         // All cancelled — undo decisions
         for (const [pid] of entries) {
@@ -808,11 +782,11 @@ export default function SwipePage() {
         setPendingDecisions(new Map());
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Signing failed");
+      toast.error(err instanceof Error ? err.message : "Transaction failed");
     } finally {
       setBatchSigning(false);
     }
-  }, [address, isConnected, pendingDecisions, proposals, votedIds]);
+  }, [address, isConnected, pendingDecisions, contractAddr, votedIds, refetchProposals]);
 
   const handleSwitchWallet = switchWallet;
   const totalOnChain = proposalCount !== undefined ? Number(proposalCount) : 0;
@@ -960,8 +934,8 @@ export default function SwipePage() {
                           }}
                         >
                           {batchSigning
-                            ? `Signing ${batchProgress.signed}/${batchProgress.total}...`
-                            : `Sign All (${pendingDecisions.size} vote${pendingDecisions.size !== 1 ? "s" : ""})`}
+                            ? `Voting ${batchProgress.signed}/${batchProgress.total}...`
+                            : `Vote All (${pendingDecisions.size} vote${pendingDecisions.size !== 1 ? "s" : ""})`}
                         </button>
                         {batchSigning && (
                           <div className="mt-2 h-1 rounded-full bg-neutral-800 overflow-hidden">
@@ -1030,9 +1004,9 @@ export default function SwipePage() {
                                 </span>
                               )}
                               <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase ${
-                                proposal.canonized ? "bg-green-600/20 text-green-400" : "bg-red-600/20 text-red-400"
+                                proposal.approved ? "bg-green-600/20 text-green-400" : "bg-red-600/20 text-red-400"
                               }`}>
-                                {proposal.canonized ? "Canonized" : "Rejected"}
+                                {proposal.approved ? "Canonized" : "Rejected"}
                               </span>
                             </div>
                           </div>
@@ -1075,7 +1049,7 @@ export default function SwipePage() {
                           </div>
                           <div className="mt-1.5 flex items-center justify-between text-[10px] text-neutral-400">
                             <span className="font-mono">{truncateAddress(proposal.proposer)}</span>
-                            {proposal.canonized && <span className="text-green-400">On Board &rarr;</span>}
+                            {proposal.approved && <span className="text-green-400">On Board &rarr;</span>}
                           </div>
                         </Link>
                       );
@@ -1118,9 +1092,9 @@ export default function SwipePage() {
                                   </span>
                                   {proposal.finalized ? (
                                     <span className={`rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase ${
-                                      proposal.canonized ? "bg-green-600/15 text-green-400/70" : "bg-red-600/15 text-red-400/70"
+                                      proposal.approved ? "bg-green-600/15 text-green-400/70" : "bg-red-600/15 text-red-400/70"
                                     }`}>
-                                      {proposal.canonized ? "Passed" : "Failed"}
+                                      {proposal.approved ? "Passed" : "Failed"}
                                     </span>
                                   ) : isLive ? (
                                     <span className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase bg-purple-600/20 text-purple-300 ring-1 ring-purple-500/25">
@@ -1173,7 +1147,7 @@ export default function SwipePage() {
                               </div>
                               <div className="mt-1.5 flex items-center justify-between text-[10px] text-neutral-400">
                                 <span className="font-mono">{truncateAddress(proposal.proposer)}</span>
-                                {proposal.canonized && <span className="text-green-400">On Board</span>}
+                                {proposal.approved && <span className="text-green-400">On Board</span>}
                               </div>
                             </div>
                           );

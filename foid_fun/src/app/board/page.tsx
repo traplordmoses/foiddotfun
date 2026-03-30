@@ -157,7 +157,7 @@ function BoardPageContent() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
-  const { proposeLoreboard } = useSwipePropose();
+  const { propose: proposeLoreboard } = useSwipePropose();
   const handleSwitchWallet = useCallback(() => {
     disconnect();
     setTimeout(() => openConnectModal?.(), 100);
@@ -654,8 +654,8 @@ function BoardPageContent() {
         const swipeData = swipeRes.status === "fulfilled" ? swipeRes.value : { proposals: [] };
         const now = Math.floor(Date.now() / 1000);
         const activeSwipe = (swipeData.proposals ?? [])
-          .filter((p: { finalized: boolean; canonized: boolean; votingEndsAt: number; gridW?: number }) =>
-            !p.finalized && !p.canonized && p.votingEndsAt > now && (p.gridW ?? 0) > 0
+          .filter((p: { finalized: boolean; approved: boolean; votingEndsAt: number; gridW?: number }) =>
+            !p.finalized && !p.approved && p.votingEndsAt > now && (p.gridW ?? 0) > 0
           )
           .map((p: { id: number; ipfsCid: string; gridX: number; gridY: number; gridW: number; gridH: number; proposer: string; votingEndsAt: number; forCount: number; againstCount: number }) => {
             // Convert from contract space to world space
@@ -946,8 +946,8 @@ function BoardPageContent() {
                 if (swipeRes.status === "fulfilled") {
                   const now = Math.floor(Date.now() / 1000);
                   const active = (swipeRes.value.proposals ?? [])
-                    .filter((p: { finalized: boolean; canonized: boolean; votingEndsAt: number; gridW?: number }) =>
-                      !p.finalized && !p.canonized && p.votingEndsAt > now && (p.gridW ?? 0) > 0
+                    .filter((p: { finalized: boolean; approved: boolean; votingEndsAt: number; gridW?: number }) =>
+                      !p.finalized && !p.approved && p.votingEndsAt > now && (p.gridW ?? 0) > 0
                     )
                     .map((p: { id: number; ipfsCid: string; gridX: number; gridY: number; gridW: number; gridH: number; proposer: string; votingEndsAt: number; forCount: number; againstCount: number }) => {
                       const wr = contractToWorldRect({ x: p.gridX, y: p.gridY, w: p.gridW, h: p.gridH });

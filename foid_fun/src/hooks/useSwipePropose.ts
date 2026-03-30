@@ -3,13 +3,13 @@
 import { useCallback, useState } from "react";
 import { useAccount } from "wagmi";
 import { CONTRACTS } from "@/lib/contracts/addresses";
-import { SWIPE_ABI } from "@/lib/contracts/abis/swipe";
+import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 
 export function useSwipePropose() {
   const { address } = useAccount();
   const [isPending, setIsPending] = useState(false);
 
-  const proposeLoreboard = useCallback(
+  const propose = useCallback(
     async (args: { ipfsCid: string; x: number; y: number; w: number; h: number }) => {
       if (!address) throw new Error("Wallet not connected");
 
@@ -18,8 +18,8 @@ export function useSwipePropose() {
       );
       const walletClient = await getWalletClient();
 
-      const swipeAddr = CONTRACTS.SWIPE as `0x${string}`;
-      if (!swipeAddr) throw new Error("Swipe contract not configured");
+      const contractAddr = CONTRACTS.SWIPE as `0x${string}`;
+      if (!contractAddr) throw new Error("Loreboard contract not configured");
 
       const fee = BigInt(CONTRACTS.SWIPE_SUBMISSION_FEE ?? "1000000000000000");
 
@@ -41,9 +41,9 @@ export function useSwipePropose() {
       try {
         const txHash = await walletClient.writeContract({
           account: (walletClient.account ?? address) as `0x${string}`,
-          address: swipeAddr,
-          abi: SWIPE_ABI,
-          functionName: "proposeLoreboard",
+          address: contractAddr,
+          abi: LOREBOARD_ABI,
+          functionName: "propose",
           args: [args.ipfsCid, args.x, args.y, args.w, args.h],
           value: fee,
           chain: fluentTestnet,
@@ -51,23 +51,21 @@ export function useSwipePropose() {
 
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
-        // ── Link on-chain proposalId to server-side proposal ──
-        // Parse the LoreboardProposed event from receipt logs to get the on-chain proposalId
+        // Parse the ProposalCreated event to get the on-chain proposalId
         try {
           const { parseEventLogs } = await import("viem");
           const events = parseEventLogs({
-            abi: SWIPE_ABI,
+            abi: LOREBOARD_ABI,
             logs: receipt.logs,
-            eventName: "LoreboardProposed",
+            eventName: "ProposalCreated",
           });
           if (events.length > 0) {
             const onChainId = Number((events[0].args as Record<string, unknown>).proposalId);
-            // POST to /api/propose/link to create the mapping
             fetch("/api/propose/link", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                localId: args.ipfsCid, // Use CID as local identifier
+                localId: args.ipfsCid,
                 onChainId,
               }),
             }).catch((err) => console.warn("[useSwipePropose] link failed:", err));
@@ -84,38 +82,5 @@ export function useSwipePropose() {
     [address]
   );
 
-  const claimVoucher = useCallback(
-    async (proposalId: number) => {
-      if (!address) throw new Error("Wallet not connected");
-
-      const { getWalletClient, publicClient, fluentTestnet } = await import(
-        "@/lib/viem"
-      );
-      const walletClient = await getWalletClient();
-
-      const swipeAddr = CONTRACTS.SWIPE as `0x${string}`;
-      const placementFee = BigInt("1000000000000000"); // 0.001 ETH
-
-      setIsPending(true);
-      try {
-        const txHash = await walletClient.writeContract({
-          account: (walletClient.account ?? address) as `0x${string}`,
-          address: swipeAddr,
-          abi: SWIPE_ABI,
-          functionName: "claimVoucher",
-          args: [BigInt(proposalId)],
-          value: placementFee,
-          chain: fluentTestnet,
-        });
-
-        const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
-        return { txHash, receipt };
-      } finally {
-        setIsPending(false);
-      }
-    },
-    [address]
-  );
-
-  return { proposeLoreboard, claimVoucher, isPending };
+  return { propose, isPending };
 }

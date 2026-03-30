@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loreboard Technical Report — FOID Foundation</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: linear-gradient(135deg, #5B8FC4 0%, #8BBAE8 30%, #4AA8B8 60%, #5B8FC4 100%);
+    background-attachment: fixed;
+    color: #1A2E44;
+    line-height: 1.6;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+        radial-gradient(ellipse at 20% 20%, rgba(74, 168, 184, 0.3) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 60%, rgba(139, 186, 232, 0.4) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 90%, rgba(62, 238, 196, 0.1) 0%, transparent 40%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.container { max-width: 900px; margin: 0 auto; padding: 32px 16px; position: relative; z-index: 1; }
+
+.exe-window {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+.exe-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: rgba(13, 27, 42, 0.6);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: #FFD700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+.dots { display: flex; gap: 5px; margin-right: 10px; }
+.exe-dot { width: 10px; height: 10px; border-radius: 50%; }
+.exe-dot-red { background: #FF5F57; }
+.exe-dot-yellow { background: #FEBC2E; }
+.exe-dot-green { background: #28C840; }
+.exe-body { padding: 28px; }
+
+.report-header { text-align: center; padding: 48px 32px 32px; }
+.report-header h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 32px;
+    font-weight: 900;
+    color: #FFFFFF;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    text-shadow: 0 2px 20px rgba(91, 143, 196, 0.5);
+    margin-bottom: 8px;
+}
+.report-subtitle {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+.report-version {
+    margin-top: 16px;
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 20px;
+    background: rgba(62, 238, 196, 0.15);
+    border: 1px solid rgba(62, 238, 196, 0.3);
+    color: #3EEEC4;
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+}
+
+.section { margin-bottom: 32px; }
+.section h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #FFD700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(212, 168, 67, 0.3);
+}
+
+.content-block {
+    background: rgba(13, 27, 42, 0.5);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(62, 238, 196, 0.15);
+    border-radius: 8px;
+    padding: 24px;
+    font-size: 14px;
+    line-height: 1.75;
+    color: #E8F0FF;
+    margin-bottom: 16px;
+}
+.content-block p { margin-bottom: 12px; }
+.content-block p:last-child { margin-bottom: 0; }
+.content-block strong { color: #FFFFFF; font-weight: 600; }
+.content-block em { color: #3EEEC4; font-style: normal; font-weight: 600; }
+
+.callout {
+    background: rgba(62, 238, 196, 0.08);
+    border-left: 3px solid #3EEEC4;
+    border-radius: 0 8px 8px 0;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    color: #E8F0FF;
+    font-size: 15px;
+    line-height: 1.7;
+    font-weight: 500;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+.data-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background: rgba(13, 27, 42, 0.4);
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 10px;
+    font-family: 'Orbitron', monospace;
+}
+.data-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: #FFFFFF;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.data-table tr:hover td { background: rgba(255, 255, 255, 0.03); }
+.data-table code { color: #3EEEC4; font-size: 11px; }
+
+.badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-family: 'Orbitron', monospace;
+}
+.badge-green { background: rgba(76, 175, 80, 0.8); color: white; }
+.badge-cyan { background: rgba(62, 238, 196, 0.8); color: #0D1B2A; }
+
+.separator {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    margin: 36px 0;
+}
+
+.footer {
+    text-align: center;
+    padding: 32px 0;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.35);
+    font-family: 'Orbitron', monospace;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+@media (max-width: 640px) {
+    .container { padding: 12px 8px; }
+    .report-header { padding: 24px 16px; }
+    .report-header h1 { font-size: 20px; letter-spacing: 2px; }
+    .exe-body { padding: 16px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="exe-window">
+        <div class="exe-titlebar">
+            <div class="dots">
+                <div class="exe-dot exe-dot-red"></div>
+                <div class="exe-dot exe-dot-yellow"></div>
+                <div class="exe-dot exe-dot-green"></div>
+            </div>
+            LOREBOARD_TECHNICAL_REPORT.EXE
+        </div>
+        <div class="exe-body">
+
+            <div class="report-header">
+                <h1>Loreboard</h1>
+                <div class="report-subtitle">Technical Report &mdash; Mainnet Architecture</div>
+                <div class="report-version">March 2026 &mdash; FOID Foundation &times; Fluent</div>
+            </div>
+
+            <!-- ===== EXECUTIVE SUMMARY ===== -->
+            <div class="section">
+                <h2>executive summary</h2>
+                <div class="callout">
+                    Loreboard has been rebuilt from the ground up for mainnet. Five overlapping legacy contracts have been replaced by a single unified contract that implements the complete governance loop: propose &rarr; vote &rarr; permanent placement &rarr; NFT update. All voting is now direct on-chain. No more off-chain signature collection. No more SQLite. No more EIP-712 batch signing. One contract. One payment. One board.
+                </div>
+                <div class="content-block">
+                    <p><strong>What changed:</strong> The previous system had Swipe (proposals + EIP-712 voting), FoidTrest (gallery registry), SwipeLoreboard (pay-to-place board), LoreboardBoardV2 (escrow proposals), and LoreBoardTreasury (settlement) &mdash; five contracts that didn't connect cleanly. Voting went through SQLite, signatures were collected off-chain, and approved proposals landed in a dead-end voucher system with no actual board placement.</p>
+                    <p><strong>What it is now:</strong> A single <em>Loreboard.sol</em> contract handles proposals, on-chain voting, permanent placement recording, manifest history, overlap prevention, and removal. Voting is direct on-chain via <em>castVote()</em>. Finalization is permissionless. The 1/1 board NFT auto-updates. Everything is verifiable.</p>
+                </div>
+            </div>
+
+            <!-- ===== THE LOOP ===== -->
+            <div class="section">
+                <h2>the loop</h2>
+                <div class="content-block">
+                    <p><strong>1. Propose</strong> &mdash; <code>propose(cid, x, y, w, h)</code> &mdash; Pay 0.001 ETH. Choose your grid position. The contract validates grid bounds (max 20&times;20 tiles) and checks for overlaps with existing placements on-chain. If the spot is taken, the transaction reverts. Your proposal enters a 72-hour voting window.</p>
+                    <p><strong>2. Vote</strong> &mdash; <code>castVote(proposalId, approve)</code> &mdash; Direct on-chain transaction. Your voting weight is read live from StreakVotingPower (prayer streak tier multiplier &times; base weight + MiFOID bonus). One vote per wallet per proposal. Weight accumulated into on-chain tallies.</p>
+                    <p><strong>3. Finalize</strong> &mdash; <code>finalize(proposalId)</code> &mdash; Permissionless &mdash; anyone can call after the 72-hour window. The contract checks two conditions: (a) at least 3 unique wallets voted (quorum), and (b) weighted YES votes &ge; 51% of total weight (threshold). If both pass, the placement is recorded permanently on-chain. If not, the proposal is rejected.</p>
+                    <p><strong>4. Manifest Update</strong> &mdash; <code>setManifestCID(cid, placementCount)</code> &mdash; Operator uploads a new manifest.json to IPFS reflecting all current placements, then records the CID on-chain. Staleness check ensures the manifest matches the current board state. The LoreboardLiveNFT reads from <code>latest()</code> and auto-updates its metadata.</p>
+                </div>
+            </div>
+
+            <!-- ===== CONTRACT ARCHITECTURE ===== -->
+            <div class="section">
+                <h2>contract architecture</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Contract</th>
+                            <th>Address</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Loreboard</strong></td>
+                            <td><code>0xF9b72062...E0eC7</code></td>
+                            <td>Propose, vote, finalize, placement, manifest, removal</td>
+                            <td><span class="badge badge-green">Verified</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>LoreboardLiveNFT</strong></td>
+                            <td><code>0x9E17B30a...49012</code></td>
+                            <td>1/1 ERC-721 board NFT, auto-updates on manifest change</td>
+                            <td><span class="badge badge-green">Verified</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>StreakVotingPower</strong></td>
+                            <td><code>0x7a889b3d...C03e</code></td>
+                            <td>Prayer streak &rarr; tier multiplier &rarr; vote weight</td>
+                            <td><span class="badge badge-green">Verified</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>PrayerTiers</strong></td>
+                            <td><code>0x36ED105e...D4fb</code></td>
+                            <td>10-tier streak system (1x&ndash;5x multiplier)</td>
+                            <td><span class="badge badge-green">Verified</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>FoidMultisig</strong></td>
+                            <td><code>0x2379955b...6Ed</code></td>
+                            <td>2-of-3 multisig, owns Loreboard, emergency removal</td>
+                            <td><span class="badge badge-green">Verified</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="content-block">
+                    <p>All contracts deployed on <strong>Fluent testnet (chain ID 20994)</strong>. Source code verified on Blockscout. Loreboard ownership transferred to the 2-of-3 FoidMultisig. Operator key handles routine finalization; multisig controls parameters and security.</p>
+                </div>
+            </div>
+
+            <!-- ===== GOVERNANCE ===== -->
+            <div class="section">
+                <h2>governance mechanics</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Parameter</th><th>Value</th><th>Notes</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Approval threshold</td><td><strong>51%</strong> weighted</td><td>Cross-multiply math, no division rounding</td></tr>
+                        <tr><td>Voter quorum</td><td><strong>3 unique wallets</strong></td><td>Prevents self-approval</td></tr>
+                        <tr><td>Voting window</td><td><strong>72 hours</strong></td><td>Configurable by multisig</td></tr>
+                        <tr><td>Submission fee</td><td><strong>0.001 ETH</strong></td><td>Non-refundable, forwarded to fee recipient</td></tr>
+                        <tr><td>Finalization</td><td><strong>Permissionless</strong></td><td>Anyone can call after window &mdash; no operator dependency</td></tr>
+                        <tr><td>Overlap prevention</td><td><strong>On-chain</strong></td><td>Enforced at propose() and finalize() &mdash; O(n) AABB check</td></tr>
+                        <tr><td>Grid</td><td><strong>32px tiles, max 400 cells</strong></td><td>Infinite canvas (negative coordinates supported)</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- ===== VOTING POWER ===== -->
+            <div class="section">
+                <h2>voting power: prayer streak &rarr; influence</h2>
+                <div class="content-block">
+                    <p>Voting weight is computed by StreakVotingPower: <code>weight = (baseWeight &times; tierMultiplier) / 100 + mifoidBonus</code></p>
+                    <p>Base weight: 100. MiFOID bonus: +50 (flat, for NFT holders).</p>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Streak</th><th>Tier</th><th>Multiplier</th><th>Weight</th><th>With MiFOID</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>0 days</td><td>Unranked</td><td>1x</td><td>100</td><td>150</td></tr>
+                        <tr><td>3 days</td><td>Ember</td><td>1.25x</td><td>125</td><td>175</td></tr>
+                        <tr><td>7 days</td><td>Devotee</td><td>1.5x</td><td>150</td><td>200</td></tr>
+                        <tr><td>14 days</td><td>Flame Keeper</td><td>1.75x</td><td>175</td><td>225</td></tr>
+                        <tr><td>21 days</td><td>Covenant</td><td>2x</td><td>200</td><td>250</td></tr>
+                        <tr><td>30 days</td><td>Oracle</td><td>2.5x</td><td>250</td><td>300</td></tr>
+                        <tr><td>45 days</td><td>Ascendant</td><td>3x</td><td>300</td><td>350</td></tr>
+                        <tr><td>60 days</td><td>Archon</td><td>3.5x</td><td>350</td><td>400</td></tr>
+                        <tr><td>75 days</td><td>Eternal Witness</td><td>4x</td><td>400</td><td>450</td></tr>
+                        <tr><td>90 days</td><td>Foid Sovereign</td><td>5x</td><td>500</td><td>550</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- ===== REMOVAL ===== -->
+            <div class="section">
+                <h2>content moderation (v1)</h2>
+                <div class="content-block">
+                    <p><strong>Self-remove:</strong> <code>removePlacement(placementId)</code> &mdash; The original placer can remove their own content at any time. Sets <code>removed = true</code> on the Placement struct. Data preserved on-chain for provenance; UI hides it.</p>
+                    <p><strong>Emergency remove:</strong> <code>emergencyRemove(placementId)</code> &mdash; Only callable by the contract owner (2-of-3 multisig). For harmful or illegal content that can't wait. Transparent &mdash; emits <code>PlacementEmergencyRemoved</code> event with the caller's address.</p>
+                    <p><strong>v2 (planned):</strong> Community-driven flagging + streak-weighted removal voting. Deferred until the community is large enough to resist sybil attacks. The multisig can transition ownership to a DAO contract when ready.</p>
+                </div>
+            </div>
+
+            <!-- ===== NFT INTEGRATION ===== -->
+            <div class="section">
+                <h2>nft integration: the ever-evolving board</h2>
+                <div class="content-block">
+                    <p>The Loreboard contract implements <code>ILoreboardManifestStore</code> and <code>ILoreboardTreasury</code> interfaces, allowing the existing LoreboardLiveNFT (1/1 ERC-721, tokenId 0) to read manifest state directly.</p>
+                    <p><strong>latest()</strong> &rarr; returns (manifestVersion, keccak256(CID), CID) &mdash; the NFT calls this in <code>syncLatest()</code>.</p>
+                    <p><strong>manifestRootOf(version)</strong> &rarr; returns the root hash for any historical version. Full manifest history stored on-chain for provenance.</p>
+                    <p><strong>Staleness check:</strong> <code>setManifestCID(cid, claimedPlacementCount)</code> requires the operator to claim the current placement count. If a new placement was finalized between manifest generation and submission, the call reverts. Prevents stale manifests.</p>
+                    <p>The NFT emits ERC-4906 <code>MetadataUpdate(0)</code> on each sync, triggering marketplace refresh. On-chain SVG shows epoch and manifest root. <code>tokenURI()</code> returns base64-encoded JSON with the manifest CID in properties.</p>
+                </div>
+            </div>
+
+            <div class="separator"></div>
+
+            <!-- ===== FRONTEND MIGRATION ===== -->
+            <div class="section">
+                <h2>frontend migration: what changed</h2>
+                <div class="content-block">
+                    <p><strong>Old system:</strong> EIP-712 typed data signatures collected off-chain &rarr; stored in SQLite &rarr; batch-submitted to contract with signature arrays &rarr; contract verified ECDSA.recover() for each vote. Votes lived in SQLite. The frontend polled a REST API for tallies. Finalization required the operator to pass voter addresses, approvals, deadlines, and signatures.</p>
+                    <p><strong>New system:</strong> Direct on-chain <code>castVote(proposalId, approve)</code>. Each vote is a single transaction. Tallies stored on-chain in <code>voteWeightFor</code> / <code>voteWeightAgainst</code> mappings. The frontend reads tallies directly from the contract. Finalization is permissionless with a single argument.</p>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Component</th><th>Before</th><th>After</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Vote mechanism</td><td>EIP-712 signature &rarr; SQLite &rarr; batch finalize</td><td>Direct on-chain castVote()</td></tr>
+                        <tr><td>Vote storage</td><td>SQLite database (ephemeral on Render)</td><td>On-chain mappings (permanent)</td></tr>
+                        <tr><td>Finalization</td><td>Operator-only, 5 args (voters, approvals, deadlines, sigs)</td><td>Permissionless, 1 arg (proposalId)</td></tr>
+                        <tr><td>Threshold</td><td>60%</td><td>51% + 3-voter quorum</td></tr>
+                        <tr><td>Placement</td><td>Voucher &rarr; claim &rarr; nothing (dead end)</td><td>Direct on-chain recording at finalize</td></tr>
+                        <tr><td>Overlap check</td><td>Frontend-only (bypassable)</td><td>On-chain at propose() + finalize()</td></tr>
+                        <tr><td>Manifest</td><td>Epoch-based, separate ManifestStore contract</td><td>Built into Loreboard, with history + staleness check</td></tr>
+                        <tr><td>NFT update</td><td>Disconnected from voting contract</td><td>Loreboard implements NFT interfaces directly</td></tr>
+                        <tr><td>Contract count</td><td>5+ overlapping contracts</td><td>1 unified Loreboard contract</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- ===== SECURITY ===== -->
+            <div class="section">
+                <h2>security model</h2>
+                <div class="content-block">
+                    <p><strong>Reentrancy:</strong> Only external call is <code>_forwardFee()</code> in <code>propose()</code>, after all state mutations (CEI pattern). <code>finalize()</code> and <code>castVote()</code> have zero external calls.</p>
+                    <p><strong>Access control:</strong> Owner (multisig) controls parameters. Operator handles manifest updates. Finalization is permissionless. Emergency removal is owner-only.</p>
+                    <p><strong>Overflow:</strong> Solidity 0.8.24 checked math. <code>unchecked</code> blocks only on counter increments (physically impossible to overflow).</p>
+                    <p><strong>Vote integrity:</strong> One vote per address per proposal via <code>hasVoted</code> mapping. Weight requires <code>&gt; 0</code>. Votes only during window. Cannot vote on finalized proposals.</p>
+                    <p><strong>Overlap prevention:</strong> AABB collision check using int64 arithmetic for safe int32+uint32 addition. Checked at both propose (reject impossible proposals) and finalize (handle race conditions).</p>
+                    <p><strong>Multisig:</strong> 2-of-3 FoidMultisig at <code>0x2379...6Ed</code>. Owns Loreboard. Controls setOperator, setFeeRecipient, setApprovalThreshold, setMinVoterQuorum, setOwner, emergencyRemove.</p>
+                </div>
+            </div>
+
+            <!-- ===== TEST COVERAGE ===== -->
+            <div class="section">
+                <h2>test coverage</h2>
+                <div class="content-block">
+                    <p><strong>84 Solidity tests. 0 failures.</strong></p>
+                    <p>52 unit tests (Loreboard.t.sol): constructor, propose, vote, finalize, quorum, threshold edge cases, overlap prevention, self-remove, emergency remove, manifest history, staleness check, admin functions, multiple proposals.</p>
+                    <p>9 E2E integration tests (LoreboardE2E.t.sol): Full stack with MockPrayerMirror &rarr; PrayerTiers &rarr; StreakVotingPower &rarr; Loreboard. Tests weighted voting, quorum blocking, removal paths, manifest NFT integration, overlap prevention.</p>
+                    <p>4 LoreboardLiveNFT tests. 15 SwipeLoreboard tests (legacy, still compile). 4 LoreboardVotingV2 tests (legacy).</p>
+                    <p><strong>0 TypeScript errors</strong> across the entire frontend (<code>tsc --noEmit</code> clean).</p>
+                </div>
+            </div>
+
+            <div class="separator"></div>
+
+            <!-- ===== WHAT'S NEXT ===== -->
+            <div class="section">
+                <h2>mainnet readiness</h2>
+                <div class="content-block">
+                    <p><strong>Ready now:</strong> The core loop works end-to-end. Propose, vote, finalize, placement, manifest update, NFT sync. All on-chain. All verified. All secured by multisig.</p>
+                    <p><strong>For mainnet deploy:</strong> Run DeployLoreboard.s.sol on mainnet with the same StreakVotingPower + FoidMultisig addresses. Update canonical.ts and .env files. The frontend is already wired &mdash; just change the contract address.</p>
+                    <p><strong>Post-launch:</strong> Community removal governance (v2). MiFOID integration into voting power. Agent-driven manifest updates. DAO transition from multisig.</p>
+                </div>
+            </div>
+
+            <!-- ===== THE LINE ===== -->
+            <div class="section">
+                <h2>the line</h2>
+                <div class="callout" style="text-align: center; font-size: 17px; letter-spacing: 0.5px;">
+                    Loreboard turns culture into status and status into access.<br>
+                    The community decides what gets built here.<br><br>
+                    <span style="color: rgba(255,255,255,0.5); font-size: 13px;">FOID is the first city. Loreboard is the zoning law.</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="footer">
+        generated 2026-03-30 &mdash; foid foundation &times; fluent
+    </div>
+</div>
+</body>
+</html>

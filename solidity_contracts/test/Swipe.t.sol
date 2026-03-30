@@ -24,37 +24,19 @@ contract SwipeTest is Test {
     FoidTrest internal gallery;
     MockVotingPower internal vp;
 
-    // Use proper Foundry‑generated wallets so we can sign EIP-712 messages.
-    uint256 internal operatorPk = 0xA11CE;
-    address internal operator = vm.addr(operatorPk);
-
-    uint256 internal voter1Pk = 0xB0B1;
-    address internal voter1 = vm.addr(voter1Pk);
-
-    uint256 internal voter2Pk = 0xB0B2;
-    address internal voter2 = vm.addr(voter2Pk);
-
-    uint256 internal voter3Pk = 0xB0B3;
-    address internal voter3 = vm.addr(voter3Pk);
-
-    uint256 internal submitterPk = 0xCAFE;
-    address internal submitter = vm.addr(submitterPk);
+    address internal operator  = vm.addr(0xA11CE);
+    address internal voter1    = vm.addr(0xB0B1);
+    address internal voter2    = vm.addr(0xB0B2);
+    address internal voter3    = vm.addr(0xB0B3);
+    address internal submitter = vm.addr(0xCAFE);
 
     address internal feeRecipient = address(0xFEE);
 
-    uint256 constant SUB_FEE = 0.001 ether;
-    uint32 constant VOTE_WINDOW = 259200; // 72 hours
-
-    // ── EIP-712 helpers ──
-
-    bytes32 constant VOTE_TYPEHASH =
-        keccak256("SwipeVote(uint256 proposalId,bool approve,uint256 deadline)");
-
-    // Must match Swipe constructor: EIP712("FoidSwipe", "1")
-    bytes32 internal DOMAIN_SEPARATOR;
+    uint256 constant SUB_FEE    = 0.001 ether;
+    uint32  constant VOTE_WINDOW = 259200; // 72 hours
 
     function setUp() public {
-        vp = new MockVotingPower();
+        vp      = new MockVotingPower();
         gallery = new FoidTrest();
 
         swipe = new Swipe(
@@ -62,35 +44,23 @@ contract SwipeTest is Test {
             address(vp),
             operator,
             feeRecipient,
+            address(0),  // loreboardVoting — not wired in tests
             SUB_FEE,
             VOTE_WINDOW
         );
 
-        // Authorize Swipe as an entry point on the gallery
         gallery.authorizeEntryPoint(address(swipe));
 
-        // Give everyone ETH
-        vm.deal(submitter, 100 ether);
-        vm.deal(voter1, 100 ether);
-        vm.deal(voter2, 100 ether);
-        vm.deal(voter3, 100 ether);
-        vm.deal(operator, 100 ether);
+        vm.deal(submitter,  100 ether);
+        vm.deal(voter1,     100 ether);
+        vm.deal(voter2,     100 ether);
+        vm.deal(voter3,     100 ether);
+        vm.deal(operator,   100 ether);
 
         // Default voting power: 1 each
         vp.setPower(voter1, 1);
         vp.setPower(voter2, 1);
         vp.setPower(voter3, 1);
-
-        // Compute domain separator (matches OpenZeppelin EIP712)
-        DOMAIN_SEPARATOR = keccak256(
-            abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256("FoidSwipe"),
-                keccak256("1"),
-                block.chainid,
-                address(swipe)
-            )
-        );
     }
 
     // ══════════════════════════════════════════════
@@ -98,22 +68,15 @@ contract SwipeTest is Test {
     // ══════════════════════════════════════════════
 
     function testGalleryProposalStillWorks() public {
-        // Give voters enough weight to hit 60%: 3 approve (weight 1 each), 0 against → 100%
         uint256 pid = _proposeGallery("QmGalleryTest");
 
-        // Fast-forward past voting window
+        vm.prank(voter1); swipe.castVote(pid, true);
+        vm.prank(voter2); swipe.castVote(pid, true);
+        vm.prank(voter3); swipe.castVote(pid, true);
+
         vm.warp(block.timestamp + VOTE_WINDOW + 1);
-
-        // Build 3 approving votes
-        (
-            address[] memory voters,
-            bool[] memory approvals,
-            uint256[] memory deadlines,
-            bytes[] memory sigs
-        ) = _buildVotes(pid, _threeVoters(), _bools(true, true, true));
-
         vm.prank(operator);
-        swipe.finalize(pid, voters, approvals, deadlines, sigs);
+        swipe.finalize(pid);
 
         Swipe.Proposal memory p = swipe.getProposal(pid);
         assertTrue(p.finalized);
@@ -134,17 +97,13 @@ contract SwipeTest is Test {
     function testLoreboardProposalApproved() public {
         uint256 pid = _proposeLoreboard("QmLoreTest", 64, 128, 256, 256);
 
+        vm.prank(voter1); swipe.castVote(pid, true);
+        vm.prank(voter2); swipe.castVote(pid, true);
+        vm.prank(voter3); swipe.castVote(pid, true);
+
         vm.warp(block.timestamp + VOTE_WINDOW + 1);
-
-        (
-            address[] memory voters,
-            bool[] memory approvals,
-            uint256[] memory deadlines,
-            bytes[] memory sigs
-        ) = _buildVotes(pid, _threeVoters(), _bools(true, true, true));
-
         vm.prank(operator);
-        swipe.finalize(pid, voters, approvals, deadlines, sigs);
+        swipe.finalize(pid);
 
         Swipe.Proposal memory p = swipe.getProposal(pid);
         assertTrue(p.finalized);
@@ -169,38 +128,24 @@ contract SwipeTest is Test {
 
     function testThresholdExact60Percent() public {
         // 3 for (weight 1 each), 2 against (weight 1 each) = 60% → passes
-        uint256 voter4Pk = 0xB0B4;
-        address voter4 = vm.addr(voter4Pk);
-        uint256 voter5Pk = 0xB0B5;
-        address voter5 = vm.addr(voter5Pk);
+        address voter4 = vm.addr(0xB0B4);
+        address voter5 = vm.addr(0xB0B5);
         vp.setPower(voter4, 1);
         vp.setPower(voter5, 1);
+        vm.deal(voter4, 1 ether);
+        vm.deal(voter5, 1 ether);
 
         uint256 pid = _proposeGallery("QmThreshold60");
+
+        vm.prank(voter1); swipe.castVote(pid, true);
+        vm.prank(voter2); swipe.castVote(pid, true);
+        vm.prank(voter3); swipe.castVote(pid, true);
+        vm.prank(voter4); swipe.castVote(pid, false);
+        vm.prank(voter5); swipe.castVote(pid, false);
+
         vm.warp(block.timestamp + VOTE_WINDOW + 1);
-
-        address[] memory voters = new address[](5);
-        voters[0] = voter1; voters[1] = voter2; voters[2] = voter3;
-        voters[3] = voter4; voters[4] = voter5;
-
-        bool[] memory approvals = new bool[](5);
-        approvals[0] = true; approvals[1] = true; approvals[2] = true;
-        approvals[3] = false; approvals[4] = false;
-
-        uint256[] memory deadlines = new uint256[](5);
-        bytes[] memory sigs = new bytes[](5);
-        uint256 deadline = block.timestamp + 1000;
-        uint256[] memory pks = new uint256[](5);
-        pks[0] = voter1Pk; pks[1] = voter2Pk; pks[2] = voter3Pk;
-        pks[3] = voter4Pk; pks[4] = voter5Pk;
-
-        for (uint256 i = 0; i < 5; i++) {
-            deadlines[i] = deadline;
-            sigs[i] = _signVote(pks[i], pid, approvals[i], deadline);
-        }
-
         vm.prank(operator);
-        swipe.finalize(pid, voters, approvals, deadlines, sigs);
+        swipe.finalize(pid);
 
         Swipe.Proposal memory p = swipe.getProposal(pid);
         assertTrue(p.canonized, "exactly 60% should pass");
@@ -211,29 +156,17 @@ contract SwipeTest is Test {
     // ══════════════════════════════════════════════
 
     function testThresholdJustBelow60() public {
-        // Use weighted votes: voter1=59, voter2=41 against → 59/100 < 60%
-        vp.setPower(voter1, 59);
-        vp.setPower(voter2, 41);
+        vp.setPower(voter1, 59); // for
+        vp.setPower(voter2, 41); // against
 
         uint256 pid = _proposeGallery("QmBelow60");
+
+        vm.prank(voter1); swipe.castVote(pid, true);  // 59 weight
+        vm.prank(voter2); swipe.castVote(pid, false); // 41 weight
+
         vm.warp(block.timestamp + VOTE_WINDOW + 1);
-
-        address[] memory voters = new address[](2);
-        voters[0] = voter1; voters[1] = voter2;
-
-        bool[] memory approvals = new bool[](2);
-        approvals[0] = true; approvals[1] = false;
-
-        uint256 deadline = block.timestamp + 1000;
-        uint256[] memory deadlines = new uint256[](2);
-        deadlines[0] = deadline; deadlines[1] = deadline;
-
-        bytes[] memory sigs = new bytes[](2);
-        sigs[0] = _signVote(voter1Pk, pid, true, deadline);
-        sigs[1] = _signVote(voter2Pk, pid, false, deadline);
-
         vm.prank(operator);
-        swipe.finalize(pid, voters, approvals, deadlines, sigs);
+        swipe.finalize(pid);
 
         Swipe.Proposal memory p = swipe.getProposal(pid);
         assertTrue(p.finalized);
@@ -347,18 +280,13 @@ contract SwipeTest is Test {
     function testRejectionFinality() public {
         uint256 pid = _proposeLoreboard("QmRejected", 0, 0, 32, 32);
 
+        vm.prank(voter1); swipe.castVote(pid, false);
+        vm.prank(voter2); swipe.castVote(pid, false);
+        vm.prank(voter3); swipe.castVote(pid, false);
+
         vm.warp(block.timestamp + VOTE_WINDOW + 1);
-
-        // All 3 voters reject
-        (
-            address[] memory voters,
-            bool[] memory approvals,
-            uint256[] memory deadlines,
-            bytes[] memory sigs
-        ) = _buildVotes(pid, _threeVoters(), _bools(false, false, false));
-
         vm.prank(operator);
-        swipe.finalize(pid, voters, approvals, deadlines, sigs);
+        swipe.finalize(pid);
 
         Swipe.Proposal memory p = swipe.getProposal(pid);
         assertTrue(p.finalized);
@@ -388,80 +316,17 @@ contract SwipeTest is Test {
         return swipe.proposeLoreboard{value: SUB_FEE}(cid, x, y, w, h);
     }
 
-    /// @dev Helper: propose loreboard → finalize with all-approve → return proposalId
+    /// @dev Propose loreboard → 3 voters approve → warp → finalize
     function _approveLoreboardProposal(
         string memory cid,
         int32 x, int32 y, uint32 w, uint32 h
     ) internal returns (uint256 pid) {
         pid = _proposeLoreboard(cid, x, y, w, h);
+        vm.prank(voter1); swipe.castVote(pid, true);
+        vm.prank(voter2); swipe.castVote(pid, true);
+        vm.prank(voter3); swipe.castVote(pid, true);
         vm.warp(block.timestamp + VOTE_WINDOW + 1);
-
-        (
-            address[] memory voters,
-            bool[] memory approvals,
-            uint256[] memory deadlines,
-            bytes[] memory sigs
-        ) = _buildVotes(pid, _threeVoters(), _bools(true, true, true));
-
         vm.prank(operator);
-        swipe.finalize(pid, voters, approvals, deadlines, sigs);
-    }
-
-    function _threeVoters() internal view returns (uint256[] memory pks) {
-        pks = new uint256[](3);
-        pks[0] = voter1Pk;
-        pks[1] = voter2Pk;
-        pks[2] = voter3Pk;
-    }
-
-    function _bools(bool a, bool b, bool c) internal pure returns (bool[] memory arr) {
-        arr = new bool[](3);
-        arr[0] = a; arr[1] = b; arr[2] = c;
-    }
-
-    function _buildVotes(
-        uint256 proposalId,
-        uint256[] memory voterPks,
-        bool[] memory approvals
-    )
-        internal
-        view
-        returns (
-            address[] memory voters,
-            bool[] memory approvalsCopy,
-            uint256[] memory deadlines,
-            bytes[] memory sigs
-        )
-    {
-        uint256 len = voterPks.length;
-        voters = new address[](len);
-        approvalsCopy = new bool[](len);
-        deadlines = new uint256[](len);
-        sigs = new bytes[](len);
-
-        uint256 deadline = block.timestamp + 1000;
-
-        for (uint256 i = 0; i < len; i++) {
-            voters[i] = vm.addr(voterPks[i]);
-            approvalsCopy[i] = approvals[i];
-            deadlines[i] = deadline;
-            sigs[i] = _signVote(voterPks[i], proposalId, approvals[i], deadline);
-        }
-    }
-
-    function _signVote(
-        uint256 pk,
-        uint256 proposalId,
-        bool approve,
-        uint256 deadline
-    ) internal view returns (bytes memory) {
-        bytes32 structHash = keccak256(
-            abi.encode(VOTE_TYPEHASH, proposalId, approve, deadline)
-        );
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
-        );
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
-        return abi.encodePacked(r, s, v);
+        swipe.finalize(pid);
     }
 }
