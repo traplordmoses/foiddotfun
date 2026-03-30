@@ -12,7 +12,7 @@ interface PaintEditorProps {
   onCancel: () => void;
 }
 
-type Tool = "select" | "draw" | "eraser" | "stamp" | "text";
+type Tool = "select" | "draw" | "eraser" | "stamp" | "text" | "eyedropper";
 
 interface ImageOverlay {
   id: string;
@@ -64,6 +64,20 @@ function generateId(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
+/** Haptic feedback — fires on supported devices, silently ignored elsewhere */
+function haptic(style: "light" | "medium" | "heavy" = "light") {
+  try {
+    const ms = style === "light" ? 10 : style === "medium" ? 25 : 50;
+    navigator?.vibrate?.(ms);
+  } catch { /* not supported */ }
+}
+
+/** Detect if running on a touch-primary device */
+function isTouchDevice(): boolean {
+  if (typeof window === "undefined") return false;
+  return "ontouchstart" in window || navigator.maxTouchPoints > 0;
+}
+
 // ============================================================================
 // PAINT EDITOR COMPONENT
 // ============================================================================
@@ -79,6 +93,14 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     });
     observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
     return () => observer.disconnect();
+  }, []);
+
+  // Responsive: detect narrow screens for compact toolbar
+  useEffect(() => {
+    const check = () => setIsCompact(window.innerWidth < 420);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
 
   // Canvas refs
@@ -109,6 +131,13 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   const [clearPending, setClearPending] = useState(false);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const colorInputRef = useRef<HTMLInputElement>(null);
+
+  // Mobile enhancements
+  const [drawLock, setDrawLock] = useState(false); // prevents accidental zoom while drawing
+  const [touchIndicator, setTouchIndicator] = useState<{ x: number; y: number; visible: boolean }>({ x: 0, y: 0, visible: false });
+  const touchIndicatorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isCompact, setIsCompact] = useState(false); // icon-only toolbar on narrow screens
+  const touchCountRef = useRef(0); // track active touches to guard two-finger zoom
 
   // Zoom/pan state for canvas
   const [viewScale, setViewScale] = useState(1);
@@ -256,6 +285,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   const handleClearClick = useCallback(() => {
     if (!clearPending) {
       setClearPending(true);
+      haptic("medium");
       if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
       clearTimerRef.current = setTimeout(() => setClearPending(false), 2000);
       return;
@@ -263,6 +293,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     // Confirmed — clear everything
     if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
     setClearPending(false);
+    haptic("heavy");
     const drawCanvas = drawCanvasRef.current;
     if (!drawCanvas) return;
     const ctx = drawCanvas.getContext("2d");
@@ -417,15 +448,51 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     [tool, color, brushSize, brushOpacity]
   );
 
+  // Eyedropper: pick color from canvas at the given position
+  const eyedrop = useCallback(
+    (clientX: number, clientY: number) => {
+      const bgCanvas = bgCanvasRef.current;
+      const drawCanvas = drawCanvasRef.current;
+      if (!bgCanvas || !drawCanvas) return;
+      const pos = getCanvasPos(clientX, clientY);
+      // Sample from draw canvas first (user strokes), fall back to bg canvas
+      const drawCtx = drawCanvas.getContext("2d");
+      const bgCtx = bgCanvas.getContext("2d");
+      let pixel: Uint8ClampedArray | null = null;
+      if (drawCtx) {
+        const d = drawCtx.getImageData(Math.round(pos.x), Math.round(pos.y), 1, 1).data;
+        if (d[3] > 10) pixel = d; // only use if not transparent
+      }
+      if (!pixel && bgCtx) {
+        pixel = bgCtx.getImageData(Math.round(pos.x), Math.round(pos.y), 1, 1).data;
+      }
+      if (pixel) {
+        const hex = `#${pixel[0].toString(16).padStart(2, "0")}${pixel[1].toString(16).padStart(2, "0")}${pixel[2].toString(16).padStart(2, "0")}`;
+        setColor(hex);
+        haptic("medium");
+        setTool("draw");
+      }
+    },
+    [getCanvasPos]
+  );
+
   const startDraw = useCallback(
     (clientX: number, clientY: number) => {
+      if (tool === "eyedropper") {
+        eyedrop(clientX, clientY);
+        return;
+      }
       if (tool !== "draw" && tool !== "eraser") return;
       const pos = getCanvasPos(clientX, clientY);
       lastPointRef.current = pos;
       setIsDrawing(true);
       drawLine(pos, pos);
+      // Show touch indicator on mobile
+      if (isTouchDevice()) {
+        setTouchIndicator({ x: clientX, y: clientY, visible: true });
+      }
     },
-    [tool, getCanvasPos, drawLine]
+    [tool, getCanvasPos, drawLine, eyedrop]
   );
 
   const moveDraw = useCallback(
@@ -436,6 +503,10 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         drawLine(lastPointRef.current, pos);
       }
       lastPointRef.current = pos;
+      // Update touch indicator position
+      if (isTouchDevice()) {
+        setTouchIndicator({ x: clientX, y: clientY, visible: true });
+      }
     },
     [isDrawing, getCanvasPos, drawLine]
   );
@@ -444,7 +515,11 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     if (!isDrawing) return;
     setIsDrawing(false);
     lastPointRef.current = null;
+    touchCountRef.current = 0;
     pushHistory();
+    // Fade out touch indicator
+    if (touchIndicatorTimer.current) clearTimeout(touchIndicatorTimer.current);
+    touchIndicatorTimer.current = setTimeout(() => setTouchIndicator(prev => ({ ...prev, visible: false })), 150);
   }, [isDrawing, pushHistory]);
 
   // ============================================================================
@@ -596,7 +671,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       e.preventDefault();
       if (tool === "stamp") {
         handleCanvasClick(e.clientX, e.clientY);
-      } else if (tool === "draw" || tool === "eraser") {
+      } else if (tool === "draw" || tool === "eraser" || tool === "eyedropper") {
         startDraw(e.clientX, e.clientY);
       }
     },
@@ -617,20 +692,37 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   const onCanvasTouchStart = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
       e.preventDefault();
+      touchCountRef.current = e.touches.length;
+      // Two-finger guard: if a second finger appears while drawing, cancel the stroke
+      if (e.touches.length >= 2 && isDrawing) {
+        // Cancel current stroke — undo the in-progress drawing
+        setIsDrawing(false);
+        lastPointRef.current = null;
+        setTouchIndicator(prev => ({ ...prev, visible: false }));
+        // Don't push history — discard this partial stroke
+        const drawCanvas = drawCanvasRef.current;
+        if (drawCanvas && history[historyIdx]) {
+          const ctx = drawCanvas.getContext("2d");
+          if (ctx) ctx.putImageData(history[historyIdx].imageData, 0, 0);
+        }
+        return;
+      }
       const touch = e.touches[0];
       if (!touch) return;
       if (tool === "stamp") {
         handleCanvasClick(touch.clientX, touch.clientY);
-      } else if (tool === "draw" || tool === "eraser") {
+      } else if (tool === "draw" || tool === "eraser" || tool === "eyedropper") {
         startDraw(touch.clientX, touch.clientY);
       }
     },
-    [tool, handleCanvasClick, startDraw]
+    [tool, handleCanvasClick, startDraw, isDrawing, history, historyIdx]
   );
 
   const onCanvasTouchMove = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
       e.preventDefault();
+      // If multiple fingers appear mid-stroke, ignore
+      if (e.touches.length >= 2) return;
       const touch = e.touches[0];
       if (!touch) return;
       moveDraw(touch.clientX, touch.clientY);
@@ -641,7 +733,10 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   const onCanvasTouchEnd = useCallback(
     (e: React.TouchEvent<HTMLCanvasElement>) => {
       e.preventDefault();
-      endDraw();
+      touchCountRef.current = e.touches.length;
+      if (e.touches.length === 0) {
+        endDraw();
+      }
     },
     [endDraw]
   );
@@ -649,14 +744,6 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   // ============================================================================
   // DELETE LAST OVERLAY
   // ============================================================================
-
-  const deleteLastOverlay = useCallback(() => {
-    if (overlays.length === 0) return;
-    const updated = overlays.slice(0, -1);
-    setOverlays(updated);
-    setSelectedOverlay(null);
-    pushHistory(updated);
-  }, [overlays, pushHistory]);
 
   const deleteOverlay = useCallback((id: string) => {
     const updated = overlays.filter((o) => o.id !== id);
@@ -793,10 +880,11 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       }
 
       // Tool shortcuts
-      if (e.key === "b" || e.key === "B") { setTool("draw"); setOverlaySrc(null); }
-      if (e.key === "e" || e.key === "E") { setTool("eraser"); setOverlaySrc(null); }
-      if (e.key === "t" || e.key === "T") { setTool("text"); setOverlaySrc(null); }
-      if (e.key === "v" || e.key === "V") { setTool("select"); setOverlaySrc(null); }
+      if (e.key === "b" || e.key === "B") { setTool("draw"); setOverlaySrc(null); haptic("light"); }
+      if (e.key === "e" || e.key === "E") { setTool("eraser"); setOverlaySrc(null); haptic("light"); }
+      if (e.key === "t" || e.key === "T") { setTool("text"); setOverlaySrc(null); haptic("light"); }
+      if (e.key === "v" || e.key === "V") { setTool("select"); setOverlaySrc(null); haptic("light"); }
+      if (e.key === "i" || e.key === "I") { setTool("eyedropper"); setOverlaySrc(null); haptic("light"); }
 
       // Brush size: [ = decrease, ] = increase
       if (e.key === "[" || e.key === "-") {
@@ -815,8 +903,8 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   // ============================================================================
 
   const handleContainerTouchStart = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      // Start pinch zoom
+    if (e.touches.length === 2 && !drawLock) {
+      // Start pinch zoom (only if draw lock is OFF)
       const t1 = e.touches[0], t2 = e.touches[1];
       const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
       const cx = (t1.clientX + t2.clientX) / 2;
@@ -828,10 +916,10 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       const t = e.touches[0];
       panRef.current = { x: t.clientX, y: t.clientY, ox: viewOffset.x, oy: viewOffset.y };
     }
-  }, [viewScale, viewOffset, tool]);
+  }, [viewScale, viewOffset, tool, drawLock]);
 
   const handleContainerTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 2 && pinchRef.current) {
+    if (e.touches.length === 2 && pinchRef.current && !drawLock) {
       e.preventDefault();
       const t1 = e.touches[0], t2 = e.touches[1];
       const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
@@ -849,7 +937,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         y: panRef.current.oy + (t.clientY - panRef.current.y),
       });
     }
-  }, [tool]);
+  }, [tool, drawLock]);
 
   const handleContainerTouchEnd = useCallback(() => {
     pinchRef.current = null;
@@ -873,6 +961,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
 
   const cursorStyle = React.useMemo(() => {
     if (tool === "stamp") return "copy";
+    if (tool === "eyedropper") return "crosshair";
     if (tool !== "draw" && tool !== "eraser") return "default";
 
     // Generate a circle SVG cursor that matches brush size + color
@@ -1003,6 +1092,27 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           >
             LOADING IMAGE...
           </div>
+        )}
+
+        {/* Mobile touch brush indicator — shows where the finger is drawing */}
+        {touchIndicator.visible && (tool === "draw" || tool === "eraser") && (
+          <div
+            style={{
+              position: "fixed",
+              left: touchIndicator.x,
+              top: touchIndicator.y,
+              width: Math.max(brushSize * viewScale, 8),
+              height: Math.max(brushSize * viewScale, 8),
+              borderRadius: "50%",
+              border: `1.5px solid ${tool === "eraser" ? "rgba(255,255,255,0.7)" : color}`,
+              background: tool === "eraser" ? "rgba(255,255,255,0.1)" : `${color}${Math.round(brushOpacity * 0.2 * 255).toString(16).padStart(2, "0")}`,
+              transform: "translate(-50%, -50%)",
+              pointerEvents: "none",
+              zIndex: 30,
+              transition: "opacity 0.15s",
+              opacity: touchIndicator.visible ? 0.9 : 0,
+            }}
+          />
         )}
 
         {/* Canvas stack */}
@@ -1206,21 +1316,36 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         <span
           style={{
             fontSize: 8,
-            color: tool === "draw" ? "#00cccc" : tool === "eraser" ? "#ff8800" : tool === "text" ? "#a855f7" : tool === "stamp" ? "#f06292" : "rgba(255,255,255,0.4)",
+            color: tool === "draw" ? "#00cccc" : tool === "eraser" ? "#ff8800" : tool === "text" ? "#a855f7" : tool === "stamp" ? "#f06292" : tool === "eyedropper" ? "#ffdd00" : "rgba(255,255,255,0.4)",
             fontFamily: "var(--font-terminal), monospace",
             letterSpacing: "0.1em",
             textTransform: "uppercase",
-            background: tool === "draw" ? "rgba(0,204,204,0.1)" : tool === "eraser" ? "rgba(255,136,0,0.1)" : tool === "text" ? "rgba(168,85,247,0.1)" : tool === "stamp" ? "rgba(240,98,146,0.1)" : "transparent",
+            background: tool === "draw" ? "rgba(0,204,204,0.1)" : tool === "eraser" ? "rgba(255,136,0,0.1)" : tool === "text" ? "rgba(168,85,247,0.1)" : tool === "stamp" ? "rgba(240,98,146,0.1)" : tool === "eyedropper" ? "rgba(255,221,0,0.1)" : "transparent",
             padding: "1px 6px",
             borderRadius: 3,
-            border: `1px solid ${tool === "draw" ? "rgba(0,204,204,0.2)" : tool === "eraser" ? "rgba(255,136,0,0.2)" : tool === "text" ? "rgba(168,85,247,0.2)" : tool === "stamp" ? "rgba(240,98,146,0.2)" : "rgba(255,255,255,0.06)"}`,
+            border: `1px solid ${tool === "draw" ? "rgba(0,204,204,0.2)" : tool === "eraser" ? "rgba(255,136,0,0.2)" : tool === "text" ? "rgba(168,85,247,0.2)" : tool === "stamp" ? "rgba(240,98,146,0.2)" : tool === "eyedropper" ? "rgba(255,221,0,0.2)" : "rgba(255,255,255,0.06)"}`,
             whiteSpace: "nowrap",
           }}
         >
-          {tool === "draw" ? "BRUSH" : tool === "eraser" ? "ERASER" : tool === "text" ? "MEME TXT" : tool === "stamp" ? "STAMP" : "SELECT"}
+          {tool === "draw" ? "BRUSH" : tool === "eraser" ? "ERASER" : tool === "text" ? "MEME TXT" : tool === "stamp" ? "STAMP" : tool === "eyedropper" ? "PICKER" : "SELECT"}
           {(tool === "draw" || tool === "eraser") && ` ${brushSize}px`}
           {tool === "draw" && brushOpacity < 1 && ` ${Math.round(brushOpacity * 100)}%`}
         </span>
+        {/* Draw lock indicator */}
+        {drawLock && (
+          <span
+            style={{
+              fontSize: 7,
+              color: "#ff8800",
+              fontFamily: "var(--font-terminal), monospace",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              whiteSpace: "nowrap",
+            }}
+          >
+            LOCKED
+          </span>
+        )}
         {/* Export format indicator */}
         <span
           style={{
@@ -1339,17 +1464,17 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           }}
         >
           <ToolBtn
-            label="Draw"
+            label={isCompact ? "" : "Draw"}
             icon={
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M10.5 1.5L12.5 3.5L4.5 11.5L1.5 12.5L2.5 9.5L10.5 1.5Z" stroke="currentColor" strokeWidth="1.2" fill="none" />
               </svg>
             }
             active={tool === "draw"}
-            onClick={() => { setTool("draw"); setOverlaySrc(null); }}
+            onClick={() => { setTool("draw"); setOverlaySrc(null); haptic("light"); }}
           />
           <ToolBtn
-            label="Eraser"
+            label={isCompact ? "" : "Eraser"}
             icon={
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <rect x="2" y="6" width="10" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
@@ -1357,20 +1482,20 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
               </svg>
             }
             active={tool === "eraser"}
-            onClick={() => { setTool("eraser"); setOverlaySrc(null); }}
+            onClick={() => { setTool("eraser"); setOverlaySrc(null); haptic("light"); }}
           />
           <ToolBtn
-            label="Text"
+            label={isCompact ? "" : "Text"}
             icon={
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <text x="2" y="12" fontSize="12" fontWeight="900" fontFamily="Impact" fill="currentColor">A</text>
               </svg>
             }
             active={tool === "text"}
-            onClick={() => { setTool("text"); setOverlaySrc(null); }}
+            onClick={() => { setTool("text"); setOverlaySrc(null); haptic("light"); }}
           />
           <ToolBtn
-            label="Stamp"
+            label={isCompact ? "" : "Stamp"}
             icon={
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <rect x="1" y="3" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
@@ -1379,7 +1504,20 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
               </svg>
             }
             active={tool === "stamp"}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => { fileInputRef.current?.click(); haptic("light"); }}
+          />
+          {/* Eyedropper (color picker from canvas) */}
+          <ToolBtn
+            label={isCompact ? "" : "Pick"}
+            icon={
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M11.5 2.5L9.5 4.5M9.5 4.5L5 9L4 10.5L3.5 10L5 9L9.5 4.5Z" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+                <path d="M2 12L3.5 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <circle cx="11.5" cy="2.5" r="1.5" stroke="currentColor" strokeWidth="1" fill="none" />
+              </svg>
+            }
+            active={tool === "eyedropper"}
+            onClick={() => { setTool("eyedropper"); setOverlaySrc(null); haptic("light"); }}
           />
           <input
             ref={fileInputRef}
@@ -1624,20 +1762,20 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           }}
         >
           {/* Undo */}
-          <ToolBtn label="Undo" icon={
+          <ToolBtn label={isCompact ? "" : "Undo"} icon={
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M4 5L1 8L4 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
               <path d="M1 8H9C11 8 12.5 9.5 12.5 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
             </svg>
-          } active={false} onClick={undo} disabled={historyIdx <= 0} />
+          } active={false} onClick={() => { undo(); haptic("light"); }} disabled={historyIdx <= 0} />
 
           {/* Redo */}
-          <ToolBtn label="Redo" icon={
+          <ToolBtn label={isCompact ? "" : "Redo"} icon={
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M10 5L13 8L10 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
               <path d="M13 8H5C3 8 1.5 9.5 1.5 11" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
             </svg>
-          } active={false} onClick={redo} disabled={historyIdx >= history.length - 1} />
+          } active={false} onClick={() => { redo(); haptic("light"); }} disabled={historyIdx >= history.length - 1} />
 
           <Divider />
 
@@ -1647,7 +1785,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
             onClick={handleClearClick}
             style={{
               height: 32,
-              padding: "0 10px",
+              padding: isCompact ? "0 6px" : "0 10px",
               borderRadius: 5,
               border: clearPending ? "1px solid rgba(255, 60, 60, 0.6)" : "1px solid rgba(255,255,255,0.1)",
               background: clearPending ? "rgba(255, 60, 60, 0.15)" : "rgba(255,255,255,0.04)",
@@ -1658,7 +1796,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              gap: 5,
+              gap: isCompact ? 2 : 5,
               flexShrink: 0,
               transition: "all 0.15s",
               animation: clearPending ? "none" : undefined,
@@ -1667,15 +1805,17 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M3 3L11 11M11 3L3 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
-            {clearPending ? "Sure?" : "Clear"}
+            {clearPending ? "Sure?" : isCompact ? "" : "Clear"}
           </button>
 
           <Divider />
 
           {/* Zoom controls with label */}
-          <span style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.08em", textTransform: "uppercase", flexShrink: 0 }}>
-            Zoom
-          </span>
+          {!isCompact && (
+            <span style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.08em", textTransform: "uppercase", flexShrink: 0 }}>
+              Zoom
+            </span>
+          )}
           <button
             title="Zoom out"
             onClick={() => setViewScale(s => Math.max(0.5, s / 1.3))}
@@ -1740,6 +1880,44 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
             }}
           >
             +
+          </button>
+
+          {/* Draw Lock toggle — prevents accidental zoom while drawing on mobile */}
+          <Divider />
+          <button
+            title={drawLock ? "Draw lock ON — two-finger zoom disabled" : "Draw lock OFF — two-finger zoom enabled"}
+            onClick={() => { setDrawLock(l => !l); haptic(drawLock ? "light" : "medium"); }}
+            style={{
+              height: 28,
+              padding: "0 8px",
+              borderRadius: 4,
+              border: drawLock ? "1px solid rgba(255,136,0,0.5)" : "1px solid rgba(255,255,255,0.1)",
+              background: drawLock ? "rgba(255,136,0,0.12)" : "rgba(255,255,255,0.04)",
+              color: drawLock ? "#ff8800" : "rgba(255,255,255,0.4)",
+              fontSize: 10,
+              fontFamily: "var(--font-terminal), monospace",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 3,
+              flexShrink: 0,
+              transition: "all 0.15s",
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              {drawLock ? (
+                <>
+                  <rect x="2" y="5" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
+                  <path d="M4 5V3.5C4 2.1 5.1 1 6.5 1H5.5C6.9 1 8 2.1 8 3.5V5" stroke="currentColor" strokeWidth="1.2" />
+                </>
+              ) : (
+                <>
+                  <rect x="2" y="5" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
+                  <path d="M4 5V3.5C4 2.1 4.6 1 6 1C7.4 1 8 2.1 8 3.5" stroke="currentColor" strokeWidth="1.2" />
+                </>
+              )}
+            </svg>
+            {!isCompact && (drawLock ? "Locked" : "Lock")}
           </button>
         </div>
       </div>
