@@ -880,6 +880,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         onTouchMove={handleContainerTouchMove}
         onTouchEnd={handleContainerTouchEnd}
         onWheel={handleWheel}
+        onClick={() => { setShowColorPicker(false); setShowBrushMenu(false); }}
       >
         {!loaded && (
           <div
@@ -1144,6 +1145,8 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           borderTop: "1px solid rgba(0,204,204,0.1)",
           background: "rgba(16, 20, 32, 0.95)",
           flexShrink: 0,
+          position: "relative",
+          overflow: "visible",
         }}
       >
         {/* Row 1: Tools + Done */}
@@ -1154,8 +1157,8 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
             gap: 4,
             padding: "6px 12px",
             minHeight: 44,
-            overflowX: "auto",
-            WebkitOverflowScrolling: "touch",
+            overflow: "visible",
+            flexWrap: "wrap",
           }}
         >
           {/* Tool buttons */}
@@ -1216,7 +1219,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           <div style={{ position: "relative", flexShrink: 0 }}>
             <button
               title="Pick color"
-              onClick={() => setShowColorPicker(!showColorPicker)}
+              onClick={() => { setShowColorPicker(!showColorPicker); setShowBrushMenu(false); }}
               style={{
                 width: 28,
                 height: 28,
@@ -1295,7 +1298,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           <div style={{ position: "relative", flexShrink: 0 }}>
             <button
               title="Brush size"
-              onClick={() => setShowBrushMenu(!showBrushMenu)}
+              onClick={() => { setShowBrushMenu(!showBrushMenu); setShowColorPicker(false); }}
               style={{
                 height: 36,
                 padding: "0 10px",
