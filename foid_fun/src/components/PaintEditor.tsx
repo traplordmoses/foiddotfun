@@ -1358,6 +1358,40 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
                     <span style={{ fontSize: 7, fontFamily: "var(--font-terminal), monospace" }}>{size}</span>
                   </button>
                 ))}
+                {/* Custom size input */}
+                <div style={{ width: "100%", display: "flex", alignItems: "center", gap: 6, marginTop: 4, paddingTop: 4, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                  <span style={{ fontSize: 8, color: "rgba(0,204,204,0.7)", fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", textTransform: "uppercase", whiteSpace: "nowrap" }}>Custom</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    defaultValue={brushSize}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const val = Math.max(1, Math.min(100, Number((e.target as HTMLInputElement).value) || 8));
+                        setBrushSize(val);
+                        setShowBrushMenu(false);
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const val = Math.max(1, Math.min(100, Number(e.target.value) || 8));
+                      setBrushSize(val);
+                    }}
+                    style={{
+                      width: 48,
+                      height: 24,
+                      borderRadius: 4,
+                      border: "1px solid rgba(0,204,204,0.3)",
+                      background: "rgba(0,0,0,0.4)",
+                      color: "#00cccc",
+                      fontSize: 11,
+                      fontFamily: "var(--font-terminal), monospace",
+                      textAlign: "center",
+                      outline: "none",
+                    }}
+                  />
+                  <span style={{ fontSize: 8, color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-terminal), monospace" }}>px</span>
+                </div>
               </div>
             )}
           </div>
