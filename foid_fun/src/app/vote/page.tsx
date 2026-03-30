@@ -329,7 +329,7 @@ function VoteBar({ forCount, againstCount, showThreshold }: { forCount: number; 
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1.5 text-[9px]">
-        <span className="text-green-400">{forCount}Y</span>
+        <span className="text-green-400 font-semibold">{forCount}</span>
         <div className="relative flex h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-800">
           {total > 0 && (
             <>
@@ -340,12 +340,12 @@ function VoteBar({ forCount, againstCount, showThreshold }: { forCount: number; 
           {/* 51% threshold marker */}
           <div className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: "51%" }} />
         </div>
-        <span className="text-red-400">{againstCount}N</span>
+        <span className="text-red-400 font-semibold">{againstCount}</span>
       </div>
       {showThreshold && total > 0 && (
         <div className="flex items-center justify-between text-[9px]">
           <span className={passing ? "text-green-400" : "text-amber-400"}>
-            {pct}% YES {passing ? "✓" : ""} <span className="text-white/30">(need 51%)</span>
+            {pct}% for {passing ? "— passing" : ""} <span className="text-white/30">(need 51%)</span>
           </span>
         </div>
       )}
@@ -1118,13 +1118,19 @@ export default function SwipePage() {
                               {/* Vote score section */}
                               <div className="mt-2 rounded-lg bg-neutral-800/60 px-2.5 py-2">
                                 <div className="flex items-center justify-between mb-1.5">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-green-400 text-xs font-bold">{forC} YES</span>
-                                    <span className="text-white/20">vs</span>
-                                    <span className="text-red-400 text-xs font-bold">{againstC} NO</span>
+                                  <div className="flex items-center gap-2 text-[10px]">
+                                    <span className="text-green-400 font-bold">
+                                      <span className="text-xs">{forC}</span>
+                                      <span className="text-green-400/50 ml-0.5">weight for</span>
+                                    </span>
+                                    <span className="text-white/15">/</span>
+                                    <span className="text-red-400 font-bold">
+                                      <span className="text-xs">{againstC}</span>
+                                      <span className="text-red-400/50 ml-0.5">against</span>
+                                    </span>
                                   </div>
                                   {total > 0 && (
-                                    <span className={`text-[10px] font-semibold ${passing ? "text-green-400" : "text-amber-400"}`}>
+                                    <span className={`text-[10px] font-bold ${passing ? "text-green-400" : "text-amber-400"}`}>
                                       {pct}% {passing ? "passing" : "failing"}
                                     </span>
                                   )}
