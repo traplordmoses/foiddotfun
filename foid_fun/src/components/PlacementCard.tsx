@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 
 export type Placement = {
@@ -53,10 +53,33 @@ export function PlacementCard({ placement, onOpen, frameStyle, onFlag, isFlagged
     }
   }, [onFlag, isFlagged, flagging, placement.id]);
 
+  const [loaded, setLoaded] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
   const handleError = () => {
+    setLoaded(false);
     const next = gatewayIdx + 1;
     if (next < urls.length) setGatewayIdx(next);
   };
+
+  const handleLoad = () => {
+    setLoaded(true);
+    if (timerRef.current) clearTimeout(timerRef.current);
+  };
+
+  // Timeout fallback — if image doesn't load within 6s, try next gateway
+  useEffect(() => {
+    setLoaded(false);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      if (!loaded) {
+        const next = gatewayIdx + 1;
+        if (next < urls.length) setGatewayIdx(next);
+      }
+    }, 6000);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gatewayIdx, urls.length]);
 
   return (
     <div
@@ -89,6 +112,7 @@ export function PlacementCard({ placement, onOpen, frameStyle, onFlag, isFlagged
           className="absolute inset-0 h-full w-full object-cover pointer-events-none"
           loading="eager"
           decoding="sync"
+          onLoad={handleLoad}
           onError={handleError}
           referrerPolicy="no-referrer"
         />

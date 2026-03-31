@@ -231,25 +231,7 @@ export function MobileBoard({
         </div>
       </div>
 
-      {/* Instructions overlay - shows briefly on first interaction */}
-      <AnimatePresence>
-        {isMobile && scale === 0.3 && position.x === 0 && position.y === 0 && (
-          <motion.div
-            className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-none"
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ delay: 2, duration: 0.5 }}
-          >
-            <div className="text-center px-8 text-white">
-              <div className="text-2xl mb-4">🤲</div>
-              <p className="text-lg font-medium mb-2">Touch to interact</p>
-              <p className="text-sm text-white/60">
-                Pinch to zoom • Drag to pan • Hold to open
-              </p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Instructions overlay removed — GestureHint in board/page.tsx handles first-load tutorial */}
     </div>
   );
 }

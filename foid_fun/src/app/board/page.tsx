@@ -929,10 +929,10 @@ function BoardPageContent() {
 
   const mobileView = (
     <div className="h-screen w-screen bg-transparent relative">
-      {/* Propose button — floating top-left */}
+      {/* Propose button — floating top-left, fixed so it stays during zoom/pan */}
       <button
         onClick={() => setShowMobilePropose(true)}
-        className="absolute top-3 left-3 z-50 px-4 py-2 text-xs font-bold tracking-widest uppercase rounded-xl shadow-lg touch-manipulation"
+        className="fixed top-3 left-3 z-50 px-4 py-2 text-xs font-bold tracking-widest uppercase rounded-xl shadow-lg touch-manipulation"
         style={{
           background: "linear-gradient(135deg, #e040fb, #f06292)",
           color: "#fff",
