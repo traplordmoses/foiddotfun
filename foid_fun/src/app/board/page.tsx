@@ -1195,7 +1195,7 @@ function BoardPageContent() {
                       <span className="board-section__chip" title="ETH cells are your placement credits">{"\u{1F4B0}"} ETH/CELL: {formatEth(BASE_FEE_PER_CELL_WEI)}</span>
                     </div>
                     <div className="board-actions">
-                      <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" />
+                      <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" disabled={items.length > 0 || submittingProposals} />
                       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onFileChange} />
                       <div className="board-actions__divider" />
                       {items.length > 0 && (

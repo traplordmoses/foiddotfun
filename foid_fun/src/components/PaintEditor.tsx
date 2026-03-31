@@ -774,11 +774,15 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   // EXPORT / DONE
   // ============================================================================
 
+  const [exporting, setExporting] = useState(false);
+
   const handleDone = useCallback(() => {
+    if (exporting) return;
     const bgCanvas = bgCanvasRef.current;
     const drawCanvas = drawCanvasRef.current;
     const img = originalImageRef.current;
     if (!bgCanvas || !drawCanvas || !img) return;
+    setExporting(true);
 
     const exportCanvas = document.createElement("canvas");
     exportCanvas.width = img.naturalWidth;
@@ -836,7 +840,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         quality
       );
     });
-  }, [imageFile, onDone, overlays, canvasDisplaySize, memeText, drawMemeTextOnCanvas, fileName]);
+  }, [imageFile, onDone, overlays, canvasDisplaySize, memeText, drawMemeTextOnCanvas, fileName, exporting]);
 
   // ============================================================================
   // KEYBOARD SHORTCUTS
@@ -1552,9 +1556,9 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
             <div style={{ flex: 1, minWidth: 4 }} />
 
             {/* DONE — large, always visible */}
-            <button onClick={handleDone}
-              style={{ padding: "0 20px", height: 44, borderRadius: 8, border: "1px solid rgba(0,204,204,0.7)", background: "linear-gradient(135deg, rgba(0,204,204,0.4), rgba(0,180,180,0.25))", color: "#00cccc", fontSize: 14, fontWeight: 700, fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", cursor: "pointer", boxShadow: "0 0 20px rgba(0,204,204,0.25), inset 0 1px 0 rgba(255,255,255,0.1)", flexShrink: 0 }}>
-              DONE
+            <button onClick={handleDone} disabled={exporting}
+              style={{ padding: "0 20px", height: 44, borderRadius: 8, border: "1px solid rgba(0,204,204,0.7)", background: "linear-gradient(135deg, rgba(0,204,204,0.4), rgba(0,180,180,0.25))", color: "#00cccc", fontSize: 14, fontWeight: 700, fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", cursor: exporting ? "wait" : "pointer", boxShadow: "0 0 20px rgba(0,204,204,0.25), inset 0 1px 0 rgba(255,255,255,0.1)", flexShrink: 0, opacity: exporting ? 0.5 : 1 }}>
+              {exporting ? "EXPORTING..." : "DONE"}
             </button>
           </div>
         ) : (
@@ -1664,7 +1668,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           <div style={{ flex: 1, minWidth: 4 }} />
 
           {/* Done CTA */}
-          <button onClick={handleDone} style={{ padding: "0 20px", height: 34, borderRadius: 6, border: "1px solid rgba(0,204,204,0.6)", background: "linear-gradient(135deg, rgba(0,204,204,0.35), rgba(0,180,180,0.2))", color: "#00cccc", fontSize: 12, fontWeight: 700, fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", cursor: "pointer", boxShadow: "0 0 16px rgba(0,204,204,0.2), inset 0 1px 0 rgba(255,255,255,0.1)", transition: "box-shadow 0.2s, background 0.2s", flexShrink: 0 }}>DONE</button>
+          <button onClick={handleDone} disabled={exporting} style={{ padding: "0 20px", height: 34, borderRadius: 6, border: "1px solid rgba(0,204,204,0.6)", background: "linear-gradient(135deg, rgba(0,204,204,0.35), rgba(0,180,180,0.2))", color: "#00cccc", fontSize: 12, fontWeight: 700, fontFamily: "var(--font-terminal), monospace", letterSpacing: "0.1em", cursor: exporting ? "wait" : "pointer", boxShadow: "0 0 16px rgba(0,204,204,0.2), inset 0 1px 0 rgba(255,255,255,0.1)", transition: "box-shadow 0.2s, background 0.2s", flexShrink: 0, opacity: exporting ? 0.5 : 1 }}>{exporting ? "EXPORTING..." : "DONE"}</button>
         </div>
         )}
       </div>
