@@ -581,6 +581,36 @@ export default function FoidMommyTerminal({
         await typeMessage({ role: "foid", text: greetingForTimeOfDay(), speed: 26 });
       }
 
+      // Check cooldown before letting user start the prayer flow
+      const nowSec = Math.floor(Date.now() / 1000);
+      const nextAllowedSec =
+        typeof nextAllowedAt === "bigint"
+          ? Number(nextAllowedAt)
+          : typeof nextAllowedAt === "number"
+            ? nextAllowedAt
+            : null;
+      const isCooldownActive = nextAllowedSec !== null && nextAllowedSec > nowSec;
+
+      if (isCooldownActive) {
+        const waitSec = nextAllowedSec - nowSec;
+        const cooldownLabel = formatCooldown(waitSec);
+        const nextWindow = new Date(nextAllowedSec * 1000).toLocaleString(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+          month: "short",
+          day: "numeric",
+        });
+        await sleep(400);
+        await typeMessage({
+          role: "foid",
+          text: `you already prayed today, love. come back in ${cooldownLabel}. your last prayer is still with me.`,
+          speed: 26,
+        });
+        addMessage("system", `next window: ${nextWindow}`);
+        setStage("idle");
+        return;
+      }
+
       addMessage("system", "tell me how you're feeling to start.");
       setStage("awaitFeeling");
     };
@@ -594,7 +624,8 @@ export default function FoidMommyTerminal({
     };
   }, [stage, typeMessage, addMessage, updateMessage, resetTimers, clearDraft,
       hasMemoryConsent, memoryEntries.length, needsConsentPrompt,
-      getDaysSinceLastPrayer, localStreak, getFeelingFrequency, getLastEntry]);
+      getDaysSinceLastPrayer, localStreak, getFeelingFrequency, getLastEntry,
+      nextAllowedAt]);
 
   const handleStart = useCallback(async () => {
     try {
@@ -736,7 +767,7 @@ export default function FoidMommyTerminal({
         await sleep(400);
         await typeMessage({
           role: "foid",
-          text: "anchoring only the hash on-chain. your prayer stays with you. 🌟",
+          text: "anchoring only the hash on-chain. your prayer stays with you.",
           speed: 20,
         });
         await typeMessage({
@@ -1002,10 +1033,9 @@ export default function FoidMommyTerminal({
         });
         await typeMessage({
           role: "foid",
-          text: `you have already prayed with mommy today, anon. next window opens in ${relative} (${nextWindow}).`,
+          text: `you already prayed today, love. your prayer is safe. come back in ${relative} (${nextWindow}).`,
         });
-        sfx.playError();
-        setStage("txFail");
+        setStage("idle");
       } else if (isOutOfGas) {
         updateMessage(statusId, "wallet needs a gas top-up.");
         await sleep(300);
@@ -1084,7 +1114,7 @@ export default function FoidMommyTerminal({
       await sleep(400);
       await typeMessage({
         role: "foid",
-        text: `anchoring only the hash on-chain. your ${flavor} stays with you. 🌟`,
+        text: `anchoring only the hash on-chain. your ${flavor} stays with you.`,
         speed: 20,
       });
       await typeMessage({
