@@ -136,12 +136,12 @@ async function querySubgraph(url: string, query: string): Promise<unknown> {
 export async function collectPrayerData(period: ReportPeriod): Promise<PrayerStats> {
   const client = getClient();
 
-  // PRIMARY: Query prayer subgraph for PrayerSubmitted events
+  // PRIMARY: Query prayer-tiers subgraph for PrayerSubmitted events
   let prayers: Array<{ wallet: string; timestamp: number }> = [];
   try {
-    console.log("[dataCollector] Querying prayer subgraph...");
+    console.log("[dataCollector] Querying prayer-tiers subgraph...");
     const data = (await querySubgraph(
-      SUBGRAPH_URLS.prayer,
+      SUBGRAPH_URLS.prayerTiers,
       `{
         prayerSubmitteds(
           first: 1000
@@ -222,55 +222,19 @@ export async function collectPrayerData(period: ReportPeriod): Promise<PrayerSta
   };
 }
 
-// ── Loreboard / Swipe data (subgraph primary) ──
+// ── Loreboard data (unified subgraph) ──
 
 export async function collectLoreboardData(period: ReportPeriod): Promise<LoreboardStats> {
-  // PRIMARY: Query swipe subgraph for proposals + finalization results
   const proposals: SwipeProposal[] = [];
 
   try {
-    console.log("[dataCollector] Querying swipe subgraph for proposals...");
+    console.log("[dataCollector] Querying loreboard subgraph for proposals...");
 
-    // Gallery proposals
-    const galleryData = (await querySubgraph(
-      SUBGRAPH_URLS.swipe,
+    // Single query — unified Proposal entity has everything
+    const data = (await querySubgraph(
+      SUBGRAPH_URLS.loreboard,
       `{
-        proposeds(
-          first: 100
-          orderBy: blockTimestamp
-          orderDirection: desc
-          where: { blockTimestamp_gte: "${period.from}", blockTimestamp_lte: "${period.to}" }
-        ) {
-          proposalId
-          proposer
-          ipfsCid
-          votingEndsAt
-          blockTimestamp
-        }
-      }`
-    )) as { proposeds: Array<{ proposalId: string; proposer: string; ipfsCid: string; votingEndsAt: string; blockTimestamp: string }> };
-
-    for (const p of galleryData.proposeds ?? []) {
-      proposals.push({
-        id: Number(p.proposalId),
-        proposer: p.proposer.toLowerCase(),
-        ipfsCid: p.ipfsCid,
-        createdAt: Number(p.blockTimestamp),
-        votingEndsAt: Number(p.votingEndsAt),
-        finalized: false,
-        canonized: false,
-        proposalType: 0,
-        gridX: 0, gridY: 0, gridW: 0, gridH: 0,
-        weightFor: 0,
-        weightAgainst: 0,
-      });
-    }
-
-    // Loreboard proposals
-    const loreboardData = (await querySubgraph(
-      SUBGRAPH_URLS.swipe,
-      `{
-        loreboardProposeds(
+        proposals(
           first: 100
           orderBy: blockTimestamp
           orderDirection: desc
@@ -281,68 +245,49 @@ export async function collectLoreboardData(period: ReportPeriod): Promise<Lorebo
           ipfsCid
           x y w h
           votingEndsAt
+          finalized
+          approved
+          weightFor
+          weightAgainst
+          voteCount
           blockTimestamp
         }
       }`
-    )) as { loreboardProposeds: Array<{ proposalId: string; proposer: string; ipfsCid: string; x: string; y: string; w: string; h: string; votingEndsAt: string; blockTimestamp: string }> };
+    )) as { proposals: Array<{
+      proposalId: string; proposer: string; ipfsCid: string;
+      x: number; y: number; w: number; h: number;
+      votingEndsAt: string; finalized: boolean; approved: boolean;
+      weightFor: string; weightAgainst: string; voteCount: number;
+      blockTimestamp: string;
+    }> };
 
-    for (const p of loreboardData.loreboardProposeds ?? []) {
-      // Deduplicate — a proposal might appear in both if types overlap
-      if (proposals.some((ex) => ex.id === Number(p.proposalId))) continue;
+    for (const p of data.proposals ?? []) {
       proposals.push({
         id: Number(p.proposalId),
         proposer: p.proposer.toLowerCase(),
         ipfsCid: p.ipfsCid,
         createdAt: Number(p.blockTimestamp),
         votingEndsAt: Number(p.votingEndsAt),
-        finalized: false,
-        canonized: false,
-        proposalType: 1,
+        finalized: p.finalized,
+        canonized: p.approved,
+        proposalType: 1, // all proposals are loreboard placements now
         gridX: Number(p.x), gridY: Number(p.y),
         gridW: Number(p.w), gridH: Number(p.h),
-        weightFor: 0,
-        weightAgainst: 0,
+        weightFor: Number(p.weightFor),
+        weightAgainst: Number(p.weightAgainst),
       });
     }
 
-    // Finalization results
-    const finalData = (await querySubgraph(
-      SUBGRAPH_URLS.swipe,
-      `{
-        finalizeds(
-          first: 100
-          orderBy: blockTimestamp
-          orderDirection: desc
-          where: { blockTimestamp_gte: "${period.from}", blockTimestamp_lte: "${period.to}" }
-        ) {
-          proposalId
-          canonized
-          weightFor
-          weightAgainst
-          blockTimestamp
-        }
-      }`
-    )) as { finalizeds: Array<{ proposalId: string; canonized: boolean; weightFor: string; weightAgainst: string }> };
-
-    for (const f of finalData.finalizeds ?? []) {
-      const match = proposals.find((p) => p.id === Number(f.proposalId));
-      if (match) {
-        match.finalized = true;
-        match.canonized = f.canonized;
-        match.weightFor = Number(f.weightFor);
-        match.weightAgainst = Number(f.weightAgainst);
-      }
-    }
-
-    console.log(`[dataCollector] Swipe subgraph: ${proposals.length} proposals, ${finalData.finalizeds?.length ?? 0} finalized`);
+    const finalizedCount = proposals.filter((p) => p.finalized).length;
+    console.log(`[dataCollector] Loreboard subgraph: ${proposals.length} proposals, ${finalizedCount} finalized`);
   } catch (err) {
-    console.warn("[dataCollector] Swipe subgraph query failed:", (err as Error).message);
+    console.warn("[dataCollector] Loreboard subgraph query failed:", (err as Error).message);
   }
 
   const approved = proposals.filter((p) => p.finalized && p.canonized);
   const rejected = proposals.filter((p) => p.finalized && !p.canonized);
 
-  // Most controversial = closest to 60% threshold
+  // Most controversial = closest to 51% threshold
   let mostControversial: SwipeProposal | null = null;
   let closestDiff = Infinity;
   for (const p of proposals) {
@@ -350,21 +295,21 @@ export async function collectLoreboardData(period: ReportPeriod): Promise<Lorebo
     const total = p.weightFor + p.weightAgainst;
     if (total === 0) continue;
     const pct = p.weightFor / total;
-    const diff = Math.abs(pct - 0.6);
+    const diff = Math.abs(pct - 0.51);
     if (diff < closestDiff) {
       closestDiff = diff;
       mostControversial = p;
     }
   }
 
-  // Count claimed placements from subgraph
+  // Count active placements (not removed) from subgraph
   let totalPlacementsOnBoard = 0;
   try {
-    const claimedData = (await querySubgraph(
-      SUBGRAPH_URLS.swipe,
-      `{ placementClaimeds(first: 1000) { id } }`
-    )) as { placementClaimeds: Array<{ id: string }> };
-    totalPlacementsOnBoard = claimedData.placementClaimeds?.length ?? 0;
+    const placementData = (await querySubgraph(
+      SUBGRAPH_URLS.loreboard,
+      `{ placements(first: 1000, where: { removed: false }) { id } }`
+    )) as { placements: Array<{ id: string }> };
+    totalPlacementsOnBoard = placementData.placements?.length ?? 0;
   } catch {
     // not critical
   }
@@ -378,37 +323,39 @@ export async function collectLoreboardData(period: ReportPeriod): Promise<Lorebo
   };
 }
 
-// ── Voting data (legacy subgraph for loreboard votes) ──
+// ── Voting data (loreboard subgraph) ──
 
 export async function collectVotingData(period: ReportPeriod): Promise<VotingStats> {
-  const sinceTs = period.from.toString();
   let subgraphVotes: SubgraphVote[] = [];
 
-  // Legacy loreboard votes from existing subgraph
   try {
     const data = (await querySubgraph(
-      SUBGRAPH_URLS.governance,
+      SUBGRAPH_URLS.loreboard,
       `{
-        voteCasts(
+        votes(
           first: 1000
-          orderBy: timestamp_
+          orderBy: blockTimestamp
           orderDirection: desc
-          where: { timestamp__gt: "${sinceTs}" }
+          where: { blockTimestamp_gte: "${period.from}", blockTimestamp_lte: "${period.to}" }
         ) {
-          voter placementId support weight timestamp_
+          voter
+          proposal { proposalId }
+          approve
+          weight
+          blockTimestamp
         }
       }`
-    )) as { voteCasts: Array<{ voter: string; placementId: string; support: boolean; weight: string; timestamp_: string }> };
+    )) as { votes: Array<{ voter: string; proposal: { proposalId: string }; approve: boolean; weight: string; blockTimestamp: string }> };
 
-    subgraphVotes = (data.voteCasts ?? []).map((v) => ({
+    subgraphVotes = (data.votes ?? []).map((v) => ({
       voter: v.voter.toLowerCase(),
-      placementId: v.placementId,
-      support: v.support,
+      placementId: v.proposal.proposalId,
+      support: v.approve,
       weight: v.weight,
-      timestamp: Number(v.timestamp_),
+      timestamp: Number(v.blockTimestamp),
     }));
   } catch (err) {
-    console.warn("[dataCollector] Legacy voting subgraph query failed:", (err as Error).message);
+    console.warn("[dataCollector] Voting subgraph query failed:", (err as Error).message);
   }
 
   const voterCounts: Record<string, number> = {};

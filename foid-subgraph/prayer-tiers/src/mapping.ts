@@ -15,7 +15,7 @@ import {
 
 export function handleTierUp(event: TierUpEvent): void {
   // Event log entity
-  let tierUp = new TierUp(event.transaction.hash.concatI32(event.logIndex.toI32()));
+  let tierUp = new TierUp(event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString());
   tierUp.user = event.params.user;
   tierUp.newTier = event.params.newTier;
   tierUp.tierName = event.params.tierName;
@@ -40,7 +40,7 @@ export function handleTierUp(event: TierUpEvent): void {
 // ── PrayerRegistry events ──
 
 export function handlePrayerSubmitted(event: PrayerSubmittedEvent): void {
-  let entity = new PrayerSubmitted(event.transaction.hash.concatI32(event.logIndex.toI32()));
+  let entity = new PrayerSubmitted(event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString());
   entity.user = event.params.user;
   entity.prayerHash = event.params.prayerHash;
   entity.timestamp = event.params.timestamp;

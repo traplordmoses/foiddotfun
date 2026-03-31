@@ -1,27 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Legacy voting subgraph — no longer deployed. EIP-712 votes are now in SQLite via /api/swipe/vote.
-// This route is kept for backwards compatibility but will return empty results if subgraph is down.
-const VOTING_URL =
-  process.env.GOLDSKY_VOTING_URL ||
-  "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-swipe-fluent-testnet-fluent-testnet/1.2.0/gn";
+// Loreboard unified subgraph — on-chain votes via castVote()
+const LOREBOARD_URL =
+  process.env.GOLDSKY_LOREBOARD_URL ||
+  "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/1.0.0/gn";
 
-type GoldskyVoteCast = {
+type SubgraphVote = {
   id: string;
-  epochId: string | number | null;
-  placementId: string | null;
-  voter: string | null;
-  support: boolean | string | null;
-  weight: string | number | null;
-  block_number?: string | number | null;
-  timestamp_?: string | number | null;
-  transactionHash_?: string | null;
-  contractId_?: string | null;
+  voter: string;
+  approve: boolean;
+  weight: string;
+  blockNumber: string;
+  blockTimestamp: string;
+  transactionHash: string;
+  proposal: { proposalId: string };
 };
 
 type GoldskyResponse = {
   data?: {
-    voteCasts?: GoldskyVoteCast[];
+    votes?: SubgraphVote[];
   };
   errors?: unknown;
 };
@@ -33,75 +30,62 @@ export const revalidate = 30;
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const address = searchParams.get("address");
-  const epoch = searchParams.get("epoch");
+  const proposalId = searchParams.get("epoch") ?? searchParams.get("proposalId");
 
   if (!address) {
     return NextResponse.json({ error: "address required" }, { status: 400 });
   }
 
-  console.log("[api/votes] === Using Goldsky ===");
+  console.log("[api/votes] === Using Loreboard Subgraph ===");
   console.log("[api/votes] Address:", address);
-  console.log("[api/votes] Epoch:", epoch);
-
-  const variables: { voter: string; epochId?: string } = {
-    voter: address.toLowerCase(),
-  };
-  let epochClause = "";
-  if (epoch) {
-    epochClause = "epochId: $epochId";
-    variables.epochId = epoch;
-  }
+  console.log("[api/votes] ProposalId:", proposalId);
 
   try {
-    const query = `
-      query GetVotes($voter: String!${epoch ? ", $epochId: BigInt!" : ""}) {
-        voteCasts(
-          first: 1000
-          orderBy: block_number
-          orderDirection: desc
-          where: {
-            voter: $voter
-            ${epochClause}
-          }
-        ) {
-          id
-          epochId
-          placementId
-          voter
-          support
-          weight
-          block_number
-          timestamp_
-          transactionHash_
-          contractId_
+    const proposalFilter = proposalId ? `, proposal: "${proposalId}"` : "";
+    const query = `{
+      votes(
+        first: 1000
+        orderBy: blockNumber
+        orderDirection: desc
+        where: {
+          voter: "${address.toLowerCase()}"
+          ${proposalFilter}
         }
+      ) {
+        id
+        voter
+        approve
+        weight
+        blockNumber
+        blockTimestamp
+        transactionHash
+        proposal { proposalId }
       }
-    `;
+    }`;
 
-    const response = await fetch(VOTING_URL, {
+    const response = await fetch(LOREBOARD_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, variables }),
+      body: JSON.stringify({ query }),
     });
 
     const data = (await response.json()) as GoldskyResponse;
     const errors = data.errors ?? null;
 
-    const voteCasts = Array.isArray(data.data?.voteCasts)
-      ? (data.data.voteCasts as GoldskyVoteCast[])
-      : [];
+    const rawVotes = Array.isArray(data.data?.votes) ? data.data.votes : [];
 
-    const votes = voteCasts.map((vote) => ({
+    // Map to response format (backwards-compatible field names where possible)
+    const votes = rawVotes.map((vote) => ({
       id: vote.id,
-      epochId: String(vote.epochId ?? "0"),
-      placementId: vote.placementId ?? "",
-      voter: vote.voter ?? "",
-      support: Boolean(vote.support),
-      weight: String(vote.weight ?? "0"),
-      blockNumber: vote.block_number != null ? String(vote.block_number) : null,
-      timestamp: vote.timestamp_ != null ? String(vote.timestamp_) : null,
-      txHash: vote.transactionHash_ ?? null,
-      contractId: vote.contractId_ ?? null,
+      epochId: vote.proposal.proposalId,
+      placementId: vote.proposal.proposalId,
+      voter: vote.voter,
+      support: vote.approve,
+      weight: vote.weight,
+      blockNumber: vote.blockNumber,
+      timestamp: vote.blockTimestamp,
+      txHash: vote.transactionHash,
+      contractId: null,
     }));
 
     const votesByEpoch: Record<string, number> = {};
@@ -122,7 +106,7 @@ export async function GET(request: NextRequest) {
       timestamp: vote.timestamp != null ? Number(vote.timestamp) : null,
     }));
 
-    console.log("[api/votes] ✅ Found votes:", votes.length);
+    console.log("[api/votes] Found votes:", votes.length);
 
     return NextResponse.json(
       {
@@ -132,9 +116,9 @@ export async function GET(request: NextRequest) {
         votesByEpoch,
         recentVotes,
         debug: {
-          source: "goldsky",
+          source: "loreboard-subgraph",
           address,
-          epoch,
+          proposalId,
           count: votes.length,
           errors,
         },
@@ -144,7 +128,7 @@ export async function GET(request: NextRequest) {
       }
     );
   } catch (error) {
-    console.error("[api/votes] ❌ Error:", error);
+    console.error("[api/votes] Error:", error);
     return NextResponse.json(
       {
         votes: [],
@@ -152,9 +136,9 @@ export async function GET(request: NextRequest) {
         votesByEpoch: {},
         recentVotes: [],
         debug: {
-          source: "goldsky",
+          source: "loreboard-subgraph",
           address,
-          epoch,
+          proposalId,
           count: 0,
           errors: [String(error)],
         },

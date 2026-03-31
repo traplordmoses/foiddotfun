@@ -29,7 +29,7 @@ export function handleProposalCreated(event: ProposalCreatedEvent): void {
   entity.y = event.params.y;
   entity.w = event.params.w.toI32();
   entity.h = event.params.h.toI32();
-  entity.votingEndsAt = BigInt.fromI64(event.params.votingEndsAt);
+  entity.votingEndsAt = event.params.votingEndsAt;
   entity.finalized = false;
   entity.approved = false;
   entity.overlapRejected = false;
@@ -45,7 +45,7 @@ export function handleProposalCreated(event: ProposalCreatedEvent): void {
 // ── Votes ──
 
 export function handleVoteCast(event: VoteCastEvent): void {
-  let voteId = event.transaction.hash.concatI32(event.logIndex.toI32());
+  let voteId = event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString();
   let entity = new Vote(voteId);
   entity.proposal = event.params.proposalId.toString();
   entity.voter = event.params.voter;
@@ -153,7 +153,7 @@ export function handlePlacementEmergencyRemoved(event: PlacementEmergencyRemoved
 // ── Manifest ──
 
 export function handleManifestUpdated(event: ManifestUpdatedEvent): void {
-  let entity = new ManifestUpdate(event.transaction.hash.concatI32(event.logIndex.toI32()));
+  let entity = new ManifestUpdate(event.transaction.hash.concatI32(event.logIndex.toI32()).toHexString());
   entity.cid = event.params.newCid;
   entity.version = event.params.version;
   entity.placementCountAtUpdate = event.params.placementCountAtUpdate;

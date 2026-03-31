@@ -15,12 +15,6 @@ export const SUBGRAPH_URLS = {
   // PrayerTiers + PrayerRegistry (tier-ups, prayer submissions)
   prayerTiers: process.env.GOLDSKY_PRAYER_TIERS_URL ||
     "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-prayer-tiers-fluent-testnet/1.0.0/gn",
-
-  // Legacy aliases — dataCollector.ts still references these.
-  // TODO: migrate dataCollector queries to new entity names, then remove.
-  get swipe() { return this.loreboard; },
-  get prayer() { return this.prayerTiers; },
-  get governance() { return this.loreboard; },
 };
 
 export const CONTRACTS = {

@@ -1,53 +1,39 @@
-const BOARD_V1_URL =
-  process.env.GOLDSKY_BOARD_V1_URL ||
-  "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/2.0.2/gn";
+const LOREBOARD_URL =
+  process.env.GOLDSKY_LOREBOARD_URL ||
+  "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/1.0.0/gn";
 
-const VOTING_URL =
-  process.env.GOLDSKY_VOTING_URL ||
-  "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/2.0.1/gn";
-
-console.log("[goldsky] BOARD_V1_URL:", JSON.stringify(BOARD_V1_URL));
-console.log("[goldsky] VOTING_URL:", JSON.stringify(VOTING_URL));
-console.log("[goldsky] env GOLDSKY_BOARD_V1_URL:", JSON.stringify(process.env.GOLDSKY_BOARD_V1_URL));
-console.log("[goldsky] env GOLDSKY_VOTING_URL:", JSON.stringify(process.env.GOLDSKY_VOTING_URL));
+console.log("[goldsky] LOREBOARD_URL:", JSON.stringify(LOREBOARD_URL));
+console.log("[goldsky] env GOLDSKY_LOREBOARD_URL:", JSON.stringify(process.env.GOLDSKY_LOREBOARD_URL));
 
 export type Proposal = {
-  id: string;
-  idParam: string;
-  bidder: string;
-  epoch: string;
-  x: string;
-  y: string;
-  w: string;
-  h: string;
-  bidPerCellWei: string;
-  cidHash: string;
-  block_number: string;
-  timestamp_: string;
+  proposalId: string;
+  proposer: string;
+  ipfsCid: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  votingEndsAt: string;
+  finalized: boolean;
+  approved: boolean;
+  weightFor: string;
+  weightAgainst: string;
+  voteCount: number;
+  blockTimestamp: string;
 };
 
 export type VoteCast = {
   id: string;
-  epochId: string;
-  placementId: string;
   voter: string;
-  support: boolean;
+  approve: boolean;
   weight: string;
-  block_number: string;
-  timestamp_: string;
-};
-
-export type EpochFinalized = {
-  id: string;
-  epochId: string;
-  block_number: string;
-  timestamp_: string;
+  blockTimestamp: string;
+  proposal: { proposalId: string };
 };
 
 export type LoreboardEvents = {
   proposals: Proposal[];
   votes: VoteCast[];
-  epochFinalizations: EpochFinalized[];
 };
 
 async function gqlPost<T>(url: string, query: string): Promise<T> {
@@ -68,101 +54,81 @@ async function gqlPost<T>(url: string, query: string): Promise<T> {
 export async function fetchEventsSince(sinceTimestamp: number): Promise<LoreboardEvents> {
   const ts = String(sinceTimestamp);
 
-  const [boardData, votingData] = await Promise.all([
-    gqlPost<{
-      placementProposeds: Proposal[];
-    }>(
-      BOARD_V1_URL,
-      `{
-        placementProposeds(
-          first: 100
-          orderBy: timestamp_
-          orderDirection: desc
-          where: { timestamp__gt: "${ts}" }
-        ) {
-          id
-          idParam
-          bidder
-          epoch
-          x y w h
-          bidPerCellWei
-          cidHash
-          block_number
-          timestamp_
-        }
-      }`
-    ),
-    gqlPost<{
-      voteCasts: VoteCast[];
-      epochFinalizeds: EpochFinalized[];
-    }>(
-      VOTING_URL,
-      `{
-        voteCasts(
-          first: 200
-          orderBy: block_number
-          orderDirection: desc
-          where: { timestamp__gt: "${ts}" }
-        ) {
-          id
-          epochId
-          placementId
-          voter
-          support
-          weight
-          block_number
-          timestamp_
-        }
-        epochFinalizeds(
-          first: 10
-          orderBy: timestamp_
-          orderDirection: desc
-          where: { timestamp__gt: "${ts}" }
-        ) {
-          id
-          epochId
-          block_number
-          timestamp_
-        }
-      }`
-    ),
-  ]);
+  const data = await gqlPost<{
+    proposals: Proposal[];
+    votes: VoteCast[];
+  }>(
+    LOREBOARD_URL,
+    `{
+      proposals(
+        first: 100
+        orderBy: blockTimestamp
+        orderDirection: desc
+        where: { blockTimestamp_gte: "${ts}" }
+      ) {
+        proposalId
+        proposer
+        ipfsCid
+        x y w h
+        votingEndsAt
+        finalized
+        approved
+        weightFor
+        weightAgainst
+        voteCount
+        blockTimestamp
+      }
+      votes(
+        first: 200
+        orderBy: blockTimestamp
+        orderDirection: desc
+        where: { blockTimestamp_gte: "${ts}" }
+      ) {
+        id
+        voter
+        approve
+        weight
+        blockTimestamp
+        proposal { proposalId }
+      }
+    }`
+  );
 
   return {
-    proposals: boardData.placementProposeds ?? [],
-    votes: votingData.voteCasts ?? [],
-    epochFinalizations: votingData.epochFinalizeds ?? [],
+    proposals: data.proposals ?? [],
+    votes: data.votes ?? [],
   };
 }
 
-export async function getVoteTallies(placementIds: string[]): Promise<Map<string, { yes: number; no: number }>> {
-  if (placementIds.length === 0) return new Map();
+export async function getVoteTallies(proposalIds: string[]): Promise<Map<string, { yes: number; no: number }>> {
+  if (proposalIds.length === 0) return new Map();
 
-  const idList = placementIds.map((id) => `"${id}"`).join(", ");
+  const idList = proposalIds.map((id) => `"${id}"`).join(", ");
 
-  const data = await gqlPost<{ voteCasts: VoteCast[] }>(
-    VOTING_URL,
+  const data = await gqlPost<{ votes: VoteCast[] }>(
+    LOREBOARD_URL,
     `{
-      voteCasts(
+      votes(
         first: 1000
-        where: { placementId_in: [${idList}] }
+        where: { proposal_in: [${idList}] }
       ) {
-        placementId
-        support
+        approve
         weight
+        proposal { proposalId }
       }
     }`
   );
 
   const tallies = new Map<string, { yes: number; no: number }>();
-  for (const vote of data.voteCasts ?? []) {
-    const existing = tallies.get(vote.placementId) ?? { yes: 0, no: 0 };
-    if (vote.support) {
+  for (const vote of data.votes ?? []) {
+    const pid = vote.proposal.proposalId;
+    const existing = tallies.get(pid) ?? { yes: 0, no: 0 };
+    if (vote.approve) {
       existing.yes += Number(vote.weight);
     } else {
       existing.no += Number(vote.weight);
     }
-    tallies.set(vote.placementId, existing);
+    tallies.set(pid, existing);
   }
   return tallies;
 }
