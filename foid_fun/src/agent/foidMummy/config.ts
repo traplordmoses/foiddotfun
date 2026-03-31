@@ -9,17 +9,22 @@ export const RPC_URL = process.env.NEXT_PUBLIC_FLUENT_RPC || "https://rpc.testne
 export const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID || 20994);
 
 export const SUBGRAPH_URLS = {
-  // V1 subgraphs (deployed 2026-03-26)
-  swipe: process.env.GOLDSKY_SWIPE_URL ||
-    "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-swipe-fluent-testnet-fluent-testnet/1.2.0/gn",
-  prayer: process.env.GOLDSKY_PRAYER_URL ||
-    "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-prayer-fluent-testnet-fluent-testnet/1.1.0/gn",
-  // Loreboard governance (flags, removal votes)
-  governance: process.env.GOLDSKY_GOVERNANCE_URL ||
-    "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-governance-fluent-testnet-fluent-testnet/1.0.0/gn",
+  // Loreboard unified subgraph (proposals, votes, placements, manifest)
+  loreboard: process.env.GOLDSKY_LOREBOARD_URL ||
+    "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/1.0.0/gn",
+  // PrayerTiers + PrayerRegistry (tier-ups, prayer submissions)
+  prayerTiers: process.env.GOLDSKY_PRAYER_TIERS_URL ||
+    "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-prayer-tiers-fluent-testnet/1.0.0/gn",
+
+  // Legacy aliases — dataCollector.ts still references these.
+  // TODO: migrate dataCollector queries to new entity names, then remove.
+  get swipe() { return this.loreboard; },
+  get prayer() { return this.prayerTiers; },
+  get governance() { return this.loreboard; },
 };
 
 export const CONTRACTS = {
+  loreboard: "0xf9b72062a7e5933692ccbd247d70a9cdb40e0ec7" as Address,
   prayerRegistry: "0x6FC7301fad7Ca0294152b23FD4f0467200376d65" as Address,
   prayerMirror: "0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF" as Address,
   prayerTiers: "0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb" as Address,

@@ -1,0 +1,27 @@
+type TierUp @entity {
+  id: ID!
+  user: Bytes!
+  newTier: Int!
+  tierName: String!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type UserTier @entity {
+  id: ID!
+  user: Bytes!
+  currentTier: Int!
+  tierName: String!
+  lastUpdated: BigInt!
+}
+
+type PrayerSubmitted @entity {
+  id: ID!
+  user: Bytes!
+  prayerHash: Bytes!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}

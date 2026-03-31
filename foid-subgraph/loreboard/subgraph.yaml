@@ -1,0 +1,43 @@
+specVersion: 0.0.5
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: Loreboard
+    network: fluent-testnet
+    source:
+      address: "0xf9b72062a7e5933692ccbd247d70a9cdb40e0ec7"
+      abi: Loreboard
+      startBlock: 22865492
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Proposal
+        - Vote
+        - Placement
+        - ManifestUpdate
+      abis:
+        - name: Loreboard
+          file: ./abis/Loreboard.json
+      eventHandlers:
+        - event: ProposalCreated(indexed uint256,indexed address,string,int32,int32,uint32,uint32,uint64)
+          handler: handleProposalCreated
+        - event: VoteCast(indexed uint256,indexed address,bool,uint256)
+          handler: handleVoteCast
+        - event: Finalized(indexed uint256,bool,uint256,uint256)
+          handler: handleFinalized
+        - event: PlacementCreated(indexed uint256,indexed uint256,indexed address,int32,int32,uint32,uint32,string)
+          handler: handlePlacementCreated
+        - event: ProposalRejected(indexed uint256,uint256,uint256)
+          handler: handleProposalRejected
+        - event: ProposalOverlapRejected(indexed uint256)
+          handler: handleProposalOverlapRejected
+        - event: PlacementSelfRemoved(indexed uint256,indexed address)
+          handler: handlePlacementSelfRemoved
+        - event: PlacementEmergencyRemoved(indexed uint256,indexed address)
+          handler: handlePlacementEmergencyRemoved
+        - event: ManifestUpdated(string,uint256,uint256)
+          handler: handleManifestUpdated
+      file: ./src/mapping.ts

@@ -3,6 +3,27 @@ schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum
+    name: PrayerTiers
+    network: fluent-testnet
+    source:
+      address: "0x36ed105e09a881b6074250a43b2e26c0d6cfd4fb"
+      abi: PrayerTiers
+      startBlock: 21984763
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - TierUp
+        - UserTier
+      abis:
+        - name: PrayerTiers
+          file: ./abis/PrayerTiers.json
+      eventHandlers:
+        - event: TierUp(indexed address,uint8,string)
+          handler: handleTierUp
+      file: ./src/mapping.ts
+  - kind: ethereum
     name: PrayerRegistry
     network: fluent-testnet
     source:

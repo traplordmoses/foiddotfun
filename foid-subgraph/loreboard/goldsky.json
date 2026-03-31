@@ -1,0 +1,17 @@
+{
+  "version": "1",
+  "name": "FoidLoreboard",
+  "abis": {
+    "Loreboard": {
+      "path": "./abis/Loreboard.json"
+    }
+  },
+  "instances": [
+    {
+      "abi": "Loreboard",
+      "address": "0xf9b72062a7e5933692ccbd247d70a9cdb40e0ec7",
+      "startBlock": 22865492,
+      "chain": "fluent-testnet"
+    }
+  ]
+}

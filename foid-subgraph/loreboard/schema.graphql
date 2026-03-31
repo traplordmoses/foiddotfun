@@ -1,0 +1,60 @@
+type Proposal @entity {
+  id: ID!
+  proposalId: BigInt!
+  proposer: Bytes!
+  ipfsCid: String!
+  x: Int!
+  y: Int!
+  w: Int!
+  h: Int!
+  votingEndsAt: BigInt!
+  finalized: Boolean!
+  approved: Boolean!
+  overlapRejected: Boolean!
+  weightFor: BigInt!
+  weightAgainst: BigInt!
+  voteCount: Int!
+  placement: Placement
+  votes: [Vote!]! @derivedFrom(field: "proposal")
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Vote @entity {
+  id: ID!
+  proposal: Proposal!
+  voter: Bytes!
+  approve: Boolean!
+  weight: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Placement @entity {
+  id: ID!
+  placementId: BigInt!
+  proposalId: BigInt!
+  placer: Bytes!
+  ipfsCid: String!
+  x: Int!
+  y: Int!
+  w: Int!
+  h: Int!
+  removed: Boolean!
+  removalType: String
+  removedBy: Bytes
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+}
+
+type ManifestUpdate @entity {
+  id: ID!
+  cid: String!
+  version: BigInt!
+  placementCountAtUpdate: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}

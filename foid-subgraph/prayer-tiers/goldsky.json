@@ -1,12 +1,21 @@
 {
   "version": "1",
-  "name": "FoidPrayer",
+  "name": "FoidPrayerTiers",
   "abis": {
+    "PrayerTiers": {
+      "path": "./abis/PrayerTiers.json"
+    },
     "PrayerRegistry": {
       "path": "./abis/PrayerRegistry.json"
     }
   },
   "instances": [
+    {
+      "abi": "PrayerTiers",
+      "address": "0x36ed105e09a881b6074250a43b2e26c0d6cfd4fb",
+      "startBlock": 21984763,
+      "chain": "fluent-testnet"
+    },
     {
       "abi": "PrayerRegistry",
       "address": "0x6FC7301fad7Ca0294152b23FD4f0467200376d65",
