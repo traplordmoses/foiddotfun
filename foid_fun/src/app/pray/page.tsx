@@ -20,6 +20,7 @@ import { PRAYER_MIRROR_ABI } from "@/lib/contracts/abis/prayerMirror";
 import { parseEventLogs } from "viem";
 import { PrayerErrorBoundary } from "@/components/PrayerErrorBoundary";
 import { getTierFromStreak } from "@/hooks/usePrayerTiers";
+import { usePrayerMemory, type JournalEntry } from "@/hooks/usePrayerMemory";
 
 /* --- env: prayer contract addresses from canonical config --- */
 import { CONTRACTS } from "@/lib/contracts/addresses";
@@ -110,6 +111,7 @@ function PrayPageContent() {
   const { openConnectModal } = useConnectModal();
   const { switchChainAsync } = useSwitchChain();
   const { trigger: triggerHaptic } = useHaptic();
+  const { entries: journalEntries, hasConsent: hasJournalConsent } = usePrayerMemory();
   const [nowSeconds, setNowSeconds] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
@@ -674,6 +676,29 @@ function PrayPageContent() {
                       </div>
                   </div>
                 </div>
+
+                {/* Prayer journal pane */}
+                {hasJournalConsent && journalEntries.length > 0 && (
+                  <div className="pray-pane pray-pane--panel" style={{ marginTop: "var(--pray-gap, 12px)" }}>
+                    <div className="pray-pane__title">YOUR JOURNEY</div>
+                    <div className="pray-pane__body font-terminal text-xs leading-snug">
+                      <div className="pray-journal">
+                        {journalEntries.slice(-14).reverse().map((entry: JournalEntry, i: number) => {
+                          const d = new Date(entry.date + "T00:00:00");
+                          const dateLabel = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                          return (
+                            <div key={`${entry.date}-${i}`} className="pray-journal__entry">
+                              <span className="pray-journal__date">{dateLabel}</span>
+                              <span className="pray-journal__feeling">{entry.feelingKey}</span>
+                              <span className="pray-journal__time">{entry.timeOfDay}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               </div>
             </div>
           </div>

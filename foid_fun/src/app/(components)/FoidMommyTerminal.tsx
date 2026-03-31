@@ -4,6 +4,7 @@ import sfx from "@/lib/sfx";
 import { attachTypingClicks, initTypingClicks } from "@/lib/typingClicks";
 import { formatViemError } from "@/lib/prayerErrors";
 import { usePrayerDraft } from "@/hooks/usePrayerDraft";
+import { usePrayerMemory } from "@/hooks/usePrayerMemory";
 
 export type FeelingKey =
   | "happy"
@@ -220,6 +221,7 @@ const feelingOrder: FeelingKey[] = [
 type Stage =
   | "idle"
   | "loading"
+  | "awaitConsent"
   | "awaitFeeling"
   | "processingFeeling"
   | "awaitSecondChat"
@@ -228,7 +230,7 @@ type Stage =
   | "txPending"
   | "txSuccess"
   | "txFail"
-  | "checkInPrompt";
+  | "afterglow";
 
 export type FoidMommyTerminalProps = {
   ensureWalletReady: () => Promise<void>;
@@ -277,6 +279,25 @@ function formatCooldown(seconds: number) {
   return parts.join(" ");
 }
 
+function greetingForTimeOfDay(): string {
+  const hour = new Date().getHours();
+  if (hour >= 5 && hour < 12) return "good morning, anon. how are you starting this day?";
+  if (hour >= 12 && hour < 17) return "hey anon, checking in. how's the day treating you?";
+  if (hour >= 17 && hour < 21) return "evening, anon. how are you winding down?";
+  return "you're up late. what's on your mind tonight, love?";
+}
+
+const STREAK_MILESTONES: Record<number, string> = {
+  7: "one week. you kept your word.",
+  14: "two weeks of showing up. i see you.",
+  21: "three weeks. you're certified now.",
+  30: "a whole month, love. i'm proud of you.",
+  45: "45 days. built different, just like they say.",
+  60: "60 days. inevitable.",
+  75: "75 days. transcendent.",
+  90: "mommy milker. you earned this with presence.",
+};
+
 const COMPOSER_MAX_HEIGHT = 172;
 
 export default function FoidMommyTerminal({
@@ -294,7 +315,25 @@ export default function FoidMommyTerminal({
   // Prayer draft persistence
   const { draft, saveDraft, clearDraft } = usePrayerDraft();
 
+  // Prayer memory (feeling journal with transparent consent)
+  const {
+    entries: memoryEntries,
+    hasConsent: hasMemoryConsent,
+    needsConsentPrompt,
+    hydrated: memoryHydrated,
+    grantConsent,
+    revokeConsent,
+    addEntry: addMemoryEntry,
+    getLastEntry,
+    getRecentFeelings,
+    getDaysSinceLastPrayer,
+    getFeelingFrequency,
+    localStreak,
+  } = usePrayerMemory();
+
   const [stage, setStage] = useState<Stage>("idle");
+  const [prayerRevealing, setPrayerRevealing] = useState(false);
+  const [prayerMessageId, setPrayerMessageId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [feelingKey, setFeelingKey] = useState<FeelingKey | null>(null);
   const [feelingInput, setFeelingInput] = useState("");
@@ -419,7 +458,7 @@ export default function FoidMommyTerminal({
   }, [addMessage, stage]);
 
   useEffect(() => {
-    if (stage === "idle" || stage === "txFail" || stage === "checkInPrompt") {
+    if (stage === "idle" || stage === "txFail" || stage === "afterglow") {
       setCommandInput("");
     }
   }, [stage]);
@@ -448,25 +487,109 @@ export default function FoidMommyTerminal({
     setFeelingInput("");
     setSecondChatInput("");
     setPrayerInput("");
-    clearDraft(); // Clear draft when terminal restarts
+    clearDraft();
     setCommandInput("");
     setFeelingKey(null);
     setPrayerText("");
     setSuggestedPrayer("");
     setInitialFeelingText("");
+    setPrayerRevealing(false);
+    setPrayerMessageId(null);
+
+    const isReturningUser = hasMemoryConsent && memoryEntries.length > 0;
 
     const sequence = async () => {
-      addMessage("system", "\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557");
-      await sleep(100);
-      addMessage("system", "\u2551   FOID_MOMMY_TERMINAL v1.0   \u2551");
-      await sleep(100);
-      addMessage("system", "\u2551   loading... [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588] 100%  \u2551");
-      await sleep(100);
-      addMessage("system", "\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D");
-      await sleep(400);
-      await typeMessage({ role: "system", text: "foid mommy online.", speed: 24 });
-      await sleep(600);
-      await typeMessage({ role: "foid", text: "hi anon, how are you doing today?", speed: 26 });
+      // Returning users get a faster boot (skip ASCII art)
+      if (isReturningUser) {
+        await typeMessage({ role: "system", text: "foid mommy online.", speed: 24 });
+        await sleep(400);
+      } else {
+        addMessage("system", "\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557");
+        await sleep(100);
+        addMessage("system", "\u2551   FOID_MOMMY_TERMINAL v1.0   \u2551");
+        await sleep(100);
+        addMessage("system", "\u2551   loading... [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588] 100%  \u2551");
+        await sleep(100);
+        addMessage("system", "\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D");
+        await sleep(400);
+        await typeMessage({ role: "system", text: "foid mommy online.", speed: 24 });
+        await sleep(600);
+      }
+
+      // Consent prompt for first-time users
+      if (needsConsentPrompt) {
+        await typeMessage({
+          role: "foid",
+          text: "one thing before we start \u2014 i'd like to remember how you're feeling each day so i can take better care of you.",
+          speed: 22,
+        });
+        await typeMessage({
+          role: "foid",
+          text: "i only keep the feeling label and date, stored on your device. your prayers stay private. nothing leaves your browser.",
+          speed: 22,
+        });
+        addMessage("system", "type yes or no.");
+        setStage("awaitConsent");
+        return;
+      }
+
+      // Memory-aware greeting for returning users
+      if (isReturningUser) {
+        const daysSince = getDaysSinceLastPrayer();
+        const streak = localStreak;
+
+        // Graceful streak break
+        if (daysSince !== null && daysSince > 1) {
+          await typeMessage({
+            role: "foid",
+            text: "you missed yesterday. that's okay. you're here now.",
+            speed: 26,
+          });
+          await sleep(400);
+        }
+
+        // Streak milestone
+        if (streak > 0 && STREAK_MILESTONES[streak]) {
+          await typeMessage({
+            role: "foid",
+            text: STREAK_MILESTONES[streak],
+            speed: 30,
+          });
+          await sleep(400);
+        } else if (streak > 1) {
+          await typeMessage({
+            role: "foid",
+            text: `day ${streak}.`,
+            speed: 30,
+          });
+          await sleep(300);
+        }
+
+        // Feeling pattern or last feeling reference
+        const freq = getFeelingFrequency(7);
+        const lastEntry = getLastEntry();
+        const dominantFeeling = Object.entries(freq).sort((a, b) => b[1] - a[1])[0];
+
+        if (dominantFeeling && dominantFeeling[1] >= 3) {
+          await typeMessage({
+            role: "foid",
+            text: `you've been ${dominantFeeling[0]} ${dominantFeeling[1]} times this week. ${greetingForTimeOfDay()}`,
+            speed: 24,
+          });
+        } else if (lastEntry) {
+          await typeMessage({
+            role: "foid",
+            text: `last time you were feeling ${lastEntry.feelingKey}. ${greetingForTimeOfDay()}`,
+            speed: 24,
+          });
+        } else {
+          await typeMessage({ role: "foid", text: greetingForTimeOfDay(), speed: 26 });
+        }
+      } else {
+        // First-time or no-consent greeting
+        await typeMessage({ role: "foid", text: greetingForTimeOfDay(), speed: 26 });
+      }
+
       addMessage("system", "tell me how you're feeling to start.");
       setStage("awaitFeeling");
     };
@@ -478,7 +601,9 @@ export default function FoidMommyTerminal({
     return () => {
       resetTimers();
     };
-  }, [stage, typeMessage, addMessage, updateMessage, resetTimers, clearDraft]);
+  }, [stage, typeMessage, addMessage, updateMessage, resetTimers, clearDraft,
+      hasMemoryConsent, memoryEntries.length, needsConsentPrompt,
+      getDaysSinceLastPrayer, localStreak, getFeelingFrequency, getLastEntry]);
 
   const handleStart = useCallback(async () => {
     try {
@@ -525,6 +650,7 @@ export default function FoidMommyTerminal({
           body: JSON.stringify({
             feelingKey: feeling,
             feelingText: inputText.trim(),
+            recentFeelings: hasMemoryConsent ? getRecentFeelings(7) : undefined,
           }),
         });
 
@@ -552,7 +678,7 @@ export default function FoidMommyTerminal({
         setIsProcessing(false);
       }
     },
-    [addMessage, typeMessage, isProcessing],
+    [addMessage, typeMessage, isProcessing, hasMemoryConsent, getRecentFeelings],
   );
 
   const handleSecondChat = useCallback(
@@ -566,6 +692,7 @@ export default function FoidMommyTerminal({
       setStage("processingSecondChat");
 
       const config = feelingsConfig[feelingKey];
+      const ambientHum = sfx.playAmbientHum();
 
       try {
         await sleep(250);
@@ -578,6 +705,7 @@ export default function FoidMommyTerminal({
             feelingKey,
             feelingText: initialFeelingText,
             userResponse: userResponse.trim(),
+            recentFeelings: hasMemoryConsent ? getRecentFeelings(7) : undefined,
           }),
         });
 
@@ -599,8 +727,12 @@ export default function FoidMommyTerminal({
 
         await sleep(600);
 
-        // Show the prayer
-        await typeMessage({ role: "foid", text: prayer, speed: 22 });
+        // Show the prayer — slower, reverent
+        setPrayerRevealing(true);
+        const pId = await typeMessage({ role: "foid", text: prayer, speed: 40 });
+        setPrayerMessageId(pId);
+        setPrayerRevealing(false);
+        ambientHum.stop();
         setSuggestedPrayer(prayer);
         setPrayerText(prayer);
 
@@ -618,13 +750,14 @@ export default function FoidMommyTerminal({
         });
         await typeMessage({
           role: "foid",
-          text: "confirm the tx to beam it blockchain-ward, letting mifoid know mommy held your words?",
-          speed: 20,
+          text: "ready?",
+          speed: 40,
         });
 
         await handleConfirm(prayer, feelingKey);
       } catch (err) {
         console.error("handleSecondChat error:", err);
+        ambientHum.stop();
         // Fallback
         await typeMessage({ role: "foid", text: "let me craft a prayer for this moment..." });
         await sleep(500);
@@ -638,7 +771,8 @@ export default function FoidMommyTerminal({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [addMessage, typeMessage, isProcessing, feelingKey, initialFeelingText],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [addMessage, typeMessage, isProcessing, feelingKey, initialFeelingText, hasMemoryConsent, getRecentFeelings],
   );
 
   const feelingLimit = 140;
@@ -740,11 +874,32 @@ export default function FoidMommyTerminal({
       });
 
       sfx.playReward();
+      sfx.playAnchorBell();
       celebrateTransaction(result?.txHash);
-      setStage("checkInPrompt");
+
+      // Record feeling in memory journal
+      if (hasMemoryConsent && feelingKey) {
+        addMemoryEntry(feelingKey);
+      }
+
+      setStage("afterglow");
       setPrayerText("");
-      clearDraft(); // Clear draft after successful prayer submission
+      clearDraft();
       setIsProcessing(false);
+
+      // Afterglow: held silence, then breathing, then goodbye
+      await sleep(3000);
+      await typeMessage({ role: "system", text: "breathe.", speed: 60 });
+      addMessage("system", "___BREATHE___");
+      await sleep(8000);
+      await typeMessage({ role: "foid", text: "see you tomorrow. i'll be here.", speed: 35 });
+      addMessage("system", `next prayer allowed in: ${nextAllowedText}`);
+      // Auto-return to idle after a moment
+      await sleep(5000);
+      if (stage === "afterglow") {
+        onDailyCheckInChoice?.("not_now");
+        setStage("idle");
+      }
     } catch (error: unknown) {
       window.clearTimeout(waitingTimer);
 
@@ -878,6 +1033,11 @@ export default function FoidMommyTerminal({
     timeoutsRef,
     nextAllowedAt,
     clearDraft,
+    hasMemoryConsent,
+    addMemoryEntry,
+    onDailyCheckInChoice,
+    // nextAllowedText and stage are used in afterglow flow but declared later
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
 
   const handlePrayerSubmit = useCallback(
@@ -1018,6 +1178,57 @@ export default function FoidMommyTerminal({
       const raw = currentInputValue;
       const trimmed = raw.trim();
 
+      // Global /forget command — erase all memory data
+      if (trimmed.toLowerCase() === "/forget") {
+        revokeConsent();
+        setCommandInput("");
+        addMessage("system", "memory cleared. all feeling data has been erased from your device.");
+        return;
+      }
+
+      // Afterglow — any keypress exits
+      if (stage === "afterglow") {
+        onDailyCheckInChoice?.("not_now");
+        setStage("idle");
+        setCommandInput("");
+        return;
+      }
+
+      // Consent prompt
+      if (stage === "awaitConsent") {
+        const lowered = trimmed.toLowerCase();
+        if (lowered === "yes" || lowered === "y") {
+          grantConsent();
+          setCommandInput("");
+          await typeMessage({
+            role: "foid",
+            text: "thank you. i'll remember. type /forget anytime to erase everything.",
+            speed: 22,
+          });
+          await sleep(500);
+          await typeMessage({ role: "foid", text: greetingForTimeOfDay(), speed: 26 });
+          addMessage("system", "tell me how you're feeling to start.");
+          setStage("awaitFeeling");
+          return;
+        }
+        if (lowered === "no" || lowered === "n") {
+          setCommandInput("");
+          await typeMessage({
+            role: "foid",
+            text: "no worries at all. we'll keep things fresh each time.",
+            speed: 24,
+          });
+          await sleep(500);
+          await typeMessage({ role: "foid", text: greetingForTimeOfDay(), speed: 26 });
+          addMessage("system", "tell me how you're feeling to start.");
+          setStage("awaitFeeling");
+          return;
+        }
+        addMessage("system", "type yes or no.");
+        setCommandInput("");
+        return;
+      }
+
       if (stage === "idle") {
         if (!trimmed || trimmed.toLowerCase() === "chat") {
           setCommandInput("");
@@ -1075,16 +1286,7 @@ export default function FoidMommyTerminal({
         return;
       }
 
-      if (stage === "checkInPrompt") {
-        if (trimmed.toLowerCase() === "ok") {
-          addMessage("system", `next prayer allowed in: ${nextAllowedText}`);
-          onDailyCheckInChoice?.("not_now");
-          setStage("idle");
-          setCommandInput("");
-          return;
-        }
-        addMessage("system", "type ok to exit.");
-      }
+      // afterglow is handled above (any keypress exits)
     },
     [
       addMessage,
@@ -1101,6 +1303,9 @@ export default function FoidMommyTerminal({
       secondChatOverLimit,
       stage,
       suggestedPrayer,
+      revokeConsent,
+      grantConsent,
+      typeMessage,
     ],
   );
 
@@ -1157,8 +1362,10 @@ export default function FoidMommyTerminal({
         return "SENDING TO CHAIN...";
       case "txFail":
         return "RETRY / EDIT / CANCEL";
-      case "checkInPrompt":
-        return "TYPE OK TO CLOSE";
+      case "afterglow":
+        return "PRESS ANY KEY TO CLOSE";
+      case "awaitConsent":
+        return "YES / NO";
       default:
         return "";
     }
@@ -1189,8 +1396,10 @@ export default function FoidMommyTerminal({
         return "type your prayer or press enter";
       case "txFail":
         return "retry / edit / cancel";
-      case "checkInPrompt":
-        return "ok";
+      case "afterglow":
+        return "press any key...";
+      case "awaitConsent":
+        return "yes or no";
       default:
         return "";
     }
@@ -1219,30 +1428,43 @@ export default function FoidMommyTerminal({
         <>
           <div
             ref={logRef}
-            className="foid-cli__log foid-terminal__log"
+            className={`foid-cli__log foid-terminal__log${prayerRevealing ? " foid-terminal__log--prayer-focus" : ""}`}
             onScroll={handleLogScroll}
           >
             <div className="foid-cli__logInner">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  data-role={msg.role}
-                  className={`foid-terminal__line ${
-                    msg.role === "user"
-                      ? "foid-terminal__line--user"
-                      : msg.role === "foid"
-                        ? "foid-terminal__line--foid"
-                        : `foid-terminal__line--system${
-                            msg.text.toLowerCase().startsWith("booting") ? " foid-terminal__line--boot" : ""
-                          }`
-                  }`}
-                >
-                  {msg.role === "user" && (
-                    <span className="foid-terminal__prompt">{promptLabel}</span>
-                  )}
-                  <span>{msg.text}</span>
-                </div>
-              ))}
+              {messages.map((msg) => {
+                // Breathing circle sentinel
+                if (msg.text === "___BREATHE___") {
+                  return (
+                    <div key={msg.id} className="foid-terminal__breathe">
+                      <div className="foid-terminal__breathe-circle" />
+                    </div>
+                  );
+                }
+
+                const isPrayerLine = msg.id === prayerMessageId;
+
+                return (
+                  <div
+                    key={msg.id}
+                    data-role={msg.role}
+                    className={`foid-terminal__line ${
+                      msg.role === "user"
+                        ? "foid-terminal__line--user"
+                        : msg.role === "foid"
+                          ? `foid-terminal__line--foid${isPrayerLine ? " foid-terminal__line--prayer" : ""}`
+                          : `foid-terminal__line--system${
+                              msg.text.toLowerCase().startsWith("booting") ? " foid-terminal__line--boot" : ""
+                            }`
+                    }`}
+                  >
+                    {msg.role === "user" && (
+                      <span className="foid-terminal__prompt">{promptLabel}</span>
+                    )}
+                    <span>{msg.text}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

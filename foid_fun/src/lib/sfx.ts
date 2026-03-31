@@ -573,6 +573,89 @@ export function playVictoryChord(): void {
   master.gain.linearRampToValueAtTime(0, ac.currentTime + 1.2);
 }
 
+/** Resonant bell tone when prayer anchors on-chain */
+export function playAnchorBell(): void {
+  if (!isBrowser || !unlocked) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
+  const ac = ensureCtx();
+  if (!ac) return;
+  const vol = 0.18 * settings.sfxVolume;
+
+  // Main tone — C5
+  const osc = ac.createOscillator();
+  osc.type = "sine";
+  osc.frequency.value = 523.25;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(vol, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 1.8);
+  osc.connect(g);
+  g.connect(ac.destination);
+  osc.start(ac.currentTime);
+  osc.stop(ac.currentTime + 2.0);
+
+  // Overtone — C6, quieter
+  const osc2 = ac.createOscillator();
+  osc2.type = "sine";
+  osc2.frequency.value = 1046.5;
+  const g2 = ac.createGain();
+  g2.gain.setValueAtTime(vol * 0.3, ac.currentTime);
+  g2.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 1.2);
+  osc2.connect(g2);
+  g2.connect(ac.destination);
+  osc2.start(ac.currentTime);
+  osc2.stop(ac.currentTime + 1.4);
+}
+
+/** Ambient hum during prayer crafting. Returns { stop } to fade out. */
+export function playAmbientHum(): { stop: () => void } {
+  const noop = { stop: () => {} };
+  if (!isBrowser || !unlocked) return noop;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return noop;
+  const ac = ensureCtx();
+  if (!ac) return noop;
+  const vol = 0.05 * settings.sfxVolume;
+
+  const master = ac.createGain();
+  master.gain.setValueAtTime(0, ac.currentTime);
+  master.gain.linearRampToValueAtTime(vol, ac.currentTime + 2.0);
+  master.connect(ac.destination);
+
+  // Sub-bass drone — C2
+  const bass = ac.createOscillator();
+  bass.type = "sine";
+  bass.frequency.value = 65.41;
+  bass.connect(master);
+  bass.start(ac.currentTime);
+
+  // Quiet shimmer — C6
+  const shimmer = ac.createOscillator();
+  shimmer.type = "sine";
+  shimmer.frequency.value = 1046.5;
+  const sg = ac.createGain();
+  sg.gain.value = 0.15; // relative to master
+  shimmer.connect(sg);
+  sg.connect(master);
+  shimmer.start(ac.currentTime);
+
+  let stopped = false;
+
+  return {
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      const now = ac.currentTime;
+      master.gain.setValueAtTime(master.gain.value, now);
+      master.gain.linearRampToValueAtTime(0, now + 1.0);
+      setTimeout(() => {
+        try { bass.stop(); } catch { /* already stopped */ }
+        try { shimmer.stop(); } catch { /* already stopped */ }
+      }, 1200);
+    },
+  };
+}
+
 const sfx = {
   init,
   unlock,
@@ -585,6 +668,8 @@ const sfx = {
   playCardEnter,
   playUndoWhoosh,
   playVictoryChord,
+  playAnchorBell,
+  playAmbientHum,
   typing,
   playTypingTick,
   background,

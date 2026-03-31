@@ -57,10 +57,20 @@ export async function POST(req: Request) {
     }
 
     const client = new OpenAI({ apiKey });
-    const { feelingKey, feelingText, userResponse } = await req.json();
+    const { feelingKey, feelingText, userResponse, recentFeelings } = await req.json();
 
     const moodLabel = feelingKey ?? "unknown";
     const rawText = (feelingText ?? "").toString().slice(0, 500); // mild sanity limit
+
+    // Build memory context string from recent feelings (if user consented)
+    let memoryContext = "";
+    if (Array.isArray(recentFeelings) && recentFeelings.length > 0) {
+      const summaries = recentFeelings
+        .slice(-7)
+        .map((e: { date?: string; feelingKey?: string }) => `${e.date}: ${e.feelingKey}`)
+        .join(", ");
+      memoryContext = `\n\nContext from their recent prayer journal (they consented to this): ${summaries}. You may gently reference patterns if relevant, but don't make it feel surveillance-like.`;
+    }
 
     // If userResponse is provided, this is the second conversational turn
     if (userResponse) {
@@ -90,7 +100,7 @@ You: "mountains and fields... that sounds breathtaking, sweet one. let me craft 
 
 User originally said "stressed about work" → You asked about it
 User now says: "deadline tomorrow and im not ready"
-You: "deadlines are tough, but you're tougher than you think. let me craft a prayer for this moment."`,
+You: "deadlines are tough, but you're tougher than you think. let me craft a prayer for this moment."${memoryContext}`,
           },
           {
             role: "user",
@@ -121,7 +131,7 @@ Style:
 - Speak to "you" directly
 - No flowery language - simple, honest, grounded
 - Address whatever they're going through specifically
-- End with gentle hope or strength`,
+- End with gentle hope or strength${memoryContext}`,
           },
           {
             role: "user",
@@ -175,7 +185,7 @@ User: "I'm really stressed about work"
 You: "oof i feel that work stress in my bones, sweet one. what's weighing on you the most right now?"
 
 User: "just got promoted!"
-You: "WAIT WHAT?? that's incredible!! i'm so proud of you!! ✨ what does this mean for you?"`,
+You: "WAIT WHAT?? that's incredible!! i'm so proud of you!! ✨ what does this mean for you?"${memoryContext}`,
         },
         {
           role: "user",

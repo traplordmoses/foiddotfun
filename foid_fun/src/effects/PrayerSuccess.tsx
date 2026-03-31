@@ -19,7 +19,7 @@ const CONGRATS_MESSAGES = [
 
 export function showPrayerSuccess(hash?: string, options: SuccessOptions = {}) {
   const message = CONGRATS_MESSAGES[Math.floor(Math.random() * CONGRATS_MESSAGES.length)];
-  const duration = options.duration ?? 3800;
+  const duration = options.duration ?? 5500;
   spawn(<PrayerSuccessToast message={message} hash={hash} />, duration);
 }
 
@@ -35,7 +35,9 @@ export default function PrayerSuccessToast({
 
   useEffect(() => {
     const mountTimer = setTimeout(() => setMounted(true), 50);
-    const exitTimer = setTimeout(() => setExiting(true), 3200);
+    const exitTimer = setTimeout(() => setExiting(true), 4800);
+    // Haptic feedback on mount
+    try { navigator.vibrate?.([10, 50, 10]); } catch { /* not supported */ }
     return () => {
       clearTimeout(mountTimer);
       clearTimeout(exitTimer);
