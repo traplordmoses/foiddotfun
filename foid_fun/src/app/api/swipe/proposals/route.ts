@@ -4,6 +4,7 @@ import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { RPC_URL, CHAIN_CONFIG } from "@/lib/contracts/addresses";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
+import { ProposalStore } from "@/lib/proposalStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -126,6 +127,19 @@ export async function GET() {
           // Non-fatal: vote count read failed
         }
 
+        // Look up optional name from local proposal metadata store
+        let name: string | undefined;
+        try {
+          const stored = ProposalStore.get(String(Number(p.id)));
+          if (stored?.name) name = stored.name;
+          if (!name && p.ipfsCid) {
+            // Fall back to searching all proposals by CID
+            const all = ProposalStore.all();
+            const match = all.find((s) => s.cid === p.ipfsCid);
+            if (match?.name) name = match.name;
+          }
+        } catch { /* non-fatal */ }
+
         proposals.push({
           id: Number(p.id),
           proposer: p.proposer,
@@ -142,6 +156,7 @@ export async function GET() {
           gridY: p.gridY,
           gridW: p.gridW,
           gridH: p.gridH,
+          ...(name ? { name } : {}),
         });
       }
     }

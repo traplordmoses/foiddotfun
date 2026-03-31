@@ -466,6 +466,113 @@ export function subscribeUnlocked(listener: (value: boolean) => void): () => voi
   };
 }
 
+/** Purple whoosh for skip (upward sweep) */
+export function playSkipWhoosh(): void {
+  if (!isBrowser || !unlocked) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
+  const ac = ensureCtx();
+  if (!ac) return;
+  const vol = 0.12 * settings.sfxVolume;
+  const gain = ac.createGain();
+  gain.gain.value = vol;
+  gain.connect(ac.destination);
+  const osc = ac.createOscillator();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(400, ac.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(900, ac.currentTime + 0.12);
+  osc.connect(gain);
+  osc.start(ac.currentTime);
+  osc.stop(ac.currentTime + 0.14);
+  gain.gain.setValueAtTime(vol, ac.currentTime + 0.08);
+  gain.gain.linearRampToValueAtTime(0, ac.currentTime + 0.14);
+}
+
+/** Soft thunk when a new card enters */
+export function playCardEnter(): void {
+  if (!isBrowser || !unlocked) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
+  const ac = ensureCtx();
+  if (!ac) return;
+  const vol = 0.08 * settings.sfxVolume;
+  const gain = ac.createGain();
+  gain.gain.value = vol;
+  gain.connect(ac.destination);
+  const osc = ac.createOscillator();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(140, ac.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(80, ac.currentTime + 0.06);
+  osc.connect(gain);
+  osc.start(ac.currentTime);
+  osc.stop(ac.currentTime + 0.08);
+  gain.gain.setValueAtTime(vol, ac.currentTime + 0.03);
+  gain.gain.linearRampToValueAtTime(0, ac.currentTime + 0.08);
+}
+
+/** Reverse whoosh for undo */
+export function playUndoWhoosh(): void {
+  if (!isBrowser || !unlocked) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
+  const ac = ensureCtx();
+  if (!ac) return;
+  const vol = 0.10 * settings.sfxVolume;
+  const gain = ac.createGain();
+  gain.gain.value = vol;
+  gain.connect(ac.destination);
+  const osc = ac.createOscillator();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(800, ac.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(350, ac.currentTime + 0.10);
+  osc.connect(gain);
+  osc.start(ac.currentTime);
+  osc.stop(ac.currentTime + 0.12);
+  gain.gain.setValueAtTime(vol, ac.currentTime + 0.06);
+  gain.gain.linearRampToValueAtTime(0, ac.currentTime + 0.12);
+}
+
+/** Triumphant major chord (C4-E4-G4-C5) with shimmer for victory */
+export function playVictoryChord(): void {
+  if (!isBrowser || !unlocked) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
+  const ac = ensureCtx();
+  if (!ac) return;
+  const vol = 0.16 * settings.sfxVolume;
+  const master = ac.createGain();
+  master.gain.value = vol;
+  master.connect(ac.destination);
+  const freqs = [261.6, 329.6, 392.0, 523.3]; // C4 E4 G4 C5
+  freqs.forEach((f, i) => {
+    const osc = ac.createOscillator();
+    osc.type = i === 3 ? "triangle" : "sine";
+    osc.frequency.value = f;
+    const g = ac.createGain();
+    g.gain.value = i === 3 ? 0.5 : 0.7; // top note quieter
+    osc.connect(g);
+    g.connect(master);
+    osc.start(ac.currentTime + i * 0.06);
+    osc.stop(ac.currentTime + 1.0 + i * 0.06);
+  });
+  // Shimmer — high sine sweep
+  const shimmer = ac.createOscillator();
+  shimmer.type = "sine";
+  shimmer.frequency.setValueAtTime(1200, ac.currentTime + 0.3);
+  shimmer.frequency.exponentialRampToValueAtTime(2400, ac.currentTime + 0.8);
+  const sg = ac.createGain();
+  sg.gain.setValueAtTime(0, ac.currentTime + 0.3);
+  sg.gain.linearRampToValueAtTime(0.15 * settings.sfxVolume, ac.currentTime + 0.5);
+  sg.gain.linearRampToValueAtTime(0, ac.currentTime + 1.0);
+  shimmer.connect(sg);
+  sg.connect(ac.destination);
+  shimmer.start(ac.currentTime + 0.3);
+  shimmer.stop(ac.currentTime + 1.1);
+  // Fade master
+  master.gain.setValueAtTime(vol, ac.currentTime + 0.6);
+  master.gain.linearRampToValueAtTime(0, ac.currentTime + 1.2);
+}
+
 const sfx = {
   init,
   unlock,
@@ -474,6 +581,10 @@ const sfx = {
   playError,
   playSwipeYes,
   playSwipeNo,
+  playSkipWhoosh,
+  playCardEnter,
+  playUndoWhoosh,
+  playVictoryChord,
   typing,
   playTypingTick,
   background,
