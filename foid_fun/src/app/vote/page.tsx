@@ -1234,7 +1234,7 @@ export default function VotePage() {
                       <p className="mt-2 max-w-xs text-sm leading-relaxed text-white/45">
                         {proposals.some((p) => !p.finalized && now < p.votingEndsAt)
                           ? "You've voted on every proposal. Check back soon."
-                          : "The voting queue is empty. Head to the Loreboard to propose an image."}
+                          : "The voting queue is empty. Place an image on the Loreboard to start a vote."}
                       </p>
                       {/* Session stats */}
                       {sessionVoteCount > 0 && (
@@ -1243,17 +1243,11 @@ export default function VotePage() {
                           {sessionVoteCount >= 5 && " \u{1F525}"}
                         </div>
                       )}
-                      <div className="mt-5 flex gap-3">
-                        <Link href="/board"
-                          className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold tracking-wide transition hover:scale-[1.03]"
-                          style={{ background: "linear-gradient(135deg,rgba(168,130,255,.2),rgba(255,107,213,.2))", border: "1px solid rgba(168,130,255,.3)", color: "rgba(200,170,255,.95)" }}>
-                          Go to Loreboard <span>&rarr;</span>
-                        </Link>
-                        <Link href="/vote/submit"
-                          className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold tracking-wide transition hover:scale-[1.03] text-white/50 border border-white/10 hover:border-white/20">
-                          Propose
-                        </Link>
-                      </div>
+                      <Link href="/board"
+                        className="mt-5 inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-semibold tracking-wide transition hover:scale-[1.03]"
+                        style={{ background: "linear-gradient(135deg,rgba(168,130,255,.2),rgba(255,107,213,.2))", border: "1px solid rgba(168,130,255,.3)", color: "rgba(200,170,255,.95)", boxShadow: "0 0 20px rgba(168,130,255,.15)" }}>
+                        Go to Loreboard <span>&rarr;</span>
+                      </Link>
                     </div>
                   )
                 ) : tab === "completed" ? (
