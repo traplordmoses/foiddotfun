@@ -34,7 +34,7 @@ const BG_FALLBACKS = [
   "/sfx/music/foidbackground15.m4a",
 ];
 
-const TYPING_VOLUME = 0.4;
+const TYPING_VOLUME = 0.08;
 
 let ctx: AudioContext | null = null;
 let unlocked = false;

@@ -508,6 +508,11 @@ function PrayPageContent() {
                           on-chain. show up each day to build your streak. the more you pray, the bigger your mifoid&apos;s
                           boobs will be.
                         </span>
+                        <span className="block mt-2" style={{ opacity: 0.55, fontSize: "0.85em" }}>
+                          mommy remembers how you&apos;re feeling each day to improve your experience.
+                          only the feeling label and date are kept on your device — your prayers stay private.
+                          type /forget in the terminal anytime to erase everything.
+                        </span>
                       </p>
                     </div>
                   </div>

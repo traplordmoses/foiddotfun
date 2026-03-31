@@ -221,7 +221,6 @@ const feelingOrder: FeelingKey[] = [
 type Stage =
   | "idle"
   | "loading"
-  | "awaitConsent"
   | "awaitFeeling"
   | "processingFeeling"
   | "awaitSecondChat"
@@ -520,21 +519,9 @@ export default function FoidMommyTerminal({
         await sleep(600);
       }
 
-      // Consent prompt for first-time users
+      // Auto-grant memory consent (privacy disclosed in sidebar text)
       if (needsConsentPrompt) {
-        await typeMessage({
-          role: "foid",
-          text: "one thing before we start \u2014 i'd like to remember how you're feeling each day so i can take better care of you.",
-          speed: 22,
-        });
-        await typeMessage({
-          role: "foid",
-          text: "i only keep the feeling label and date, stored on your device. your prayers stay private. nothing leaves your browser.",
-          speed: 22,
-        });
-        addMessage("system", "type yes or no.");
-        setStage("awaitConsent");
-        return;
+        grantConsent();
       }
 
       // Memory-aware greeting for returning users
@@ -1216,41 +1203,6 @@ export default function FoidMommyTerminal({
         return;
       }
 
-      // Consent prompt
-      if (stage === "awaitConsent") {
-        const lowered = trimmed.toLowerCase();
-        if (lowered === "yes" || lowered === "y") {
-          grantConsent();
-          setCommandInput("");
-          await typeMessage({
-            role: "foid",
-            text: "thank you. i'll remember. type /forget anytime to erase everything.",
-            speed: 22,
-          });
-          await sleep(500);
-          await typeMessage({ role: "foid", text: greetingForTimeOfDay(), speed: 26 });
-          addMessage("system", "tell me how you're feeling to start.");
-          setStage("awaitFeeling");
-          return;
-        }
-        if (lowered === "no" || lowered === "n") {
-          setCommandInput("");
-          await typeMessage({
-            role: "foid",
-            text: "no worries at all. we'll keep things fresh each time.",
-            speed: 24,
-          });
-          await sleep(500);
-          await typeMessage({ role: "foid", text: greetingForTimeOfDay(), speed: 26 });
-          addMessage("system", "tell me how you're feeling to start.");
-          setStage("awaitFeeling");
-          return;
-        }
-        addMessage("system", "type yes or no.");
-        setCommandInput("");
-        return;
-      }
-
       if (stage === "idle") {
         if (!trimmed || trimmed.toLowerCase() === "chat") {
           setCommandInput("");
@@ -1386,8 +1338,6 @@ export default function FoidMommyTerminal({
         return "RETRY / EDIT / CANCEL";
       case "afterglow":
         return "PRESS ANY KEY TO CLOSE";
-      case "awaitConsent":
-        return "YES / NO";
       default:
         return "";
     }
@@ -1420,8 +1370,6 @@ export default function FoidMommyTerminal({
         return "retry / edit / cancel";
       case "afterglow":
         return "press any key...";
-      case "awaitConsent":
-        return "yes or no";
       default:
         return "";
     }
