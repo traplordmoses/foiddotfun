@@ -38,7 +38,7 @@ import type { ProposalSummary, ListProposalsResponse } from "@/lib/api";
 import { useSwipePropose } from "@/hooks/useSwipePropose";
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
-import { LoreboardNotification } from "@/components/LoreboardNotification";
+import { celebratePlacement } from "@/effects/celebrate";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
 import { TerminalChat, type StatusMessage } from "@/components/TerminalChat";
@@ -728,6 +728,11 @@ function BoardPageContent() {
       if (!address) throw new Error("No wallet connected");
       const account = address;
 
+      let lastTxHash = "";
+      let lastProposalId: number | null = null;
+      let lastPreviewUrl = "";
+      let lastName = "";
+
       for (const it of items) {
         addStatus(`Uploading ${it.name}...`, "info");
         const onChainRect = worldToContractRect(it.rect);
@@ -749,6 +754,20 @@ function BoardPageContent() {
 
         // Transaction succeeded on-chain!
         addStatus(`${it.name} on-chain ✓ (tx: ${onChain.txHash.slice(0, 10)}...)`, "success");
+        lastTxHash = onChain.txHash;
+        lastProposalId = onChain.proposalId;
+        lastPreviewUrl = it.previewUrl;
+        lastName = it.name;
+      }
+
+      // Fire celebration BEFORE clearing state (preserves blob URLs)
+      if (lastTxHash) {
+        celebratePlacement({
+          itemName: lastName,
+          txHash: lastTxHash,
+          proposalId: lastProposalId,
+          previewUrl: lastPreviewUrl,
+        });
       }
 
       clearBoardState?.();
@@ -1021,6 +1040,7 @@ function BoardPageContent() {
               chainId={FLUENT_CHAIN_ID}
               connected={isConnected}
               address={address}
+              walletAddress={address as `0x${string}` | undefined}
               onDisconnect={() => disconnect()}
               onSwitchWallet={handleSwitchWallet}
             />
@@ -1245,7 +1265,7 @@ function BoardPageContent() {
     </section>
 
     {activePlacement && <PlacementModal placement={activePlacement} onClose={() => setActivePlacement(null)} />}
-    {isConnected && <LoreboardNotification address={address} />}
+    {/* Notifications now live in AppTitlebar via NotificationInbox */}
     {desktopPaintFile && (
       <PaintEditor
         imageFile={desktopPaintFile}

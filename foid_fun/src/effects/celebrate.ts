@@ -11,3 +11,15 @@ export function celebrateTransaction(txHash?: string) {
     run();
   }
 }
+
+export function celebratePlacement(opts: {
+  itemName: string;
+  txHash: string;
+  proposalId: number | null;
+  previewUrl: string;
+}) {
+  if (typeof window === "undefined") return;
+  import("@/effects/PlacementCelebration").then(({ showPlacementCelebration }) => {
+    window.requestAnimationFrame(() => showPlacementCelebration(opts));
+  });
+}

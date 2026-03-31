@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useMemo } from "react";
 import TopTabs from "@/app/(components)/TopTabs";
 import WalletMenuPill from "@/components/WalletMenuPill";
+import { NotificationInbox } from "@/components/NotificationInbox";
 
 export type AppTitlebarWarning = {
   key: string;
@@ -16,6 +17,7 @@ type AppTitlebarProps = {
   chainId?: number | string;
   connected: boolean;
   address?: string;
+  walletAddress?: `0x${string}`;
   onDisconnect: () => void;
   onSwitchWallet: () => void;
   warnings?: AppTitlebarWarning[];
@@ -35,6 +37,7 @@ export default function AppTitlebar({
   chainId,
   connected,
   address,
+  walletAddress,
   onDisconnect,
   onSwitchWallet,
   warnings,
@@ -84,6 +87,7 @@ export default function AppTitlebar({
                 ))}
               </div>
             ) : null}
+            <NotificationInbox address={walletAddress} />
             <StatusIndicator connected={connected} />
             <WalletMenuPill
               address={address}

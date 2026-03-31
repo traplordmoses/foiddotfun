@@ -52,6 +52,7 @@ export function useSwipePropose() {
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
         // Parse the ProposalCreated event to get the on-chain proposalId
+        let proposalId: number | null = null;
         try {
           const { parseEventLogs } = await import("viem");
           const events = parseEventLogs({
@@ -61,6 +62,7 @@ export function useSwipePropose() {
           });
           if (events.length > 0) {
             const onChainId = Number((events[0].args as Record<string, unknown>).proposalId);
+            proposalId = onChainId;
             fetch("/api/propose/link", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -74,7 +76,7 @@ export function useSwipePropose() {
           console.warn("[useSwipePropose] event parse failed:", err);
         }
 
-        return { txHash, receipt };
+        return { txHash, receipt, proposalId };
       } finally {
         setIsPending(false);
       }
