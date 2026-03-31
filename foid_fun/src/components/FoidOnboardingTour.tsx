@@ -27,15 +27,6 @@ const SLIDES: TourSlide[] = [
     cta: '',
   },
   {
-    exe: 'vote.exe',
-    icon: '🗳️',
-    title: 'VOTE — SHAPE THE CULTURE',
-    body: 'Community members submit memes. You swipe right to approve, left to reject. Approved proposals get placed on the Loreboard permanently — governed by the people who show up.',
-    accent: '#a855f7',
-    href: '/vote',
-    cta: 'Start Voting',
-  },
-  {
     exe: 'loreboard.exe',
     icon: '🖼️',
     title: 'LOREBOARD — THE COLLAGE',
@@ -45,6 +36,15 @@ const SLIDES: TourSlide[] = [
     cta: 'View the Board',
   },
   {
+    exe: 'vote.exe',
+    icon: '🗳️',
+    title: 'VOTE — SHAPE THE CULTURE',
+    body: 'Community members submit memes. You swipe right to approve, left to reject. Approved proposals get placed on the Loreboard permanently — governed by the people who show up.',
+    accent: '#a855f7',
+    href: '/vote',
+    cta: 'Start Voting',
+  },
+  {
     exe: 'pray.exe',
     icon: '🙏',
     title: 'PRAY — DAILY RITUAL',
@@ -52,15 +52,6 @@ const SLIDES: TourSlide[] = [
     accent: '#00ffff',
     href: '/pray',
     cta: 'Begin Praying',
-  },
-  {
-    exe: 'governance.exe',
-    icon: '🗳️',
-    title: 'GOVERNANCE — DEMOCRATIC CULTURE',
-    body: 'Every placement on the board is a consensus statement. Streak-weighted voting ensures the people who show up every day shape the culture.',
-    accent: '#fbbf24',
-    href: '/board',
-    cta: 'View the Board',
   },
   {
     exe: 'ready.exe',
