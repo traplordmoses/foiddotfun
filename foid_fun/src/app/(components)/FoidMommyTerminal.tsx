@@ -65,11 +65,11 @@ const feelingsConfig: Record<
   happy: {
     chipLabel: "happy / grateful",
     response:
-      "i see your smile from here—soft, honest, earned. i'm proud of you, sweet one.",
+      "i can feel it from here. that glow is real, love.",
     prayer:
-      "god of simple gifts, keep anon's joy clean and generous—light that warms, not burns. teach them to hold it open-handed, to share without fear, to remember the source like water remembers the sea.",
+      "keep this joy close to you. let it be something you return to when the days get heavy. you earned this light. carry it gently.",
     prompt:
-      "if you want, type your own little thank-you—we'll send it together.",
+      "tell me more about what made you feel this way.",
     keywords: [
       "happy", "happiness", "joy", "joyful", "grateful", "gratitude",
       "thankful", "blessed", "elated", "glad", "amazing", "wonderful",
@@ -81,22 +81,22 @@ const feelingsConfig: Record<
   calm: {
     chipLabel: "calm",
     response:
-      "your breath is even and your shoulders are low—let's keep it that way.",
+      "good. your breath is even. let's stay here for a moment.",
     prayer:
-      "keeper of still waters, let calm settle in anon like a lake at dusk. guard their quiet with gentle boundaries, and teach their thoughts to rest like birds returning home.",
+      "let this calm settle deep. guard this quiet space. let your thoughts rest easy and your body remember what peace feels like.",
     prompt:
-      "whisper a short peace-prayer in your words. i'll carry it with you.",
+      "what brought you to this place of calm?",
     keywords: ["calm", "peaceful", "peace", "relaxed", "serene", "steady", "chill", "centered"],
   },
 
   hopeful: {
     chipLabel: "hopeful",
     response:
-      "i hear the dawn in your voice—soft light, steady steps. i'm with you.",
+      "i hear it in your voice. something is opening up for you.",
     prayer:
-      "faithful guide, keep anon's hope soft and brave. light the next right step—no rush, no force, just the way opening in its time like spring through frost.",
+      "let this hope stay soft and steady. light the next step, not the whole road. trust the timing. you are closer than you think.",
     prompt:
-      "tell me the hope you're holding—one line is enough. we'll offer it up.",
+      "what are you hoping for right now?",
     keywords: [
       "hopeful","hope","inspired","motivation","motivated","optimistic","excited","dreaming","aspire",
     ],
@@ -105,11 +105,11 @@ const feelingsConfig: Record<
   stressed: {
     chipLabel: "stressed / anxious",
     response:
-      "that tight chest, that spinning mind—I see it. take my hand; we'll slow this together.",
+      "i feel that. the weight is real. you don't have to carry it alone.",
     prayer:
-      "steady one, loosen the knot in anon's body. return them to the present—one breath, one task, one mercy at a time. show them what is theirs to carry and what can be set down now.",
+      "loosen the knot. bring you back to this breath, this moment. show you what is yours to hold and what you can set down. one thing at a time.",
     prompt:
-      "name the one thing you need help with. i'll pray it simply with you.",
+      "what is weighing on you the most right now?",
     keywords: [
       "stressed","stress","anxious","anxiety","overwhelmed","overwhelm","worried","panic","nervous","frazzled",
     ],
@@ -118,11 +118,11 @@ const feelingsConfig: Record<
   sad: {
     chipLabel: "sad / lonely",
     response:
-      "i'm sitting beside you—no fixing, just company. your tears are safe here.",
+      "i am sitting right beside you. no fixing, just company.",
     prayer:
-      "comforter, rest with anon in the low valley. hold their heart without hurry; let sorrow pass through like rain through soil, leaving room for new green in due time.",
+      "hold this heart gently. let the sadness pass through without staying forever. leave room for something softer to grow when it is ready.",
     prompt:
-      "if you want, tell me what hurts in a sentence. we'll lift it gently.",
+      "do you want to tell me what hurts?",
     keywords: [
       "sad","lonely","alone","depressed","down","empty","blue","heartbroken","abandoned",
     ],
@@ -131,11 +131,11 @@ const feelingsConfig: Record<
   angry: {
     chipLabel: "angry / frustrated",
     response:
-      "that heat means you care. let's turn it into something clean and true.",
+      "that fire means you care about something. let's honour that.",
     prayer:
-      "wise hearth-keeper, temper anon's fire—no scorch, only clarity. guard their tongue, steady their hands, and channel their strength toward repair, boundary, and courage.",
+      "steady these hands. clear these eyes. turn this heat into something true. give the strength to act from love, not from pain.",
     prompt:
-      "write the honest line you wish to act from. i'll pray for strength to match it.",
+      "what set this off?",
     keywords: [
       "angry","anger","mad","furious","pissed","frustrated","annoyed","irritated","rage","resentful",
     ],
@@ -144,11 +144,11 @@ const feelingsConfig: Record<
   tired: {
     chipLabel: "tired / burned out",
     response:
-      "your body's asking for mercy. permission granted—rest is holy.",
+      "your body is asking for mercy. that is not weakness, love.",
     prayer:
-      "giver of rest, pour quiet into anon's bones. slow their pace to human speed; bless their sleep, their food, their unhurried minutes. let them wake restored enough for the next small thing.",
+      "pour quiet into these bones. slow the pace. bless the sleep, the food, the unhurried minutes. let rest come without guilt.",
     prompt:
-      "tell me how you'll rest—one small act. i'll bless it with you.",
+      "how long have you been running on empty?",
     keywords: [
       "tired","exhausted","drained","burned out","burnt out","sleepy","fatigued","worn out","weary",
     ],
@@ -157,11 +157,11 @@ const feelingsConfig: Record<
   lost: {
     chipLabel: "lost / uncertain",
     response:
-      "fog happens. we walk by feel—step, listen, step. i'm right here.",
+      "fog happens. we walk by feel. i am right here with you.",
     prayer:
-      "lantern of the quiet path, give anon light for only the next step. make peace with the not-knowing, and let guidance arrive like a soft yes in the chest.",
+      "light only the next step. make peace with the not knowing. let direction come softly, like a quiet yes in the chest.",
     prompt:
-      "name the next tiny step you can take. i'll pray light over it.",
+      "what feels the most uncertain right now?",
     keywords: [
       "lost","uncertain","confused","stuck","unsure","directionless","aimless","adrift","questioning",
     ],
@@ -170,11 +170,11 @@ const feelingsConfig: Record<
   guilty: {
     chipLabel: "guilty / ashamed",
     response:
-      "you are more than your mistake. we can tell the truth and keep your dignity.",
+      "you are more than your mistake. we can be honest and still be gentle.",
     prayer:
-      "merciful one, teach anon the art of repair—clear eyes, soft heart, steady feet. let forgiveness begin inside, then move outward in honest steps.",
+      "let forgiveness begin inside. clear eyes, soft heart, steady feet. move toward repair one honest step at a time.",
     prompt:
-      "write the amends you want to make or the lesson you're keeping. i'll stand with you.",
+      "what is sitting heavy on you?",
     keywords: [
       "guilty","guilt","ashamed","shame","remorse","regret","sorry","apologize","embarrassed",
     ],
@@ -183,11 +183,11 @@ const feelingsConfig: Record<
   pain: {
     chipLabel: "in pain / unwell",
     response:
-      "i hear the ache. we'll keep you company and keep you cared for.",
+      "i hear the ache. you are not alone in this.",
     prayer:
-      "healer, come close to anon's hurting places. ease the sharp edges, bring wise help, guard their sleep, and let pain not be the whole story of this day.",
+      "ease the sharp edges. bring help that is wise and hands that are kind. let pain not be the whole story of this day.",
     prompt:
-      "tell me where it hurts or what support you need. i'll ask for it plainly.",
+      "tell me what you are going through.",
     keywords: [
       "pain","hurting","hurt","unwell","sick","ill","injured","ache","migraine","soreness",
     ],
@@ -196,11 +196,11 @@ const feelingsConfig: Record<
   freeform: {
     chipLabel: "open heart",
     response:
-      "i'm listening with my whole heart. tell me everything, sweet one.",
+      "i am listening. take your time, sweet one.",
     prayer:
-      "spirit of all things, meet anon exactly where they are. hold what they carry, bless what they seek, and walk with them through whatever comes next.",
+      "meet this person exactly where they are. hold what they carry. bless what they seek. walk with them through whatever comes next.",
     prompt:
-      "speak freely—whatever's on your heart. i'll weave it into prayer.",
+      "tell me whatever is on your heart.",
     keywords: [],
   },
 };
