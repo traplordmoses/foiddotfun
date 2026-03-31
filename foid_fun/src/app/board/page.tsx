@@ -760,13 +760,27 @@ function BoardPageContent() {
         lastName = it.name;
       }
 
-      // Fire celebration BEFORE clearing state (preserves blob URLs)
+      // Convert blob URL to data URL so it survives clearBoardState()
+      let stablePreviewUrl = lastPreviewUrl;
+      if (lastPreviewUrl && lastPreviewUrl.startsWith("blob:")) {
+        try {
+          const resp = await fetch(lastPreviewUrl);
+          const blob = await resp.blob();
+          stablePreviewUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+        } catch { /* keep blob URL as fallback */ }
+      }
+
+      // Fire celebration BEFORE clearing state
       if (lastTxHash) {
         celebratePlacement({
           itemName: lastName,
           txHash: lastTxHash,
           proposalId: lastProposalId,
-          previewUrl: lastPreviewUrl,
+          previewUrl: stablePreviewUrl,
         });
       }
 
@@ -1040,7 +1054,6 @@ function BoardPageContent() {
               chainId={FLUENT_CHAIN_ID}
               connected={isConnected}
               address={address}
-              walletAddress={address as `0x${string}` | undefined}
               onDisconnect={() => disconnect()}
               onSwitchWallet={handleSwitchWallet}
             />

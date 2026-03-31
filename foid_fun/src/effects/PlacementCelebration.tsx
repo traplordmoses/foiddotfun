@@ -334,12 +334,12 @@ export default function PlacementCelebration({
         /* ── Beat 3: Glass pill ── */
         .pc-pill {
           position: relative; z-index: 5;
-          width: clamp(300px, 60vw, 680px);
-          min-height: clamp(200px, 28vh, 420px);
+          width: clamp(280px, 42vw, 480px);
+          min-height: clamp(280px, 45vh, 520px);
           border-radius: 28px;
           display: flex; flex-direction: column; align-items: center; justify-content: center;
-          padding: clamp(16px, 3vw, 32px);
-          gap: 12px;
+          padding: clamp(20px, 3vw, 36px) clamp(16px, 2.5vw, 28px);
+          gap: 14px;
           background:
             linear-gradient(135deg, rgba(255,255,255,.35), rgba(255,215,0,.2), rgba(148,103,189,.25)),
             rgba(8,16,36,.65);
@@ -412,15 +412,21 @@ export default function PlacementCelebration({
 
         /* ── Thumbnail ── */
         .pc-thumb {
-          width: 80px; height: 80px; border-radius: 14px;
-          object-fit: cover; border: 2px solid rgba(255,255,255,.5);
-          box-shadow: 0 8px 24px rgba(0,0,0,.4), 0 0 20px rgba(255,215,0,.2);
+          width: clamp(100px, 28vw, 160px); height: clamp(100px, 28vw, 160px);
+          border-radius: 16px;
+          object-fit: cover;
+          border: 3px solid rgba(255,255,255,.55);
+          box-shadow:
+            0 8px 32px rgba(0,0,0,.5),
+            0 0 24px rgba(255,215,0,.25),
+            inset 0 0 0 1px rgba(255,255,255,.15);
           opacity: 0;
-          animation: pc-thumb-in 500ms 1500ms ease-out forwards;
+          animation: pc-thumb-in 600ms 1400ms cubic-bezier(.16,.86,.22,1) forwards;
         }
         @keyframes pc-thumb-in {
-          0% { opacity: 0; transform: scale(0.6); }
-          100% { opacity: 1; transform: scale(1); }
+          0% { opacity: 0; transform: scale(0.4) rotate(-6deg); }
+          70% { opacity: 1; transform: scale(1.06) rotate(1deg); }
+          100% { opacity: 1; transform: scale(1) rotate(0deg); }
         }
 
         /* ── Meta chips ── */
@@ -447,21 +453,27 @@ export default function PlacementCelebration({
 
         /* ── Share button ── */
         .pc-share {
-          padding: 7px 20px; border-radius: 12px;
-          border: 1px solid rgba(255,215,0,.5);
-          background: linear-gradient(180deg, rgba(255,215,0,.18), rgba(255,215,0,.06) 50%), rgba(6,14,28,.85);
+          padding: 10px 28px; border-radius: 14px;
+          border: 1.5px solid rgba(255,215,0,.6);
+          background: linear-gradient(180deg, rgba(255,215,0,.22), rgba(255,215,0,.08) 50%), rgba(6,14,28,.85);
           color: rgba(255,215,0,.95);
-          font-family: var(--font-mono, monospace); font-size: 11px; font-weight: 700;
-          letter-spacing: .18em; cursor: pointer;
-          text-shadow: 0 0 8px rgba(255,215,0,.25);
+          font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700;
+          letter-spacing: .2em; cursor: pointer;
+          text-shadow: 0 0 10px rgba(255,215,0,.3);
+          box-shadow: 0 0 20px rgba(255,215,0,.1);
           pointer-events: auto;
           opacity: 0;
-          animation: pc-meta-in 400ms 1900ms ease-out forwards;
-          transition: background 150ms, box-shadow 150ms;
+          animation: pc-share-in 500ms 1900ms cubic-bezier(.16,.86,.22,1) forwards;
+          transition: background 150ms, box-shadow 150ms, transform 150ms;
         }
         .pc-share:hover {
-          background: linear-gradient(180deg, rgba(255,215,0,.3), rgba(255,215,0,.12) 50%), rgba(6,14,28,.9);
-          box-shadow: 0 0 16px rgba(255,215,0,.25);
+          background: linear-gradient(180deg, rgba(255,215,0,.35), rgba(255,215,0,.15) 50%), rgba(6,14,28,.9);
+          box-shadow: 0 0 24px rgba(255,215,0,.3);
+          transform: translateY(-1px);
+        }
+        @keyframes pc-share-in {
+          0% { opacity: 0; transform: translateY(8px) scale(0.9); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         /* ── Scanlines & sheen ── */

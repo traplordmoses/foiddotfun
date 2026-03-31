@@ -43,6 +43,11 @@ export default function AppTitlebar({
   warnings,
 }: AppTitlebarProps) {
   void chainId;
+  // Derive typed wallet address from the string prop — works across all pages
+  const resolvedWallet = useMemo(
+    () => walletAddress ?? (address?.startsWith("0x") ? address as `0x${string}` : undefined),
+    [walletAddress, address],
+  );
   const buildCommit = useMemo(() => {
     const env = typeof globalThis === "object" ? (globalThis as { __ENV__?: Record<string, string> | undefined }).__ENV__ : undefined;
     return (
@@ -87,7 +92,7 @@ export default function AppTitlebar({
                 ))}
               </div>
             ) : null}
-            <NotificationInbox address={walletAddress} />
+            <NotificationInbox address={resolvedWallet} />
             <StatusIndicator connected={connected} />
             <WalletMenuPill
               address={address}
