@@ -403,32 +403,7 @@ function PrayPageContent() {
 
       {/* Mobile Layout */}
       <div className="lg:hidden relative z-10 flex flex-col items-center w-full px-2 sm:px-4 pt-2 pb-28 pb-safe">
-        {/* NOT CONNECTED - Show connect button */}
-        {!isConnected ? (
-          <div className="flex flex-col items-center justify-center gap-6 w-full max-w-md min-h-[60vh]">
-            <Image src="/foidmommy.gif" alt="Foid Mommy" width={120} height={120} className="rounded-2xl" />
-            <button
-              onClick={handleSwitchWallet}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleSwitchWallet();
-                }
-              }}
-              aria-label="Connect wallet to start praying"
-              className="w-full min-h-[56px] px-8 py-5 text-lg font-bold tracking-wide rounded-2xl shadow-lg transition-all duration-200 touch-manipulation active:scale-[0.98] hover:scale-[1.02] focus:outline-none focus:ring-4 focus:ring-green-500/50"
-              style={{
-                background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-                boxShadow: '0 0 24px rgba(34, 197, 94, 0.4), 0 10px 30px rgba(0, 0, 0, 0.3)',
-                color: '#000',
-                border: '2px solid rgba(255, 255, 255, 0.2)',
-              }}
-            >
-              CONNECT & START PRAYING
-            </button>
-          </div>
-        ) : (
-          /* CONNECTED - Show terminal immediately */
+        {/* Terminal — always visible (shadow mode when disconnected) */}
           <section className="vista-window vista-window--media flex flex-col w-full mb-4 overflow-hidden" style={{ height: "calc(100dvh - 96px)" }}>
             <div className="vista-window__titlebar flex-shrink-0">
               <div className="vista-window__controls" aria-hidden="true">
@@ -469,12 +444,13 @@ function PrayPageContent() {
                     chainOk={!wrongChain}
                     requiredChainId={FLUENT_CHAIN_ID}
                     autoStart={false}
+                    shadowMode={!isConnected}
+                    onRequestConnect={handleSwitchWallet}
                   />
                 </div>
               </div>
             </div>
           </section>
-        )}
       </div>
 
       {/* Desktop Layout */}
@@ -512,6 +488,8 @@ function PrayPageContent() {
                       chainOk={!wrongChain}
                       requiredChainId={FLUENT_CHAIN_ID}
                       autoStart={true}
+                      shadowMode={!isConnected}
+                      onRequestConnect={handleSwitchWallet}
                     />
                   </div>
                 </div>

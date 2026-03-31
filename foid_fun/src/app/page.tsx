@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
+import ActivityBubbles from "@/components/ActivityBubbles";
 
 const tiles = [
   {
@@ -105,6 +106,9 @@ export default function LandingPage() {
               className="vista-window__body home-iridescent"
               style={{ overflow: "hidden", flex: 1, minHeight: 0, position: "relative" }}
             >
+              {/* Live activity bubbles floating upward */}
+              <ActivityBubbles />
+
               {/* Floating sparkles + bubbles inside the window */}
               <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
                 {SPARKLES.map((s, i) => (
@@ -164,6 +168,9 @@ export default function LandingPage() {
                   </div>
                   <p className="home-subtitle font-mono text-[11px] sm:text-[15px] tracking-[0.18em] uppercase text-center mt-2 sm:mt-2.5">
                     the internet&apos;s permanent memory
+                  </p>
+                  <p className="home-tagline font-mono text-[9px] sm:text-[11px] tracking-[0.06em] text-center mt-3 sm:mt-4 max-w-[520px] mx-auto leading-relaxed">
+                    Pray daily. Vote on culture. Build the permanent internet collage.
                   </p>
                 </div>
 
@@ -236,6 +243,12 @@ export default function LandingPage() {
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           filter: drop-shadow(0 0 14px rgba(245, 160, 192, 0.3));
+        }
+
+        /* Tagline — subtle, informative */
+        :global(.home-tagline) {
+          color: rgba(255, 255, 255, 0.45);
+          text-shadow: 0 0 12px rgba(200, 180, 255, 0.1);
         }
 
         /* Gentle float animation for title area */

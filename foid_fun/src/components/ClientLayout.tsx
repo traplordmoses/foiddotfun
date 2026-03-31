@@ -6,6 +6,7 @@ import { MobileNav } from '@/components/MobileNav';
 import CompactMusicPlayer from '@/components/CompactMusicPlayer';
 import FoidWalletOnboarding from '@/components/FoidWalletOnboarding';
 import FoidOnboardingTour from '@/components/FoidOnboardingTour';
+import PostWalletWelcome from '@/components/PostWalletWelcome';
 import { useMobile } from '@/hooks/useMobile';
 import { clearSession } from '@/lib/wallet';
 
@@ -29,6 +30,7 @@ export function ClientLayout() {
       <MobileNav />
       <FoidWalletOnboarding />
       <FoidOnboardingTour />
+      <PostWalletWelcome />
       {!isMobile && <CompactMusicPlayer mountLogic={true} />}
     </>
   );

@@ -180,6 +180,32 @@ export async function insertBoardEvent(
 }
 
 /**
+ * Fetch recent board events (for seeding activity feeds).
+ */
+export async function fetchRecentBoardEvents(
+  limit = 10
+): Promise<BoardEvent[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from("board_events")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error("Error fetching board events:", error);
+      return [];
+    }
+
+    return (data || []).reverse();
+  } catch (err) {
+    console.error("Failed to fetch board events:", err);
+    return [];
+  }
+}
+
+/**
  * Subscribe to board events in real-time.
  * Returns unsubscribe function.
  */

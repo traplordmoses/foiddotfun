@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { useRouter } from "next/navigation";
 import { getAudioSettings } from "@/lib/audioSettings";
 
@@ -51,6 +51,38 @@ export default function EnterGate({
   const audioRef = useRef<AudioContext | null>(null);
   const timeoutsRef = useRef<TimeoutId[]>([]);
   const activationLocked = useRef(false);
+
+  const [tiltX, setTiltX] = useState(0);
+  const [tiltY, setTiltY] = useState(0);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const handlePointerMove = useCallback((e: globalThis.PointerEvent) => {
+    const el = containerRef.current;
+    if (!el || reducedMotion) return;
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = (e.clientX - cx) / (rect.width / 2);
+    const dy = (e.clientY - cy) / (rect.height / 2);
+    setTiltY(dx * 8);   // rotateY
+    setTiltX(-dy * 6);  // rotateX
+  }, [reducedMotion]);
+
+  const handlePointerLeave = useCallback(() => {
+    setTiltX(0);
+    setTiltY(0);
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener("pointermove", handlePointerMove);
+    el.addEventListener("pointerleave", handlePointerLeave);
+    return () => {
+      el.removeEventListener("pointermove", handlePointerMove);
+      el.removeEventListener("pointerleave", handlePointerLeave);
+    };
+  }, [handlePointerMove, handlePointerLeave]);
 
   const [bootActive, setBootActive] = useState(false);
   const [bootText1, setBootText1] = useState(false);
@@ -286,15 +318,40 @@ export default function EnterGate({
       <div className="caustics" aria-hidden="true" />
       <div className="particles" ref={particlesRef} aria-hidden="true" />
 
-      <div className="enter-container">
-        <button
-          type="button"
-          className="enter-key"
-          aria-label="Enter FOID Foundation"
-          onClick={handleEnter}
-          disabled={bootActive}
+      <div
+        className="enter-container"
+        ref={containerRef}
+        style={{
+          perspective: "600px",
+        }}
+      >
+        <div
+          className="enter-key-wrapper"
+          style={{
+            transform: `rotateX(${tiltX}deg) rotateY(${tiltY}deg)`,
+            transition: tiltX === 0 && tiltY === 0 ? "transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)" : "transform 0.08s linear",
+            transformStyle: "preserve-3d",
+          }}
         >
-          <span className="key-glow" aria-hidden="true" />
+          {/* Orbital particles */}
+          <span className="orbital orbital--1" aria-hidden="true" />
+          <span className="orbital orbital--2" aria-hidden="true" />
+          <span className="orbital orbital--3" aria-hidden="true" />
+          <span className="orbital orbital--4" aria-hidden="true" />
+          <span className="orbital orbital--5" aria-hidden="true" />
+          <span className="orbital orbital--6" aria-hidden="true" />
+
+          {/* Depth shadow beneath key */}
+          <span className="key-depth-shadow" aria-hidden="true" />
+
+          <button
+            type="button"
+            className="enter-key"
+            aria-label="Enter FOID Foundation"
+            onClick={handleEnter}
+            disabled={bootActive}
+          >
+            <span className="key-glow" aria-hidden="true" />
           <svg viewBox="0 0 488 202" xmlns="http://www.w3.org/2000/svg" role="img">
             <defs>
               <linearGradient id="glassBody" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -491,7 +548,8 @@ export default function EnterGate({
               </text>
             </g>
           </svg>
-        </button>
+          </button>
+        </div>
         <span className="enter-label">FOID Foundation</span>
       </div>
 
@@ -638,22 +696,99 @@ export default function EnterGate({
           height: calc(180px * var(--enter-scale));
           top: calc(-23px * var(--enter-scale));
           left: calc(-20px * var(--enter-scale));
-          background: radial-gradient(
-            ellipse at center,
-            rgba(180, 220, 255, 0.1) 0%,
-            rgba(140, 200, 250, 0.05) 40%,
-            transparent 70%
-          );
+          background:
+            radial-gradient(
+              ellipse at center,
+              rgba(255, 228, 98, 0.12) 0%,
+              rgba(255, 200, 60, 0.06) 35%,
+              transparent 60%
+            ),
+            radial-gradient(
+              ellipse at center,
+              rgba(180, 220, 255, 0.08) 0%,
+              rgba(140, 200, 250, 0.04) 45%,
+              transparent 70%
+            );
           border-radius: 30px;
           filter: blur(20px);
           opacity: 0.7;
           transition: opacity 0.3s ease;
           z-index: -1;
           pointer-events: none;
+          animation: key-glow-breathe 4s ease-in-out infinite;
+        }
+
+        @keyframes key-glow-breathe {
+          0%, 100% { opacity: 0.5; transform: scale(1); }
+          50% { opacity: 0.85; transform: scale(1.08); }
         }
 
         .enter-key:hover .key-glow {
           opacity: 0.9;
+        }
+
+        /* 3D wrapper */
+        .enter-key-wrapper {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+
+        /* Depth shadow beneath the key for 3D illusion */
+        .key-depth-shadow {
+          position: absolute;
+          width: calc(280px * var(--enter-scale, 0.7));
+          height: calc(40px * var(--enter-scale, 0.7));
+          bottom: calc(-18px * var(--enter-scale, 0.7));
+          left: 50%;
+          transform: translateX(-50%) scaleY(0.4);
+          background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.35) 0%, transparent 70%);
+          border-radius: 50%;
+          filter: blur(12px);
+          pointer-events: none;
+          animation: shadow-breathe 4s ease-in-out infinite;
+        }
+
+        @keyframes shadow-breathe {
+          0%, 100% { opacity: 0.6; transform: translateX(-50%) scaleY(0.4) scaleX(1); }
+          50% { opacity: 0.35; transform: translateX(-50%) scaleY(0.35) scaleX(0.95); }
+        }
+
+        /* Orbital particles */
+        .orbital {
+          position: absolute;
+          width: 4px;
+          height: 4px;
+          border-radius: 50%;
+          background: radial-gradient(circle, rgba(255, 248, 180, 0.9) 0%, rgba(255, 228, 98, 0.5) 50%, transparent 70%);
+          box-shadow: 0 0 6px rgba(255, 228, 98, 0.6), 0 0 12px rgba(255, 228, 98, 0.3);
+          pointer-events: none;
+          z-index: 5;
+          animation: orbit var(--orbit-dur, 8s) linear infinite;
+          --orbit-rx: 140px;
+          --orbit-ry: 70px;
+          top: calc(50% - 2px);
+          left: calc(50% - 2px);
+        }
+
+        .orbital--1 { --orbit-dur: 7s;  animation-delay: 0s;    --orbit-rx: 130px; --orbit-ry: 65px; }
+        .orbital--2 { --orbit-dur: 9s;  animation-delay: -1.5s; --orbit-rx: 145px; --orbit-ry: 72px; }
+        .orbital--3 { --orbit-dur: 11s; animation-delay: -3s;   --orbit-rx: 155px; --orbit-ry: 78px; width: 3px; height: 3px; opacity: 0.7; }
+        .orbital--4 { --orbit-dur: 8s;  animation-delay: -5s;   --orbit-rx: 135px; --orbit-ry: 68px; }
+        .orbital--5 { --orbit-dur: 10s; animation-delay: -7s;   --orbit-rx: 150px; --orbit-ry: 75px; width: 3px; height: 3px; opacity: 0.6; }
+        .orbital--6 { --orbit-dur: 12s; animation-delay: -4s;   --orbit-rx: 160px; --orbit-ry: 80px; width: 2px; height: 2px; opacity: 0.5; }
+
+        .enter-key-wrapper:hover .orbital {
+          animation-duration: calc(var(--orbit-dur, 8s) * 0.5);
+        }
+
+        @keyframes orbit {
+          0%   { transform: translate(calc(var(--orbit-rx) * 1),    0); }
+          25%  { transform: translate(0,    calc(var(--orbit-ry) * -1)); }
+          50%  { transform: translate(calc(var(--orbit-rx) * -1),   0); }
+          75%  { transform: translate(0,    calc(var(--orbit-ry) * 1));  }
+          100% { transform: translate(calc(var(--orbit-rx) * 1),    0); }
         }
 
         .enter-label {
@@ -906,9 +1041,31 @@ export default function EnterGate({
           transform: none;
         }
 
+        .enter-gate[data-reduced-motion="true"] .orbital,
+        .enter-gate[data-reduced-motion="true"] .key-depth-shadow {
+          display: none;
+        }
+
+        .enter-gate[data-reduced-motion="true"] .key-glow {
+          animation: none;
+        }
+
         @media (max-width: 640px) {
           .enter-container {
             --enter-scale: 0.62;
+          }
+          .orbital {
+            --orbit-rx: 95px;
+            --orbit-ry: 48px;
+          }
+          .orbital--1 { --orbit-rx: 90px;  --orbit-ry: 45px; }
+          .orbital--2 { --orbit-rx: 100px; --orbit-ry: 50px; }
+          .orbital--3 { --orbit-rx: 105px; --orbit-ry: 53px; }
+          .orbital--4 { --orbit-rx: 92px;  --orbit-ry: 46px; }
+          .orbital--5 { --orbit-rx: 102px; --orbit-ry: 51px; }
+          .orbital--6 { --orbit-rx: 108px; --orbit-ry: 54px; }
+          .key-depth-shadow {
+            width: calc(240px * var(--enter-scale));
           }
         }
 
@@ -916,9 +1073,13 @@ export default function EnterGate({
           .enter-key,
           .caustics::before,
           .caustics::after,
-          .particle {
+          .particle,
+          .orbital,
+          .key-glow,
+          .key-depth-shadow {
             animation: none;
           }
+          .orbital { display: none; }
         }
       `}</style>
     </div>

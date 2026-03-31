@@ -270,10 +270,14 @@ export default function FoidWalletOnboarding() {
     restoreRainbowKit();
     if (address && privateKey) {
       resolveWalletRequest({ address, privateKey });
+      // Emit creation event for post-wallet welcome flow
+      if (mode === 'create') {
+        window.dispatchEvent(new CustomEvent('foid-wallet:created', { detail: { address } }));
+      }
     } else {
       resolveWalletRequest(null);
     }
-  }, [address, privateKey]);
+  }, [address, privateKey, mode]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -305,14 +309,40 @@ export default function FoidWalletOnboarding() {
         <div className="mb-4 text-center">
           <div className="text-lg font-bold tracking-wide">FOID WALLET</div>
           <div className="mt-1 text-xs text-white/50 tracking-widest uppercase">
-            {step === 'explain' && 'Setup'}
-            {step === 'pin' && (mode === 'create' ? 'Choose a PIN' : mode === 'unlock' ? 'Enter PIN' : 'Restore')}
-            {step === 'working' && (mode === 'create' ? 'Creating...' : 'Unlocking...')}
-            {step === 'mnemonic' && 'Your Seed Phrase'}
-            {step === 'backup' && 'Save Your Backup'}
+            {step === 'explain' && 'Forge Your Identity'}
+            {step === 'pin' && (mode === 'create' ? 'Choose Your Secret Key' : mode === 'unlock' ? 'Enter PIN' : 'Restore')}
+            {step === 'working' && (mode === 'create' ? 'Forging...' : 'Unlocking...')}
+            {step === 'mnemonic' && 'Your Sacred Words'}
+            {step === 'backup' && 'Seal Your Identity'}
             {step === 'restore-input' && 'Restore from Backup'}
             {step === 'restore-mnemonic-input' && 'Restore from Seed Phrase'}
           </div>
+
+          {/* Step indicator (create flow only) */}
+          {mode === 'create' && !['restore-input', 'restore-mnemonic-input'].includes(step) && (
+            <div className="flex items-center justify-center gap-1.5 mt-3">
+              {[
+                { label: 'Identity', active: ['explain', 'pin', 'working'].includes(step) },
+                { label: 'Sacred Words', active: ['mnemonic'].includes(step) },
+                { label: 'Seal', active: ['backup'].includes(step) },
+              ].map((s, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  {i > 0 && <div className="w-3 h-px bg-white/15" />}
+                  <div
+                    className="px-2 py-0.5 rounded-full text-[9px] tracking-wider uppercase transition-all duration-500"
+                    style={{
+                      background: s.active ? 'rgba(168,130,255,0.25)' : 'rgba(255,255,255,0.05)',
+                      color: s.active ? 'rgba(200,180,255,0.9)' : 'rgba(255,255,255,0.25)',
+                      border: `1px solid ${s.active ? 'rgba(168,130,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                      boxShadow: s.active ? '0 0 12px rgba(168,130,255,0.2)' : 'none',
+                    }}
+                  >
+                    {s.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Error banner */}
@@ -326,13 +356,12 @@ export default function FoidWalletOnboarding() {
         {step === 'explain' && (
           <div className="space-y-4">
             <p className="text-sm text-white/80 leading-relaxed">
-              FOID Wallet creates a secure wallet on your device. Your private
-              key is encrypted with a PIN you choose, plus passkey
-              authentication.
+              Every voice on FOID has a key. Yours is about to be forged &mdash; right here in your browser,
+              encrypted with a secret only you know.
             </p>
             <p className="text-xs text-white/50 leading-relaxed">
-              No browser extension needed. You&apos;ll get a 12-word seed phrase
-              for recovery, protected by a PIN and passkey. Your PIN is never stored.
+              No extensions. No seed phrases to memorize upfront. Just a PIN and your device.
+              Your private key never leaves this browser unencrypted.
             </p>
             <div className="flex gap-3 pt-2">
               <button
@@ -377,7 +406,7 @@ export default function FoidWalletOnboarding() {
           <div className="space-y-4">
             <div>
               <label className="block text-xs text-white/50 tracking-widest uppercase mb-2">
-                {mode === 'create' ? 'Choose a PIN (6+ characters)' : 'Enter your PIN'}
+                {mode === 'create' ? 'Choose your secret key (6+ characters)' : 'Enter your PIN'}
               </label>
               <div className="relative">
                 <input
@@ -417,7 +446,7 @@ export default function FoidWalletOnboarding() {
 
             <p className="text-[11px] text-white/40 leading-relaxed">
               {mode === 'create'
-                ? 'Your PIN encrypts your private key. It is never stored. If you forget it, you will need your backup to recover.'
+                ? 'This encrypts your identity. We never see it, never store it. If you forget it, your sacred words are your only way back.'
                 : 'You will also be prompted for passkey authentication.'}
             </p>
 
@@ -442,13 +471,23 @@ export default function FoidWalletOnboarding() {
         {/* Step: Working */}
         {step === 'working' && (
           <div className="flex flex-col items-center gap-4 py-6">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-            <p className="text-sm text-white/70">
-              {mode === 'create' ? 'Creating your wallet...' : 'Unlocking...'}
+            {/* Animated forge ring */}
+            <div className="relative h-16 w-16 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-2 border-purple-400/30 animate-ping" style={{ animationDuration: '2s' }} />
+              <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-purple-400" />
+            </div>
+            <p className="text-sm text-white/80 font-medium">
+              {mode === 'create' ? 'Forging your identity...' : 'Unlocking...'}
             </p>
-            <p className="text-xs text-white/40">
-              You may see a passkey prompt from your device or password manager.
-            </p>
+            <div className="text-xs text-white/50 text-center leading-relaxed max-w-[280px] space-y-2">
+              <p>
+                Your browser will ask you to create a <strong className="text-white/70">passkey</strong> &mdash;
+                like a fingerprint, Face ID, or device PIN.
+              </p>
+              <p className="text-white/35">
+                This binds your wallet to this device as a second layer of protection alongside your secret key.
+              </p>
+            </div>
           </div>
         )}
 

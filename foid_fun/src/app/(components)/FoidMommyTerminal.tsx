@@ -243,6 +243,8 @@ export type FoidMommyTerminalProps = {
   requiredChainId?: number | null;
   className?: string;
   autoStart?: boolean; // NEW: auto-start terminal on mount
+  shadowMode?: boolean; // When true, intercept submission with connect prompt
+  onRequestConnect?: () => void; // Called when shadow mode prompts connection
 };
 
 function makeId() {
@@ -311,6 +313,8 @@ export default function FoidMommyTerminal({
   requiredChainId = null,
   className,
   autoStart = false,
+  shadowMode = false,
+  onRequestConnect,
 }: FoidMommyTerminalProps) {
   // Prayer draft persistence
   const { draft, saveDraft, clearDraft } = usePrayerDraft();
@@ -831,6 +835,24 @@ export default function FoidMommyTerminal({
       return;
     }
     if (!feelingToSend || !prayerToSend) return;
+
+    // ── Shadow mode: intercept before wallet check ──
+    if (shadowMode) {
+      await typeMessage({
+        role: "system",
+        text: "your prayer was heard, sweet one. connect your wallet to anchor it on-chain forever.",
+      });
+      // Save the prayer text so it persists via draft mechanism
+      saveDraft(prayerToSend);
+      // Show connect prompt after a beat
+      await new Promise((r) => { const t = window.setTimeout(r, 600); timeoutsRef.current.push(t); });
+      addMessage("system", "[ connect wallet to make it permanent → ]");
+      setStage("awaitPrayer");
+      setIsProcessing(false);
+      onRequestConnect?.();
+      return;
+    }
+
     setStage("txPending");
     setIsProcessing(true);
 

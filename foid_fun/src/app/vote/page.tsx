@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAccount, useReadContract } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useSwitchWallet } from "@/hooks/useSwitchWallet";
 import Link from "next/link";
 import { CONTRACTS } from "@/lib/contracts/addresses";
@@ -14,6 +15,7 @@ import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
 import { CHAIN_ID } from "@/config/canonical";
 import { useSwipeVotingPower } from "@/hooks/useSwipeVotingPower";
 import { useBoardEvents } from "@/hooks/useBoardEvents";
+import { useShadowVotes } from "@/hooks/useShadowVotes";
 import {
   playSwipeYes,
   playSwipeNo,
@@ -793,6 +795,8 @@ export default function VotePage() {
   const { address, isConnected } = useAccount();
   const { disconnect, switchWallet } = useSwitchWallet();
   const { votingPower, multiplier, tierName, isLoading: powerLoading } = useSwipeVotingPower();
+  const { addShadowVote, getReplayableVotes, clearShadowVotes } = useShadowVotes();
+  const { openConnectModal } = useConnectModal();
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"active" | "completed" | "history">("active");
   const [proposals, setProposals] = useState<SwipeProposal[]>([]);
@@ -942,13 +946,60 @@ export default function VotePage() {
   const currentProposal = activeProposals[0] ?? null;
 
   const handleVote = useCallback((proposalId: number, approve: boolean) => {
-    if (!isConnected || !address) { toast.error("Connect wallet to vote"); return; }
+    if (!isConnected || !address) {
+      // ── Shadow vote path — let disconnected users feel the interaction ──
+      addShadowVote(proposalId, approve);
+      // Apply optimistic UI so stamps/animations still fire
+      setVotedIds((prev) => { const n = new Set(prev); n.add(proposalId); return n; });
+      setVoteChoices((prev) => { const n = new Map(prev); n.set(proposalId, approve); return n; });
+      setLastVotedId(proposalId);
+      setShowUndo(true);
+      // Themed toast with connect prompt after a beat
+      setTimeout(() => {
+        toast(
+          (t) => (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center", textAlign: "center" }}>
+              <span style={{ fontSize: 13, color: "#e0d0ff" }}>Your vote was felt.</span>
+              <button
+                onClick={() => { toast.dismiss(t.id); openConnectModal?.(); }}
+                style={{
+                  padding: "6px 16px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  background: "linear-gradient(135deg,#e040fb,#f06292)", color: "#fff",
+                  border: "none", cursor: "pointer", letterSpacing: "0.05em",
+                }}
+              >
+                CONNECT TO MAKE IT PERMANENT
+              </button>
+            </div>
+          ),
+          { duration: 5000, style: { background: "#1a1a2e", border: "1px solid rgba(168,130,255,0.3)", borderRadius: 12 } }
+        );
+      }, 800);
+      return;
+    }
     setPendingDecisions((prev) => { const n = new Map(prev); n.set(proposalId, approve); return n; });
     setVotedIds((prev) => { const n = new Set(prev); n.add(proposalId); return n; });
     setVoteChoices((prev) => { const n = new Map(prev); n.set(proposalId, approve); return n; });
     setLastVotedId(proposalId);
     setShowUndo(true);
-  }, [address, isConnected]);
+  }, [address, isConnected, addShadowVote, openConnectModal]);
+
+  // ── Replay shadow votes when wallet connects ──
+  const shadowReplayedRef = useRef(false);
+  useEffect(() => {
+    if (!isConnected || !address || shadowReplayedRef.current) return;
+    const replayable = getReplayableVotes();
+    if (replayable.length === 0) return;
+    shadowReplayedRef.current = true;
+    // Merge shadow votes into pendingDecisions for batch signing
+    setPendingDecisions((prev) => {
+      const n = new Map(prev);
+      replayable.forEach((v) => n.set(v.proposalId, v.approve));
+      return n;
+    });
+    clearShadowVotes();
+    toast.success(`${replayable.length} shadow vote${replayable.length > 1 ? "s" : ""} queued for signing!`, { duration: 3000 });
+  }, [isConnected, address, getReplayableVotes, clearShadowVotes]);
 
   const handleSkip = useCallback((proposalId: number) => {
     setSkippedIds((prev) => { const n = new Set(prev); n.add(proposalId); return n; });
