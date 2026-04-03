@@ -1,39 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
-import { createPublicClient, http, hexToString } from "viem";
-import { SWIPE_LOREBOARD_ABI } from "@/lib/contracts/abis/swipeLoreboard";
+import { createPublicClient, http } from "viem";
+import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { CONTRACTS, RPC_URL, CHAIN_CONFIG } from "@/lib/contracts/addresses";
+import { cidToHttpUrl } from "@/lib/ipfsUrl";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const IPFS_GATEWAY_BASE = (process.env.IPFS_GATEWAY_BASE ?? "https://ipfs.io/ipfs/").replace(/\/+$/, "");
-
-function decodeCidFromBytes(bytesHex: string): string | null {
-  if (!bytesHex || bytesHex === "0x") return null;
-
-  try {
-    // Try UTF-8 decode first (common case: bytes holds "ipfs://Qm..." or just "Qm...")
-    const raw = hexToString(bytesHex as `0x${string}`);
-    const trimmed = raw.replace(/\0/g, "").trim();
-    if (trimmed.startsWith("ipfs://")) return trimmed.slice("ipfs://".length);
-    if (/^Qm[1-9A-HJ-NP-Za-km-z]{44}$/.test(trimmed)) return trimmed;
-    if (/^bafy[1-9A-HJ-NP-Za-km-z]+$/.test(trimmed)) return trimmed;
-    // Return whatever we decoded if it looks like it might be content
-    if (trimmed.length > 10) return trimmed;
-  } catch (err) {
-    console.warn('[api/proposals] decodeCidFromBytes non-fatal error:', err);
-  }
-
-  return null;
-}
-
-function buildImageUrl(cid: string): string {
-  const trimmedCid = cid.replace(/^\/+/, "");
-  return `${IPFS_GATEWAY_BASE}/${trimmedCid}`;
-}
-
+/**
+ * GET /api/proposals — Returns canonized (finalized + approved) placements from the Loreboard.
+ *
+ * Reads from the unified Loreboard contract's `getPlacement()` function.
+ * Only returns non-removed placements with status "canonized".
+ */
 export async function GET(request: NextRequest) {
   noStore();
 
@@ -41,13 +22,11 @@ export async function GET(request: NextRequest) {
   const owner = searchParams.get("owner")?.toLowerCase() ?? null;
 
   try {
-    // SwipeLoreboard is not deployed in v1 — return empty instead of erroring.
-    // Board placements now go through Swipe.proposeLoreboard() → /api/swipe/proposals.
-    const swipeLoreboardAddr = (CONTRACTS.SWIPE_LOREBOARD || "") as `0x${string}`;
-    if (!swipeLoreboardAddr || swipeLoreboardAddr.length < 42) {
+    const contractAddress = CONTRACTS.SWIPE as `0x${string}`;
+    if (!contractAddress || contractAddress.length < 42) {
       return NextResponse.json({
         proposals: [],
-        debug: { source: "swipeLoreboard", note: "Not deployed in v1 — use /api/swipe/proposals" },
+        debug: { source: "loreboard", note: "Loreboard contract not configured" },
       });
     }
 
@@ -67,65 +46,83 @@ export async function GET(request: NextRequest) {
       transport: http(RPC_URL),
     });
 
-    // Read placement count
+    // Read placement count from the unified Loreboard
     const count = await client.readContract({
-      address: swipeLoreboardAddr,
-      abi: SWIPE_LOREBOARD_ABI,
+      address: contractAddress,
+      abi: LOREBOARD_ABI,
       functionName: "placementCount",
     }) as bigint;
 
     const placementCount = Number(count);
     if (placementCount === 0) {
-      return NextResponse.json({ proposals: [], debug: { source: "swipeLoreboard", count: 0 } });
+      return NextResponse.json({ proposals: [], debug: { source: "loreboard", count: 0 } });
     }
 
-    // Batch read placements via multicall
-    const contracts = Array.from({ length: placementCount }, (_, i) => ({
-      address: swipeLoreboardAddr,
-      abi: SWIPE_LOREBOARD_ABI,
-      functionName: "getPlacement" as const,
-      args: [BigInt(i)] as const,
-    }));
+    // Read each placement
+    type PlacementTuple = {
+      proposalId: bigint;
+      placer: string;
+      ipfsCid: string;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      placedAt: bigint;
+      removed: boolean;
+    };
 
-    const results = await client.multicall({ contracts, allowFailure: true });
-
-    const proposals = results
-      .map((result) => {
-        if (result.status !== "success" || !result.result) return null;
-        const p = result.result as {
-          id: bigint;
-          placer: string;
-          x: number;
-          y: number;
-          w: number;
-          h: number;
-          cells: number;
-          cidBytes: string;
-          placedAt: bigint;
-          removed: boolean;
+    function parsePlacement(raw: unknown): PlacementTuple {
+      if (Array.isArray(raw)) {
+        return {
+          proposalId: raw[0] as bigint,
+          placer: raw[1] as string,
+          ipfsCid: raw[2] as string,
+          x: Number(raw[3] ?? 0),
+          y: Number(raw[4] ?? 0),
+          w: Number(raw[5] ?? 0),
+          h: Number(raw[6] ?? 0),
+          placedAt: raw[7] as bigint,
+          removed: raw[8] as boolean,
         };
+      }
+      return raw as PlacementTuple;
+    }
 
-        // Filter out removed placements
-        if (p.removed) return null;
+    const proposals = [];
+
+    for (let i = 0; i < placementCount; i++) {
+      try {
+        const raw = await client.readContract({
+          address: contractAddress,
+          abi: LOREBOARD_ABI,
+          functionName: "getPlacement",
+          args: [BigInt(i)],
+        });
+
+        const p = parsePlacement(raw);
+
+        // Skip removed placements
+        if (p.removed) continue;
 
         // Filter by owner if specified
-        if (owner && p.placer.toLowerCase() !== owner) return null;
+        if (owner && p.placer.toLowerCase() !== owner) continue;
 
-        const cid = decodeCidFromBytes(p.cidBytes);
+        const imageUrl = p.ipfsCid ? cidToHttpUrl(p.ipfsCid) : null;
 
-        return {
-          id: String(Number(p.id)),
-          placementId: String(Number(p.id)),
+        proposals.push({
+          id: String(i),
+          placementId: String(i),
+          proposalId: Number(p.proposalId),
           owner: p.placer,
           bidder: p.placer,
-          x: Number(p.x),
-          y: Number(p.y),
-          w: Number(p.w),
-          h: Number(p.h),
-          rect: { x: Number(p.x), y: Number(p.y), w: Number(p.w), h: Number(p.h) },
-          cells: Number(p.cells),
-          cid,
-          imageUrl: cid ? buildImageUrl(cid) : null,
+          x: p.x,
+          y: p.y,
+          w: p.w,
+          h: p.h,
+          rect: { x: p.x, y: p.y, w: p.w, h: p.h },
+          cells: Math.ceil(p.w / 32) * Math.ceil(p.h / 32),
+          cid: p.ipfsCid?.replace("ipfs://", "") ?? null,
+          imageUrl,
           placedAt: Number(p.placedAt),
           removed: p.removed,
           // Compatibility fields for board page
@@ -135,22 +132,24 @@ export async function GET(request: NextRequest) {
           cidHash: "0x",
           yesVotes: 0,
           noVotes: 0,
-          status: "canonized",
+          status: "canonized" as const,
           isVotable: false,
           registeredAt: Number(p.placedAt),
           voteEndsAt: null,
-          boardVersion: "swipeLoreboard" as const,
-        };
-      })
-      .filter(Boolean);
+          boardVersion: "loreboard" as const,
+        });
+      } catch (err) {
+        console.error(`[api/proposals] Failed to read placement ${i}:`, err);
+      }
+    }
 
-    console.log(`[api/proposals] SwipeLoreboard: ${placementCount} total, ${proposals.length} active`);
+    console.log(`[api/proposals] Loreboard: ${placementCount} total, ${proposals.length} active`);
 
     return NextResponse.json(
       {
         proposals,
         debug: {
-          source: "swipeLoreboard",
+          source: "loreboard",
           placementsCount: placementCount,
           activeCount: proposals.length,
         },
