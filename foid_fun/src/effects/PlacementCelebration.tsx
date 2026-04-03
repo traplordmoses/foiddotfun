@@ -1,7 +1,7 @@
 // src/effects/PlacementCelebration.tsx
-// Gates of Olympus-style multi-beat celebration for loreboard placements
+// "Olympus meets FOID Terminal" — cinematic multi-beat celebration for loreboard placements
 "use client";
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { spawn } from "@/lib/spawn";
 import { getAudioSettings } from "@/lib/audioSettings";
 
@@ -12,61 +12,57 @@ type PlacementCelebrationProps = {
   previewUrl: string;
 };
 
+const DURATION = 9600;
+
 export function showPlacementCelebration(opts: PlacementCelebrationProps) {
-  spawn(
-    <PlacementCelebration {...opts} />,
-    7000,
-  );
+  spawn(<PlacementCelebration {...opts} />, DURATION);
 }
 
-/* ── Auto-fit text ───────────────────────────────────────────────────── */
+/* ── FOID brand palette ─────────────────────────────────────────────── */
 
-function useFitText(deps: React.DependencyList, cfg = { max: 120, min: 28, step: 2 }) {
-  const ref = useRef<HTMLSpanElement | null>(null);
-  const [size, setSize] = useState(cfg.max);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    const parent = el?.parentElement;
-    if (!el || !parent) return;
-    const pad = 28;
-    const measure = () => {
-      let s = cfg.max;
-      el.style.fontSize = `${s}px`;
-      el.style.lineHeight = "1.02";
-      el.style.whiteSpace = "pre-wrap";
-      while (s > cfg.min && (el.scrollWidth > parent.clientWidth - pad || el.scrollHeight > parent.clientHeight - pad)) {
-        s -= cfg.step;
-        el.style.fontSize = `${s}px`;
-      }
-      setSize(s);
-    };
-    const ro = new ResizeObserver(measure);
-    ro.observe(parent);
-    measure();
-    return () => ro.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
-  return { ref, size };
-}
-
-/* ── Gemstone palette ────────────────────────────────────────────────── */
-
-const GEMSTONE_COLORS = [
-  "#FFD700", // gold
-  "#50C878", // emerald
-  "#E0115F", // ruby
-  "#0F52BA", // sapphire
-  "#9966CC", // amethyst
-  "#FF6347", // flame
-  "#00CED1", // cyan crystal
-  "#FFA500", // amber
+const FOID_COLORS = [
+  "#74ffeb", // cyan (primary)
+  "#a78bfa", // purple
+  "#fbbf24", // gold
+  "#f472b6", // pink
+  "#22c55e", // green
+  "#06b6d4", // teal
+  "#e879f9", // magenta
+  "#ffffff", // white
 ];
 
-function pickGem(i: number) {
-  return GEMSTONE_COLORS[i % GEMSTONE_COLORS.length];
+function pickColor(i: number) {
+  return FOID_COLORS[i % FOID_COLORS.length];
 }
 
-/* ── Component ────────────────────────────────────────────────────────── */
+/* ── Slot counter hook ──────────────────────────────────────────────── */
+
+function useSlotCounter(target: number | null, startDelay = 1600, spinDuration = 700) {
+  const [display, setDisplay] = useState<string>("---");
+  const [landed, setLanded] = useState(false);
+  useEffect(() => {
+    if (target == null) { setDisplay("---"); return; }
+    const startTimer = setTimeout(() => {
+      let frame = 0;
+      const totalFrames = Math.floor(spinDuration / 40);
+      const interval = setInterval(() => {
+        frame++;
+        if (frame >= totalFrames) {
+          clearInterval(interval);
+          setDisplay(`#${target}`);
+          setLanded(true);
+        } else {
+          setDisplay(`#${Math.floor(Math.random() * 9999)}`);
+        }
+      }, 40);
+      return () => clearInterval(interval);
+    }, startDelay);
+    return () => clearTimeout(startTimer);
+  }, [target, startDelay, spinDuration]);
+  return { display, landed };
+}
+
+/* ── Component ───────────────────────────────────────────────────────── */
 
 export default function PlacementCelebration({
   itemName,
@@ -74,8 +70,9 @@ export default function PlacementCelebration({
   proposalId,
   previewUrl,
 }: PlacementCelebrationProps) {
-  const display = "ENGRAVED";
-  const { ref: textRef } = useFitText([display], { max: 110, min: 32, step: 2 });
+  const [exiting, setExiting] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { display: slotDisplay, landed: slotLanded } = useSlotCounter(proposalId);
 
   // Sound effects
   useEffect(() => {
@@ -87,6 +84,26 @@ export default function PlacementCelebration({
     });
   }, []);
 
+  // Auto-exit animation before spawn TTL
+  useEffect(() => {
+    const exitTimer = setTimeout(() => setExiting(true), DURATION - 700);
+    return () => clearTimeout(exitTimer);
+  }, []);
+
+  // Click-to-close with exit animation
+  const handleClose = useCallback((e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) setExiting(true);
+  }, []);
+
+  // Hide root after exit animation completes
+  useEffect(() => {
+    if (!exiting) return;
+    const t = setTimeout(() => {
+      if (rootRef.current) rootRef.current.style.display = "none";
+    }, 600);
+    return () => clearTimeout(t);
+  }, [exiting]);
+
   // Share to X
   const handleShare = () => {
     const text = encodeURIComponent(
@@ -95,103 +112,129 @@ export default function PlacementCelebration({
     window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
   };
 
-  // Precomputed particles
-  const sparkles = useMemo(() => Array.from({ length: 300 }, (_, i) => ({
-    d: i * 12,
+  // Precomputed particles — FOID palette
+  const sparkles = useMemo(() => Array.from({ length: 200 }, (_, i) => ({
+    d: i * 14,
     x: `${(Math.random() * 200 - 100).toFixed(1)}vw`,
     y: `${(Math.random() * 200 - 100).toFixed(1)}vh`,
-    color: pickGem(i),
+    color: pickColor(i),
     type: Math.random() > 0.5 ? "sparkle" : "star",
   })), []);
 
-  const crystals = useMemo(() => Array.from({ length: 200 }, (_, i) => ({
-    d: i * 18,
+  const crystals = useMemo(() => Array.from({ length: 140 }, (_, i) => ({
+    d: i * 20,
     x: `${(Math.random() * 200 - 100).toFixed(1)}vw`,
     y: `${(Math.random() * 200 - 100).toFixed(1)}vh`,
-    color: pickGem(i),
+    color: pickColor(i),
   })), []);
 
-  const confetti = useMemo(() => Array.from({ length: 120 }, (_, i) => ({
-    d: i * 22,
+  const confetti = useMemo(() => Array.from({ length: 100 }, (_, i) => ({
+    d: i * 24,
     x: `${(Math.random() * 200 - 100).toFixed(1)}vw`,
     y: `${(Math.random() * 200 - 100).toFixed(1)}vh`,
-    color: `hsl(${Math.random() * 360}, 100%, 55%)`,
+    color: FOID_COLORS[Math.floor(Math.random() * FOID_COLORS.length)],
   })), []);
 
-  const rings = useMemo(() => Array.from({ length: 80 }, (_, i) => ({
-    d: i * 28,
+  const rings = useMemo(() => Array.from({ length: 60 }, (_, i) => ({
+    d: i * 32,
     x: `${(Math.random() * 200 - 100).toFixed(1)}vw`,
     y: `${(Math.random() * 200 - 100).toFixed(1)}vh`,
-    color: pickGem(i),
+    color: pickColor(i),
   })), []);
 
   return (
-    <div aria-live="polite" role="status" className="pc-fullscreen" onClick={(e) => { if (e.target === e.currentTarget) (e.currentTarget as HTMLElement).style.display = "none"; }}>
-      {/* Beat 1: Screen flash */}
+    <div
+      ref={rootRef}
+      aria-live="polite"
+      role="status"
+      className={`pc-fullscreen ${exiting ? "pc-exiting" : ""}`}
+      onClick={handleClose}
+    >
+      {/* Beat 1: Cyan flash */}
       <div className="pc-flash" aria-hidden />
+
+      {/* Beat 1: Shockwave ring */}
+      <div className="pc-shockwave" aria-hidden />
 
       {/* Beat 1: Camera shake container */}
       <div className="pc-shake-root">
-        {/* Beat 2: Lightning bolt */}
-        <svg className="pc-lightning" viewBox="0 0 200 600" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+        {/* Beat 2: Dual lightning bolts */}
+        <svg className="pc-lightning pc-lightning--a" viewBox="0 0 200 600" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
           <path
             d="M100 0 L85 180 L120 200 L70 380 L110 400 L60 600"
-            stroke="url(#lightning-grad)"
-            strokeWidth="6"
+            stroke="url(#lg-a)"
+            strokeWidth="5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            filter="url(#lightning-glow)"
+            filter="url(#lglow)"
           />
           <defs>
-            <linearGradient id="lightning-grad" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="lg-a" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#fff" />
-              <stop offset="40%" stopColor="#00e5ff" />
-              <stop offset="100%" stopColor="#9966CC" />
+              <stop offset="35%" stopColor="#74ffeb" />
+              <stop offset="100%" stopColor="#a78bfa" />
             </linearGradient>
-            <filter id="lightning-glow" x="-50%" y="-10%" width="200%" height="120%">
-              <feGaussianBlur stdDeviation="8" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
+            <filter id="lglow" x="-50%" y="-10%" width="200%" height="120%">
+              <feGaussianBlur stdDeviation="7" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+        </svg>
+        <svg className="pc-lightning pc-lightning--b" viewBox="0 0 200 600" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+          <path
+            d="M110 0 L130 160 L90 190 L140 360 L95 390 L145 600"
+            stroke="url(#lg-b)"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            filter="url(#lglow2)"
+          />
+          <defs>
+            <linearGradient id="lg-b" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#fff" />
+              <stop offset="40%" stopColor="#a78bfa" />
+              <stop offset="100%" stopColor="#74ffeb" />
+            </linearGradient>
+            <filter id="lglow2" x="-50%" y="-10%" width="200%" height="120%">
+              <feGaussianBlur stdDeviation="5" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
           </defs>
         </svg>
 
-        {/* Beat 3: Glass pill overlay */}
-        <div className="pc-pill-guard" aria-hidden />
-        <div className="pc-pill">
-          <div className="pc-orb pc-orb-a" aria-hidden />
-          <div className="pc-orb pc-orb-b" aria-hidden />
-
-          {/* Headline */}
-          <span ref={textRef} className="pc-headline" data-text={display}>
-            {display}
-          </span>
-
-          {/* Thumbnail */}
+        {/* Beat 3: The Slab */}
+        <div className="pc-slab">
+          {/* Hero image */}
           {previewUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={previewUrl}
-              alt={itemName}
-              className="pc-thumb"
-              referrerPolicy="no-referrer"
-            />
+            <div className="pc-hero-frame">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewUrl}
+                alt={itemName}
+                className="pc-hero-img"
+                referrerPolicy="no-referrer"
+              />
+              <div className="pc-hero-sheen" aria-hidden />
+            </div>
           )}
 
-          {/* Metadata row */}
+          {/* ENGRAVED headline */}
+          <span className="pc-headline">ENGRAVED</span>
+
+          {/* Slot counter + meta */}
           <div className="pc-meta">
             {proposalId != null && (
-              <span className="pc-chip">Proposal #{proposalId}</span>
+              <span className={`pc-slot ${slotLanded ? "pc-slot--landed" : ""}`}>
+                {slotDisplay}
+              </span>
             )}
             <a
-              className="pc-chip pc-chip--link"
+              className="pc-chip"
               href={`https://testnet.fluentscan.xyz/tx/${txHash}`}
               target="_blank"
               rel="noreferrer"
             >
-              tx: {txHash.slice(0, 10)}...
+              {txHash.slice(0, 10)}...
             </a>
           </div>
 
@@ -199,311 +242,340 @@ export default function PlacementCelebration({
           <button type="button" className="pc-share" onClick={handleShare}>
             SHARE TO X
           </button>
-
-          {/* Scanlines & sheen */}
-          <div className="pc-scanlines" aria-hidden />
-          <div className="pc-sheen" aria-hidden />
         </div>
       </div>
 
       {/* Beat 4: Particle stage */}
       <div className="pc-particles" aria-hidden>
         {sparkles.map((s, i) => (
-          <i
-            key={`s${i}`}
-            className="pc-p"
-            style={{
-              "--d": `${s.d}ms`,
-              "--x": s.x,
-              "--y": s.y,
-              "--color": s.color,
-              "--type": s.type,
-            } as React.CSSProperties}
-          />
+          <i key={`s${i}`} className="pc-p" style={{ "--d": `${s.d}ms`, "--x": s.x, "--y": s.y, "--color": s.color, "--type": s.type } as React.CSSProperties} />
         ))}
         {crystals.map((c, i) => (
-          <i
-            key={`c${i}`}
-            className="pc-crystal"
-            style={{
-              "--d": `${c.d}ms`,
-              "--x": c.x,
-              "--y": c.y,
-              "--color": c.color,
-            } as React.CSSProperties}
-          />
+          <i key={`c${i}`} className="pc-crystal" style={{ "--d": `${c.d}ms`, "--x": c.x, "--y": c.y, "--color": c.color } as React.CSSProperties} />
         ))}
         {confetti.map((c, i) => (
-          <i
-            key={`f${i}`}
-            className="pc-confetti"
-            style={{
-              "--d": `${c.d}ms`,
-              "--x": c.x,
-              "--y": c.y,
-              "--color": c.color,
-            } as React.CSSProperties}
-          />
+          <i key={`f${i}`} className="pc-confetti" style={{ "--d": `${c.d}ms`, "--x": c.x, "--y": c.y, "--color": c.color } as React.CSSProperties} />
         ))}
         {rings.map((r, i) => (
-          <i
-            key={`r${i}`}
-            className="pc-ring"
-            style={{
-              "--d": `${r.d}ms`,
-              "--x": r.x,
-              "--y": r.y,
-              "--color": r.color,
-            } as React.CSSProperties}
-          />
+          <i key={`r${i}`} className="pc-ring" style={{ "--d": `${r.d}ms`, "--x": r.x, "--y": r.y, "--color": r.color } as React.CSSProperties} />
         ))}
       </div>
 
       <style jsx>{`
-        /* ── Stage ── */
+        /* ══════════════════════════════════════════════════════════════
+           STAGE
+           ══════════════════════════════════════════════════════════ */
         .pc-fullscreen {
           position: fixed; inset: 0; z-index: 1000;
           display: grid; place-items: center;
           pointer-events: auto; overflow: hidden;
-          background: radial-gradient(circle, rgba(255,215,0,0.08), transparent 70%);
+          background: radial-gradient(circle at 50% 40%, rgba(116,255,235,0.06), transparent 65%),
+                      rgba(2, 6, 18, 0.55);
+          transition: opacity 600ms ease-in, filter 600ms ease-in, transform 600ms ease-in;
+        }
+        .pc-exiting {
+          opacity: 0;
+          filter: blur(8px);
+          transform: scale(0.96);
         }
 
-        /* ── Beat 1: Flash ── */
+        /* ══════════════════════════════════════════════════════════════
+           BEAT 1: FLASH + SHAKE + SHOCKWAVE
+           ══════════════════════════════════════════════════════════ */
         .pc-flash {
           position: fixed; inset: 0; z-index: 10;
-          background: white; pointer-events: none;
-          animation: pc-flash 400ms ease-out forwards;
+          background: radial-gradient(circle, rgba(116,255,235,0.6), rgba(116,255,235,0.15) 60%, transparent 80%);
+          pointer-events: none;
+          animation: pc-flash 450ms ease-out forwards;
         }
         @keyframes pc-flash {
-          0% { opacity: 0.75; }
+          0% { opacity: 0.85; }
           100% { opacity: 0; }
         }
 
-        /* ── Beat 1: Shake ── */
+        .pc-shockwave {
+          position: fixed; z-index: 9;
+          left: 50%; top: 50%;
+          width: 40px; height: 40px;
+          border-radius: 50%;
+          border: 2px solid rgba(116,255,235,0.7);
+          box-shadow: 0 0 20px rgba(116,255,235,0.4), inset 0 0 20px rgba(116,255,235,0.2);
+          transform: translate(-50%, -50%) scale(0);
+          pointer-events: none;
+          animation: pc-shockwave 800ms 80ms cubic-bezier(0.16,0.86,0.22,1) forwards;
+        }
+        @keyframes pc-shockwave {
+          0% { opacity: 1; transform: translate(-50%, -50%) scale(0); }
+          60% { opacity: 0.6; }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(40); }
+        }
+
         .pc-shake-root {
           display: contents;
-          animation: pc-shake 500ms ease-out;
+          animation: pc-shake 400ms ease-out;
         }
         @keyframes pc-shake {
-          0% { transform: translate(0, 0); }
-          10% { transform: translate(-6px, 4px); }
-          20% { transform: translate(5px, -3px); }
-          30% { transform: translate(-4px, 5px); }
-          40% { transform: translate(3px, -2px); }
-          50% { transform: translate(-2px, 3px); }
-          60% { transform: translate(2px, -1px); }
-          80% { transform: translate(-1px, 1px); }
+          0%   { transform: translate(0, 0); }
+          12%  { transform: translate(-5px, 3px); }
+          25%  { transform: translate(4px, -4px); }
+          37%  { transform: translate(-3px, 4px); }
+          50%  { transform: translate(3px, -2px); }
+          62%  { transform: translate(-2px, 2px); }
+          75%  { transform: translate(1px, -1px); }
           100% { transform: translate(0, 0); }
         }
 
-        /* ── Beat 2: Lightning ── */
+        /* ══════════════════════════════════════════════════════════════
+           BEAT 2: DUAL LIGHTNING
+           ══════════════════════════════════════════════════════════ */
         .pc-lightning {
           position: fixed; z-index: 8;
-          top: -5%; left: 50%; transform: translateX(-50%);
-          width: 140px; height: 420px;
-          opacity: 0; pointer-events: none;
-          animation: pc-bolt 900ms 200ms ease-out forwards;
+          top: -5%; width: 130px; height: 400px;
+          pointer-events: none; opacity: 0;
+        }
+        .pc-lightning--a {
+          left: 50%; transform: translateX(-65%);
+          animation: pc-bolt 850ms 180ms ease-out forwards;
+        }
+        .pc-lightning--b {
+          left: 50%; transform: translateX(-20%) scaleX(-1);
+          animation: pc-bolt 750ms 280ms ease-out forwards;
         }
         .pc-lightning path {
           stroke-dasharray: 1200;
           stroke-dashoffset: 1200;
-          animation: pc-bolt-draw 600ms 250ms ease-out forwards;
+          animation: pc-bolt-draw 550ms 200ms ease-out forwards;
+        }
+        .pc-lightning--b path {
+          animation-delay: 300ms;
         }
         @keyframes pc-bolt {
-          0% { opacity: 0; }
-          15% { opacity: 1; }
-          70% { opacity: 0.9; }
+          0%   { opacity: 0; }
+          12%  { opacity: 1; }
+          65%  { opacity: 0.85; }
           100% { opacity: 0; }
         }
         @keyframes pc-bolt-draw {
           to { stroke-dashoffset: 0; }
         }
 
-        /* ── Beat 3: Guard (contrast) ── */
-        .pc-pill-guard {
-          position: fixed; inset: 0; z-index: 4; pointer-events: none;
-          background: radial-gradient(42% 36% at 50% 50%, rgba(2,12,28,.72), rgba(2,12,28,.30) 58%, rgba(2,12,28,0) 74%);
-          filter: blur(14px);
-          opacity: 0;
-          animation: pc-guard-in 500ms 1000ms ease-out forwards;
-        }
-        @keyframes pc-guard-in {
-          to { opacity: 1; }
-        }
-
-        /* ── Beat 3: Glass pill ── */
-        .pc-pill {
+        /* ══════════════════════════════════════════════════════════════
+           BEAT 3: THE SLAB
+           ══════════════════════════════════════════════════════════ */
+        .pc-slab {
           position: relative; z-index: 5;
-          width: clamp(280px, 42vw, 480px);
-          min-height: clamp(280px, 45vh, 520px);
-          border-radius: 28px;
-          display: flex; flex-direction: column; align-items: center; justify-content: center;
-          padding: clamp(20px, 3vw, 36px) clamp(16px, 2.5vw, 28px);
-          gap: 14px;
-          background:
-            linear-gradient(135deg, rgba(255,255,255,.35), rgba(255,215,0,.2), rgba(148,103,189,.25)),
-            rgba(8,16,36,.65);
+          width: clamp(300px, 44vw, 460px);
+          border-radius: 20px;
+          display: flex; flex-direction: column; align-items: center;
+          padding: clamp(24px, 3.5vw, 40px) clamp(20px, 3vw, 32px);
+          gap: 16px;
+          background: rgba(6, 14, 28, 0.92);
+          border: 1px solid rgba(116, 255, 235, 0.25);
           box-shadow:
-            inset 0 0 0 2px rgba(255,255,255,.55),
-            0 48px 150px rgba(2,10,30,.6),
-            0 0 80px rgba(255,215,0,.15);
-          backdrop-filter: blur(28px) saturate(180%);
+            inset 0 0 60px rgba(116, 255, 235, 0.06),
+            inset 0 1px 0 rgba(255,255,255,0.06),
+            0 40px 120px rgba(0, 0, 0, 0.7),
+            0 0 80px rgba(116, 255, 235, 0.08);
+          backdrop-filter: blur(24px) saturate(160%);
           overflow: hidden;
           opacity: 0;
-          animation: pc-pill-enter 800ms 1100ms cubic-bezier(.16,.86,.22,1) forwards;
+          animation: pc-slab-enter 700ms 950ms cubic-bezier(0.16, 0.86, 0.22, 1) forwards;
         }
-        @keyframes pc-pill-enter {
-          0% { opacity: 0; transform: scale(0.3); }
-          60% { opacity: 1; }
-          100% { opacity: 1; transform: scale(1); }
-        }
-
-        /* ── Orbs inside glass ── */
-        .pc-orb {
-          position: absolute; border-radius: 9999px; filter: blur(22px);
-          mix-blend-mode: screen; opacity: .5;
-          animation: pc-orb-float 8s ease-in-out infinite alternate;
-        }
-        .pc-orb-a { width: 160px; height: 160px; left: 5%; top: 10%;
-          background: radial-gradient(40% 40% at 25% 25%, #FFD700, transparent 60%);
-        }
-        .pc-orb-b { width: 200px; height: 200px; right: 8%; bottom: 8%;
-          background: radial-gradient(70% 70% at 75% 75%, #9966CC, transparent 60%);
-          animation-delay: .6s;
-        }
-        @keyframes pc-orb-float {
-          0% { transform: translateY(0) translateX(0) scale(1); }
-          100% { transform: translateY(-8%) translateX(5%) scale(1.1); }
+        @keyframes pc-slab-enter {
+          0%   { opacity: 0; transform: scale(0.5) translateY(20px); }
+          65%  { opacity: 1; transform: scale(1.02) translateY(-4px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
         }
 
-        /* ── Headline text ── */
-        .pc-headline {
-          position: relative; z-index: 5; max-width: 92%;
-          text-align: center;
-          font-family: "Trebuchet MS", "Comic Sans MS", system-ui, sans-serif;
-          font-weight: 900; letter-spacing: .06em; color: #fff;
-          -webkit-text-stroke: 4px rgba(0,18,36,.95);
-          text-shadow:
-            0 0 14px rgba(255,255,255,.9),
-            0 0 34px rgba(255,215,0,.8),
-            0 0 52px rgba(224,17,95,.6);
-          image-rendering: pixelated;
-          animation: pc-text-pop 700ms 1200ms cubic-bezier(.2,1,.2,1) both, pc-gem-shift 1.5s 1900ms steps(5) infinite;
-        }
-        .pc-headline::after {
-          content: attr(data-text);
-          position: absolute; inset: 0;
-          -webkit-text-stroke: 10px rgba(0,0,0,.2);
-          color: transparent; filter: blur(3px); z-index: -1;
-        }
-        @keyframes pc-text-pop {
-          0% { transform: translateY(8px) scale(.9); opacity: 0; }
-          60% { transform: translateY(-6px) scale(1.08); opacity: 1; }
-          100% { transform: translateY(0) scale(1); }
-        }
-        @keyframes pc-gem-shift {
-          0% { color: #FFD700; }
-          20% { color: #50C878; }
-          40% { color: #E0115F; }
-          60% { color: #0F52BA; }
-          80% { color: #9966CC; }
-          100% { color: #FFD700; }
-        }
-
-        /* ── Thumbnail ── */
-        .pc-thumb {
-          width: clamp(100px, 28vw, 160px); height: clamp(100px, 28vw, 160px);
+        /* ── Hero image ── */
+        .pc-hero-frame {
+          position: relative;
+          width: clamp(140px, 32vw, 220px);
+          height: clamp(140px, 32vw, 220px);
           border-radius: 16px;
-          object-fit: cover;
-          border: 3px solid rgba(255,255,255,.55);
+          overflow: hidden;
+          border: 2px solid rgba(255,255,255,0.5);
           box-shadow:
-            0 8px 32px rgba(0,0,0,.5),
-            0 0 24px rgba(255,215,0,.25),
-            inset 0 0 0 1px rgba(255,255,255,.15);
+            0 0 0 1px rgba(116, 255, 235, 0.2),
+            0 0 30px rgba(116, 255, 235, 0.15),
+            0 12px 40px rgba(0, 0, 0, 0.5),
+            inset 0 0 0 1px rgba(255,255,255,0.08);
           opacity: 0;
-          animation: pc-thumb-in 600ms 1400ms cubic-bezier(.16,.86,.22,1) forwards;
+          animation: pc-hero-in 600ms 1200ms cubic-bezier(0.16, 0.86, 0.22, 1) forwards;
         }
-        @keyframes pc-thumb-in {
-          0% { opacity: 0; transform: scale(0.4) rotate(-6deg); }
-          70% { opacity: 1; transform: scale(1.06) rotate(1deg); }
+        @keyframes pc-hero-in {
+          0%   { opacity: 0; transform: scale(0.6) rotate(-3deg); }
+          60%  { opacity: 1; transform: scale(1.04) rotate(0.5deg); }
           100% { opacity: 1; transform: scale(1) rotate(0deg); }
         }
+        .pc-hero-img {
+          width: 100%; height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .pc-hero-sheen {
+          position: absolute; inset: -20%;
+          background: linear-gradient(
+            105deg,
+            transparent 0%,
+            transparent 35%,
+            rgba(255,255,255,0.5) 45%,
+            rgba(255,255,255,0.7) 50%,
+            rgba(255,255,255,0.5) 55%,
+            transparent 65%,
+            transparent 100%
+          );
+          transform: translateX(-150%);
+          animation: pc-hero-sheen 1.6s 1400ms cubic-bezier(0.16, 0.86, 0.22, 1) forwards;
+          pointer-events: none;
+        }
+        @keyframes pc-hero-sheen {
+          to { transform: translateX(150%); }
+        }
 
-        /* ── Meta chips ── */
+        /* ── ENGRAVED headline ── */
+        .pc-headline {
+          position: relative; z-index: 5;
+          font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+          font-weight: 900;
+          font-size: clamp(28px, 5.5vw, 48px);
+          letter-spacing: 0.25em;
+          line-height: 1;
+          /* Chrome/metallic gradient text */
+          background: linear-gradient(
+            135deg,
+            #fbbf24 0%,
+            #fff 25%,
+            #fbbf24 40%,
+            #fff 60%,
+            #fbbf24 80%,
+            #fff 100%
+          );
+          background-size: 200% 200%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          /* Emboss via layered shadows on a pseudo */
+          filter: drop-shadow(0 -1px 0 rgba(255,255,255,0.2)) drop-shadow(0 2px 0 rgba(0,0,0,0.8));
+          opacity: 0;
+          animation:
+            pc-text-enter 600ms 1300ms cubic-bezier(0.16, 0.86, 0.22, 1) forwards,
+            pc-chrome-shift 3s 2000ms ease-in-out infinite alternate;
+        }
+        @keyframes pc-text-enter {
+          0%   { opacity: 0; transform: translateY(6px) scale(0.92); }
+          60%  { opacity: 1; transform: translateY(-3px) scale(1.04); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes pc-chrome-shift {
+          0%   { background-position: 0% 50%; }
+          100% { background-position: 100% 50%; }
+        }
+
+        /* ── Slot counter + meta ── */
         .pc-meta {
-          display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+          display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+          align-items: center;
           opacity: 0;
           animation: pc-meta-in 400ms 1700ms ease-out forwards;
         }
         @keyframes pc-meta-in {
           to { opacity: 1; }
         }
-        .pc-chip {
-          padding: 3px 10px; border-radius: 8px;
-          border: 1px solid rgba(255,255,255,.2);
-          background: rgba(255,255,255,.06);
-          font-family: var(--font-mono, monospace); font-size: 10px;
-          letter-spacing: .06em; color: rgba(255,255,255,.6);
+
+        .pc-slot {
+          font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+          font-size: 13px; font-weight: 700;
+          letter-spacing: 0.08em;
+          color: rgba(116, 255, 235, 0.9);
+          padding: 4px 12px;
+          border-radius: 8px;
+          border: 1px solid rgba(116, 255, 235, 0.2);
+          background: rgba(116, 255, 235, 0.06);
+          min-width: 72px; text-align: center;
+          transition: box-shadow 300ms ease, border-color 300ms ease;
         }
-        .pc-chip--link {
-          color: rgba(116,255,235,.9);
-          text-decoration: underline; cursor: pointer;
+        .pc-slot--landed {
+          border-color: rgba(116, 255, 235, 0.5);
+          box-shadow: 0 0 18px rgba(116, 255, 235, 0.2);
+          animation: pc-slot-land 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes pc-slot-land {
+          0%   { transform: scale(1.2); }
+          60%  { transform: scale(0.95); }
+          100% { transform: scale(1); }
+        }
+
+        .pc-chip {
+          font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+          font-size: 10px; letter-spacing: 0.06em;
+          padding: 4px 10px; border-radius: 8px;
+          border: 1px solid rgba(255,255,255,0.12);
+          background: rgba(255,255,255,0.04);
+          color: rgba(116, 255, 235, 0.7);
+          text-decoration: none;
+          cursor: pointer;
           pointer-events: auto;
+          transition: border-color 150ms, background 150ms;
+        }
+        .pc-chip:hover {
+          border-color: rgba(116, 255, 235, 0.3);
+          background: rgba(116, 255, 235, 0.08);
         }
 
         /* ── Share button ── */
         .pc-share {
-          padding: 10px 28px; border-radius: 14px;
-          border: 1.5px solid rgba(255,215,0,.6);
-          background: linear-gradient(180deg, rgba(255,215,0,.22), rgba(255,215,0,.08) 50%), rgba(6,14,28,.85);
-          color: rgba(255,215,0,.95);
-          font-family: var(--font-mono, monospace); font-size: 12px; font-weight: 700;
-          letter-spacing: .2em; cursor: pointer;
-          text-shadow: 0 0 10px rgba(255,215,0,.3);
-          box-shadow: 0 0 20px rgba(255,215,0,.1);
+          padding: 12px 32px; border-radius: 14px;
+          border: 1.5px solid rgba(116, 255, 235, 0.4);
+          background:
+            linear-gradient(180deg, rgba(116,255,235,0.15), rgba(116,255,235,0.04) 60%),
+            rgba(6, 14, 28, 0.9);
+          color: rgba(116, 255, 235, 0.95);
+          font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+          font-size: 13px; font-weight: 700;
+          letter-spacing: 0.18em;
+          cursor: pointer;
+          text-shadow: 0 0 12px rgba(116, 255, 235, 0.25);
+          box-shadow: 0 0 24px rgba(116, 255, 235, 0.08);
           pointer-events: auto;
           opacity: 0;
-          animation: pc-share-in 500ms 1900ms cubic-bezier(.16,.86,.22,1) forwards;
+          animation:
+            pc-share-in 500ms 2000ms cubic-bezier(0.16, 0.86, 0.22, 1) forwards,
+            pc-share-pulse 2.5s 2800ms ease-in-out infinite;
           transition: background 150ms, box-shadow 150ms, transform 150ms;
         }
         .pc-share:hover {
-          background: linear-gradient(180deg, rgba(255,215,0,.35), rgba(255,215,0,.15) 50%), rgba(6,14,28,.9);
-          box-shadow: 0 0 24px rgba(255,215,0,.3);
+          background:
+            linear-gradient(180deg, rgba(116,255,235,0.28), rgba(116,255,235,0.1) 60%),
+            rgba(6, 14, 28, 0.95);
+          box-shadow: 0 0 32px rgba(116, 255, 235, 0.2);
           transform: translateY(-1px);
         }
+        .pc-share:active {
+          transform: scale(0.97);
+        }
         @keyframes pc-share-in {
-          0% { opacity: 0; transform: translateY(8px) scale(0.9); }
+          0%   { opacity: 0; transform: translateY(10px) scale(0.92); }
           100% { opacity: 1; transform: translateY(0) scale(1); }
         }
-
-        /* ── Scanlines & sheen ── */
-        .pc-scanlines {
-          position: absolute; inset: 0; z-index: 6; pointer-events: none;
-          mix-blend-mode: soft-light; opacity: .35;
-          background: repeating-linear-gradient(
-            to bottom,
-            rgba(255,255,255,.08) 0px, rgba(255,255,255,.08) 1px,
-            rgba(0,0,0,0) 2px, rgba(0,0,0,0) 4px
-          );
-          animation: pc-scan-fade 6s ease-in-out infinite;
+        @keyframes pc-share-pulse {
+          0%, 100% { box-shadow: 0 0 24px rgba(116,255,235,0.08); }
+          50%      { box-shadow: 0 0 36px rgba(116,255,235,0.18); border-color: rgba(116,255,235,0.55); }
         }
-        @keyframes pc-scan-fade { 0%,100% { opacity: .35; } 50% { opacity: .18; } }
 
-        .pc-sheen {
-          position: absolute; inset: -10%; z-index: 6; pointer-events: none;
-          background: linear-gradient(75deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.65) 40%, rgba(255,255,255,0) 60%);
-          transform: translateX(-120%); filter: blur(2px);
-          animation: pc-sheen-sweep 2s 1200ms cubic-bezier(.16,.86,.22,1) forwards;
+        /* ══════════════════════════════════════════════════════════════
+           BEAT 4: PARTICLES
+           ══════════════════════════════════════════════════════════ */
+        .pc-particles {
+          position: fixed; inset: -6% -12%;
+          pointer-events: none; z-index: 3;
         }
-        @keyframes pc-sheen-sweep { to { transform: translateX(120%); opacity: 0; } }
-
-        /* ── Particle stage ── */
-        .pc-particles { position: fixed; inset: -6% -12%; pointer-events: none; z-index: 3; }
 
         .pc-p {
           position: absolute; left: 50%; top: 50%;
-          width: 8px; height: 8px; border-radius: 50%;
-          background: var(--color); box-shadow: 0 0 20px var(--color);
+          width: 7px; height: 7px; border-radius: 50%;
+          background: var(--color);
+          box-shadow: 0 0 16px var(--color);
           opacity: 0;
           animation: pc-burst 5.5s steps(12) var(--d) forwards;
         }
@@ -513,7 +585,7 @@ export default function PlacementCelebration({
 
         .pc-crystal {
           position: absolute; left: 50%; top: 50%;
-          width: 10px; height: 14px;
+          width: 9px; height: 13px;
           background: var(--color);
           clip-path: polygon(50% 0%, 100% 35%, 80% 100%, 20% 100%, 0% 35%);
           opacity: 0;
@@ -522,15 +594,16 @@ export default function PlacementCelebration({
 
         .pc-confetti {
           position: absolute; left: 50%; top: 50%;
-          width: 7px; height: 7px;
-          background: var(--color); transform: rotate(45deg);
+          width: 6px; height: 6px;
+          background: var(--color);
+          transform: rotate(45deg);
           opacity: 0;
           animation: pc-burst 5s steps(12) var(--d) forwards;
         }
 
         .pc-ring {
           position: absolute; left: 50%; top: 50%;
-          width: 12px; height: 12px; border-radius: 50%;
+          width: 11px; height: 11px; border-radius: 50%;
           border: 2px solid var(--color);
           background: transparent;
           opacity: 0;
@@ -538,23 +611,28 @@ export default function PlacementCelebration({
         }
 
         @keyframes pc-burst {
-          0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
-          15% { opacity: 1; }
+          0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+          12%  { opacity: 1; }
           100% { opacity: 0; transform: translate(calc(var(--x) - 50%), calc(var(--y) - 50%)) scale(2.5) rotate(1080deg); }
         }
         @keyframes pc-ring-burst {
-          0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
-          20% { opacity: 0.8; }
+          0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+          18%  { opacity: 0.8; }
           100% { opacity: 0; transform: translate(calc(var(--x) - 50%), calc(var(--y) - 50%)) scale(4); }
         }
 
-        /* ── Reduced motion ── */
+        /* ══════════════════════════════════════════════════════════════
+           REDUCED MOTION
+           ══════════════════════════════════════════════════════════ */
         @media (prefers-reduced-motion: reduce) {
-          .pc-flash, .pc-particles, .pc-scanlines, .pc-sheen, .pc-lightning, .pc-orb { display: none; }
-          .pc-pill { animation: none; opacity: 1; }
-          .pc-headline { animation: none; opacity: 1; }
-          .pc-thumb, .pc-meta, .pc-share { animation: none; opacity: 1; }
+          .pc-flash, .pc-particles, .pc-lightning, .pc-shockwave { display: none; }
+          .pc-slab { animation: none; opacity: 1; }
+          .pc-headline { animation: none; opacity: 1; -webkit-text-fill-color: #fbbf24; }
+          .pc-hero-frame { animation: none; opacity: 1; }
+          .pc-hero-sheen { display: none; }
+          .pc-meta, .pc-share { animation: none; opacity: 1; }
           .pc-shake-root { animation: none; }
+          .pc-fullscreen { transition: none; }
         }
       `}</style>
     </div>
