@@ -17,6 +17,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 import { TARGET_CHAIN, TARGET_CHAIN_ID } from "@/lib/chain";
+import { FALLBACK_RPC_URL } from "@/config/canonical";
 import { NetworkSwitcher } from "@/components/NetworkSwitcher";
 import { foidEmbeddedWallet } from "@/lib/connectors/embeddedRainbowKit";
 
@@ -47,7 +48,7 @@ export const config = createConfig({
   transports: {
     [TARGET_CHAIN_ID]: fallback([
       http(TARGET_CHAIN.rpcUrls.default.http[0], { retryCount: 3, retryDelay: 500 }),
-      http("https://rpc.testnet.fluent.xyz", { retryCount: 2, retryDelay: 1000 }),
+      http(FALLBACK_RPC_URL, { retryCount: 2, retryDelay: 1000 }),
     ]),
   },
   ssr: false,

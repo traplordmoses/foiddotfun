@@ -17,7 +17,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://ipfs.io https://gateway.pinata.cloud https://cloudflare-ipfs.com https://dweb.link",
               "font-src 'self'",
-              "connect-src 'self' https://rpc.testnet.fluent.xyz https://*.quiknode.pro wss://*.quiknode.pro https://ipfs.io https://gateway.pinata.cloud https://cloudflare-ipfs.com https://dweb.link",
+              "connect-src 'self' https://rpc.testnet.fluent.xyz https://rpc.fluent.xyz https://*.quiknode.pro wss://*.quiknode.pro https://ipfs.io https://gateway.pinata.cloud https://cloudflare-ipfs.com https://dweb.link",
               "worker-src 'self' blob:",
               "object-src 'none'",
               "base-uri 'self'",

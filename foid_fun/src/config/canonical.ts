@@ -3,8 +3,12 @@ import { getAddress, type Address } from "viem";
 const DOTENV_HINT =
   "If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local.";
 
-const DEFAULT_CHAIN_ID = 20994;
-const DEFAULT_RPC_URL = "https://rpc.testnet.fluent.xyz";
+export const IS_MAINNET = process.env.NEXT_PUBLIC_IS_MAINNET === 'true';
+
+const DEFAULT_CHAIN_ID = IS_MAINNET ? 25363 : 20994;
+const DEFAULT_RPC_URL = IS_MAINNET
+  ? "https://rpc.fluent.xyz"
+  : "https://rpc.testnet.fluent.xyz";
 
 export const CANONICAL_CHAIN = {
   id: DEFAULT_CHAIN_ID,
@@ -152,8 +156,6 @@ if (!deployBlockEnv) {
 }
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-
-export const IS_MAINNET = process.env.NEXT_PUBLIC_IS_MAINNET === 'true';
 
 export function requireCanonicalAddress(params: {
   label: string;
