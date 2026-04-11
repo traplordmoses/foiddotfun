@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { useUserPlacements, type Placement } from "@/hooks/useUserPlacements";
 
 export type NotificationType = "proposed" | "voting" | "canonized" | "rejected" | "expired";
@@ -57,13 +57,16 @@ function saveReadIds(address: string, ids: Set<string>, validIds: Set<string>) {
 export function useNotifications(address: `0x${string}` | undefined) {
   const { placements, isLoading, refresh } = useUserPlacements(address);
 
+  // Bumped after every markRead call so the notifications useMemo re-derives
+  // isRead flags from the freshly-written localStorage state.
+  const [readVersion, setReadVersion] = useState(0);
+
   const notifications = useMemo((): Notification[] => {
     if (!address || !placements.length) return [];
 
     const readIds = getReadIds(address);
 
     return placements
-      .filter((p) => p.status !== "proposed" || true) // include all statuses
       .map((p): Notification => ({
         id: p.id,
         type: p.status as NotificationType,
@@ -78,7 +81,8 @@ export function useNotifications(address: `0x${string}` | undefined) {
         if (a.isRead !== b.isRead) return a.isRead ? 1 : -1;
         return (b.timestamp ?? 0) - (a.timestamp ?? 0);
       });
-  }, [address, placements]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, placements, readVersion]);
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.isRead).length,
@@ -97,6 +101,7 @@ export function useNotifications(address: `0x${string}` | undefined) {
       ids.forEach((id) => readIds.add(id));
       const validIds = new Set(placements.map((p) => p.id));
       saveReadIds(address, readIds, validIds);
+      setReadVersion((v) => v + 1); // trigger re-memoization
     },
     [address, placements],
   );
