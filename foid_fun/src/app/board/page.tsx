@@ -77,7 +77,14 @@ import { parseWeb3Error, isUserRejection } from "@/lib/errors";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PaintEditor } from "@/components/PaintEditor";
-import { useSwipeLoreboardGovernance } from "@/hooks/useSwipeLoreboardGovernance";
+import { RemovalVotePanel } from "@/components/RemovalVotePanel";
+import {
+  useSwipeLoreboardGovernance,
+  usePlacementFlagCount,
+  useHasFlaggedPlacement,
+  useActivePlacementVote,
+  usePlacementRemovalVote,
+} from "@/hooks/useSwipeLoreboardGovernance";
 
 // ============================================================================
 // HELPER FUNCTIONS (extracted to lib/board)
@@ -194,8 +201,10 @@ function BoardPageContent() {
   }, []);
 
   // Governance - flagging placements
-  const { flagPlacement, flagFeeWei } = useSwipeLoreboardGovernance();
+  const { flagPlacement, flagFeeWei, flagThreshold } = useSwipeLoreboardGovernance();
   const [flaggedIds, setFlaggedIds] = useState<Set<string>>(new Set());
+  // Track flag counts per placement (keyed by placement id string)
+  const [flagCounts, setFlagCounts] = useState<Record<string, number>>({});
   const flagFeeEth = (Number(flagFeeWei) / 1e18).toFixed(3);
 
   const handleFlagPlacement = useCallback(async (placementId: string) => {
@@ -204,10 +213,11 @@ function BoardPageContent() {
       return;
     }
     try {
-      // Convert hex placementId to number for the contract call
       const numericId = Number(BigInt(placementId));
       await flagPlacement(numericId);
       setFlaggedIds(prev => new Set(prev).add(placementId));
+      // Optimistically increment local flag count
+      setFlagCounts(prev => ({ ...prev, [placementId]: (prev[placementId] ?? 0) + 1 }));
       addStatus(`Flagged placement — tx sent`, "success");
     } catch (err: unknown) {
       if (isUserRejection(err)) return;
@@ -1098,6 +1108,8 @@ function BoardPageContent() {
                           onOpen={setActivePlacement}
                           onFlag={handleFlagPlacement}
                           isFlagged={flaggedIds.has(p.id)}
+                          flagCount={flagCounts[p.id] ?? 0}
+                          flagThreshold={flagThreshold}
                           flagLabel={`Flag (${flagFeeEth} ETH)`}
                           frameStyle={{
                             border: `1px solid ${isActive ? "rgba(0,255,213,0.95)" : CARD_BORDER}`,
@@ -1221,6 +1233,9 @@ function BoardPageContent() {
                       0.001 ETH per placement &middot; any size
                     </div>
                   </div>
+
+                  {/* Moderation — active removal votes */}
+                  <RemovalVotePanel placementIds={placed.map((p) => p.id)} />
 
                   {/* Chat */}
                   <div className="board-section--chat-wrapper">

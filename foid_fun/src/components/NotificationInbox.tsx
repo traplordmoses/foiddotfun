@@ -113,6 +113,7 @@ const TYPE_LABELS: Record<NotificationType, string> = {
   canonized: "CANONIZED",
   rejected: "REJECTED",
   expired: "EXPIRED",
+  flagged: "FLAGGED",
 };
 
 function NotificationCard({
@@ -219,6 +220,11 @@ function NotificationCard({
                 TRY AGAIN
               </a>
             )}
+            {notification.type === "flagged" && (
+              <a href="/board" className="ni-card__btn ni-card__btn--red" onClick={(e) => e.stopPropagation()}>
+                VIEW ON BOARD
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -321,6 +327,12 @@ function NotificationCard({
           border-color: rgba(156,163,175,0.3);
           color: rgba(156,163,175,0.7);
         }
+        .ni-card__btn--red {
+          border-color: rgba(239,68,68,0.4);
+          background: rgba(239,68,68,0.08);
+          color: rgba(239,68,68,0.9);
+        }
+        .ni-card__btn--red:hover { background: rgba(239,68,68,0.15); }
       `}</style>
     </>
   );

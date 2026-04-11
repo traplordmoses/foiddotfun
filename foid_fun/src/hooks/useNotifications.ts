@@ -5,7 +5,7 @@ import { useUserPlacements, type Placement } from "@/hooks/useUserPlacements";
 import { useBoardEvents } from "@/hooks/useBoardEvents";
 import toast from "react-hot-toast";
 
-export type NotificationType = "proposed" | "voting" | "canonized" | "rejected" | "expired";
+export type NotificationType = "proposed" | "voting" | "canonized" | "rejected" | "expired" | "flagged";
 
 export interface Notification {
   id: string;
@@ -26,6 +26,7 @@ const ACCENT_MAP: Record<NotificationType, string> = {
   canonized: "rgba(255,215,0,0.95)",
   rejected: "rgba(156,163,175,0.7)",
   expired: "rgba(107,114,128,0.6)",
+  flagged: "rgba(239,68,68,0.9)",
 };
 
 const TYPE_ICONS: Record<NotificationType, string> = {
@@ -34,6 +35,7 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   canonized: "\u2728",
   rejected: "\u274C",
   expired: "\u23F0",
+  flagged: "\u{1F6A9}",
 };
 
 /* ── Time formatting ──────────────────────────────────────────────── */
@@ -64,6 +66,7 @@ const MESSAGE_MAP: Record<NotificationType, (p: Placement) => string> = {
   canonized: () => "YOUR PLACEMENT HAS BEEN CANONIZED",
   rejected: () => "Your placement was not canonized",
   expired: () => "Voting period has expired",
+  flagged: (p) => `Your placement at (${p.x}, ${p.y}) was flagged`,
 };
 
 /* ── localStorage helpers ─────────────────────────────────────────── */
