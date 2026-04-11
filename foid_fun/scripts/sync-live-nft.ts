@@ -7,7 +7,7 @@
 import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { LOREBOARD_LIVE_NFT_ABI } from "@/lib/contracts/abis";
-import { CONTRACTS } from "@/lib/contracts/addresses";
+import { CANONICAL_ADDRESSES } from "@/config/canonical";
 
 const RPC_URL = process.env.NEXT_PUBLIC_FLUENT_RPC || "https://rpc.testnet.fluent.xyz";
 const OPERATOR_PK = process.env.OPERATOR_PK;
@@ -30,19 +30,19 @@ const walletClient = createWalletClient({
 
 async function syncNFT() {
   console.log("🔄 Syncing LoreboardLiveNFT to latest epoch...");
-  console.log("NFT Address:", CONTRACTS.LOREBOARD_LIVE_NFT);
+  console.log("NFT Address:", CANONICAL_ADDRESSES.loreboardLiveNFT);
   console.log("Caller:", account.address);
 
   try {
     // Read current state
     const [currentEpoch, currentCID] = await Promise.all([
       publicClient.readContract({
-        address: CONTRACTS.LOREBOARD_LIVE_NFT as `0x${string}`,
+        address: CANONICAL_ADDRESSES.loreboardLiveNFT as `0x${string}`,
         abi: LOREBOARD_LIVE_NFT_ABI,
         functionName: "liveEpoch",
       }),
       publicClient.readContract({
-        address: CONTRACTS.LOREBOARD_LIVE_NFT as `0x${string}`,
+        address: CANONICAL_ADDRESSES.loreboardLiveNFT as `0x${string}`,
         abi: LOREBOARD_LIVE_NFT_ABI,
         functionName: "liveManifestCID",
       }),
@@ -56,7 +56,7 @@ async function syncNFT() {
     console.log("\n🚀 Calling syncLatest()...");
 
     const hash = await walletClient.writeContract({
-      address: CONTRACTS.LOREBOARD_LIVE_NFT as `0x${string}`,
+      address: CANONICAL_ADDRESSES.loreboardLiveNFT as `0x${string}`,
       abi: LOREBOARD_LIVE_NFT_ABI,
       functionName: "syncLatest",
       chain: {
@@ -79,12 +79,12 @@ async function syncNFT() {
     // Read updated state
     const [newEpoch, newCID] = await Promise.all([
       publicClient.readContract({
-        address: CONTRACTS.LOREBOARD_LIVE_NFT as `0x${string}`,
+        address: CANONICAL_ADDRESSES.loreboardLiveNFT as `0x${string}`,
         abi: LOREBOARD_LIVE_NFT_ABI,
         functionName: "liveEpoch",
       }),
       publicClient.readContract({
-        address: CONTRACTS.LOREBOARD_LIVE_NFT as `0x${string}`,
+        address: CANONICAL_ADDRESSES.loreboardLiveNFT as `0x${string}`,
         abi: LOREBOARD_LIVE_NFT_ABI,
         functionName: "liveManifestCID",
       }),
