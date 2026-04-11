@@ -244,6 +244,7 @@ export type FoidMommyTerminalProps = {
   autoStart?: boolean; // NEW: auto-start terminal on mount
   shadowMode?: boolean; // When true, intercept submission with connect prompt
   onRequestConnect?: () => void; // Called when shadow mode prompts connection
+  walletAddress?: string; // Wallet address for scoping prayer memory
 };
 
 function makeId() {
@@ -314,6 +315,7 @@ export default function FoidMommyTerminal({
   autoStart = false,
   shadowMode = false,
   onRequestConnect,
+  walletAddress,
 }: FoidMommyTerminalProps) {
   // Prayer draft persistence
   const { draft, saveDraft, clearDraft } = usePrayerDraft();
@@ -332,7 +334,7 @@ export default function FoidMommyTerminal({
     getDaysSinceLastPrayer,
     getFeelingFrequency,
     localStreak,
-  } = usePrayerMemory();
+  } = usePrayerMemory(walletAddress);
 
   const [stage, setStage] = useState<Stage>("idle");
   const [prayerRevealing, setPrayerRevealing] = useState(false);
@@ -915,7 +917,9 @@ export default function FoidMommyTerminal({
 
       sfx.playReward();
       sfx.playAnchorBell();
-      celebrateTransaction(result?.txHash);
+      // Pass next allowed timestamp (now + 24h) to the success toast for live countdown
+      const nextAllowedTimestamp = Math.floor(Date.now() / 1000) + 86400;
+      celebrateTransaction(result?.txHash, nextAllowedTimestamp);
 
       // Record feeling in memory journal
       if (hasMemoryConsent && feelingKey) {
@@ -933,7 +937,13 @@ export default function FoidMommyTerminal({
       addMessage("system", "___BREATHE___");
       await sleep(8000);
       await typeMessage({ role: "foid", text: "see you tomorrow. i'll be here.", speed: 35 });
-      addMessage("system", `next prayer allowed in: ${nextAllowedText}`);
+      const nextWindowTime = new Date(Date.now() + 86400 * 1000).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      addMessage("system", `next prayer opens: ${nextWindowTime}`);
       // Auto-return to idle after a moment
       await sleep(5000);
       if (stage === "afterglow") {

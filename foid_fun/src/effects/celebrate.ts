@@ -2,9 +2,9 @@
 
 import { showPrayerSuccess } from "@/effects/PrayerSuccess";
 
-export function celebrateTransaction(txHash?: string) {
+export function celebrateTransaction(txHash?: string, nextAllowedAt?: number) {
   if (typeof window === "undefined") return;
-  const run = () => showPrayerSuccess(txHash, { duration: 3800 });
+  const run = () => showPrayerSuccess(txHash, { duration: 6500, nextAllowedAt });
   if ("requestAnimationFrame" in window) {
     window.requestAnimationFrame(run);
   } else {

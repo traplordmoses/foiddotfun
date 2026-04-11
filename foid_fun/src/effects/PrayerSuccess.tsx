@@ -1,5 +1,5 @@
 // src/effects/PrayerSuccess.tsx
-// Frutiger Aero polished prayer success animation
+// Ritual-complete prayer success — feels like the end of a ceremony
 "use client";
 import React, { useEffect, useState } from "react";
 import { spawn } from "@/lib/spawn";
@@ -8,6 +8,7 @@ import { BLOCK_EXPLORER_URL } from "@/lib/contracts";
 type SuccessOptions = {
   position?: "corner" | "center";
   duration?: number;
+  nextAllowedAt?: number; // Unix timestamp (seconds) for next prayer
 };
 
 const CONGRATS_MESSAGES = [
@@ -20,30 +21,61 @@ const CONGRATS_MESSAGES = [
 
 export function showPrayerSuccess(hash?: string, options: SuccessOptions = {}) {
   const message = CONGRATS_MESSAGES[Math.floor(Math.random() * CONGRATS_MESSAGES.length)];
-  const duration = options.duration ?? 5500;
-  spawn(<PrayerSuccessToast message={message} hash={hash} />, duration);
+  const duration = options.duration ?? 6500;
+  spawn(
+    <PrayerSuccessToast
+      message={message}
+      hash={hash}
+      nextAllowedAt={options.nextAllowedAt}
+    />,
+    duration,
+  );
+}
+
+function formatCountdown(seconds: number): string {
+  if (seconds <= 0) return "ready now";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 export default function PrayerSuccessToast({
   message,
   hash,
+  nextAllowedAt,
 }: {
   message: string;
   hash?: string;
+  nextAllowedAt?: number;
 }) {
   const [mounted, setMounted] = useState(false);
   const [exiting, setExiting] = useState(false);
+  const [countdown, setCountdown] = useState("");
 
   useEffect(() => {
     const mountTimer = setTimeout(() => setMounted(true), 50);
-    const exitTimer = setTimeout(() => setExiting(true), 4800);
-    // Haptic feedback on mount
+    const exitTimer = setTimeout(() => setExiting(true), 5800);
     try { navigator.vibrate?.([10, 50, 10]); } catch { /* not supported */ }
     return () => {
       clearTimeout(mountTimer);
       clearTimeout(exitTimer);
     };
   }, []);
+
+  // Live countdown to next prayer
+  useEffect(() => {
+    if (!nextAllowedAt) return;
+    const tick = () => {
+      const remaining = nextAllowedAt - Math.floor(Date.now() / 1000);
+      setCountdown(formatCountdown(Math.max(0, remaining)));
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [nextAllowedAt]);
 
   const shortHash = hash ? `${hash.slice(0, 6)}...${hash.slice(-4)}` : null;
 
@@ -61,18 +93,28 @@ export default function PrayerSuccessToast({
         {/* Top highlight reflection */}
         <div className="prayer-success-highlight" aria-hidden />
 
-        {/* Success icon */}
+        {/* Animated ring icon */}
         <div className="prayer-success-icon">
-          <svg viewBox="0 0 24 24" fill="none" className="prayer-success-checkmark">
-            <circle cx="12" cy="12" r="10" className="checkmark-circle" />
-            <path d="M8 12.5L11 15.5L16 9.5" className="checkmark-path" />
+          <svg viewBox="0 0 48 48" fill="none" className="prayer-success-ring-svg">
+            <circle cx="24" cy="24" r="20" className="ring-track" />
+            <circle cx="24" cy="24" r="20" className="ring-fill" />
+            <path d="M16 24.5L22 30.5L32 18.5" className="checkmark-path" />
           </svg>
         </div>
 
         {/* Content */}
         <div className="prayer-success-content">
           <h3 className="prayer-success-title">{message}</h3>
-          <p className="prayer-success-subtitle">foid mommy thanks you for praying today</p>
+          <p className="prayer-success-subtitle">your prayer is woven into the chain</p>
+
+          {/* Live countdown to next prayer */}
+          {countdown && (
+            <div className="prayer-success-countdown">
+              <span className="prayer-success-countdown__label">next prayer in</span>
+              <span className="prayer-success-countdown__time">{countdown}</span>
+            </div>
+          )}
+
           {shortHash && (
             <a
               href={`${BLOCK_EXPLORER_URL}/tx/${hash}`}
@@ -80,28 +122,13 @@ export default function PrayerSuccessToast({
               rel="noopener noreferrer"
               className="prayer-success-link"
             >
-              {shortHash}
+              tx: {shortHash}
             </a>
           )}
         </div>
 
         {/* Subtle shimmer effect */}
         <div className="prayer-success-shimmer" aria-hidden />
-      </div>
-
-      {/* Floating particles (minimal, elegant) */}
-      <div className="prayer-success-particles" aria-hidden>
-        {Array.from({ length: 8 }).map((_, i) => (
-          <span
-            key={i}
-            className="prayer-particle"
-            style={{
-              "--delay": `${i * 0.15}s`,
-              "--x": `${(i % 4) * 25 - 37.5}%`,
-              "--y": `${Math.floor(i / 4) * 40 - 20}%`,
-            } as React.CSSProperties}
-          />
-        ))}
       </div>
 
       <style jsx>{`
@@ -114,9 +141,9 @@ export default function PrayerSuccessToast({
           justify-content: center;
           pointer-events: none;
           opacity: 0;
-          transform: scale(0.96) translateY(8px);
-          transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-                      transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+          transform: scale(0.94) translateY(12px);
+          transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+                      transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .prayer-success--mounted {
@@ -126,46 +153,48 @@ export default function PrayerSuccessToast({
 
         .prayer-success--exiting {
           opacity: 0;
-          transform: scale(0.98) translateY(-6px);
-          transition: opacity 0.35s ease-out, transform 0.4s ease-out;
+          transform: scale(0.98) translateY(-8px);
+          transition: opacity 0.4s ease-out, transform 0.5s ease-out;
         }
 
         .prayer-success-glow {
           position: absolute;
-          width: 380px;
-          height: 200px;
+          width: 420px;
+          height: 240px;
           background: radial-gradient(
             ellipse at center,
-            rgba(0, 255, 213, 0.18) 0%,
+            rgba(0, 255, 213, 0.2) 0%,
             rgba(0, 255, 213, 0.08) 40%,
             transparent 70%
           );
-          filter: blur(40px);
+          filter: blur(50px);
           pointer-events: none;
-          animation: glow-pulse 2.5s ease-in-out infinite;
+          animation: glow-pulse 3s ease-in-out infinite;
         }
 
         .prayer-success-card {
           position: relative;
           display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 18px;
-          padding: 20px 28px;
-          min-width: 320px;
-          max-width: min(480px, 92vw);
+          text-align: center;
+          gap: 16px;
+          padding: 32px 36px 28px;
+          min-width: 300px;
+          max-width: min(420px, 90vw);
           background: linear-gradient(
             135deg,
-            rgba(12, 20, 32, 0.92) 0%,
-            rgba(8, 14, 24, 0.95) 100%
+            rgba(12, 20, 32, 0.94) 0%,
+            rgba(8, 14, 24, 0.96) 100%
           );
-          border: 1px solid rgba(0, 255, 213, 0.25);
-          border-radius: 16px;
-          backdrop-filter: blur(20px) saturate(150%);
+          border: 1px solid rgba(0, 255, 213, 0.2);
+          border-radius: 20px;
+          backdrop-filter: blur(24px) saturate(150%);
           box-shadow:
-            0 0 0 1px rgba(255, 255, 255, 0.06) inset,
-            0 1px 0 rgba(255, 255, 255, 0.08) inset,
-            0 20px 50px rgba(0, 0, 0, 0.4),
-            0 0 40px rgba(0, 255, 213, 0.12);
+            0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+            0 1px 0 rgba(255, 255, 255, 0.06) inset,
+            0 24px 60px rgba(0, 0, 0, 0.5),
+            0 0 60px rgba(0, 255, 213, 0.1);
           pointer-events: auto;
           overflow: hidden;
         }
@@ -178,70 +207,104 @@ export default function PrayerSuccessToast({
           height: 50%;
           background: linear-gradient(
             180deg,
-            rgba(255, 255, 255, 0.08) 0%,
-            rgba(255, 255, 255, 0.02) 50%,
+            rgba(255, 255, 255, 0.06) 0%,
+            rgba(255, 255, 255, 0.01) 50%,
             transparent 100%
           );
-          border-radius: 16px 16px 0 0;
+          border-radius: 20px 20px 0 0;
           pointer-events: none;
         }
 
         .prayer-success-icon {
-          flex-shrink: 0;
-          width: 52px;
-          height: 52px;
+          width: 64px;
+          height: 64px;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(
-            135deg,
-            rgba(0, 255, 213, 0.2) 0%,
-            rgba(0, 200, 170, 0.15) 100%
-          );
-          border-radius: 14px;
-          border: 1px solid rgba(0, 255, 213, 0.3);
         }
 
-        .prayer-success-checkmark {
-          width: 28px;
-          height: 28px;
+        .prayer-success-ring-svg {
+          width: 64px;
+          height: 64px;
         }
 
-        .checkmark-circle {
-          stroke: rgba(0, 255, 213, 0.4);
-          stroke-width: 1.5;
+        .ring-track {
+          stroke: rgba(0, 255, 213, 0.15);
+          stroke-width: 2;
           fill: none;
+        }
+
+        .ring-fill {
+          stroke: #00ffd5;
+          stroke-width: 2.5;
+          fill: none;
+          stroke-dasharray: 126;
+          stroke-dashoffset: 126;
+          stroke-linecap: round;
+          transform-origin: center;
+          transform: rotate(-90deg);
+          animation: ring-draw 1s 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
         .checkmark-path {
           stroke: #00ffd5;
-          stroke-width: 2;
+          stroke-width: 2.5;
           stroke-linecap: round;
           stroke-linejoin: round;
-          stroke-dasharray: 24;
-          stroke-dashoffset: 24;
-          animation: checkmark-draw 0.6s 0.2s ease-out forwards;
+          fill: none;
+          stroke-dasharray: 30;
+          stroke-dashoffset: 30;
+          animation: checkmark-draw 0.5s 0.8s ease-out forwards;
         }
 
         .prayer-success-content {
-          flex: 1;
-          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
         }
 
         .prayer-success-title {
-          margin: 0 0 4px;
-          font-size: 17px;
+          margin: 0;
+          font-size: 20px;
           font-weight: 600;
           color: #00ffd5;
-          letter-spacing: 0.02em;
-          text-shadow: 0 0 20px rgba(0, 255, 213, 0.4);
+          letter-spacing: 0.03em;
+          text-shadow: 0 0 24px rgba(0, 255, 213, 0.4);
         }
 
         .prayer-success-subtitle {
           margin: 0;
           font-size: 13px;
-          color: rgba(255, 255, 255, 0.6);
+          color: rgba(255, 255, 255, 0.5);
           line-height: 1.4;
+        }
+
+        .prayer-success-countdown {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 12px;
+          padding: 8px 16px;
+          background: rgba(0, 255, 213, 0.06);
+          border: 1px solid rgba(0, 255, 213, 0.15);
+          border-radius: 10px;
+        }
+
+        .prayer-success-countdown__label {
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.4);
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          font-family: var(--font-mono, monospace);
+        }
+
+        .prayer-success-countdown__time {
+          font-size: 14px;
+          font-weight: 600;
+          color: rgba(0, 255, 213, 0.9);
+          font-family: var(--font-mono, monospace);
+          font-variant-numeric: tabular-nums;
         }
 
         .prayer-success-link {
@@ -250,9 +313,9 @@ export default function PrayerSuccessToast({
           padding: 4px 10px;
           font-size: 11px;
           font-family: var(--font-mono, monospace);
-          color: rgba(0, 255, 213, 0.8);
-          background: rgba(0, 255, 213, 0.08);
-          border: 1px solid rgba(0, 255, 213, 0.2);
+          color: rgba(0, 255, 213, 0.6);
+          background: rgba(0, 255, 213, 0.06);
+          border: 1px solid rgba(0, 255, 213, 0.15);
           border-radius: 6px;
           text-decoration: none;
           transition: all 0.2s ease;
@@ -260,8 +323,8 @@ export default function PrayerSuccessToast({
         }
 
         .prayer-success-link:hover {
-          background: rgba(0, 255, 213, 0.15);
-          border-color: rgba(0, 255, 213, 0.35);
+          background: rgba(0, 255, 213, 0.12);
+          border-color: rgba(0, 255, 213, 0.3);
           color: #00ffd5;
         }
 
@@ -274,30 +337,17 @@ export default function PrayerSuccessToast({
           background: linear-gradient(
             90deg,
             transparent 0%,
-            rgba(255, 255, 255, 0.06) 50%,
+            rgba(255, 255, 255, 0.04) 50%,
             transparent 100%
           );
-          animation: shimmer-sweep 2.5s 0.5s ease-in-out;
+          animation: shimmer-sweep 3s 0.5s ease-in-out;
           pointer-events: none;
         }
 
-        .prayer-success-particles {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
-        }
-
-        .prayer-particle {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 4px;
-          height: 4px;
-          background: rgba(0, 255, 213, 0.6);
-          border-radius: 50%;
-          opacity: 0;
-          animation: particle-float 2s var(--delay, 0s) ease-out forwards;
-          transform: translate(var(--x, 0), var(--y, 0));
+        @keyframes ring-draw {
+          to {
+            stroke-dashoffset: 0;
+          }
         }
 
         @keyframes checkmark-draw {
@@ -308,39 +358,18 @@ export default function PrayerSuccessToast({
 
         @keyframes glow-pulse {
           0%, 100% {
-            opacity: 0.8;
+            opacity: 0.7;
             transform: scale(1);
           }
           50% {
             opacity: 1;
-            transform: scale(1.05);
+            transform: scale(1.04);
           }
         }
 
         @keyframes shimmer-sweep {
-          0% {
-            left: -100%;
-          }
-          100% {
-            left: 200%;
-          }
-        }
-
-        @keyframes particle-float {
-          0% {
-            opacity: 0;
-            transform: translate(-50%, -50%) scale(0.5);
-          }
-          20% {
-            opacity: 0.8;
-          }
-          100% {
-            opacity: 0;
-            transform: translate(
-              calc(var(--x, 0) + -50%),
-              calc(var(--y, 0) + -50% - 40px)
-            ) scale(1);
-          }
+          0% { left: -100%; }
+          100% { left: 200%; }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -349,13 +378,12 @@ export default function PrayerSuccessToast({
             transform: none !important;
           }
           .prayer-success-shimmer,
-          .prayer-success-particles,
+          .ring-fill,
           .checkmark-path {
             animation: none;
           }
-          .checkmark-path {
-            stroke-dashoffset: 0;
-          }
+          .ring-fill { stroke-dashoffset: 0; }
+          .checkmark-path { stroke-dashoffset: 0; }
         }
       `}</style>
     </div>

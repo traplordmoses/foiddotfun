@@ -2399,14 +2399,40 @@ body {
 
   /* ── Prayer reveal focus ── */
   .foid-terminal__log--prayer-focus .foid-terminal__line:not(.foid-terminal__line--prayer) {
-    opacity: 0.35;
-    transition: opacity 0.6s ease;
+    opacity: 0.55;
+    filter: blur(0.3px);
+    transition: opacity 0.6s ease, filter 0.6s ease;
   }
   .foid-terminal__line--prayer {
-    font-size: 1.05em;
-    text-shadow: 0 0 16px rgba(0, 255, 213, 0.2);
+    position: relative;
+    font-size: 1.08em;
+    color: #00ffd5;
+    text-shadow:
+      0 0 8px rgba(0, 255, 213, 0.35),
+      0 0 24px rgba(0, 255, 213, 0.15);
     opacity: 1;
-    transition: opacity 0.6s ease;
+    padding: 8px 12px;
+    margin: 4px -12px;
+    border-left: 2px solid rgba(0, 255, 213, 0.5);
+    background: linear-gradient(
+      90deg,
+      rgba(0, 255, 213, 0.06) 0%,
+      transparent 70%
+    );
+    border-radius: 0 4px 4px 0;
+    transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: prayer-glow-pulse 3s ease-in-out infinite;
+  }
+
+  @keyframes prayer-glow-pulse {
+    0%, 100% {
+      border-left-color: rgba(0, 255, 213, 0.5);
+      background: linear-gradient(90deg, rgba(0, 255, 213, 0.06) 0%, transparent 70%);
+    }
+    50% {
+      border-left-color: rgba(0, 255, 213, 0.8);
+      background: linear-gradient(90deg, rgba(0, 255, 213, 0.1) 0%, transparent 70%);
+    }
   }
 
   /* ── Breathing circle (afterglow) ── */

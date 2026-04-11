@@ -112,7 +112,7 @@ function PrayPageContent() {
   const { openConnectModal } = useConnectModal();
   const { switchChainAsync } = useSwitchChain();
   const { trigger: triggerHaptic } = useHaptic();
-  const { entries: journalEntries, hasConsent: hasJournalConsent } = usePrayerMemory();
+  const { entries: journalEntries, hasConsent: hasJournalConsent } = usePrayerMemory(address);
   const [nowSeconds, setNowSeconds] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
@@ -446,6 +446,7 @@ function PrayPageContent() {
                     requiredChainId={FLUENT_CHAIN_ID}
                     autoStart={false}
                     shadowMode={!isConnected}
+                    walletAddress={address}
                     onRequestConnect={handleSwitchWallet}
                   />
                 </div>
@@ -490,6 +491,7 @@ function PrayPageContent() {
                       requiredChainId={FLUENT_CHAIN_ID}
                       autoStart={true}
                       shadowMode={!isConnected}
+                      walletAddress={address}
                       onRequestConnect={handleSwitchWallet}
                     />
                   </div>

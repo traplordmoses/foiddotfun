@@ -17,9 +17,17 @@ export type ConsentState = 'granted' | 'denied' | null;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const JOURNAL_KEY = 'foid-prayer-journal';
-const CONSENT_KEY = 'foid-prayer-memory-consent';
+const JOURNAL_KEY_PREFIX = 'foid-prayer-journal';
+const CONSENT_KEY_PREFIX = 'foid-prayer-memory-consent';
 const MAX_ENTRIES = 365;
+
+// Wallet-scoped storage keys — each wallet gets its own journey
+function journalKey(address: string | undefined): string {
+  return address ? `${JOURNAL_KEY_PREFIX}:${address.toLowerCase()}` : JOURNAL_KEY_PREFIX;
+}
+function consentKey(address: string | undefined): string {
+  return address ? `${CONSENT_KEY_PREFIX}:${address.toLowerCase()}` : CONSENT_KEY_PREFIX;
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -75,21 +83,27 @@ function computeLocalStreak(entries: JournalEntry[]): number {
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
-export function usePrayerMemory() {
+export function usePrayerMemory(walletAddress?: string) {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [consentState, setConsentState] = useState<ConsentState>(null);
   const [hydrated, setHydrated] = useState(false);
 
-  // Hydrate from localStorage on client mount
+  // Re-hydrate whenever wallet address changes — each wallet has its own journey
   useEffect(() => {
+    setHydrated(false);
+    setEntries([]);
+    setConsentState(null);
+
     try {
-      const raw = localStorage.getItem(CONSENT_KEY);
+      const cKey = consentKey(walletAddress);
+      const raw = localStorage.getItem(cKey);
       if (raw === 'granted') setConsentState('granted');
       else if (raw === 'denied') setConsentState('denied');
       else setConsentState(null);
 
       if (raw === 'granted') {
-        const journalRaw = localStorage.getItem(JOURNAL_KEY);
+        const jKey = journalKey(walletAddress);
+        const journalRaw = localStorage.getItem(jKey);
         if (journalRaw) {
           const parsed = JSON.parse(journalRaw);
           if (Array.isArray(parsed)) {
@@ -101,7 +115,7 @@ export function usePrayerMemory() {
       console.error('[prayer-memory] hydration error:', error);
     }
     setHydrated(true);
-  }, []);
+  }, [walletAddress]);
 
   const hasConsent = consentState === 'granted';
   const needsConsentPrompt = hydrated && consentState === null;
@@ -110,23 +124,23 @@ export function usePrayerMemory() {
     setConsentState('granted');
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(CONSENT_KEY, 'granted');
+      localStorage.setItem(consentKey(walletAddress), 'granted');
     } catch (error) {
       console.error('[prayer-memory] consent save error:', error);
     }
-  }, []);
+  }, [walletAddress]);
 
   const revokeConsent = useCallback(() => {
     setConsentState('denied');
     setEntries([]);
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(CONSENT_KEY, 'denied');
-      localStorage.removeItem(JOURNAL_KEY);
+      localStorage.setItem(consentKey(walletAddress), 'denied');
+      localStorage.removeItem(journalKey(walletAddress));
     } catch (error) {
       console.error('[prayer-memory] revoke error:', error);
     }
-  }, []);
+  }, [walletAddress]);
 
   const addEntry = useCallback(
     (feelingKey: FeelingKey) => {
@@ -142,7 +156,7 @@ export function usePrayerMemory() {
         const next = [...withoutToday, entry].slice(-MAX_ENTRIES);
         if (typeof window !== 'undefined') {
           try {
-            localStorage.setItem(JOURNAL_KEY, JSON.stringify(next));
+            localStorage.setItem(journalKey(walletAddress), JSON.stringify(next));
           } catch (error) {
             console.error('[prayer-memory] save error:', error);
           }
@@ -150,7 +164,7 @@ export function usePrayerMemory() {
         return next;
       });
     },
-    [consentState],
+    [consentState, walletAddress],
   );
 
   const getLastEntry = useCallback((): JournalEntry | null => {
