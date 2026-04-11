@@ -11,18 +11,9 @@ import { useSwipeVote } from "@/hooks/useSwipeVote";
 import { useSwipeCastVote } from "@/hooks/useSwipeCastVote";
 import { useReadContract } from "wagmi";
 import toast from "react-hot-toast";
-import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
-
-function tryNextGateway(el: HTMLImageElement, cid?: string) {
-  if (!cid) return;
-  const urls = ipfsToHttp(cid);
-  const idx = Number(el.dataset.gatewayIndex ?? "-1") + 1;
-  if (idx < urls.length) { el.src = urls[idx]; el.dataset.gatewayIndex = String(idx); }
-}
-
-function truncateAddress(addr: string): string {
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-}
+import { cidToHttpUrl } from "@/lib/ipfsUrl";
+import { tryNextGateway, truncateAddress } from "@/lib/swipeConstants";
+import type { OnChainProposal } from "@/types/vote";
 
 export default function ProposalDetailPage() {
   const params = useParams();
@@ -41,18 +32,7 @@ export default function ProposalDetailPage() {
     query: { enabled: !!contractAddr },
   });
 
-  const proposal = proposalRaw as
-    | {
-        id: bigint;
-        proposer: string;
-        ipfsCid: string;
-        createdAt: bigint;
-        votingEndsAt: bigint;
-        finalized: boolean;
-        approved: boolean;
-        trestEntryId: bigint;
-      }
-    | undefined;
+  const proposal = proposalRaw as OnChainProposal | undefined;
 
   // On-chain vote hook — reads tallies and hasVoted directly from contract
   const {

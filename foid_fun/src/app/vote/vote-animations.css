@@ -1,0 +1,130 @@
+/* Vote page keyframe animations — extracted from runtime injection */
+
+@keyframes swipe-particle {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--px), var(--py)) scale(0.3); opacity: 0; }
+}
+
+@keyframes stamp-slam {
+  0% { transform: scale(1.5) rotate(var(--stamp-rot)); opacity: 0.5; filter: drop-shadow(0 0 30px var(--stamp-glow)); }
+  50% { transform: scale(0.92) rotate(var(--stamp-rot)); opacity: 1; }
+  70% { transform: scale(1.06) rotate(var(--stamp-rot)); opacity: 1; }
+  100% { transform: scale(1) rotate(var(--stamp-rot)); opacity: 1; filter: drop-shadow(0 0 12px var(--stamp-glow)); }
+}
+
+@keyframes card-enter {
+  0% { transform: scale(0.95); opacity: 0; }
+  60% { transform: scale(1.015); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes streak-pop {
+  0% { transform: scale(0.5) translateY(8px); opacity: 0; }
+  30% { transform: scale(1.25) translateY(-4px); opacity: 1; }
+  60% { transform: scale(1) translateY(0); opacity: 1; }
+  100% { transform: scale(0.9) translateY(-6px); opacity: 0; }
+}
+
+@keyframes swipe-shake {
+  0% { transform: translateX(0); }
+  15% { transform: translateX(-3px); }
+  30% { transform: translateX(4px); }
+  45% { transform: translateX(-4px); }
+  60% { transform: translateX(3px); }
+  75% { transform: translateX(-2px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes glow-flash {
+  0% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+@keyframes vote-result-text {
+  0% { transform: scale(0.8); opacity: 1; }
+  40% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+@keyframes undo-enter {
+  0% { transform: translateY(20px) scale(0.9); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes undo-exit {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(20px) scale(0.9); opacity: 0; }
+}
+
+@keyframes float-sword {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes victory-particle {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--vx), var(--vy)) scale(0); opacity: 0; }
+}
+
+@keyframes count-up {
+  0% { transform: scale(1.4); opacity: 0; }
+  40% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes drawer-enter {
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes drawer-exit {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes ring-progress {
+  0% { stroke-dashoffset: var(--ring-total); }
+  100% { stroke-dashoffset: var(--ring-remaining); }
+}
+
+@keyframes step-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(168, 130, 255, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(168, 130, 255, 0); }
+}
+
+@keyframes confetti-fall {
+  0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(60vh) rotate(720deg); opacity: 0; }
+}
+
+@keyframes hint-swipe {
+  0% { transform: translateX(0); opacity: 0.7; }
+  50% { transform: translateX(40px); opacity: 0.9; }
+  100% { transform: translateX(0); opacity: 0; }
+}
+
+@keyframes kbd-fade {
+  0% { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
+/* Reduced motion: disable decorative animations, keep functional ones */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes swipe-particle { 0%, 100% { opacity: 0; } }
+  @keyframes stamp-slam { 0%, 100% { transform: scale(1) rotate(var(--stamp-rot)); opacity: 1; } }
+  @keyframes card-enter { 0%, 100% { transform: scale(1); opacity: 1; } }
+  @keyframes streak-pop { 0%, 100% { opacity: 0; } }
+  @keyframes swipe-shake { 0%, 100% { transform: translateX(0); } }
+  @keyframes glow-flash { 0%, 100% { opacity: 0; } }
+  @keyframes vote-result-text { 0% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes float-sword { 0%, 100% { transform: translateY(0); } }
+  @keyframes victory-particle { 0%, 100% { opacity: 0; } }
+  @keyframes confetti-fall { 0%, 100% { opacity: 0; } }
+  @keyframes hint-swipe { 0%, 100% { opacity: 0; } }
+  @keyframes shimmer { 0%, 100% { background-position: 0 0; } }
+}

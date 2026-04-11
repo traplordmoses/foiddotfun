@@ -97,6 +97,14 @@ export function useSwipeCastVote({ proposalId }: UseSwipeCastVoteParams) {
   const weightAgainst = (rawAgainst as bigint | undefined) ?? 0n;
   const totalWeight = weightFor + weightAgainst;
 
+  // Safe bigint → number conversion (warns in dev if precision would be lost)
+  const safeNumber = (v: bigint): number => {
+    if (v > BigInt(Number.MAX_SAFE_INTEGER) && process.env.NODE_ENV === "development") {
+      console.warn("[useSwipeCastVote] vote weight exceeds MAX_SAFE_INTEGER:", v.toString());
+    }
+    return Number(v);
+  };
+
   return {
     castVote,
     txHash,
@@ -106,12 +114,12 @@ export function useSwipeCastVote({ proposalId }: UseSwipeCastVoteParams) {
     error: writeError || confirmError,
     reset,
     refetch,
-    // Vote tallies
+    // Vote tallies (canonical on-chain voting path)
     weightFor,
     weightAgainst,
     totalWeight,
-    forCount: Number(weightFor),
-    againstCount: Number(weightAgainst),
+    forCount: safeNumber(weightFor),
+    againstCount: safeNumber(weightAgainst),
     // User state
     hasVoted: Boolean(alreadyVoted),
   };

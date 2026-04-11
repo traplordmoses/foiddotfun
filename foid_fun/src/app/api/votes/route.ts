@@ -39,6 +39,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "address required" }, { status: 400 });
   }
 
+  // Phase 6: Validate inputs to prevent GraphQL injection
+  if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    return NextResponse.json({ error: "invalid address format" }, { status: 400 });
+  }
+  if (proposalId && !/^\d+$/.test(proposalId)) {
+    return NextResponse.json({ error: "invalid proposalId format" }, { status: 400 });
+  }
+
   console.log("[api/votes] === Using Loreboard Subgraph ===");
   console.log("[api/votes] Address:", address);
   console.log("[api/votes] ProposalId:", proposalId);
