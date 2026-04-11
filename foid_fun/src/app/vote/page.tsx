@@ -9,7 +9,7 @@ import { CONTRACTS } from "@/lib/contracts/addresses";
 import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { getWalletClient } from "@/lib/viem";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
-import { MainnetGate } from "@/components/MainnetComingSoon";
+
 import toast from "react-hot-toast";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
 import { CHAIN_ID, CHAIN_NAME, RPC_URL } from "@/config/canonical";
@@ -323,7 +323,6 @@ export default function VotePage() {
   const totalOnChain = proposalCount !== undefined ? Number(proposalCount) : 0;
 
   return (
-    <MainnetGate>
     <main className="relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center" style={{ height: "100dvh", overscrollBehavior: "none" }}>
       <div className="pointer-events-none fixed inset-0 z-0 vignette" aria-hidden="true" />
 
@@ -608,6 +607,5 @@ export default function VotePage() {
         </div>
       </section>
     </main>
-    </MainnetGate>
   );
 }

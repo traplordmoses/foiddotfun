@@ -4,11 +4,11 @@ schema:
 dataSources:
   - kind: ethereum
     name: Loreboard
-    network: fluent-testnet
+    network: fluent
     source:
-      address: "0xf9b72062a7e5933692ccbd247d70a9cdb40e0ec7"
+      address: "0x5362874e334bb5a2c8083a2cf2eb3db6f3d8e33c"
       abi: Loreboard
-      startBlock: 22865492
+      startBlock: 2150387
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7

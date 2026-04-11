@@ -4,11 +4,11 @@ schema:
 dataSources:
   - kind: ethereum
     name: PrayerTiers
-    network: fluent-testnet
+    network: fluent
     source:
-      address: "0x36ed105e09a881b6074250a43b2e26c0d6cfd4fb"
+      address: "0x5Cf1bf680FFF2ecB146eF977bF46C4CAE46bA4c6"
       abi: PrayerTiers
-      startBlock: 21984763
+      startBlock: 2150347
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -25,11 +25,11 @@ dataSources:
       file: ./src/mapping.ts
   - kind: ethereum
     name: PrayerRegistry
-    network: fluent-testnet
+    network: fluent
     source:
-      address: "0x6FC7301fad7Ca0294152b23FD4f0467200376d65"
+      address: "0xf98Ec3dd6BfFBf79528918dc6fD153ca2ba8d3Da"
       abi: PrayerRegistry
-      startBlock: 15774936
+      startBlock: 2150262
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7

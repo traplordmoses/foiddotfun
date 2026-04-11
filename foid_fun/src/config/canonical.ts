@@ -60,30 +60,30 @@ const TESTNET_ADDRESSES = {
 // Any address left as TESTNET_ADDRESSES.* will use the testnet value
 // and SHOULD be overridden via NEXT_PUBLIC_* env vars on Render/Vercel.
 const MAINNET_ADDRESSES: typeof TESTNET_ADDRESSES = {
-  // Legacy: not deployed on mainnet — use testnet values (env var overrides take precedence)
-  treasury: TESTNET_ADDRESSES.treasury,
-  manifestStore: TESTNET_ADDRESSES.manifestStore,
-  voting: TESTNET_ADDRESSES.voting,
-  board: TESTNET_ADDRESSES.board,
-  liveNFT: TESTNET_ADDRESSES.liveNFT,
-  vmWrapper: TESTNET_ADDRESSES.vmWrapper,
+  // Legacy: not deployed on mainnet — point to Loreboard (unified contract)
+  treasury: getAddress("0x5362874e334bb5a2c8083a2cf2eb3db6f3d8e33c"),  // Loreboard handles treasury
+  manifestStore: getAddress("0x5362874e334bb5a2c8083a2cf2eb3db6f3d8e33c"),  // Loreboard handles manifest
+  voting: getAddress("0x5362874e334bb5a2c8083a2cf2eb3db6f3d8e33c"),  // Loreboard handles voting
+  board: getAddress("0x5362874e334bb5a2c8083a2cf2eb3db6f3d8e33c"),  // Loreboard handles board
+  liveNFT: getAddress("0x2578bEe9bC2bD66e3736a2Bc69d54D7e6BE7d359"),
+  vmWrapper: TESTNET_ADDRESSES.vmWrapper,  // not deployed on mainnet
 
-  // V1: fill after deploy (or set via NEXT_PUBLIC_* env vars)
-  prayerTiers: TESTNET_ADDRESSES.prayerTiers,
-  streakVotingPower: TESTNET_ADDRESSES.streakVotingPower,
-  foidTrest: TESTNET_ADDRESSES.foidTrest,
-  swipe: TESTNET_ADDRESSES.swipe,
-  loreboard: TESTNET_ADDRESSES.loreboard,
-  loreboardLiveNFT: TESTNET_ADDRESSES.loreboardLiveNFT,
-  swipeLoreboard: TESTNET_ADDRESSES.swipeLoreboard,
-  multisig: TESTNET_ADDRESSES.multisig,
+  // V1 contracts (deployed 2026-04-11)
+  prayerTiers: getAddress("0x5Cf1bf680FFF2ecB146eF977bF46C4CAE46bA4c6"),
+  streakVotingPower: getAddress("0x63D1447D01432e18Ac769968fdf78Ccc70015172"),
+  foidTrest: TESTNET_ADDRESSES.foidTrest,  // legacy, not deployed on mainnet
+  swipe: getAddress("0x5362874e334bb5a2c8083a2cf2eb3db6f3d8e33c"),  // = Loreboard (unified)
+  loreboard: getAddress("0x5362874e334bb5a2c8083a2cf2eb3db6f3d8e33c"),
+  loreboardLiveNFT: getAddress("0x2578bEe9bC2bD66e3736a2Bc69d54D7e6BE7d359"),
+  swipeLoreboard: getAddress("0x5362874e334bb5a2c8083a2cf2eb3db6f3d8e33c"),  // = Loreboard (unified)
+  multisig: getAddress("0xCd674E3175fa87DF9D7534419a0e026336251d05"),
 
-  // Standalone
-  engrave: TESTNET_ADDRESSES.engrave,
-  prayerRegistry: TESTNET_ADDRESSES.prayerRegistry,
-  prayerMirror: TESTNET_ADDRESSES.prayerMirror,
+  // Standalone (deployed 2026-04-11)
+  engrave: TESTNET_ADDRESSES.engrave,  // not deployed on mainnet
+  prayerRegistry: getAddress("0xf98Ec3dd6BfFBf79528918dc6fD153ca2ba8d3Da"),
+  prayerMirror: getAddress("0x403ECF8ba28E58CE4d1847C1C95ac54651fAB151"),
 
-  // DeFi: override via NEXT_PUBLIC_* env vars on mainnet
+  // DeFi: not deployed on mainnet yet — override via NEXT_PUBLIC_* env vars
   weth: TESTNET_ADDRESSES.weth,
   wfoid: TESTNET_ADDRESSES.wfoid,
   foidFactory: TESTNET_ADDRESSES.foidFactory,

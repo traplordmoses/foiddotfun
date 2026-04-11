@@ -12,14 +12,16 @@ Mainnet/testnet is controlled by `NEXT_PUBLIC_IS_MAINNET` env var. Testnet chain
 
 These are the active, multisig-owned contracts deployed March 2026. All new work should target these:
 
-| Contract | Address (testnet) | Solidity |
-|----------|-------------------|----------|
-| PrayerTiers | `0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb` | `solidity_contracts/src/PrayerTiers.sol` |
-| StreakVotingPower | `0x7a889b3d38889E45EE48bbCBc3681a889F87C03e` | `solidity_contracts/src/StreakVotingPower.sol` |
-| Loreboard | `0xF9b72062A7e5933692CcBd247d70a9cdB40E0eC7` | `solidity_contracts/src/Loreboard.sol` |
-| LoreboardLiveNFT | `0x9E17B30a41546E854778d91d6Ef0C0D982d49012` | `solidity_contracts/src/LoreboardLiveNFT.sol` |
-| FoidMultisig | `0x2379955b597d2a7fc9dbD918306aa59c43eBF6Ed` | `solidity_contracts/src/FoidMultisig.sol` |
-| MiFOID | not yet deployed | `solidity_contracts/src/MiFOID.sol` |
+| Contract | Mainnet (25363) | Testnet (20994) | Solidity |
+|----------|-----------------|-----------------|----------|
+| PrayerMirror | `0x403ECF8ba28E58CE4d1847C1C95ac54651fAB151` | `0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF` | `solidity_contracts/src/PrayerMirror.sol` |
+| PrayerRegistry | `0xf98Ec3dd6BfFBf79528918dc6fD153ca2ba8d3Da` | `0x6FC7301fad7Ca0294152b23FD4f0467200376d65` | rWASM (`prayer-registry/`) |
+| PrayerTiers | `0x5Cf1bf680FFF2ecB146eF977bF46C4CAE46bA4c6` | `0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb` | `solidity_contracts/src/PrayerTiers.sol` |
+| StreakVotingPower | `0x63D1447D01432e18Ac769968fdf78Ccc70015172` | `0x7a889b3d38889E45EE48bbCBc3681a889F87C03e` | `solidity_contracts/src/StreakVotingPower.sol` |
+| Loreboard | `0x5362874e334bb5a2c8083a2cf2eb3db6f3d8e33c` | `0xF9b72062A7e5933692CcBd247d70a9cdB40E0eC7` | `solidity_contracts/src/Loreboard.sol` |
+| LoreboardLiveNFT | `0x2578bEe9bC2bD66e3736a2Bc69d54D7e6BE7d359` | `0x9E17B30a41546E854778d91d6Ef0C0D982d49012` | `solidity_contracts/src/LoreboardLiveNFT.sol` |
+| FoidMultisig | `0xCd674E3175fa87DF9D7534419a0e026336251d05` | `0x2379955b597d2a7fc9dbD918306aa59c43eBF6Ed` | `solidity_contracts/src/FoidMultisig.sol` |
+| MiFOID | not yet deployed | not yet deployed | `solidity_contracts/src/MiFOID.sol` |
 
 Key parameters (set in Loreboard constructor):
 - Approval threshold: 51% (`approvalThresholdBps = 5100`)
