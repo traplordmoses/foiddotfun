@@ -28,10 +28,7 @@ export const CANONICAL_ADDRESSES = {
   voting: getAddress("0xEbf065A7ca3917BB5e669982e8C6954cC27A7075"),
   board: getAddress("0xE41B2D418C09Ea928E4F657ED2438f5D01472105"),
   liveNFT: getAddress("0x4b38ad556300fadd6cdc5a9b0b1870e63c0f14e3"),
-  operator: getAddress("0x1a2a5E805342D5139111488C59d72832055A3e8F"),
-  votingPowerSource: getAddress("0xCCf0ac9c66a68FCb8c438C697EdA87D9766f1Be5"),
   vmWrapper: getAddress("0x4031762fB8b5d3fcA168AA6555FfC666ED500DaD"),
-  vmWasm: getAddress("0xBE0ec2117F36797DEf3ab10661464265b2E4df34"),
 
   // V1 contracts (multisig-owned, deployed 2026-03-20 / 2026-03-26)
   prayerTiers: getAddress("0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb"),

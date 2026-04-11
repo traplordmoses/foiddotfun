@@ -2,7 +2,9 @@
 import { NextResponse } from "next/server";
 import { currentEpoch, secondsLeftInEpoch } from "@/lib/epoch";
 import { DEPLOY_BLOCK } from "@/lib/viem";
-import { LOREBOARD_MANIFEST_STORE_ADDRESS } from "@/config/contracts";
+import { CANONICAL_ADDRESSES } from "@/config/canonical";
+
+const LOREBOARD_MANIFEST_STORE_ADDRESS = CANONICAL_ADDRESSES.manifestStore;
 import {
   createManifestStoreClient,
   resolveLatestManifestCid,

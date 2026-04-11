@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { LOREBOARD_MANIFEST_STORE_ADDRESS } from "@/config/contracts";
+import { CANONICAL_ADDRESSES } from "@/config/canonical";
+
+const LOREBOARD_MANIFEST_STORE_ADDRESS = CANONICAL_ADDRESSES.manifestStore;
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 import { DEPLOY_BLOCK } from "@/lib/viem";
 import {

@@ -31,20 +31,15 @@ export const CONTRACTS = {
   // ── FoidTrestGovernance: not deployed yet — governance is post-launch ──
   FOID_TREST_GOVERNANCE: "",
 
-  // ── Legacy loreboard contracts (read-only, used by bot + subgraph) ──
-  LOREBOARD_BOARD: env("NEXT_PUBLIC_LOREBOARD_BOARD") ?? CANONICAL_ADDRESSES.board,
+  // ── Legacy loreboard contracts (read-only, used by voting/refund UI) ──
   LOREBOARD_TREASURY: env("NEXT_PUBLIC_LOREBOARD_TREASURY") ?? CANONICAL_ADDRESSES.treasury,
   LOREBOARD_VOTING: env("NEXT_PUBLIC_LOREBOARD_VOTING") ?? CANONICAL_ADDRESSES.voting,
-  LOREBOARD_MANIFEST_STORE: env("NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE") ?? CANONICAL_ADDRESSES.manifestStore,
-  LOREBOARD_LIVE_NFT: env("NEXT_PUBLIC_LOREBOARD_LIVE_NFT") ?? CANONICAL_ADDRESSES.liveNFT,
-  VOTING_POWER: env("NEXT_PUBLIC_VOTING_POWER") ?? CANONICAL_ADDRESSES.votingPowerSource,
 
   // ── Fee config ──
   PLACEMENT_FEE_WEI: env("NEXT_PUBLIC_PLACEMENT_FEE_WEI") ?? "1000000000000000",       // 0.001 ETH
   SWIPE_SUBMISSION_FEE: env("NEXT_PUBLIC_SWIPE_SUBMISSION_FEE") ?? "1000000000000000",   // 0.001 ETH
   FLAG_FEE_WEI: env("NEXT_PUBLIC_FLAG_FEE_WEI") ?? "1000000000000000",                   // 0.001 ETH
   MIFOID_MINT_FEE: env("NEXT_PUBLIC_MIFOID_MINT_FEE") ?? "10000000000000000",            // 0.01 ETH
-  DUEL_SUBMISSION_FEE: env("NEXT_PUBLIC_DUEL_SUBMISSION_FEE") ?? "1000000000000000",      // 0.001 ETH (legacy)
 } as const;
 
 export const CHAIN_CONFIG = {
