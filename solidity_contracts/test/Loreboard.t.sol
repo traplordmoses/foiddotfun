@@ -671,6 +671,68 @@ contract LoreboardTest is Test {
     }
 
     // ══════════════════════════════════════════════
+    //  PAUSABLE
+    // ══════════════════════════════════════════════
+
+    function testPauseBlocksPropose() public {
+        board.pause();
+        vm.prank(submitter);
+        vm.expectRevert("Loreboard: paused");
+        board.propose{value: SUB_FEE}("QmPaused", 0, 0, 32, 32);
+    }
+
+    function testPauseBlocksCastVote() public {
+        vm.prank(submitter);
+        uint256 pid = board.propose{value: SUB_FEE}("QmVote", 0, 0, 32, 32);
+
+        board.pause();
+        vm.prank(voter1);
+        vm.expectRevert("Loreboard: paused");
+        board.castVote(pid, true);
+    }
+
+    function testPauseBlocksFinalize() public {
+        vm.prank(submitter);
+        uint256 pid = board.propose{value: SUB_FEE}("QmFinal", 0, 0, 32, 32);
+        vm.prank(voter1); board.castVote(pid, true);
+        vm.prank(voter2); board.castVote(pid, true);
+        vm.prank(voter3); board.castVote(pid, true);
+        vm.warp(block.timestamp + VOTE_WINDOW + 1);
+
+        board.pause();
+        vm.expectRevert("Loreboard: paused");
+        board.finalize(pid);
+    }
+
+    function testUnpauseResumesOperations() public {
+        board.pause();
+        board.unpause();
+
+        // Should work after unpause
+        vm.prank(submitter);
+        uint256 pid = board.propose{value: SUB_FEE}("QmUnpaused", 0, 0, 32, 32);
+        assertEq(pid, 0);
+    }
+
+    function testPauseOnlyOwner() public {
+        vm.prank(voter1);
+        vm.expectRevert("Loreboard: not owner");
+        board.pause();
+    }
+
+    function testPauseDoesNotBlockRemoval() public {
+        uint256 pid = _approveProposal("QmRemove", 0, 0, 64, 64);
+        uint256 plId = board.getProposal(pid).placementId;
+
+        board.pause();
+
+        // Self-remove still works while paused (users should be able to remove their own content)
+        vm.prank(submitter);
+        board.removePlacement(plId);
+        assertTrue(board.getPlacement(plId).removed);
+    }
+
+    // ══════════════════════════════════════════════
     //  HELPERS
     // ══════════════════════════════════════════════
 

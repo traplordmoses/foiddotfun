@@ -10,6 +10,8 @@ import {IVotingPower} from "./IVotingPower.sol";
 contract StreakVotingPower is IVotingPower {
     event ConfigUpdated(uint256 baseWeight, uint256 mifoidBonus);
     event OwnerChanged(address indexed oldOwner, address indexed newOwner);
+    event MifoidNFTChanged(address indexed oldNFT, address indexed newNFT);
+    event PrayerTiersChanged(address indexed oldTiers, address indexed newTiers);
 
     address public owner;
     address public prayerMirror;
@@ -82,12 +84,16 @@ contract StreakVotingPower is IVotingPower {
 
     /// @notice Update the MiFOID NFT address (deployed after this contract).
     function setMifoidNFT(address _mifoidNFT) external onlyOwner {
+        address old = mifoidNFT;
         mifoidNFT = _mifoidNFT;
+        emit MifoidNFTChanged(old, _mifoidNFT);
     }
 
     /// @notice Set the PrayerTiers contract address.
     function setPrayerTiers(address _prayerTiers) external onlyOwner {
+        address old = prayerTiers;
         prayerTiers = _prayerTiers;
+        emit PrayerTiersChanged(old, _prayerTiers);
     }
 
     /// @notice Update weighting parameters.

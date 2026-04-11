@@ -239,7 +239,7 @@ contract FoidMultisigTest is Test {
         vm.prank(signer1);
         multisig.submitTransaction(address(target), 0.5 ether, data);
 
-        (address to, uint256 value, bytes memory txData, bool executed, uint8 confirmCount) =
+        (address to, uint256 value, bytes memory txData, bool executed, uint8 confirmCount, uint64 createdAt) =
             multisig.getTransaction(0);
 
         assertEq(to, address(target));
@@ -247,5 +247,109 @@ contract FoidMultisigTest is Test {
         assertEq(txData, data);
         assertFalse(executed);
         assertEq(confirmCount, 1);
+        assertEq(createdAt, uint64(block.timestamp));
+    }
+
+    // ── Transaction Expiry ──
+
+    function testTransactionExpiresAfter7Days() public {
+        bytes memory data = abi.encodeWithSignature("setValue(uint256)", 42);
+
+        vm.prank(signer1);
+        uint256 txId = multisig.submitTransaction(address(target), 0, data);
+
+        vm.prank(signer2);
+        multisig.confirmTransaction(txId);
+
+        // Warp past 7-day expiry
+        vm.warp(block.timestamp + 7 days + 1);
+
+        vm.expectRevert("Multisig: tx expired");
+        multisig.executeTransaction(txId);
+    }
+
+    function testTransactionExecutableBeforeExpiry() public {
+        bytes memory data = abi.encodeWithSignature("setValue(uint256)", 42);
+
+        vm.prank(signer1);
+        uint256 txId = multisig.submitTransaction(address(target), 0, data);
+
+        vm.prank(signer2);
+        multisig.confirmTransaction(txId);
+
+        // Right at the 7-day mark (still valid)
+        vm.warp(block.timestamp + 7 days);
+        multisig.executeTransaction(txId);
+        assertEq(target.value(), 42);
+    }
+
+    // ── Signer Rotation ──
+
+    function testReplaceSignerViaSelfCall() public {
+        address newSigner = address(0x4444);
+
+        // Encode the replaceSigner call
+        bytes memory data = abi.encodeWithSignature(
+            "replaceSigner(address,address)", signer3, newSigner
+        );
+
+        // Submit tx targeting the multisig itself
+        vm.prank(signer1);
+        uint256 txId = multisig.submitTransaction(address(multisig), 0, data);
+
+        vm.prank(signer2);
+        multisig.confirmTransaction(txId);
+
+        multisig.executeTransaction(txId);
+
+        // Verify rotation
+        assertFalse(multisig.isSigner(signer3));
+        assertTrue(multisig.isSigner(newSigner));
+        assertEq(multisig.signers(2), newSigner);
+
+        // New signer can submit
+        bytes memory data2 = abi.encodeWithSignature("setValue(uint256)", 100);
+        vm.prank(newSigner);
+        multisig.submitTransaction(address(target), 0, data2);
+
+        // Old signer cannot
+        vm.prank(signer3);
+        vm.expectRevert("Multisig: not signer");
+        multisig.submitTransaction(address(target), 0, data2);
+    }
+
+    function testReplaceSignerDirectCallReverts() public {
+        // Cannot call replaceSigner directly — must go through multisig
+        vm.prank(signer1);
+        vm.expectRevert("Multisig: must be self-call");
+        multisig.replaceSigner(signer3, address(0x4444));
+    }
+
+    function testReplaceSignerZeroAddressReverts() public {
+        bytes memory data = abi.encodeWithSignature(
+            "replaceSigner(address,address)", signer3, address(0)
+        );
+
+        vm.prank(signer1);
+        uint256 txId = multisig.submitTransaction(address(multisig), 0, data);
+        vm.prank(signer2);
+        multisig.confirmTransaction(txId);
+
+        vm.expectRevert("Multisig: zero address");
+        multisig.executeTransaction(txId);
+    }
+
+    function testReplaceSignerDuplicateReverts() public {
+        bytes memory data = abi.encodeWithSignature(
+            "replaceSigner(address,address)", signer3, signer1
+        );
+
+        vm.prank(signer1);
+        uint256 txId = multisig.submitTransaction(address(multisig), 0, data);
+        vm.prank(signer2);
+        multisig.confirmTransaction(txId);
+
+        vm.expectRevert("Multisig: already a signer");
+        multisig.executeTransaction(txId);
     }
 }

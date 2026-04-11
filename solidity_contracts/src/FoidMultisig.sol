@@ -10,6 +10,7 @@ contract FoidMultisig {
 
     uint8 public constant REQUIRED = 2;
     uint8 public constant SIGNER_COUNT = 3;
+    uint64 public constant TX_EXPIRY_SECONDS = 7 days;
 
     // ── Types ──
 
@@ -19,6 +20,7 @@ contract FoidMultisig {
         bytes data;
         bool executed;
         uint8 confirmCount;
+        uint64 createdAt;
     }
 
     // ── Events ──
@@ -27,6 +29,7 @@ contract FoidMultisig {
     event Confirm(uint256 indexed txId, address indexed signer);
     event Revoke(uint256 indexed txId, address indexed signer);
     event Execute(uint256 indexed txId);
+    event SignerReplaced(address indexed oldSigner, address indexed newSigner);
 
     // ── State ──
 
@@ -85,7 +88,8 @@ contract FoidMultisig {
             value: value,
             data: data,
             executed: false,
-            confirmCount: 1 // Submitter auto-confirms
+            confirmCount: 1, // Submitter auto-confirms
+            createdAt: uint64(block.timestamp)
         });
 
         confirmations[txId][msg.sender] = true;
@@ -120,6 +124,7 @@ contract FoidMultisig {
     {
         Transaction storage t = transactions[txId];
         require(t.confirmCount >= REQUIRED, "Multisig: not enough confirmations");
+        require(block.timestamp <= t.createdAt + TX_EXPIRY_SECONDS, "Multisig: tx expired");
 
         t.executed = true;
 
@@ -161,15 +166,40 @@ contract FoidMultisig {
         external
         view
         txExists(txId)
-        returns (address to, uint256 value, bytes memory data, bool executed, uint8 confirmCount)
+        returns (address to, uint256 value, bytes memory data, bool executed, uint8 confirmCount, uint64 createdAt)
     {
         Transaction storage t = transactions[txId];
-        return (t.to, t.value, t.data, t.executed, t.confirmCount);
+        return (t.to, t.value, t.data, t.executed, t.confirmCount, t.createdAt);
     }
 
     /// @notice Check if a signer has confirmed a specific transaction.
     function hasConfirmed(uint256 txId, address signer) external view txExists(txId) returns (bool) {
         return confirmations[txId][signer];
+    }
+
+    // ── Signer Management ──
+
+    /// @notice Replace a signer. Can ONLY be called via the multisig itself
+    ///         (submit → 2-of-3 confirm → execute), enforcing quorum on signer rotation.
+    /// @param oldSigner The signer to remove.
+    /// @param newSigner The replacement signer address.
+    function replaceSigner(address oldSigner, address newSigner) external {
+        require(msg.sender == address(this), "Multisig: must be self-call");
+        require(isSigner[oldSigner], "Multisig: not current signer");
+        require(newSigner != address(0), "Multisig: zero address");
+        require(!isSigner[newSigner], "Multisig: already a signer");
+
+        isSigner[oldSigner] = false;
+        isSigner[newSigner] = true;
+
+        for (uint8 i = 0; i < 3; i++) {
+            if (signers[i] == oldSigner) {
+                signers[i] = newSigner;
+                break;
+            }
+        }
+
+        emit SignerReplaced(oldSigner, newSigner);
     }
 
     // ── Receive ETH ──

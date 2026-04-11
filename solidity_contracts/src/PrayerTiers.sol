@@ -115,6 +115,7 @@ contract PrayerTiers {
         return _tiers[level - 1];
     }
 
+    /// @notice Transfer ownership to a new address. Owner only.
     function setOwner(address newOwner) external onlyOwner {
         require(newOwner != address(0), "PrayerTiers: zero address");
         address old = owner;
