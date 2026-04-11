@@ -1506,6 +1506,69 @@ export default function FoidMommyTerminal({
           </div>
         </>
       )}
+
+      {/* ── Full-screen prayer focal overlay ── */}
+      <PrayerFocalOverlay
+        active={prayerRevealing}
+        messages={messages}
+      />
+    </div>
+  );
+}
+
+/**
+ * Full-viewport overlay that makes the prayer the focal point of the entire screen
+ * while Foid Mommy is typing it out. Fades in over a dark backdrop, shows the prayer
+ * text being typed live (large, centered, glowing), then dissolves when done.
+ */
+function PrayerFocalOverlay({
+  active,
+  messages,
+}: {
+  active: boolean;
+  messages: Message[];
+}) {
+  const [visible, setVisible] = useState(false);
+  const [fading, setFading] = useState(false);
+  const [frozenText, setFrozenText] = useState("");
+
+  useEffect(() => {
+    if (active) {
+      setFading(false);
+      setFrozenText("");
+      setVisible(true);
+    } else if (visible) {
+      // Freeze the final prayer text before fading
+      const lastFoid = [...messages].reverse().find((m) => m.role === "foid");
+      if (lastFoid) setFrozenText(lastFoid.text);
+      setFading(true);
+      const timer = setTimeout(() => {
+        setVisible(false);
+        setFading(false);
+        setFrozenText("");
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [active, visible, messages]);
+
+  if (!visible) return null;
+
+  // During active typing, grab the latest foid message (being typed char by char)
+  const liveText = fading
+    ? frozenText
+    : ([...messages].reverse().find((m) => m.role === "foid")?.text ?? "");
+
+  return (
+    <div className={`prayer-focal ${fading ? "prayer-focal--fading" : "prayer-focal--active"}`}>
+      <div className="prayer-focal__backdrop" />
+      <div className="prayer-focal__content">
+        <div className="prayer-focal__label">foid mommy is crafting your prayer</div>
+        <div className="prayer-focal__text">
+          {liveText}
+          {!fading && <span className="prayer-focal__cursor" />}
+        </div>
+        <div className="prayer-focal__glow" />
+      </div>
     </div>
   );
 }
