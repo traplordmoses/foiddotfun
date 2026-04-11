@@ -5,12 +5,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { spawn } from "@/lib/spawn";
 import { getAudioSettings } from "@/lib/audioSettings";
 import { BLOCK_EXPLORER_URL } from "@/lib/contracts";
+import { cidToHttpUrl } from "@/lib/ipfsUrl";
 
 type PlacementCelebrationProps = {
   itemName: string;
   txHash: string;
   proposalId: number | null;
   previewUrl: string;
+  ipfsCid?: string;
 };
 
 const DURATION = 9600;
@@ -70,6 +72,7 @@ export default function PlacementCelebration({
   txHash,
   proposalId,
   previewUrl,
+  ipfsCid,
 }: PlacementCelebrationProps) {
   const [exiting, setExiting] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -205,15 +208,21 @@ export default function PlacementCelebration({
 
         {/* Beat 3: The Slab */}
         <div className="pc-slab">
-          {/* Hero image */}
-          {previewUrl && (
+          {/* Hero image — prefer IPFS gateway URL, fall back to data URL */}
+          {(ipfsCid || previewUrl) && (
             <div className="pc-hero-frame">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={previewUrl}
+                src={ipfsCid ? cidToHttpUrl(ipfsCid) : previewUrl}
                 alt={itemName}
                 className="pc-hero-img"
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  // Fall back to data URL if IPFS gateway fails
+                  if (previewUrl && (e.target as HTMLImageElement).src !== previewUrl) {
+                    (e.target as HTMLImageElement).src = previewUrl;
+                  }
+                }}
               />
               <div className="pc-hero-sheen" aria-hidden />
             </div>

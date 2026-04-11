@@ -742,6 +742,7 @@ function BoardPageContent() {
       let lastProposalId: number | null = null;
       let lastPreviewUrl = "";
       let lastName = "";
+      let lastCid = "";
 
       for (const it of items) {
         addStatus(`Uploading ${it.name}...`, "info");
@@ -768,6 +769,7 @@ function BoardPageContent() {
         lastProposalId = onChain.proposalId;
         lastPreviewUrl = it.previewUrl;
         lastName = it.name;
+        lastCid = normalizedCid;
       }
 
       // Convert blob URL to data URL so it survives clearBoardState()
@@ -791,6 +793,7 @@ function BoardPageContent() {
           txHash: lastTxHash,
           proposalId: lastProposalId,
           previewUrl: stablePreviewUrl,
+          ipfsCid: lastCid,
         });
       }
 

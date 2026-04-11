@@ -17,6 +17,7 @@ export function celebratePlacement(opts: {
   txHash: string;
   proposalId: number | null;
   previewUrl: string;
+  ipfsCid?: string;
 }) {
   if (typeof window === "undefined") return;
   import("@/effects/PlacementCelebration").then(({ showPlacementCelebration }) => {
