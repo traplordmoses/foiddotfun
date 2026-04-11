@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { spawn } from "@/lib/spawn";
 import { getAudioSettings } from "@/lib/audioSettings";
+import { BLOCK_EXPLORER_URL } from "@/lib/contracts";
 
 type PlacementCelebrationProps = {
   itemName: string;
@@ -107,7 +108,7 @@ export default function PlacementCelebration({
   // Share to X
   const handleShare = () => {
     const text = encodeURIComponent(
-      `just engraved on the @mifoid loreboard${proposalId != null ? ` (Proposal #${proposalId})` : ""}\n\nhttps://foid.fun/board`,
+      `just engraved on the @foidfun loreboard ⚡${proposalId != null ? `\n\nProposal #${proposalId}` : ""}\n\nhttps://foid.fun/board`,
     );
     window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
   };
@@ -230,7 +231,7 @@ export default function PlacementCelebration({
             )}
             <a
               className="pc-chip"
-              href={`https://testnet.fluentscan.xyz/tx/${txHash}`}
+              href={`${BLOCK_EXPLORER_URL}/tx/${txHash}`}
               target="_blank"
               rel="noreferrer"
             >

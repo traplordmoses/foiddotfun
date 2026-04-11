@@ -9,10 +9,11 @@ import { CONTRACTS } from "@/lib/contracts/addresses";
 import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { getWalletClient } from "@/lib/viem";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
+import { MainnetGate } from "@/components/MainnetComingSoon";
 import { useSwipeVote } from "@/hooks/useSwipeVote";
 import toast from "react-hot-toast";
 import { cidToHttpUrl, ipfsToHttp } from "@/lib/ipfsUrl";
-import { CHAIN_ID } from "@/config/canonical";
+import { CHAIN_ID, CHAIN_NAME, RPC_URL } from "@/config/canonical";
 import { useSwipeVotingPower } from "@/hooks/useSwipeVotingPower";
 import { useBoardEvents } from "@/hooks/useBoardEvents";
 import { useShadowVotes } from "@/hooks/useShadowVotes";
@@ -906,7 +907,7 @@ export default function VotePage() {
       try {
         const { createPublicClient, http } = await import("viem");
         const client = createPublicClient({
-          chain: { id: CHAIN_ID, name: "Fluent", nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [process.env.NEXT_PUBLIC_RPC_URL ?? "https://rpc.testnet.fluent.xyz"] } } },
+          chain: { id: CHAIN_ID, name: CHAIN_NAME, nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [RPC_URL] } } },
           transport: http(),
         });
         const local = getVotedIds(address);
@@ -1087,6 +1088,7 @@ export default function VotePage() {
   const totalOnChain = proposalCount !== undefined ? Number(proposalCount) : 0;
 
   return (
+    <MainnetGate>
     <main className="relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center" style={{ height: "100vh" }}>
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
 
@@ -1458,5 +1460,6 @@ export default function VotePage() {
         </div>
       </section>
     </main>
+    </MainnetGate>
   );
 }

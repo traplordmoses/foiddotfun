@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { FLUENT_CHAIN_ID, FLUENT_CHAIN_NAME, BLOCK_EXPLORER_URL } from "@/lib/contracts";
+import { RPC_URL as CANONICAL_RPC } from "@/config/canonical";
 
 const rpcUrl =
   (process.env.NEXT_PUBLIC_RPC as string | undefined) ??
   (process.env.NEXT_PUBLIC_RPC_URL as string | undefined) ??
-  "https://rpc.testnet.fluent.xyz";
+  CANONICAL_RPC;
 
 interface NetworkGateProps {
   chainId: number;
@@ -104,7 +105,7 @@ export function NetworkGate({ chainId, children }: NetworkGateProps) {
               });
             }}
           >
-            Add Fluent Testnet
+            Add {FLUENT_CHAIN_NAME}
           </button>
         </div>
       </div>

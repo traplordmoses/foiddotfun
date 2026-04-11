@@ -1,20 +1,30 @@
 import { createPublicClient, http, defineChain, type Address, type PublicClient } from "viem";
 import dotenv from "dotenv";
 import path from "path";
+import {
+  RPC_URL as CANONICAL_RPC,
+  CHAIN_ID as CANONICAL_CHAIN_ID,
+  CHAIN_NAME as CANONICAL_CHAIN_NAME,
+  IS_MAINNET,
+} from "@/config/canonical";
 
 // Load .env.local from foid_fun root
 dotenv.config({ path: path.join(process.cwd(), ".env.local") });
 
-export const RPC_URL = process.env.NEXT_PUBLIC_FLUENT_RPC || "https://rpc.testnet.fluent.xyz";
-export const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID || 20994);
+export const RPC_URL = process.env.NEXT_PUBLIC_FLUENT_RPC || CANONICAL_RPC;
+export const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID || CANONICAL_CHAIN_ID);
+
+const DEFAULT_LOREBOARD_SUBGRAPH = IS_MAINNET
+  ? "" // No mainnet subgraph yet
+  : "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/1.0.0/gn";
+
+const DEFAULT_PRAYER_SUBGRAPH = IS_MAINNET
+  ? "" // No mainnet subgraph yet
+  : "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-prayer-tiers-fluent-testnet/1.0.0/gn";
 
 export const SUBGRAPH_URLS = {
-  // Loreboard unified subgraph (proposals, votes, placements, manifest)
-  loreboard: process.env.GOLDSKY_LOREBOARD_URL ||
-    "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/1.0.0/gn",
-  // PrayerTiers + PrayerRegistry (tier-ups, prayer submissions)
-  prayerTiers: process.env.GOLDSKY_PRAYER_TIERS_URL ||
-    "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-prayer-tiers-fluent-testnet/1.0.0/gn",
+  loreboard: process.env.GOLDSKY_LOREBOARD_URL || DEFAULT_LOREBOARD_SUBGRAPH,
+  prayerTiers: process.env.GOLDSKY_PRAYER_TIERS_URL || DEFAULT_PRAYER_SUBGRAPH,
 };
 
 export const CONTRACTS = {
@@ -32,7 +42,7 @@ export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";
 
 const chain = defineChain({
   id: CHAIN_ID,
-  name: "Fluent Testnet",
+  name: CANONICAL_CHAIN_NAME,
   nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [RPC_URL] } },
 });

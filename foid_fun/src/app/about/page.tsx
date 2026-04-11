@@ -7,6 +7,8 @@ import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { useAccount, useChainId, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { playTypingTick } from "@/lib/sfx";
+import { BLOCK_EXPLORER_URL } from "@/lib/contracts";
+import { CANONICAL_ADDRESSES, IS_MAINNET } from "@/config/canonical";
 
 type Section = {
   id: string;
@@ -818,7 +820,7 @@ const sections: Section[] = [
         <GlassPanel>
           <p>
             Every piece of FOID runs on <strong>verified smart contracts</strong> deployed on{" "}
-            <a href="https://testnet.fluentscan.xyz" className="text-cyan-300 underline" target="_blank" rel="noopener noreferrer">Fluent</a>.
+            <a href={BLOCK_EXPLORER_URL} className="text-cyan-300 underline" target="_blank" rel="noopener noreferrer">Fluent</a>.
             All contract source code is open and verified on Blockscout — you can read every line, audit every function, and verify every transaction.
           </p>
           <p style={{ marginTop: '12px' }}>
@@ -836,7 +838,7 @@ const sections: Section[] = [
             <p className="aboutMiniCard__body">
               10-tier prayer streak system. Your daily devotion earns multipliers from 1x (Lurker) to 5x (Mommy Milker). Tiers feed into voting power across the entire ecosystem.
             </p>
-            <a href="https://testnet.fluentscan.xyz/address/0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+            <a href={`${BLOCK_EXPLORER_URL}/address/0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
@@ -844,7 +846,7 @@ const sections: Section[] = [
             <p className="aboutMiniCard__body">
               Converts prayer streaks into weighted voting power. Higher streaks = more influence on governance votes and loreboard decisions. Base weight 100, scaled by tier multiplier.
             </p>
-            <a href="https://testnet.fluentscan.xyz/address/0x7a889b3d38889E45EE48bbCBc3681a889F87C03e" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+            <a href={`${BLOCK_EXPLORER_URL}/address/0x7a889b3d38889E45EE48bbCBc3681a889F87C03e`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
@@ -852,7 +854,7 @@ const sections: Section[] = [
             <p className="aboutMiniCard__body">
               The unified governance + placement contract. Propose placements, vote on-chain with streak-weighted power, 51% approval + 3-voter quorum. Approved placements recorded permanently. On-chain overlap prevention. Manifest history for NFT integration. Self-remove + emergency multisig removal.
             </p>
-            <a href="https://testnet.fluentscan.xyz/address/0xF9b72062A7e5933692CcBd247d70a9cdB40E0eC7" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+            <a href={`${BLOCK_EXPLORER_URL}/address/0xF9b72062A7e5933692CcBd247d70a9cdB40E0eC7`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
@@ -860,7 +862,7 @@ const sections: Section[] = [
             <p className="aboutMiniCard__body">
               The 1/1 board NFT (ERC-721). Metadata auto-updates when the manifest changes via syncLatest(). On-chain SVG with epoch and manifest root. The ever-evolving artifact of community culture.
             </p>
-            <a href="https://testnet.fluentscan.xyz/address/0x9E17B30a41546E854778d91d6Ef0C0D982d49012" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+            <a href={`${BLOCK_EXPLORER_URL}/address/0x9E17B30a41546E854778d91d6Ef0C0D982d49012`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
@@ -868,7 +870,7 @@ const sections: Section[] = [
             <p className="aboutMiniCard__body">
               2-of-3 multisig wallet that owns all board contracts. Controls parameters, security, and emergency removal. The trust layer until community governance is mature enough for a DAO transition.
             </p>
-            <a href="https://testnet.fluentscan.xyz/address/0x2379955b597d2a7fc9dbD918306aa59c43eBF6Ed" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
+            <a href={`${BLOCK_EXPLORER_URL}/address/0x2379955b597d2a7fc9dbD918306aa59c43eBF6Ed`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
@@ -890,39 +892,39 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Prayer Mirror</p>
             <p className="aboutMiniCard__body">On-chain prayer streak oracle.</p>
-            <a href="https://testnet.fluentscan.xyz/address/0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
+            <a href={`${BLOCK_EXPLORER_URL}/address/0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
           </div>
           <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Loreboard Voting</p>
             <p className="aboutMiniCard__body">Rolling-window vote system for board placements.</p>
-            <a href="https://testnet.fluentscan.xyz/address/0xEbf065A7ca3917BB5e669982e8C6954cC27A7075" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
+            <a href={`${BLOCK_EXPLORER_URL}/address/0xEbf065A7ca3917BB5e669982e8C6954cC27A7075`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
           </div>
           <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Loreboard Board</p>
             <p className="aboutMiniCard__body">Tile-aligned placement proposals + treasury escrow.</p>
-            <a href="https://testnet.fluentscan.xyz/address/0xE41B2D418C09Ea928E4F657ED2438f5D01472105" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
+            <a href={`${BLOCK_EXPLORER_URL}/address/0xE41B2D418C09Ea928E4F657ED2438f5D01472105`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
           </div>
           <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Loreboard Treasury</p>
             <p className="aboutMiniCard__body">Escrow and settlement for board proposals.</p>
-            <a href="https://testnet.fluentscan.xyz/address/0x4A777d8650b3FA2419377F4ffeF0EF8007151536" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
+            <a href={`${BLOCK_EXPLORER_URL}/address/0x4A777d8650b3FA2419377F4ffeF0EF8007151536`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
           </div>
           <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Prayer Registry</p>
             <p className="aboutMiniCard__body">On-chain prayer hash storage.</p>
-            <a href="https://testnet.fluentscan.xyz/address/0x6FC7301fad7Ca0294152b23FD4f0467200376d65" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
+            <a href={`${BLOCK_EXPLORER_URL}/address/0x6FC7301fad7Ca0294152b23FD4f0467200376d65`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
           </div>
           <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Manifest Store</p>
             <p className="aboutMiniCard__body">Epoch manifest anchoring for loreboard state.</p>
-            <a href="https://testnet.fluentscan.xyz/address/0xeE469D8F9BB2Ace861AA689dE53c016871ad3D10" className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
+            <a href={`${BLOCK_EXPLORER_URL}/address/0xeE469D8F9BB2Ace861AA689dE53c016871ad3D10`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
           </div>
         </div>
 
         <GlassPanel style={{ marginTop: '24px' }}>
           <p>
             <strong>Open Source.</strong> All contract source code is verified on{" "}
-            <a href="https://testnet.fluentscan.xyz" className="text-cyan-300 underline" target="_blank" rel="noopener noreferrer">Fluent Blockscout</a>
+            <a href={BLOCK_EXPLORER_URL} className="text-cyan-300 underline" target="_blank" rel="noopener noreferrer">Fluent Blockscout</a>
             {" "}and available on{" "}
             <a href="https://github.com/traplordmoses/foiddotfun" className="text-cyan-300 underline" target="_blank" rel="noopener noreferrer">GitHub</a>.
           </p>

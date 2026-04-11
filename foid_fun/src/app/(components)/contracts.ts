@@ -1,10 +1,10 @@
-import { CHAIN_ID } from "@/config/canonical";
+import { CHAIN_ID, RPC_URL, BLOCK_EXPLORER, CHAIN_NAME } from "@/config/canonical";
 
 export const NETWORK_DETAILS = {
-  chainName: "Fluent Testnet",
-  rpcUrl: "https://rpc.testnet.fluent.xyz",
+  chainName: CHAIN_NAME,
+  rpcUrl: RPC_URL,
   chainId: CHAIN_ID,
-  explorer: "https://testnet.fluentscan.xyz",
+  explorer: BLOCK_EXPLORER,
 } as const;
 
 export interface ContractDescriptor {

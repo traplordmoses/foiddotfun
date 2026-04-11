@@ -2,8 +2,9 @@
 // Includes: timeout, fallback RPC, and multicall helper.
 import { createPublicClient, http, fallback } from "viem";
 import { CHAIN_CONFIG, RPC_URL } from "@/lib/contracts/addresses";
+import { FALLBACK_RPC_URL } from "@/config/canonical";
 
-const FALLBACK_RPC = "https://rpc.testnet.fluent.xyz";
+const FALLBACK_RPC = FALLBACK_RPC_URL;
 const TIMEOUT_MS = 10_000;
 
 const chain = {

@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useAccount } from "wagmi";
 import { useSwitchWallet } from "@/hooks/useSwitchWallet";
+import { BLOCK_EXPLORER_URL } from "@/lib/contracts";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getWalletClient } from "@/lib/viem";
@@ -190,7 +191,7 @@ export default function SwipeSubmitPage() {
                     <p className="text-sm font-medium text-purple-300">Meme proposed!</p>
                     {txHash && (
                       <a
-                        href={`https://testnet.fluentscan.xyz/tx/${txHash}`}
+                        href={`${BLOCK_EXPLORER_URL}/tx/${txHash}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mt-1 inline-block text-xs text-purple-400 hover:underline"

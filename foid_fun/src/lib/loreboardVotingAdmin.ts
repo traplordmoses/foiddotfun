@@ -14,6 +14,7 @@ import {
   LOREBOARD_VOTING_ADDRESS,
   loreboardVotingAbi,
 } from "@/contracts/loreboardVoting";
+import { CHAIN_ID, CHAIN_NAME } from "@/config/canonical";
 
 /* ── Lazy-init (avoids crash during Next.js build / page-data collection) ── */
 
@@ -36,8 +37,8 @@ function ensureClients() {
     if (!pk) throw new Error("Missing LOREBOARD_VOTING_ADMIN_PRIVATE_KEY");
 
     const chain = defineChain({
-      id: 20994,
-      name: "Fluent Testnet",
+      id: CHAIN_ID,
+      name: CHAIN_NAME,
       nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
       rpcUrls: { default: { http: [rpcUrl] } },
     });

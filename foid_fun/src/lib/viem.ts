@@ -46,11 +46,14 @@ export const BOARD = BOARD_ADDRESS.toLowerCase() as `0x${string}`;
 
 export { DEPLOY_BLOCK };
 
+import { BLOCK_EXPLORER, CHAIN_NAME } from "@/config/canonical";
+
 export const fluentTestnet = defineChain({
   id: CHAIN_ID,
-  name: "Fluent Testnet",
+  name: CHAIN_NAME,
   nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [RPC_URL] } },
+  blockExplorers: { default: { name: "FluentScan", url: BLOCK_EXPLORER } },
   contracts: {
     multicall3: {
       address: "0xcA11bde05977b3631167028862bE2a173976CA11",
@@ -123,10 +126,10 @@ async function createActiveWalletClient() {
       params: [
         {
           chainId: toHex(CHAIN_ID),
-          chainName: "Fluent Testnet",
+          chainName: CHAIN_NAME,
           rpcUrls: [RPC_URL],
           nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-          blockExplorerUrls: ["https://testnet.fluentscan.xyz"],
+          blockExplorerUrls: [BLOCK_EXPLORER],
         },
       ],
     });

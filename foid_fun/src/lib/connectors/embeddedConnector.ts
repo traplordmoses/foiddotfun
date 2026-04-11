@@ -27,10 +27,9 @@ const PRIMARY_RPC =
   process.env.NEXT_PUBLIC_FLUENT_RPC ??
   process.env.NEXT_PUBLIC_RPC ??
   process.env.NEXT_PUBLIC_RPC_URL ??
-  TARGET_CHAIN.rpcUrls.default.http[0] ??
-  "https://rpc.testnet.fluent.xyz";
+  TARGET_CHAIN.rpcUrls.default.http[0];
 
-const FALLBACK_RPC = "https://rpc.testnet.fluent.xyz";
+const FALLBACK_RPC = TARGET_CHAIN.rpcUrls.default.http[0];
 
 const RPC_URLS = [PRIMARY_RPC, FALLBACK_RPC];
 

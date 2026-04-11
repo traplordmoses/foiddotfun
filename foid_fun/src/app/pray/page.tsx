@@ -3,6 +3,7 @@
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import AppTitlebar, { type AppTitlebarWarning } from "@/app/(components)/AppTitlebar";
+import { MainnetGate } from "@/components/MainnetComingSoon";
 import { useAccount, useChainId, usePublicClient, useReadContract, useDisconnect, useSwitchChain } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { encodeAbiParameters, keccak256, stringToBytes, type Address, type Hex, type Hash } from "viem";
@@ -1223,8 +1224,10 @@ function PrayPageContent() {
 // Wrap with error boundary to prevent crashes
 export default function PrayPage() {
   return (
-    <PrayerErrorBoundary>
-      <PrayPageContent />
-    </PrayerErrorBoundary>
+    <MainnetGate>
+      <PrayerErrorBoundary>
+        <PrayPageContent />
+      </PrayerErrorBoundary>
+    </MainnetGate>
   );
 }

@@ -2,16 +2,13 @@ import WrappedFoidAbi from "@/abis/WrappedFoid.json";
 import AttestorRegistryAbi from "@/abis/AttestorRegistry.json";
 import SimpleSingleAMMAbi from "@/abis/SimpleSingleAMM.json";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
+import { BLOCK_EXPLORER, CHAIN_NAME } from "@/config/canonical";
 
-const fallbackExplorer = "https://testnet.fluentscan.xyz";
 const DEFAULT_WETH_ADDRESS = "0x3d38E57b5d23c3881AffB8BC0978d5E0bd96c1C6" as const;
 
 export const FLUENT_CHAIN_ID = TARGET_CHAIN_ID;
-export const FLUENT_CHAIN_NAME =
-  process.env.NEXT_PUBLIC_CHAIN_NAME ?? "Fluent Testnet";
-export const BLOCK_EXPLORER_URL = (
-  process.env.NEXT_PUBLIC_BLOCK_EXPLORER || fallbackExplorer
-).replace(/\/+$/, "");
+export const FLUENT_CHAIN_NAME = CHAIN_NAME;
+export const BLOCK_EXPLORER_URL = BLOCK_EXPLORER.replace(/\/+$/, "");
 
 export const TOKEN0_ADDRESS = process.env.NEXT_PUBLIC_TOKEN0 as `0x${string}`;
 export const TOKEN1_ADDRESS = process.env.NEXT_PUBLIC_TOKEN1 as `0x${string}`;

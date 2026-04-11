@@ -6,6 +6,8 @@ import {
   CHAIN_ID,
   RPC_URL as CANONICAL_RPC_URL,
   DEPLOY_BLOCK as CANONICAL_DEPLOY_BLOCK,
+  BLOCK_EXPLORER,
+  CHAIN_NAME,
 } from "@/config/canonical";
 
 // Trim env vars to prevent trailing-space address errors from Vercel dashboard
@@ -47,9 +49,9 @@ export const CONTRACTS = {
 
 export const CHAIN_CONFIG = {
   id: CHAIN_ID,
-  name: process.env.NEXT_PUBLIC_CHAIN_NAME ?? "Fluent",
+  name: CHAIN_NAME,
   rpcUrl: CANONICAL_RPC_URL,
-  blockExplorer: process.env.NEXT_PUBLIC_BLOCK_EXPLORER ?? "https://testnet.fluentscan.xyz",
+  blockExplorer: BLOCK_EXPLORER,
 } as const;
 
 export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? CHAIN_CONFIG.rpcUrl;

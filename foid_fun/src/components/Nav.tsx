@@ -24,7 +24,7 @@ export default function Nav() {
   const network =
     process.env.NEXT_PUBLIC_CHAIN_NAME ??
     process.env.NEXT_PUBLIC_FLUENT_CHAIN_NAME ??
-    "Fluent Testnet";
+    (process.env.NEXT_PUBLIC_IS_MAINNET === "true" ? "Fluent" : "Fluent Testnet");
 
   // Always call hooks on every render (fixes the warning)
   const [isOpen, setIsOpen] = useState(false);

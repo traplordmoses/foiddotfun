@@ -32,7 +32,7 @@ import { hasOverlap } from "@/lib/grid";
 import { uploadJSON } from "@/lib/ipfs";
 import { ProposalStore } from "@/lib/proposalStore";
 import { sortCandidatesByTieBreak } from "@/lib/winnerSelection";
-import { CANONICAL_ADDRESSES, CHAIN_ID, requireCanonicalAddress } from "@/config/canonical";
+import { CANONICAL_ADDRESSES, CHAIN_ID, CHAIN_NAME, requireCanonicalAddress } from "@/config/canonical";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -88,7 +88,7 @@ const getRuntimeConfig = () => {
 
   const chain = defineChain({
     id: CHAIN_ID,
-    name: "Fluent Testnet",
+    name: CHAIN_NAME,
     nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
     rpcUrls: { default: { http: [rpc] } },
     contracts: {

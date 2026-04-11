@@ -3,6 +3,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { spawn } from "@/lib/spawn";
+import { BLOCK_EXPLORER_URL } from "@/lib/contracts";
 
 type SuccessOptions = {
   position?: "corner" | "center";
@@ -74,7 +75,7 @@ export default function PrayerSuccessToast({
           <p className="prayer-success-subtitle">foid mommy thanks you for praying today</p>
           {shortHash && (
             <a
-              href={`https://testnet.fluentscan.xyz/tx/${hash}`}
+              href={`${BLOCK_EXPLORER_URL}/tx/${hash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="prayer-success-link"

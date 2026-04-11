@@ -1041,7 +1041,9 @@ export default function FoidMommyTerminal({
         await sleep(300);
         await typeMessage({
           role: "foid",
-          text: "anon, you're out of gas. swing by the faucet at https://testnet.fluent.xyz/dev-portal, juice up, then try again.",
+          text: process.env.NEXT_PUBLIC_IS_MAINNET === "true"
+            ? "anon, you're out of gas. you need ETH on fluent mainnet to pray."
+            : "anon, you're out of gas. swing by the faucet at https://testnet.fluent.xyz/dev-portal, juice up, then try again.",
         });
         sfx.playError();
         setStage("txFail");

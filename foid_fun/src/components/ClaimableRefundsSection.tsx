@@ -2,6 +2,7 @@
 
 import { memo, useEffect, useState } from "react";
 import { useClaimableRefund } from "@/hooks/useClaimableRefund";
+import { BLOCK_EXPLORER_URL } from "@/lib/contracts";
 
 export const ClaimableRefundsSection = memo(function ClaimableRefundsSection() {
   const {
@@ -107,7 +108,7 @@ export const ClaimableRefundsSection = memo(function ClaimableRefundsSection() {
             </div>
             {transactionHash && (
               <a
-                href={`https://testnet.fluentscan.xyz/tx/${transactionHash}`}
+                href={`${BLOCK_EXPLORER_URL}/tx/${transactionHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-2 inline-block text-xs text-emerald-400 underline hover:text-emerald-300"

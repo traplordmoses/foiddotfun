@@ -9,10 +9,16 @@ const DEFAULT_CHAIN_ID = IS_MAINNET ? 25363 : 20994;
 const DEFAULT_RPC_URL = IS_MAINNET
   ? "https://rpc.fluent.xyz"
   : "https://rpc.testnet.fluent.xyz";
+const DEFAULT_BLOCK_EXPLORER = IS_MAINNET
+  ? "https://fluentscan.xyz"
+  : "https://testnet.fluentscan.xyz";
+const DEFAULT_CHAIN_NAME = IS_MAINNET ? "Fluent" : "Fluent Testnet";
 
 export const CANONICAL_CHAIN = {
   id: DEFAULT_CHAIN_ID,
   rpcUrl: DEFAULT_RPC_URL,
+  blockExplorer: DEFAULT_BLOCK_EXPLORER,
+  chainName: DEFAULT_CHAIN_NAME,
 };
 
 export const CANONICAL_ADDRESSES = {
@@ -90,6 +96,12 @@ export const RPC_URL =
 
 /** Public RPC as fallback when QuickNode is down */
 export const FALLBACK_RPC_URL = DEFAULT_RPC_URL;
+
+export const BLOCK_EXPLORER =
+  pickEnvKey(["NEXT_PUBLIC_BLOCK_EXPLORER"]) ?? DEFAULT_BLOCK_EXPLORER;
+
+export const CHAIN_NAME =
+  pickEnvKey(["NEXT_PUBLIC_CHAIN_NAME"]) ?? DEFAULT_CHAIN_NAME;
 
 if (
   !pickEnvKey([
