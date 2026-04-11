@@ -44,7 +44,30 @@ const sections: Section[] = [
     subtitle: "The Internet's Permanent Memory",
     content: (
       <>
-        <GlassPanel>
+        <GlassPanel style={{ borderLeft: '3px solid rgba(103, 232, 249, 0.5)' }}>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>TLDR</p>
+          <p>
+            <strong>FOID is three things:</strong>
+          </p>
+          <p style={{ marginTop: '8px' }}>
+            <strong>1. <Link href="/pray" className="text-cyan-300 underline">Prayer</Link></strong> &mdash; A daily on-chain check-in with your AI companion (Foid Mommy). Build a streak, earn governance weight. Only a hash goes on-chain &mdash; your words stay private.
+          </p>
+          <p style={{ marginTop: '6px' }}>
+            <strong>2. <Link href="/board" className="text-cyan-300 underline">Loreboard</Link></strong> &mdash; A permanent, community-governed canvas. Propose a placement (0.001 ETH), the community votes for 72 hours, and approved content lives on-chain forever. Votes are weighted by your prayer streak.
+          </p>
+          <p style={{ marginTop: '6px' }}>
+            <strong>3. <Link href="/vote" className="text-cyan-300 underline">Vote</Link></strong> &mdash; Swipe right to approve, left to reject. 51% weighted approval + 3 unique voters to pass. Your streak is your voting power &mdash; Lurker (1x) to Mommy Milker (5x).
+          </p>
+          <p style={{ marginTop: '10px', color: 'rgba(255, 255, 255, 0.6)', fontSize: '13px' }}>
+            All contracts are verified on{" "}
+            <a href={BLOCK_EXPLORER_URL} className="text-cyan-300 underline" target="_blank" rel="noopener noreferrer">Fluent Blockscout</a>.
+            Open source on{" "}
+            <a href="https://github.com/traplordmoses/foiddotfun" className="text-cyan-300 underline" target="_blank" rel="noopener noreferrer">GitHub</a>.
+            {" "}No token. No VC. Just a solo founder, a grant, and on-chain code.
+          </p>
+        </GlassPanel>
+
+        <GlassPanel style={{ marginTop: '16px' }}>
           <p>
             <strong>Memes are beautiful.</strong>
           </p>
