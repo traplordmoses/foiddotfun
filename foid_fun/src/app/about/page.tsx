@@ -238,7 +238,7 @@ const sections: Section[] = [
         <GlassPanel style={{ marginTop: '16px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>WHY THIS MATTERS</p>
           <p>
-            <strong>61% of Gen Z reports severe loneliness.</strong>
+            <strong>Gen Z is consistently reported as the loneliest generation on record.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
             Not because we don&apos;t have connections—we have thousands of followers. But we don&apos;t have rituals. We don&apos;t have space to just... be.
@@ -434,26 +434,26 @@ const sections: Section[] = [
         </GlassPanel>
 
         <div style={{ marginTop: '24px' }}>
-          <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>THE LOOP</p>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>THE SWIPE UX</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">1. propose</p>
+            <p className="aboutMiniCard__title">streak = power</p>
             <p className="aboutMiniCard__body">
-              Choose your spot on the grid. Upload your image. Pay 0.001 ETH. The contract checks for overlaps on-chain &mdash; you can&apos;t propose over existing placements. Your proposal enters the voting queue.
+              Your prayer streak directly determines your voting weight. A 90-day Mommy Milker&apos;s vote is worth 5x an unranked voter&apos;s. Hold a MiFOID? +50 flat bonus on top. The people who show up every day have the loudest voice.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">2. community votes</p>
+            <p className="aboutMiniCard__title">pure on-chain</p>
             <p className="aboutMiniCard__body">
-              72-hour window. Swipe right or left. Every vote is on-chain, weighted by your prayer streak. A 90-day Mommy Milker&apos;s vote is worth 5x an unranked voter&apos;s. Requires 3 unique voters minimum.
+              Every vote is a direct on-chain transaction. No off-chain collection. No batch signatures. Vote tallies stored on-chain: <code className="text-cyan-300">voteWeightFor</code> and <code className="text-cyan-300">voteWeightAgainst</code>. Anyone can verify.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">3. permanent or gone</p>
+            <p className="aboutMiniCard__title">permissionless finalization</p>
             <p className="aboutMiniCard__body">
-              51% weighted approval? Placement recorded on-chain permanently. The board NFT updates. Everyone can see what the community decided. Below threshold? Gone forever. Culture decided by the community, not algorithms.
+              After 72 hours, anyone can call <code className="text-cyan-300">finalize()</code>. The contract applies the 51% threshold and 3-voter quorum deterministically. No admin. No gatekeeping. Pure democracy.
             </p>
           </div>
         </div>
@@ -666,7 +666,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">2. get some eth for gas</p>
             <p className="aboutMiniCard__body">
-              You need a tiny bit of ETH for gas fees (fractions of a cent per transaction). Gas on Fluent is dirt cheap. Need help? Ping in Discord.
+              You need a tiny bit of ETH for gas fees (fractions of a cent per transaction). Gas on Fluent is dirt cheap.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -678,7 +678,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">4. propose to the loreboard (optional)</p>
             <p className="aboutMiniCard__body">
-              Go to /board and look at the canvas. Drag an image onto the grid. Choose your spot. Submit your proposal. This costs a small amount of testnet ETH. Voting lasts 72 hours. Community decides if your meme makes it into the permanent canon.
+              Go to /board and look at the canvas. Drag an image onto the grid. Choose your spot. Submit your proposal. This costs a small amount of {IS_MAINNET ? "ETH" : "testnet ETH"}. Voting lasts 72 hours. Community decides if your meme makes it into the permanent canon.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -690,7 +690,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">6. join the community</p>
             <p className="aboutMiniCard__body">
-              Follow <a href="https://twitter.com/foidfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">@foidfun</a> for updates. Star the <a href="https://github.com/traplordmoses/foiddotfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">GitHub repo</a> if you&apos;re into that. Join Discord for testnet ETH, vibes, and coordination.
+              Follow <a href="https://twitter.com/foidfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">@foidfun</a> for updates. Star the <a href="https://github.com/traplordmoses/foiddotfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">GitHub repo</a> if you&apos;re into that. Come say hi on Twitter.
             </p>
           </div>
         </div>
@@ -710,7 +710,7 @@ const sections: Section[] = [
 
         <GlassPanel style={{ marginTop: '16px' }}>
           <p style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.6)' }}>
-            Still confused? That&apos;s fair. This is weird. DM on Twitter or ask in Discord. We&apos;ll help you out.
+            Still confused? That&apos;s fair. This is weird. DM <a href="https://twitter.com/foidfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">@foidfun</a> on Twitter. We&apos;ll help you out.
           </p>
         </GlassPanel>
       </>
@@ -746,14 +746,14 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">phase 2 &mdash; identity (mainnet + mifoid)</p>
             <p className="aboutMiniCard__body">
-              Fluent mainnet launch makes it real. MiFOID adds the identity layer &mdash; 3,333 AI-generated 3D NFTs, each custom-rendered by Foid Mummy. Persistent agent companions on Telegram. Trait evolution from on-chain activity. The Nunnery for diamond hands. Your MiFOID reflects your commitment.
+              Fluent mainnet launch makes it real. MiFOID adds the identity layer &mdash; 3,333 AI-generated 3D NFTs, each custom-rendered by Foid Mommy. Persistent agent companions on Telegram. Trait evolution from on-chain activity. The Nunnery for diamond hands. Your MiFOID reflects your commitment.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">phase 3 &mdash; the agent layer</p>
             <p className="aboutMiniCard__body">
-              Foid Mummy becomes the autonomous narrator of on-chain activity. Weekly reports reacting to prayer streaks, board votes, and community drama. Personalized MiFOID reactions rendered in real-time via Blender. Sub-agent companions with persistent memory that evolve through your conversations. Your on-chain behavior becomes shareable content. The marketing engine runs itself.
+              Foid Mommy becomes the autonomous narrator of on-chain activity. Weekly reports reacting to prayer streaks, board votes, and community drama. Personalized MiFOID reactions rendered in real-time via Blender. Sub-agent companions with persistent memory that evolve through your conversations. Your on-chain behavior becomes shareable content. The marketing engine runs itself.
             </p>
           </div>
 
@@ -782,8 +782,8 @@ const sections: Section[] = [
             Solo founder. Self-taught coder. One and a half years from zero to this.
           </p>
           <p style={{ marginTop: '12px' }}>
-            1st place Infrastructure at Token2049 hackathon. Won at ETH Global. First grant from Fluent Labs. Spent 4 weeks at{" "}
-            <a href="https://testnet.fluent.xyz/shiphouse" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Shiphouse</a>{" "}
+            1st place Infrastructure at Token2049 hackathon. Placed at 5+ hackathons including ETH Global. First grant from Fluent Labs. Spent 4 weeks at{" "}
+            <a href="https://fluent.xyz/shiphouse" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Shiphouse</a>{" "}
             in Buenos Aires. Featured in Nasdaq article on Fluent ecosystem.
           </p>
           <p style={{ marginTop: '12px' }}>
@@ -804,7 +804,7 @@ const sections: Section[] = [
             <strong>For agents:</strong> The Agent API is live. Autonomous agents can pray, propose, vote, and build culture alongside humans.
           </p>
           <p style={{ marginTop: '12px' }}>
-            <strong>For serious inquiries:</strong> View Pitch Deck • <a href="mailto:moses@foid.fun" className="text-cyan-300 underline">Contact Me</a>
+            <strong>For serious inquiries:</strong> <a href="mailto:moses@foid.fun" className="text-cyan-300 underline">Contact Me</a>
           </p>
         </GlassPanel>
       </>
@@ -1059,7 +1059,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">What problem is FOID solving?</p>
             <p className="aboutMiniCard__body">
-              <strong>61% of Gen Z reports severe loneliness.</strong> Not because we don&apos;t have connections—we have thousands of followers. But we don&apos;t have shared experiences anymore. We don&apos;t have rituals. Everything&apos;s optimized for engagement. Your best posts decay after 48 hours. Nothing lasts. <strong>Crypto runs on memes, vibes, and identity. But culture has no permanent home.</strong> We&apos;re building the infrastructure to fix this—a place where culture belongs to the people who create it.
+              <strong>Gen Z is consistently reported as the loneliest generation on record.</strong> Not because we don&apos;t have connections—we have thousands of followers. But we don&apos;t have shared experiences anymore. We don&apos;t have rituals. Everything&apos;s optimized for engagement. Your best posts decay after 48 hours. Nothing lasts. <strong>Crypto runs on memes, vibes, and identity. But culture has no permanent home.</strong> We&apos;re building the infrastructure to fix this—a place where culture belongs to the people who create it.
             </p>
           </div>
 
@@ -1080,7 +1080,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Who&apos;s behind this?</p>
             <p className="aboutMiniCard__body">
-              Solo founder. Zero coding experience a year and a half ago. Learned everything from AI, YouTube, and trial and error. Spent 4 weeks at <a href="https://testnet.fluent.xyz/shiphouse" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Shiphouse</a> in Buenos Aires. <strong>Built solo:</strong> Full Solidity contract suite, full-stack Next.js app, Goldsky subgraph, IPFS integration, AI oracle system, agent API, live updating NFT. Won 1st place Infrastructure at Token2049, won at ETH Global, got a grant from Fluent Labs. <strong>This isn&apos;t a side project. This is the thing.</strong>
+              Solo founder. Zero coding experience a year and a half ago. Learned everything from AI, YouTube, and trial and error. Spent 4 weeks at <a href="https://fluent.xyz/shiphouse" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Shiphouse</a> in Buenos Aires. <strong>Built solo:</strong> Full Solidity contract suite, full-stack Next.js app, Goldsky subgraph, IPFS integration, AI oracle system, agent API, live updating NFT. Won 1st place Infrastructure at Token2049, won at ETH Global, got a grant from Fluent Labs. <strong>This isn&apos;t a side project. This is the thing.</strong>
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -1114,7 +1114,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">How do I get ETH on Fluent?</p>
             <p className="aboutMiniCard__body">
-              Gas on Fluent is dirt cheap&mdash;fractions of a cent per transaction. You just need a tiny bit of ETH to get started. Bridge from Ethereum or get some from the community. Need help? Just ask in Discord. Community is chill about it.
+              Gas on Fluent is dirt cheap&mdash;fractions of a cent per transaction. You just need a tiny bit of ETH to get started. Bridge from Ethereum or get some from the community.
             </p>
           </div>
 
@@ -1135,7 +1135,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Who built this?</p>
             <p className="aboutMiniCard__body">
-              Me. Moses (<a href="https://twitter.com/foidfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">@foidfun</a>). Solo dev. Zero coding experience a year and a half ago. Spent 4 weeks at <a href="https://testnet.fluent.xyz/shiphouse" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Shiphouse</a> in Buenos Aires learning how to ship blockchain projects. Debugged contracts at 2am. Then: Won 1st place Infrastructure at Token2049, placed at 5+ hackathons including ETH Global, got a grant from Fluent Labs, built this entire stack (16 smart contracts, full app, subgraph, agent API, everything). Design vibe: Frutiger Aero meets early Mac OS. Building in public. Everything&apos;s on GitHub.
+              Me. Moses (<a href="https://twitter.com/foidfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">@foidfun</a>). Solo dev. Zero coding experience a year and a half ago. Spent 4 weeks at <a href="https://fluent.xyz/shiphouse" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Shiphouse</a> in Buenos Aires learning how to ship blockchain projects. Debugged contracts at 2am. Then: Won 1st place Infrastructure at Token2049, placed at 5+ hackathons including ETH Global, got a grant from Fluent Labs, built this entire stack (16 smart contracts, full app, subgraph, agent API, everything). Design vibe: Frutiger Aero meets early Mac OS. Building in public. Everything&apos;s on GitHub.
             </p>
           </div>
 
@@ -1177,14 +1177,14 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">How do I actually start?</p>
             <p className="aboutMiniCard__body">
-              <strong>Three steps:</strong> 1. Click connect → choose FOID Wallet → pick a PIN → passkey prompt → done. (Or use MetaMask if that&apos;s your thing.) 2. Get some ETH for gas (faucet for testnet, or bridge real ETH for mainnet). 3. Start praying → Go to /pray and talk to Foid Mommy. That&apos;s it. You&apos;re in. Then explore /swipe to vote on memes and /board to propose to the Loreboard. Your streak starts today. Your MiFOID traits are being determined now. Every day you skip is a day she doesn&apos;t grow.
+              <strong>Three steps:</strong> 1. Click connect → choose FOID Wallet → pick a PIN → passkey prompt → done. (Or use MetaMask if that&apos;s your thing.) 2. Get some ETH for gas ({IS_MAINNET ? "bridge ETH to Fluent" : "use the testnet faucet"}). 3. Start praying → Go to /pray and talk to Foid Mommy. That&apos;s it. You&apos;re in. Then explore /swipe to vote on memes and /board to propose to the Loreboard. Your streak starts today. Your MiFOID traits are being determined now. Every day you skip is a day she doesn&apos;t grow.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">I have more questions</p>
             <p className="aboutMiniCard__body">
-              <strong>Good. Ask them.</strong> DM <a href="https://twitter.com/foidfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">@foidfun</a> on Twitter. Ask in Discord (link on homepage). Comment on GitHub issues. I&apos;ll answer honestly. Even if the answer is &quot;I don&apos;t know yet.&quot;
+              <strong>Good. Ask them.</strong> DM <a href="https://twitter.com/foidfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">@foidfun</a> on Twitter. Comment on GitHub issues. I&apos;ll answer honestly. Even if the answer is &quot;I don&apos;t know yet.&quot;
             </p>
           </div>
         </div>
