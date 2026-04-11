@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import {Script, console} from "forge-std/Script.sol";
 import {Loreboard} from "../src/Loreboard.sol";
 import {LoreboardLiveNFT} from "../src/LoreboardLiveNFT.sol";
+import {PrayerTiers} from "../src/PrayerTiers.sol";
+import {StreakVotingPower} from "../src/StreakVotingPower.sol";
 
 /// @title DeployLoreboard
 /// @notice Deploys the Loreboard mainnet stack:
@@ -24,6 +26,7 @@ contract DeployLoreboard is Script {
         address operatorAddr = vm.addr(deployerPk);
 
         address votingPowerSource = vm.envAddress("STREAK_VOTING_POWER_ADDRESS");
+        address prayerTiersAddr = vm.envAddress("PRAYER_TIERS_ADDRESS");
         address feeRecipient = vm.envOr("FEE_RECIPIENT", operatorAddr);
         address multisig = vm.envAddress("MULTISIG_ADDRESS");
 
@@ -53,9 +56,11 @@ contract DeployLoreboard is Script {
         );
         console.log("LoreboardLiveNFT:  ", address(nft));
 
-        // ── 3. Transfer Loreboard ownership to multisig ──
+        // ── 3. Transfer ALL V1 contract ownership to multisig ──
         board.setOwner(multisig);
-        console.log("Ownership transferred to multisig");
+        PrayerTiers(prayerTiersAddr).setOwner(multisig);
+        StreakVotingPower(votingPowerSource).setOwner(multisig);
+        console.log("All V1 ownership transferred to multisig");
 
         vm.stopBroadcast();
 
@@ -67,7 +72,9 @@ contract DeployLoreboard is Script {
         require(board.votingPowerSource() == votingPowerSource, "Deploy: VP mismatch");
         require(board.operator() == operatorAddr, "Deploy: operator mismatch");
         require(board.feeRecipient() == feeRecipient, "Deploy: feeRecipient mismatch");
-        require(board.owner() == multisig, "Deploy: owner not multisig");
+        require(board.owner() == multisig, "Deploy: board owner not multisig");
+        require(PrayerTiers(prayerTiersAddr).owner() == multisig, "Deploy: PrayerTiers owner not multisig");
+        require(StreakVotingPower(votingPowerSource).owner() == multisig, "Deploy: VP owner not multisig");
 
         console.log("");
         console.log("=== LOREBOARD DEPLOYMENT COMPLETE ===");
@@ -76,6 +83,7 @@ contract DeployLoreboard is Script {
         console.log("Operator:          ", operatorAddr);
         console.log("Fee Recipient:     ", feeRecipient);
         console.log("Owner (Multisig):  ", multisig);
+        console.log("PrayerTiers:       ", prayerTiersAddr);
         console.log("VotingPower:       ", votingPowerSource);
         console.log("");
         console.log("Config:");

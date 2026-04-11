@@ -63,6 +63,7 @@ contract DeployMainnetCore is Script {
         console.log("");
         console.log("NEXT:");
         console.log("  Set STREAK_VOTING_POWER_ADDRESS=", address(votingPower));
+        console.log("  Set PRAYER_TIERS_ADDRESS=", address(prayerTiers));
         console.log("  Then run DeployLoreboard.s.sol");
     }
 }
