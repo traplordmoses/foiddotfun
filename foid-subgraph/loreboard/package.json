@@ -1,0 +1,10 @@
+{
+  "name": "foid-loreboard-subgraph",
+  "version": "1.0.0",
+  "dependencies": {
+    "@graphprotocol/graph-ts": "0.35.1"
+  },
+  "devDependencies": {
+    "@graphprotocol/graph-cli": "0.71.2"
+  }
+}

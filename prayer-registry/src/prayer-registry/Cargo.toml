@@ -1,0 +1,24 @@
+[package]
+name = "prayer-registry"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# match the build image line (no std by default)
+fluentbase-sdk = { git = "https://github.com/fluentlabs-xyz/fluentbase", tag = "v0.4.11-dev", default-features = false }
+
+[dev-dependencies]
+fluentbase-testing = { git = "https://github.com/fluentlabs-xyz/fluentbase", tag = "v0.4.11-dev", default-features = false, features = ["std"] }
+
+[features]
+# optional: lets you run native tests later; gblend builds with no_default_features anyway
+std = ["fluentbase-sdk/std"]
+
+[profile.release]
+opt-level = "z"
+lto = true
+panic = "abort"
+codegen-units = 1

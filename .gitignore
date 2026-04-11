@@ -44,3 +44,5 @@ Thumbs.db
 # Hosting / platform
 .vercel/
 .vercel
+.env.mainnet
+.claude/worktrees/

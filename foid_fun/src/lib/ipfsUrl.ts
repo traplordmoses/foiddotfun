@@ -3,11 +3,12 @@ const IPFS_SCHEME_REGEX = /^ipfs:\/\//i;
 const IPFS_PATH_PREFIX = "/ipfs/";
 
 const FALLBACK_GATEWAY_BASES = [
-  "https://gateway.pinata.cloud",
-  "https://cloudflare-ipfs.com",
   "https://ipfs.io",
+  "https://ipfs.filebase.io",
   "https://dweb.link",
+  "https://4everland.io",
   "https://w3s.link",
+  "https://gateway.pinata.cloud",
 ];
 const PROXY_PATH_RAW = process.env.NEXT_PUBLIC_IPFS_PROXY_PATH?.trim();
 const PROXY_PATH = PROXY_PATH_RAW ? PROXY_PATH_RAW.replace(/\/+$/, "") : null;
@@ -143,10 +144,11 @@ export function getIpfsGatewayCandidates(input?: string | null): string[] {
   const normalizedCid = cid.replace(/^\/+|\/+$/g, "");
   return [
     `https://ipfs.io/ipfs/${normalizedCid}`,
+    `https://ipfs.filebase.io/ipfs/${normalizedCid}`,
     `https://dweb.link/ipfs/${normalizedCid}`,
-    `https://gateway.pinata.cloud/ipfs/${normalizedCid}`,
-    `https://w3s.link/ipfs/${normalizedCid}`,
     `https://4everland.io/ipfs/${normalizedCid}`,
+    `https://w3s.link/ipfs/${normalizedCid}`,
+    `https://gateway.pinata.cloud/ipfs/${normalizedCid}`,
   ];
 }
 
