@@ -6,13 +6,13 @@ const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC ?? CANONICAL_CHAIN.rpcUrl;
 export const fluentTestnet = defineChain({
   id: 20994,
   name: "Fluent Testnet",
-  nativeCurrency: { name: "FLU", symbol: "FLU", decimals: 18 },
+  nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
   rpcUrls: {
     default: { http: [rpc] },
     public: { http: [rpc] },
   },
   blockExplorers: {
-    default: { name: "FluentScan", url: "https://testnet.fluentscan.xyz" },
+    default: { name: "FluentScan", url: CANONICAL_CHAIN.blockExplorer },
   },
   testnet: true,
 });

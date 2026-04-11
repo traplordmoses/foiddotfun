@@ -5,6 +5,7 @@ import {
   RPC_URL as CANONICAL_RPC,
   CHAIN_ID as CANONICAL_CHAIN_ID,
   CHAIN_NAME as CANONICAL_CHAIN_NAME,
+  CANONICAL_ADDRESSES,
   IS_MAINNET,
 } from "@/config/canonical";
 
@@ -28,14 +29,14 @@ export const SUBGRAPH_URLS = {
 };
 
 export const CONTRACTS = {
-  loreboard: "0xf9b72062a7e5933692ccbd247d70a9cdb40e0ec7" as Address,
-  prayerRegistry: "0x6FC7301fad7Ca0294152b23FD4f0467200376d65" as Address,
-  prayerMirror: "0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF" as Address,
-  prayerTiers: "0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb" as Address,
-  streakVotingPower: "0x7a889b3d38889E45EE48bbCBc3681a889F87C03e" as Address,
-  swipe: "0xddc2623Bd80B1429426e30Be3D02e52ff6f90C44" as Address,
-  swipeLoreboard: "0x3782BaD8ADa3BD8C98729d4516F600317F3aC362" as Address,
-  foidTrest: "0x87Ea24ba4B61BbF35aD1161e11072Dc8Cf0858a6" as Address,
+  loreboard: CANONICAL_ADDRESSES.loreboard,
+  prayerRegistry: CANONICAL_ADDRESSES.prayerRegistry,
+  prayerMirror: CANONICAL_ADDRESSES.prayerMirror,
+  prayerTiers: CANONICAL_ADDRESSES.prayerTiers,
+  streakVotingPower: CANONICAL_ADDRESSES.streakVotingPower,
+  swipe: CANONICAL_ADDRESSES.swipe,
+  swipeLoreboard: CANONICAL_ADDRESSES.swipeLoreboard,
+  foidTrest: CANONICAL_ADDRESSES.foidTrest,
 };
 
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || "";

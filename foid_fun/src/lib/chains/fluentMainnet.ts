@@ -1,6 +1,7 @@
 import { defineChain } from "viem";
+import { CANONICAL_CHAIN } from "@/config/canonical";
 
-const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC ?? "https://rpc.fluent.xyz";
+const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC ?? CANONICAL_CHAIN.rpcUrl;
 
 export const fluentMainnet = defineChain({
   id: 25363,
@@ -11,7 +12,7 @@ export const fluentMainnet = defineChain({
     public: { http: [rpc] },
   },
   blockExplorers: {
-    default: { name: "FluentScan", url: "https://fluentscan.xyz" },
+    default: { name: "FluentScan", url: CANONICAL_CHAIN.blockExplorer },
   },
   testnet: false,
 });
