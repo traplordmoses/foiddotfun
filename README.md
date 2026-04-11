@@ -1,112 +1,89 @@
-# foid.fun
+# Loreboard
 
-> *culture, ritual, identity — on chain*
+> *On-chain infrastructure for cultural coordination*
 
 ![Foid Mommy Terminal](foid_fun/public/foidmommy.gif)
 
-**foid.fun** is the control panel for the FOID Foundation's on-chain cultural coordination platform, live on [Fluent](https://fluent.xyz) (L2). Three loops: **Prayer** (daily check-in streaks), **Loreboard** (community-voted permanent canvas), and **Vote/Swipe** (streak-weighted governance). Prayer hashes stay private, culture contributions become permanent, and identity provenance becomes traceable.
+**Loreboard** is a shared, permanent, on-chain cultural canvas — governed democratically by the community that builds on it. Every placement is a consensus statement: *"this matters to us."* The board becomes a living artifact of collective identity that only grows through earned participation.
+
+Loreboard is not an app. It is not a meme gallery. It is not a feature inside a product. **It is a new primitive for how communities build culture, accumulate identity, and coordinate on-chain.** It turns contribution into status, status into access, and access into influence over what gets built next.
+
+**[FOID Foundation](https://foid.fun)** is the first community deployed on Loreboard. There will be others.
 
 ---
 
-## The FOID Universe
+## Three Interlocking Loops
 
-**FOIDs** are reclaimed female android shells anyone can pilot by holding a MiFOID. In this universe, *"foids can't vote, but foid owners do,"* so the humans behind the wallets become the governance agents.
+Loreboard runs on three systems that reinforce each other. None works alone. Together, they produce something no existing platform offers: **a democratic, on-chain cultural record with earned governance.**
 
-**FOID Foundation** is the curator and steward of ritual and canon: the museum-cult that keeps the loreboard honest, the prayer terminal protected, and governance experiments rooted in trust while staying open to permissionless entry.
+### Loop 01 — Commitment: The Check-In
 
----
+A daily ritual that signals commitment to the community. For FOID, this is **Prayer** — a one-tap on-chain check-in that builds a consecutive streak. The streak is not a vanity metric. It is a **governance credential.** The longer your streak, the more influence you earn over what gets placed on the board.
 
-## The Three Loops
+Every community deploying Loreboard defines their own check-in. The ritual is cultural, the mechanism is universal.
 
-### 1. Pray — The Foid Mommy Terminal
+### Loop 02 — Governance: The Vote
 
-*Type how you feel. Receive empathy. Anchor your devotion.*
+Someone submits a placement to the board with a 0.001 ETH application fee. The community has 72 hours to vote. Swipe right: *"this earns a spot."* Swipe left: *"no."* Votes are weighted by check-in streak — the people who show up every day have the most say over what gets built. If it fails, the submission is gone. No archive. No consolation. That finality is what makes a yes mean something.
 
-The ritual terminal lets you confess your feelings once every 24 hours. An AI oracle crafts a soft, empathetic response — but only the keccak256 hash of your prayer is anchored on chain. Your raw words stay private.
+### Loop 03 — Permanence: The Placement
 
-- Animated Y2K terminal aesthetic with audio cues and haptic feedback
-- 10-tier streak system (Lurker → NPC → Tapped In → ... → Mommy Milker at 90 days)
-- Streak multiplier (1x–5x) feeds into governance voting weight
-- 24-hour cooldown, privacy-first (only hashes go on chain)
+An approved placement is recorded on-chain and lives on the board permanently. Every placement is a legible, verifiable statement: **this community decided this matters.** Over time, the board becomes the most honest representation of what a community actually values.
 
-**How it works:** `PrayerRegistry` stores prayer hashes on chain. `PrayerTiers` maps streak length to tier names and multipliers. `StreakVotingPower` converts streaks into governance weight.
-
-### 2. Shape Culture — The Loreboard Canvas
-
-*Propose. Vote. Compose the canon.*
-
-The loreboard is a zoomable infinite canvas where the community proposes image placements, votes during 72-hour windows, and approved content gets permanently placed on the board. Permissionless culture-building with deterministic settlement.
-
-- Propose a placement: pay 0.001 ETH, pick your grid coordinates, upload to IPFS
-- Community votes with streak-weighted power (min 3 unique voters, 51% approval threshold)
-- Approved placements are permanent — no edits, no takebacks
-- `finalize()` is permissionless: anyone can settle a vote after the window closes
-- LoreboardLiveNFT (1/1 ERC-721) auto-syncs to the latest board state
-
-**How it works:** The unified `Loreboard` contract handles proposals, voting, finalization, and manifest anchoring. The operator uploads the manifest to IPFS and anchors the CID on chain. The NFT reads manifest state directly from the contract.
-
-### 3. Vote/Swipe — Streak-Weighted Governance
-
-*Your devotion is your voice.*
-
-Vote on loreboard proposals through a swipe UX. Voting power comes from your prayer streak tier — the longer your streak, the more weight your vote carries.
-
-- Cast votes on-chain via `Loreboard.castVote(proposalId, approve)`
-- Weight = base (100) + MiFOID bonus (50 if held)
-- Tier multiplier applied from StreakVotingPower
-- Quorum: 3 unique wallets minimum
-- Threshold: 51% weighted approval
-
----
-
-## Architecture
+### The Flywheel
 
 ```
-                          foid.fun
-        Next.js 14 / React 18 / Wagmi+Viem / RainbowKit
-
-                    |               |              |
-               /pray           /board + /swipe    /vote
-            Prayer Terminal    Loreboard Canvas   Governance
-                    |               |              |
-                    v               v              v
-         ┌─────────────────────────────────────────────────┐
-         |              Fluent L2 (Chain 25363)            |
-         |                                                 |
-         |  PrayerRegistry    Loreboard      FoidMultisig  |
-         |  PrayerTiers       LoreboardLiveNFT   (2-of-3) |
-         |  StreakVotingPower                               |
-         └─────────────────────────────────────────────────┘
-                              |
-                    Goldsky Subgraphs
-                  (loreboard + prayer-tiers)
+check in daily → build streak → earn vote weight → govern placements → board grows → show up again
 ```
 
-**Key design decisions:**
-- All contract addresses flow through `src/config/canonical.ts` — single source of truth
-- Network switching via `NEXT_PUBLIC_IS_MAINNET` env var — one flag controls chain ID, RPC, explorer, addresses
-- Every contract address has a `NEXT_PUBLIC_*` env var override for deployment flexibility
+The key insight: **streak isn't just a number — it's zoning power.** The person who checks in every day is accumulating influence over what gets built on the board permanently. That changes the meaning of showing up.
 
 ---
 
-## V1 Contracts (Current)
+## What the System Produces: Reputation
 
-These are the active, multisig-owned contracts. All governance and cultural coordination runs through these:
+Every action generates on-chain signal. Check-in streaks, placement submissions, voting patterns — this is a continuous, composable data stream that describes how engaged someone actually is.
 
-| Contract | Purpose | Key Parameters |
-|----------|---------|---------------|
-| **PrayerTiers** | 10-tier prayer streak system | Tiers at 1, 3, 7, 14, 21, 30, 45, 60, 75, 90 days |
-| **StreakVotingPower** | Voting weight from streak tiers | Base weight: 100, MiFOID bonus: +50 |
-| **Loreboard** | Unified propose/vote/finalize/place | 51% threshold, 3 quorum, 0.001 ETH fee, 72h window |
-| **LoreboardLiveNFT** | 1/1 ERC-721 board NFT | Auto-syncs manifest from Loreboard |
-| **FoidMultisig** | 2-of-3 multisig ownership | Controls all contract parameters post-deploy |
-| **MiFOID** | Identity NFT (not yet deployed) | 3,333 supply cap planned |
+Someone with a 90-day streak and five approved placements is objectively more invested than someone who showed up once. You don't need mods to vouch for them. The chain tells you.
 
-**Legacy contracts** (PrayerRegistry, LoreBoardTreasury, LoreboardBoardV2, LoreboardVotingV2, ManifestStore) exist on chain for historical data. The frontend still reads from some for backward compatibility but no new features target them.
+| Signal | Unlocks | Why |
+|--------|---------|-----|
+| Check-in streak | Governance weight, NFT customization | Commitment earns influence |
+| Approved placements | Contributor status, board presence | Community-validated taste is rewarded |
+| Voting history | Curation reputation, increased weight | Consistent good judgment compounds |
+| Combined signals | Priority access, agent interactions | Most engaged members shape the future |
 
 ---
 
-## Prayer Tiers
+## The Agent Layer
+
+Loreboard's most novel layer: **an autonomous AI agent that reads all on-chain activity and turns it into a living cultural narrative.**
+
+In FOID's deployment, this agent is **Foid Mommy** — the narrator, curator, and hype beast of the community. She has full access to on-chain data: streaks, placements, voting patterns, NFT transfers. She watches everything. She has opinions.
+
+- **Weekly Report** — Generated media where Foid Mommy reacts to on-chain activity like a reality TV host. Shouts out long streakers, roasts people who fell off, creates drama around contentious votes. The marketing engine runs itself.
+- **MiFOID Reactions** — Personalized renders triggered by your on-chain behavior. Hit a 30-day streak? Confetti. Stop praying? Your MiFOID sits alone in the dark. Every reaction is shareable content.
+- **Sub-Agent Companions** — Each MiFOID is a live agentic NFT with persistent memory. Your companion reflects your on-chain reputation. When she transfers, she carries forward personality traits from previous eras. She has history.
+
+The pattern is universal: *on-chain activity → agent interpretation → generated cultural content → drives more activity.* The flywheel is recursive.
+
+---
+
+## First Deployment: FOID Foundation
+
+FOID Foundation proves the primitive with a specific audience (meme-native, crypto-cultural) and a specific aesthetic (Frutiger Aero, iridescent, frosted glass).
+
+| Loreboard Primitive | FOID Implementation |
+|---------------------|---------------------|
+| Check-in ritual | **Prayer** — daily on-chain tap, builds streak |
+| Governance vote | **Swipe** — streak-weighted approval for placements |
+| Cultural canvas | **Loreboard** — infinite collaborative grid |
+| Identity layer | **MiFOID** — 3,333 AI-generated 3D NFTs with agent companions |
+| Narrator agent | **Foid Mommy** — autonomous cultural commentator |
+| Reputation signal | Prayer streaks + placements + voting |
+| Access layer | Streak unlocks MiFOID customization, placements earn status |
+
+### Prayer Tiers (10 tiers)
 
 | Day | Tier | Multiplier |
 |-----|------|-----------|
@@ -121,7 +98,63 @@ These are the active, multisig-owned contracts. All governance and cultural coor
 | 75 | Transcendent | 4x |
 | 90 | Mommy Milker | 5x |
 
-These are the user-facing names. The Solidity contract uses internal names (Whisper, Ember, Devotee...) — the frontend maps them.
+---
+
+## V1 Contracts
+
+Active, multisig-owned contracts on Fluent. All governance and cultural coordination runs through these:
+
+| Contract | Purpose | Key Parameters |
+|----------|---------|---------------|
+| **PrayerTiers** | 10-tier prayer streak system | Tiers at 1, 3, 7, 14, 21, 30, 45, 60, 75, 90 days |
+| **StreakVotingPower** | Voting weight from streak tiers | Base weight: 100, MiFOID bonus: +50 |
+| **Loreboard** | Unified propose/vote/finalize/place | 51% threshold, 3 quorum, 0.001 ETH fee, 72h window |
+| **LoreboardLiveNFT** | 1/1 ERC-721 board NFT | Auto-syncs manifest from Loreboard |
+| **FoidMultisig** | 2-of-3 multisig ownership | Controls all contract parameters post-deploy |
+| **MiFOID** | Identity NFT (not yet deployed) | 3,333 supply cap planned |
+
+All contract addresses flow through `src/config/canonical.ts` — single source of truth. Network switching via `NEXT_PUBLIC_IS_MAINNET` env var.
+
+---
+
+## Architecture
+
+```
+                          foid.fun
+        Next.js 14 / React 18 / Wagmi+Viem / RainbowKit
+
+                    |               |              |
+               /pray           /board + /swipe    /vote
+            Prayer Terminal    Loreboard Canvas   Governance
+                    |               |              |
+                    v               v              v
+         +-------------------------------------------------+
+         |              Fluent L2 (Chain 25363)             |
+         |                                                  |
+         |  PrayerRegistry    Loreboard      FoidMultisig   |
+         |  PrayerTiers       LoreboardLiveNFT   (2-of-3)  |
+         |  StreakVotingPower                                |
+         +-------------------------------------------------+
+                              |
+                    Goldsky Subgraphs
+                  (loreboard + prayer-tiers)
+```
+
+### How Voting Works
+
+1. User calls `Loreboard.propose(cid, x, y, w, h)` — pays 0.001 ETH, opens 72h window
+2. Community calls `Loreboard.castVote(proposalId, approve)` — streak-weighted, one per wallet
+3. After 72h, anyone calls `Loreboard.finalize(proposalId)` — checks quorum + threshold
+4. If approved: placement recorded permanently, manifest updated, NFT auto-syncs
+5. If rejected: proposal marked rejected, fee retained
+
+### How Prayer Works
+
+1. User types feeling in terminal, AI oracle responds
+2. Frontend builds `keccak256(abi.encode(wallet, prayerText, timestamp))`
+3. Calls `PrayerRegistry.pray(hash)` — stores hash, updates streak
+4. `PrayerTiers` maps streak to tier name + multiplier
+5. `StreakVotingPower` reads tier to calculate governance weight
 
 ---
 
@@ -130,26 +163,14 @@ These are the user-facing names. The Solidity contract uses internal names (Whis
 ```
 foid_fun/                     # Next.js application root
   src/
-    app/                      # Routes: /pray, /board, /swipe, /vote, /gallery, /mifoid, /about, /dashboard, /enter
-    components/               # UI components (board/, wallet/, desktop/)
+    app/                      # Routes: /pray, /board, /swipe, /vote, /gallery, /mifoid, /about
     config/
       canonical.ts            # THE source of truth for all addresses + chain config
     hooks/                    # React hooks (prayer, voting, board, wallet)
     lib/
       chain.ts                # TARGET_CHAIN (IS_MAINNET switch)
-      viem.ts                 # Public client, wallet client factory
-      contracts/
-        addresses.ts          # CONTRACTS object (env overrides → canonical fallbacks)
-        abis/                 # ABI exports for all contracts
-      manifest.ts             # Manifest parsing and loading
-      grid.ts                 # Grid geometry and overlap detection
-      epoch.ts                # Epoch time calculations
+      contracts/addresses.ts  # CONTRACTS object (env overrides -> canonical fallbacks)
       embeddedWallet.ts       # FOID Wallet (passkey + PIN)
-    effects/                  # Visual celebration effects
-    state/                    # Zustand store (board state)
-    agent/foidMummy/          # Foid Mommy AI agent config
-  scripts/                    # CLI tools (finalize, diagnose, smoke tests)
-  abi/                        # Raw JSON ABIs
 
 solidity_contracts/           # Foundry project
   src/                        # V1 contracts + legacy contracts
@@ -159,38 +180,6 @@ foid-subgraph/                # Goldsky subgraph definitions
   loreboard/                  # Indexes proposals, votes, placements
   prayer-tiers/               # Indexes prayer events and tier changes
 ```
-
----
-
-## How the Code Works
-
-### Address Resolution
-
-All contract addresses resolve through a single chain:
-
-```
-canonical.ts (IS_MAINNET → TESTNET_ADDRESSES or MAINNET_ADDRESSES)
-    ↓
-addresses.ts (env var override ?? canonical fallback)
-    ↓
-hooks / components / API routes
-```
-
-### Voting Flow
-
-1. User calls `Loreboard.propose(cid, x, y, w, h)` — pays 0.001 ETH, opens 72h window
-2. Community calls `Loreboard.castVote(proposalId, approve)` — streak-weighted, one per wallet
-3. After 72h, anyone calls `Loreboard.finalize(proposalId)` — checks quorum + threshold
-4. If approved: placement recorded permanently, manifest updated, NFT auto-syncs
-5. If rejected: proposal marked rejected, fee retained
-
-### Prayer Flow
-
-1. User types feeling in terminal, AI oracle responds
-2. Frontend builds `keccak256(abi.encode(wallet, prayerText, timestamp))`
-3. Calls `PrayerRegistry.pray(hash)` — stores hash, updates streak
-4. `PrayerTiers` maps streak → tier name + multiplier
-5. `StreakVotingPower` reads tier to calculate governance weight
 
 ---
 
@@ -209,7 +198,7 @@ pnpm test         # vitest
 ```bash
 cd solidity_contracts
 forge build
-forge test
+forge test        # 195 tests, all passing
 ```
 
 ---
@@ -219,7 +208,8 @@ forge test
 - **Live:** [foid.fun](https://foid.fun)
 - **Chain:** Fluent L2 (mainnet chain ID 25363)
 - **Explorer:** [fluentscan.xyz](https://fluentscan.xyz)
+- **Twitter:** [@foidfun](https://twitter.com/foidfun)
 
 ---
 
-*The altar awaits. Type how you feel.*
+*FOID is the first city. Loreboard is the zoning law.*
