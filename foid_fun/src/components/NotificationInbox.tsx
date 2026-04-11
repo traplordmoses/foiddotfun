@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNotifications, type Notification, type NotificationType } from "@/hooks/useNotifications";
 import { toIpfsHttpUrl } from "@/lib/ipfsUrl";
 import { getAudioSettings } from "@/lib/audioSettings";
+import { IS_MAINNET } from "@/config/canonical";
 
 type Props = { address: `0x${string}` | undefined };
 
@@ -23,32 +24,32 @@ function timeAgo(ts: number | null): string {
 /* ── Envelope Button ──────────────────────────────────────────────────── */
 
 function EnvelopeButton({
-  unreadCount,
+  badgeCount,
   hasCanonization,
   onClick,
 }: {
-  unreadCount: number;
+  badgeCount: number;
   hasCanonization: boolean;
   onClick: () => void;
 }) {
-  const prevCountRef = useRef(unreadCount);
+  const prevCountRef = useRef(badgeCount);
   const [bounce, setBounce] = useState(false);
 
   useEffect(() => {
-    if (unreadCount > prevCountRef.current) {
+    if (badgeCount > prevCountRef.current) {
       setBounce(true);
       const t = setTimeout(() => setBounce(false), 600);
       return () => clearTimeout(t);
     }
-    prevCountRef.current = unreadCount;
-  }, [unreadCount]);
+    prevCountRef.current = badgeCount;
+  }, [badgeCount]);
 
   return (
     <>
       <button
         type="button"
         onClick={onClick}
-        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
+        aria-label={`Notifications${badgeCount > 0 ? ` (${badgeCount} new)` : ""}`}
         className="ni-envelope"
         style={{ animation: bounce ? "ni-bounce 500ms ease" : undefined }}
       >
@@ -61,7 +62,7 @@ function EnvelopeButton({
             strokeLinejoin="round"
           />
         </svg>
-        {unreadCount > 0 && (
+        {badgeCount > 0 && (
           <span
             className="ni-badge"
             style={{
@@ -73,7 +74,7 @@ function EnvelopeButton({
                 : "0 0 6px rgba(236,72,153,0.5)",
             }}
           >
-            {unreadCount > 9 ? "9+" : unreadCount}
+            {badgeCount > 9 ? "9+" : badgeCount}
           </span>
         )}
       </button>
@@ -107,7 +108,7 @@ function EnvelopeButton({
 /* ── Notification Card ────────────────────────────────────────────────── */
 
 const TYPE_LABELS: Record<NotificationType, string> = {
-  proposed: "ENGRAVED",
+  proposed: "PROPOSED",
   voting: "VOTING",
   canonized: "CANONIZED",
   rejected: "REJECTED",
@@ -123,6 +124,7 @@ function NotificationCard({
 }) {
   const imgSrc = toIpfsHttpUrl(notification.placement.cid ?? notification.placement.imageUrl ?? null);
   const label = TYPE_LABELS[notification.type] ?? "UPDATE";
+  const votes = notification.placement.votes;
 
   const handleShare = () => {
     const p = notification.placement;
@@ -174,16 +176,47 @@ function NotificationCard({
           </div>
           <div className="ni-card__message">{notification.message}</div>
 
-          {/* Action buttons */}
+          {/* Vote progress bar for voting notifications */}
+          {notification.type === "voting" && votes && votes.total > 0 && (
+            <div className="ni-card__vote-bar-wrap">
+              <div className="ni-card__vote-bar">
+                <div
+                  className="ni-card__vote-bar-fill"
+                  style={{ width: `${(votes.yes / votes.total) * 100}%` }}
+                />
+              </div>
+              <div className="ni-card__vote-labels">
+                <span>{votes.yes} for</span>
+                <span>{votes.total - votes.yes} against</span>
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons — every status gets a contextual action */}
           <div className="ni-card__actions">
+            {notification.type === "proposed" && (
+              <a href="/board" className="ni-card__btn ni-card__btn--cyan" onClick={(e) => e.stopPropagation()}>
+                VIEW ON BOARD
+              </a>
+            )}
+            {notification.type === "voting" && (
+              <a href="/vote" className="ni-card__btn ni-card__btn--amber" onClick={(e) => e.stopPropagation()}>
+                VIEW VOTES
+              </a>
+            )}
             {notification.type === "canonized" && (
               <button type="button" className="ni-card__btn ni-card__btn--gold" onClick={(e) => { e.stopPropagation(); handleShare(); }}>
                 SHARE TO X
               </button>
             )}
             {notification.type === "rejected" && (
-              <a href="/board" className="ni-card__btn ni-card__btn--subtle">
+              <a href="/board" className="ni-card__btn ni-card__btn--subtle" onClick={(e) => e.stopPropagation()}>
                 PLACE AGAIN
+              </a>
+            )}
+            {notification.type === "expired" && (
+              <a href="/board" className="ni-card__btn ni-card__btn--subtle" onClick={(e) => e.stopPropagation()}>
+                TRY AGAIN
               </a>
             )}
           </div>
@@ -233,6 +266,24 @@ function NotificationCard({
           font-size: 11px; line-height: 1.4;
           color: rgba(255,255,255,0.7);
         }
+        /* Vote progress bar */
+        .ni-card__vote-bar-wrap { margin-top: 6px; }
+        .ni-card__vote-bar {
+          height: 3px; border-radius: 2px;
+          background: rgba(255,255,255,0.08);
+          overflow: hidden;
+        }
+        .ni-card__vote-bar-fill {
+          height: 100%; border-radius: 2px;
+          background: linear-gradient(90deg, rgba(116,255,235,0.7), rgba(56,189,248,0.7));
+          transition: width 300ms ease;
+        }
+        .ni-card__vote-labels {
+          display: flex; justify-content: space-between;
+          font-size: 8px; color: rgba(255,255,255,0.3);
+          margin-top: 2px; font-family: var(--font-mono, monospace);
+        }
+        /* Action buttons */
         .ni-card__actions {
           display: flex; gap: 6px; margin-top: 6px;
         }
@@ -254,6 +305,18 @@ function NotificationCard({
           color: rgba(255,215,0,0.9);
         }
         .ni-card__btn--gold:hover { background: rgba(255,215,0,0.15); }
+        .ni-card__btn--cyan {
+          border-color: rgba(56,189,248,0.4);
+          background: rgba(56,189,248,0.08);
+          color: rgba(56,189,248,0.9);
+        }
+        .ni-card__btn--cyan:hover { background: rgba(56,189,248,0.15); }
+        .ni-card__btn--amber {
+          border-color: rgba(245,158,11,0.4);
+          background: rgba(245,158,11,0.08);
+          color: rgba(245,158,11,0.9);
+        }
+        .ni-card__btn--amber:hover { background: rgba(245,158,11,0.15); }
         .ni-card__btn--subtle {
           border-color: rgba(156,163,175,0.3);
           color: rgba(156,163,175,0.7);
@@ -267,11 +330,13 @@ function NotificationCard({
 
 function InboxPanel({
   notifications,
+  isLoading,
   onClose,
   onMarkRead,
   onMarkAllRead,
 }: {
   notifications: Notification[];
+  isLoading: boolean;
   onClose: () => void;
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
@@ -316,12 +381,27 @@ function InboxPanel({
                   />
                 </svg>
               </div>
-              <div className="ni-empty__text">
-                No notifications yet.
-              </div>
-              <div className="ni-empty__sub">
-                Place something on the board to get started.
-              </div>
+              {isLoading ? (
+                <>
+                  <div className="ni-empty__text">Loading...</div>
+                  <div className="ni-empty__skeleton" />
+                  <div className="ni-empty__skeleton ni-empty__skeleton--short" />
+                </>
+              ) : IS_MAINNET ? (
+                <>
+                  <div className="ni-empty__text">Mainnet launching soon.</div>
+                  <div className="ni-empty__sub">
+                    Notifications will appear here when contracts go live.
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="ni-empty__text">No notifications yet.</div>
+                  <div className="ni-empty__sub">
+                    Place something on the board to get started.
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             notifications.map((n) => (
@@ -417,6 +497,14 @@ function InboxPanel({
           font-family: var(--font-mono, monospace);
           font-size: 10px; color: rgba(255,255,255,0.25);
         }
+        .ni-empty__skeleton {
+          width: 80%; height: 10px; border-radius: 4px;
+          background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+          background-size: 200% 100%;
+          animation: ni-shimmer 1.5s infinite;
+        }
+        .ni-empty__skeleton--short { width: 50%; }
+        @keyframes ni-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
       `}</style>
     </>
   );
@@ -428,11 +516,22 @@ export function NotificationInbox({ address }: Props) {
   const [open, setOpen] = useState(false);
   const {
     notifications,
-    unreadCount,
+    newCount,
     hasCanonization,
+    isLoading,
     markRead,
     markAllRead,
-  } = useNotifications(address);
+    markSeen,
+  } = useNotifications(address, open);
+
+  const handleOpen = useCallback(() => {
+    setOpen(true);
+    markSeen();
+  }, [markSeen]);
+
+  const handleClose = useCallback(() => {
+    setOpen(false);
+  }, []);
 
   const handleMarkRead = useCallback(
     (id: string) => {
@@ -446,14 +545,15 @@ export function NotificationInbox({ address }: Props) {
   return (
     <>
       <EnvelopeButton
-        unreadCount={unreadCount}
+        badgeCount={newCount}
         hasCanonization={hasCanonization}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => (open ? handleClose() : handleOpen())}
       />
       {open && (
         <InboxPanel
           notifications={notifications}
-          onClose={() => setOpen(false)}
+          isLoading={isLoading}
+          onClose={handleClose}
           onMarkRead={handleMarkRead}
           onMarkAllRead={markAllRead}
         />
