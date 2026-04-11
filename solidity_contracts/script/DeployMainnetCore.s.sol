@@ -18,6 +18,9 @@ import {StreakVotingPower} from "../src/StreakVotingPower.sol";
 ///   - Engrave      — parked
 contract DeployMainnetCore is Script {
     function run() external {
+        uint256 expectedChain = vm.envOr("EXPECTED_CHAIN_ID", uint256(25363));
+        require(block.chainid == expectedChain, "DeployMainnetCore: wrong chain");
+
         uint256 deployerPk = vm.envUint("OPERATOR_PK");
         address operator = vm.addr(deployerPk);
 

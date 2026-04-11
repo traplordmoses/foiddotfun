@@ -2,9 +2,7 @@ import WrappedFoidAbi from "@/abis/WrappedFoid.json";
 import AttestorRegistryAbi from "@/abis/AttestorRegistry.json";
 import SimpleSingleAMMAbi from "@/abis/SimpleSingleAMM.json";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
-import { BLOCK_EXPLORER, CHAIN_NAME } from "@/config/canonical";
-
-const DEFAULT_WETH_ADDRESS = "0x3d38E57b5d23c3881AffB8BC0978d5E0bd96c1C6" as const;
+import { BLOCK_EXPLORER, CHAIN_NAME, CANONICAL_ADDRESSES } from "@/config/canonical";
 
 export const FLUENT_CHAIN_ID = TARGET_CHAIN_ID;
 export const FLUENT_CHAIN_NAME = CHAIN_NAME;
@@ -18,7 +16,7 @@ export const ROUTER_ADDRESS = process.env.NEXT_PUBLIC_BRIDGE as `0x${string}`;
 export const REGISTRY_ADDRESS = process.env.NEXT_PUBLIC_REGISTRY as `0x${string}`;
 export const AMM_ADDRESS =
   (process.env.NEXT_PUBLIC_AMM as `0x${string}`) ??
-  ("0xa9D406359B3136E43B3b360Ed40b5504cAAf5b66" as const);
+  (CANONICAL_ADDRESSES.amm as `0x${string}`);
 
 export const TOKEN0_METADATA = {
   name: process.env.NEXT_PUBLIC_TOKEN0_NAME ?? "Token 0",
@@ -30,7 +28,7 @@ export const TOKEN1_METADATA = {
   symbol: process.env.NEXT_PUBLIC_TOKEN1_SYMBOL ?? "TOKEN1",
 } as const;
 
-export const WETH_ADDRESS = (process.env.NEXT_PUBLIC_WETH ?? DEFAULT_WETH_ADDRESS) as `0x${string}`;
+export const WETH_ADDRESS = (process.env.NEXT_PUBLIC_WETH ?? CANONICAL_ADDRESSES.weth) as `0x${string}`;
 
 export const WETH9_ABI = [
   {

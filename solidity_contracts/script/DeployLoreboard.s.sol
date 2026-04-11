@@ -16,6 +16,9 @@ import {LoreboardLiveNFT} from "../src/LoreboardLiveNFT.sol";
 ///   - FoidMultisig         — 2-of-3 multisig that owns all board contracts
 contract DeployLoreboard is Script {
     function run() external {
+        uint256 expectedChain = vm.envOr("EXPECTED_CHAIN_ID", uint256(25363));
+        require(block.chainid == expectedChain, "DeployLoreboard: wrong chain");
+
         // ── Environment variables ──
         uint256 deployerPk = vm.envUint("OPERATOR_PK");
         address operatorAddr = vm.addr(deployerPk);

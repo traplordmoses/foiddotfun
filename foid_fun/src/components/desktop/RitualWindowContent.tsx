@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useAccount, useReadContract } from "wagmi";
 import { type Hex } from "viem";
+import { TARGET_CHAIN_ID } from "@/lib/chain";
 
 const PrayerMirrorAbi = [
   {
@@ -22,7 +23,6 @@ const PrayerMirrorAbi = [
 ] as const;
 
 const MIRROR_ADDRESS = process.env.NEXT_PUBLIC_FOIP_MIRROR as Hex | undefined;
-const FLUENT_CHAIN_ID = 20993;
 
 export default function RitualWindowContent() {
   const { address, isConnected } = useAccount();
@@ -32,7 +32,7 @@ export default function RitualWindowContent() {
     abi: PrayerMirrorAbi,
     functionName: "get",
     args: [((address ?? "0x0000000000000000000000000000000000000000") as Hex)],
-    chainId: FLUENT_CHAIN_ID,
+    chainId: TARGET_CHAIN_ID,
     query: {
       enabled: Boolean(address && MIRROR_ADDRESS),
     },

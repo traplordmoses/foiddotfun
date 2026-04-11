@@ -23,7 +23,7 @@ export const CANONICAL_CHAIN = {
 
 // ── Testnet addresses (chain 20994) ──
 const TESTNET_ADDRESSES = {
-  // Legacy loreboard contracts
+  // Legacy loreboard contracts (read-only for historical data)
   treasury: getAddress("0x4A777d8650b3FA2419377F4ffeF0EF8007151536"),
   manifestStore: getAddress("0xeE469D8F9BB2Ace861AA689dE53c016871ad3D10"),
   voting: getAddress("0xEbf065A7ca3917BB5e669982e8C6954cC27A7075"),
@@ -45,6 +45,14 @@ const TESTNET_ADDRESSES = {
   engrave: getAddress("0xe73f5f91159c2d84b1a66badf701d5312213b66a"),
   prayerRegistry: getAddress("0x6FC7301fad7Ca0294152b23FD4f0467200376d65"),
   prayerMirror: getAddress("0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF"),
+
+  // DeFi contracts (token swap)
+  weth: getAddress("0x3d38E57b5d23c3881AffB8BC0978d5E0bd96c1C6"),
+  wfoid: getAddress("0x403ECF8ba28E58CE4d1847C1C95ac54651fAB151"),
+  foidFactory: getAddress("0xaC8433Aa94C3E043b197C25854bAC39Ee914B8F9"),
+  foidSwapLP: getAddress("0xe97639fd6Ff7231ed270Ea16BD9Ba2c79f4cD2cc"),
+  foidSwapRouter: getAddress("0xd71330e54eAA2e4248E75067F8f23bB2a6568613"),
+  amm: getAddress("0xa9D406359B3136E43B3b360Ed40b5504cAAf5b66"),
 } as const;
 
 // ── Mainnet addresses (chain 25363) ──
@@ -74,6 +82,14 @@ const MAINNET_ADDRESSES: typeof TESTNET_ADDRESSES = {
   engrave: TESTNET_ADDRESSES.engrave,
   prayerRegistry: TESTNET_ADDRESSES.prayerRegistry,
   prayerMirror: TESTNET_ADDRESSES.prayerMirror,
+
+  // DeFi: override via NEXT_PUBLIC_* env vars on mainnet
+  weth: TESTNET_ADDRESSES.weth,
+  wfoid: TESTNET_ADDRESSES.wfoid,
+  foidFactory: TESTNET_ADDRESSES.foidFactory,
+  foidSwapLP: TESTNET_ADDRESSES.foidSwapLP,
+  foidSwapRouter: TESTNET_ADDRESSES.foidSwapRouter,
+  amm: TESTNET_ADDRESSES.amm,
 };
 
 export const CANONICAL_ADDRESSES = IS_MAINNET ? MAINNET_ADDRESSES : TESTNET_ADDRESSES;

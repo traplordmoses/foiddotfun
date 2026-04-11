@@ -31,7 +31,7 @@ export function MainnetGate({ children }: { children: React.ReactNode }) {
             In the meantime, visit the testnet to explore.
           </p>
           <a
-            href="https://testnet.foid.fun"
+            href={process.env.NEXT_PUBLIC_TESTNET_URL ?? "https://testnet.foid.fun"}
             className="mt-2 rounded-full border border-fuchsia-500/40 bg-fuchsia-500/10 px-6 py-2 font-mono text-xs font-semibold uppercase tracking-[0.2em] text-fuchsia-300 transition hover:bg-fuchsia-500/20 hover:border-fuchsia-500/60"
           >
             Visit Testnet
