@@ -1,6 +1,7 @@
 import path from "node:path";
 import dotenv from "dotenv";
 import { Address, createPublicClient, defineChain, http, keccak256, stringToHex } from "viem";
+import { CANONICAL_CHAIN } from "../src/config/canonical";
 
 dotenv.config({ path: path.join(process.cwd(), ".env") });
 dotenv.config({ path: path.join(process.cwd(), ".env.local"), override: true });
@@ -32,8 +33,8 @@ if (!vmAddress) {
 const vmAddressChecked = vmAddress;
 
 const chain = defineChain({
-  id: 20994,
-  name: "Fluent Testnet",
+  id: CANONICAL_CHAIN.id,
+  name: CANONICAL_CHAIN.chainName,
   nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [rpc] } },
 });

@@ -17,8 +17,9 @@
 
 import { spawn } from "child_process";
 import { createPublicClient, http } from "viem";
+import { CANONICAL_CHAIN } from "../src/config/canonical";
 
-const RPC_URL = process.env.NEXT_PUBLIC_FLUENT_RPC || "https://rpc.testnet.fluent.xyz";
+const RPC_URL = process.env.NEXT_PUBLIC_FLUENT_RPC || CANONICAL_CHAIN.rpcUrl;
 
 const publicClient = createPublicClient({
   transport: http(RPC_URL),

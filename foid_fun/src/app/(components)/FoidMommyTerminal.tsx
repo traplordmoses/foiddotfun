@@ -818,7 +818,7 @@ export default function FoidMommyTerminal({
       if (!chainOk) {
         addMessage(
           "system",
-          `switch to fluent testnet (chain id ${requiredChainId ?? "?"}) to continue.`,
+          `switch to Fluent (chain id ${requiredChainId ?? "?"}) to continue.`,
         );
         return;
       }
@@ -850,7 +850,7 @@ export default function FoidMommyTerminal({
     if (!chainOk) {
       addMessage(
         "system",
-        `switch to fluent testnet (chain id ${requiredChainId ?? "?"}) to continue.`,
+        `switch to Fluent (chain id ${requiredChainId ?? "?"}) to continue.`,
       );
       return;
     }
@@ -882,7 +882,7 @@ export default function FoidMommyTerminal({
       const message =
         error instanceof Error
           ? error.message
-          : "your wallet isn't ready yet. connect and make sure you're on fluent testnet.";
+          : "your wallet isn't ready yet. connect and make sure you're on Fluent.";
       await typeMessage({ role: "system", text: message });
       setStage("awaitPrayer");
       setIsProcessing(false);
@@ -1100,7 +1100,7 @@ export default function FoidMommyTerminal({
       if (!chainOk) {
         addMessage(
           "system",
-          `switch to fluent testnet (chain id ${requiredChainId ?? "?"}) to continue.`,
+          `switch to Fluent (chain id ${requiredChainId ?? "?"}) to continue.`,
         );
         return;
       }

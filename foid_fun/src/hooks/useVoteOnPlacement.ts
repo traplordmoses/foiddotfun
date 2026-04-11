@@ -84,7 +84,7 @@ export function useVoteOnPlacement({ epochId, placementId }: UseVoteOnPlacementP
       throw new Error(body?.error ?? "Failed to bootstrap epoch/placement");
     }
 
-    // Switch to Fluent testnet if needed
+    // Switch to Fluent if needed
     try {
       await switchChainAsync?.({ chainId: TARGET_CHAIN_ID });
     } catch (err) {

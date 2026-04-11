@@ -48,7 +48,7 @@ export { DEPLOY_BLOCK };
 
 import { BLOCK_EXPLORER, CHAIN_NAME } from "@/config/canonical";
 
-export const fluentTestnet = defineChain({
+export const fluentChain = defineChain({
   id: CHAIN_ID,
   name: CHAIN_NAME,
   nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
@@ -72,7 +72,7 @@ const resilientTransport = fallback(
 );
 
 export const publicClient = createPublicClient({
-  chain: fluentTestnet,
+  chain: fluentChain,
   transport: resilientTransport,
 });
 
@@ -110,7 +110,7 @@ async function createActiveWalletClient() {
     const account = privateKeyToAccount(session.privateKey as `0x${string}`);
     return createWalletClient({
       account,
-      chain: fluentTestnet,
+      chain: fluentChain,
       transport: resilientTransport,
     });
   }
@@ -137,7 +137,7 @@ async function createActiveWalletClient() {
     // Non-fatal — wallet may not support this or user may reject
   }
 
-  return createWalletClient({ chain: fluentTestnet, transport: custom(eth) });
+  return createWalletClient({ chain: fluentChain, transport: custom(eth) });
 }
 
 export { isEmbeddedWalletActive };
@@ -218,7 +218,7 @@ export async function writeProposePlacement(args: {
     ] as const,
     value,
     gas,
-    chain: fluentTestnet,
+    chain: fluentChain,
   };
   const txHash = await walletClient.writeContract(writeArgs);
 

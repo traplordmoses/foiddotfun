@@ -12,8 +12,9 @@ import { createPublicClient, createWalletClient, http, parseEther } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { LOREBOARD_TREASURY_ABI } from "@/lib/contracts/abis";
 import { CONTRACTS } from "@/lib/contracts/addresses";
+import { CANONICAL_CHAIN } from "../src/config/canonical";
 
-const RPC_URL = process.env.NEXT_PUBLIC_FLUENT_RPC || "https://rpc.testnet.fluent.xyz";
+const RPC_URL = process.env.NEXT_PUBLIC_FLUENT_RPC || CANONICAL_CHAIN.rpcUrl;
 const OPERATOR_PK = process.env.OPERATOR_PK;
 
 if (!OPERATOR_PK) {
@@ -146,8 +147,8 @@ async function recoverRefunds() {
           rejectedIds, // all rejected
         ],
         chain: {
-          id: 20994,
-          name: "Fluent Testnet",
+          id: CANONICAL_CHAIN.id,
+          name: CANONICAL_CHAIN.chainName,
           nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
           rpcUrls: {
             default: { http: [RPC_URL] },

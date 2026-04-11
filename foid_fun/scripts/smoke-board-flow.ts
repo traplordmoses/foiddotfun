@@ -13,7 +13,7 @@ import boardAbi from "../src/abi/LoreboardBoardV2.json" assert { type: "json" };
 import votingAbi from "../src/abi/loreboardVoting.json" assert { type: "json" };
 import treasuryAbi from "../src/abi/LoreBoardTreasury.json" assert { type: "json" };
 import { rectCells } from "../src/lib/grid";
-import { CANONICAL_ADDRESSES, requireCanonicalAddress } from "../src/config/canonical";
+import { CANONICAL_ADDRESSES, CANONICAL_CHAIN, requireCanonicalAddress } from "../src/config/canonical";
 import { normalizePk, requireEnv, resolveFirst, resolveRpcUrl } from "./lib/env";
 
 loadEnv({ path: process.env.DOTENV_CONFIG_PATH || ".env.local" });
@@ -63,8 +63,8 @@ const treasury = requireCanonicalAddress({
 });
 
 const fluentTestnet = defineChain({
-  id: 20994,
-  name: "Fluent Testnet",
+  id: CANONICAL_CHAIN.id,
+  name: CANONICAL_CHAIN.chainName,
   nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [rpc] } },
 });

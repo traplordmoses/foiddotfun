@@ -13,7 +13,7 @@ export function useSwipePropose() {
     async (args: { ipfsCid: string; x: number; y: number; w: number; h: number }) => {
       if (!address) throw new Error("Wallet not connected");
 
-      const { getWalletClient, publicClient, fluentTestnet } = await import(
+      const { getWalletClient, publicClient, fluentChain } = await import(
         "@/lib/viem"
       );
       const walletClient = await getWalletClient();
@@ -46,7 +46,7 @@ export function useSwipePropose() {
           functionName: "propose",
           args: [args.ipfsCid, args.x, args.y, args.w, args.h],
           value: fee,
-          chain: fluentTestnet,
+          chain: fluentChain,
         });
 
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });

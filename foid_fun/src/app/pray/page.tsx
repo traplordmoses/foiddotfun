@@ -198,7 +198,7 @@ function PrayPageContent() {
   const ensureWalletReady = useCallback(async () => {
     if (!isConnected || !address) throw new Error("please connect your wallet before anchoring your prayer.");
     if (FLUENT_CHAIN_ID && chainId && chainId !== FLUENT_CHAIN_ID) {
-      throw new Error(`switch to fluent testnet (chain id ${FLUENT_CHAIN_ID}) to continue.`);
+      throw new Error(`switch to Fluent (chain id ${FLUENT_CHAIN_ID}) to continue.`);
     }
   }, [FLUENT_CHAIN_ID, address, chainId, isConnected]);
 
@@ -208,11 +208,11 @@ function PrayPageContent() {
       if (!registryAddress) throw new Error("missing registry address on this page.");
       if (!address) throw new Error("connect your wallet before anchoring your prayer.");
 
-      // Use the static public client (always points to Fluent Testnet RPC)
+      // Use the static public client (always points to Fluent RPC)
       // instead of the wagmi hook client which can be stale or on the wrong chain.
       const rpcClient = staticPublicClient;
 
-      // Switch to Fluent Testnet if needed — switchChainAsync resolves only
+      // Switch to Fluent if needed — switchChainAsync resolves only
       // after the wallet has actually switched, so no polling required.
       if (chainId !== FLUENT_CHAIN_ID) {
         try {
@@ -221,7 +221,7 @@ function PrayPageContent() {
           await new Promise(resolve => setTimeout(resolve, 300));
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : "Failed to switch chain";
-          throw new Error(`please switch to fluent testnet (chain ${FLUENT_CHAIN_ID}). ${message}`);
+          throw new Error(`please switch to Fluent (chain ${FLUENT_CHAIN_ID}). ${message}`);
         }
       }
 
@@ -428,7 +428,7 @@ function PrayPageContent() {
               {/* Wrong Chain Warning */}
               {wrongChain && (
                 <div className="px-3 py-2 bg-yellow-900/20 border-b border-yellow-500/30 flex-shrink-0">
-                  <p className="text-xs text-yellow-400 font-terminal">⚠ SWITCH TO FLUENT TESTNET</p>
+                  <p className="text-xs text-yellow-400 font-terminal">⚠ SWITCH TO FLUENT</p>
                 </div>
               )}
 

@@ -10,6 +10,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { uploadJSON } from "../src/lib/ipfs";
+import { CANONICAL_CHAIN } from "../src/config/canonical";
 
 type Address = `0x${string}`;
 
@@ -35,8 +36,8 @@ const rectHeight = Number(process.env.E2E_RECT_H ?? 1);
 const rectPad = Number(process.env.E2E_RECT_PAD ?? 1);
 
 const chain = defineChain({
-  id: 20994,
-  name: "Fluent Testnet",
+  id: CANONICAL_CHAIN.id,
+  name: CANONICAL_CHAIN.chainName,
   nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [rpc || ""] } },
 });

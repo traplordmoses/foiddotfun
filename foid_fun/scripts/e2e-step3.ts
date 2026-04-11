@@ -14,7 +14,7 @@ import votingAbi from "../src/abi/loreboardVoting.json" assert { type: "json" };
 import treasuryAbi from "../src/abi/LoreBoardTreasury.json" assert { type: "json" };
 import { rectCells } from "../src/lib/grid";
 import { ipfsToHttp } from "../src/lib/ipfsUrl";
-import { CANONICAL_ADDRESSES, requireCanonicalAddress } from "../src/config/canonical";
+import { CANONICAL_ADDRESSES, CANONICAL_CHAIN, requireCanonicalAddress } from "../src/config/canonical";
 import { normalizePk, requireEnv, resolveFirst, resolveRpcUrl } from "./lib/env";
 
 type Address = `0x${string}`;
@@ -57,8 +57,8 @@ const rectHeight = Number(process.env.E2E_RECT_H ?? 1);
 const rectPad = Number(process.env.E2E_RECT_PAD ?? 1);
 
 const chain = defineChain({
-  id: 20994,
-  name: "Fluent Testnet",
+  id: CANONICAL_CHAIN.id,
+  name: CANONICAL_CHAIN.chainName,
   nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [rpc || ""] } },
 });

@@ -4,7 +4,7 @@ import type { Abi } from "viem";
 import { verifyAgentSignature } from "../_lib/auth";
 import { checkRateLimit, recordAction } from "@/lib/rateLimit";
 import { getRelayerWalletClient, getAgentPublicClient, getRelayerAccount } from "../_lib/relayer";
-import { fluentTestnet } from "@/lib/viem";
+import { fluentChain } from "@/lib/viem";
 import { AGENT_BOARD } from "@/config/agentBoard";
 import BoardAbi from "@/abi/LoreboardBoardV2.json" assert { type: "json" };
 
@@ -106,7 +106,7 @@ export async function POST(req: Request) {
       }
 
       txHash = await walletClient.writeContract({
-        chain: fluentTestnet,
+        chain: fluentChain,
         account,
         address: AGENT_BOARD,
         abi: BoardAbiTyped,

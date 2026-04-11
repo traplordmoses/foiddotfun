@@ -25,6 +25,7 @@ import {
   fetchAgentProposalsForEpoch,
   finalizeAgentEpochIfReady,
 } from "./lib/agentFinalize";
+import { CANONICAL_CHAIN } from "../src/config/canonical";
 
 dotenv.config();
 dotenv.config({ path: ".env.local", override: true });
@@ -101,11 +102,11 @@ async function main() {
     process.env.FLUENT_RPC_URL ??
     process.env.RPC_URL ??
     process.env.NEXT_PUBLIC_RPC_URL ??
-    "https://rpc.testnet.fluent.xyz";
+    CANONICAL_CHAIN.rpcUrl;
 
   const chain = defineChain({
-    id: 20994,
-    name: "Fluent Testnet",
+    id: CANONICAL_CHAIN.id,
+    name: CANONICAL_CHAIN.chainName,
     nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
     rpcUrls: { default: { http: [rpcUrl] } },
   });

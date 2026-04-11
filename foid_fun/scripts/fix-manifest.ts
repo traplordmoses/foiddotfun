@@ -14,6 +14,7 @@ import {
   stringToHex,
   type Hex,
 } from "viem";
+import { CANONICAL_CHAIN } from "../src/config/canonical";
 import { privateKeyToAccount } from "viem/accounts";
 import { loreBoardManifestStoreAbi } from "../src/abi/loreBoardManifestStore";
 import { uploadJSON } from "../src/lib/ipfs";
@@ -24,8 +25,8 @@ const treasury = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS as `0x${string}`;
 const operatorPk = (process.env.OPERATOR_KEY ?? process.env.OPERATOR_PK)!;
 
 const chain = defineChain({
-  id: 20994,
-  name: "Fluent Testnet",
+  id: CANONICAL_CHAIN.id,
+  name: CANONICAL_CHAIN.chainName,
   nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [rpc] } },
 });

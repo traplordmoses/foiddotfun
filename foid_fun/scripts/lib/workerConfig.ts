@@ -15,9 +15,9 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { parseOptionalNumber } from "./contract";
-import { CANONICAL_ADDRESSES, requireCanonicalAddress } from "../../src/config/canonical";
+import { CANONICAL_ADDRESSES, CANONICAL_CHAIN, requireCanonicalAddress } from "../../src/config/canonical";
 
-const DEFAULT_BLOCKSCOUT_API_BASE = "https://testnet.fluentscan.xyz/api";
+const DEFAULT_BLOCKSCOUT_API_BASE = `${CANONICAL_CHAIN.blockExplorer}/api`;
 
 function requireEnv(name: string, value?: string | null) {
   if (!value) {
@@ -114,9 +114,9 @@ export function loadWorkerConfig(env: NodeJS.ProcessEnv) {
   };
 
   const chain = defineChain({
-    id: 20994,
-    name: "Fluent Testnet",
-    nativeCurrency: { name: "FLU", symbol: "FLU", decimals: 18 },
+    id: CANONICAL_CHAIN.id,
+    name: CANONICAL_CHAIN.chainName,
+    nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
     rpcUrls: { default: { http: [rpcUrl] } },
   });
 

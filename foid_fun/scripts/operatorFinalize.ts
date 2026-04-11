@@ -13,6 +13,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { loreBoardManifestStoreAbi } from "../src/abi/loreBoardManifestStore";
+import { CANONICAL_CHAIN } from "../src/config/canonical";
 
 /* ---------- ENV ---------- */
 
@@ -59,8 +60,8 @@ const deployBlock = BigInt(deployBlockEnv);
 /* ---------- Clients ---------- */
 
 const chain = defineChain({
-  id: 20994,
-  name: "Fluent Testnet",
+  id: CANONICAL_CHAIN.id,
+  name: CANONICAL_CHAIN.chainName,
   nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [rpc] } },
 });

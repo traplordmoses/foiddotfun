@@ -10,6 +10,7 @@ import {
 import treasuryAbi from "../src/abi/LoreBoardTreasury.json";
 import { loreBoardManifestStoreAbi } from "../src/abi/loreBoardManifestStore";
 import { ipfsToHttp } from "../src/lib/ipfsUrl";
+import { CANONICAL_CHAIN } from "../src/config/canonical";
 
 dotenv.config();
 dotenv.config({ path: ".env.local" });
@@ -86,8 +87,8 @@ async function main() {
   requireEnv("NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS", manifestStoreAddress);
 
   const chain = defineChain({
-    id: 20994,
-    name: "Fluent Testnet",
+    id: CANONICAL_CHAIN.id,
+    name: CANONICAL_CHAIN.chainName,
     nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
     rpcUrls: { default: { http: [rpc] } },
   });

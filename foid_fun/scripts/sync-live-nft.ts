@@ -7,9 +7,9 @@
 import { createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { LOREBOARD_LIVE_NFT_ABI } from "@/lib/contracts/abis";
-import { CANONICAL_ADDRESSES } from "@/config/canonical";
+import { CANONICAL_ADDRESSES, CANONICAL_CHAIN } from "@/config/canonical";
 
-const RPC_URL = process.env.NEXT_PUBLIC_FLUENT_RPC || "https://rpc.testnet.fluent.xyz";
+const RPC_URL = process.env.NEXT_PUBLIC_FLUENT_RPC || CANONICAL_CHAIN.rpcUrl;
 const OPERATOR_PK = process.env.OPERATOR_PK;
 
 if (!OPERATOR_PK) {
@@ -60,8 +60,8 @@ async function syncNFT() {
       abi: LOREBOARD_LIVE_NFT_ABI,
       functionName: "syncLatest",
       chain: {
-        id: 20994,
-        name: "Fluent Testnet",
+        id: CANONICAL_CHAIN.id,
+        name: CANONICAL_CHAIN.chainName,
         nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
         rpcUrls: {
           default: { http: [RPC_URL] },

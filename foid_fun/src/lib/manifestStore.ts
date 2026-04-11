@@ -1,5 +1,5 @@
 import { createPublicClient, http, type Hex, type PublicClient } from "viem";
-import { fluentTestnet } from "@/lib/chains/fluentTestnet";
+import { fluentChain } from "@/lib/viem";
 import { loreBoardManifestStoreAbi } from "@/abi/loreBoardManifestStore";
 import { MANIFEST_ANCHORED_EVENT } from "@/lib/events";
 
@@ -26,7 +26,7 @@ export type LatestManifestAnchor = {
 
 export function createManifestStoreClient(rpcUrl: string) {
   return createPublicClient({
-    chain: fluentTestnet,
+    chain: fluentChain,
     transport: http(rpcUrl),
   });
 }

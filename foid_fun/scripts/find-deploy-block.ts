@@ -10,8 +10,9 @@ import {
   type PublicClient,
   type Transport,
 } from "viem";
+import { CANONICAL_CHAIN } from "../src/config/canonical";
 
-const DEFAULT_RPC = "https://rpc.testnet.fluent.xyz/";
+const DEFAULT_RPC = CANONICAL_CHAIN.rpcUrl;
 
 function requireEnv(name: string, value?: string | null) {
   if (!value) throw new Error(`Missing ${name}`);
@@ -103,8 +104,8 @@ async function main() {
   };
 
   const chain = defineChain({
-    id: 20994,
-    name: "Fluent Testnet",
+    id: CANONICAL_CHAIN.id,
+    name: CANONICAL_CHAIN.chainName,
     nativeCurrency: { name: "FLU", symbol: "FLU", decimals: 18 },
     rpcUrls: { default: { http: [rpc] } },
   });

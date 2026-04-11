@@ -10,9 +10,10 @@ import {
   type PublicClient,
   type Transport,
 } from "viem";
+import { CANONICAL_CHAIN } from "../src/config/canonical";
 
-const EXPECTED_CHAIN_ID = 20994n;
-const DEFAULT_RPC = "https://rpc.testnet.fluent.xyz/";
+const EXPECTED_CHAIN_ID = BigInt(CANONICAL_CHAIN.id);
+const DEFAULT_RPC = CANONICAL_CHAIN.rpcUrl;
 const DEFAULT_BOARD = "0xE41B2D418C09Ea928E4F657ED2438f5D01472105" as Address;
 const DEFAULT_TREASURY = "0x4A777d8650b3FA2419377F4ffeF0EF8007151536" as Address;
 const DEFAULT_VOTING = "0xEbf065A7ca3917BB5e669982e8C6954cC27A7075" as Address;
@@ -159,8 +160,8 @@ async function main() {
   };
 
   const chain = defineChain({
-    id: Number(EXPECTED_CHAIN_ID),
-    name: "Fluent Testnet",
+    id: CANONICAL_CHAIN.id,
+    name: CANONICAL_CHAIN.chainName,
     nativeCurrency: { name: "FLU", symbol: "FLU", decimals: 18 },
     rpcUrls: { default: { http: [rpc] } },
   });

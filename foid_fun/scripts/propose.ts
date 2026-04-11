@@ -15,6 +15,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { CID } from "multiformats/cid";
 import ABI from "../src/abi/LoreBoardTreasury.json" assert { type: "json" };
+import { CANONICAL_CHAIN } from "../src/config/canonical";
 
 const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC!;
 const treasury = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS! as `0x${string}`;
@@ -23,8 +24,8 @@ const operatorKey = (process.env.OPERATOR_KEY!.startsWith("0x")
   : `0x${process.env.OPERATOR_KEY!}`) as `0x${string}`;
 
 const fluentTestnet = defineChain({
-  id: 20994,
-  name: "Fluent Testnet",
+  id: CANONICAL_CHAIN.id,
+  name: CANONICAL_CHAIN.chainName,
   nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [rpc] } },
 });

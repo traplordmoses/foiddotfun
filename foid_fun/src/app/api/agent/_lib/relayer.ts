@@ -1,6 +1,6 @@
 import { createWalletClient, createPublicClient, http, type WalletClient, type PublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { fluentTestnet } from "@/lib/viem";
+import { fluentChain } from "@/lib/viem";
 import { RPC_URL } from "@/config/canonical";
 
 let _walletClient: WalletClient | null = null;
@@ -20,7 +20,7 @@ export function getRelayerWalletClient(): WalletClient {
   if (!_walletClient) {
     const account = getRelayerAccount();
     _walletClient = createWalletClient({
-      chain: fluentTestnet,
+      chain: fluentChain,
       transport: http(RPC_URL),
       account,
     });
@@ -31,7 +31,7 @@ export function getRelayerWalletClient(): WalletClient {
 export function getAgentPublicClient(): PublicClient {
   if (!_publicClient) {
     _publicClient = createPublicClient({
-      chain: fluentTestnet,
+      chain: fluentChain,
       transport: http(RPC_URL),
     });
   }

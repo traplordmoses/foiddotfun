@@ -21,8 +21,9 @@ export const CANONICAL_CHAIN = {
   chainName: DEFAULT_CHAIN_NAME,
 };
 
-export const CANONICAL_ADDRESSES = {
-  // Legacy loreboard contracts (checksummed via getAddress)
+// ── Testnet addresses (chain 20994) ──
+const TESTNET_ADDRESSES = {
+  // Legacy loreboard contracts
   treasury: getAddress("0x4A777d8650b3FA2419377F4ffeF0EF8007151536"),
   manifestStore: getAddress("0xeE469D8F9BB2Ace861AA689dE53c016871ad3D10"),
   voting: getAddress("0xEbf065A7ca3917BB5e669982e8C6954cC27A7075"),
@@ -34,7 +35,7 @@ export const CANONICAL_ADDRESSES = {
   prayerTiers: getAddress("0x36ED105e09A881B6074250a43B2e26c0d6cfD4fb"),
   streakVotingPower: getAddress("0x7a889b3d38889E45EE48bbCBc3681a889F87C03e"),
   foidTrest: getAddress("0x87Ea24ba4B61BbF35aD1161e11072Dc8Cf0858a6"),
-  swipe: getAddress("0xF9b72062A7e5933692CcBd247d70a9cdB40E0eC7"),  // Loreboard (replaces legacy Swipe v2 at 0x60A865...)
+  swipe: getAddress("0xF9b72062A7e5933692CcBd247d70a9cdB40E0eC7"),
   loreboard: getAddress("0xF9b72062A7e5933692CcBd247d70a9cdB40E0eC7"),
   loreboardLiveNFT: getAddress("0x9E17B30a41546E854778d91d6Ef0C0D982d49012"),
   swipeLoreboard: getAddress("0x3782BaD8ADa3BD8C98729d4516F600317F3aC362"),
@@ -44,7 +45,38 @@ export const CANONICAL_ADDRESSES = {
   engrave: getAddress("0xe73f5f91159c2d84b1a66badf701d5312213b66a"),
   prayerRegistry: getAddress("0x6FC7301fad7Ca0294152b23FD4f0467200376d65"),
   prayerMirror: getAddress("0x8ff39c2a78FaF7d655e4Dab03076Cb26C97007FF"),
+} as const;
+
+// ── Mainnet addresses (chain 25363) ──
+// Fill these in after running deploy-mainnet.sh.
+// Any address left as TESTNET_ADDRESSES.* will use the testnet value
+// and SHOULD be overridden via NEXT_PUBLIC_* env vars on Render/Vercel.
+const MAINNET_ADDRESSES: typeof TESTNET_ADDRESSES = {
+  // Legacy: not deployed on mainnet — use testnet values (env var overrides take precedence)
+  treasury: TESTNET_ADDRESSES.treasury,
+  manifestStore: TESTNET_ADDRESSES.manifestStore,
+  voting: TESTNET_ADDRESSES.voting,
+  board: TESTNET_ADDRESSES.board,
+  liveNFT: TESTNET_ADDRESSES.liveNFT,
+  vmWrapper: TESTNET_ADDRESSES.vmWrapper,
+
+  // V1: fill after deploy (or set via NEXT_PUBLIC_* env vars)
+  prayerTiers: TESTNET_ADDRESSES.prayerTiers,
+  streakVotingPower: TESTNET_ADDRESSES.streakVotingPower,
+  foidTrest: TESTNET_ADDRESSES.foidTrest,
+  swipe: TESTNET_ADDRESSES.swipe,
+  loreboard: TESTNET_ADDRESSES.loreboard,
+  loreboardLiveNFT: TESTNET_ADDRESSES.loreboardLiveNFT,
+  swipeLoreboard: TESTNET_ADDRESSES.swipeLoreboard,
+  multisig: TESTNET_ADDRESSES.multisig,
+
+  // Standalone
+  engrave: TESTNET_ADDRESSES.engrave,
+  prayerRegistry: TESTNET_ADDRESSES.prayerRegistry,
+  prayerMirror: TESTNET_ADDRESSES.prayerMirror,
 };
+
+export const CANONICAL_ADDRESSES = IS_MAINNET ? MAINNET_ADDRESSES : TESTNET_ADDRESSES;
 
 const warnOnce = (() => {
   const seen = new Set<string>();
@@ -127,7 +159,7 @@ export const BOARD_ADDRESS = boardAddressEnv
 if (!boardAddressEnv) {
   warnOnce(
     "BOARD_ADDRESS",
-    `[config] BOARD_ADDRESS is not set; falling back to Fluent testnet board ${CANONICAL_ADDRESSES.board}. ${DOTENV_HINT}`
+    `[config] BOARD_ADDRESS is not set; falling back to ${DEFAULT_CHAIN_NAME} board ${CANONICAL_ADDRESSES.board}. ${DOTENV_HINT}`
   );
 }
 
@@ -144,7 +176,7 @@ export const VOTING_ADDRESS = votingAddressEnv
 if (!votingAddressEnv) {
   warnOnce(
     "VOTING_ADDRESS",
-    `[config] VOTING_ADDRESS is not set; falling back to Fluent testnet voting ${CANONICAL_ADDRESSES.voting}. ${DOTENV_HINT}`
+    `[config] VOTING_ADDRESS is not set; falling back to ${DEFAULT_CHAIN_NAME} voting ${CANONICAL_ADDRESSES.voting}. ${DOTENV_HINT}`
   );
 }
 

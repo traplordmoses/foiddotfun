@@ -17,6 +17,7 @@ import {
 } from "viem";
 import treasuryAbi from "../src/abi/LoreBoardTreasury.json" assert { type: "json" };
 import boardAbi from "../src/abi/LoreboardBoardV2.json" assert { type: "json" };
+import { CANONICAL_CHAIN } from "../src/config/canonical";
 
 const MAX_LOG_BLOCK_RANGE = 100_000n;
 const LOG_CHUNK_TIMEOUT_MS = 15_000;
@@ -489,8 +490,8 @@ async function main() {
   };
 
   const chain = defineChain({
-    id: 20994,
-    name: "Fluent Testnet",
+    id: CANONICAL_CHAIN.id,
+    name: CANONICAL_CHAIN.chainName,
     nativeCurrency: { name: "FLU", symbol: "FLU", decimals: 18 },
     rpcUrls: { default: { http: [rpc] } },
   });
