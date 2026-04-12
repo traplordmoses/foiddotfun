@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { insertBoardMessage, subscribeToBoardMessages, supabase, SUPABASE_ENABLED, type BoardMessage } from "@/lib/supabase";
+import { supabase, SUPABASE_ENABLED, type BoardMessage } from "@/lib/supabase";
+import toast from "react-hot-toast";
 
 // ============================================================================
 // TYPES
@@ -24,6 +25,9 @@ export type TerminalChatProps = {
   walletAddress?: string;
 };
 
+const MAX_MESSAGE_LENGTH = 280;
+const COOLDOWN_MS = 3000;
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -37,7 +41,9 @@ export function TerminalChat({
 }: TerminalChatProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isCoolingDown, setIsCoolingDown] = useState(false);
   const [supabaseMessages, setSupabaseMessages] = useState<BoardMessage[]>([]);
+  const [realtimeStatus, setRealtimeStatus] = useState<"connected" | "disconnected" | "reconnecting">("disconnected");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when messages change
@@ -75,16 +81,63 @@ export function TerminalChat({
     void loadMessages();
   }, [enableSupabase]);
 
-  // Subscribe to real-time messages
+  // Subscribe to real-time messages with reconnection
   useEffect(() => {
-    if (!enableSupabase || !SUPABASE_ENABLED) return;
+    if (!enableSupabase || !SUPABASE_ENABLED || !supabase) return;
 
-    const unsubscribe = subscribeToBoardMessages((message) => {
-      setSupabaseMessages((prev) => [...prev, message]);
-    });
+    let cancelled = false;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
+    let attempt = 0;
+    let currentChannel: ReturnType<typeof supabase.channel> | null = null;
+
+    function connect() {
+      if (cancelled) return;
+      setRealtimeStatus("reconnecting");
+
+      // Remove previous channel if exists
+      if (currentChannel) {
+        supabase!.removeChannel(currentChannel);
+      }
+
+      const channel = supabase!
+        .channel(`board_messages_changes_${Date.now()}`)
+        .on<BoardMessage>(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "board_messages",
+            filter: "type=eq.chat",
+          },
+          (payload) => {
+            if (payload.new) {
+              setSupabaseMessages((prev) => [...prev, payload.new]);
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            setRealtimeStatus("connected");
+            attempt = 0;
+          } else if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+            setRealtimeStatus("disconnected");
+            if (!cancelled) {
+              const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
+              attempt++;
+              reconnectTimer = setTimeout(connect, delay);
+            }
+          }
+        });
+
+      currentChannel = channel;
+    }
+
+    connect();
 
     return () => {
-      unsubscribe();
+      cancelled = true;
+      clearTimeout(reconnectTimer);
+      if (currentChannel) supabase!.removeChannel(currentChannel);
     };
   }, [enableSupabase]);
 
@@ -93,12 +146,12 @@ export function TerminalChat({
 
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
-    if (!trimmed || isSending || !walletAddress) return;
+    if (!trimmed || trimmed.length > MAX_MESSAGE_LENGTH || isSending || isCoolingDown || !walletAddress) return;
 
     setIsSending(true);
     setInput("");
 
-    // Optimistic: show the message immediately so the user sees it right away
+    // Optimistic: show the message immediately
     const optimisticId = `local-${Date.now()}-${Math.random()}`;
     setSupabaseMessages((prev) => [
       ...prev,
@@ -112,20 +165,16 @@ export function TerminalChat({
     ]);
 
     try {
-      // Save to Supabase if enabled
-      if (enableSupabase) {
-        const result = await insertBoardMessage({
-          wallet_address: walletAddress,
-          message: trimmed,
-          type: "chat",
-        });
+      // Send via API route (server-side validation + rate limiting)
+      const res = await fetch("/api/chat/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet: walletAddress, message: trimmed }),
+      });
 
-        // If insert failed, remove the optimistic message
-        if (!result) {
-          setSupabaseMessages((prev) =>
-            prev.filter((m) => m.id !== optimisticId)
-          );
-        }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Send failed" }));
+        throw new Error(err.error || `HTTP ${res.status}`);
       }
 
       // Call parent callback if provided
@@ -138,10 +187,21 @@ export function TerminalChat({
       setSupabaseMessages((prev) =>
         prev.filter((m) => m.id !== optimisticId)
       );
+      // Show error toast (use toast() not toast.error() — errors are suppressed in production)
+      toast(err instanceof Error ? err.message : "Message failed to send", {
+        icon: "\u274c",
+        style: {
+          background: "rgba(255, 79, 110, 0.16)",
+          color: "#ffeef0",
+          border: "1px solid rgba(255, 129, 150, 0.42)",
+        },
+      });
     } finally {
       setIsSending(false);
+      setIsCoolingDown(true);
+      setTimeout(() => setIsCoolingDown(false), COOLDOWN_MS);
     }
-  }, [input, isSending, onSend, enableSupabase, walletAddress]);
+  }, [input, isSending, isCoolingDown, onSend, walletAddress]);
 
   const handleKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -174,7 +234,7 @@ export function TerminalChat({
         type: msg.type as StatusMessage["type"],
         text: msg.message,
         user: msg.wallet_address
-          ? msg.wallet_address.slice(0, 6) + "…" + msg.wallet_address.slice(-4)
+          ? msg.wallet_address.slice(0, 6) + "\u2026" + msg.wallet_address.slice(-4)
           : undefined,
         variant: msg.type === "chat" ? ("chat" as const) : undefined,
         isLocal: false,
@@ -194,15 +254,20 @@ export function TerminalChat({
       return !(msg.text === prev.text && timeDiff < 5000);
     });
 
+  const isSendDisabled = isSending || isCoolingDown || !input.trim() || input.trim().length > MAX_MESSAGE_LENGTH || !walletAddress;
+
   return (
     <div className={`terminal-chat ${className}`}>
       <div ref={scrollRef} className="terminal-chat__messages">
+        {realtimeStatus === "reconnecting" && (
+          <div className="terminal-chat__reconnecting">reconnecting...</div>
+        )}
         {allMessages.map((msg) => {
           const isChat = msg.variant === "chat";
           const isSystem = msg.type === "system" && !isChat;
           const lineClass = isChat ? "terminal-chat__line--chat" : `terminal-chat__line--${msg.type}`;
           const labelClass = isSystem ? "terminal-chat__system" : "terminal-chat__user";
-          const labelText = isSystem ? "SYSTEM" : isChat ? "mifoid" : "milady";
+          const labelText = isSystem ? "SYSTEM" : isChat ? (msg.user || "anon") : "milady";
 
           return (
             <div key={msg.id} className={`terminal-chat__line ${lineClass}`}>
@@ -223,16 +288,25 @@ export function TerminalChat({
           placeholder={walletAddress ? "type here..." : "connect wallet to chat"}
           className="terminal-chat__input"
           disabled={!walletAddress}
+          maxLength={MAX_MESSAGE_LENGTH}
         />
         <button
           type="button"
           className="terminal-chat__send"
           onClick={() => void handleSend()}
-          disabled={isSending || !input.trim() || !walletAddress}
+          disabled={isSendDisabled}
         >
-          SEND
+          {isCoolingDown ? "WAIT" : "SEND"}
         </button>
       </div>
+      {walletAddress && (
+        <div
+          className="terminal-chat__char-counter"
+          data-warn={input.length > 250 ? "" : undefined}
+        >
+          {input.length}/{MAX_MESSAGE_LENGTH}
+        </div>
+      )}
     </div>
   );
 }

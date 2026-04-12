@@ -1,12 +1,13 @@
 import { countRecentActions, insertRateLimit, pruneOldRateLimits } from "@/lib/db";
 
-type ActionType = "pray" | "propose" | "vote" | "swipe-vote";
+type ActionType = "pray" | "propose" | "vote" | "swipe-vote" | "chat-send";
 
 const LIMITS: Record<ActionType, { max: number; windowMs: number }> = {
   pray: { max: 1, windowMs: 24 * 60 * 60 * 1000 },
   propose: { max: 3, windowMs: 24 * 60 * 60 * 1000 },
   vote: { max: 10, windowMs: 24 * 60 * 60 * 1000 },
   "swipe-vote": { max: 20, windowMs: 60 * 60 * 1000 }, // 20 per hour
+  "chat-send": { max: 20, windowMs: 10 * 60 * 1000 }, // 20 per 10 minutes
 };
 
 /**
