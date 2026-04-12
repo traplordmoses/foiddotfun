@@ -672,7 +672,7 @@ const sections: Section[] = [
       <>
         <GlassPanel>
           <p>
-            <strong>FOID runs on Fluent.</strong> When you connect, FOID Wallet creates a secure wallet right in your browser&mdash;just choose a PIN and confirm with your passkey. No MetaMask required. No seed phrases.
+            <strong>FOID runs on Fluent.</strong> When you connect, FOID Wallet creates a secure wallet right in your browser&mdash;just choose a password and confirm with your passkey. No MetaMask required. No seed phrases.
           </p>
           <p style={{ marginTop: '12px' }}>
             Here&apos;s how to get in:
@@ -683,7 +683,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">1. connect your wallet</p>
             <p className="aboutMiniCard__body">
-              Click connect and choose FOID Wallet. Pick a PIN (6+ characters), confirm with your passkey (Face ID / Touch ID / Windows Hello), and you&apos;re in. No extensions, no seed phrases. Already have MetaMask? That works too&mdash;FOID auto-detects Fluent and prompts you to add it.
+              Click connect and choose FOID Wallet. Pick a password (6+ characters), confirm with your passkey (Face ID / Touch ID / Windows Hello), and you&apos;re in. No extensions, no seed phrases. Already have MetaMask? That works too&mdash;FOID auto-detects Fluent and prompts you to add it.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -964,10 +964,10 @@ const sections: Section[] = [
       <>
         <GlassPanel>
           <p>
-            <strong>No extension. No seed phrase to memorize. Just a PIN and your passkey.</strong>
+            <strong>No extension. No seed phrase to memorize. Just a password and your passkey.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            Most people who want to interact with FOID on mobile don&apos;t have MetaMask installed. FOID Wallet v3 lets anyone spin up a wallet in 30 seconds &mdash; just a PIN and a passkey (Touch ID / Face ID). A 12-word recovery phrase is generated for backup, but you never need to manage it day-to-day. No extension, no friction.
+            Most people who want to interact with FOID on mobile don&apos;t have MetaMask installed. FOID Wallet v3 lets anyone spin up a wallet in 30 seconds &mdash; just a password and a passkey (Touch ID / Face ID). A 12-word recovery phrase is generated for backup, but you never need to manage it day-to-day. No extension, no friction.
           </p>
           <p style={{ marginTop: '12px' }}>
             It&apos;s not designed for holding serious value &mdash; use MetaMask or a hardware wallet for that. Think of it as a vibe-coded wallet for putting $10-100 in to interact with FOID, hold a MiFOID, place on the Loreboard. Open source &mdash; inspect it yourself.
@@ -982,13 +982,13 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">1. Create</p>
             <p className="aboutMiniCard__body">
-              A 12-word BIP-39 mnemonic is generated and a private key derived via BIP-44 HD derivation. You pick a PIN (6+ chars). A WebAuthn passkey is created (Touch ID / Face ID / Windows Hello). The PIN is run through Argon2id (64MB memory-hard) to derive an encryption key &mdash; falling back to PBKDF2 (600k iterations) on devices without WASM. If your device supports WebAuthn PRF, a second key from biometric data is XOR&apos;d with the PIN key &mdash; requiring both factors. Your private key + mnemonic are encrypted with AES-256-GCM. Vault integrity sealed with HMAC-SHA-256. Only the encrypted blob is stored in localStorage. The PIN is never stored anywhere.
+              A 12-word BIP-39 mnemonic is generated and a private key derived via BIP-44 HD derivation. You pick a password (6+ chars). A WebAuthn passkey is created (Touch ID / Face ID / Windows Hello). The password is run through Argon2id (64MB memory-hard) to derive an encryption key &mdash; falling back to PBKDF2 (600k iterations) on devices without WASM. If your device supports WebAuthn PRF, a second key from biometric data is XOR&apos;d with the password key &mdash; requiring both factors. Your private key + mnemonic are encrypted with AES-256-GCM. Vault integrity sealed with HMAC-SHA-256. Only the encrypted blob is stored in localStorage. The password is never stored anywhere.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">2. Unlock</p>
             <p className="aboutMiniCard__body">
-              Enter PIN, passkey prompt fires (biometric). PIN attempts are rate-limited with exponential backoff &mdash; too many wrong tries and you wait. Vault HMAC is verified for tamper detection. PIN + PRF output re-derive the same encryption key. AES-GCM decrypts the private key into a Web Worker &mdash; never on the main thread. A 30-minute session begins, auto-locks on timeout or page close.
+              Enter password, passkey prompt fires (biometric). Password attempts are rate-limited with exponential backoff &mdash; too many wrong tries and you wait. Vault HMAC is verified for tamper detection. Password + PRF output re-derive the same encryption key. AES-GCM decrypts the private key into a Web Worker &mdash; never on the main thread. A 30-minute session begins, auto-locks on timeout or page close.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -1007,7 +1007,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Encryption at Rest</p>
             <p className="aboutMiniCard__body">
-              AES-256-GCM (12-byte IV, 32-byte salt). The encrypted blob in localStorage is useless without the PIN. Vault integrity verified via HMAC-SHA-256 &mdash; tampered vaults are rejected.
+              AES-256-GCM (12-byte IV, 32-byte salt). The encrypted blob in localStorage is useless without the password. Vault integrity verified via HMAC-SHA-256 &mdash; tampered vaults are rejected.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -1019,7 +1019,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Dual-Factor Encryption</p>
             <p className="aboutMiniCard__body">
-              If device supports PRF: encryption key = PIN-derived key XOR biometric-derived key. Need both to decrypt.
+              If device supports PRF: encryption key = password-derived key XOR biometric-derived key. Need both to decrypt.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -1029,15 +1029,15 @@ const sections: Section[] = [
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">PIN Rate-Limiting</p>
+            <p className="aboutMiniCard__title">Password Rate-Limiting</p>
             <p className="aboutMiniCard__body">
-              Exponential backoff on wrong PIN attempts with vault-stamped nonce. Prevents brute-force even with physical access to the device.
+              Exponential backoff on wrong password attempts with vault-stamped nonce. Prevents brute-force even with physical access to the device.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Recovery &amp; Export</p>
             <p className="aboutMiniCard__body">
-              BIP-39 12-word seed phrase for recovery. Restore on any device with your words + a new PIN. Private key export requires double-tap confirmation. Clipboard auto-clears after 30 seconds. v1 wallets auto-migrate to v3 on unlock.
+              BIP-39 12-word seed phrase for recovery. Restore on any device with your words + a new password. Private key export requires double-tap confirmation. Clipboard auto-clears after 30 seconds. v1 wallets auto-migrate to v3 on unlock.
             </p>
           </div>
         </div>
@@ -1200,7 +1200,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">How do I actually start?</p>
             <p className="aboutMiniCard__body">
-              <strong>Three steps:</strong> 1. Click connect → choose FOID Wallet → pick a PIN → passkey prompt → done. (Or use MetaMask if that&apos;s your thing.) 2. Get some ETH for gas ({IS_MAINNET ? "bridge ETH to Fluent" : "use the testnet faucet"}). 3. Start praying → Go to /pray and talk to Foid Mommy. That&apos;s it. You&apos;re in. Then explore /swipe to vote on memes and /board to propose to the Loreboard. Your streak starts today. Your MiFOID traits are being determined now. Every day you skip is a day she doesn&apos;t grow.
+              <strong>Three steps:</strong> 1. Click connect → choose FOID Wallet → pick a password → passkey prompt → done. (Or use MetaMask if that&apos;s your thing.) 2. Get some ETH for gas ({IS_MAINNET ? "bridge ETH to Fluent" : "use the testnet faucet"}). 3. Start praying → Go to /pray and talk to Foid Mommy. That&apos;s it. You&apos;re in. Then explore /swipe to vote on memes and /board to propose to the Loreboard. Your streak starts today. Your MiFOID traits are being determined now. Every day you skip is a day she doesn&apos;t grow.
             </p>
           </div>
 
