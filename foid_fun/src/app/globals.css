@@ -3833,6 +3833,19 @@ body {
     height: calc(100dvh - 96px) !important;
     max-height: calc(100dvh - 96px) !important;
   }
+
+  /* Premium polish for pray terminal on mobile */
+  .pray-page .vista-window--media {
+    border: 1px solid rgba(0, 255, 213, 0.12);
+    box-shadow:
+      0 16px 40px rgba(0, 0, 0, 0.4),
+      0 4px 12px rgba(0, 0, 0, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 0 40px rgba(0, 255, 213, 0.04);
+    background: rgba(6, 18, 32, 0.85);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  }
 }
 
 /* ============================================================================
@@ -3881,16 +3894,17 @@ body {
     overflow-y: auto !important;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    padding: 12px;
+    padding: 16px 14px;
     scroll-behavior: smooth;
   }
 
   /* Input area - FIXED at bottom */
   .mobile-terminal .foid-cli__composer {
     flex-shrink: 0;
-    padding: 12px;
-    background: rgba(0, 0, 0, 0.5);
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 14px 16px;
+    background: rgba(2, 8, 16, 0.65);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid rgba(0, 255, 213, 0.1);
   }
 
   .mobile-terminal .foid-terminal__input-wrap {
@@ -3899,16 +3913,17 @@ body {
 
   .mobile-terminal .foid-terminal__input {
     width: 100%;
-    padding: 12px;
-    background: rgba(0, 0, 0, 0.6);
-    border: 1.5px solid rgba(255, 255, 255, 0.25);
+    padding: 12px 14px;
+    background: rgba(2, 12, 20, 0.7);
+    border: 1.5px solid rgba(0, 255, 213, 0.25);
     border-radius: 10px;
-    transition: all 0.2s ease;
+    transition: all 0.25s ease;
+    box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.3);
   }
 
   .mobile-terminal .foid-terminal__input:focus-within {
-    border-color: rgba(233, 221, 80, 0.5);
-    box-shadow: 0 0 12px rgba(233, 221, 80, 0.15);
+    border-color: rgba(0, 255, 213, 0.5);
+    box-shadow: 0 0 16px rgba(0, 255, 213, 0.12), inset 0 0 8px rgba(0, 255, 213, 0.04);
   }
 
   /* HIDE the prompt on mobile */
@@ -3927,10 +3942,11 @@ body {
   .mobile-terminal .foid-terminal__status {
     margin-top: 8px;
     font-size: 9px !important;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-align: center;
-    padding: 6px 8px;
-    background: rgba(0, 0, 0, 0.4);
+    padding: 6px 10px;
+    background: rgba(0, 12, 20, 0.5);
+    border: 1px solid rgba(0, 255, 213, 0.06);
     border-radius: 6px;
     white-space: nowrap;
     overflow: hidden;
@@ -3940,11 +3956,12 @@ body {
   /* Mobile titlebar - compact & styled */
   .vista-window__titlebar {
     flex-wrap: nowrap;
-    padding: 8px 12px !important;
+    padding: 8px 14px !important;
     min-height: 44px !important;
     gap: 8px !important;
-    background: rgba(0, 0, 0, 0.3) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(4, 12, 22, 0.6) !important;
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(0, 255, 213, 0.08);
   }
 
   .vista-window__title {

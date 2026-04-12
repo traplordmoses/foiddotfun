@@ -227,7 +227,7 @@ export function MobilePlacementPicker({
                   border: `2px solid ${borderColor}`,
                   borderRadius: 3,
                   backgroundImage: `url(${previewUrl})`,
-                  backgroundSize: "cover",
+                  backgroundSize: "100% 100%",
                   backgroundPosition: "center",
                   boxShadow: `0 0 8px ${borderColor}`,
                   zIndex: 10,

@@ -112,6 +112,10 @@ async function createActiveWalletClient() {
     // provider that routes signing through the Worker-based session functions.
     if (session.privateKey === WORKER_MANAGED_KEY) {
       const addr = session.address as `0x${string}`;
+      // Local nonce tracker to prevent collisions in rapid batch transactions.
+      // Tracks the next nonce to use per-address so sequential sends don't
+      // all fetch the same on-chain nonce before any of them are mined.
+      let pendingNonce: number | null = null;
       const workerProvider: EthereumProvider = {
         request: async ({ method, params }: { method: string; params?: readonly unknown[] }) => {
           switch (method) {
@@ -123,9 +127,12 @@ async function createActiveWalletClient() {
             case "eth_sendTransaction": {
               const [tx] = (params ?? []) as [Record<string, string>];
               const { sessionSignTransaction } = await import("@/lib/wallet");
-              const nonce = Number(
-                await publicClient.getTransactionCount({ address: addr }),
+              const onChainNonce = Number(
+                await publicClient.getTransactionCount({ address: addr, blockTag: "pending" }),
               );
+              // Use whichever is higher: the on-chain pending count or our local tracker
+              const nonce = pendingNonce !== null ? Math.max(onChainNonce, pendingNonce) : onChainNonce;
+              pendingNonce = nonce + 1;
               const gasPrice = await publicClient.getGasPrice();
               let gas: bigint;
               try {

@@ -246,7 +246,7 @@
 
 /* Proposal */
 .board-proposal { position: absolute; pointer-events: none; z-index: 2; animation: fadeIn 0.3s; }
-.board-proposal__img { width: 100%; height: 100%; border-radius: 12px; object-fit: contain; outline: 2px dashed rgba(255,200,100,0.8); background: rgba(8,18,36,0.4); }
+.board-proposal__img { width: 100%; height: 100%; border-radius: 12px; object-fit: fill; outline: 2px dashed rgba(255,200,100,0.8); background: rgba(8,18,36,0.4); }
 .board-proposal--selected {
   outline-color: var(--foid-accent);
   box-shadow: 0 0 18px rgba(0,255,213,0.9), inset 0 0 12px rgba(255,255,255,0.35);
@@ -279,7 +279,7 @@
   width: 100%;
   height: 100%;
   border-radius: 14px;
-  object-fit: contain;
+  object-fit: fill;
   opacity: 0.5;
   filter: saturate(0.7);
 }
@@ -337,7 +337,7 @@
 
 /* Pending */
 .board-pending { position: absolute; z-index: 3; }
-.board-pending__img { width: 100%; height: 100%; border-radius: 8px; border: 2px solid rgba(0,208,255,0.8); box-shadow: 0 0 20px rgba(0,208,255,0.4); object-fit: contain; }
+.board-pending__img { width: 100%; height: 100%; border-radius: 8px; border: 2px solid rgba(0,208,255,0.8); box-shadow: 0 0 20px rgba(0,208,255,0.4); object-fit: fill; }
 .board-pending__move, .board-pending__resize, .board-pending__remove { position: absolute; height: 28px; border-radius: 6px; background: rgba(0,0,0,0.6); color: white; border: 1px solid rgba(255,255,255,0.2); font-size: 12px; cursor: pointer; }
 .board-pending__move { left: 4px; top: 4px; width: 32px; cursor: move; }
 .board-pending__resize { right: 4px; bottom: 4px; width: 28px; cursor: se-resize; }

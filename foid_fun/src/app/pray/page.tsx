@@ -813,8 +813,9 @@ function PrayPageContent() {
           padding-left: 4px;
         }
         .pray-liquid-glass-terminal :global(.foid-terminal__input) {
-          border: 1px solid rgba(0, 255, 213, 0.3) !important;
-          background: rgba(0, 20, 30, 0.4) !important;
+          border: 1px solid rgba(0, 255, 213, 0.25) !important;
+          background: rgba(2, 14, 24, 0.6) !important;
+          box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25);
         }
         
         /* Status indicator */
