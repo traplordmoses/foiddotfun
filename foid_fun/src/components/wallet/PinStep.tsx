@@ -64,7 +64,7 @@ export default function PinStep({
 
       <div>
         <label className="block text-xs text-white/50 tracking-widest uppercase mb-2">
-          {mode === 'create' ? `Choose a PIN (${MIN_PIN_LENGTH}+ characters)` : 'Enter your PIN'}
+          {mode === 'create' ? `Choose a password (${MIN_PIN_LENGTH}+ characters)` : 'Enter your password'}
         </label>
         <div className="relative">
           <input
@@ -72,7 +72,7 @@ export default function PinStep({
             type={showPin ? 'text' : 'password'}
             value={pin}
             onChange={(e) => onPinChange(e.target.value)}
-            placeholder="Enter PIN"
+            placeholder="Enter password"
             autoComplete="off"
             className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2.5 pr-16 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none font-mono tracking-wider"
           />
@@ -89,13 +89,13 @@ export default function PinStep({
       {mode === 'create' && (
         <div>
           <label className="block text-xs text-white/50 tracking-widest uppercase mb-2">
-            Confirm PIN
+            Confirm password
           </label>
           <input
             type={showPin ? 'text' : 'password'}
             value={pinConfirm}
             onChange={(e) => onPinConfirmChange(e.target.value)}
-            placeholder="Confirm PIN"
+            placeholder="Confirm password"
             autoComplete="off"
             className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none font-mono tracking-wider"
           />
@@ -104,7 +104,7 @@ export default function PinStep({
 
       <p className="text-[11px] text-white/40 leading-relaxed">
         {mode === 'create'
-          ? 'Your PIN encrypts your private key. It is never stored. If you forget it, you will need your backup to recover.'
+          ? 'Your password encrypts your private key. It is never stored. If you forget it, you will need your backup to recover.'
           : 'You will also be prompted for passkey authentication.'}
       </p>
 

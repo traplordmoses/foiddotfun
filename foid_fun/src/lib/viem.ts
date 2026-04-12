@@ -93,6 +93,7 @@ function isEmbeddedWalletActive(): boolean {
 async function createActiveWalletClient() {
   if (isEmbeddedWalletActive()) {
     const { getSession, setSession } = await import("@/lib/wallet");
+    const { WORKER_MANAGED_KEY } = await import("@/lib/wallet/constants");
     let session = getSession();
 
     if (!session) {
@@ -104,6 +105,68 @@ async function createActiveWalletClient() {
       if (!result) throw new Error("Wallet unlock cancelled");
       setSession(result.privateKey, result.address);
       session = result;
+    }
+
+    // When the key is managed by the Web Worker, session.privateKey is a sentinel
+    // string ("__WORKER_MANAGED__"), not a real key. Build a custom EIP-1193
+    // provider that routes signing through the Worker-based session functions.
+    if (session.privateKey === WORKER_MANAGED_KEY) {
+      const addr = session.address as `0x${string}`;
+      const workerProvider: EthereumProvider = {
+        request: async ({ method, params }: { method: string; params?: readonly unknown[] }) => {
+          switch (method) {
+            case "eth_requestAccounts":
+            case "eth_accounts":
+              return [addr];
+            case "eth_chainId":
+              return toHex(CHAIN_ID);
+            case "eth_sendTransaction": {
+              const [tx] = (params ?? []) as [Record<string, string>];
+              const { sessionSignTransaction } = await import("@/lib/wallet");
+              const nonce = Number(
+                await publicClient.getTransactionCount({ address: addr }),
+              );
+              const gasPrice = await publicClient.getGasPrice();
+              let gas: bigint;
+              try {
+                gas = tx.gas
+                  ? BigInt(tx.gas)
+                  : await publicClient.estimateGas({
+                      account: addr,
+                      to: tx.to as `0x${string}`,
+                      value: tx.value ? BigInt(tx.value) : 0n,
+                      data: tx.data as `0x${string}` | undefined,
+                    });
+              } catch {
+                gas = BigInt(500_000);
+              }
+              const signedTx = await sessionSignTransaction({
+                to: tx.to as `0x${string}`,
+                value: tx.value ? BigInt(tx.value) : 0n,
+                data: (tx.data as `0x${string}`) ?? undefined,
+                gas,
+                gasPrice,
+                nonce,
+                chainId: CHAIN_ID,
+              });
+              const hash = await publicClient.request({
+                method: "eth_sendRawTransaction",
+                params: [signedTx as `0x${string}`],
+              });
+              return hash;
+            }
+            default: {
+              // Proxy all read calls to the public client's transport
+              return publicClient.request({ method, params } as never);
+            }
+          }
+        },
+      };
+      return createWalletClient({
+        account: addr,
+        chain: fluentChain,
+        transport: custom(workerProvider),
+      });
     }
 
     const { privateKeyToAccount } = await import("viem/accounts");

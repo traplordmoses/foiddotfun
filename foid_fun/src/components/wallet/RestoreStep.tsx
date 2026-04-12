@@ -31,7 +31,7 @@ export default function RestoreStep({ pin, onPinChange, onRestore, onBack, error
     <div className="space-y-4">
       <p className="text-sm text-white/80 leading-relaxed">
         Paste your backup data or upload your backup file. You&apos;ll need your
-        original PIN to decrypt it.
+        original password to decrypt it.
       </p>
 
       {error && (
@@ -73,17 +73,17 @@ export default function RestoreStep({ pin, onPinChange, onRestore, onBack, error
         />
       </div>
 
-      {/* PIN */}
+      {/* Password */}
       <div>
         <label className="block text-xs text-white/50 tracking-widest uppercase mb-2">
-          Your PIN
+          Your password
         </label>
         <div className="relative">
           <input
             type={showPin ? 'text' : 'password'}
             value={pin}
             onChange={(e) => onPinChange(e.target.value)}
-            placeholder="Enter your original PIN"
+            placeholder="Enter your original password"
             autoComplete="off"
             className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2.5 pr-16 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none font-mono tracking-wider"
           />

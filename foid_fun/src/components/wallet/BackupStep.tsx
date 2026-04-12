@@ -54,12 +54,12 @@ export default function BackupStep({ address, prfActive, onContinue }: BackupSte
       >
         <div className="flex items-center gap-2 mb-1.5" style={{ color: 'rgba(72,255,171,0.9)' }}>
           <span style={{ fontSize: 14 }}>{'\u2713'}</span>
-          <span className="font-medium">Secured with passkey + PIN encryption</span>
+          <span className="font-medium">Secured with passkey + password encryption</span>
         </div>
         <p style={{ color: 'rgba(72,255,171,0.55)', fontSize: 11, lineHeight: 1.5, paddingLeft: 22 }}>
           {prfActive
-            ? 'Your key is encrypted with both your PIN and biometric data. Maximum security.'
-            : 'Your passkey authenticates you. Your PIN encrypts the key. Both are needed to access your wallet.'}
+            ? 'Your key is encrypted with both your password and biometric data. Maximum security.'
+            : 'Your passkey authenticates you. Your password encrypts the key. Both are needed to access your wallet.'}
         </p>
       </div>
 

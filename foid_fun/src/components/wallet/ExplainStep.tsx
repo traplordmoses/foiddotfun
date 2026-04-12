@@ -11,12 +11,12 @@ export default function ExplainStep({ onContinue, onRestore, onCancel }: Explain
     <div className="space-y-4">
       <p className="text-sm text-white/80 leading-relaxed">
         FOID Wallet creates a secure wallet on your device. Your private
-        key is encrypted with a PIN you choose, plus passkey
+        key is encrypted with a password you choose, plus passkey
         authentication.
       </p>
       <p className="text-xs text-white/50 leading-relaxed">
-        No browser extension needed. No seed phrase. Just a short PIN and
-        your passkey. Your PIN is never stored anywhere.
+        No browser extension needed. No seed phrase. Just a password and
+        your passkey. Your password is never stored anywhere.
       </p>
       <div className="flex gap-3 pt-2">
         <button
