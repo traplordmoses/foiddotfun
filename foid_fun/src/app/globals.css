@@ -14,10 +14,6 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-.app-viewport {
-  zoom: 0.9;
-}
-
 /* Primary CTA button — used for Propose Meme, etc. */
 .foid-cta-btn {
   display: inline-flex;
@@ -3809,7 +3805,6 @@ body {
 
   /* 2. App viewport: kill desktop zoom, enable scroll */
   .app-viewport {
-    zoom: 1 !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch;
