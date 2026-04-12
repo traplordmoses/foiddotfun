@@ -93,7 +93,7 @@ export function TerminalChat({
 
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
-    if (!trimmed || isSending) return;
+    if (!trimmed || isSending || !walletAddress) return;
 
     setIsSending(true);
     setInput("");
@@ -105,7 +105,7 @@ export function TerminalChat({
       {
         id: optimisticId,
         created_at: new Date().toISOString(),
-        wallet_address: walletAddress || null,
+        wallet_address: walletAddress,
         message: trimmed,
         type: "chat",
       },
@@ -114,11 +114,18 @@ export function TerminalChat({
     try {
       // Save to Supabase if enabled
       if (enableSupabase) {
-        await insertBoardMessage({
-          wallet_address: walletAddress || null,
+        const result = await insertBoardMessage({
+          wallet_address: walletAddress,
           message: trimmed,
           type: "chat",
         });
+
+        // If insert failed, remove the optimistic message
+        if (!result) {
+          setSupabaseMessages((prev) =>
+            prev.filter((m) => m.id !== optimisticId)
+          );
+        }
       }
 
       // Call parent callback if provided
@@ -127,6 +134,10 @@ export function TerminalChat({
       }
     } catch (err) {
       console.error("TerminalChat send failed", err);
+      // Remove optimistic message on error
+      setSupabaseMessages((prev) =>
+        prev.filter((m) => m.id !== optimisticId)
+      );
     } finally {
       setIsSending(false);
     }
@@ -209,14 +220,15 @@ export function TerminalChat({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="type here..."
+          placeholder={walletAddress ? "type here..." : "connect wallet to chat"}
           className="terminal-chat__input"
+          disabled={!walletAddress}
         />
         <button
           type="button"
           className="terminal-chat__send"
           onClick={() => void handleSend()}
-          disabled={isSending || !input.trim()}
+          disabled={isSending || !input.trim() || !walletAddress}
         >
           SEND
         </button>

@@ -135,6 +135,7 @@ export function subscribeToBoardMessages(
           event: "INSERT",
           schema: "public",
           table: "board_messages",
+          filter: "type=eq.chat",
         },
         (payload) => {
           if (payload.new) {
