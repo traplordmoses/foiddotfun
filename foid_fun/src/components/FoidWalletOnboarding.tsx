@@ -158,7 +158,7 @@ export default function FoidWalletOnboarding() {
     const wallet = load();
     if (!wallet) return;
     const body = encodeURIComponent(
-      `FOID Wallet Backup\n\nAddress: ${wallet.address}\nCreated: ${wallet.createdAt}\n\n--- ENCRYPTED WALLET DATA (keep this safe) ---\n\n${JSON.stringify(wallet)}\n\n--- END ---\n\nYou will need your PIN to restore this wallet.`,
+      `FOID Wallet Backup\n\nAddress: ${wallet.address}\nCreated: ${wallet.createdAt}\n\n--- ENCRYPTED WALLET DATA (keep this safe) ---\n\n${JSON.stringify(wallet)}\n\n--- END ---\n\nYou will need your password to restore this wallet.`,
     );
     const subject = encodeURIComponent(
       `FOID Wallet Backup — ${wallet.address.slice(0, 8)}...${wallet.address.slice(-4)}`,
@@ -188,7 +188,7 @@ export default function FoidWalletOnboarding() {
       return;
     }
     if (pin.length < 6) {
-      setError('Enter your PIN to decrypt the wallet.');
+      setError('Enter your password to decrypt the wallet.');
       return;
     }
     try {
@@ -217,12 +217,12 @@ export default function FoidWalletOnboarding() {
     setError(null);
 
     if (pin.length < 6) {
-      setError('PIN must be at least 6 characters.');
+      setError('Password must be at least 6 characters.');
       return;
     }
 
     if (mode === 'create' && pin !== pinConfirm) {
-      setError('PINs do not match.');
+      setError('Passwords do not match.');
       return;
     }
 
@@ -310,7 +310,7 @@ export default function FoidWalletOnboarding() {
           <div className="text-lg font-bold tracking-wide">FOID WALLET</div>
           <div className="mt-1 text-xs text-white/50 tracking-widest uppercase">
             {step === 'explain' && 'Forge Your Identity'}
-            {step === 'pin' && (mode === 'create' ? 'Choose Your Secret Key' : mode === 'unlock' ? 'Enter PIN' : 'Restore')}
+            {step === 'pin' && (mode === 'create' ? 'Choose Your Secret Key' : mode === 'unlock' ? 'Enter Password' : 'Restore')}
             {step === 'working' && (mode === 'create' ? 'Forging...' : 'Unlocking...')}
             {step === 'mnemonic' && 'Your Sacred Words'}
             {step === 'backup' && 'Seal Your Identity'}
@@ -360,7 +360,7 @@ export default function FoidWalletOnboarding() {
               encrypted with a secret only you know.
             </p>
             <p className="text-xs text-white/50 leading-relaxed">
-              No extensions. No seed phrases to memorize upfront. Just a PIN and your device.
+              No extensions. No seed phrases to memorize upfront. Just a password and your device.
               Your private key never leaves this browser unencrypted.
             </p>
             <div className="flex gap-3 pt-2">
@@ -406,7 +406,7 @@ export default function FoidWalletOnboarding() {
           <div className="space-y-4">
             <div>
               <label className="block text-xs text-white/50 tracking-widest uppercase mb-2">
-                {mode === 'create' ? 'Choose your secret key (6+ characters)' : 'Enter your PIN'}
+                {mode === 'create' ? 'Choose your secret key (6+ characters)' : 'Enter your password'}
               </label>
               <div className="relative">
                 <input
@@ -414,7 +414,7 @@ export default function FoidWalletOnboarding() {
                   type={showPin ? 'text' : 'password'}
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
-                  placeholder="Enter PIN"
+                  placeholder="Enter password"
                   autoComplete="off"
                   className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2.5 pr-16 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none font-mono tracking-wider"
                 />
@@ -431,13 +431,13 @@ export default function FoidWalletOnboarding() {
             {mode === 'create' && (
               <div>
                 <label className="block text-xs text-white/50 tracking-widest uppercase mb-2">
-                  Confirm PIN
+                  Confirm password
                 </label>
                 <input
                   type={showPin ? 'text' : 'password'}
                   value={pinConfirm}
                   onChange={(e) => setPinConfirm(e.target.value)}
-                  placeholder="Confirm PIN"
+                  placeholder="Confirm password"
                   autoComplete="off"
                   className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none font-mono tracking-wider"
                 />
@@ -482,7 +482,7 @@ export default function FoidWalletOnboarding() {
             <div className="text-xs text-white/50 text-center leading-relaxed max-w-[280px] space-y-2">
               <p>
                 Your browser will ask you to create a <strong className="text-white/70">passkey</strong> &mdash;
-                like a fingerprint, Face ID, or device PIN.
+                like a fingerprint, Face ID, or device passcode.
               </p>
               <p className="text-white/35">
                 This binds your wallet to this device as a second layer of protection alongside your secret key.
@@ -563,13 +563,13 @@ export default function FoidWalletOnboarding() {
               <div className="flex items-center gap-2 mb-1.5" style={{ color: 'rgba(72,255,171,0.9)' }}>
                 <span style={{ fontSize: 14 }}>{'\u2713'}</span>
                 <span className="font-medium">
-                  Secured with passkey + PIN encryption
+                  Secured with passkey + password encryption
                 </span>
               </div>
               <p style={{ color: 'rgba(72,255,171,0.55)', fontSize: 11, lineHeight: 1.5, paddingLeft: 22 }}>
                 {prfActive
-                  ? 'Your key is encrypted with both your PIN and biometric data. Maximum security.'
-                  : 'Your passkey authenticates you. Your PIN encrypts the key. Both are needed to access your wallet.'}
+                  ? 'Your key is encrypted with both your password and biometric data. Maximum security.'
+                  : 'Your passkey authenticates you. Your password encrypts the key. Both are needed to access your wallet.'}
               </p>
             </div>
 
@@ -634,7 +634,7 @@ export default function FoidWalletOnboarding() {
           <div className="space-y-4">
             <p className="text-sm text-white/80 leading-relaxed">
               Paste your backup data or upload your backup file. You&apos;ll need your
-              original PIN to decrypt it.
+              original password to decrypt it.
             </p>
 
             {/* File upload */}
@@ -669,14 +669,14 @@ export default function FoidWalletOnboarding() {
             {/* PIN */}
             <div>
               <label className="block text-xs text-white/50 tracking-widest uppercase mb-2">
-                Your PIN
+                Your password
               </label>
               <div className="relative">
                 <input
                   type={showPin ? 'text' : 'password'}
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
-                  placeholder="Enter your original PIN"
+                  placeholder="Enter your original password"
                   autoComplete="off"
                   className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2.5 pr-16 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none font-mono tracking-wider"
                 />
@@ -718,7 +718,7 @@ export default function FoidWalletOnboarding() {
           <div className="space-y-4">
             <p className="text-sm text-white/80 leading-relaxed">
               Enter your 12-word seed phrase to restore your wallet.
-              You&apos;ll choose a new PIN to protect it on this device.
+              You&apos;ll choose a new password to protect it on this device.
             </p>
 
             <div>
@@ -736,14 +736,14 @@ export default function FoidWalletOnboarding() {
 
             <div>
               <label className="block text-xs text-white/50 tracking-widest uppercase mb-2">
-                Choose a new PIN (6+ characters)
+                Choose a new password (6+ characters)
               </label>
               <div className="relative">
                 <input
                   type={showPin ? 'text' : 'password'}
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
-                  placeholder="Enter new PIN"
+                  placeholder="Enter new password"
                   autoComplete="off"
                   className="w-full rounded-lg border border-white/15 bg-black/40 px-3 py-2.5 pr-16 text-sm text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none font-mono tracking-wider"
                 />
@@ -779,7 +779,7 @@ export default function FoidWalletOnboarding() {
                     return;
                   }
                   if (pin.length < 6) {
-                    setError('PIN must be at least 6 characters.');
+                    setError('Password must be at least 6 characters.');
                     return;
                   }
                   setStep('working');
