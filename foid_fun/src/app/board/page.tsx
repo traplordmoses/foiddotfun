@@ -323,6 +323,61 @@ function BoardPageContent() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // Prevent browser-level zoom (pinch-to-zoom, Ctrl+scroll, etc.)
+  // so users don't accidentally zoom the entire page instead of the board canvas
+  useEffect(() => {
+    const LOCKED = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no";
+
+    // 1. Lock ALL viewport meta tags & keep them locked via MutationObserver
+    //    (Next.js may re-render <head> and reset attributes)
+    const allMetas = document.querySelectorAll('meta[name="viewport"]');
+    const originals = Array.from(allMetas).map((m) => m.getAttribute("content") ?? "");
+    const lockMetas = () => allMetas.forEach((m) => m.setAttribute("content", LOCKED));
+    lockMetas();
+
+    const observer = new MutationObserver((mutations) => {
+      for (const mut of mutations) {
+        if (
+          mut.type === "attributes" &&
+          (mut.target as Element).getAttribute?.("name") === "viewport" &&
+          (mut.target as Element).getAttribute("content") !== LOCKED
+        ) {
+          (mut.target as Element).setAttribute("content", LOCKED);
+        }
+      }
+    });
+    allMetas.forEach((m) => observer.observe(m, { attributes: true, attributeFilter: ["content"] }));
+
+    // 2. Safari gesture events (pinch-to-zoom on trackpad/touch)
+    const preventGesture = (e: Event) => e.preventDefault();
+    document.addEventListener("gesturestart", preventGesture, { passive: false });
+    document.addEventListener("gesturechange", preventGesture, { passive: false });
+
+    // 3. Chrome/Firefox trackpad pinch-to-zoom (reported as Ctrl+wheel)
+    const preventCtrlWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) e.preventDefault();
+    };
+    document.addEventListener("wheel", preventCtrlWheel, { passive: false });
+
+    // 4. Prevent double-tap-to-zoom on the whole page
+    let lastTap = 0;
+    const preventDoubleTapZoom = (e: TouchEvent) => {
+      const now = Date.now();
+      if (now - lastTap < 300) e.preventDefault();
+      lastTap = now;
+    };
+    document.addEventListener("touchend", preventDoubleTapZoom, { passive: false });
+
+    return () => {
+      observer.disconnect();
+      allMetas.forEach((m, i) => m.setAttribute("content", originals[i]));
+      document.removeEventListener("gesturestart", preventGesture);
+      document.removeEventListener("gesturechange", preventGesture);
+      document.removeEventListener("wheel", preventCtrlWheel);
+      document.removeEventListener("touchend", preventDoubleTapZoom);
+    };
+  }, []);
+
   // Pan handlers
   const onContainerPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
     const interactive = (e.target as HTMLElement).closest("figure,button,input,textarea,select,label");

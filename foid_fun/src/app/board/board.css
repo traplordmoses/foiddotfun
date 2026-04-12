@@ -8,6 +8,7 @@
   width: 100%;
   z-index: 0;
   overscroll-behavior: contain;
+  touch-action: none;
   --board-radius-lg: 14px;
   --board-radius-md: 12px;
   --foid-bg-deepest: #030b12;
