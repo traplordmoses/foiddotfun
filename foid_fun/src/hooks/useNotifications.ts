@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useMemo, useCallback, useState, useEffect, useRef } from "react";
 import { useUserPlacements, type Placement } from "@/hooks/useUserPlacements";
 import { useBoardEvents } from "@/hooks/useBoardEvents";
@@ -219,14 +220,44 @@ export function useNotifications(
       const newest = notifications.find((n) => !n.isRead);
       if (newest) {
         const icon = TYPE_ICONS[newest.type] ?? "";
-        toast(`${icon} ${newest.message}`, {
-          duration: 4000,
-          style: {
-            fontFamily: "var(--font-mono, monospace)",
-            fontSize: "11px",
-            letterSpacing: "0.04em",
+        toast(
+          (t) =>
+            React.createElement(
+              "div",
+              { style: { display: "flex", alignItems: "center", gap: "8px", width: "100%" } },
+              React.createElement(
+                "span",
+                { style: { flex: 1, minWidth: 0 } },
+                `${icon} ${newest.message}`,
+              ),
+              React.createElement(
+                "button",
+                {
+                  onClick: () => toast.dismiss(t.id),
+                  style: {
+                    background: "rgba(255,255,255,0.1)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    borderRadius: "6px",
+                    color: "rgba(255,255,255,0.6)",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    lineHeight: 1,
+                    padding: "3px 6px",
+                    flexShrink: 0,
+                  },
+                },
+                "\u2715",
+              ),
+            ),
+          {
+            duration: 6000,
+            style: {
+              fontFamily: "var(--font-mono, monospace)",
+              fontSize: "11px",
+              letterSpacing: "0.04em",
+            },
           },
-        });
+        );
       }
     }
     prevCountRef.current = notifications.length;
@@ -259,6 +290,7 @@ export function useNotifications(
 
   return {
     notifications,
+    placements,
     unreadCount,
     newCount,
     hasCanonization,

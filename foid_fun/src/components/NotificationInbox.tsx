@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNotifications, type Notification, type NotificationType } from "@/hooks/useNotifications";
+import { useVoteAlerts } from "@/hooks/useVoteAlerts";
 import { toIpfsHttpUrl } from "@/lib/ipfsUrl";
 import { getAudioSettings } from "@/lib/audioSettings";
 import { IS_MAINNET } from "@/config/canonical";
@@ -528,6 +529,7 @@ export function NotificationInbox({ address }: Props) {
   const [open, setOpen] = useState(false);
   const {
     notifications,
+    placements,
     newCount,
     hasCanonization,
     isLoading,
@@ -535,6 +537,9 @@ export function NotificationInbox({ address }: Props) {
     markAllRead,
     markSeen,
   } = useNotifications(address, open);
+
+  // Fire toast notifications when someone votes on the user's proposals
+  useVoteAlerts(address, placements);
 
   const handleOpen = useCallback(() => {
     setOpen(true);

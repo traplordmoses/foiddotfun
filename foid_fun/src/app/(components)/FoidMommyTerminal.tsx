@@ -359,6 +359,28 @@ export default function FoidMommyTerminal({
   const attachedTypingTargets = useRef(new WeakSet<HTMLElement>());
   const lastStageRef = useRef<Stage>("idle");
 
+  // Stable refs for prayer-memory callbacks so the loading effect
+  // doesn't re-trigger when entries change mid-sequence.
+  const getDaysSinceLastPrayerRef = useRef(getDaysSinceLastPrayer);
+  const getFeelingFrequencyRef = useRef(getFeelingFrequency);
+  const getLastEntryRef = useRef(getLastEntry);
+  const localStreakRef = useRef(localStreak);
+  const hasMemoryConsentRef = useRef(hasMemoryConsent);
+  const memoryEntriesLenRef = useRef(memoryEntries.length);
+  const needsConsentPromptRef = useRef(needsConsentPrompt);
+  const nextAllowedAtRef = useRef(nextAllowedAt);
+  const grantConsentRef = useRef(grantConsent);
+
+  getDaysSinceLastPrayerRef.current = getDaysSinceLastPrayer;
+  getFeelingFrequencyRef.current = getFeelingFrequency;
+  getLastEntryRef.current = getLastEntry;
+  localStreakRef.current = localStreak;
+  hasMemoryConsentRef.current = hasMemoryConsent;
+  memoryEntriesLenRef.current = memoryEntries.length;
+  needsConsentPromptRef.current = needsConsentPrompt;
+  nextAllowedAtRef.current = nextAllowedAt;
+  grantConsentRef.current = grantConsent;
+
   const addMessage = useCallback((role: MessageRole, text: string) => {
     const id = makeId();
     setMessages((prev) => [...prev, { id, role, text }]);
@@ -501,7 +523,9 @@ export default function FoidMommyTerminal({
     setPrayerRevealing(false);
     setPrayerMessageId(null);
 
-    const isReturningUser = hasMemoryConsent && memoryEntries.length > 0;
+    // Snapshot values from refs so the effect doesn't re-trigger
+    // when prayer-memory entries/callbacks change mid-sequence.
+    const isReturningUser = hasMemoryConsentRef.current && memoryEntriesLenRef.current > 0;
 
     const sequence = async () => {
       // Returning users get a faster boot (skip ASCII art)
@@ -522,14 +546,14 @@ export default function FoidMommyTerminal({
       }
 
       // Auto-grant memory consent (privacy disclosed in sidebar text)
-      if (needsConsentPrompt) {
-        grantConsent();
+      if (needsConsentPromptRef.current) {
+        grantConsentRef.current();
       }
 
       // Memory-aware greeting for returning users
       if (isReturningUser) {
-        const daysSince = getDaysSinceLastPrayer();
-        const streak = localStreak;
+        const daysSince = getDaysSinceLastPrayerRef.current();
+        const streak = localStreakRef.current;
 
         // Graceful streak break
         if (daysSince !== null && daysSince > 1) {
@@ -559,8 +583,8 @@ export default function FoidMommyTerminal({
         }
 
         // Feeling pattern or last feeling reference
-        const freq = getFeelingFrequency(7);
-        const lastEntry = getLastEntry();
+        const freq = getFeelingFrequencyRef.current(7);
+        const lastEntry = getLastEntryRef.current();
         const dominantFeeling = Object.entries(freq).sort((a, b) => b[1] - a[1])[0];
 
         if (dominantFeeling && dominantFeeling[1] >= 3) {
@@ -585,11 +609,12 @@ export default function FoidMommyTerminal({
 
       // Check cooldown before letting user start the prayer flow
       const nowSec = Math.floor(Date.now() / 1000);
+      const curNextAllowed = nextAllowedAtRef.current;
       const nextAllowedSec =
-        typeof nextAllowedAt === "bigint"
-          ? Number(nextAllowedAt)
-          : typeof nextAllowedAt === "number"
-            ? nextAllowedAt
+        typeof curNextAllowed === "bigint"
+          ? Number(curNextAllowed)
+          : typeof curNextAllowed === "number"
+            ? curNextAllowed
             : null;
       const isCooldownActive = nextAllowedSec !== null && nextAllowedSec > nowSec;
 
@@ -624,10 +649,10 @@ export default function FoidMommyTerminal({
     return () => {
       resetTimers();
     };
-  }, [stage, typeMessage, addMessage, updateMessage, resetTimers, clearDraft,
-      hasMemoryConsent, memoryEntries.length, needsConsentPrompt,
-      getDaysSinceLastPrayer, localStreak, getFeelingFrequency, getLastEntry,
-      nextAllowedAt]);
+    // Only stage should trigger this effect. All prayer-memory values
+    // are read from refs to prevent re-running mid-sequence.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, typeMessage, addMessage, resetTimers, clearDraft]);
 
   const handleStart = useCallback(async () => {
     try {
