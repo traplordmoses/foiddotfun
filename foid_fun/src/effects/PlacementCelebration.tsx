@@ -108,11 +108,14 @@ export default function PlacementCelebration({
     return () => clearTimeout(t);
   }, [exiting]);
 
-  // Share to X
+  // Share to X — randomised tweet templates
   const handleShare = () => {
-    const text = encodeURIComponent(
-      `just engraved on the @foidfun loreboard ⚡${proposalId != null ? `\n\nProposal #${proposalId}` : ""}\n\nhttps://foid.fun/board`,
-    );
+    const tweets = [
+      `do you know what? i just made the ${proposalId != null ? `#${proposalId}` : ""} proposal to the @foidfun loreboard!!\n\ngo check it out and vote.\n\nhttps://foid.fun/board`,
+      `yeowww i proposed a meme to the @foidfun loreboard!!\n\nhttps://foid.fun/board`,
+      `yippppeeee i just proposed an image to the @foidfun loreboard!!\n\nhttps://foid.fun/board`,
+    ];
+    const text = encodeURIComponent(tweets[Math.floor(Math.random() * tweets.length)]);
     window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
   };
 
@@ -446,36 +449,38 @@ export default function PlacementCelebration({
         /* ── ENGRAVED headline ── */
         .pc-headline {
           position: relative; z-index: 5;
-          font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+          font-family: "SF Pro Display", "Inter", system-ui, -apple-system, sans-serif;
           font-weight: 900;
-          font-size: clamp(28px, 5.5vw, 48px);
-          letter-spacing: 0.25em;
+          font-size: clamp(30px, 6vw, 52px);
+          letter-spacing: 0.32em;
           line-height: 1;
-          /* Chrome/metallic gradient text */
+          text-transform: uppercase;
+          /* FOID palette gradient — cyan → purple → pink with white highlights */
           background: linear-gradient(
             135deg,
-            #fbbf24 0%,
-            #fff 25%,
-            #fbbf24 40%,
-            #fff 60%,
-            #fbbf24 80%,
-            #fff 100%
+            #74ffeb 0%,
+            #a78bfa 20%,
+            #f472b6 40%,
+            #fff 50%,
+            #74ffeb 60%,
+            #a78bfa 80%,
+            #f472b6 100%
           );
-          background-size: 200% 200%;
+          background-size: 300% 300%;
           -webkit-background-clip: text;
           background-clip: text;
           -webkit-text-fill-color: transparent;
-          /* Emboss via layered shadows on a pseudo */
-          filter: drop-shadow(0 -1px 0 rgba(255,255,255,0.2)) drop-shadow(0 2px 0 rgba(0,0,0,0.8));
+          /* Ethereal glow shadows */
+          filter: drop-shadow(0 0 8px rgba(116, 255, 235, 0.4)) drop-shadow(0 0 24px rgba(167, 139, 250, 0.3));
           opacity: 0;
           animation:
-            pc-text-enter 600ms 1300ms cubic-bezier(0.16, 0.86, 0.22, 1) forwards,
-            pc-chrome-shift 3s 2000ms ease-in-out infinite alternate;
+            pc-text-enter 700ms 1300ms cubic-bezier(0.16, 0.86, 0.22, 1) forwards,
+            pc-chrome-shift 4s 2000ms ease-in-out infinite alternate;
         }
         @keyframes pc-text-enter {
-          0%   { opacity: 0; transform: translateY(6px) scale(0.92); }
-          60%  { opacity: 1; transform: translateY(-3px) scale(1.04); }
-          100% { opacity: 1; transform: translateY(0) scale(1); }
+          0%   { opacity: 0; transform: translateY(8px) scale(0.88); filter: drop-shadow(0 0 0px transparent); }
+          50%  { opacity: 1; transform: translateY(-4px) scale(1.06); filter: drop-shadow(0 0 20px rgba(116, 255, 235, 0.6)) drop-shadow(0 0 40px rgba(167, 139, 250, 0.4)); }
+          100% { opacity: 1; transform: translateY(0) scale(1); filter: drop-shadow(0 0 8px rgba(116, 255, 235, 0.4)) drop-shadow(0 0 24px rgba(167, 139, 250, 0.3)); }
         }
         @keyframes pc-chrome-shift {
           0%   { background-position: 0% 50%; }
@@ -637,7 +642,7 @@ export default function PlacementCelebration({
         @media (prefers-reduced-motion: reduce) {
           .pc-flash, .pc-particles, .pc-lightning, .pc-shockwave { display: none; }
           .pc-slab { animation: none; opacity: 1; }
-          .pc-headline { animation: none; opacity: 1; -webkit-text-fill-color: #fbbf24; }
+          .pc-headline { animation: none; opacity: 1; -webkit-text-fill-color: #74ffeb; }
           .pc-hero-frame { animation: none; opacity: 1; }
           .pc-hero-sheen { display: none; }
           .pc-meta, .pc-share { animation: none; opacity: 1; }
