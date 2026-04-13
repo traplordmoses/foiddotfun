@@ -94,42 +94,49 @@ export function TerminalChat({
       if (cancelled) return;
       setRealtimeStatus("reconnecting");
 
-      // Remove previous channel if exists
-      if (currentChannel) {
-        supabase!.removeChannel(currentChannel);
+      try {
+        // Remove previous channel if exists
+        if (currentChannel) {
+          supabase!.removeChannel(currentChannel);
+        }
+
+        const channel = supabase!
+          .channel(`board_messages_changes_${Date.now()}`)
+          .on<BoardMessage>(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "board_messages",
+              filter: "type=eq.chat",
+            },
+            (payload) => {
+              if (payload.new) {
+                setSupabaseMessages((prev) => [...prev, payload.new]);
+              }
+            }
+          )
+          .subscribe((status) => {
+            if (status === "SUBSCRIBED") {
+              setRealtimeStatus("connected");
+              attempt = 0;
+            } else if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+              setRealtimeStatus("disconnected");
+              if (!cancelled) {
+                const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
+                attempt++;
+                reconnectTimer = setTimeout(connect, delay);
+              }
+            }
+          });
+
+        currentChannel = channel;
+      } catch (err) {
+        // WebSocket can throw synchronously on insecure contexts (e.g. ws:// on https:// page).
+        // Degrade gracefully — chat will work without real-time updates.
+        console.warn("[TerminalChat] Realtime connection failed:", err);
+        setRealtimeStatus("disconnected");
       }
-
-      const channel = supabase!
-        .channel(`board_messages_changes_${Date.now()}`)
-        .on<BoardMessage>(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "board_messages",
-            filter: "type=eq.chat",
-          },
-          (payload) => {
-            if (payload.new) {
-              setSupabaseMessages((prev) => [...prev, payload.new]);
-            }
-          }
-        )
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            setRealtimeStatus("connected");
-            attempt = 0;
-          } else if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-            setRealtimeStatus("disconnected");
-            if (!cancelled) {
-              const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
-              attempt++;
-              reconnectTimer = setTimeout(connect, delay);
-            }
-          }
-        });
-
-      currentChannel = channel;
     }
 
     connect();

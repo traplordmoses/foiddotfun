@@ -6,6 +6,7 @@
 import "./board.css";
 
 import React, {
+  Component,
   Suspense,
   startTransition,
   useCallback,
@@ -13,6 +14,7 @@ import React, {
   useRef,
   useState,
   useEffect,
+  type ReactNode,
 } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAccount, useDisconnect } from "wagmi";
@@ -121,6 +123,31 @@ type Ghost = { rect: Rect; cells: number; status: GhostStatus; totalWei: bigint 
 // COMPONENTS NOW IMPORTED FROM /src/components/
 // TerminalChat, Y2kActionButton, VotingItem
 // ============================================================================
+
+/** Lightweight boundary so a chat/WebSocket crash can't take down the board */
+class ChatErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(err: Error) { console.warn("[ChatErrorBoundary]", err.message); }
+  render() {
+    if (this.state.failed) return (
+      <div className="board-section--chat-wrapper">
+        <div className="board-section board-section--chat" style={{ opacity: 0.6 }}>
+          <div className="board-section__header">
+            <span className="board-section__dot" />
+            <span className="board-section__title">CHAT</span>
+            <span className="board-section__status" data-status="offline">offline</span>
+          </div>
+          <p style={{ padding: 12, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
+            Chat unavailable in this browser. Try opening foid.fun directly.
+          </p>
+        </div>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
 // ============================================================================
 // UTILITY FUNCTIONS
 // (Image and coordinate utilities now imported from /src/lib/)
@@ -1306,28 +1333,31 @@ function BoardPageContent() {
                   {/* Moderation — active removal votes */}
                   <RemovalVotePanel placementIds={placed.map((p) => p.id)} />
 
-                  {/* Chat */}
-                  <div className="board-section--chat-wrapper">
-                    <div className="board-section board-section--chat">
-                      <div className="board-section__header">
-                        <span className="board-section__dot" />
-                        <span className="board-section__title">CHAT</span>
-                        <span
-                          className="board-section__status"
-                          data-status={isConnected ? "online" : "offline"}
-                        >
-                          {isConnected ? "online" : "offline"}
-                        </span>
+                  {/* Chat — wrapped in its own boundary so a WebSocket failure
+                       (common in mobile in-app browsers) can't crash the whole board */}
+                  <ChatErrorBoundary>
+                    <div className="board-section--chat-wrapper">
+                      <div className="board-section board-section--chat">
+                        <div className="board-section__header">
+                          <span className="board-section__dot" />
+                          <span className="board-section__title">CHAT</span>
+                          <span
+                            className="board-section__status"
+                            data-status={isConnected ? "online" : "offline"}
+                          >
+                            {isConnected ? "online" : "offline"}
+                          </span>
+                        </div>
+                        <TerminalChat
+                          className="h-full"
+                          statusMessages={statusMessages}
+                          onSend={handleChatSend}
+                          enableSupabase={true}
+                          walletAddress={address}
+                        />
                       </div>
-                      <TerminalChat
-                        className="h-full"
-                        statusMessages={statusMessages}
-                        onSend={handleChatSend}
-                        enableSupabase={true}
-                        walletAddress={address}
-                      />
                     </div>
-                  </div>
+                  </ChatErrorBoundary>
 
                   {/* Music + Epoch removed — music is now global bar, epoch was clutter */}
 

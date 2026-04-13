@@ -38,8 +38,17 @@ export type BoardEventInsert = {
 // SUPABASE CLIENT (gracefully disabled when credentials are placeholders)
 // ============================================================================
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const rawSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+
+// Force HTTPS when the page is served over HTTPS to prevent mixed-content
+// "The operation is insecure" WebSocket errors on mobile browsers.
+const supabaseUrl =
+  typeof window !== "undefined" &&
+  window.location?.protocol === "https:" &&
+  rawSupabaseUrl.startsWith("http://")
+    ? rawSupabaseUrl.replace("http://", "https://")
+    : rawSupabaseUrl;
 
 const isConfigured =
   supabaseUrl.length > 0 &&
