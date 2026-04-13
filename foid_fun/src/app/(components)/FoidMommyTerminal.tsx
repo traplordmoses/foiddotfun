@@ -237,6 +237,7 @@ export type FoidMommyTerminalProps = {
   waitForReceipt?: (hash: string) => Promise<void>;
   onDailyCheckInChoice?: (choice: "yes" | "not_now") => void;
   nextAllowedAt?: bigint | number | null;
+  onChainStreak?: number | null; // On-chain streak from PrayerMirror contract
   registryReady?: boolean;
   chainOk?: boolean;
   requiredChainId?: number | null;
@@ -308,6 +309,7 @@ export default function FoidMommyTerminal({
   waitForReceipt,
   onDailyCheckInChoice,
   nextAllowedAt,
+  onChainStreak = null,
   registryReady = true,
   chainOk = true,
   requiredChainId = null,
@@ -369,6 +371,7 @@ export default function FoidMommyTerminal({
   const memoryEntriesLenRef = useRef(memoryEntries.length);
   const needsConsentPromptRef = useRef(needsConsentPrompt);
   const nextAllowedAtRef = useRef(nextAllowedAt);
+  const onChainStreakRef = useRef(onChainStreak);
   const grantConsentRef = useRef(grantConsent);
 
   getDaysSinceLastPrayerRef.current = getDaysSinceLastPrayer;
@@ -379,6 +382,7 @@ export default function FoidMommyTerminal({
   memoryEntriesLenRef.current = memoryEntries.length;
   needsConsentPromptRef.current = needsConsentPrompt;
   nextAllowedAtRef.current = nextAllowedAt;
+  onChainStreakRef.current = onChainStreak;
   grantConsentRef.current = grantConsent;
 
   const addMessage = useCallback((role: MessageRole, text: string) => {
@@ -555,8 +559,12 @@ export default function FoidMommyTerminal({
         const daysSince = getDaysSinceLastPrayerRef.current();
         const streak = localStreakRef.current;
 
-        // Graceful streak break
-        if (daysSince !== null && daysSince > 1) {
+        // Graceful streak break — only show if on-chain also confirms streak is broken.
+        // Local memory can be stale (different device, cleared storage, etc.),
+        // so trust the contract when it says the streak is still active.
+        const chainStreak = onChainStreakRef.current;
+        const chainSaysStreakActive = typeof chainStreak === "number" && chainStreak > 0;
+        if (daysSince !== null && daysSince > 1 && !chainSaysStreakActive) {
           await typeMessage({
             role: "foid",
             text: "you missed yesterday. that's okay. you're here now.",

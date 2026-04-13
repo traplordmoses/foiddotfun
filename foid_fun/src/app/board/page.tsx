@@ -626,13 +626,19 @@ function BoardPageContent() {
     startRectRef.current = { ...storedRectFor(p) };
     startPtRef.current = { x: e.clientX, y: e.clientY };
     e.currentTarget.setPointerCapture?.(e.pointerId);
+    let rafId = 0;
     const onMove = (ev: PointerEvent) => {
       if (!startRectRef.current) return;
-      const dx = (ev.clientX - startPtRef.current.x) / scale, dy = (ev.clientY - startPtRef.current.y) / scale;
-      const next = clampToCanvas({ x: snap(startRectRef.current.x + dx), y: snap(startRectRef.current.y + dy), w: startRectRef.current.w, h: startRectRef.current.h });
-      setLiveRect(next); setRect(p.id, next); liveRectRef.current = next;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        if (!startRectRef.current) return;
+        const dx = (ev.clientX - startPtRef.current.x) / scale, dy = (ev.clientY - startPtRef.current.y) / scale;
+        const next = clampToCanvas({ x: snap(startRectRef.current.x + dx), y: snap(startRectRef.current.y + dy), w: startRectRef.current.w, h: startRectRef.current.h });
+        setLiveRect(next); liveRectRef.current = next;
+      });
     };
     const onUp = () => {
+      cancelAnimationFrame(rafId);
       window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp);
       setRect(p.id, liveRectRef.current ?? startRectRef.current!);
       setLiveRect(null); liveRectRef.current = null; setActiveId(null);
@@ -648,15 +654,21 @@ function BoardPageContent() {
     startPtRef.current = { x: e.clientX, y: e.clientY };
     aspectRef.current = Math.max(1e-6, p.width / p.height);
     e.currentTarget.setPointerCapture?.(e.pointerId);
+    let rafId = 0;
     const onMove = (ev: PointerEvent) => {
       if (!startRectRef.current) return;
-      const dx = (ev.clientX - startPtRef.current.x) / scale, dy = (ev.clientY - startPtRef.current.y) / scale;
-      let w = startRectRef.current.w + dx, h = ev.altKey ? startRectRef.current.h + dy : w / aspectRef.current;
-      w = snapDown(w); h = snapDown(h);
-      const next = clampToCanvas(capRectToMaxCells({ x: startRectRef.current.x, y: startRectRef.current.y, w, h }, MAX_CELLS_PER_RECT));
-      setLiveRect(next); setRect(p.id, next); liveRectRef.current = next;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        if (!startRectRef.current) return;
+        const dx = (ev.clientX - startPtRef.current.x) / scale, dy = (ev.clientY - startPtRef.current.y) / scale;
+        let w = startRectRef.current.w + dx, h = ev.altKey ? startRectRef.current.h + dy : w / aspectRef.current;
+        w = snapDown(w); h = snapDown(h);
+        const next = clampToCanvas(capRectToMaxCells({ x: startRectRef.current.x, y: startRectRef.current.y, w, h }, MAX_CELLS_PER_RECT));
+        setLiveRect(next); liveRectRef.current = next;
+      });
     };
     const onUp = () => {
+      cancelAnimationFrame(rafId);
       window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp);
       setRect(p.id, liveRectRef.current ?? startRectRef.current!);
       setLiveRect(null); liveRectRef.current = null; setActiveId(null);

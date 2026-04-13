@@ -441,6 +441,7 @@ function PrayPageContent() {
                     submitPrayer={submitPrayer}
                     waitForReceipt={waitForReceipt}
                     nextAllowedAt={nextAllowed as bigint | undefined}
+                    onChainStreak={streakNumber}
                     registryReady={!missingRegistry}
                     chainOk={!wrongChain}
                     requiredChainId={FLUENT_CHAIN_ID}
@@ -486,6 +487,7 @@ function PrayPageContent() {
                       submitPrayer={submitPrayer}
                       waitForReceipt={waitForReceipt}
                       nextAllowedAt={nextAllowed as bigint | undefined}
+                      onChainStreak={streakNumber}
                       registryReady={!missingRegistry}
                       chainOk={!wrongChain}
                       requiredChainId={FLUENT_CHAIN_ID}

@@ -31,7 +31,7 @@ export function ClientLayout() {
       <FoidWalletOnboarding />
       <FoidOnboardingTour />
       <PostWalletWelcome />
-      {!isMobile && <CompactMusicPlayer mountLogic={true} />}
+      <CompactMusicPlayer mountLogic={true} />
     </>
   );
 }
