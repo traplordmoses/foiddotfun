@@ -5,6 +5,8 @@ import { attachTypingClicks, initTypingClicks } from "@/lib/typingClicks";
 import { formatViemError } from "@/lib/prayerErrors";
 import { usePrayerDraft } from "@/hooks/usePrayerDraft";
 import { usePrayerMemory } from "@/hooks/usePrayerMemory";
+import { useMobile } from "@/hooks/useMobile";
+import { getTierFromStreak } from "@/hooks/usePrayerTiers";
 
 export type FeelingKey =
   | "happy"
@@ -321,6 +323,7 @@ export default function FoidMommyTerminal({
 }: FoidMommyTerminalProps) {
   // Prayer draft persistence
   const { draft, saveDraft, clearDraft } = usePrayerDraft();
+  const { isTouchDevice } = useMobile();
 
   // Prayer memory (feeling journal with transparent consent)
   const {
@@ -964,6 +967,32 @@ export default function FoidMommyTerminal({
       clearDraft();
       setIsProcessing(false);
 
+      // Show streak + tier info
+      const streakDays = onChainStreakRef.current;
+      if (typeof streakDays === "number" && streakDays > 0) {
+        const tierInfo = getTierFromStreak(streakDays);
+        const mult = tierInfo.current.multiplierBps / 100;
+        const multStr = mult % 1 === 0 ? `${mult}` : mult.toFixed(2);
+
+        await sleep(1500);
+        await typeMessage({
+          role: "system",
+          text: `streak: ${streakDays} day${streakDays === 1 ? "" : "s"} · ${tierInfo.current.name.toLowerCase()} · ${multStr}x voting power`,
+          speed: 22,
+        });
+
+        if (tierInfo.next) {
+          const nextMult = tierInfo.next.multiplierBps / 100;
+          const nextMultStr = nextMult % 1 === 0 ? `${nextMult}` : nextMult.toFixed(2);
+          await typeMessage({
+            role: "system",
+            text: `${tierInfo.daysToNextTier} more day${tierInfo.daysToNextTier === 1 ? "" : "s"} to reach ${tierInfo.next.name.toLowerCase()} (${nextMultStr}x)`,
+            speed: 22,
+          });
+        }
+        await sleep(800);
+      }
+
       // Afterglow: held silence, then breathing, then goodbye
       await sleep(3000);
       await typeMessage({ role: "system", text: "breathe.", speed: 60 });
@@ -1412,7 +1441,7 @@ export default function FoidMommyTerminal({
       case "txFail":
         return "RETRY / EDIT / CANCEL";
       case "afterglow":
-        return "PRESS ANY KEY TO CLOSE";
+        return isTouchDevice ? "TAP TO CLOSE" : "PRESS ANY KEY TO CLOSE";
       default:
         return "";
     }
@@ -1428,6 +1457,7 @@ export default function FoidMommyTerminal({
     prayerOverLimit,
     prayerCount,
     prayerLimit,
+    isTouchDevice,
   ]);
 
   // Get placeholder based on stage
@@ -1444,11 +1474,11 @@ export default function FoidMommyTerminal({
       case "txFail":
         return "retry / edit / cancel";
       case "afterglow":
-        return "press any key...";
+        return isTouchDevice ? "tap to close..." : "press any key...";
       default:
         return "";
     }
-  }, [stage, autoStart]);
+  }, [stage, autoStart, isTouchDevice]);
 
   useEffect(() => {
     resizeComposerField();
@@ -1529,6 +1559,18 @@ export default function FoidMommyTerminal({
                   spellCheck={false}
                   disabled={inputLocked}
                 />
+                {currentInputValue.trim().length > 0 && !inputLocked && (
+                  <button
+                    type="submit"
+                    aria-label="Send"
+                    className="foid-terminal__send-btn"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13" />
+                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                    </svg>
+                  </button>
+                )}
               </div>
               {statusMessage && (
                 <div className={statusTone}>

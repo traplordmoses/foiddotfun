@@ -2382,6 +2382,32 @@ body {
     cursor: not-allowed;
   }
 
+  .foid-terminal__send-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: rgba(0, 255, 213, 0.15);
+    color: #00ffd5;
+    cursor: pointer;
+    transition: background 160ms ease, transform 100ms ease;
+    align-self: center;
+    touch-action: manipulation;
+  }
+
+  .foid-terminal__send-btn:hover {
+    background: rgba(0, 255, 213, 0.28);
+  }
+
+  .foid-terminal__send-btn:active {
+    transform: scale(0.92);
+  }
+
   .foid-terminal__status {
     font-size: 9px;
     letter-spacing: 0.22em;
@@ -3932,6 +3958,11 @@ body {
     padding: 0 !important;
     margin: 0 !important;
     line-height: 1.45 !important;
+  }
+
+  .mobile-terminal .foid-terminal__send-btn {
+    width: 36px;
+    height: 36px;
   }
 
   .mobile-terminal .foid-terminal__status {

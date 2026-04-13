@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { createPublicClient, http } from "viem";
 import { mainnet } from "viem/chains";
 import toast from "react-hot-toast";
@@ -87,6 +88,8 @@ export function useVoteAlerts(
   const [lastPoll, setLastPoll] = useState(0);
   const seenRef = useRef<Set<string>>(new Set());
   const initializedRef = useRef(false);
+  const pathname = usePathname();
+  const suppressToast = pathname?.startsWith("/pray");
 
   // Get proposal IDs for active voting proposals
   const votingProposalIds = placements
@@ -101,7 +104,7 @@ export function useVoteAlerts(
   }, [address]);
 
   const checkNewVotes = useCallback(async () => {
-    if (!address || votingProposalIds.length === 0) return;
+    if (!address || votingProposalIds.length === 0 || suppressToast) return;
 
     try {
       const sinceParam = lastPoll > 0 ? `&since=${lastPoll - 60}` : "";
@@ -178,7 +181,7 @@ export function useVoteAlerts(
     } catch {
       // Silently fail — non-critical feature
     }
-  }, [address, votingProposalIds, lastPoll]);
+  }, [address, votingProposalIds, lastPoll, suppressToast]);
 
   // Poll every 60 seconds when there are active voting proposals
   useEffect(() => {

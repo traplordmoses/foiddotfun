@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useMemo, useCallback, useState, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { useUserPlacements, type Placement } from "@/hooks/useUserPlacements";
 import { useBoardEvents } from "@/hooks/useBoardEvents";
 import toast from "react-hot-toast";
@@ -121,6 +122,8 @@ export function useNotifications(
   isOpen = false,
 ) {
   const { placements, isLoading, refresh } = useUserPlacements(address);
+  const pathname = usePathname();
+  const suppressToast = pathname?.startsWith("/pray");
 
   // Bumped after every markRead/markSeen call to force useMemo to re-derive
   const [readVersion, setReadVersion] = useState(0);
@@ -216,7 +219,7 @@ export function useNotifications(
       return;
     }
 
-    if (notifications.length > prevCountRef.current && !isOpen) {
+    if (notifications.length > prevCountRef.current && !isOpen && !suppressToast) {
       const newest = notifications.find((n) => !n.isRead);
       if (newest) {
         const icon = TYPE_ICONS[newest.type] ?? "";
@@ -261,7 +264,7 @@ export function useNotifications(
       }
     }
     prevCountRef.current = notifications.length;
-  }, [notifications.length, isOpen, notifications]);
+  }, [notifications.length, isOpen, notifications, suppressToast]);
 
   /* ── Actions ────────────────────────────────────────────────────── */
 
