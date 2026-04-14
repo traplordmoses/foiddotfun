@@ -1055,7 +1055,7 @@ function BoardPageContent() {
         <MobileProposeModal
           isConnected={isConnected}
           address={address}
-          placedRects={[...placed.map(p => p.rect), ...swipeVotingProposals.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }))]}
+          placedRects={[...placed.map(p => ({ ...p.rect, cid: p.cid })), ...swipeVotingProposals.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h, cid: p.cid }))]}
           onClose={() => setShowMobilePropose(false)}
           onSuccess={(msg) => {
             addStatus(msg, "success");

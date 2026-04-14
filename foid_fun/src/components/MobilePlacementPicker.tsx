@@ -5,11 +5,15 @@ import { TILE, snap, hasOverlap, isTouching, type Rect } from "@/lib/grid";
 import { getBoundsFromRects } from "@/lib/boardCoordinates";
 import { clampWorldRect } from "@/lib/boardSpace";
 import { MAX_CELLS_PER_RECT, capRectToMaxCells } from "@/lib/boardImages";
+import { cidToHttpUrl } from "@/lib/ipfsUrl";
+
+export type PlacedItem = Rect & { cid?: string };
 
 interface MobilePlacementPickerProps {
   previewUrl: string;
   rect: Rect;
-  placedRects: Rect[];
+  imageAspectRatio?: number; // w/h ratio for aspect-ratio-constrained resize
+  placedRects: PlacedItem[];
   pendingRects?: Rect[]; // proposals currently being voted on
   onRectChange: (r: Rect) => void;
   onConfirm: () => void;
@@ -24,6 +28,7 @@ const HANDLE_SIZE = 14;
 export function MobilePlacementPicker({
   previewUrl,
   rect,
+  imageAspectRatio,
   placedRects,
   pendingRects = [],
   onRectChange,
@@ -134,8 +139,17 @@ export function MobilePlacementPicker({
       const dy = cy - resizeStartRef.current.py;
       const worldDx = dx / viewScale;
       const worldDy = dy / viewScale;
-      let nw = Math.max(TILE, snap(resizeStartRef.current.rw + worldDx));
-      let nh = Math.max(TILE, snap(resizeStartRef.current.rh + worldDy));
+      let nw: number, nh: number;
+      if (imageAspectRatio && imageAspectRatio > 0) {
+        // Aspect-ratio-constrained resize: width drives, height follows
+        nw = Math.max(TILE, snap(resizeStartRef.current.rw + worldDx));
+        const rawH = nw / imageAspectRatio;
+        nh = Math.max(TILE, Math.ceil(rawH / TILE) * TILE);
+      } else {
+        // Free-form resize (fallback)
+        nw = Math.max(TILE, snap(resizeStartRef.current.rw + worldDx));
+        nh = Math.max(TILE, snap(resizeStartRef.current.rh + worldDy));
+      }
       // Cap to max cells
       const capped = capRectToMaxCells({ x: rect.x, y: rect.y, w: nw, h: nh }, MAX_CELLS_PER_RECT);
       const clamped = clampWorldRect(capped);
@@ -175,17 +189,27 @@ export function MobilePlacementPicker({
           return (
             <div
               key={`placed-${i}`}
-              className="absolute"
+              className="absolute overflow-hidden"
               style={{
                 left: vx,
                 top: vy,
                 width: pr.w * viewScale,
                 height: pr.h * viewScale,
-                background: "rgba(0,200,180,0.25)",
-                border: "1px solid rgba(0,200,180,0.5)",
+                background: pr.cid ? undefined : "rgba(0,200,180,0.25)",
+                border: pr.cid ? "1px solid rgba(0,200,180,0.3)" : "1px solid rgba(0,200,180,0.5)",
                 borderRadius: 2,
               }}
-            />
+            >
+              {pr.cid && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={cidToHttpUrl(pr.cid)}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  draggable={false}
+                />
+              )}
+            </div>
           );
         })}
 

@@ -10,7 +10,7 @@ import { worldToContractRect, contractToWorldRect } from "@/lib/boardSpace";
 import { capRectToMaxCells, MAX_CELLS_PER_RECT } from "@/lib/boardImages";
 import { parseWeb3Error, isUserRejection } from "@/lib/errors";
 import { PaintEditor } from "@/components/PaintEditor";
-import { MobilePlacementPicker } from "@/components/MobilePlacementPicker";
+import { MobilePlacementPicker, type PlacedItem } from "@/components/MobilePlacementPicker";
 import { normalizeCidString } from "@/lib/board/helpers";
 
 // ============================================================================
@@ -54,7 +54,7 @@ export function MobileProposeModal({
 }: {
   isConnected: boolean;
   address?: string;
-  placedRects: Rect[];
+  placedRects: PlacedItem[];
   onClose: () => void;
   onSuccess: (msg: string) => void;
 }) {
@@ -89,6 +89,7 @@ export function MobileProposeModal({
   const [step, setStep] = useState<"pick" | "paint" | "position" | "uploading" | "submitting" | "done" | "error">("pick");
   const [errorMsg, setErrorMsg] = useState("");
   const [placementRect, setPlacementRect] = useState<Rect | null>(null);
+  const [imageAspectRatio, setImageAspectRatio] = useState<number | undefined>(undefined);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const placementFee = process.env.NEXT_PUBLIC_PLACEMENT_FEE_WEI ?? "1000000000000000";
@@ -130,11 +131,13 @@ export function MobileProposeModal({
 
     try {
       const { w, h } = await getImageSizeFromFile(editedFile);
+      setImageAspectRatio(w / h);
       let rect = snapRect({ x: 0, y: 0, w, h });
       rect = capRectToMaxCells(rect, MAX_CELLS_PER_RECT);
       setPlacementRect(rect);
       setStep("position");
     } catch {
+      setImageAspectRatio(undefined);
       setPlacementRect(snapRect({ x: 0, y: 0, w: TILE, h: TILE }));
       setStep("position");
     }
@@ -262,6 +265,7 @@ export function MobileProposeModal({
           <MobilePlacementPicker
             previewUrl={preview}
             rect={placementRect}
+            imageAspectRatio={imageAspectRatio}
             placedRects={placedRects}
             pendingRects={pendingVoteRects}
             onRectChange={setPlacementRect}

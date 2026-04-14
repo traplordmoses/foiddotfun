@@ -203,7 +203,7 @@ export function MobileBoard({
                   <img
                     src={cidToHttpUrl(node.content)}
                     alt="Board item"
-                    className="w-full h-full object-contain pointer-events-none"
+                    className="w-full h-full object-cover pointer-events-none"
                     style={isVoting ? { opacity: 0.6 } : undefined}
                     draggable={false}
                   />
