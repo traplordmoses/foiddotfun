@@ -156,13 +156,13 @@ function VoteCard({
         }
         .rv-card__label {
           font-family: var(--font-mono, monospace);
-          font-size: 9px; font-weight: 700;
+          font-size: 11px; font-weight: 700;
           letter-spacing: 0.15em; color: rgba(255,255,255,0.6);
         }
         .rv-card__status {
           font-family: var(--font-mono, monospace);
-          font-size: 8px; font-weight: 700;
-          letter-spacing: 0.1em; padding: 2px 6px;
+          font-size: 10px; font-weight: 700;
+          letter-spacing: 0.1em; padding: 3px 8px;
           border-radius: 4px;
         }
         .rv-card__status--active {
@@ -175,7 +175,7 @@ function VoteCard({
           background: rgba(34,197,94,0.15); color: rgba(34,197,94,0.9);
         }
         .rv-card__bar {
-          height: 4px; border-radius: 2px;
+          height: 6px; border-radius: 3px;
           background: rgba(255,255,255,0.08);
           overflow: hidden;
         }
@@ -187,16 +187,16 @@ function VoteCard({
         .rv-card__bar-labels {
           display: flex; justify-content: space-between;
           font-family: var(--font-mono, monospace);
-          font-size: 8px; color: rgba(255,255,255,0.3);
-          margin-top: 3px;
+          font-size: 10px; color: rgba(255,255,255,0.35);
+          margin-top: 4px;
         }
         .rv-card__actions {
           display: flex; gap: 6px; margin-top: 8px;
         }
         .rv-card__btn {
-          flex: 1; padding: 6px 0; border-radius: 8px;
+          flex: 1; padding: 8px 0; border-radius: 8px;
           font-family: var(--font-mono, monospace);
-          font-size: 9px; font-weight: 700;
+          font-size: 11px; font-weight: 700;
           letter-spacing: 0.1em; cursor: pointer;
           transition: all 150ms;
         }
@@ -222,13 +222,13 @@ function VoteCard({
         .rv-card__btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .rv-card__voted {
           font-family: var(--font-mono, monospace);
-          font-size: 9px; color: rgba(255,255,255,0.3);
+          font-size: 11px; color: rgba(255,255,255,0.3);
           text-align: center; margin-top: 6px;
           letter-spacing: 0.1em;
         }
         .rv-card__error {
           font-family: var(--font-mono, monospace);
-          font-size: 9px; color: rgba(239,68,68,0.8);
+          font-size: 11px; color: rgba(239,68,68,0.8);
           margin-top: 4px;
         }
       `}</style>
@@ -254,36 +254,18 @@ export function RemovalVotePanel({ placementIds }: Props) {
   // Check first 20 placements for active votes (avoid too many RPC calls)
   const idsToCheck = placementIds.slice(0, 20);
 
+  // Render vote cards inline — no section header, no empty state.
+  // The hint text now lives in the Actions section under pricing.
   return (
     <>
-      <div className="board-section board-section--governance">
-        <div className="board-section__header">
-          <span className="board-section__dot" style={{ background: "rgba(239,68,68,0.6)" }} />
-          <span className="board-section__title">MODERATION</span>
-        </div>
-        <div className="rv-panel">
-          {idsToCheck.map((id) => (
-            <ActiveVoteForPlacement key={id} placementId={id} />
-          ))}
-          <div className="rv-panel__empty">
-            <span className="rv-panel__empty-text">
-              Flag inappropriate placements to trigger a community removal vote.
-            </span>
-          </div>
-        </div>
+      <div className="rv-panel">
+        {idsToCheck.map((id) => (
+          <ActiveVoteForPlacement key={id} placementId={id} />
+        ))}
       </div>
       <style jsx>{`
         .rv-panel {
           display: flex; flex-direction: column; gap: 8px;
-          padding: 4px 0;
-        }
-        .rv-panel__empty {
-          padding: 8px 0;
-        }
-        .rv-panel__empty-text {
-          font-family: var(--font-mono, monospace);
-          font-size: 9px; color: rgba(255,255,255,0.25);
-          line-height: 1.5;
         }
       `}</style>
     </>

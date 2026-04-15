@@ -558,6 +558,14 @@
 .board-actions { display: flex; flex-direction: column; gap: 5px; }
 .board-actions__divider { height: 1px; background: rgba(255, 255, 255, 0.08); margin: 3px 0; }
 .board-actions__pricing { font-size: 11px; color: rgba(255, 255, 255, 0.4); text-align: center; margin-top: 8px; }
+.board-actions__flag-hint {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.2);
+  text-align: center;
+  margin-top: 6px;
+  line-height: 1.5;
+  font-family: var(--font-mono, monospace);
+}
 .board-section--chat .terminal-chat__input-row {
   border-top: 1px solid rgba(116, 255, 235, 0.12);
   padding: 10px 12px;

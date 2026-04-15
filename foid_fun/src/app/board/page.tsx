@@ -814,18 +814,20 @@ function BoardPageContent() {
     addStatus("Preparing submissions...", "info");
     try {
       const placedRects = placed.map((pl) => pl.rect);
+      const votingRects = swipeVotingProposals.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }));
+      const allOccupiedRects = [...placedRects, ...votingRects];
       const pendingRects = items.map((it) => ({ name: it.name, rect: { ...it.rect } }));
       const overlapNames: string[] = [];
       pendingRects.forEach((c, idx) => {
         const peers = pendingRects.filter((_, j) => j !== idx).map((r) => r.rect);
-        if (hasOverlap(c.rect, placedRects) || hasOverlap(c.rect, peers)) overlapNames.push(c.name);
+        if (hasOverlap(c.rect, allOccupiedRects) || hasOverlap(c.rect, peers)) overlapNames.push(c.name);
       });
       if (overlapNames.length) throw new Error(`Overlap: ${overlapNames.join(", ")}`);
 
       const notTouchingNames: string[] = [];
       pendingRects.forEach((c, idx) => {
         const peers = pendingRects.filter((_, j) => j !== idx).map((r) => r.rect);
-        if (!isTouching(c.rect, [...placedRects, ...peers])) notTouchingNames.push(c.name);
+        if (!isTouching(c.rect, [...allOccupiedRects, ...peers])) notTouchingNames.push(c.name);
       });
       if (notTouchingNames.length) throw new Error(`Not touching board: ${notTouchingNames.join(", ")}`);
 
@@ -1328,9 +1330,14 @@ function BoardPageContent() {
                     <div className="board-actions__pricing">
                       0.001 ETH per placement &middot; any size
                     </div>
+                    {placed.length > 0 && (
+                      <div className="board-actions__flag-hint">
+                        Think a placement is inappropriate? Click it on the board to flag it and open a community removal vote.
+                      </div>
+                    )}
                   </div>
 
-                  {/* Moderation — active removal votes */}
+                  {/* Removal vote cards — only shown when active votes exist */}
                   <RemovalVotePanel placementIds={placed.map((p) => p.id)} />
 
                   {/* Chat — wrapped in its own boundary so a WebSocket failure
