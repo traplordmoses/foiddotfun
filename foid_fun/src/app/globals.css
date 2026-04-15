@@ -3898,13 +3898,13 @@ body {
     height: 100%;
     display: flex;
     flex-direction: column;
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .mobile-terminal .foid-terminal__line {
-    font-size: 12px !important;
-    line-height: 1.4 !important;
-    margin-bottom: 6px !important;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+    margin-bottom: 8px !important;
   }
 
   /* Chat log - FIXED HEIGHT with scroll */
@@ -3922,7 +3922,7 @@ body {
   /* Input area - FIXED at bottom */
   .mobile-terminal .foid-cli__composer {
     flex-shrink: 0;
-    padding: 14px 16px;
+    padding: 16px 16px;
     background: rgba(2, 8, 16, 0.65);
     backdrop-filter: blur(8px);
     border-top: 1px solid rgba(0, 255, 213, 0.1);
@@ -3954,7 +3954,7 @@ body {
 
   .mobile-terminal .foid-terminal__field {
     width: 100%;
-    font-size: 13px !important;
+    font-size: 16px !important;
     padding: 0 !important;
     margin: 0 !important;
     line-height: 1.45 !important;
@@ -3966,11 +3966,11 @@ body {
   }
 
   .mobile-terminal .foid-terminal__status {
-    margin-top: 8px;
-    font-size: 9px !important;
+    margin-top: 10px;
+    font-size: 11px !important;
     letter-spacing: 0.06em;
     text-align: center;
-    padding: 6px 10px;
+    padding: 8px 12px;
     background: rgba(0, 12, 20, 0.5);
     border: 1px solid rgba(0, 255, 213, 0.06);
     border-radius: 6px;
@@ -3982,16 +3982,16 @@ body {
   /* Mobile titlebar - compact & styled */
   .vista-window__titlebar {
     flex-wrap: nowrap;
-    padding: 8px 14px !important;
-    min-height: 44px !important;
-    gap: 8px !important;
+    padding: 10px 14px !important;
+    min-height: 48px !important;
+    gap: 10px !important;
     background: rgba(4, 12, 22, 0.6) !important;
     backdrop-filter: blur(8px);
     border-bottom: 1px solid rgba(0, 255, 213, 0.08);
   }
 
   .vista-window__title {
-    font-size: 10px !important;
+    font-size: 11px !important;
     letter-spacing: 0.03em !important;
     min-width: 0;
     flex: 1;

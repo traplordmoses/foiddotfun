@@ -130,6 +130,37 @@ function PrayPageContent() {
   useEffect(() => {
     setHydrated(true);
   }, []);
+
+  // Lock viewport on mobile to prevent iOS auto-zoom when focusing inputs
+  useEffect(() => {
+    const isMobile = window.innerWidth < 1024;
+    if (!isMobile) return;
+
+    const LOCKED = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no";
+    const allMetas = document.querySelectorAll('meta[name="viewport"]');
+    const originals = Array.from(allMetas).map((m) => m.getAttribute("content") ?? "");
+    const lockMetas = () => allMetas.forEach((m) => m.setAttribute("content", LOCKED));
+    lockMetas();
+
+    const observer = new MutationObserver((mutations) => {
+      for (const mut of mutations) {
+        if (
+          mut.type === "attributes" &&
+          (mut.target as Element).getAttribute?.("name") === "viewport" &&
+          (mut.target as Element).getAttribute("content") !== LOCKED
+        ) {
+          (mut.target as Element).setAttribute("content", LOCKED);
+        }
+      }
+    });
+    allMetas.forEach((m) => observer.observe(m, { attributes: true, attributeFilter: ["content"] }));
+
+    return () => {
+      observer.disconnect();
+      allMetas.forEach((m, i) => m.setAttribute("content", originals[i]));
+    };
+  }, []);
+
   const missingRegistry = !REGISTRY;
   const missingMirror = !MIRROR;
   const walletDisconnected = !isConnected || !address;
