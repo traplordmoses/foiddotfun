@@ -9,7 +9,7 @@ const MusicPanelLogic = dynamic(() => import("./MusicPanel"), { ssr: false });
 const HIDE_DELAY_SCROLL = 1000;
 const HIDE_DELAY_HOVER = 2000;
 const SCROLL_BOTTOM_THRESHOLD = 120;
-const PLAYER_HEIGHT = 32;
+const PLAYER_HEIGHT = 36;
 
 type CompactMusicPlayerProps = { mountLogic?: boolean };
 
@@ -27,7 +27,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     return unsubscribe;
   }, []);
 
-  const { isPlaying, progress, volume } = state;
+  const { currentTrackName, isPlaying, progress, volume, shuffle } = state;
   const progressPercent = Number.isFinite(progress) ? Math.min(1, Math.max(0, progress)) : 0;
 
   const clearHideTimer = useCallback(() => {
@@ -80,9 +80,6 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
 
     const handleResize = () => {
       checkMobile();
-      if (!isMobileRef.current) {
-        // Switched to desktop — let hover handle it
-      }
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -113,8 +110,10 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
   }, [scheduleHide]);
 
   // Controls
+  const handlePrev = () => musicPanelController.prev();
   const handleToggle = () => musicPanelController.toggle();
   const handleNext = () => musicPanelController.next();
+  const handleShuffle = () => musicPanelController.toggleShuffle();
 
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newVol = parseFloat(e.target.value);
@@ -142,56 +141,85 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         <div className="cmp-hover-zone" onMouseEnter={handleHoverEnter} />
       )}
 
-      {/* Minimal music bar */}
-      <div
-        ref={barRef}
-        className={`cmp-bar ${isVisible ? "cmp-bar--visible" : "cmp-bar--hidden"}`}
-        onMouseEnter={handleBarMouseEnter}
-        onMouseLeave={handleBarMouseLeave}
-      >
-        {/* Play / Pause */}
-        <button
-          className="cmp-ctrl-btn cmp-ctrl-btn--play"
-          type="button"
-          onClick={handleToggle}
-          title={isPlaying ? "Pause" : "Play"}
-          aria-label={isPlaying ? "Pause" : "Play"}
+      {/* Music bar — matches container width */}
+      <div className={`cmp-bar-outer ${isVisible ? "cmp-bar-outer--visible" : "cmp-bar-outer--hidden"}`}>
+        <div
+          ref={barRef}
+          className="cmp-bar"
+          onMouseEnter={handleBarMouseEnter}
+          onMouseLeave={handleBarMouseLeave}
         >
-          {isPlaying ? "\u23F8" : "\u25B6"}
-        </button>
+          {/* Previous */}
+          <button
+            className="cmp-ctrl-btn"
+            type="button"
+            onClick={handlePrev}
+            title="Previous"
+            aria-label="Previous"
+          >
+            {"\u23EE"}
+          </button>
 
-        {/* Next */}
-        <button
-          className="cmp-ctrl-btn"
-          type="button"
-          onClick={handleNext}
-          title="Next"
-          aria-label="Next"
-        >
-          {"\u23ED"}
-        </button>
+          {/* Play / Pause */}
+          <button
+            className="cmp-ctrl-btn cmp-ctrl-btn--play"
+            type="button"
+            onClick={handleToggle}
+            title={isPlaying ? "Pause" : "Play"}
+            aria-label={isPlaying ? "Pause" : "Play"}
+          >
+            {isPlaying ? "\u23F8" : "\u25B6"}
+          </button>
 
-        {/* Progress bar */}
-        <div className="cmp-progress">
-          <div className="cmp-progress__fill" style={{ width: `${progressPercent * 100}%` }}>
-            <div className="cmp-progress__shimmer" />
+          {/* Next */}
+          <button
+            className="cmp-ctrl-btn"
+            type="button"
+            onClick={handleNext}
+            title="Next"
+            aria-label="Next"
+          >
+            {"\u23ED"}
+          </button>
+
+          {/* Track title + progress */}
+          <div className="cmp-track-area">
+            <div className="cmp-track" title={currentTrackName}>
+              {currentTrackName}
+            </div>
+            <div className="cmp-progress">
+              <div className="cmp-progress__fill" style={{ width: `${progressPercent * 100}%` }}>
+                <div className="cmp-progress__shimmer" />
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Volume */}
-        <div className="cmp-volume">
-          <span className="cmp-volume__icon">{volumeIcon}</span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={volVal}
-            onChange={handleVolumeChange}
-            className="cmp-volume__slider"
-            title={`Volume: ${Math.round(volVal * 100)}%`}
-            aria-label="Volume"
-          />
+          {/* Shuffle */}
+          <button
+            className={`cmp-ctrl-btn ${shuffle ? "cmp-ctrl-btn--active" : ""}`}
+            type="button"
+            onClick={handleShuffle}
+            title={shuffle ? "Shuffle on" : "Shuffle off"}
+            aria-label={shuffle ? "Shuffle on" : "Shuffle off"}
+          >
+            {"\u{1F500}"}
+          </button>
+
+          {/* Volume */}
+          <div className="cmp-volume">
+            <span className="cmp-volume__icon">{volumeIcon}</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={volVal}
+              onChange={handleVolumeChange}
+              className="cmp-volume__slider"
+              title={`Volume: ${Math.round(volVal * 100)}%`}
+              aria-label="Volume"
+            />
+          </div>
         </div>
       </div>
 
@@ -223,46 +251,65 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           }
         }
 
-        /* --- Music bar --- */
-        :global(.cmp-bar) {
+        /* --- Outer wrapper: fixed, centers the bar --- */
+        :global(.cmp-bar-outer) {
           position: fixed;
           bottom: 0;
           left: 0;
           right: 0;
           z-index: 50;
           display: flex;
-          align-items: center;
-          gap: 8px;
-          height: ${PLAYER_HEIGHT}px;
-          padding: 0 12px;
-          background: rgba(10, 8, 20, 0.88);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
-          color: rgba(255, 255, 255, 0.85);
-          transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-                      border-top-color 0.4s ease;
-        }
-        :global(.cmp-bar--visible) {
-          transform: translateY(0);
-          animation: foid-bar-glow 0.4s ease-out;
-        }
-        :global(.cmp-bar--hidden) {
-          transform: translateY(100%);
+          justify-content: center;
+          padding: 0 16px;
           pointer-events: none;
+          transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        :global(.cmp-bar-outer--visible) {
+          transform: translateY(0);
+        }
+        :global(.cmp-bar-outer--hidden) {
+          transform: translateY(100%);
           transition-duration: 0.3s;
           transition-timing-function: ease-in;
         }
 
-        @keyframes foid-bar-glow {
-          0% { border-top-color: rgba(6, 182, 212, 0.45); }
-          100% { border-top-color: rgba(255, 255, 255, 0.06); }
-        }
-
         /* Mobile: sit above MobileNav */
         @media (max-width: 1023px) {
-          :global(.cmp-bar) {
+          :global(.cmp-bar-outer) {
             bottom: 56px;
+            padding: 0 12px;
+          }
+        }
+
+        /* --- Music bar: matches container width --- */
+        :global(.cmp-bar) {
+          width: 100%;
+          max-width: 920px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          height: ${PLAYER_HEIGHT}px;
+          padding: 0 14px;
+          background: rgba(10, 8, 20, 0.9);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          border-top: 1px solid rgba(255, 255, 255, 0.08);
+          border-left: 1px solid rgba(255, 255, 255, 0.06);
+          border-right: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 10px 10px 0 0;
+          color: rgba(255, 255, 255, 0.85);
+          pointer-events: auto;
+          animation: foid-bar-glow 0.4s ease-out;
+        }
+
+        @keyframes foid-bar-glow {
+          0% { border-top-color: rgba(6, 182, 212, 0.45); }
+          100% { border-top-color: rgba(255, 255, 255, 0.08); }
+        }
+
+        @media (max-width: 1023px) {
+          :global(.cmp-bar) {
+            max-width: 100%;
           }
         }
 
@@ -271,13 +318,13 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 22px;
-          height: 22px;
+          width: 24px;
+          height: 24px;
           padding: 0;
           font-size: 12px;
           background: none;
           border: none;
-          color: rgba(255, 255, 255, 0.55);
+          color: rgba(255, 255, 255, 0.5);
           cursor: pointer;
           transition: color 0.15s, transform 0.15s;
           border-radius: 50%;
@@ -288,9 +335,9 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           transform: scale(1.1);
         }
         :global(.cmp-ctrl-btn--play) {
-          width: 26px;
-          height: 26px;
-          font-size: 13px;
+          width: 28px;
+          height: 28px;
+          font-size: 14px;
           color: rgba(255, 255, 255, 0.75);
           background: rgba(255, 255, 255, 0.05);
           border: 1px solid rgba(255, 255, 255, 0.1);
@@ -299,15 +346,40 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           color: rgba(255, 255, 255, 1);
           background: rgba(255, 255, 255, 0.08);
         }
+        :global(.cmp-ctrl-btn--active) {
+          color: rgba(6, 182, 212, 0.85);
+        }
+        :global(.cmp-ctrl-btn--active:hover) {
+          color: rgba(6, 182, 212, 1);
+        }
+
+        /* --- Track area (title + progress stacked) --- */
+        :global(.cmp-track-area) {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          justify-content: center;
+        }
+        :global(.cmp-track) {
+          font-size: 11px;
+          font-weight: 500;
+          letter-spacing: 0.03em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          color: rgba(190, 255, 235, 0.8);
+          line-height: 1;
+        }
 
         /* --- Progress bar --- */
         :global(.cmp-progress) {
-          flex: 1;
+          width: 100%;
           height: 3px;
           background: rgba(255, 255, 255, 0.08);
           border-radius: 1.5px;
           overflow: hidden;
-          min-width: 0;
         }
         :global(.cmp-progress__fill) {
           height: 100%;
