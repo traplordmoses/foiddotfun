@@ -3,19 +3,21 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { musicPanelController } from "@/components/musicPanelController";
+import { getAudioSettings, setMusicEnabled } from "@/lib/audioSettings";
 
 const MusicPanelLogic = dynamic(() => import("./MusicPanel"), { ssr: false });
 
 const HIDE_DELAY_SCROLL = 1000;
 const HIDE_DELAY_HOVER = 2000;
 const SCROLL_BOTTOM_THRESHOLD = 120;
-const PLAYER_HEIGHT = 36;
+const PLAYER_HEIGHT = 38;
 
 type CompactMusicPlayerProps = { mountLogic?: boolean };
 
 export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPlayerProps) {
   const [state, setState] = useState(musicPanelController.getState());
   const [isVisible, setIsVisible] = useState(false);
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const isMobileRef = useRef(false);
@@ -46,6 +48,24 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     clearHideTimer();
     hideTimer.current = setTimeout(() => setIsVisible(false), delay);
   }, [clearHideTimer]);
+
+  // Measure container width from .vista-window on the page
+  useEffect(() => {
+    const measure = () => {
+      const win = document.querySelector<HTMLElement>(".vista-window");
+      if (win) {
+        setContainerWidth(win.getBoundingClientRect().width);
+      }
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    // Re-measure when visibility changes (layout may shift)
+    const raf = requestAnimationFrame(measure);
+    return () => {
+      window.removeEventListener("resize", measure);
+      cancelAnimationFrame(raf);
+    };
+  }, [isVisible]);
 
   // Content push: animate padding on app-viewport via CSS custom property
   useEffect(() => {
@@ -84,8 +104,6 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("resize", handleResize);
-
-    // Check initial position
     handleScroll();
 
     return () => {
@@ -109,9 +127,14 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     scheduleHide(HIDE_DELAY_HOVER);
   }, [scheduleHide]);
 
-  // Controls
+  // Controls — auto-enable music on play
   const handlePrev = () => musicPanelController.prev();
-  const handleToggle = () => musicPanelController.toggle();
+  const handleToggle = () => {
+    if (!getAudioSettings().musicEnabled) {
+      setMusicEnabled(true);
+    }
+    musicPanelController.toggle();
+  };
   const handleNext = () => musicPanelController.next();
   const handleShuffle = () => musicPanelController.toggleShuffle();
 
@@ -128,6 +151,8 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     return () => clearHideTimer();
   }, [clearHideTimer]);
 
+  const barStyle = containerWidth ? { width: containerWidth } : undefined;
+
   return (
     <>
       {mountLogic && (
@@ -136,27 +161,22 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         </div>
       )}
 
-      {/* Desktop hover zone — invisible strip at bottom edge */}
+      {/* Desktop hover zone */}
       {!isVisible && (
         <div className="cmp-hover-zone" onMouseEnter={handleHoverEnter} />
       )}
 
-      {/* Music bar — matches container width */}
+      {/* Music bar */}
       <div className={`cmp-bar-outer ${isVisible ? "cmp-bar-outer--visible" : "cmp-bar-outer--hidden"}`}>
         <div
           ref={barRef}
           className="cmp-bar"
+          style={barStyle}
           onMouseEnter={handleBarMouseEnter}
           onMouseLeave={handleBarMouseLeave}
         >
           {/* Previous */}
-          <button
-            className="cmp-ctrl-btn"
-            type="button"
-            onClick={handlePrev}
-            title="Previous"
-            aria-label="Previous"
-          >
+          <button className="cmp-ctrl-btn" type="button" onClick={handlePrev} title="Previous" aria-label="Previous">
             {"\u23EE"}
           </button>
 
@@ -172,13 +192,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           </button>
 
           {/* Next */}
-          <button
-            className="cmp-ctrl-btn"
-            type="button"
-            onClick={handleNext}
-            title="Next"
-            aria-label="Next"
-          >
+          <button className="cmp-ctrl-btn" type="button" onClick={handleNext} title="Next" aria-label="Next">
             {"\u23ED"}
           </button>
 
@@ -246,9 +260,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           background: transparent;
         }
         @media (max-width: 1023px) {
-          :global(.cmp-hover-zone) {
-            display: none;
-          }
+          :global(.cmp-hover-zone) { display: none; }
         }
 
         /* --- Outer wrapper: fixed, centers the bar --- */
@@ -260,7 +272,6 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           z-index: 50;
           display: flex;
           justify-content: center;
-          padding: 0 16px;
           pointer-events: none;
           transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
         }
@@ -272,44 +283,79 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           transition-duration: 0.3s;
           transition-timing-function: ease-in;
         }
-
-        /* Mobile: sit above MobileNav */
         @media (max-width: 1023px) {
-          :global(.cmp-bar-outer) {
-            bottom: 56px;
-            padding: 0 12px;
-          }
+          :global(.cmp-bar-outer) { bottom: 56px; }
         }
 
-        /* --- Music bar: matches container width --- */
+        /* --- Music bar: liquid glass aesthetic --- */
         :global(.cmp-bar) {
-          width: 100%;
-          max-width: 920px;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           height: ${PLAYER_HEIGHT}px;
-          padding: 0 14px;
-          background: rgba(10, 8, 20, 0.9);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          border-top: 1px solid rgba(255, 255, 255, 0.08);
-          border-left: 1px solid rgba(255, 255, 255, 0.06);
-          border-right: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 10px 10px 0 0;
-          color: rgba(255, 255, 255, 0.85);
+          padding: 0 16px;
+
+          /* Liquid glass — match vista-window aesthetic */
+          background: linear-gradient(
+            180deg,
+            rgba(60, 130, 180, 0.28) 0%,
+            rgba(30, 60, 100, 0.42) 100%
+          );
+          backdrop-filter: blur(24px) saturate(1.3);
+          -webkit-backdrop-filter: blur(24px) saturate(1.3);
+
+          /* Borders */
+          border-top: 1px solid rgba(255, 255, 255, 0.22);
+          border-left: 1px solid rgba(255, 255, 255, 0.15);
+          border-right: 1px solid rgba(255, 255, 255, 0.15);
+          border-radius: 14px 14px 0 0;
+
+          /* Shadow */
+          box-shadow:
+            0 -4px 20px rgba(0, 40, 80, 0.25),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+
+          color: rgba(255, 255, 255, 0.92);
           pointer-events: auto;
-          animation: foid-bar-glow 0.4s ease-out;
+          position: relative;
+          overflow: hidden;
         }
 
-        @keyframes foid-bar-glow {
-          0% { border-top-color: rgba(6, 182, 212, 0.45); }
-          100% { border-top-color: rgba(255, 255, 255, 0.08); }
+        /* Top shine — matches vista-window::before */
+        :global(.cmp-bar::before) {
+          content: "";
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 50%;
+          border-radius: 14px 14px 0 0;
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.12) 0%,
+            transparent 100%
+          );
+          pointer-events: none;
+        }
+
+        /* Entry glow */
+        :global(.cmp-bar-outer--visible .cmp-bar) {
+          animation: cmp-glow-in 0.5s ease-out;
+        }
+        @keyframes cmp-glow-in {
+          0% {
+            border-top-color: rgba(6, 182, 212, 0.6);
+            box-shadow: 0 -4px 30px rgba(6, 182, 212, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+          }
+          100% {
+            border-top-color: rgba(255, 255, 255, 0.22);
+            box-shadow: 0 -4px 20px rgba(0, 40, 80, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+          }
         }
 
         @media (max-width: 1023px) {
           :global(.cmp-bar) {
-            max-width: 100%;
+            border-radius: 12px 12px 0 0;
           }
         }
 
@@ -318,39 +364,46 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 24px;
-          height: 24px;
+          width: 26px;
+          height: 26px;
           padding: 0;
-          font-size: 12px;
+          font-size: 13px;
           background: none;
           border: none;
-          color: rgba(255, 255, 255, 0.5);
+          color: rgba(255, 255, 255, 0.55);
           cursor: pointer;
-          transition: color 0.15s, transform 0.15s;
+          transition: color 0.15s, transform 0.15s, text-shadow 0.15s;
           border-radius: 50%;
           flex-shrink: 0;
+          position: relative;
+          z-index: 1;
         }
         :global(.cmp-ctrl-btn:hover) {
-          color: rgba(255, 255, 255, 0.9);
-          transform: scale(1.1);
+          color: rgba(255, 255, 255, 0.95);
+          transform: scale(1.12);
+          text-shadow: 0 0 8px rgba(140, 255, 220, 0.4);
         }
         :global(.cmp-ctrl-btn--play) {
-          width: 28px;
-          height: 28px;
-          font-size: 14px;
-          color: rgba(255, 255, 255, 0.75);
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          width: 30px;
+          height: 30px;
+          font-size: 15px;
+          color: rgba(255, 255, 255, 0.8);
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          box-shadow: 0 0 8px rgba(100, 180, 255, 0.1);
         }
         :global(.cmp-ctrl-btn--play:hover) {
           color: rgba(255, 255, 255, 1);
-          background: rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.12);
+          box-shadow: 0 0 14px rgba(100, 180, 255, 0.2);
         }
         :global(.cmp-ctrl-btn--active) {
-          color: rgba(6, 182, 212, 0.85);
+          color: rgba(6, 182, 212, 0.9);
+          text-shadow: 0 0 6px rgba(6, 182, 212, 0.4);
         }
         :global(.cmp-ctrl-btn--active:hover) {
           color: rgba(6, 182, 212, 1);
+          text-shadow: 0 0 10px rgba(6, 182, 212, 0.6);
         }
 
         /* --- Track area (title + progress stacked) --- */
@@ -361,15 +414,18 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           flex-direction: column;
           gap: 3px;
           justify-content: center;
+          position: relative;
+          z-index: 1;
         }
         :global(.cmp-track) {
           font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 0.03em;
+          font-weight: 600;
+          letter-spacing: 0.04em;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          color: rgba(190, 255, 235, 0.8);
+          color: rgba(190, 255, 235, 0.85);
+          text-shadow: 0 0 8px rgba(140, 255, 220, 0.25);
           line-height: 1;
         }
 
@@ -377,13 +433,13 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         :global(.cmp-progress) {
           width: 100%;
           height: 3px;
-          background: rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.1);
           border-radius: 1.5px;
           overflow: hidden;
         }
         :global(.cmp-progress__fill) {
           height: 100%;
-          background: linear-gradient(90deg, #06b6d4, #8b5cf6);
+          background: linear-gradient(90deg, #06b6d4, #8b5cf6, #d946ef);
           border-radius: 1.5px;
           transition: width 0.3s linear;
           position: relative;
@@ -392,7 +448,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         :global(.cmp-progress__shimmer) {
           position: absolute;
           inset: 0;
-          background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+          background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
           background-size: 200% 100%;
           animation: foid-shimmer 3s ease-in-out infinite;
         }
@@ -407,40 +463,42 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           align-items: center;
           gap: 4px;
           flex-shrink: 0;
+          position: relative;
+          z-index: 1;
         }
         :global(.cmp-volume__icon) {
-          font-size: 13px;
-          opacity: 0.45;
+          font-size: 14px;
+          opacity: 0.5;
           cursor: default;
           line-height: 1;
         }
         :global(.cmp-volume__slider) {
-          width: 48px;
+          width: 50px;
           height: 3px;
           -webkit-appearance: none;
           appearance: none;
-          background: rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.1);
           border-radius: 1.5px;
           outline: none;
           cursor: pointer;
         }
         :global(.cmp-volume__slider::-webkit-slider-thumb) {
           -webkit-appearance: none;
-          width: 8px;
-          height: 8px;
+          width: 10px;
+          height: 10px;
           border-radius: 50%;
-          background: rgba(190, 255, 235, 0.8);
-          border: 1px solid rgba(116, 255, 235, 0.4);
-          box-shadow: 0 0 3px rgba(116, 255, 235, 0.25);
+          background: rgba(190, 255, 235, 0.85);
+          border: 1px solid rgba(116, 255, 235, 0.5);
+          box-shadow: 0 0 6px rgba(116, 255, 235, 0.3);
           cursor: pointer;
         }
         :global(.cmp-volume__slider::-moz-range-thumb) {
-          width: 8px;
-          height: 8px;
+          width: 10px;
+          height: 10px;
           border-radius: 50%;
-          background: rgba(190, 255, 235, 0.8);
-          border: 1px solid rgba(116, 255, 235, 0.4);
-          box-shadow: 0 0 3px rgba(116, 255, 235, 0.25);
+          background: rgba(190, 255, 235, 0.85);
+          border: 1px solid rgba(116, 255, 235, 0.5);
+          box-shadow: 0 0 6px rgba(116, 255, 235, 0.3);
           cursor: pointer;
         }
       `}</style>

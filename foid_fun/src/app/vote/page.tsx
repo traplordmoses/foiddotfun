@@ -24,7 +24,7 @@ import type { SwipeProposal } from "@/types/vote";
 import {
   SwipeParticles, StreakBadge, GlowFlash, VoteResultText,
   UndoPill, DetailDrawer, TxOverlay, VictoryCelebration,
-  KeyboardHint, SwipeCard, BatchReview, EmptyState,
+  SwipeCard, BatchReview, EmptyState,
 } from "@/components/vote";
 
 /* ─── localStorage helpers (wallet-scoped voted IDs) ─── */
@@ -326,7 +326,6 @@ export default function VotePage() {
     <main className="relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center" style={{ height: "100dvh", overscrollBehavior: "none" }}>
       <div className="pointer-events-none fixed inset-0 z-0 vignette" aria-hidden="true" />
 
-      <KeyboardHint />
       <UndoPill visible={showUndo && lastVotedId != null} onUndo={handleUndo} />
 
       {drawerProposal && (
