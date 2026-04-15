@@ -43,7 +43,8 @@ body {
   min-height: 100svh;
   min-height: 100dvh;
   padding-top: calc(var(--safe-top, 0px) + 12px);
-  padding-bottom: calc(var(--safe-bottom, 0px) + 16px);
+  --cmp-extra-pb: 0px;
+  padding-bottom: calc(var(--safe-bottom, 0px) + 16px + var(--cmp-extra-pb));
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
   box-sizing: border-box;
@@ -53,12 +54,13 @@ body {
   width: 100%;
   position: relative;
   z-index: 2;
+  transition: padding-bottom 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 /* On mobile, add extra bottom padding for the fixed bottom nav */
 @media (max-width: 1023px) {
   .app-viewport {
-    padding-bottom: calc(var(--safe-bottom, 0px) + 80px);
+    padding-bottom: calc(var(--safe-bottom, 0px) + 80px + var(--cmp-extra-pb, 0px));
   }
 }
 
@@ -3836,7 +3838,7 @@ body {
     -webkit-overflow-scrolling: touch;
     min-height: 100dvh;
     height: auto !important;
-    padding-bottom: 80px !important;
+    padding-bottom: calc(80px + var(--cmp-extra-pb, 0px)) !important;
   }
 
   /* 3. Override inline style="height:100vh" + overflow-hidden on all page <main> */
