@@ -73,6 +73,14 @@ html.cmp-active .vista-window {
   max-height: calc(94vh - 38px) !important;
   height: calc(94vh - 38px) !important;
 }
+html.cmp-active .app-viewport {
+  padding-bottom: calc(var(--safe-bottom, 0px) + 38px);
+}
+@media (max-width: 1023px) {
+  html.cmp-active .app-viewport {
+    padding-bottom: calc(var(--safe-bottom, 0px) + 118px);
+  }
+}
 
 /* ===== ABOUT PAGE TYPOGRAPHY POLISH (NO LAYOUT / NO GLASS CHANGES) ===== */
 .about-page {
