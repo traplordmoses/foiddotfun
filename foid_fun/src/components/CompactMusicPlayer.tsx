@@ -17,7 +17,6 @@ type CompactMusicPlayerProps = { mountLogic?: boolean };
 export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPlayerProps) {
   const [state, setState] = useState(musicPanelController.getState());
   const [isVisible, setIsVisible] = useState(false);
-  const [containerWidth, setContainerWidth] = useState<number | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const isMobileRef = useRef(false);
@@ -49,29 +48,9 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     hideTimer.current = setTimeout(() => setIsVisible(false), delay);
   }, [clearHideTimer]);
 
-  // Measure container width from .vista-window on the page
+  // Content push: toggle class on <html> to shrink vista-windows
   useEffect(() => {
-    const measure = () => {
-      const win = document.querySelector<HTMLElement>(".vista-window");
-      if (win) {
-        setContainerWidth(win.getBoundingClientRect().width);
-      }
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    // Re-measure when visibility changes (layout may shift)
-    const raf = requestAnimationFrame(measure);
-    return () => {
-      window.removeEventListener("resize", measure);
-      cancelAnimationFrame(raf);
-    };
-  }, [isVisible]);
-
-  // Content push: animate padding on app-viewport via CSS custom property
-  useEffect(() => {
-    const viewport = document.querySelector<HTMLElement>(".app-viewport");
-    if (!viewport) return;
-    viewport.style.setProperty("--cmp-extra-pb", isVisible ? `${PLAYER_HEIGHT}px` : "0px");
+    document.documentElement.classList.toggle("cmp-active", isVisible);
   }, [isVisible]);
 
   // Mobile: scroll-based reveal
@@ -151,8 +130,6 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     return () => clearHideTimer();
   }, [clearHideTimer]);
 
-  const barStyle = containerWidth ? { width: containerWidth } : undefined;
-
   return (
     <>
       {mountLogic && (
@@ -171,7 +148,6 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         <div
           ref={barRef}
           className="cmp-bar"
-          style={barStyle}
           onMouseEnter={handleBarMouseEnter}
           onMouseLeave={handleBarMouseLeave}
         >
@@ -287,15 +263,17 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           :global(.cmp-bar-outer) { bottom: 56px; }
         }
 
-        /* --- Music bar: liquid glass aesthetic --- */
+        /* ===== Music bar: liquid glass, consistent width ===== */
         :global(.cmp-bar) {
+          width: calc(100% - 32px);
+          max-width: 1152px;
           display: flex;
           align-items: center;
           gap: 10px;
           height: ${PLAYER_HEIGHT}px;
           padding: 0 16px;
 
-          /* Liquid glass — match vista-window aesthetic */
+          /* Liquid glass */
           background: linear-gradient(
             180deg,
             rgba(60, 130, 180, 0.28) 0%,
@@ -321,7 +299,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           overflow: hidden;
         }
 
-        /* Top shine — matches vista-window::before */
+        /* Top shine */
         :global(.cmp-bar::before) {
           content: "";
           position: absolute;
