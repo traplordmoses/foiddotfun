@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, lazy, Suspense } from "react";
+
+const SendEthModal = lazy(() => import("./wallet/SendEthModal"));
 import { createPortal } from "react-dom";
 import { useBalance } from "wagmi";
 import type { Address } from "viem";
@@ -32,6 +34,7 @@ export default function WalletMenuPill({
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
   const [mounted, setMounted] = useState(false);
   const [exportStatus, setExportStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [showSendModal, setShowSendModal] = useState(false);
   const [passkeyStatus, setPasskeyStatus] = useState<boolean | null>(null);
   const isEmbeddedWallet = mounted && typeof window !== "undefined" && localStorage.getItem("foid-embedded-active") === "true";
 
@@ -288,6 +291,17 @@ export default function WalletMenuPill({
         </svg>
         Copy Address
       </button>
+      <button
+        type="button"
+        role="menuitem"
+        className="aero-wallet-menu__item"
+        onClick={() => { setShowSendModal(true); setIsOpen(false); }}
+      >
+        <svg className="aero-wallet-menu__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M14 2L2 8L7 9.5L9 14L14 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Send ETH
+      </button>
       <div style={{
         padding: "6px 12px",
         borderBottom: "1px solid rgba(255,255,255,0.1)",
@@ -405,6 +419,15 @@ export default function WalletMenuPill({
       {mounted && dropdownMenu
         ? createPortal(dropdownMenu, document.body)
         : null}
+
+      {showSendModal && address && mounted && (
+        <Suspense fallback={null}>
+          <SendEthModal
+            address={address}
+            onClose={() => setShowSendModal(false)}
+          />
+        </Suspense>
+      )}
     </>
   );
 }
