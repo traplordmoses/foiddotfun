@@ -1,8 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { FoidOSWindow } from "@/components/FoidOSWindow";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAccount, useDisconnect } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
+import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { UserDashboard } from "@/components/UserDashboard";
 import CompactMusicPlayer from "@/components/CompactMusicPlayer";
 
@@ -24,6 +26,18 @@ type IdleWindow = Window & {
 };
 
 export default function DashboardPage() {
+  const { address, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
+  const { openConnectModal } = useConnectModal();
+
+  const handleSwitchWallet = useCallback(() => {
+    disconnect();
+    setTimeout(() => openConnectModal?.(), 100);
+  }, [disconnect, openConnectModal]);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   const musicRef = useRef<HTMLDivElement | null>(null);
   const [musicReady, setMusicReady] = useState(false);
 
@@ -48,35 +62,46 @@ export default function DashboardPage() {
   const loadNow = useCallback(() => setMusicReady(true), []);
 
   return (
-    <main className="relative isolate min-h-screen bg-foid-bg text-white/90 px-4 py-8">
+    <main className="relative isolate min-h-screen bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center" style={{ height: "100vh" }}>
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
-      <div className="relative z-10">
-        <FoidOSWindow title="your_foid_dashboard.exe">
-          <UserDashboard />
+      <section className="relative z-10 w-full max-w-full px-2 sm:px-4">
+        <div className="mx-auto w-full max-w-4xl">
+          <div className="vista-window vista-window--terminal vista-window--enhanced w-full flex flex-col" style={{ maxHeight: "94vh" }}>
+            <AppTitlebar
+              title="YOUR_FOID_DASHBOARD.EXE"
+              connected={mounted && isConnected}
+              address={mounted ? address : undefined}
+              onDisconnect={() => disconnect()}
+              onSwitchWallet={handleSwitchWallet}
+            />
+            <div className="vista-window__body overflow-y-auto" style={{ flex: 1, minHeight: 0 }}>
+              <UserDashboard />
 
-          <div ref={musicRef} className="mt-6 flex flex-col gap-3">
-            {musicReady ? (
-              <>
-                <MusicPanel className="w-full min-h-[190px]" />
-                <div className="flex justify-center">
-                  <CompactMusicPlayer mountLogic={false} />
-                </div>
-              </>
-            ) : (
-              <div className="flex min-h-[120px] w-full flex-col items-center justify-center gap-3 text-center text-xs text-white/55">
-                <p className="text-white/40">music loads after the page.</p>
-                <button
-                  type="button"
-                  onClick={loadNow}
-                  className="rounded-full border border-white/20 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.3em] text-white/65 transition hover:bg-white/10 hover:border-white/30"
-                >
-                  load
-                </button>
+              <div ref={musicRef} className="mt-6 flex flex-col gap-3 px-4 pb-4">
+                {musicReady ? (
+                  <>
+                    <MusicPanel className="w-full min-h-[190px]" />
+                    <div className="flex justify-center">
+                      <CompactMusicPlayer mountLogic={false} />
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex min-h-[120px] w-full flex-col items-center justify-center gap-3 text-center text-xs text-white/55">
+                    <p className="text-white/40">music loads after the page.</p>
+                    <button
+                      type="button"
+                      onClick={loadNow}
+                      className="rounded-full border border-white/20 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.3em] text-white/65 transition hover:bg-white/10 hover:border-white/30"
+                    >
+                      load
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
-        </FoidOSWindow>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }

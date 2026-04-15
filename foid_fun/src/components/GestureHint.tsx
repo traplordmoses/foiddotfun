@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface GestureHintProps {
@@ -10,8 +11,21 @@ interface GestureHintProps {
 
 export function GestureHint({ storageKey, hints }: GestureHintProps) {
   const [isVisible, setIsVisible] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+    // Only show on mobile (matches lg:hidden breakpoint at 1024px)
+    const mq = window.matchMedia('(max-width: 1023px)');
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
     // Check if user has seen this hint before
     const hasSeenHint = localStorage.getItem(storageKey);
     if (!hasSeenHint) {
@@ -21,14 +35,15 @@ export function GestureHint({ storageKey, hints }: GestureHintProps) {
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [storageKey]);
+  }, [storageKey, isMobile]);
 
   const handleDismiss = () => {
     setIsVisible(false);
     localStorage.setItem(storageKey, 'true');
   };
 
-  return (
+  // Use a portal so fixed positioning isn't broken by ancestor transforms
+  const content = (
     <AnimatePresence>
       {isVisible && (
         <>
@@ -37,25 +52,34 @@ export function GestureHint({ storageKey, hints }: GestureHintProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            className="bg-black/60 backdrop-blur-sm"
+            style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
             onClick={handleDismiss}
           />
 
-          {/* Hint Card */}
+          {/* Hint Card — use inset + margin:auto for centering (avoids transform conflict with framer-motion) */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-60 w-[90vw] max-w-md"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              width: '90vw',
+              maxWidth: '28rem',
+              margin: 'auto',
+              height: 'fit-content',
+            }}
           >
-            <div className="bg-gradient-to-br from-purple-900/95 to-blue-900/95 backdrop-blur-xl border-2 border-purple-400/30 rounded-3xl shadow-2xl p-6">
-              <div className="text-center mb-4">
-                <div className="text-4xl mb-3">👆</div>
-                <h3 className="text-xl font-bold text-white mb-2">Quick Tutorial</h3>
+            <div className="bg-gradient-to-br from-purple-900/95 to-blue-900/95 backdrop-blur-xl border-2 border-purple-400/30 rounded-3xl shadow-2xl p-4 sm:p-6">
+              <div className="text-center mb-3 sm:mb-4">
+                <div className="text-3xl sm:text-4xl mb-2 sm:mb-3">👆</div>
+                <h3 className="text-lg sm:text-xl font-bold text-white mb-1 sm:mb-2">Quick Tutorial</h3>
               </div>
 
-              <div className="space-y-3 mb-6">
+              <div className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
                 {hints.map((hint, index) => (
                   <div
                     key={index}
@@ -81,4 +105,7 @@ export function GestureHint({ storageKey, hints }: GestureHintProps) {
       )}
     </AnimatePresence>
   );
+
+  if (!mounted) return null;
+  return createPortal(content, document.body);
 }

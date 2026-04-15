@@ -13,7 +13,10 @@ export function ConnectWalletPrompt() {
           <p className="text-sm text-white/60">Connect to see your FOID journey</p>
         </div>
 
-        <button onClick={openConnectModal} className="connect-wallet-button w-full">
+        <button
+          onClick={openConnectModal}
+          className="w-full rounded-xl border border-white/20 bg-gradient-to-r from-purple-500/80 to-blue-500/80 px-6 py-3 text-sm font-bold uppercase tracking-[0.15em] text-white shadow-lg transition-all hover:from-purple-500 hover:to-blue-500 hover:shadow-purple-500/30 active:scale-[0.97]"
+        >
           Connect Wallet
         </button>
 

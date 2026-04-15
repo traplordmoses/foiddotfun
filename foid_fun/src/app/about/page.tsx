@@ -1675,8 +1675,11 @@ export default function AboutPage() {
 
           .aboutNavButton {
             flex: 0 0 auto;
-            min-width: 120px;
+            min-width: auto;
+            padding-left: 14px;
+            padding-right: 14px;
             border-radius: 999px;
+            white-space: nowrap;
           }
 
           .aboutWindowBody {
