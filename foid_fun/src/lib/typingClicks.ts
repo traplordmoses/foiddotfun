@@ -13,7 +13,7 @@ const FILES = {
   enter: "/sfx/enter.wav",
 } as const;
 
-const TYPING_VOLUME = 0.4;
+const TYPING_VOLUME = 0.08;
 
 function ensureCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
