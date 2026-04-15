@@ -7,9 +7,7 @@ import { getAudioSettings, setMusicEnabled } from "@/lib/audioSettings";
 
 const MusicPanelLogic = dynamic(() => import("./MusicPanel"), { ssr: false });
 
-const HIDE_DELAY_SCROLL = 1000;
 const HIDE_DELAY_HOVER = 2000;
-const SCROLL_BOTTOM_THRESHOLD = 120;
 const PLAYER_HEIGHT = 38;
 
 type CompactMusicPlayerProps = { mountLogic?: boolean };
@@ -53,43 +51,15 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     document.documentElement.classList.toggle("cmp-active", isVisible);
   }, [isVisible]);
 
-  // Mobile: scroll-based reveal
+  // Track mobile state (player hidden on mobile via CSS, but ref used elsewhere)
   useEffect(() => {
     const checkMobile = () => {
       isMobileRef.current = window.matchMedia("(max-width: 1023px)").matches;
     };
     checkMobile();
-
-    const handleScroll = () => {
-      if (!isMobileRef.current) return;
-
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      const windowHeight = window.innerHeight;
-      const docHeight = document.documentElement.scrollHeight;
-      const distFromBottom = docHeight - (scrollTop + windowHeight);
-
-      if (distFromBottom <= SCROLL_BOTTOM_THRESHOLD) {
-        show();
-      } else {
-        if (!hideTimer.current) {
-          scheduleHide(HIDE_DELAY_SCROLL);
-        }
-      }
-    };
-
-    const handleResize = () => {
-      checkMobile();
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("resize", handleResize);
-    handleScroll();
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [show, scheduleHide]);
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // Desktop: hover zone
   const handleHoverEnter = useCallback(() => {
@@ -260,7 +230,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           transition-timing-function: ease-in;
         }
         @media (max-width: 1023px) {
-          :global(.cmp-bar-outer) { bottom: 56px; }
+          :global(.cmp-bar-outer) { display: none !important; }
         }
 
         /* ===== Music bar: liquid glass, consistent width ===== */
