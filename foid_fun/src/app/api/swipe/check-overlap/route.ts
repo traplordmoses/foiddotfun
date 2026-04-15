@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
         functionName: "proposalCount",
       }) as bigint;
 
+      const nowSec = Math.floor(Date.now() / 1000);
       const n = Math.min(Number(proposalCount), MAX_PROPOSALS_TO_CHECK);
       if (n > 0) {
         const contracts = Array.from({ length: n }, (_, i) => ({
@@ -60,11 +61,18 @@ export async function GET(request: NextRequest) {
           // [8] gridX, [9] gridY, [10] gridW, [11] gridH
           const finalized = p[5] as boolean;
           const approved = p[6] as boolean;
+          const votingEndsAt = Number(p[4] ?? 0);
           const gw = Number(p[10] ?? 0);
           const gh = Number(p[11] ?? 0);
 
           // Skip finalized+rejected proposals (their spot is free)
           if (finalized && !approved) continue;
+
+          // Skip expired-but-unfinalized proposals — voting ended but
+          // finalize() was never called (stale). The contract's propose()
+          // enforces overlap via _hasOccupiedCells which only covers
+          // finalized+approved placements, so these don't actually block.
+          if (!finalized && votingEndsAt > 0 && votingEndsAt < nowSec) continue;
           if (gw <= 0 || gh <= 0) continue;
 
           const rect: Rect = { x: Number(p[8] ?? 0), y: Number(p[9] ?? 0), w: gw, h: gh };
