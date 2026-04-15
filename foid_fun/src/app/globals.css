@@ -1882,7 +1882,7 @@ body {
     display: grid;
     gap: var(--pray-gap);
     grid-template-columns: minmax(0, 1fr) var(--pray-sidebar-w);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
     grid-template-areas:
       "terminal manual"
       "terminal stats";
@@ -1935,7 +1935,7 @@ body {
   .pray-pane__body {
     flex: 1;
     min-height: 0;
-    overflow: hidden;
+    overflow: auto;
   }
 
   .pray-mobile-tabs {

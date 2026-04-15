@@ -607,7 +607,7 @@ function PrayPageContent() {
                             <div className="pray-tier-progress__bar">
                               <div
                                 className="pray-tier-progress__fill"
-                                style={{ width: `${tierProgress.next ? tierProgress.progressPercent : 100}%` }}
+                                style={{ width: `${tierProgress.next ? Math.max(tierProgress.progressPercent, 6) : 100}%` }}
                               />
                             </div>
                             <span className="pray-tier-progress__label pray-tier-progress__label--next">
