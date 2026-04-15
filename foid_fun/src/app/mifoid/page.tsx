@@ -31,11 +31,11 @@ const FEATURES = [
 
 /* 5 floating mini-windows — spread around the GameBoy, larger + glowing */
 const FLOAT_WINDOWS = [
-  { src: "/mifoid04.png", alt: "MiFOID - gray tee",       top: -45,  left: -130, rotate: -6,  delay: "0s" },
-  { src: "/mifoid07.png", alt: "MiFOID in Blender",        top: "18%", left: -155, rotate: -8,  delay: "0.9s" },
-  { src: "/mifoid08.png", alt: "MiFOID texture paint",     top: "10%", right: -130, rotate: 5,  delay: "1.5s" },
-  { src: "/mifoid02.png", alt: "MiFOID - green hoodie",    bottom: 20, left: -140, rotate: 5,  delay: "1.2s" },
-  { src: "/mifoid03.png", alt: "MiFOID - black hoodie",    bottom: -30, right: -120, rotate: -6, delay: "0.3s" },
+  { src: "/mifoid04.png", alt: "MiFOID - gray tee",       top: -35,  left: -100, rotate: -6,  delay: "0s" },
+  { src: "/mifoid07.png", alt: "MiFOID in Blender",        top: "18%", left: -115, rotate: -8,  delay: "0.9s" },
+  { src: "/mifoid08.png", alt: "MiFOID texture paint",     top: "10%", right: -100, rotate: 5,  delay: "1.5s" },
+  { src: "/mifoid02.png", alt: "MiFOID - green hoodie",    bottom: 20, left: -110, rotate: 5,  delay: "1.2s" },
+  { src: "/mifoid03.png", alt: "MiFOID - black hoodie",    bottom: -20, right: -95, rotate: -6, delay: "0.3s" },
 ];
 
 const SPARKLES = [
@@ -81,7 +81,7 @@ export default function MiFOIDPage() {
             {/* Content area — iridescent gradient INSIDE window only */}
             <div
               className="vista-window__body mifoid-iridescent"
-              style={{ overflow: "hidden", flex: 1, minHeight: 0, position: "relative", padding: "0 24px" }}
+              style={{ overflow: "clip", flex: 1, minHeight: 0, position: "relative", padding: "0 24px" }}
             >
               {/* Decorative sparkles + bubbles */}
               <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
@@ -119,7 +119,7 @@ export default function MiFOIDPage() {
               </div>
 
               {/* Flex layout: stacked on mobile, side-by-side on desktop */}
-              <div className="relative z-10 flex flex-col lg:flex-row items-center h-full pt-10 lg:pt-0 overflow-y-auto lg:overflow-visible">
+              <div className="relative z-10 flex flex-col lg:flex-row items-center h-full pt-10 lg:pt-8 overflow-y-auto lg:overflow-visible">
                 {/* Left — features */}
                 <div className="flex flex-col justify-center flex-1 w-full lg:h-full pl-4 pr-4 lg:pl-8 lg:pr-6 gap-4 lg:gap-7 min-w-0 pb-4 lg:pb-0">
                   {FEATURES.map((feat, i) => (
@@ -140,10 +140,10 @@ export default function MiFOIDPage() {
                 </div>
 
                 {/* Right — GameBoy+MiFOID combined image */}
-                <div className="flex-1 flex items-center justify-center relative w-full lg:h-full lg:mr-[90px] pb-20 lg:pb-0">
+                <div className="flex-1 flex items-center justify-center relative w-full lg:h-full lg:mr-[40px] xl:mr-[70px] pb-20 lg:pb-0">
                   {/* GameBoy + character combined image */}
                   <div
-                    className="mifoid-gameboy-wrap relative w-[200px] lg:w-[300px]"
+                    className="mifoid-gameboy-wrap relative w-[200px] md:w-[240px] lg:w-[280px] xl:w-[320px]"
                   >
                     {/* Radial glow behind gameboy for focal effect */}
                     <div className="mifoid-focal-glow" />

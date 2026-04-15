@@ -93,6 +93,12 @@ html.cmp-active .app-viewport {
   --about-gap: 14px;
 }
 
+@media (max-width: 1024px) and (min-width: 769px) {
+  .about-page {
+    --about-sidebar-w: 210px;
+  }
+}
+
 @media (max-width: 768px) {
   .about-page {
     --about-pad: 14px;

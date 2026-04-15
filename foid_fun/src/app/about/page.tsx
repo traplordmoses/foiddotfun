@@ -857,7 +857,7 @@ const sections: Section[] = [
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">PrayerTiers</p>
+            <p className="aboutMiniCard__title">Prayer Tiers</p>
             <p className="aboutMiniCard__body">
               10-tier prayer streak system. Your daily devotion earns multipliers from 1x (Lurker) to 5x (Mommy Milker). Tiers feed into voting power across the entire ecosystem.
             </p>
@@ -865,7 +865,7 @@ const sections: Section[] = [
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">StreakVotingPower</p>
+            <p className="aboutMiniCard__title">Streak Voting Power</p>
             <p className="aboutMiniCard__body">
               Converts prayer streaks into weighted voting power. Higher streaks = more influence on governance votes and loreboard decisions. Base weight 100, scaled by tier multiplier.
             </p>
@@ -881,7 +881,7 @@ const sections: Section[] = [
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">LoreboardLiveNFT</p>
+            <p className="aboutMiniCard__title">Loreboard Live NFT</p>
             <p className="aboutMiniCard__body">
               The 1/1 board NFT (ERC-721). Metadata auto-updates when the manifest changes via syncLatest(). On-chain SVG with epoch and manifest root. The ever-evolving artifact of community culture.
             </p>
@@ -889,7 +889,7 @@ const sections: Section[] = [
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">FoidMultisig</p>
+            <p className="aboutMiniCard__title">Foid Multisig</p>
             <p className="aboutMiniCard__body">
               2-of-3 multisig wallet that owns all board contracts. Controls parameters, security, and emergency removal. The trust layer until community governance is mature enough for a DAO transition.
             </p>
@@ -911,7 +911,7 @@ const sections: Section[] = [
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Prayer Mirror</p>
             <p className="aboutMiniCard__body">On-chain prayer streak oracle.</p>
@@ -1391,7 +1391,7 @@ export default function AboutPage() {
               onSwitchWallet={handleSwitchWallet}
             />
             <div className="vista-window__body aboutWindowBody foid-iridescent flex flex-col md:flex-row gap-3 md:gap-4">
-              <aside className="aboutSidebar aboutGlassShell flex-shrink-0 w-full md:w-auto">
+              <aside className="aboutSidebar aboutGlassShell flex-shrink-0 w-full md:w-auto md:overflow-y-auto md:min-h-0">
                 <p className="text-[10px] uppercase tracking-[0.55em] text-white/55 hidden md:block">navigation</p>
                 <nav aria-label="about sections" className="aboutNav mt-0 md:mt-3 flex w-full flex-col md:flex-col">
                   {sections.map((section) => {
@@ -1567,6 +1567,8 @@ export default function AboutPage() {
           letter-spacing: 0.2em;
           color: rgba(255, 255, 255, 0.74);
           margin-bottom: 6px;
+          overflow-wrap: break-word;
+          word-break: break-word;
         }
         .aboutMiniCard__body {
           font-size: var(--about-body-size);
@@ -1578,6 +1580,19 @@ export default function AboutPage() {
           width: var(--about-sidebar-w);
           max-width: 100%;
           padding: 14px 12px;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+        }
+
+        .aboutSidebar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .aboutSidebar::-webkit-scrollbar-thumb {
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.15);
+        }
+        .aboutSidebar::-webkit-scrollbar-track {
+          background: transparent;
         }
 
         .aboutNav {
