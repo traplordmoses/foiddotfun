@@ -155,12 +155,12 @@ function VoteCard({
           margin-bottom: 8px;
         }
         .rv-card__label {
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 11px; font-weight: 700;
           letter-spacing: 0.15em; color: rgba(255,255,255,0.6);
         }
         .rv-card__status {
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 10px; font-weight: 700;
           letter-spacing: 0.1em; padding: 3px 8px;
           border-radius: 4px;
@@ -186,7 +186,7 @@ function VoteCard({
         }
         .rv-card__bar-labels {
           display: flex; justify-content: space-between;
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 10px; color: rgba(255,255,255,0.35);
           margin-top: 4px;
         }
@@ -195,7 +195,7 @@ function VoteCard({
         }
         .rv-card__btn {
           flex: 1; padding: 8px 0; border-radius: 8px;
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 11px; font-weight: 700;
           letter-spacing: 0.1em; cursor: pointer;
           transition: all 150ms;
@@ -221,13 +221,13 @@ function VoteCard({
         .rv-card__btn--resolve:hover { background: rgba(245,158,11,0.2); }
         .rv-card__btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .rv-card__voted {
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 11px; color: rgba(255,255,255,0.3);
           text-align: center; margin-top: 6px;
           letter-spacing: 0.1em;
         }
         .rv-card__error {
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 11px; color: rgba(239,68,68,0.8);
           margin-top: 4px;
         }

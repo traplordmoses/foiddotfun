@@ -100,14 +100,14 @@ function FlagConfirmModal({
           border-radius: 12px;
         }
         .fc-title {
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 14px; font-weight: 700;
           letter-spacing: 0.1em; text-transform: uppercase;
           color: rgba(255,255,255,0.9);
           margin: 0;
         }
         .fc-body {
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 11px; line-height: 1.5;
           color: rgba(255,255,255,0.5);
           text-align: center; margin: 0;
@@ -118,7 +118,7 @@ function FlagConfirmModal({
         }
         .fc-btn {
           flex: 1; padding: 8px 0; border-radius: 10px;
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 11px; font-weight: 700;
           letter-spacing: 0.12em; text-transform: uppercase;
           cursor: pointer; transition: all 150ms;

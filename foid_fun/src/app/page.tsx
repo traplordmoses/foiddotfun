@@ -367,7 +367,7 @@ export default function LandingPage() {
 
         /* Card label — pink gradient text like MiFOID */
         :global(.home-card__label) {
-          font-family: var(--font-mono, ui-monospace, monospace);
+          font-family: var(--font-terminal, ui-monospace, monospace);
           font-size: 20px;
           font-weight: 700;
           letter-spacing: 0.2em;

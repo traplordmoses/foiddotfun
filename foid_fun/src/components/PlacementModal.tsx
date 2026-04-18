@@ -71,7 +71,7 @@ export function PlacementModal({ placement, onClose }: Props) {
         {/* ── Header row ── */}
         <div
           className="mb-3 flex items-center justify-between"
-          style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase" as const }}
+          style={{ fontFamily: "var(--font-terminal)", fontSize: 10, letterSpacing: "0.18em", textTransform: "uppercase" as const }}
         >
           <span style={{ color: "rgba(116,255,235,0.95)", textShadow: "0 0 12px rgba(116,255,235,0.28)" }}>
             FOID LORE
@@ -86,7 +86,7 @@ export function PlacementModal({ placement, onClose }: Props) {
               background: "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0) 50%), rgba(6,14,28,0.78)",
               color: "rgba(255,255,255,0.65)",
               fontSize: 10,
-              fontFamily: "var(--font-mono)",
+              fontFamily: "var(--font-terminal)",
               letterSpacing: "0.15em",
               cursor: "pointer",
               transition: "border-color 0.2s, color 0.2s",
@@ -160,7 +160,7 @@ export function PlacementModal({ placement, onClose }: Props) {
                         background: `linear-gradient(135deg, ${sCfg.bg}, transparent)`,
                         color: sCfg.color,
                         fontSize: 9,
-                        fontFamily: "var(--font-mono)",
+                        fontFamily: "var(--font-terminal)",
                         fontWeight: 700,
                         letterSpacing: "0.2em",
                         textTransform: "uppercase" as const,
@@ -175,7 +175,7 @@ export function PlacementModal({ placement, onClose }: Props) {
                     <span
                       style={{
                         fontSize: 9,
-                        fontFamily: "var(--font-mono)",
+                        fontFamily: "var(--font-terminal)",
                         fontWeight: 600,
                         letterSpacing: "0.18em",
                         color: "rgba(116,255,235,0.7)",
@@ -187,7 +187,7 @@ export function PlacementModal({ placement, onClose }: Props) {
                 </div>
 
                 {proposer && (
-                  <span style={{ fontSize: 10, fontFamily: "var(--font-mono)", letterSpacing: "0.06em", color: "rgba(255,255,255,0.45)" }}>
+                  <span style={{ fontSize: 10, fontFamily: "var(--font-terminal)", letterSpacing: "0.06em", color: "rgba(255,255,255,0.45)" }}>
                     by{" "}
                     <span style={{ color: "rgba(190,255,235,0.85)", textShadow: "0 0 8px rgba(116,255,235,0.2)" }}>
                       {truncateAddress(proposer)}
@@ -201,12 +201,12 @@ export function PlacementModal({ placement, onClose }: Props) {
                 <div style={{ marginBottom: 10 }}>
                   {/* Labels row */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ fontSize: 9, fontFamily: "var(--font-mono)", letterSpacing: "0.1em", color: "rgba(255,255,255,0.4)" }}>
+                    <span style={{ fontSize: 9, fontFamily: "var(--font-terminal)", letterSpacing: "0.1em", color: "rgba(255,255,255,0.4)" }}>
                       {totalVotes} vote{totalVotes !== 1 ? "s" : ""}
                       {voters != null && ` \u00b7 ${voters} voter${voters !== 1 ? "s" : ""}`}
                     </span>
                     {isVoting && secondsLeft != null && (
-                      <span style={{ fontSize: 9, fontFamily: "var(--font-mono)", letterSpacing: "0.12em", color: "rgba(255,210,130,0.8)", textShadow: "0 0 8px rgba(255,185,82,0.2)" }}>
+                      <span style={{ fontSize: 9, fontFamily: "var(--font-terminal)", letterSpacing: "0.12em", color: "rgba(255,210,130,0.8)", textShadow: "0 0 8px rgba(255,185,82,0.2)" }}>
                         {formatTimeLeft(secondsLeft)}
                       </span>
                     )}
@@ -236,10 +236,10 @@ export function PlacementModal({ placement, onClose }: Props) {
 
                   {/* Yes / No labels */}
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
-                    <span style={{ fontSize: 9, fontFamily: "var(--font-mono)", fontWeight: 600, letterSpacing: "0.15em", color: "rgba(116,255,235,0.75)", textShadow: "0 0 6px rgba(116,255,235,0.2)" }}>
+                    <span style={{ fontSize: 9, fontFamily: "var(--font-terminal)", fontWeight: 600, letterSpacing: "0.15em", color: "rgba(116,255,235,0.75)", textShadow: "0 0 6px rgba(116,255,235,0.2)" }}>
                       YES {yesVotes ?? 0}
                     </span>
-                    <span style={{ fontSize: 9, fontFamily: "var(--font-mono)", fontWeight: 600, letterSpacing: "0.15em", color: "rgba(255,71,87,0.7)", textShadow: "0 0 6px rgba(255,71,87,0.15)" }}>
+                    <span style={{ fontSize: 9, fontFamily: "var(--font-terminal)", fontWeight: 600, letterSpacing: "0.15em", color: "rgba(255,71,87,0.7)", textShadow: "0 0 6px rgba(255,71,87,0.15)" }}>
                       NO {noVotes ?? 0}
                     </span>
                   </div>
@@ -278,7 +278,7 @@ const chipStyle: React.CSSProperties = {
   borderRadius: 6,
   border: "1px solid rgba(255,255,255,0.1)",
   background: "rgba(255,255,255,0.04)",
-  fontFamily: "var(--font-mono)",
+  fontFamily: "var(--font-terminal)",
   fontSize: 9,
   letterSpacing: "0.06em",
   color: "rgba(255,255,255,0.4)",

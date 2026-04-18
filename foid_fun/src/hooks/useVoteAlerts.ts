@@ -164,7 +164,7 @@ export function useVoteAlerts(
           {
             duration: 8000,
             style: {
-              fontFamily: "var(--font-mono, monospace)",
+              fontFamily: "var(--font-terminal, monospace)",
               fontSize: "11px",
               letterSpacing: "0.04em",
             },

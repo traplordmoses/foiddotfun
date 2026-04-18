@@ -499,7 +499,7 @@ export default function PlacementCelebration({
         }
 
         .pc-slot {
-          font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+          font-family: var(--font-terminal, ui-monospace, "SF Mono", monospace);
           font-size: 13px; font-weight: 700;
           letter-spacing: 0.08em;
           color: rgba(116, 255, 235, 0.9);
@@ -522,7 +522,7 @@ export default function PlacementCelebration({
         }
 
         .pc-chip {
-          font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+          font-family: var(--font-terminal, ui-monospace, "SF Mono", monospace);
           font-size: 10px; letter-spacing: 0.06em;
           padding: 4px 10px; border-radius: 8px;
           border: 1px solid rgba(255,255,255,0.12);
@@ -546,7 +546,7 @@ export default function PlacementCelebration({
             linear-gradient(180deg, rgba(116,255,235,0.15), rgba(116,255,235,0.04) 60%),
             rgba(6, 14, 28, 0.9);
           color: rgba(116, 255, 235, 0.95);
-          font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+          font-family: var(--font-terminal, ui-monospace, "SF Mono", monospace);
           font-size: 13px; font-weight: 700;
           letter-spacing: 0.18em;
           cursor: pointer;
