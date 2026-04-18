@@ -86,6 +86,10 @@ export default function PlacementCelebration({
 }: PlacementCelebrationProps) {
   const [exiting, setExiting] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  // Ref on the SHARE TO X button so we can move focus to it once the slab
+  // has settled. Keyboard users land on the logical next action, and screen
+  // readers announce the button label.
+  const shareBtnRef = useRef<HTMLButtonElement>(null);
   const { display: slotDisplay, landed: slotLanded } = useSlotCounter(proposalId);
 
   // Personalization — milestone number / meme id / prime → headline variant
@@ -117,6 +121,21 @@ export default function PlacementCelebration({
   useEffect(() => {
     const exitTimer = setTimeout(() => setExiting(true), DURATION - 700);
     return () => clearTimeout(exitTimer);
+  }, []);
+
+  // Move focus to the SHARE button once the slab animation has settled
+  // (~2000ms matches pc-share-in animation delay). Screen readers announce
+  // "Share to X, button" and keyboard users can hit Enter to tweet without
+  // reaching for the mouse. Respects reduced-motion by firing immediately.
+  useEffect(() => {
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const delay = prefersReduced ? 0 : 2100;
+    const focusTimer = setTimeout(() => {
+      shareBtnRef.current?.focus?.({ preventScroll: true });
+    }, delay);
+    return () => clearTimeout(focusTimer);
   }, []);
 
   // Click-to-close with exit animation
@@ -186,6 +205,7 @@ export default function PlacementCelebration({
       ref={rootRef}
       aria-live="polite"
       role="status"
+      aria-label={`Placement confirmed: ${itemName}${proposalId != null ? `, proposal number ${proposalId}` : ""}`}
       className={`pc-fullscreen ${exiting ? "pc-exiting" : ""}`}
       onClick={handleClose}
     >
@@ -300,7 +320,13 @@ export default function PlacementCelebration({
           </div>
 
           {/* Share button */}
-          <button type="button" className="pc-share" onClick={handleShare}>
+          <button
+            ref={shareBtnRef}
+            type="button"
+            className="pc-share"
+            onClick={handleShare}
+            aria-label="Share placement announcement on X"
+          >
             SHARE TO X
           </button>
         </div>

@@ -822,3 +822,70 @@
   50% { opacity: 0.9; }
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   HIGH-CONTRAST MODE — WCAG 2.2 SC 1.4.11 (Non-text Contrast), 1.4.3 (Contrast Minimum)
+   ══════════════════════════════════════════════════════════════════════
+   Targets:
+   - .board-hud            — zoom/pan readouts; normal text must be ≥4.5:1
+   - .board-ghost__label   — drop-zone preview label; opacity-based styling
+                             fails ≥3:1 on some backgrounds in prefers-contrast
+   - .board-section__chip  — section header chip
+   - .board-section__status — connected/offline chip
+   - .board-pending__badge — live submit state label
+   - .board-dragover       — drop highlight outline
+   Fix: drop transparency, thicken borders, lock text to full white and
+   backgrounds to solid ink so contrast meets AA regardless of what's
+   underneath. Ghost fills become opaque so the label reads against the
+   busiest canvas content.
+*/
+@media (prefers-contrast: more) {
+  .board-hud {
+    background: rgba(3, 11, 18, 0.96) !important;
+    color: #ffffff !important;
+    border-color: var(--foid-border-strong) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .board-ghost__label {
+    background: rgba(3, 11, 18, 0.96) !important;
+    color: #ffffff !important;
+    border: 2px solid var(--foid-border-strong) !important;
+    text-shadow: none !important;
+  }
+  .board-ghost {
+    border-width: 3px !important;
+  }
+  .board-section__chip,
+  .board-section__status {
+    background: rgba(3, 11, 18, 0.95) !important;
+    color: #ffffff !important;
+    border-width: 2px !important;
+    backdrop-filter: none !important;
+  }
+  .board-pending__badge {
+    background: rgba(3, 11, 18, 0.95) !important;
+    color: #ffffff !important;
+    border-width: 2px !important;
+  }
+  .board-dragover {
+    outline-width: 4px !important;
+    outline-color: var(--foid-border-strong) !important;
+  }
+  .ui-chip,
+  .ui-neon-badge {
+    backdrop-filter: none !important;
+    color: #ffffff !important;
+    border-width: 2px !important;
+  }
+}
+
+/* Reduced-motion override: turn the status-dot pulse off so it doesn't
+   distract users who've asked for less animation. */
+@media (prefers-reduced-motion: reduce) {
+  .board-section__dot,
+  .pray-status-dot,
+  .ui-status-dot {
+    animation: none !important;
+  }
+}
+

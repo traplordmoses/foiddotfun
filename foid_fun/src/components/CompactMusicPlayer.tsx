@@ -103,7 +103,13 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
   return (
     <>
       {mountLogic && (
-        <div className="cmp-logic" aria-hidden="true">
+        // The logic panel is rendered off-screen via clip-path so its
+        // buttons can be wired to the React tree, but users never see or
+        // reach it. We need BOTH aria-hidden (remove from AT) AND `inert`
+        // (remove from tab order). Without `inert`, keyboard users can
+        // Tab into invisible buttons and get stuck — an axe-core
+        // "aria-hidden-focus" violation.
+        <div className="cmp-logic" aria-hidden="true" {...({ inert: "" } as Record<string, string>)}>
           <MusicPanelLogic />
         </div>
       )}

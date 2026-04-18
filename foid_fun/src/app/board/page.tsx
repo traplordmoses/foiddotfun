@@ -262,9 +262,28 @@ function BoardPageContent() {
   const [statusMessages, setStatusMessages] = useState<StatusMessage[]>([
     { id: "init", text: "welcome to the mifoid loreboard!", type: "system", timestamp: new Date() }
   ]);
+  // Screen-reader-only announcement mirror. TerminalChat is visual-only
+  // (scrollable list), so assistive tech needs its own live region with a
+  // single latest message. We clear+set on a microtask so repeated identical
+  // announcements still get re-spoken by the AT — otherwise SR users miss
+  // back-to-back duplicate toasts like "Uploading foo.png" → "Uploading foo.png".
+  const [srAnnouncement, setSrAnnouncement] = useState("");
+  const srClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const announceSr = useCallback((text: string) => {
+    if (srClearTimerRef.current) clearTimeout(srClearTimerRef.current);
+    setSrAnnouncement("");
+    // Next paint — giving the DOM a tick to commit the empty state means
+    // ARIA live regions always fire, even when the text is unchanged.
+    srClearTimerRef.current = setTimeout(() => setSrAnnouncement(text), 16);
+  }, []);
   const addStatus = useCallback((text: string, type: StatusMessage["type"] = "info") => {
     setStatusMessages(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, text, type, timestamp: new Date() }]);
-  }, []);
+    // Mirror everything except debug "info" into the SR live region. Keep
+    // the AT chatty during submit so blind users know what's happening.
+    if (type !== "info" || text.match(/Uploading|Submitting|cancelled|on-chain|failed/i)) {
+      announceSr(text);
+    }
+  }, [announceSr]);
   const handleChatSend = useCallback(async (_text: string) => {
     // TerminalChat handles insertBoardMessage + optimistic display directly.
     // Nothing extra needed here.
@@ -327,17 +346,29 @@ function BoardPageContent() {
   // to the full list while `visibleRect` is still null keeps the first paint
   // complete (critical for SEO and the initial user impression).
   const visiblePlaced = useMemo(() => {
-    if (!visibleRect) return placed;
+    // Tab-order stability: sort placements by spatial reading order (top→
+    // bottom, then left→right) so keyboard users tab through them in a way
+    // that matches how a sighted user's eye scans the canvas. Without this
+    // they'd tab through in proposal-id order, which is arbitrary.
+    // WCAG 1.3.2 (Meaningful Sequence).
+    const spatialSort = (list: typeof placed) =>
+      [...list].sort((a, b) => {
+        if (a.rect.y !== b.rect.y) return a.rect.y - b.rect.y;
+        return a.rect.x - b.rect.x;
+      });
+
+    if (!visibleRect) return spatialSort(placed);
     const bufX = visibleRect.w * 0.5;
     const bufY = visibleRect.h * 0.5;
     const vx0 = visibleRect.x - bufX;
     const vy0 = visibleRect.y - bufY;
     const vx1 = visibleRect.x + visibleRect.w + bufX;
     const vy1 = visibleRect.y + visibleRect.h + bufY;
-    return placed.filter((p) => {
+    const filtered = placed.filter((p) => {
       const sr = toStageRect(p.rect);
       return sr.x + sr.w >= vx0 && sr.x <= vx1 && sr.y + sr.h >= vy0 && sr.y <= vy1;
     });
+    return spatialSort(filtered);
   }, [placed, visibleRect]);
 
   const visibleVotingProposals = useMemo(() => {
@@ -783,6 +814,35 @@ function BoardPageContent() {
   // on every parent render. (Audit note P1-8.)
   const closeReviewModal = useCallback(() => setShowReviewModal(false), []);
 
+  // Global keyboard shortcut: "P" opens the file picker (same effect as
+  // clicking PROPOSE IMAGE). Ignored when an input/textarea/contentEditable
+  // has focus so users typing in chat don't accidentally open a dialog.
+  // WCAG 2.1.1 (Keyboard) — provides a keyboard-only path to the proposal
+  // flow that doesn't require drag-and-drop.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "p" && e.key !== "P") return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      const t = e.target as HTMLElement | null;
+      if (!t) return;
+      const tag = t.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        t.isContentEditable
+      ) {
+        return;
+      }
+      if (busy || submittingProposals || showReviewModal || desktopPaintFile) return;
+      e.preventDefault();
+      fileInputRef.current?.click();
+      announceSr("File picker opened. Choose an image to propose.");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, submittingProposals, showReviewModal, desktopPaintFile, announceSr]);
+
   const boardParticles = useMemo(
     () =>
       Array.from({ length: 20 }).map(() => ({
@@ -1011,8 +1071,36 @@ function BoardPageContent() {
               <div className="board-grid">
                 {/* Canvas */}
                 <div className="board-canvas-wrap flex-1 min-h-0">
+                  {/* Visually-hidden live region for screen reader narration.
+                      Populated by addStatus() via the submit pipeline and by
+                      ad-hoc announcements (e.g. "Proposal #42 moved to voting").
+                      WCAG 4.1.3 (Status Messages) — messages must reach AT
+                      without stealing focus; aria-live="polite" is the right
+                      tool for non-urgent state. */}
+                  <div
+                    id="board-sr-status"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                    style={{
+                      position: "absolute",
+                      width: 1,
+                      height: 1,
+                      padding: 0,
+                      margin: -1,
+                      overflow: "hidden",
+                      clip: "rect(0 0 0 0)",
+                      whiteSpace: "nowrap",
+                      border: 0,
+                    }}
+                  >
+                    {srAnnouncement}
+                  </div>
                   <div
                     ref={containerRef}
+                    role="application"
+                    aria-label={`Loreboard canvas, ${placed.length} placement${placed.length === 1 ? "" : "s"}. Press P to propose, arrow keys to pan, +/- to zoom, 0 to reset.`}
+                    tabIndex={0}
                     className="board-canvas flex-1 min-h-0 h-full w-full"
                     onPointerDown={onContainerPointerDown}
                     onDragOver={onDragOver}

@@ -1,9 +1,10 @@
 // src/components/PlacementModal.tsx
 // Metadata overlay — Frutiger Aero glass treatment
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 import type { Placement } from "./PlacementCard";
 import { IconButton, NeonBadge, StatusDot, type NeonBadgeTone } from "@/components/ui";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 type Props = {
   placement: Placement;
@@ -49,6 +50,11 @@ export function PlacementModal({ placement, onClose }: Props) {
   const [gatewayIdx, setGatewayIdx] = useState(0);
   const src = urls[gatewayIdx] ?? `https://ipfs.io/ipfs/${cid}`;
 
+  // Focus trap + restore. Keeps keyboard users inside the dialog while open
+  // and returns them to whatever launched the modal on close. Escape closes.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, { onEscape: onClose });
+
   const handleError = () => {
     const next = gatewayIdx + 1;
     if (next < urls.length) setGatewayIdx(next);
@@ -64,12 +70,16 @@ export function PlacementModal({ placement, onClose }: Props) {
     <div
       className="fixed inset-0 z-40 flex items-center justify-center"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Placement detail: ${name ?? `Proposal #${placement.id}`}`}
       style={{
         background: "rgba(3,11,18,0.72)",
         backdropFilter: "blur(8px) saturate(120%)",
       }}
     >
       <div
+        ref={dialogRef}
         className="relative max-h-[90vh] max-w-[90vw]"
         onClick={(e) => e.stopPropagation()}
       >
