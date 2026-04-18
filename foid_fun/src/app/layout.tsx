@@ -1,3 +1,4 @@
+import "./tokens.css";
 import "./globals.css";
 import type { ReactNode } from "react";
 import { IBM_Plex_Sans, JetBrains_Mono, Sora } from "next/font/google";

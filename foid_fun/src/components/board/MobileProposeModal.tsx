@@ -220,7 +220,7 @@ export function MobileProposeModal({
           </button>
         )}
 
-        <h2 className="text-sm font-bold tracking-widest uppercase mb-4" style={{ color: "#e040fb" }}>
+        <h2 className="text-sm font-bold tracking-widest uppercase mb-4" style={{ color: "var(--foid-magenta)" }}>
           Propose Meme
         </h2>
 
@@ -276,7 +276,7 @@ export function MobileProposeModal({
 
         {(step === "uploading" || step === "submitting") && (
           <div className="py-8 flex flex-col items-center gap-4">
-            <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "#e040fb", borderTopColor: "transparent" }} />
+            <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--foid-magenta)", borderTopColor: "transparent" }} />
             <p className="text-sm" style={{ color: "rgba(255,255,255,0.8)" }}>
               {step === "uploading" ? "Uploading to IPFS..." : "Confirm transaction in wallet..."}
             </p>

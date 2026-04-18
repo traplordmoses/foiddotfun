@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 import type { Placement } from "./PlacementCard";
+import { IconButton, NeonBadge, StatusDot, type NeonBadgeTone } from "@/components/ui";
 
 type Props = {
   placement: Placement;
@@ -26,13 +27,17 @@ function formatTimeLeft(seconds?: number): string {
 
 type StatusKey = NonNullable<Placement["status"]>;
 
-const STATUS_STYLES: Record<StatusKey, { label: string; color: string; glow: string; border: string; bg: string }> = {
-  canonized: { label: "CANONIZED", color: "rgba(116,255,235,0.95)", glow: "rgba(116,255,235,0.35)", border: "rgba(116,255,235,0.4)",  bg: "rgba(116,255,235,0.08)" },
-  voting:    { label: "IN VOTING", color: "rgba(255,210,130,0.95)", glow: "rgba(255,185,82,0.3)",   border: "rgba(255,185,82,0.45)",  bg: "rgba(255,185,82,0.1)" },
-  proposed:  { label: "PROPOSED",  color: "rgba(140,210,255,0.9)",  glow: "rgba(100,190,255,0.25)", border: "rgba(100,190,255,0.35)", bg: "rgba(100,190,255,0.08)" },
-  accepted:  { label: "ACCEPTED",  color: "rgba(116,255,235,0.95)", glow: "rgba(116,255,235,0.35)", border: "rgba(116,255,235,0.4)",  bg: "rgba(116,255,235,0.08)" },
-  rejected:  { label: "REJECTED",  color: "rgba(255,71,87,0.9)",    glow: "rgba(255,71,87,0.25)",   border: "rgba(255,71,87,0.4)",    bg: "rgba(255,71,87,0.08)" },
-  expired:   { label: "EXPIRED",   color: "rgba(255,255,255,0.45)", glow: "rgba(255,255,255,0.08)", border: "rgba(255,255,255,0.15)", bg: "rgba(255,255,255,0.04)" },
+// Each placement status maps to a <NeonBadge /> tone. The old STATUS_STYLES
+// table encoded the same four-color quad (bg/border/text/glow) inline per
+// status; moving to tones folds those into tokens.css so a design-system
+// tweak doesn't require touching this file.
+const STATUS_TONE: Record<StatusKey, { label: string; tone: NeonBadgeTone }> = {
+  canonized: { label: "CANONIZED", tone: "info" },
+  voting:    { label: "IN VOTING", tone: "warn" },
+  proposed:  { label: "PROPOSED",  tone: "info" },
+  accepted:  { label: "ACCEPTED",  tone: "ok" },
+  rejected:  { label: "REJECTED",  tone: "err" },
+  expired:   { label: "EXPIRED",   tone: "info" },
 };
 
 /* ── Component ───────────────────────────────────────────────────── */
@@ -49,7 +54,7 @@ export function PlacementModal({ placement, onClose }: Props) {
     if (next < urls.length) setGatewayIdx(next);
   };
 
-  const sCfg = status ? STATUS_STYLES[status] : null;
+  const sCfg = status ? STATUS_TONE[status] : null;
   const hasVotes = yesVotes != null && noVotes != null;
   const totalVotes = (yesVotes ?? 0) + (noVotes ?? 0);
   const yesPercent = hasVotes && totalVotes > 0 ? ((yesVotes ?? 0) / totalVotes) * 100 : 0;
@@ -76,26 +81,14 @@ export function PlacementModal({ placement, onClose }: Props) {
           <span style={{ color: "rgba(116,255,235,0.95)", textShadow: "0 0 12px rgba(116,255,235,0.28)" }}>
             FOID LORE
           </span>
-          <button
-            type="button"
+          {/* Close uses <IconButton> so keyboard + screen-reader users get an
+              accessible name and focus ring without custom handling. */}
+          <IconButton
+            icon="×"
+            label="Close placement detail"
             onClick={onClose}
-            style={{
-              padding: "3px 10px",
-              borderRadius: 10,
-              border: "1px solid rgba(116,255,235,0.25)",
-              background: "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0) 50%), rgba(6,14,28,0.78)",
-              color: "rgba(255,255,255,0.65)",
-              fontSize: 10,
-              fontFamily: "var(--font-terminal)",
-              letterSpacing: "0.15em",
-              cursor: "pointer",
-              transition: "border-color 0.2s, color 0.2s",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(116,255,235,0.5)"; e.currentTarget.style.color = "rgba(255,255,255,0.9)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(116,255,235,0.25)"; e.currentTarget.style.color = "rgba(255,255,255,0.65)"; }}
-          >
-            CLOSE
-          </button>
+            size="sm"
+          />
         </div>
 
         {/* ── Aero border wrapper — contains BOTH image and metadata ── */}
@@ -138,38 +131,13 @@ export function PlacementModal({ placement, onClose }: Props) {
               {/* Row 1: Status badge + Epoch + Proposer */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {/* Pulsing dot */}
-                  <span
-                    style={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: "50%",
-                      flexShrink: 0,
-                      background: sCfg?.color ?? "rgba(116,255,235,0.95)",
-                      boxShadow: `0 0 6px ${sCfg?.glow ?? "rgba(116,255,235,0.2)"}, 0 0 14px ${sCfg?.glow ?? "rgba(116,255,235,0.15)"}`,
-                      animation: "pulse 2s ease-in-out infinite",
-                    }}
-                  />
-                  {/* Status badge — styled like board-section__chip */}
+                  {/* Pulsing dot — StatusDot gives us a single animation source. */}
+                  <StatusDot status={status === "rejected" || status === "expired" ? "offline" : "online"} />
+                  {/* Status badge — <NeonBadge /> pulls its tone from tokens. */}
                   {sCfg && (
-                    <span
-                      style={{
-                        padding: "2px 9px",
-                        borderRadius: 999,
-                        border: `1px solid ${sCfg.border}`,
-                        background: `linear-gradient(135deg, ${sCfg.bg}, transparent)`,
-                        color: sCfg.color,
-                        fontSize: 9,
-                        fontFamily: "var(--font-terminal)",
-                        fontWeight: 700,
-                        letterSpacing: "0.2em",
-                        textTransform: "uppercase" as const,
-                        textShadow: `0 0 10px ${sCfg.glow}`,
-                        backdropFilter: "blur(12px)",
-                      }}
-                    >
+                    <NeonBadge tone={sCfg.tone} live>
                       {sCfg.label}
-                    </span>
+                    </NeonBadge>
                   )}
                   {epochId != null && (
                     <span

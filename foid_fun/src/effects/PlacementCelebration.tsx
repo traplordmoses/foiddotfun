@@ -6,6 +6,10 @@ import { spawn } from "@/lib/spawn";
 import { getAudioSettings } from "@/lib/audioSettings";
 import { BLOCK_EXPLORER_URL } from "@/lib/contracts";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
+import {
+  pickPersonalization,
+  type Personalization,
+} from "@/effects/placementPersonalization";
 
 type PlacementCelebrationProps = {
   itemName: string;
@@ -13,6 +17,11 @@ type PlacementCelebrationProps = {
   proposalId: number | null;
   previewUrl: string;
   ipfsCid?: string;
+  /**
+   * Optional pre-computed personalization. If omitted, the component falls
+   * back to `pickPersonalization(proposalId)` with no user-milestone info.
+   */
+  personalization?: Personalization;
 };
 
 const DURATION = 9600;
@@ -73,10 +82,15 @@ export default function PlacementCelebration({
   proposalId,
   previewUrl,
   ipfsCid,
+  personalization,
 }: PlacementCelebrationProps) {
   const [exiting, setExiting] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const { display: slotDisplay, landed: slotLanded } = useSlotCounter(proposalId);
+
+  // Personalization — milestone number / meme id / prime → headline variant
+  const pers =
+    personalization ?? pickPersonalization(proposalId);
 
   // Sound effects
   useEffect(() => {
@@ -86,6 +100,17 @@ export default function PlacementCelebration({
       sfx.default.playVictoryChord();
       setTimeout(() => sfx.default.playReward(), 1200);
     });
+  }, []);
+
+  // Haptics — mobile only, respects reduced-motion preference.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+    // Synced to the flash → shockwave → slab-enter beats.
+    navigator.vibrate([12, 40, 18, 30, 24]);
   }, []);
 
   // Auto-exit animation before spawn TTL
@@ -108,12 +133,19 @@ export default function PlacementCelebration({
     return () => clearTimeout(t);
   }, [exiting]);
 
-  // Share to X — randomised tweet templates
+  // Share to X — randomised tweet templates.
+  // The share URL deep-links back into the same celebration for anyone who
+  // clicks it: /board?celebrate=<proposalId> → the board page re-runs the
+  // celebration component on mount using on-chain data.
   const handleShare = () => {
+    const deepLink =
+      proposalId != null
+        ? `https://foid.fun/board?celebrate=${proposalId}`
+        : "https://foid.fun/board";
     const tweets = [
-      `do you know what? i just made the ${proposalId != null ? `#${proposalId}` : ""} proposal to the @foidfun loreboard!!\n\ngo check it out and vote.\n\nhttps://foid.fun/board`,
-      `yeowww i proposed a meme to the @foidfun loreboard!!\n\nhttps://foid.fun/board`,
-      `yippppeeee i just proposed an image to the @foidfun loreboard!!\n\nhttps://foid.fun/board`,
+      `do you know what? i just made the ${proposalId != null ? `#${proposalId}` : ""} proposal to the @foidfun loreboard!!\n\ngo check it out and vote.\n\n${deepLink}`,
+      `yeowww i proposed a meme to the @foidfun loreboard!!\n\n${deepLink}`,
+      `yippppeeee i just proposed an image to the @foidfun loreboard!!\n\n${deepLink}`,
     ];
     const text = encodeURIComponent(tweets[Math.floor(Math.random() * tweets.length)]);
     window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
@@ -211,19 +243,29 @@ export default function PlacementCelebration({
 
         {/* Beat 3: The Slab */}
         <div className="pc-slab">
-          {/* Hero image — prefer IPFS gateway URL, fall back to data URL */}
-          {(ipfsCid || previewUrl) && (
+          {/* Hero image — prefer the local data/blob URL (instant, always works
+               for the uploader) and fall back to the IPFS gateway only if the
+               local URL is unavailable. A freshly pinned CID can take 10s–several
+               minutes to propagate across public gateways, so relying on IPFS
+               first made the hero image appear broken for the entire ~9.6s
+               celebration. */}
+          {(previewUrl || ipfsCid) && (
             <div className="pc-hero-frame">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={ipfsCid ? cidToHttpUrl(ipfsCid) : previewUrl}
+                src={previewUrl || (ipfsCid ? cidToHttpUrl(ipfsCid) : "")}
                 alt={itemName}
                 className="pc-hero-img"
                 referrerPolicy="no-referrer"
                 onError={(e) => {
-                  // Fall back to data URL if IPFS gateway fails
-                  if (previewUrl && (e.target as HTMLImageElement).src !== previewUrl) {
-                    (e.target as HTMLImageElement).src = previewUrl;
+                  // If the local preview ever fails (e.g. blob URL already
+                  // revoked), fall forward to the IPFS gateway as a last resort.
+                  const img = e.target as HTMLImageElement;
+                  if (ipfsCid) {
+                    const gatewayUrl = cidToHttpUrl(ipfsCid);
+                    if (gatewayUrl && img.src !== gatewayUrl) {
+                      img.src = gatewayUrl;
+                    }
                   }
                 }}
               />
@@ -231,8 +273,9 @@ export default function PlacementCelebration({
             </div>
           )}
 
-          {/* ENGRAVED headline */}
-          <span className="pc-headline">ENGRAVED</span>
+          {/* Headline — adapts to milestone / meme / prime variants */}
+          <span className="pc-headline">{pers.headline}</span>
+          {pers.subhead && <span className="pc-subhead">{pers.subhead}</span>}
 
           {/* Slot counter + meta */}
           <div className="pc-meta">
@@ -241,14 +284,19 @@ export default function PlacementCelebration({
                 {slotDisplay}
               </span>
             )}
-            <a
-              className="pc-chip"
-              href={`${BLOCK_EXPLORER_URL}/tx/${txHash}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {txHash.slice(0, 10)}...
-            </a>
+            {/* B3: deep-link celebrations (?celebrate=<id>) don't have a
+                 local txHash, so the chip would render an empty "/tx/" link.
+                 Only show the chip when we have a real hash to link to. */}
+            {txHash && txHash.length > 0 && (
+              <a
+                className="pc-chip"
+                href={`${BLOCK_EXPLORER_URL}/tx/${txHash}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {txHash.slice(0, 10)}...
+              </a>
+            )}
           </div>
 
           {/* Share button */}
@@ -487,6 +535,23 @@ export default function PlacementCelebration({
           100% { background-position: 100% 50%; }
         }
 
+        /* ── Personalization subhead (milestone / meme id / prime) ── */
+        .pc-subhead {
+          font-family: var(--font-terminal, ui-monospace, "SF Mono", monospace);
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.24em;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.55);
+          text-align: center;
+          opacity: 0;
+          animation: pc-subhead-in 500ms 1500ms ease-out forwards;
+        }
+        @keyframes pc-subhead-in {
+          from { opacity: 0; transform: translateY(4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
         /* ── Slot counter + meta ── */
         .pc-meta {
           display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
@@ -643,6 +708,7 @@ export default function PlacementCelebration({
           .pc-flash, .pc-particles, .pc-lightning, .pc-shockwave { display: none; }
           .pc-slab { animation: none; opacity: 1; }
           .pc-headline { animation: none; opacity: 1; -webkit-text-fill-color: #74ffeb; }
+          .pc-subhead { animation: none; opacity: 1; }
           .pc-hero-frame { animation: none; opacity: 1; }
           .pc-hero-sheen { display: none; }
           .pc-meta, .pc-share { animation: none; opacity: 1; }
