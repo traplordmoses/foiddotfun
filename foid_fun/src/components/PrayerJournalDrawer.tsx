@@ -71,6 +71,10 @@ export default function PrayerJournalDrawer({
   totalPrayers,
 }: Props) {
   const [popover, setPopover] = useState<Popover | null>(null);
+  // Refs for focus management — see the focus effect below.
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   // Esc to close — closes the popover first if one is open, then the drawer.
   useEffect(() => {
@@ -94,6 +98,64 @@ export default function PrayerJournalDrawer({
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
+
+  // Focus management: on open, remember what was focused, move focus into the
+  // dialog (close button), and trap Tab within the sheet. On close, restore
+  // focus to whatever was focused before. This gives keyboard + AT users a
+  // proper modal contract: focus starts inside, can't Tab out, returns home.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    previouslyFocusedRef.current =
+      typeof document !== "undefined"
+        ? (document.activeElement as HTMLElement | null)
+        : null;
+
+    // Defer focus one frame so framer-motion has mounted the sheet.
+    const rafId = requestAnimationFrame(() => {
+      closeButtonRef.current?.focus();
+    });
+
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const sheet = sheetRef.current;
+      if (!sheet) return;
+      const focusables = sheet.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) {
+        e.preventDefault();
+        closeButtonRef.current?.focus();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey) {
+        if (active === first || !sheet.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", trap);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener("keydown", trap);
+      // Restore focus to whatever was focused before the dialog opened.
+      const prev = previouslyFocusedRef.current;
+      if (prev && typeof prev.focus === "function") {
+        prev.focus();
+      }
+      previouslyFocusedRef.current = null;
     };
   }, [isOpen]);
 
@@ -165,6 +227,7 @@ export default function PrayerJournalDrawer({
             onClick={onClose}
           />
           <motion.div
+            ref={sheetRef}
             className="journal-sheet"
             role="dialog"
             aria-modal="true"
@@ -193,6 +256,7 @@ export default function PrayerJournalDrawer({
               <header className="journal-sheet__header">
                 <span className="journal-sheet__title">your journey</span>
                 <button
+                  ref={closeButtonRef}
                   type="button"
                   className="journal-sheet__close pray-tap"
                   onClick={onClose}
