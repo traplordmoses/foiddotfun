@@ -8,7 +8,7 @@
 // on the canvas instead of hunting for it in a sidebar log.
 "use client";
 
-import React from "react";
+import React, { memo } from "react";
 import { toStageRect } from "@/lib/boardCoordinates";
 import { formatEth } from "@/lib/wei";
 import type { Rect } from "@/lib/grid";
@@ -43,7 +43,7 @@ export type PendingItemCardProps = {
   onRemove: () => void;
 };
 
-export function PendingItemCard({
+function PendingItemCardInner({
   name,
   rect,
   previewUrl,
@@ -113,3 +113,9 @@ export function PendingItemCard({
     </figure>
   );
 }
+
+// Memoize: a drag of one pending item re-renders the parent constantly.
+// Every other pending card (that didn't move) receives identical props
+// and skips its render pass via shallow compare. Callers must pass stable
+// onBeginMove / onBeginResize / onRemove — page.tsx already does.
+export const PendingItemCard = memo(PendingItemCardInner);

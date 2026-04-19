@@ -592,6 +592,15 @@ html.cmp-active .app-viewport {
       --terminal-line-height: 1.5;
     }
   }
+
+  /* Keep the terminal input at ≥16px on mobile so iOS doesn't auto-zoom
+     on focus. Lets us drop user-scalable=no and preserve pinch-zoom a11y. */
+  @media (max-width: 1024px) {
+    .foid-terminal__field,
+    .foid-terminal__field--multiline {
+      font-size: 16px !important;
+    }
+  }
 }
 
 @layer components {
@@ -1908,10 +1917,8 @@ html.cmp-active .app-viewport {
     display: grid;
     gap: var(--pray-gap);
     grid-template-columns: minmax(0, 1fr) var(--pray-sidebar-w);
-    grid-template-rows: auto minmax(0, 1fr);
-    grid-template-areas:
-      "terminal manual"
-      "terminal stats";
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "terminal stats";
   }
 
   .pray-pane {
@@ -2384,7 +2391,7 @@ html.cmp-active .app-viewport {
     font-family: var(--font-terminal);
     font-size: var(--terminal-log-size);
     line-height: 1.45;
-    caret-color: var(--cyan-bright);
+    caret-color: #6eead8;
   }
 
   .foid-terminal__field--multiline {
@@ -2723,6 +2730,85 @@ html.cmp-active .app-viewport {
     .pray-topbar__title {
       font-size: 10px;
       letter-spacing: 0.28em;
+    }
+  }
+
+  /* ── Ritual beats on /pray ──────────────────────────────────────────────
+     1. Ceremony dim: held silence before hashing. Terminal drops to 40%.
+     2. Chromatic aberration: 400ms split-ghost shadow on tx-beat lines.
+     3. Prayer echo: reversed, low-opacity witness of the user's words.
+  ------------------------------------------------------------------------ */
+
+  .foid-terminal {
+    transition: opacity 420ms ease-out;
+  }
+
+  .foid-terminal--ceremony-dim {
+    opacity: 0.4;
+  }
+
+  .foid-terminal__line--chromatic {
+    animation: foid-chromatic-split 400ms ease-out forwards;
+    will-change: text-shadow;
+  }
+
+  @keyframes foid-chromatic-split {
+    0% {
+      text-shadow:
+        -1.6px 0 rgba(255, 60, 90, 0.55),
+        1.6px 0 rgba(70, 150, 255, 0.55);
+    }
+    55% {
+      text-shadow:
+        -1px 0 rgba(255, 60, 90, 0.35),
+        1px 0 rgba(70, 150, 255, 0.35);
+    }
+    100% {
+      text-shadow: none;
+    }
+  }
+
+  .prayer-echo {
+    position: fixed;
+    top: 14%;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 40;
+    max-width: min(86vw, 720px);
+    opacity: 0.15;
+    transition: opacity 1s ease-out;
+    color: rgba(210, 235, 255, 0.95);
+    font-family: var(--font-terminal, monospace);
+    font-size: clamp(0.95rem, 2vw, 1.15rem);
+    letter-spacing: 0.08em;
+    text-align: center;
+    filter: blur(0.35px);
+    mix-blend-mode: screen;
+    text-shadow: 0 0 14px rgba(150, 210, 255, 0.3);
+  }
+
+  .prayer-echo--fading {
+    opacity: 0;
+  }
+
+  .prayer-echo__text {
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.55;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .foid-terminal {
+      transition: none;
+    }
+    .foid-terminal__line--chromatic {
+      animation: none;
+      text-shadow: none;
+    }
+    .prayer-echo {
+      transition: opacity 600ms ease-out;
+      filter: none;
     }
   }
 }
@@ -3933,7 +4019,9 @@ html.cmp-active .app-viewport {
     margin-bottom: 8px !important;
   }
 
-  /* Chat log - FIXED HEIGHT with scroll */
+  /* Chat log - FIXED HEIGHT with scroll.
+     Bottom padding lifts the last Mommy message to thumb-rest height
+     rather than sitting at the floor against the composer. */
   .mobile-terminal .foid-cli__log {
     flex: 1;
     min-height: 0;
@@ -3941,7 +4029,7 @@ html.cmp-active .app-viewport {
     overflow-y: auto !important;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    padding: 16px 14px;
+    padding: 16px 14px calc(40vh - 200px);
     scroll-behavior: smooth;
   }
 

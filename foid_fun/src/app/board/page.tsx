@@ -35,6 +35,7 @@ import { useViewportZoomLock } from "@/hooks/board/useViewportZoomLock";
 import { useGhost } from "@/hooks/board/useGhost";
 import { useBoardData } from "@/hooks/board/useBoardData";
 import { useProposalSubmit } from "@/hooks/board/useProposalSubmit";
+import { useVisiblePlacements } from "@/hooks/board/useVisiblePlacements";
 import { BoardHUD } from "@/components/board/BoardHUD";
 import { PlacementGhost } from "@/components/board/PlacementGhost";
 import { VotingGhost } from "@/components/board/VotingGhost";
@@ -339,52 +340,41 @@ function BoardPageContent() {
     [proposals]
   );
 
-  // Viewport virtualization (Phase 2 · Step 7) — only render placements whose
-  // AABB intersects the camera viewport inflated by 50% on each side. When the
-  // user pans slightly, already-mounted off-screen placements stay mounted;
-  // when they pan far, the set rebuilds around the new viewport. Falling back
-  // to the full list while `visibleRect` is still null keeps the first paint
-  // complete (critical for SEO and the initial user impression).
+  // Viewport virtualization — Phase β upgrade.
+  // The previous implementation ran `placed.filter()` every viewport update,
+  // O(n) in placement count. On mainnet (5k+ placements) that linear scan
+  // dominated every pan tick. `useVisiblePlacements` builds a grid-bucketed
+  // spatial index once per dataset and serves queries in O(k) where k is
+  // the bucket count intersecting the viewport (typically 4–16).
+  //
+  // Both `p.rect` and `visibleRect` are world-space; the 200px viewport
+  // buffer inside the hook covers the ~stage-padding drift the old
+  // toStageRect-based filter absorbed implicitly.
+  const visiblePlacedRaw = useVisiblePlacements(placed, visibleRect);
   const visiblePlaced = useMemo(() => {
-    // Tab-order stability: sort placements by spatial reading order (top→
-    // bottom, then left→right) so keyboard users tab through them in a way
-    // that matches how a sighted user's eye scans the canvas. Without this
-    // they'd tab through in proposal-id order, which is arbitrary.
-    // WCAG 1.3.2 (Meaningful Sequence).
-    const spatialSort = (list: typeof placed) =>
-      [...list].sort((a, b) => {
-        if (a.rect.y !== b.rect.y) return a.rect.y - b.rect.y;
-        return a.rect.x - b.rect.x;
-      });
-
-    if (!visibleRect) return spatialSort(placed);
-    const bufX = visibleRect.w * 0.5;
-    const bufY = visibleRect.h * 0.5;
-    const vx0 = visibleRect.x - bufX;
-    const vy0 = visibleRect.y - bufY;
-    const vx1 = visibleRect.x + visibleRect.w + bufX;
-    const vy1 = visibleRect.y + visibleRect.h + bufY;
-    const filtered = placed.filter((p) => {
-      const sr = toStageRect(p.rect);
-      return sr.x + sr.w >= vx0 && sr.x <= vx1 && sr.y + sr.h >= vy0 && sr.y <= vy1;
+    // Tab-order stability: sort by (y, x) so keyboard users tab through
+    // placements in spatial reading order — WCAG 1.3.2 (Meaningful Sequence).
+    return [...visiblePlacedRaw].sort((a, b) => {
+      if (a.rect.y !== b.rect.y) return a.rect.y - b.rect.y;
+      return a.rect.x - b.rect.x;
     });
-    return spatialSort(filtered);
-  }, [placed, visibleRect]);
+  }, [visiblePlacedRaw]);
 
-  const visibleVotingProposals = useMemo(() => {
-    const votingList = proposals.filter((p) => p.status === "voting" && p.isVotable);
-    if (!visibleRect) return votingList;
-    const bufX = visibleRect.w * 0.5;
-    const bufY = visibleRect.h * 0.5;
-    const vx0 = visibleRect.x - bufX;
-    const vy0 = visibleRect.y - bufY;
-    const vx1 = visibleRect.x + visibleRect.w + bufX;
-    const vy1 = visibleRect.y + visibleRect.h + bufY;
-    return votingList.filter((p) => {
-      const sr = toStageRect(p.rect);
-      return sr.x + sr.w >= vx0 && sr.x <= vx1 && sr.y + sr.h >= vy0 && sr.y <= vy1;
-    });
-  }, [proposals, visibleRect]);
+  const votingSource = useMemo(
+    () => proposals.filter((p) => p.status === "voting" && p.isVotable),
+    [proposals],
+  );
+  const visibleVotingProposals = useVisiblePlacements(votingSource, visibleRect);
+
+  // On-chain swipe voting proposals carry x/y/w/h flat (not `.rect`), so we
+  // pass a rect accessor. Virtualizing these matters most on mainnet where
+  // many proposals may be in-flight at once.
+  const visibleSwipeVoting = useVisiblePlacements(
+    swipeVotingProposals,
+    visibleRect,
+    undefined,
+    (p) => ({ x: p.x, y: p.y, w: p.w, h: p.h }),
+  );
 
   const [activePlacement, setActivePlacement] = useState<Placement | null>(null);
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
@@ -1170,8 +1160,10 @@ function BoardPageContent() {
                       );
                     })}
 
-                    {/* Swipe voting proposals — ghost placement with neon glow */}
-                    {swipeVotingProposals.map((p) => (
+                    {/* Swipe voting proposals — ghost placement with neon glow.
+                         Virtualized: only renders items whose AABB intersects
+                         the current viewport (+200px buffer). */}
+                    {visibleSwipeVoting.map((p) => (
                       <VotingGhost
                         key={`swipe-${p.id}`}
                         id={p.id}

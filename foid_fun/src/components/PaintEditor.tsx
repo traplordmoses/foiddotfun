@@ -13,6 +13,17 @@ interface PaintEditorProps {
   imageFile: File;
   onDone: (editedFile: File) => void;
   onCancel: () => void;
+  /**
+   * Phase 5 · Step 17 — Preview on Board.
+   * When supplied, the editor shows a "peek" button in the top bar. Clicking
+   * it composes the current canvas (bg + filter + strokes + overlays) into a
+   * File and hands it to the host, which is expected to render a placement
+   * modal ABOVE this editor without unmounting it. When the user returns,
+   * the editor is still mounted so paint state (history, overlays, filters,
+   * zoom/pan) is preserved untouched. No side effects are mutated here —
+   * composing is read-only with respect to editor state.
+   */
+  onPreviewOnBoard?: (editedFile: File) => void;
 }
 
 type Tool = "select" | "draw" | "eraser" | "sticker" | "text" | "eyedropper";
@@ -126,7 +137,7 @@ function drawOverlayToCtx(
 // PAINT EDITOR COMPONENT
 // ============================================================================
 
-export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
+export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: PaintEditorProps) {
   // Track music bar expansion to add bottom padding
   const [musicBarVisible, setMusicBarVisible] = useState(false);
   useEffect(() => {
@@ -810,59 +821,134 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   }, []);
 
   // ============================================================================
+  // EFFECTS DRAWER GESTURES
+  // ============================================================================
+  // The drawer lives in a fixed-position element whose transform is a mix of
+  // its "rest state" (0% when open, 100% when closed) plus a live pixel offset
+  // pulled from effectsDrawerDragY. Clamping keeps the drawer on-screen.
+
+  const clampDragOffset = useCallback((rawDy: number, wasOpen: boolean) => {
+    const drawerH = typeof window !== "undefined" ? window.innerHeight * 0.4 : 300;
+    if (wasOpen) {
+      // Rest = 0%; can only drag down (positive dy) toward 100%.
+      return Math.max(0, Math.min(drawerH, rawDy));
+    }
+    // Rest = 100%; can only drag up (negative dy) toward 0%.
+    return Math.max(-drawerH, Math.min(0, rawDy));
+  }, []);
+
+  const onDrawerPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      try {
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {
+        /* capture not supported */
+      }
+      drawerDragStartRef.current = { y: e.clientY, open: effectsDrawerOpen };
+      setEffectsDrawerDragY(0);
+    },
+    [effectsDrawerOpen]
+  );
+
+  const onDrawerPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!drawerDragStartRef.current) return;
+      const raw = e.clientY - drawerDragStartRef.current.y;
+      setEffectsDrawerDragY(clampDragOffset(raw, drawerDragStartRef.current.open));
+    },
+    [clampDragOffset]
+  );
+
+  const onDrawerPointerUp = useCallback((e: React.PointerEvent) => {
+    if (!drawerDragStartRef.current) return;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* already released */
+    }
+    const raw = e.clientY - drawerDragStartRef.current.y;
+    const wasOpen = drawerDragStartRef.current.open;
+    const drawerH = typeof window !== "undefined" ? window.innerHeight * 0.4 : 300;
+    const threshold = drawerH * 0.25; // 25% commits, else snap back
+    if (wasOpen && raw > threshold) {
+      setEffectsDrawerOpen(false);
+      haptic("light");
+    } else if (!wasOpen && raw < -threshold) {
+      setEffectsDrawerOpen(true);
+      haptic("light");
+    }
+    drawerDragStartRef.current = null;
+    setEffectsDrawerDragY(null);
+  }, []);
+
+  // ============================================================================
   // EXPORT / DONE
   // ============================================================================
 
   const [exporting, setExporting] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+
+  // Pure composite — returns a File without touching editor state. Used by
+  // both the final "Done" flow (which also runs the seal animation) and the
+  // Step-17 "Preview on Board" peek (which must not mutate anything).
+  const composeCurrentFile = useCallback((): Promise<File | null> => {
+    return new Promise((resolve) => {
+      const bgCanvas = bgCanvasRef.current;
+      const drawCanvas = drawCanvasRef.current;
+      const img = originalImageRef.current;
+      if (!bgCanvas || !drawCanvas || !img) {
+        resolve(null);
+        return;
+      }
+      const exportCanvas = document.createElement("canvas");
+      exportCanvas.width = img.naturalWidth;
+      exportCanvas.height = img.naturalHeight;
+      const ectx = exportCanvas.getContext("2d");
+      if (!ectx) {
+        resolve(null);
+        return;
+      }
+      // 1. Filtered background at full res (bgCanvas already has filter baked in).
+      ectx.drawImage(bgCanvas, 0, 0, img.naturalWidth, img.naturalHeight);
+      // 2. Drawing strokes, upscaled.
+      ectx.drawImage(drawCanvas, 0, 0, img.naturalWidth, img.naturalHeight);
+      // 3. Text + sticker overlays.
+      const scaleX = img.naturalWidth / canvasDisplaySize.w;
+      const scaleY = img.naturalHeight / canvasDisplaySize.h;
+      for (const overlay of paintOverlays) {
+        drawOverlayToCtx(ectx, overlay, scaleX, scaleY);
+      }
+
+      const isPng =
+        imageFile.type === "image/png" || imageFile.name.toLowerCase().endsWith(".png");
+      const mimeType = isPng ? "image/png" : "image/jpeg";
+      const ext = isPng ? ".png" : ".jpg";
+      const quality = isPng ? undefined : 0.92;
+      exportCanvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(null);
+            return;
+          }
+          const name = (fileName || imageFile.name.replace(/\.[^.]+$/, "")) + ext;
+          resolve(new File([blob], name, { type: mimeType }));
+        },
+        mimeType,
+        quality
+      );
+    });
+  }, [imageFile, paintOverlays, canvasDisplaySize, fileName]);
 
   const composeAndEmit = useCallback(() => {
-    const bgCanvas = bgCanvasRef.current;
-    const drawCanvas = drawCanvasRef.current;
-    const img = originalImageRef.current;
-    if (!bgCanvas || !drawCanvas || !img) return;
-
-    const exportCanvas = document.createElement("canvas");
-    exportCanvas.width = img.naturalWidth;
-    exportCanvas.height = img.naturalHeight;
-    const ectx = exportCanvas.getContext("2d");
-    if (!ectx) {
-      setExporting(false);
-      setSealPhase("idle");
-      return;
-    }
-
-    // 1. Composite the *filtered* background at full res.
-    //    We upscale from the display-sized filtered bitmap (origBgImageData had the filter
-    //    re-applied onto bgCanvas already), so the filter is preserved in the export.
-    ectx.drawImage(bgCanvas, 0, 0, img.naturalWidth, img.naturalHeight);
-    // 2. Drawing strokes
-    ectx.drawImage(drawCanvas, 0, 0, img.naturalWidth, img.naturalHeight);
-
-    const scaleX = img.naturalWidth / canvasDisplaySize.w;
-    const scaleY = img.naturalHeight / canvasDisplaySize.h;
-    for (const overlay of paintOverlays) {
-      drawOverlayToCtx(ectx, overlay, scaleX, scaleY);
-    }
-
-    const isPng = imageFile.type === "image/png" || imageFile.name.toLowerCase().endsWith(".png");
-    const mimeType = isPng ? "image/png" : "image/jpeg";
-    const ext = isPng ? ".png" : ".jpg";
-    const quality = isPng ? undefined : 0.92;
-    exportCanvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          setExporting(false);
-          setSealPhase("idle");
-          return;
-        }
-        const name = (fileName || imageFile.name.replace(/\.[^.]+$/, "")) + ext;
-        const file = new File([blob], name, { type: mimeType });
-        onDone(file);
-      },
-      mimeType,
-      quality
-    );
-  }, [imageFile, onDone, paintOverlays, canvasDisplaySize, fileName]);
+    composeCurrentFile().then((file) => {
+      if (!file) {
+        setExporting(false);
+        setSealPhase("idle");
+        return;
+      }
+      onDone(file);
+    });
+  }, [composeCurrentFile, onDone]);
 
   const handleDone = useCallback(() => {
     if (exporting || sealPhase !== "idle") return;
@@ -875,6 +961,22 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
       composeAndEmit();
     }, 460);
   }, [exporting, sealPhase, composeAndEmit]);
+
+  // Step 17 — Preview on Board. Compose silently (no seal animation) and hand
+  // the file to the host. State is untouched so the round-trip is transparent.
+  const previewDisabled =
+    !loaded || isDrawing || exporting || previewing || sealPhase !== "idle";
+  const handlePreviewOnBoard = useCallback(async () => {
+    if (!onPreviewOnBoard || previewDisabled) return;
+    setPreviewing(true);
+    haptic("light");
+    try {
+      const file = await composeCurrentFile();
+      if (file) onPreviewOnBoard(file);
+    } finally {
+      setPreviewing(false);
+    }
+  }, [onPreviewOnBoard, previewDisabled, composeCurrentFile]);
 
   // ============================================================================
   // KEYBOARD SHORTCUTS
@@ -1316,10 +1418,68 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         &times;
       </button>
 
+      {/* ============ PREVIEW ON BOARD BUTTON ============ */}
+      {/*
+        Phase 5 · Step 17 — peek button. Only rendered when the host has
+        wired an onPreviewOnBoard callback, so PaintEditor stays backward-
+        compatible with any caller that doesn't opt in. Sits immediately
+        left of the Done pill, sharing the same top-right safe-area inset.
+      */}
+      {onPreviewOnBoard && (
+        <button
+          onClick={handlePreviewOnBoard}
+          disabled={previewDisabled}
+          title={
+            previewDisabled && isDrawing
+              ? "Finish your stroke first"
+              : "Preview on board"
+          }
+          aria-label="Preview on board"
+          style={{
+            position: "fixed",
+            top: "max(8px, env(safe-area-inset-top))",
+            right: "calc(max(8px, env(safe-area-inset-right)) + 100px)",
+            padding: "0 12px",
+            height: 40,
+            borderRadius: 999,
+            border: "1px solid rgba(224,64,251,0.55)",
+            background:
+              "linear-gradient(135deg, rgba(224,64,251,0.28), rgba(160,40,200,0.18))",
+            color: "#f06292",
+            fontSize: 11,
+            fontWeight: 700,
+            fontFamily: "var(--font-terminal), monospace",
+            letterSpacing: "0.1em",
+            cursor: previewDisabled ? "not-allowed" : "pointer",
+            opacity: previewDisabled ? 0.42 : 1,
+            transition: "opacity 160ms ease, transform 120ms ease",
+            boxShadow:
+              "0 0 18px rgba(224,64,251,0.22), inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 8px rgba(0,0,0,0.4)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            zIndex: 50,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M1 8C2.8 4.5 5.2 3 8 3s5.2 1.5 7 5c-1.8 3.5-4.2 5-7 5S2.8 11.5 1 8Z"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              fill="none"
+            />
+            <circle cx="8" cy="8" r="2.2" stroke="currentColor" strokeWidth="1.3" fill="none" />
+          </svg>
+          {previewing ? "..." : "PEEK"}
+        </button>
+      )}
+
       {/* ============ DONE PILL ============ */}
       <button
         onClick={handleDone}
-        disabled={exporting}
+        disabled={exporting || sealPhase !== "idle"}
         style={{
           position: "fixed",
           top: "max(8px, env(safe-area-inset-top))",
@@ -1334,16 +1494,17 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           fontWeight: 700,
           fontFamily: "var(--font-terminal), monospace",
           letterSpacing: "0.1em",
-          cursor: exporting ? "wait" : "pointer",
+          cursor: exporting || sealPhase !== "idle" ? "wait" : "pointer",
           boxShadow:
             "0 0 20px rgba(0,204,204,0.25), inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 8px rgba(0,0,0,0.4)",
-          opacity: exporting ? 0.5 : 1,
+          opacity: exporting || sealPhase !== "idle" ? 0.45 : 1,
+          transition: "opacity 180ms ease",
           backdropFilter: "blur(10px)",
           WebkitBackdropFilter: "blur(10px)",
           zIndex: 50,
         }}
       >
-        {exporting ? "EXPORTING..." : "DONE"}
+        {sealPhase === "stamping" ? "SEALING..." : exporting ? "EXPORTING..." : "DONE"}
       </button>
 
       {/* ============ TOOL RAIL ============ */}
@@ -1820,6 +1981,258 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
           <style>{`@keyframes paint-trash-in { from { transform: translate(-50%, 40px) scale(0.6); opacity: 0; } to { transform: translate(-50%, 0) scale(1); opacity: 1; } }`}</style>
         </div>
       )}
+
+      {/* ============ EFFECTS DRAWER — BACKDROP ============ */}
+      {effectsDrawerOpen && (
+        <div
+          onClick={() => setEffectsDrawerOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.28)",
+            zIndex: 57,
+            cursor: "pointer",
+            animation: "paint-fade-in 180ms ease-out",
+          }}
+        />
+      )}
+
+      {/* ============ EFFECTS DRAWER ============ */}
+      <div
+        role="region"
+        aria-label="Effects drawer"
+        aria-hidden={!effectsDrawerOpen}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "fixed",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: "40vh",
+          minHeight: 240,
+          background:
+            "linear-gradient(to bottom, rgba(20,24,38,0.97), rgba(12,16,26,0.98))",
+          borderTop: "1px solid rgba(0,204,204,0.28)",
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+          boxShadow: "0 -8px 40px rgba(0,0,0,0.65)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          zIndex: 58,
+          transform: `translateY(calc(${
+            effectsDrawerOpen ? "0%" : "100%"
+          } + ${effectsDrawerDragY ?? 0}px))`,
+          transition:
+            effectsDrawerDragY !== null
+              ? "none"
+              : "transform 240ms cubic-bezier(0.2, 0.9, 0.2, 1)",
+          display: "flex",
+          flexDirection: "column",
+          paddingBottom: `calc(max(12px, env(safe-area-inset-bottom)) + ${
+            musicBarVisible ? 48 : 0
+          }px)`,
+          pointerEvents: effectsDrawerOpen || effectsDrawerDragY !== null ? "auto" : "none",
+        }}
+      >
+        {/* Drag handle */}
+        <div
+          onPointerDown={onDrawerPointerDown}
+          onPointerMove={onDrawerPointerMove}
+          onPointerUp={onDrawerPointerUp}
+          onPointerCancel={onDrawerPointerUp}
+          style={{
+            padding: "10px 0 6px",
+            display: "flex",
+            justifyContent: "center",
+            cursor: "grab",
+            touchAction: "none",
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              width: 44,
+              height: 4,
+              borderRadius: 2,
+              background: "rgba(255,255,255,0.28)",
+            }}
+          />
+        </div>
+
+        {/* Header — label + perf readout */}
+        <div
+          style={{
+            padding: "0 18px 10px",
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 10,
+              color: "rgba(0,204,204,0.8)",
+              fontFamily: "var(--font-terminal), monospace",
+              letterSpacing: "0.18em",
+              fontWeight: 700,
+            }}
+          >
+            EFFECTS
+          </span>
+          {filterPerfMs !== null && (
+            <span
+              style={{
+                fontSize: 9,
+                color: "rgba(255,255,255,0.35)",
+                fontFamily: "var(--font-terminal), monospace",
+                letterSpacing: "0.08em",
+              }}
+            >
+              {filterPerfMs.toFixed(1)}ms · {canvasDisplaySize.w}×{canvasDisplaySize.h}
+            </span>
+          )}
+        </div>
+
+        {/* Filter chips */}
+        <div
+          style={{
+            flex: 1,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))",
+            gap: 10,
+            padding: "4px 18px 18px",
+            overflowY: "auto",
+            alignContent: "start",
+          }}
+        >
+          <FilterChip
+            label="NONE"
+            active={currentFilter === null}
+            onClick={() => applyFilterToBg(null)}
+          />
+          {FILTERS.map((f) => (
+            <FilterChip
+              key={f.id}
+              label={f.label}
+              active={currentFilter === f.id}
+              onClick={() => applyFilterToBg(f.id)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* ============ SWIPE-UP-FROM-BOTTOM TRIGGER ============ */}
+      {/*
+        A thin invisible strip along the bottom edge. Only active when no
+        other bottom UI is in the way, so swipe gestures don't fight the
+        sticker drawer, bottom strip, trash zone, or seal animation.
+      */}
+      {!effectsDrawerOpen &&
+        !showBottomStrip &&
+        !draggingOverlayId &&
+        !showStickerDrawer &&
+        sealPhase === "idle" && (
+          <div
+            onPointerDown={onDrawerPointerDown}
+            onPointerMove={onDrawerPointerMove}
+            onPointerUp={onDrawerPointerUp}
+            onPointerCancel={onDrawerPointerUp}
+            style={{
+              position: "fixed",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 18,
+              zIndex: 44,
+              touchAction: "none",
+              background: "transparent",
+            }}
+          />
+        )}
+
+      {/* ============ WAX-SEAL DONE ANIMATION ============ */}
+      {sealPhase === "stamping" && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 70,
+            pointerEvents: "none",
+            animation: "paint-seal-bg 500ms ease-out forwards",
+          }}
+        >
+          <svg
+            width="220"
+            height="220"
+            viewBox="0 0 200 200"
+            style={{
+              animation: "paint-seal-stamp 500ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+              filter:
+                "drop-shadow(0 10px 28px rgba(240, 98, 146, 0.55)) drop-shadow(0 2px 6px rgba(0,0,0,0.55))",
+              willChange: "transform, opacity",
+            }}
+          >
+            <defs>
+              <radialGradient id="foid-wax-grad" cx="50%" cy="42%" r="58%">
+                <stop offset="0%" stopColor="#ff9ec3" />
+                <stop offset="48%" stopColor="#f06292" />
+                <stop offset="100%" stopColor="#8a214d" />
+              </radialGradient>
+            </defs>
+            {/* Jagged wax puddle */}
+            <path
+              d="M100 10 L116 26 L138 18 L150 36 L172 42 L172 66 L188 82 L180 104 L190 128 L172 142 L166 166 L144 170 L128 186 L108 180 L90 190 L70 180 L52 186 L40 170 L22 162 L16 140 L8 118 L18 96 L10 74 L24 60 L26 38 L48 34 L60 14 L82 20 Z"
+              fill="url(#foid-wax-grad)"
+              stroke="rgba(0,0,0,0.38)"
+              strokeWidth="2"
+              strokeLinejoin="round"
+            />
+            {/* Inner recess */}
+            <rect
+              x="56"
+              y="54"
+              width="88"
+              height="92"
+              rx="14"
+              fill="rgba(16,20,32,0.22)"
+            />
+            {/* Foid F sigil */}
+            <path
+              d="M76 136 V66 h50 v11 h-34 v16 h26 v11 h-26 v32 z"
+              fill="rgba(255,255,255,0.94)"
+            />
+            <circle cx="100" cy="100" r="3.2" fill="rgba(255,255,255,0.94)" />
+          </svg>
+          <style>{`
+            @keyframes paint-seal-stamp {
+              0%   { transform: scale(0.3) rotate(-12deg); opacity: 0; }
+              45%  { transform: scale(1.14) rotate(3deg);  opacity: 1; }
+              65%  { transform: scale(0.98) rotate(-1deg); opacity: 1; }
+              80%  { transform: scale(1) rotate(0deg);     opacity: 1; }
+              100% { transform: scale(1) rotate(0deg);     opacity: 0; }
+            }
+            @keyframes paint-seal-bg {
+              0%   { background: rgba(8,12,20,0); }
+              35%  { background: rgba(8,12,20,0.42); }
+              100% { background: rgba(8,12,20,0); }
+            }
+            @keyframes paint-fade-in {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+          `}</style>
+        </div>
+      )}
+
+      {/* Shared keyframes (backdrop fade, used outside stamping block too) */}
+      <style>{`
+        @keyframes paint-fade-in { from { opacity: 0; } to { opacity: 1; } }
+      `}</style>
     </div>
   );
 }
@@ -1866,6 +2279,50 @@ function RailChip({
       }}
     >
       {icon}
+    </button>
+  );
+}
+
+function FilterChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={() => {
+        onClick();
+        haptic("light");
+      }}
+      aria-pressed={active}
+      style={{
+        height: 56,
+        borderRadius: 10,
+        border: active ? "1.5px solid #00cccc" : "1px solid rgba(255,255,255,0.1)",
+        background: active
+          ? "linear-gradient(135deg, rgba(0,204,204,0.22), rgba(0,180,180,0.10))"
+          : "rgba(255,255,255,0.04)",
+        color: active ? "#00cccc" : "rgba(255,255,255,0.72)",
+        fontSize: 11,
+        fontWeight: 700,
+        fontFamily: "var(--font-terminal), monospace",
+        letterSpacing: "0.14em",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxShadow: active
+          ? "0 0 14px rgba(0,204,204,0.28), inset 0 1px 0 rgba(255,255,255,0.06)"
+          : "none",
+        transition: "all 160ms",
+        padding: 0,
+      }}
+    >
+      {label}
     </button>
   );
 }

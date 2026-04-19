@@ -88,59 +88,67 @@ export async function GET(request: NextRequest) {
       return raw as PlacementTuple;
     }
 
+    // Batch all placement reads into a single multicall
+    const calls = Array.from({ length: placementCount }, (_, i) => ({
+      address: contractAddress,
+      abi: LOREBOARD_ABI,
+      functionName: "getPlacement" as const,
+      args: [BigInt(i)] as const,
+    }));
+
+    const results = await client.multicall({
+      contracts: calls,
+      allowFailure: true,
+    });
+
     const proposals = [];
 
-    for (let i = 0; i < placementCount; i++) {
-      try {
-        const raw = await client.readContract({
-          address: contractAddress,
-          abi: LOREBOARD_ABI,
-          functionName: "getPlacement",
-          args: [BigInt(i)],
-        });
-
-        const p = parsePlacement(raw);
-
-        // Skip removed placements
-        if (p.removed) continue;
-
-        // Filter by owner if specified
-        if (owner && p.placer.toLowerCase() !== owner) continue;
-
-        const imageUrl = p.ipfsCid ? cidToHttpUrl(p.ipfsCid) : null;
-
-        proposals.push({
-          id: String(i),
-          placementId: String(i),
-          proposalId: Number(p.proposalId),
-          owner: p.placer,
-          bidder: p.placer,
-          x: p.x,
-          y: p.y,
-          w: p.w,
-          h: p.h,
-          rect: { x: p.x, y: p.y, w: p.w, h: p.h },
-          cells: Math.ceil(p.w / 32) * Math.ceil(p.h / 32),
-          cid: p.ipfsCid?.replace("ipfs://", "") ?? null,
-          imageUrl,
-          placedAt: Number(p.placedAt),
-          removed: p.removed,
-          // Compatibility fields for board page
-          epochSubmitted: 0,
-          epoch: 0,
-          bidPerCellWei: "0",
-          cidHash: "0x",
-          yesVotes: 0,
-          noVotes: 0,
-          status: "canonized" as const,
-          isVotable: false,
-          registeredAt: Number(p.placedAt),
-          voteEndsAt: null,
-          boardVersion: "loreboard" as const,
-        });
-      } catch (err) {
-        console.error(`[api/proposals] Failed to read placement ${i}:`, err);
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (result.status !== "success") {
+        console.error(`[api/proposals] Failed to read placement ${i}:`, result.error);
+        continue;
       }
+
+      const p = parsePlacement(result.result);
+
+      // Skip removed placements
+      if (p.removed) continue;
+
+      // Filter by owner if specified
+      if (owner && p.placer.toLowerCase() !== owner) continue;
+
+      const imageUrl = p.ipfsCid ? cidToHttpUrl(p.ipfsCid) : null;
+
+      proposals.push({
+        id: String(i),
+        placementId: String(i),
+        proposalId: Number(p.proposalId),
+        owner: p.placer,
+        bidder: p.placer,
+        x: p.x,
+        y: p.y,
+        w: p.w,
+        h: p.h,
+        rect: { x: p.x, y: p.y, w: p.w, h: p.h },
+        cells: Math.ceil(p.w / 32) * Math.ceil(p.h / 32),
+        cid: p.ipfsCid?.replace("ipfs://", "") ?? null,
+        imageUrl,
+        placedAt: Number(p.placedAt),
+        removed: p.removed,
+        // Compatibility fields for board page
+        epochSubmitted: 0,
+        epoch: 0,
+        bidPerCellWei: "0",
+        cidHash: "0x",
+        yesVotes: 0,
+        noVotes: 0,
+        status: "canonized" as const,
+        isVotable: false,
+        registeredAt: Number(p.placedAt),
+        voteEndsAt: null,
+        boardVersion: "loreboard" as const,
+      });
     }
 
     console.log(`[api/proposals] Loreboard: ${placementCount} total, ${proposals.length} active`);

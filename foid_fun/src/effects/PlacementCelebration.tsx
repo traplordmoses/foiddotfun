@@ -1,7 +1,7 @@
 // src/effects/PlacementCelebration.tsx
 // "Olympus meets FOID Terminal" — cinematic multi-beat celebration for loreboard placements
 "use client";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { spawn } from "@/lib/spawn";
 import { getAudioSettings } from "@/lib/audioSettings";
 import { BLOCK_EXPLORER_URL } from "@/lib/contracts";
@@ -10,6 +10,7 @@ import {
   pickPersonalization,
   type Personalization,
 } from "@/effects/placementPersonalization";
+import { startParticles } from "@/effects/particleCanvas";
 
 type PlacementCelebrationProps = {
   itemName: string;
@@ -28,23 +29,6 @@ const DURATION = 9600;
 
 export function showPlacementCelebration(opts: PlacementCelebrationProps) {
   spawn(<PlacementCelebration {...opts} />, DURATION);
-}
-
-/* ── FOID brand palette ─────────────────────────────────────────────── */
-
-const FOID_COLORS = [
-  "#74ffeb", // cyan (primary)
-  "#a78bfa", // purple
-  "#fbbf24", // gold
-  "#f472b6", // pink
-  "#22c55e", // green
-  "#06b6d4", // teal
-  "#e879f9", // magenta
-  "#ffffff", // white
-];
-
-function pickColor(i: number) {
-  return FOID_COLORS[i % FOID_COLORS.length];
 }
 
 /* ── Slot counter hook ──────────────────────────────────────────────── */
@@ -170,35 +154,19 @@ export default function PlacementCelebration({
     window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
   };
 
-  // Precomputed particles — FOID palette
-  const sparkles = useMemo(() => Array.from({ length: 200 }, (_, i) => ({
-    d: i * 14,
-    x: `${(Math.random() * 200 - 100).toFixed(1)}vw`,
-    y: `${(Math.random() * 200 - 100).toFixed(1)}vh`,
-    color: pickColor(i),
-    type: Math.random() > 0.5 ? "sparkle" : "star",
-  })), []);
-
-  const crystals = useMemo(() => Array.from({ length: 140 }, (_, i) => ({
-    d: i * 20,
-    x: `${(Math.random() * 200 - 100).toFixed(1)}vw`,
-    y: `${(Math.random() * 200 - 100).toFixed(1)}vh`,
-    color: pickColor(i),
-  })), []);
-
-  const confetti = useMemo(() => Array.from({ length: 100 }, (_, i) => ({
-    d: i * 24,
-    x: `${(Math.random() * 200 - 100).toFixed(1)}vw`,
-    y: `${(Math.random() * 200 - 100).toFixed(1)}vh`,
-    color: FOID_COLORS[Math.floor(Math.random() * FOID_COLORS.length)],
-  })), []);
-
-  const rings = useMemo(() => Array.from({ length: 60 }, (_, i) => ({
-    d: i * 32,
-    x: `${(Math.random() * 200 - 100).toFixed(1)}vw`,
-    y: `${(Math.random() * 200 - 100).toFixed(1)}vh`,
-    color: pickColor(i),
-  })), []);
+  // Particle system moved to <canvas>. Starting the particles here keeps
+  // the lifecycle scoped to this component — spawn's TTL unmounts us, and
+  // the stop fn runs via the cleanup below. See src/effects/particleCanvas.ts.
+  const particleCanvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = particleCanvasRef.current;
+    if (!canvas) return;
+    // 200 particles on Canvas replaces 500 DOM nodes. The previous
+    // implementation drew sparkles+stars (200), crystals (140), confetti (100),
+    // rings (60); weights in particleCanvas.ts approximate that mix.
+    const stop = startParticles(canvas, { count: 200, durationMs: 5500 });
+    return stop;
+  }, []);
 
   return (
     <div
@@ -332,21 +300,15 @@ export default function PlacementCelebration({
         </div>
       </div>
 
-      {/* Beat 4: Particle stage */}
-      <div className="pc-particles" aria-hidden>
-        {sparkles.map((s, i) => (
-          <i key={`s${i}`} className="pc-p" style={{ "--d": `${s.d}ms`, "--x": s.x, "--y": s.y, "--color": s.color, "--type": s.type } as React.CSSProperties} />
-        ))}
-        {crystals.map((c, i) => (
-          <i key={`c${i}`} className="pc-crystal" style={{ "--d": `${c.d}ms`, "--x": c.x, "--y": c.y, "--color": c.color } as React.CSSProperties} />
-        ))}
-        {confetti.map((c, i) => (
-          <i key={`f${i}`} className="pc-confetti" style={{ "--d": `${c.d}ms`, "--x": c.x, "--y": c.y, "--color": c.color } as React.CSSProperties} />
-        ))}
-        {rings.map((r, i) => (
-          <i key={`r${i}`} className="pc-ring" style={{ "--d": `${r.d}ms`, "--x": r.x, "--y": r.y, "--color": r.color } as React.CSSProperties} />
-        ))}
-      </div>
+      {/* Beat 4: Particle stage — single <canvas> backed by particleCanvas.ts.
+           Previously 500 DOM nodes (sparkles/crystals/confetti/rings) each
+           with a CSS animation; that spiked INP past 400ms on lower-end
+           devices. Canvas consolidates the whole burst into one rAF loop. */}
+      <canvas
+        ref={particleCanvasRef}
+        className="pc-particles-canvas"
+        aria-hidden="true"
+      />
 
       <style jsx>{`
         /* ══════════════════════════════════════════════════════════════
@@ -670,68 +632,26 @@ export default function PlacementCelebration({
         }
 
         /* ══════════════════════════════════════════════════════════════
-           BEAT 4: PARTICLES
-           ══════════════════════════════════════════════════════════ */
-        .pc-particles {
-          position: fixed; inset: -6% -12%;
-          pointer-events: none; z-index: 3;
-        }
-
-        .pc-p {
-          position: absolute; left: 50%; top: 50%;
-          width: 7px; height: 7px; border-radius: 50%;
-          background: var(--color);
-          box-shadow: 0 0 16px var(--color);
-          opacity: 0;
-          animation: pc-burst 5.5s steps(12) var(--d) forwards;
-        }
-        .pc-p[style*="--type:star"] {
-          clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-        }
-
-        .pc-crystal {
-          position: absolute; left: 50%; top: 50%;
-          width: 9px; height: 13px;
-          background: var(--color);
-          clip-path: polygon(50% 0%, 100% 35%, 80% 100%, 20% 100%, 0% 35%);
-          opacity: 0;
-          animation: pc-burst 5s steps(10) var(--d) forwards;
-        }
-
-        .pc-confetti {
-          position: absolute; left: 50%; top: 50%;
-          width: 6px; height: 6px;
-          background: var(--color);
-          transform: rotate(45deg);
-          opacity: 0;
-          animation: pc-burst 5s steps(12) var(--d) forwards;
-        }
-
-        .pc-ring {
-          position: absolute; left: 50%; top: 50%;
-          width: 11px; height: 11px; border-radius: 50%;
-          border: 2px solid var(--color);
-          background: transparent;
-          opacity: 0;
-          animation: pc-ring-burst 4.5s ease-out var(--d) forwards;
-        }
-
-        @keyframes pc-burst {
-          0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
-          12%  { opacity: 1; }
-          100% { opacity: 0; transform: translate(calc(var(--x) - 50%), calc(var(--y) - 50%)) scale(2.5) rotate(1080deg); }
-        }
-        @keyframes pc-ring-burst {
-          0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
-          18%  { opacity: 0.8; }
-          100% { opacity: 0; transform: translate(calc(var(--x) - 50%), calc(var(--y) - 50%)) scale(4); }
+           BEAT 4: PARTICLES (canvas)
+           ══════════════════════════════════════════════════════════
+           Single <canvas> covering the viewport; particleCanvas.ts drives
+           the render loop. The old .pc-p / .pc-crystal / .pc-confetti /
+           .pc-ring classes are gone — all their visuals live in the
+           canvas 2D draw calls. */
+        .pc-particles-canvas {
+          position: fixed;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          z-index: 3;
         }
 
         /* ══════════════════════════════════════════════════════════════
            REDUCED MOTION
            ══════════════════════════════════════════════════════════ */
         @media (prefers-reduced-motion: reduce) {
-          .pc-flash, .pc-particles, .pc-lightning, .pc-shockwave { display: none; }
+          .pc-flash, .pc-particles-canvas, .pc-lightning, .pc-shockwave { display: none; }
           .pc-slab { animation: none; opacity: 1; }
           .pc-headline { animation: none; opacity: 1; -webkit-text-fill-color: #74ffeb; }
           .pc-subhead { animation: none; opacity: 1; }

@@ -67,9 +67,21 @@ export const useBoard = create<BoardState>()(
         })),
 
       removePending: (id) =>
-        set((state) => ({
-          pending: state.pending.filter((p) => p.id !== id),
-        })),
+        set((state) => {
+          // Revoke the item's blob URL on removal so we don't leak memory
+          // across long sessions. The celebration is handed a stable data
+          // URL by useProposalSubmit, so revoking here is safe even
+          // mid-celebration. See audit note P1-7.
+          const target = state.pending.find((p) => p.id === id);
+          if (target?.previewUrl?.startsWith("blob:")) {
+            try {
+              URL.revokeObjectURL(target.previewUrl);
+            } catch {
+              /* ignore */
+            }
+          }
+          return { pending: state.pending.filter((p) => p.id !== id) };
+        }),
 
       setRect: (id, rect) =>
         set((state) => ({

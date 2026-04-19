@@ -1,6 +1,7 @@
 "use client";
 
 import { showPrayerSuccess } from "@/effects/PrayerSuccess";
+import type { Personalization } from "@/effects/placementPersonalization";
 
 export function celebrateTransaction(txHash?: string, nextAllowedAt?: number) {
   if (typeof window === "undefined") return;
@@ -18,6 +19,7 @@ export function celebratePlacement(opts: {
   proposalId: number | null;
   previewUrl: string;
   ipfsCid?: string;
+  personalization?: Personalization;
 }) {
   if (typeof window === "undefined") return;
   import("@/effects/PlacementCelebration").then(({ showPlacementCelebration }) => {

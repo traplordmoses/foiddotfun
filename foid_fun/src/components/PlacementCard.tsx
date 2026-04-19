@@ -1,5 +1,10 @@
-import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { memo, useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
+import {
+  reorderGateways,
+  markGatewaySuccess,
+  markGatewayFailure,
+} from "@/lib/ipfsGatewayCache";
 
 export type Placement = {
   id: string;
@@ -142,7 +147,7 @@ function FlagConfirmModal({
 
 /* ── PlacementCard ────────────────────────────────────────────────── */
 
-export function PlacementCard({
+function PlacementCardInner({
   placement,
   onOpen,
   frameStyle,
@@ -153,7 +158,9 @@ export function PlacementCard({
   flagLabel,
 }: Props) {
   const { cid, x, y, width, height, name } = placement;
-  const urls = useMemo(() => ipfsToHttp(cid), [cid]);
+  // Reorder gateways using the session cache: preferred (last-known-good) goes
+  // first; gateways that failed earlier this session are deprioritized.
+  const urls = useMemo(() => reorderGateways(ipfsToHttp(cid)), [cid]);
   const [gatewayIdx, setGatewayIdx] = useState(0);
   const [flagging, setFlagging] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -182,6 +189,10 @@ export function PlacementCard({
 
   const handleError = () => {
     setLoaded(false);
+    // Circuit-break: remember this gateway failed so other cards in this
+    // session skip it.
+    const failed = urls[gatewayIdx];
+    if (failed) markGatewayFailure(failed);
     const next = gatewayIdx + 1;
     if (next < urls.length) setGatewayIdx(next);
   };
@@ -189,14 +200,20 @@ export function PlacementCard({
   const handleLoad = () => {
     setLoaded(true);
     if (timerRef.current) clearTimeout(timerRef.current);
+    // Memoize the winning gateway for the rest of this session.
+    const winner = urls[gatewayIdx];
+    if (winner) markGatewaySuccess(winner);
   };
 
-  // Timeout fallback — if image doesn't load within 6s, try next gateway
+  // Timeout fallback — if image doesn't load within 6s, try next gateway.
+  // Timing out is treated as a failure for circuit-breaker purposes.
   useEffect(() => {
     setLoaded(false);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       if (!loaded) {
+        const stalled = urls[gatewayIdx];
+        if (stalled) markGatewayFailure(stalled);
         const next = gatewayIdx + 1;
         if (next < urls.length) setGatewayIdx(next);
       }
@@ -233,9 +250,11 @@ export function PlacementCard({
         <img
           src={src}
           alt={name ?? ""}
+          width={width}
+          height={height}
           className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-          loading="eager"
-          decoding="sync"
+          loading="lazy"
+          decoding="async"
           onLoad={handleLoad}
           onError={handleError}
           referrerPolicy="no-referrer"
@@ -336,3 +355,60 @@ export function PlacementCard({
     </div>
   );
 }
+
+
+/**
+ * Custom compare: the board page builds the `placement` object inline per
+ * render (`{ id: p.id, cid: p.cid, ... }`), which defeats shallow-compare
+ * memo because the ref always changes. Deep-comparing the fields that
+ * actually affect rendering lets memo hit during pan/zoom — that's the
+ * whole point of memoizing this component.
+ *
+ * Keep this function CHEAP: it runs once per render per card. Only compare
+ * fields that are read inside the component render path.
+ */
+function placementCardPropsEqual(
+  a: Props,
+  b: Props,
+): boolean {
+  if (a.onOpen !== b.onOpen) return false;
+  if (a.onFlag !== b.onFlag) return false;
+  if (a.isFlagged !== b.isFlagged) return false;
+  if (a.flagCount !== b.flagCount) return false;
+  if (a.flagThreshold !== b.flagThreshold) return false;
+  if (a.flagLabel !== b.flagLabel) return false;
+  // Compare frameStyle by reference first (stable callers), then by the two
+  // fields we actually render-drive off of.
+  if (a.frameStyle !== b.frameStyle) {
+    if (a.frameStyle?.border !== b.frameStyle?.border) return false;
+    if (a.frameStyle?.boxShadow !== b.frameStyle?.boxShadow) return false;
+    if (a.frameStyle?.background !== b.frameStyle?.background) return false;
+  }
+  // Placement: the board page rebuilds `{id, cid, x, y, width, height, ...}`
+  // inline, so ref compare always fails. Compare the render-driving fields.
+  const pa = a.placement, pb = b.placement;
+  if (pa === pb) return true;
+  return (
+    pa.id === pb.id &&
+    pa.cid === pb.cid &&
+    pa.x === pb.x &&
+    pa.y === pb.y &&
+    pa.width === pb.width &&
+    pa.height === pb.height &&
+    pa.status === pb.status &&
+    pa.yesVotes === pb.yesVotes &&
+    pa.noVotes === pb.noVotes &&
+    pa.voters === pb.voters &&
+    pa.percentYes === pb.percentYes &&
+    pa.secondsLeft === pb.secondsLeft &&
+    pa.epochId === pb.epochId &&
+    pa.proposer === pb.proposer
+  );
+}
+
+// Memoized export: the /board page re-renders on every pan/zoom tick, but
+// placement render-driving fields only change when the proposal data
+// updates. Custom compare (above) catches the inline-object callers.
+// Callers still benefit from passing stable callbacks — the first four
+// fields get a cheap ref compare before the placement deep compare runs.
+export const PlacementCard = memo(PlacementCardInner, placementCardPropsEqual);
