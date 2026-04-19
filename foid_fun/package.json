@@ -12,6 +12,11 @@
     "start": "NODE_OPTIONS='--max-old-space-size=1024' next start -p $PORT",
     "lint": "next lint",
     "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:update": "playwright test --update-snapshots",
+    "test:a11y": "playwright test tests/e2e/board/a11y.spec.ts",
     "typecheck": "tsc --noEmit",
     "finalize": "ts-node --project tsconfig.scripts.json scripts/operatorFinalize.ts",
     "smoke:board": "ts-node --project tsconfig.scripts.json scripts/smoke-board-flow.ts",
@@ -60,6 +65,10 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.2",
+    "@playwright/test": "^1.59.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.19.25",
     "@types/react": "18.3.3",
