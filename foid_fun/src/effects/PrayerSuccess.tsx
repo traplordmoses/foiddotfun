@@ -296,14 +296,14 @@ export default function PrayerSuccessToast({
           color: rgba(255, 255, 255, 0.4);
           text-transform: uppercase;
           letter-spacing: 0.08em;
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
         }
 
         .prayer-success-countdown__time {
           font-size: 14px;
           font-weight: 600;
           color: rgba(0, 255, 213, 0.9);
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-variant-numeric: tabular-nums;
         }
 
@@ -312,7 +312,7 @@ export default function PrayerSuccessToast({
           margin-top: 8px;
           padding: 4px 10px;
           font-size: 11px;
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           color: rgba(0, 255, 213, 0.6);
           background: rgba(0, 255, 213, 0.06);
           border: 1px solid rgba(0, 255, 213, 0.15);

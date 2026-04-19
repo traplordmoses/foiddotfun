@@ -115,6 +115,8 @@ async function createActiveWalletClient() {
       // Local nonce tracker to prevent collisions in rapid batch transactions.
       // Tracks the next nonce to use per-address so sequential sends don't
       // all fetch the same on-chain nonce before any of them are mined.
+      // Only advanced after a successful broadcast so a failed signing/send
+      // doesn't permanently skip a nonce.
       let pendingNonce: number | null = null;
       const workerProvider: EthereumProvider = {
         request: async ({ method, params }: { method: string; params?: readonly unknown[] }) => {
@@ -127,13 +129,32 @@ async function createActiveWalletClient() {
             case "eth_sendTransaction": {
               const [tx] = (params ?? []) as [Record<string, string>];
               const { sessionSignTransaction } = await import("@/lib/wallet");
-              const onChainNonce = Number(
-                await publicClient.getTransactionCount({ address: addr, blockTag: "pending" }),
-              );
-              // Use whichever is higher: the on-chain pending count or our local tracker
+
+              // Fetch nonce + gasPrice — surface each failure specifically so
+              // the user sees the real cause instead of viem's generic wrapper.
+              let onChainNonce: number;
+              try {
+                onChainNonce = Number(
+                  await publicClient.getTransactionCount({ address: addr, blockTag: "pending" }),
+                );
+              } catch (err) {
+                console.error("[eth_sendTransaction] getTransactionCount failed:", err);
+                throw new Error(
+                  `couldn't fetch wallet nonce from RPC: ${err instanceof Error ? err.message : String(err)}`,
+                );
+              }
               const nonce = pendingNonce !== null ? Math.max(onChainNonce, pendingNonce) : onChainNonce;
-              pendingNonce = nonce + 1;
-              const gasPrice = await publicClient.getGasPrice();
+
+              let gasPrice: bigint;
+              try {
+                gasPrice = await publicClient.getGasPrice();
+              } catch (err) {
+                console.error("[eth_sendTransaction] getGasPrice failed:", err);
+                throw new Error(
+                  `couldn't fetch gas price from RPC: ${err instanceof Error ? err.message : String(err)}`,
+                );
+              }
+
               let gas: bigint;
               try {
                 gas = tx.gas
@@ -147,7 +168,12 @@ async function createActiveWalletClient() {
               } catch {
                 gas = BigInt(500_000);
               }
-              const signedTx = await sessionSignTransaction({
+
+              // Explicit legacy tx type — prevents viem from trying to infer
+              // EIP-1559 fields which the Fluent RPC/chain config may not
+              // populate correctly for this signing path.
+              const txToSign = {
+                type: "legacy" as const,
                 to: tx.to as `0x${string}`,
                 value: tx.value ? BigInt(tx.value) : 0n,
                 data: (tx.data as `0x${string}`) ?? undefined,
@@ -155,11 +181,31 @@ async function createActiveWalletClient() {
                 gasPrice,
                 nonce,
                 chainId: CHAIN_ID,
-              });
-              const hash = await publicClient.request({
-                method: "eth_sendRawTransaction",
-                params: [signedTx as `0x${string}`],
-              });
+              };
+
+              let signedTx: string;
+              try {
+                signedTx = await sessionSignTransaction(txToSign);
+              } catch (err) {
+                console.error("[eth_sendTransaction] signTransaction failed:", err, { txToSign });
+                throw new Error(
+                  `wallet signing failed: ${err instanceof Error ? err.message : String(err)}`,
+                );
+              }
+
+              let hash: unknown;
+              try {
+                hash = await publicClient.request({
+                  method: "eth_sendRawTransaction",
+                  params: [signedTx as `0x${string}`],
+                });
+              } catch (err) {
+                console.error("[eth_sendTransaction] broadcast failed:", err);
+                throw err;
+              }
+
+              // Only advance the local nonce tracker after a successful broadcast.
+              pendingNonce = nonce + 1;
               return hash;
             }
             default: {

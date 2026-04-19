@@ -286,7 +286,7 @@ export function TerminalChat({
         })}
       </div>
       <div className="terminal-chat__input-row">
-        <span className="terminal-chat__prompt">&gt;</span>
+        <span className="terminal-chat__prompt" aria-hidden="true">&gt;</span>
         <input
           type="text"
           value={input}
@@ -296,6 +296,7 @@ export function TerminalChat({
           className="terminal-chat__input"
           disabled={!walletAddress}
           maxLength={MAX_MESSAGE_LENGTH}
+          aria-label="Send a chat message to the board"
         />
         <button
           type="button"

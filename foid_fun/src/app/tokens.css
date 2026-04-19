@@ -1,0 +1,160 @@
+/*
+ * tokens.css — FOID Foundation design tokens.
+ *
+ * Single source of truth for colors, borders, and shared shadows. Component
+ * CSS and inline styles should reference these via var(--foid-*) instead of
+ * re-inventing hex literals.
+ *
+ * Scope:
+ *   - The eight brand colors used in the existing cyan/purple/pink palette.
+ *   - Neutral ink + border + surface tokens for glassmorphic panels.
+ *   - Tone tokens (info/ok/warn/err) that back <NeonBadge /> + status chips.
+ *   - Shared shadow recipes (slab, glow, chip) reused across celebrations
+ *     and modals.
+ *   - Spacing + radius scale (kept minimal — most layout uses Tailwind).
+ *   - Motion tokens so reduced-motion overrides have a single switch point.
+ *
+ * Imported from src/app/layout.tsx via `import "./tokens.css"` so every
+ * page (server + client) inherits these on :root.
+ */
+
+:root {
+  /* ══════════════════════════════════════════════════════════════════════
+     BRAND PALETTE — canonical hex source.
+     Spec'd in the phase-alpha PR. When a component needs a one-off alpha
+     variant, build it with color-mix() off the base token rather than
+     adding a new hex constant:
+       color: color-mix(in srgb, var(--foid-cyan) 60%, transparent);
+     ══════════════════════════════════════════════════════════════════════ */
+  --foid-cyan: #74ffeb;
+  --foid-purple: #a78bfa;
+  --foid-pink: #f472b6;
+  --foid-gold: #fbbf24;
+  --foid-green: #22c55e;
+  --foid-red: #ef4444;
+  --foid-bg-ink: #06102c;
+
+  /* Complementary accents used in existing gradients — keep as named tokens
+     so the sweep can retire #e040fb / #f06292 from board.css + globals.css. */
+  --foid-magenta: #e040fb;
+  --foid-pink-soft: #f06292;
+
+  /* Neutral ink variants referenced by .board-page and AppTitlebar. */
+  --foid-bg-deepest: #030b12;
+  --foid-panel: rgba(12, 28, 44, 0.58);
+  --foid-panel-strong: rgba(6, 14, 28, 0.78);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     TEXT + BORDER
+     ══════════════════════════════════════════════════════════════════════ */
+  --foid-text: rgba(255, 255, 255, 0.92);
+  --foid-text-dim: rgba(255, 255, 255, 0.65);
+  --foid-text-mute: rgba(255, 255, 255, 0.45);
+
+  --foid-border-subtle: rgba(116, 255, 235, 0.25);
+  --foid-border-strong: rgba(116, 255, 235, 0.55);
+  --foid-border-mute: rgba(255, 255, 255, 0.12);
+
+  /* Legacy aliases so existing board.css selectors keep working without a
+     global rename. Remove once every caller switches to the new names. */
+  --foid-glass-highlight: rgba(255, 255, 255, 0.16);
+  --foid-glass-border: var(--foid-border-subtle);
+  --foid-accent: rgba(116, 255, 235, 0.95);
+  --foid-accent-soft: rgba(116, 255, 235, 0.28);
+  --foid-glow: rgba(116, 255, 235, 0.2);
+  --foid-warm: rgba(255, 165, 82, 0.22);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     TONE TOKENS — back NeonBadge + status chips.
+     A tone = (bg, border, text, glow) quad. Components read these directly
+     so the full surface of tones lives in one file.
+     ══════════════════════════════════════════════════════════════════════ */
+  --tone-info-bg: rgba(116, 255, 235, 0.18);
+  --tone-info-border: rgba(116, 255, 235, 0.5);
+  --tone-info-text: rgba(116, 255, 235, 0.98);
+  --tone-info-glow: rgba(116, 255, 235, 0.28);
+
+  --tone-ok-bg: rgba(72, 255, 171, 0.18);
+  --tone-ok-border: rgba(72, 255, 171, 0.55);
+  --tone-ok-text: rgba(72, 255, 171, 0.98);
+  --tone-ok-glow: rgba(72, 255, 171, 0.3);
+
+  --tone-warn-bg: rgba(255, 184, 0, 0.18);
+  --tone-warn-border: rgba(255, 184, 0, 0.55);
+  --tone-warn-text: rgba(255, 220, 120, 0.98);
+  --tone-warn-glow: rgba(255, 184, 0, 0.3);
+
+  --tone-err-bg: rgba(255, 71, 87, 0.18);
+  --tone-err-border: rgba(255, 71, 87, 0.55);
+  --tone-err-text: rgba(255, 140, 150, 0.98);
+  --tone-err-glow: rgba(255, 71, 87, 0.3);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     SHADOWS — shared recipes.
+     --foid-shadow-slab is the celebration "floating panel" recipe; other
+     modals/panels reuse it. Chip/glow/card recipes are lighter variants.
+     ══════════════════════════════════════════════════════════════════════ */
+  --foid-shadow-slab:
+    inset 0 0 60px rgba(116, 255, 235, 0.06),
+    0 40px 120px rgba(0, 0, 0, 0.7);
+  --foid-shadow-card:
+    0 14px 32px rgba(0, 6, 22, 0.45),
+    0 0 0 1px rgba(116, 255, 235, 0.3);
+  --foid-shadow-chip: 0 0 6px rgba(255, 150, 190, 0.3);
+  --foid-shadow-glow-cyan: 0 0 18px rgba(0, 255, 213, 0.6), 0 0 42px rgba(0, 255, 213, 0.25);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     RADIUS + SPACING (minimal — Tailwind covers most layout)
+     ══════════════════════════════════════════════════════════════════════ */
+  --foid-radius-sm: 6px;
+  --foid-radius-md: 12px;
+  --foid-radius-lg: 14px;
+  --foid-radius-pill: 999px;
+
+  /* ══════════════════════════════════════════════════════════════════════
+     MOTION — single switch point for reduced-motion overrides.
+     ══════════════════════════════════════════════════════════════════════ */
+  --foid-motion-fast: 150ms;
+  --foid-motion-base: 300ms;
+  --foid-motion-slow: 600ms;
+  --foid-ease-out: cubic-bezier(0.16, 0.86, 0.22, 1);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   HIGH-CONTRAST MODE
+   Drops transparency on glass surfaces and thickens borders. Components
+   that rely on backdrop-filter should check this media query too (in
+   component-local CSS) to opt out of blur when the user has requested
+   higher contrast. See WCAG 2.2 SC 1.4.11.
+   ══════════════════════════════════════════════════════════════════════ */
+@media (prefers-contrast: more) {
+  :root {
+    --foid-panel: rgba(6, 14, 28, 0.96);
+    --foid-panel-strong: rgba(3, 10, 20, 0.99);
+    --foid-border-subtle: rgba(116, 255, 235, 0.8);
+    --foid-border-strong: rgba(116, 255, 235, 1);
+    --foid-border-mute: rgba(255, 255, 255, 0.5);
+    --foid-text-dim: rgba(255, 255, 255, 0.9);
+    --foid-text-mute: rgba(255, 255, 255, 0.75);
+
+    --tone-info-bg: rgba(116, 255, 235, 0.35);
+    --tone-ok-bg: rgba(72, 255, 171, 0.35);
+    --tone-warn-bg: rgba(255, 184, 0, 0.35);
+    --tone-err-bg: rgba(255, 71, 87, 0.35);
+
+    --foid-glass-border: var(--foid-border-strong);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   REDUCED MOTION
+   Flatten the motion scale so transitions become instant. Animations are
+   opted-out individually in component CSS via `prefers-reduced-motion`.
+   ══════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --foid-motion-fast: 0ms;
+    --foid-motion-base: 0ms;
+    --foid-motion-slow: 0ms;
+  }
+}

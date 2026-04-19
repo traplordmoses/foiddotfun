@@ -151,7 +151,7 @@ export default function ActivityBubbles() {
         }
 
         .activity-bubble__text {
-          font-family: var(--font-mono, ui-monospace, monospace);
+          font-family: var(--font-terminal, ui-monospace, monospace);
           font-size: 10px;
           letter-spacing: 0.04em;
           color: rgba(255, 255, 255, 0.40);

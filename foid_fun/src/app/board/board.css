@@ -120,7 +120,7 @@
   backdrop-filter: blur(14px);
   color: var(--foid-text);
   font-size: 10px;
-  font-family: var(--font-mono);
+  font-family: var(--font-terminal);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   box-shadow: inset 0 0 14px rgba(0,0,0,0.6);
@@ -136,7 +136,7 @@
   background: rgba(5, 12, 18, 0.6);
   color: var(--foid-text-dim);
   font-size: 9px;
-  font-family: var(--font-mono);
+  font-family: var(--font-terminal);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   box-shadow: inset 0 0 12px rgba(0,0,0,0.6);
@@ -426,7 +426,7 @@
   border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.04);
-  font-family: var(--font-mono);
+  font-family: var(--font-terminal);
   letter-spacing: 0.06em;
 }
 .board-section--debug .debug-missing {
@@ -442,7 +442,7 @@
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  font-family: var(--font-mono);
+  font-family: var(--font-terminal);
   font-size: 10px;
   max-height: 96px;
   overflow: auto;
@@ -492,7 +492,7 @@
   color: rgba(190, 255, 235, 0.9);
   font-size: 8px;
   letter-spacing: 0.06em;
-  font-family: var(--font-mono);
+  font-family: var(--font-terminal);
   text-transform: uppercase;
   box-shadow: 0 0 6px rgba(255, 150, 190, 0.3);
   backdrop-filter: blur(12px);
@@ -505,7 +505,7 @@
   background: rgba(0, 12, 20, 0.6);
   color: var(--foid-accent);
   font-size: 9px;
-  font-family: var(--font-mono);
+  font-family: var(--font-terminal);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   display: flex;
@@ -536,14 +536,14 @@
 .board-section--epoch .board-epoch__num {
   font-size: 10px;
   font-weight: 600;
-  font-family: var(--font-mono);
+  font-family: var(--font-terminal);
   letter-spacing: 0.2em;
   color: var(--foid-accent);
 }
 .board-section--epoch .board-epoch__time {
   font-size: 10px;
   font-weight: 500;
-  font-family: var(--font-mono);
+  font-family: var(--font-terminal);
   letter-spacing: 0.18em;
   color: rgba(255, 255, 255, 0.65);
 }
@@ -564,7 +564,7 @@
   text-align: center;
   margin-top: 6px;
   line-height: 1.5;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-terminal, monospace);
 }
 .board-section--chat .terminal-chat__input-row {
   border-top: 1px solid rgba(116, 255, 235, 0.12);
@@ -820,5 +820,72 @@
 @keyframes reconnect-blink {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 0.9; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   HIGH-CONTRAST MODE — WCAG 2.2 SC 1.4.11 (Non-text Contrast), 1.4.3 (Contrast Minimum)
+   ══════════════════════════════════════════════════════════════════════
+   Targets:
+   - .board-hud            — zoom/pan readouts; normal text must be ≥4.5:1
+   - .board-ghost__label   — drop-zone preview label; opacity-based styling
+                             fails ≥3:1 on some backgrounds in prefers-contrast
+   - .board-section__chip  — section header chip
+   - .board-section__status — connected/offline chip
+   - .board-pending__badge — live submit state label
+   - .board-dragover       — drop highlight outline
+   Fix: drop transparency, thicken borders, lock text to full white and
+   backgrounds to solid ink so contrast meets AA regardless of what's
+   underneath. Ghost fills become opaque so the label reads against the
+   busiest canvas content.
+*/
+@media (prefers-contrast: more) {
+  .board-hud {
+    background: rgba(3, 11, 18, 0.96) !important;
+    color: #ffffff !important;
+    border-color: var(--foid-border-strong) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .board-ghost__label {
+    background: rgba(3, 11, 18, 0.96) !important;
+    color: #ffffff !important;
+    border: 2px solid var(--foid-border-strong) !important;
+    text-shadow: none !important;
+  }
+  .board-ghost {
+    border-width: 3px !important;
+  }
+  .board-section__chip,
+  .board-section__status {
+    background: rgba(3, 11, 18, 0.95) !important;
+    color: #ffffff !important;
+    border-width: 2px !important;
+    backdrop-filter: none !important;
+  }
+  .board-pending__badge {
+    background: rgba(3, 11, 18, 0.95) !important;
+    color: #ffffff !important;
+    border-width: 2px !important;
+  }
+  .board-dragover {
+    outline-width: 4px !important;
+    outline-color: var(--foid-border-strong) !important;
+  }
+  .ui-chip,
+  .ui-neon-badge {
+    backdrop-filter: none !important;
+    color: #ffffff !important;
+    border-width: 2px !important;
+  }
+}
+
+/* Reduced-motion override: turn the status-dot pulse off so it doesn't
+   distract users who've asked for less animation. */
+@media (prefers-reduced-motion: reduce) {
+  .board-section__dot,
+  .pray-status-dot,
+  .ui-status-dot {
+    animation: none !important;
+  }
 }
 

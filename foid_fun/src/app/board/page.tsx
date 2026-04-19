@@ -8,7 +8,6 @@ import "./board.css";
 import React, {
   Component,
   Suspense,
-  startTransition,
   useCallback,
   useMemo,
   useRef,
@@ -21,30 +20,53 @@ import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useBoard } from "@/state/board";
 import type { PendingItem } from "@/state/board";
-import { TILE, snapRect, rectCells, hasOverlap, isTouching, type Rect } from "@/lib/grid";
+import { TILE, snapRect, rectCells, type Rect } from "@/lib/grid";
 import {
-  BOARD_OFFSET_X,
-  BOARD_OFFSET_Y,
   WORLD_MAX_X,
   WORLD_MAX_Y,
-  worldToContractRect,
-  contractToWorldRect,
 } from "@/lib/boardSpace";
 import { sniffImageType, mimeFromType } from "@/lib/image";
 import { convertToJpeg } from "@/lib/imageConvert";
-import { uploadImage } from "@/lib/ipfs";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
-import { formatEth } from "@/lib/wei";
-import { listProposals } from "@/lib/api";
-import type { ProposalSummary, ListProposalsResponse } from "@/lib/api";
+import type { ProposalSummary } from "@/lib/api";
 import { useSwipePropose } from "@/hooks/useSwipePropose";
+import { usePanZoom, type DropPos } from "@/hooks/board/usePanZoom";
+import { useViewportZoomLock } from "@/hooks/board/useViewportZoomLock";
+import { useGhost } from "@/hooks/board/useGhost";
+import { useBoardData } from "@/hooks/board/useBoardData";
+import { useProposalSubmit } from "@/hooks/board/useProposalSubmit";
+import { useVisiblePlacements } from "@/hooks/board/useVisiblePlacements";
+import { BoardHUD } from "@/components/board/BoardHUD";
+import { PlacementGhost } from "@/components/board/PlacementGhost";
+import { VotingGhost } from "@/components/board/VotingGhost";
+import { PendingItemCard } from "@/components/board/PendingItemCard";
+import { BoardActions } from "@/components/board/BoardActions";
+// BatchReviewModal is only rendered after the user clicks SUBMIT PROPOSAL.
+// Dynamic-import keeps the dry-run-preview + gas-estimation logic off the
+// initial /board bundle. The in-flight fetch is masked by user action.
+const BatchReviewModal = dynamic(
+  () => import("@/components/board/BatchReviewModal").then((m) => ({ default: m.BatchReviewModal })),
+  { ssr: false }
+);
+import { SUBMISSION_FEE_WEI } from "@/lib/board/fees";
+import {
+  toastUploading,
+  toastSigning,
+  toastConfirmed,
+  toastFailed,
+  toastInfo,
+  toastBatch,
+  dismissItemToast,
+} from "@/lib/board/toasts";
+import { pickPersonalization } from "@/effects/placementPersonalization";
+import { useUserPlacements } from "@/hooks/useUserPlacements";
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { celebratePlacement } from "@/effects/celebrate";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
 import { TerminalChat, type StatusMessage } from "@/components/TerminalChat";
-import { Y2kActionButton } from "@/components/Y2kActionButton";
+import { StatusDot } from "@/components/ui";
 import dynamic from "next/dynamic";
 import { useMobile } from "@/hooks/useMobile";
 import type { BoardNode } from "@/types/mobile";
@@ -62,12 +84,6 @@ import {
   getBoundsFromRects,
   STAGE_CANVAS_W,
   STAGE_CANVAS_H,
-  STAGE_PAD_X,
-  STAGE_PAD_Y,
-  GRID_RADIUS_X,
-  GRID_RADIUS_Y,
-  MIN_SCALE,
-  MAX_SCALE,
 } from "@/lib/boardCoordinates";
 import {
   capRectToMaxCells,
@@ -77,7 +93,14 @@ import {
 import { parseWeb3Error, isUserRejection } from "@/lib/errors";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { PaintEditor } from "@/components/PaintEditor";
+// PaintEditor is heavy (1800+ LOC, Canvas compositing, sticker drawer, text
+// tool). It's only needed AFTER the user drops an image. Splitting it out
+// with dynamic import keeps it off the /board initial bundle — first load
+// never pays for it, interaction-time load is masked by the image picker.
+const PaintEditor = dynamic(
+  () => import("@/components/PaintEditor").then((m) => ({ default: m.PaintEditor })),
+  { ssr: false }
+);
 import { RemovalVotePanel } from "@/components/RemovalVotePanel";
 import {
   useSwipeLoreboardGovernance,
@@ -91,33 +114,40 @@ import {
 // HELPER FUNCTIONS (extracted to lib/board)
 // ============================================================================
 
-import {
-  debugWarn,
-  normalizeCidString,
-  normalizeProposals,
-  tryNextGateway,
-  getImageSize,
-} from "@/lib/board";
+import { tryNextGateway, getImageSize } from "@/lib/board";
 import { MobileProposeModal } from "@/components/board/MobileProposeModal";
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-const BASE_FEE_PER_CELL_WEI = BigInt(process.env.NEXT_PUBLIC_BASE_FEE_PER_CELL_WEI ?? "0");
-
-const CARD_BORDER = "rgba(116, 255, 235, 0.55)";
-const CARD_SHADOW = "0 14px 32px rgba(0, 6, 22, 0.45), 0 0 0 1px rgba(116,255,235,0.3)";
+// Visual constants now reference tokens.css — any brand color tweak can
+// be done in one place without touching board/page.tsx.
+const CARD_BORDER = "var(--foid-border-strong)";
+const CARD_SHADOW = "var(--foid-shadow-card)";
 const FLUENT_CHAIN_ID = TARGET_CHAIN_ID;
+
+// Module-level constant frame styles. Phase β perf — PlacementCard is
+// memoed with a custom compare that reads frameStyle.border/boxShadow, so
+// reusing the same object across renders means the memo short-circuits
+// during pan/zoom. Declared outside the component so identity survives
+// re-renders.
+const PLACEMENT_FRAME_ACTIVE: React.CSSProperties = {
+  border: "1px solid rgba(0,255,213,0.95)",
+  boxShadow: "var(--foid-shadow-glow-cyan)",
+  background: "rgba(8,18,36,0.35)",
+};
+const PLACEMENT_FRAME_DEFAULT: React.CSSProperties = {
+  border: `1px solid ${CARD_BORDER}`,
+  boxShadow: CARD_SHADOW,
+  background: "rgba(8,18,36,0.35)",
+};
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-type DropPos = { x: number; y: number };
-type DragMeta = { w: number; h: number; mime: "image/png" | "image/jpeg" | null };
-type GhostStatus = "ok" | "overlap" | "oversize" | "invalid" | "not-touching";
-type Ghost = { rect: Rect; cells: number; status: GhostStatus; totalWei: bigint };
+// DropPos/Ghost types moved to hooks/board/*
 
 // ============================================================================
 // COMPONENTS NOW IMPORTED FROM /src/components/
@@ -134,9 +164,9 @@ class ChatErrorBoundary extends Component<{ children: ReactNode }, { failed: boo
       <div className="board-section--chat-wrapper">
         <div className="board-section board-section--chat" style={{ opacity: 0.6 }}>
           <div className="board-section__header">
-            <span className="board-section__dot" />
+            <StatusDot status="offline" />
             <span className="board-section__title">CHAT</span>
-            <span className="board-section__status" data-status="offline">offline</span>
+            <span className="board-section__status ml-auto" data-status="offline">offline</span>
           </div>
           <p style={{ padding: 12, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
             Chat unavailable in this browser. Try opening foid.fun directly.
@@ -204,23 +234,86 @@ function BoardPageContent() {
   const [desktopPaintFile, setDesktopPaintFile] = useState<File | null>(null);
   const [desktopPaintPos, setDesktopPaintPos] = useState<DropPos | undefined>(undefined);
 
-  // Pan/zoom - smooth infinite
-  const [scale, setScale] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [spaceDown, setSpaceDown] = useState(false);
-  const [isPanning, setIsPanning] = useState(false);
-  const [draggingBoard, setDraggingBoard] = useState(false);
-  const panStartRef = useRef({ x: 0, y: 0 });
-  const panOriginRef = useRef({ x: 0, y: 0 });
-  const boardDragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  // Pan/zoom — extracted to a headless hook
+  const {
+    scale,
+    pan,
+    spaceDown,
+    isPanning,
+    onContainerPointerDown,
+    onCanvasWheel,
+    zoomToRect,
+    screenToWorld,
+    bindStage,
+    subscribeViewport,
+  } = usePanZoom(containerRef);
+
+  // Bind the stage DOM node so transform writes bypass React during gestures
+  // (Phase 2 · Step 5).
+  const stageCallbackRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      (stageRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+      bindStage(el);
+    },
+    [bindStage]
+  );
+
+  // Viewport-virtualization state (Phase 2 · Step 7). Only commits when the
+  // visible AABB has drifted far enough that the culled set could have changed.
+  const [visibleRect, setVisibleRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const lastVisibleRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  useEffect(() => {
+    const unsubscribe = subscribeViewport((v) => {
+      // Guard: the first fire can land before the container has been
+      // measured. A 0-area viewport would make visiblePlaced's AABB filter
+      // reject every placement — don't commit until we have real dims.
+      if (v.w <= 0 || v.h <= 0) return;
+      const last = lastVisibleRef.current;
+      const sigX = v.w * 0.25;
+      const sigY = v.h * 0.25;
+      if (
+        !last ||
+        Math.abs(v.x - last.x) > sigX ||
+        Math.abs(v.y - last.y) > sigY ||
+        Math.abs(v.w - last.w) > sigX ||
+        Math.abs(v.h - last.h) > sigY
+      ) {
+        lastVisibleRef.current = v;
+        setVisibleRect(v);
+      }
+    });
+    return unsubscribe;
+  }, [subscribeViewport]);
+
+  // Page-level browser zoom lock (pinch/Ctrl+wheel/double-tap) — its own hook
+  useViewportZoomLock();
 
   // Status messages
   const [statusMessages, setStatusMessages] = useState<StatusMessage[]>([
     { id: "init", text: "welcome to the mifoid loreboard!", type: "system", timestamp: new Date() }
   ]);
+  // Screen-reader-only announcement mirror. TerminalChat is visual-only
+  // (scrollable list), so assistive tech needs its own live region with a
+  // single latest message. We clear+set on a microtask so repeated identical
+  // announcements still get re-spoken by the AT — otherwise SR users miss
+  // back-to-back duplicate toasts like "Uploading foo.png" → "Uploading foo.png".
+  const [srAnnouncement, setSrAnnouncement] = useState("");
+  const srClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const announceSr = useCallback((text: string) => {
+    if (srClearTimerRef.current) clearTimeout(srClearTimerRef.current);
+    setSrAnnouncement("");
+    // Next paint — giving the DOM a tick to commit the empty state means
+    // ARIA live regions always fire, even when the text is unchanged.
+    srClearTimerRef.current = setTimeout(() => setSrAnnouncement(text), 16);
+  }, []);
   const addStatus = useCallback((text: string, type: StatusMessage["type"] = "info") => {
     setStatusMessages(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, text, type, timestamp: new Date() }]);
-  }, []);
+    // Mirror everything except debug "info" into the SR live region. Keep
+    // the AT chatty during submit so blind users know what's happening.
+    if (type !== "info" || text.match(/Uploading|Submitting|cancelled|on-chain|failed/i)) {
+      announceSr(text);
+    }
+  }, [announceSr]);
   const handleChatSend = useCallback(async (_text: string) => {
     // TerminalChat handles insertBoardMessage + optimistic display directly.
     // Nothing extra needed here.
@@ -255,24 +348,20 @@ function BoardPageContent() {
   // UI state
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [submittingProposals, setSubmittingProposals] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
   const searchParams = useSearchParams();
   const debugMode = searchParams?.get("debug") === "1";
+  const celebrateParam = searchParams?.get("celebrate") ?? null;
 
   // Mobile detection
   const { isMobile } = useMobile();
 
-  // Board data — proposals are the sole data source
-  const [proposals, setProposals] = useState<ProposalSummary[]>([]);
-  const [proposalsLoading, setProposalsLoading] = useState(true);
-  const [proposalDebug, setProposalDebug] = useState<ListProposalsResponse["debug"] | null>(null);
-
-  // Pending proposals from Swipe contract (voting in progress) — fetched via API
-  const [swipeVotingProposals, setSwipeVotingProposals] = useState<Array<{
-    id: number; cid: string; x: number; y: number; w: number; h: number;
-    proposer: string; votingEndsAt: number; forCount: number; againstCount: number;
-  }>>([]);
+  // Unified board data — polling with AbortController, one source of truth
+  const {
+    proposals,
+    voting: swipeVotingProposals,
+    debug: proposalDebug,
+    refetch: refetchBoardData,
+  } = useBoardData();
 
   // Derive "placed" items from canonized proposals
   const placed = useMemo(
@@ -280,266 +369,81 @@ function BoardPageContent() {
     [proposals]
   );
 
+  // Viewport virtualization — Phase β upgrade.
+  // The previous implementation ran `placed.filter()` every viewport update,
+  // O(n) in placement count. On mainnet (5k+ placements) that linear scan
+  // dominated every pan tick. `useVisiblePlacements` builds a grid-bucketed
+  // spatial index once per dataset and serves queries in O(k) where k is
+  // the bucket count intersecting the viewport (typically 4–16).
+  //
+  // Both `p.rect` and `visibleRect` are world-space; the 200px viewport
+  // buffer inside the hook covers the ~stage-padding drift the old
+  // toStageRect-based filter absorbed implicitly.
+  const visiblePlacedRaw = useVisiblePlacements(placed, visibleRect);
+  const visiblePlaced = useMemo(() => {
+    // Tab-order stability: sort by (y, x) so keyboard users tab through
+    // placements in spatial reading order — WCAG 1.3.2 (Meaningful Sequence).
+    return [...visiblePlacedRaw].sort((a, b) => {
+      if (a.rect.y !== b.rect.y) return a.rect.y - b.rect.y;
+      return a.rect.x - b.rect.x;
+    });
+  }, [visiblePlacedRaw]);
+
+  const votingSource = useMemo(
+    () => proposals.filter((p) => p.status === "voting" && p.isVotable),
+    [proposals],
+  );
+  const visibleVotingProposals = useVisiblePlacements(votingSource, visibleRect);
+
+  // On-chain swipe voting proposals carry x/y/w/h flat (not `.rect`), so we
+  // pass a rect accessor. Virtualizing these matters most on mainnet where
+  // many proposals may be in-flight at once.
+  const visibleSwipeVoting = useVisiblePlacements(
+    swipeVotingProposals,
+    visibleRect,
+    undefined,
+    (p) => ({ x: p.x, y: p.y, w: p.w, h: p.h }),
+  );
+
   const [activePlacement, setActivePlacement] = useState<Placement | null>(null);
   const [selectedProposalId, setSelectedProposalId] = useState<string | null>(null);
   const autoZoomedEpochRef = useRef<number | null>(null);
 
-  const ghostMetaRef = useRef<DragMeta | null>(null);
-  const [ghost, setGhost] = useState<Ghost | null>(null);
-
   const storedRectFor = useCallback((p: PendingItem) => p.rect, []);
-
-  const zoomToRect = useCallback((r: Rect, padding = 32) => {
-    const el = containerRef.current;
-    if (!el) return;
-    const viewW = el.clientWidth || 1, viewH = el.clientHeight || 1;
-    const stageRect = toStageRect(r);
-    const s = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Math.min(viewW / (stageRect.w + padding * 2), viewH / (stageRect.h + padding * 2))));
-    setScale(s);
-    setPan({ x: (viewW - stageRect.w * s) / 2 - stageRect.x * s, y: (viewH - stageRect.h * s) / 2 - stageRect.y * s });
-  }, []);
-
-  const screenToWorld = useCallback((clientX: number, clientY: number): DropPos => {
-    const el = containerRef.current;
-    if (!el) return { x: 0, y: 0 };
-    const r = el.getBoundingClientRect();
-    const stageX = (clientX - r.left - pan.x) / scale;
-    const stageY = (clientY - r.top - pan.y) / scale;
-    const worldX = stageX - STAGE_PAD_X - BOARD_OFFSET_X;
-    const worldY = stageY - STAGE_PAD_Y - BOARD_OFFSET_Y;
-    const gridX = Math.max(-GRID_RADIUS_X, Math.min(GRID_RADIUS_X, Math.round(worldX / TILE)));
-    const gridY = Math.max(-GRID_RADIUS_Y, Math.min(GRID_RADIUS_Y, Math.round(worldY / TILE)));
-    return { x: gridX * TILE, y: gridY * TILE };
-  }, [pan, scale]);
 
   const onPickClick = useCallback(() => fileInputRef.current?.click(), []);
 
-  // Keyboard
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (e.code === "Space") { e.preventDefault(); setSpaceDown(true); }
-    };
-    const up = (e: KeyboardEvent) => { if (e.code === "Space") setSpaceDown(false); };
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
-  }, []);
-
-  // Keyboard zoom shortcuts: +/= for zoom in, - for zoom out, 0 for reset
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in input/textarea
-      const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
-
-      if (e.key === "+" || e.key === "=") {
-        e.preventDefault();
-        setScale((s) => Math.min(MAX_SCALE, s * 1.2));
-      } else if (e.key === "-") {
-        e.preventDefault();
-        setScale((s) => Math.max(MIN_SCALE, s / 1.2));
-      } else if (e.key === "0") {
-        e.preventDefault();
-        setScale(1);
-        const el = containerRef.current;
-        if (el) {
-          const r = el.getBoundingClientRect();
-          setPan({ x: (r.width - STAGE_CANVAS_W) / 2, y: (r.height - STAGE_CANVAS_H) / 2 });
-        }
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  // Prevent browser-level zoom (pinch-to-zoom, Ctrl+scroll, etc.)
-  // so users don't accidentally zoom the entire page instead of the board canvas
-  useEffect(() => {
-    const LOCKED = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no";
-
-    // 1. Lock ALL viewport meta tags & keep them locked via MutationObserver
-    //    (Next.js may re-render <head> and reset attributes)
-    const allMetas = document.querySelectorAll('meta[name="viewport"]');
-    const originals = Array.from(allMetas).map((m) => m.getAttribute("content") ?? "");
-    const lockMetas = () => allMetas.forEach((m) => m.setAttribute("content", LOCKED));
-    lockMetas();
-
-    const observer = new MutationObserver((mutations) => {
-      for (const mut of mutations) {
-        if (
-          mut.type === "attributes" &&
-          (mut.target as Element).getAttribute?.("name") === "viewport" &&
-          (mut.target as Element).getAttribute("content") !== LOCKED
-        ) {
-          (mut.target as Element).setAttribute("content", LOCKED);
-        }
-      }
-    });
-    allMetas.forEach((m) => observer.observe(m, { attributes: true, attributeFilter: ["content"] }));
-
-    // 2. Safari gesture events (pinch-to-zoom on trackpad/touch)
-    const preventGesture = (e: Event) => e.preventDefault();
-    document.addEventListener("gesturestart", preventGesture, { passive: false });
-    document.addEventListener("gesturechange", preventGesture, { passive: false });
-
-    // 3. Chrome/Firefox trackpad pinch-to-zoom (reported as Ctrl+wheel)
-    const preventCtrlWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) e.preventDefault();
-    };
-    document.addEventListener("wheel", preventCtrlWheel, { passive: false });
-
-    // 4. Prevent double-tap-to-zoom on the whole page
-    let lastTap = 0;
-    const preventDoubleTapZoom = (e: TouchEvent) => {
-      const now = Date.now();
-      if (now - lastTap < 300) e.preventDefault();
-      lastTap = now;
-    };
-    document.addEventListener("touchend", preventDoubleTapZoom, { passive: false });
-
-    return () => {
-      observer.disconnect();
-      allMetas.forEach((m, i) => m.setAttribute("content", originals[i]));
-      document.removeEventListener("gesturestart", preventGesture);
-      document.removeEventListener("gesturechange", preventGesture);
-      document.removeEventListener("wheel", preventCtrlWheel);
-      document.removeEventListener("touchend", preventDoubleTapZoom);
-    };
-  }, []);
-
-  // Pan handlers
-  const onContainerPointerDown: React.PointerEventHandler<HTMLDivElement> = (e) => {
-    const interactive = (e.target as HTMLElement).closest("figure,button,input,textarea,select,label");
-    if (spaceDown) {
-      e.preventDefault();
-      panStartRef.current = { x: e.clientX, y: e.clientY };
-      panOriginRef.current = { ...pan };
-      setIsPanning(true);
-      e.currentTarget.setPointerCapture?.(e.pointerId);
-      return;
-    }
-    if (interactive) return;
-    e.preventDefault();
-    boardDragStartRef.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
-    setDraggingBoard(true);
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-  };
-
-  // Smooth infinite zoom
-  const onCanvasWheel: React.WheelEventHandler<HTMLDivElement> = (e) => {
-    if (e.shiftKey) return;
-    e.preventDefault();
-    const el = containerRef.current;
-    if (!el) return;
-    const factor = Math.exp(-e.deltaY * 0.003);
-    const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * factor));
-    const r = el.getBoundingClientRect();
-    const cx = e.clientX - r.left, cy = e.clientY - r.top;
-    const wx = (cx - pan.x) / scale, wy = (cy - pan.y) / scale;
-    setScale(nextScale);
-    setPan({ x: cx - wx * nextScale, y: cy - wy * nextScale });
-  };
-
-  useEffect(() => {
-    if (!isPanning) return;
-    const onMove = (ev: PointerEvent) => {
-      setPan({ x: panOriginRef.current.x + ev.clientX - panStartRef.current.x, y: panOriginRef.current.y + ev.clientY - panStartRef.current.y });
-    };
-    const onUp = () => setIsPanning(false);
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp, { once: true });
-    return () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
-  }, [isPanning]);
-
-  useEffect(() => { if (!spaceDown) setIsPanning(false); }, [spaceDown]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    if (!draggingBoard) return;
-    const onMove = (ev: PointerEvent) => {
-      setPan({ x: boardDragStartRef.current.panX + ev.clientX - boardDragStartRef.current.x, y: boardDragStartRef.current.panY + ev.clientY - boardDragStartRef.current.y });
-    };
-    const onUp = () => setDraggingBoard(false);
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp, { once: true });
-    return () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
-  }, [draggingBoard]);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    setPan({ x: (r.width - STAGE_CANVAS_W) / 2, y: (r.height - STAGE_CANVAS_H) / 2 });
-  }, []);
-
-  // Cleanup: Revoke blob URLs on unmount to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      pending.forEach((item) => {
-        if (item.previewUrl && item.previewUrl.startsWith("blob:")) {
-          try {
-            URL.revokeObjectURL(item.previewUrl);
-          } catch (err) {
-            debugWarn("Failed to revoke blob URL:", err);
-          }
-        }
-      });
-    };
-  }, [pending]);
+  // Blob URL revocation is owned by the store: `removePending` revokes on
+  // removal, `clearAll` revokes the whole batch. useProposalSubmit hands the
+  // celebration a pre-stabilized data URL, so a revoke during cleanup can
+  // never leave the hero image broken. See audit notes P0-1 and P1-7.
 
   // getImageSize — imported from @/lib/board
 
-  const primeGhostMetaFromEvent = useCallback(async (e: React.DragEvent) => {
-    if (ghostMetaRef.current) return ghostMetaRef.current;
-    const items = e.dataTransfer?.items;
-    if (!items?.length) return null;
-    let file: File | null = null;
-    for (const it of Array.from(items)) { if (it.kind === "file") { file = it.getAsFile(); if (file) break; } }
-    if (!file) return null;
-    const kind = await sniffImageType(file);
-    const mime = kind ? mimeFromType(kind) : null;
-    if (!mime) { ghostMetaRef.current = { w: TILE, h: TILE, mime: null }; return ghostMetaRef.current; }
-    const { w, h } = await getImageSize(file);
-    ghostMetaRef.current = { w, h, mime };
-    return ghostMetaRef.current;
-  }, []);
-
-  const refreshGhostAt = useCallback((pos: DropPos) => {
-    const meta = ghostMetaRef.current;
-    if (!meta) { setGhost(null); return; }
-    if (!meta.mime) {
-      setGhost({ rect: snapRect({ x: pos.x, y: pos.y, w: TILE, h: TILE }), cells: 1, status: "invalid", totalWei: 0n });
-      return;
-    }
-    const rect = snapRect({ x: pos.x, y: pos.y, w: meta.w, h: meta.h });
-    const cells = rectCells(rect);
-    let status: GhostStatus = "ok";
-    const placedRects = placed.map((pl) => pl.rect);
-    const swipeVotingProposalsRects = swipeVotingProposals.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }));
-    const allOccupiedRects = [...placedRects, ...swipeVotingProposalsRects];
-    if (cells > MAX_CELLS_PER_RECT) status = "oversize";
-    else if (hasOverlap(rect, allOccupiedRects) || hasOverlap(rect, pending.map(storedRectFor))) status = "overlap";
-    else if (!isTouching(rect, [...allOccupiedRects, ...pending.map(storedRectFor)])) status = "not-touching";
-    setGhost({ rect, cells, status, totalWei: BigInt(cells) * BASE_FEE_PER_CELL_WEI });
-  }, [pending, placed, swipeVotingProposals, storedRectFor]);
-
-  // Debounced ghost refresh to reduce CPU usage during drag
-  const ghostDebounceRef = useRef<number | null>(null);
-  const debouncedRefreshGhost = useCallback((pos: DropPos) => {
-    if (ghostDebounceRef.current !== null) {
-      window.clearTimeout(ghostDebounceRef.current);
-    }
-    ghostDebounceRef.current = window.setTimeout(() => {
-      refreshGhostAt(pos);
-      ghostDebounceRef.current = null;
-    }, 16); // ~60fps
-  }, [refreshGhostAt]);
+  // Ghost: rects all live in the same occupied/pending lists used by submit,
+  // so validation is consistent across ghost preview and pre-flight check.
+  const occupiedRects = useMemo<Rect[]>(
+    () => [
+      ...placed.map((pl) => pl.rect),
+      ...swipeVotingProposals.map((p) => ({ x: p.x, y: p.y, w: p.w, h: p.h })),
+    ],
+    [placed, swipeVotingProposals]
+  );
+  const pendingRectsForGhost = useMemo<Rect[]>(
+    () => pending.map(storedRectFor),
+    [pending, storedRectFor]
+  );
+  const {
+    ghost,
+    setGhost,
+    primeGhostMetaFromEvent,
+    debouncedRefreshGhost,
+    clearGhostMeta,
+  } = useGhost({
+    occupiedRects,
+    pendingRects: pendingRectsForGhost,
+    submissionFeeWei: SUBMISSION_FEE_WEI,
+  });
 
   const onDragOver: React.DragEventHandler<HTMLDivElement> = async (e) => {
     e.preventDefault();
@@ -556,7 +460,11 @@ function BoardPageContent() {
   };
 
   const onDragLeave: React.DragEventHandler<HTMLDivElement> = (e) => {
-    if (e.currentTarget === e.target) { setDragOver(false); setGhost(null); ghostMetaRef.current = null; }
+    if (e.currentTarget === e.target) {
+      setDragOver(false);
+      setGhost(null);
+      clearGhostMeta();
+    }
   };
 
   const clampToCanvas = useCallback((r: Rect): Rect => ({
@@ -581,8 +489,12 @@ function BoardPageContent() {
       // Open paint editor before placing on board
       setDesktopPaintFile(workingFile);
       setDesktopPaintPos(pos);
-    } finally { setBusy(false); setGhost(null); ghostMetaRef.current = null; }
-  }, [addStatus]);
+    } finally {
+      setBusy(false);
+      setGhost(null);
+      clearGhostMeta();
+    }
+  }, [addStatus, setGhost, clearGhostMeta]);
 
   const handleDesktopPaintDone = useCallback(async (editedFile: File) => {
     setDesktopPaintFile(null);
@@ -724,70 +636,54 @@ function BoardPageContent() {
   const items = pending.map((p) => {
     const r = renderRectFor(p);
     const cellsNow = rectCells(r);
-    return { ...p, rect: r, cells: cellsNow, totalWei: BigInt(cellsNow) * (BASE_FEE_PER_CELL_WEI + p.tipPerCellWei) };
+    // Flat submission fee + any per-cell tip the user attached. Tips default to 0.
+    const tipTotal = BigInt(cellsNow) * p.tipPerCellWei;
+    return { ...p, rect: r, cells: cellsNow, totalWei: SUBMISSION_FEE_WEI + tipTotal };
   });
 
-  // Load proposals (canonized from /api/proposals + voting from /api/swipe/proposals)
+  // Proposals + voting: unified via `useBoardData()` above.
+
+  // Share-to-celebration deep link: `/board?celebrate=<proposalId>` re-fires
+  // the celebration so visitors clicking a share link see the same animation
+  // the original proposer saw. Fires exactly once — we clear the query param
+  // after to prevent re-fires on back/forward nav.
+  const celebrationFiredRef = useRef(false);
   useEffect(() => {
-    let alive = true;
-    const tick = async () => {
-      try {
-        // Fetch both endpoints in parallel
-        const [boardRes, swipeRes] = await Promise.allSettled([
-          listProposals(),
-          fetch("/api/swipe/proposals").then(r => r.ok ? r.json() : { proposals: [] }),
-        ]);
+    // B4: proposals refetches every ~12s, which re-runs this effect. Once
+    // we've fired the celebration, there's nothing left to do — skip the
+    // .find() scans entirely so we don't hot-loop over the full proposal
+    // list every poll tick.
+    if (celebrationFiredRef.current) return;
+    if (!celebrateParam) return;
+    // Match against all proposals (both voting + canonized use the same id namespace).
+    const match =
+      proposals.find((p) => String(p.id) === celebrateParam) ??
+      proposals.find((p) => String(p.epochSubmitted ?? "") === celebrateParam);
+    // Also look in the active-voting list (contract-side numeric ids).
+    const votingMatch = swipeVotingProposals.find((p) => String(p.id) === celebrateParam);
 
-        if (!alive) return;
-
-        // Canonized placements from board API
-        const boardData = boardRes.status === "fulfilled" ? boardRes.value : { proposals: [], debug: null };
-        const normalized = normalizeProposals(boardData.proposals);
-
-        // Active voting proposals from swipe API (with grid coordinates)
-        const swipeData = swipeRes.status === "fulfilled" ? swipeRes.value : { proposals: [] };
-        const now = Math.floor(Date.now() / 1000);
-        const activeSwipe = (swipeData.proposals ?? [])
-          .filter((p: { finalized: boolean; approved: boolean; votingEndsAt: number; gridW?: number }) =>
-            !p.finalized && !p.approved && p.votingEndsAt > now && (p.gridW ?? 0) > 0
-          )
-          .map((p: { id: number; ipfsCid: string; gridX: number; gridY: number; gridW: number; gridH: number; proposer: string; votingEndsAt: number; forCount: number; againstCount: number }) => {
-            // Convert from contract space to world space
-            const worldRect = contractToWorldRect({ x: p.gridX, y: p.gridY, w: p.gridW, h: p.gridH });
-            return {
-              id: p.id,
-              cid: p.ipfsCid,
-              x: worldRect.x,
-              y: worldRect.y,
-              w: worldRect.w,
-              h: worldRect.h,
-              proposer: p.proposer,
-              votingEndsAt: p.votingEndsAt,
-              forCount: p.forCount ?? 0,
-              againstCount: p.againstCount ?? 0,
-            };
-          });
-
-        startTransition(() => {
-          setProposals(normalized);
-          setProposalDebug(boardData.debug ?? null);
-          setSwipeVotingProposals(activeSwipe);
-          setProposalsLoading(false);
-        });
-      } catch {
-        if (!alive) return;
-        startTransition(() => {
-          setProposals([]);
-          setProposalDebug(null);
-          setSwipeVotingProposals([]);
-          setProposalsLoading(false);
-        });
-      }
-    };
-    tick();
-    const t = setInterval(tick, 12_000);
-    return () => { alive = false; clearInterval(t); };
-  }, []);
+    if (match) {
+      celebrationFiredRef.current = true;
+      celebratePlacement({
+        itemName: match.name,
+        txHash: "",
+        proposalId: Number(celebrateParam),
+        previewUrl: cidToHttpUrl(match.cid),
+        ipfsCid: match.cid,
+      });
+    } else if (votingMatch) {
+      celebrationFiredRef.current = true;
+      celebratePlacement({
+        itemName: `Proposal #${votingMatch.id}`,
+        txHash: "",
+        proposalId: votingMatch.id,
+        previewUrl: cidToHttpUrl(votingMatch.cid),
+        ipfsCid: votingMatch.cid,
+      });
+    }
+    // If no match yet (data still loading), this effect will re-run when
+    // `proposals` or `swipeVotingProposals` updates on the next tick.
+  }, [celebrateParam, proposals, swipeVotingProposals]);
 
   // Arrow keys
   useEffect(() => {
@@ -811,117 +707,160 @@ function BoardPageContent() {
     return () => window.removeEventListener("keydown", onKey);
   }, [activeId, pending, clampToCanvas, setRect]);
 
-  // Submit
-  const handleSubmitProposals = async () => {
-    if (submittingProposals || !items.length) return;
-    setSubmittingProposals(true);
-    addStatus("Preparing submissions...", "info");
-    try {
-      const placedRects = placed.map((pl) => pl.rect);
-      const votingRects = swipeVotingProposals.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }));
-      const allOccupiedRects = [...placedRects, ...votingRects];
-      const pendingRects = items.map((it) => ({ name: it.name, rect: { ...it.rect } }));
-      const overlapNames: string[] = [];
-      pendingRects.forEach((c, idx) => {
-        const peers = pendingRects.filter((_, j) => j !== idx).map((r) => r.rect);
-        if (hasOverlap(c.rect, allOccupiedRects) || hasOverlap(c.rect, peers)) overlapNames.push(c.name);
-      });
-      if (overlapNames.length) throw new Error(`Overlap: ${overlapNames.join(", ")}`);
+  // User placement count: feeds milestone detection in the celebration
+  // ("FIRST ENGRAVING" / "100 ENGRAVED" etc.). The hook is cheap and
+  // already used elsewhere in the app.
+  //
+  // B2 hotfix — this ref is initialized at mount from `userPlacements.length`
+  // and then ONLY incremented locally inside `onItemConfirmed`. We
+  // intentionally do NOT sync it from `userPlacements.length` on every
+  // change: `useUserPlacements` polls the subgraph, and a stale response
+  // can return a lower count mid-batch, which would regress the ref and
+  // misfire milestone headlines for items 2+ in the batch.
+  const { placements: userPlacements } = useUserPlacements(address);
+  const userPlacementCountAtSubmitStart = useRef(userPlacements.length);
 
-      const notTouchingNames: string[] = [];
-      pendingRects.forEach((c, idx) => {
-        const peers = pendingRects.filter((_, j) => j !== idx).map((r) => r.rect);
-        if (!isTouching(c.rect, [...allOccupiedRects, ...peers])) notTouchingNames.push(c.name);
-      });
-      if (notTouchingNames.length) throw new Error(`Not touching board: ${notTouchingNames.join(", ")}`);
+  // Submit pipeline — FSM in useProposalSubmit. Each item transitions through
+  // validating → uploading → signing → confirmed (or rejected/failed/queued).
+  // We route status into TWO channels:
+  //   - Toasts (contextual, auto-dismissing) — owned by lib/board/toasts.ts
+  //   - Sidebar log (debug trail, persists) — the existing addStatus channel
+  const {
+    submitting: submittingProposals,
+    submit: runSubmit,
+    statuses: submitStatuses,
+    cancelItem,
+  } =
+    useProposalSubmit({
+      address,
+      propose: proposeLoreboard,
+      items,
+      occupiedRects,
+      onItemProgress: (s) => {
+        // Keep the sidebar log in sync for debugging / history.
+        if (s.state === "uploading") addStatus(`Uploading ${s.name}...`, "info");
+        else if (s.state === "signing") addStatus(`Submitting ${s.name}...`, "info");
+        else if (s.state === "confirmed") {
+          addStatus(
+            `${s.name} on-chain ✓${s.txHash ? ` (tx: ${s.txHash.slice(0, 10)}...)` : ""}`,
+            "success"
+          );
+          if (s.cid) setCidFor(s.id, s.cid);
+        } else if (s.state === "rejected") {
+          addStatus("Transaction cancelled", "info");
+        } else if (s.state === "queued") {
+          addStatus(`${s.name} kept in tray for retry`, "info");
+        } else if (s.state === "failed") {
+          addStatus(s.detail ?? `${s.name} failed`, "error");
+        }
 
-      if (!address) throw new Error("No wallet connected");
-      const account = address;
+        // Contextual toasts — keyed by item id so later states REPLACE prior ones.
+        if (s.state === "uploading") toastUploading(s.id, s.name);
+        else if (s.state === "signing") toastSigning(s.id, s.name);
+        else if (s.state === "confirmed") toastConfirmed(s.id, s.name, s.txHash);
+        else if (s.state === "failed") toastFailed(s.id, s.name, s.detail);
+        else if (s.state === "rejected") toastInfo(s.id, "Transaction cancelled");
+        else if (s.state === "queued") toastInfo(s.id, `${s.name} kept for retry`);
+      },
+      onItemConfirmed: (status, item) => {
+        if (!status.txHash) return;
+        // Milestone detection runs against the count *before* this item
+        // landed — that way item #100 says "100 ENGRAVED", not #101.
+        const prevCount = userPlacementCountAtSubmitStart.current;
+        const personalization = pickPersonalization(status.proposalId ?? null, prevCount);
+        userPlacementCountAtSubmitStart.current = prevCount + 1;
 
-      let lastTxHash = "";
-      let lastProposalId: number | null = null;
-      let lastPreviewUrl = "";
-      let lastName = "";
-      let lastCid = "";
-
-      for (const it of items) {
-        addStatus(`Uploading ${it.name}...`, "info");
-        const onChainRect = worldToContractRect(it.rect);
-        // Use the File object directly if available, otherwise fetch bytes
-        const file = it.file || new File([await getPendingBytes(it)], it.name, { type: it.mime });
-        const cid = await uploadImage(it.name, file, it.mime);
-        if (!cid) throw new Error("IPFS upload disabled");
-        setCidFor(it.id, cid);
-
-        addStatus(`Submitting ${it.name}...`, "info");
-        const normalizedCid = normalizeCidString(cid);
-        const onChain = await proposeLoreboard({
-          ipfsCid: normalizedCid,
-          x: onChainRect.x,
-          y: onChainRect.y,
-          w: onChainRect.w,
-          h: onChainRect.h,
-        });
-
-        // Transaction succeeded on-chain!
-        addStatus(`${it.name} on-chain ✓ (tx: ${onChain.txHash.slice(0, 10)}...)`, "success");
-        lastTxHash = onChain.txHash;
-        lastProposalId = onChain.proposalId;
-        lastPreviewUrl = it.previewUrl;
-        lastName = it.name;
-        lastCid = normalizedCid;
-      }
-
-      // Convert blob URL to data URL so it survives clearBoardState()
-      let stablePreviewUrl = lastPreviewUrl;
-      if (lastPreviewUrl && lastPreviewUrl.startsWith("blob:")) {
-        try {
-          const resp = await fetch(lastPreviewUrl);
-          const blob = await resp.blob();
-          stablePreviewUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
-        } catch { /* keep blob URL as fallback */ }
-      }
-
-      // Fire celebration BEFORE clearing state
-      if (lastTxHash) {
         celebratePlacement({
-          itemName: lastName,
-          txHash: lastTxHash,
-          proposalId: lastProposalId,
-          previewUrl: stablePreviewUrl,
-          ipfsCid: lastCid,
+          itemName: item.name,
+          txHash: status.txHash,
+          proposalId: status.proposalId ?? null,
+          previewUrl: status.stablePreviewUrl || item.previewUrl,
+          ipfsCid: status.cid,
+          personalization,
         });
-      }
+      },
+      onBatchDone: ({ confirmed, failed, rejected }) => {
+        if (confirmed.length && !failed.length && !rejected.length) {
+          addStatus("All proposals submitted!", "success");
+          toastBatch(
+            confirmed.length === 1
+              ? "Placement engraved ✓"
+              : `${confirmed.length} placements engraved ✓`,
+            "success"
+          );
+          clearBoardState?.();
+        } else if (confirmed.length) {
+          const msg = `${confirmed.length} placed · ${failed.length} failed · ${rejected.length} cancelled`;
+          addStatus(msg, failed.length ? "error" : "info");
+          toastBatch(msg, failed.length ? "error" : "info");
+          for (const c of confirmed) {
+            dismissItemToast(c.id);
+            removePending(c.id);
+          }
+        } else {
+          addStatus("No placements submitted.", "info");
+        }
+        void refetchBoardData();
+      },
+    });
 
-      clearBoardState?.();
-      try {
-        const response = await listProposals();
-        startTransition(() => {
-          setProposals(normalizeProposals(response.proposals));
-          setProposalDebug(response.debug ?? null);
-        });
-      } catch {
-        startTransition(() => {
-          setProposalDebug(null);
-        });
-      }
-      addStatus("All proposals submitted!", "success");
+  // Review modal gate: clicking SUBMIT PROPOSAL opens the dry-run preview,
+  // and only the modal's "SIGN & ENGRAVE" actually kicks off the submit FSM.
+  const [showReviewModal, setShowReviewModal] = useState(false);
+
+  // `openSubmitReview` is the entry point from the sidebar button.
+  const openSubmitReview = useCallback(() => {
+    if (submittingProposals || !items.length) return;
+    setShowReviewModal(true);
+  }, [items.length, submittingProposals]);
+
+  // `runSubmitFromReview` is what the modal's primary CTA calls.
+  const runSubmitFromReview = useCallback(async () => {
+    setShowReviewModal(false);
+    try {
+      addStatus("Preparing submissions...", "info");
+      await runSubmit();
     } catch (e: unknown) {
-      // Skip user rejection errors (silent)
       if (isUserRejection(e)) {
         addStatus("Transaction cancelled", "info");
       } else {
-        const parsed = parseWeb3Error(e);
-        addStatus(parsed.message, "error");
+        addStatus(parseWeb3Error(e).message, "error");
       }
-    } finally {
-      setSubmittingProposals(false);
     }
-  };
+  }, [addStatus, runSubmit]);
+
+  // Stable cancel callback so the modal's keydown effect doesn't re-bind
+  // on every parent render. (Audit note P1-8.)
+  const closeReviewModal = useCallback(() => setShowReviewModal(false), []);
+
+  // Global keyboard shortcut: "P" opens the file picker (same effect as
+  // clicking PROPOSE IMAGE). Ignored when an input/textarea/contentEditable
+  // has focus so users typing in chat don't accidentally open a dialog.
+  // WCAG 2.1.1 (Keyboard) — provides a keyboard-only path to the proposal
+  // flow that doesn't require drag-and-drop.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "p" && e.key !== "P") return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      const t = e.target as HTMLElement | null;
+      if (!t) return;
+      const tag = t.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        t.isContentEditable
+      ) {
+        return;
+      }
+      if (busy || submittingProposals || showReviewModal || desktopPaintFile) return;
+      e.preventDefault();
+      fileInputRef.current?.click();
+      announceSr("File picker opened. Choose an image to propose.");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, submittingProposals, showReviewModal, desktopPaintFile, announceSr]);
 
   const boardParticles = useMemo(
     () =>
@@ -1047,8 +986,8 @@ function BoardPageContent() {
         onClick={() => setShowMobilePropose(true)}
         className="fixed top-3 left-3 z-50 px-4 py-2 text-xs font-bold tracking-widest uppercase rounded-xl shadow-lg touch-manipulation"
         style={{
-          background: "linear-gradient(135deg, #e040fb, #f06292)",
-          color: "#fff",
+          background: "linear-gradient(135deg, var(--foid-magenta), var(--foid-pink-soft))",
+          color: "var(--foid-text)",
           border: "1px solid rgba(255,255,255,0.2)",
           boxShadow: "0 4px 16px rgba(224,64,251,0.35)",
         }}
@@ -1066,32 +1005,7 @@ function BoardPageContent() {
           onSuccess={(msg) => {
             addStatus(msg, "success");
             setShowMobilePropose(false);
-            // Refresh both canonized and voting proposals
-            Promise.allSettled([
-              listProposals(),
-              fetch("/api/swipe/proposals").then(r => r.ok ? r.json() : { proposals: [] }),
-            ]).then(([boardRes, swipeRes]) => {
-              startTransition(() => {
-                if (boardRes.status === "fulfilled") {
-                  setProposals(normalizeProposals(boardRes.value.proposals));
-                }
-                if (swipeRes.status === "fulfilled") {
-                  const now = Math.floor(Date.now() / 1000);
-                  const active = (swipeRes.value.proposals ?? [])
-                    .filter((p: { finalized: boolean; approved: boolean; votingEndsAt: number; gridW?: number }) =>
-                      !p.finalized && !p.approved && p.votingEndsAt > now && (p.gridW ?? 0) > 0
-                    )
-                    .map((p: { id: number; ipfsCid: string; gridX: number; gridY: number; gridW: number; gridH: number; proposer: string; votingEndsAt: number; forCount: number; againstCount: number }) => {
-                      const wr = contractToWorldRect({ x: p.gridX, y: p.gridY, w: p.gridW, h: p.gridH });
-                      return {
-                        id: p.id, cid: p.ipfsCid, x: wr.x, y: wr.y, w: wr.w, h: wr.h,
-                        proposer: p.proposer, votingEndsAt: p.votingEndsAt, forCount: p.forCount ?? 0, againstCount: p.againstCount ?? 0,
-                      };
-                    });
-                  setSwipeVotingProposals(active);
-                }
-              });
-            });
+            void refetchBoardData();
           }}
         />
       )}
@@ -1176,8 +1090,36 @@ function BoardPageContent() {
               <div className="board-grid">
                 {/* Canvas */}
                 <div className="board-canvas-wrap flex-1 min-h-0">
+                  {/* Visually-hidden live region for screen reader narration.
+                      Populated by addStatus() via the submit pipeline and by
+                      ad-hoc announcements (e.g. "Proposal #42 moved to voting").
+                      WCAG 4.1.3 (Status Messages) — messages must reach AT
+                      without stealing focus; aria-live="polite" is the right
+                      tool for non-urgent state. */}
+                  <div
+                    id="board-sr-status"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"
+                    style={{
+                      position: "absolute",
+                      width: 1,
+                      height: 1,
+                      padding: 0,
+                      margin: -1,
+                      overflow: "hidden",
+                      clip: "rect(0 0 0 0)",
+                      whiteSpace: "nowrap",
+                      border: 0,
+                    }}
+                  >
+                    {srAnnouncement}
+                  </div>
                   <div
                     ref={containerRef}
+                    role="application"
+                    aria-label={`Loreboard canvas, ${placed.length} placement${placed.length === 1 ? "" : "s"}. Press P to propose, arrow keys to pan, +/- to zoom, 0 to reset.`}
+                    tabIndex={0}
                     className="board-canvas flex-1 min-h-0 h-full w-full"
                     onPointerDown={onContainerPointerDown}
                     onDragOver={onDragOver}
@@ -1188,19 +1130,21 @@ function BoardPageContent() {
                     style={{ cursor: spaceDown ? (isPanning ? "grabbing" : "grab") : "default" }}
                   >
                     <div
-                    ref={stageRef}
+                    ref={stageCallbackRef}
                     className="board-stage"
                     style={{
-                      transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
-                      transformOrigin: "0 0",
+                      // transform / transformOrigin are written directly to
+                      // this element by usePanZoom via rAF — see Step 5. We
+                      // intentionally leave them out of the inline style so
+                      // React renders don't fight the ref-based writes.
                       backgroundImage: gridBg,
                       backgroundSize: gridSizes,
                       width: STAGE_CANVAS_W,
                       height: STAGE_CANVAS_H,
                     }}
                     >
-                      {/* Finalized (canonized proposals) */}
-                    {placed.map((p) => {
+                      {/* Finalized (canonized proposals) — virtualized */}
+                    {visiblePlaced.map((p) => {
                       const sr = toStageRect(p.rect);
                       const isActive = activePlacement?.id === p.id;
                       return (
@@ -1213,30 +1157,16 @@ function BoardPageContent() {
                           flagCount={flagCounts[p.id] ?? 0}
                           flagThreshold={flagThreshold}
                           flagLabel={`Flag (${flagFeeEth} ETH)`}
-                          frameStyle={{
-                            border: `1px solid ${isActive ? "rgba(0,255,213,0.95)" : CARD_BORDER}`,
-                            boxShadow: isActive
-                              ? "0 0 18px rgba(0,255,213,0.6), 0 0 42px rgba(0,255,213,0.25)"
-                              : CARD_SHADOW,
-                            background: "rgba(8,18,36,0.35)",
-                          }}
+                          frameStyle={isActive ? PLACEMENT_FRAME_ACTIVE : PLACEMENT_FRAME_DEFAULT}
                         />
                       );
                     })}
 
                     {/* Ghost */}
-                    {ghost && (() => {
-                      const sr = toStageRect(ghost.rect);
-                      const color = ghost.status === "ok" ? "rgba(72,255,171,0.9)" : ghost.status === "not-touching" ? "rgba(255,184,0,0.9)" : ghost.status === "invalid" ? "rgba(255,71,87,0.9)" : ghost.status === "overlap" ? "rgba(255,71,87,0.9)" : "rgba(255,184,0,0.9)";
-                      return (
-                        <div className="board-ghost" style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h, outlineColor: color, background: color.replace("0.9", "0.08") }}>
-                          <span className="board-ghost__label">{ghost.cells} cells · {formatEth(ghost.totalWei)} ETH</span>
-                        </div>
-                      );
-                    })()}
+                    {ghost && <PlacementGhost ghost={ghost} />}
 
-                    {/* Proposals */}
-                    {proposals.filter((p) => p.status === "voting" && p.isVotable).map((p) => {
+                    {/* Proposals — virtualized */}
+                    {visibleVotingProposals.map((p) => {
                       const sr = toStageRect(p.rect);
                       const isSelectedProposal = selectedProposal?.id === p.id;
                       return (
@@ -1253,53 +1183,51 @@ function BoardPageContent() {
                       );
                     })}
 
-                    {/* Swipe voting proposals — ghost placement with neon glow */}
-                    {swipeVotingProposals.map((p) => {
-                      const sr = toStageRect({ x: p.x, y: p.y, w: p.w, h: p.h });
-                      return (
-                        <figure
-                          key={`swipe-${p.id}`}
-                          className="board-voting-ghost"
-                          style={{
-                            left: sr.x, top: sr.y, width: sr.w, height: sr.h,
-                            cursor: "pointer",
-                          }}
-                          title={`Proposal #${p.id} — voting in progress`}
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={cidToHttpUrl(p.cid)} alt={`Proposal #${p.id}`} className="board-voting-ghost__img" draggable={false} loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
-                          <div className="board-voting-ghost__badge">
-                            <span>VOTING #{p.id}</span>
-                            <div className="board-voting-ghost__votes">
-                              <span className="yes">{p.forCount}Y</span>
-                              <span className="sep">/</span>
-                              <span className="no">{p.againstCount}N</span>
-                            </div>
-                          </div>
-                        </figure>
-                      );
-                    })}
+                    {/* Swipe voting proposals — ghost placement with neon glow.
+                         Virtualized: only renders items whose AABB intersects
+                         the current viewport (+200px buffer). */}
+                    {visibleSwipeVoting.map((p) => (
+                      <VotingGhost
+                        key={`swipe-${p.id}`}
+                        id={p.id}
+                        cid={p.cid}
+                        x={p.x}
+                        y={p.y}
+                        w={p.w}
+                        h={p.h}
+                        forCount={p.forCount}
+                        againstCount={p.againstCount}
+                      />
+                    ))}
 
                     {/* Pending */}
-                    {items.map((p) => {
-                      const sr = toStageRect(renderRectFor(p));
-                      return (
-                        <figure key={p.id} className="board-pending" style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h }}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={p.previewUrl} alt={p.name} className="board-pending__img" draggable={false} loading="lazy" />
-                          <button className="board-pending__move" onPointerDown={beginMove(p)} type="button">⠿</button>
-                          <button className="board-pending__resize" onPointerDown={beginResize(p)} type="button">↘</button>
-                          <button className="board-pending__remove" onClick={() => { URL.revokeObjectURL(p.previewUrl); removePending(p.id); }} type="button">×</button>
-                          <span className="board-pending__info">{p.cells} cells · {formatEth(p.totalWei)} ETH</span>
-                        </figure>
-                      );
-                    })}
+                    {items.map((p) => (
+                      <PendingItemCard
+                        key={p.id}
+                        id={p.id}
+                        name={p.name}
+                        rect={renderRectFor(p)}
+                        previewUrl={p.previewUrl}
+                        cells={p.cells}
+                        totalWei={p.totalWei}
+                        submitState={submitStatuses[p.id]?.state}
+                        onBeginMove={beginMove(p)}
+                        onBeginResize={beginResize(p)}
+                        onRemove={() => {
+                          // B1: cancel BEFORE removing from the store. The
+                          // submit loop uses id-based lookups against its
+                          // captured items array, so flipping the cancelled
+                          // flag first guarantees the next pre-upload /
+                          // pre-propose check sees the removal — even if
+                          // the user clicks × while a request is in flight.
+                          cancelItem(p.id);
+                          dismissItemToast(p.id);
+                          removePending(p.id);
+                        }}
+                      />
+                    ))}
                     </div>
-                    <div className="board-hud">
-                      <span>ZOOM: {Math.round(scale * 100)}%</span>
-                      <span>PAN: {Math.round(pan.x)}, {Math.round(pan.y)}</span>
-                      <span>MODE: {spaceDown ? "PAN" : "PLACE"}</span>
-                    </div>
+                    <BoardHUD scale={scale} pan={pan} mode={spaceDown ? "PAN" : "PLACE"} />
                     <div className="board-hint-bottom" role="note">scroll to zoom • hold space to pan</div>
 
                   {!items.length && !busy && !ghost && !placed.length && (
@@ -1316,30 +1244,21 @@ function BoardPageContent() {
               <div className="board-sidebar">
                 <div className="board-sidebar__scroller">
                   {/* Actions */}
-                  <div className="board-section board-section--actions">
-                    <div className="board-section__header">
-                      <span className="board-section__dot" />
-                      <span className="board-section__title">ACTIONS</span>
-                      <span className="board-section__chip" title="ETH cells are your placement credits">{"\u{1F4B0}"} ETH/CELL: {formatEth(BASE_FEE_PER_CELL_WEI)}</span>
-                    </div>
-                    <div className="board-actions">
-                      <Y2kActionButton onClick={onPickClick} label="PROPOSE IMAGE" variant="primary" disabled={items.length > 0 || submittingProposals} />
-                      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onFileChange} />
-                      <div className="board-actions__divider" />
-                      {items.length > 0 && (
-                        <span className="board-actions__pending-line">ready to submit ✓</span>
-                      )}
-                      <Y2kActionButton onClick={handleSubmitProposals} label={submittingProposals ? "SUBMITTING..." : "SUBMIT PROPOSAL"} disabled={!items.length || submittingProposals} variant="secondary" />
-                    </div>
-                    <div className="board-actions__pricing">
-                      0.001 ETH per placement &middot; any size
-                    </div>
-                    {placed.length > 0 && (
-                      <div className="board-actions__flag-hint">
-                        Think a placement is inappropriate? Click it on the board to flag it and open a community removal vote.
-                      </div>
-                    )}
-                  </div>
+                  <BoardActions
+                    submissionFeeWei={SUBMISSION_FEE_WEI}
+                    onPickImage={onPickClick}
+                    onSubmit={openSubmitReview}
+                    hasPending={items.length > 0}
+                    hasPlaced={placed.length > 0}
+                    submitting={submittingProposals}
+                    proposeDisabledReason={
+                      items.length > 0
+                        ? "Submit or remove pending item first"
+                        : null
+                    }
+                    fileInputRef={fileInputRef}
+                    onFileChange={onFileChange}
+                  />
 
                   {/* Removal vote cards — only shown when active votes exist */}
                   <RemovalVotePanel placementIds={placed.map((p) => p.id)} />
@@ -1350,10 +1269,10 @@ function BoardPageContent() {
                     <div className="board-section--chat-wrapper">
                       <div className="board-section board-section--chat">
                         <div className="board-section__header">
-                          <span className="board-section__dot" />
+                          <StatusDot status={isConnected ? "online" : "offline"} />
                           <span className="board-section__title">CHAT</span>
                           <span
-                            className="board-section__status"
+                            className="board-section__status ml-auto"
                             data-status={isConnected ? "online" : "offline"}
                           >
                             {isConnected ? "online" : "offline"}
@@ -1412,6 +1331,22 @@ function BoardPageContent() {
         onCancel={handleDesktopPaintCancel}
       />
     )}
+    {showReviewModal && (
+      <BatchReviewModal
+        items={items.map((it) => ({
+          id: it.id,
+          name: it.name,
+          previewUrl: it.previewUrl,
+          rect: it.rect,
+        }))}
+        address={address}
+        submissionFeeWei={SUBMISSION_FEE_WEI}
+        votingWindowSeconds={72 * 60 * 60}
+        approvalThresholdBps={5100}
+        onConfirm={runSubmitFromReview}
+        onCancel={closeReviewModal}
+      />
+    )}
     </main>
   );
 
@@ -1433,7 +1368,11 @@ function BoardPageContent() {
 
 export default function BoardPage() {
   return (
-    <ErrorBoundary title="Board Error" description="Something went wrong loading the board. This has been logged.">
+    <ErrorBoundary
+      route="board"
+      title="Board Error"
+      description="Something went wrong loading the board. This has been logged."
+    >
       <Suspense
         fallback={
           <main className="min-h-screen w-full flex items-center justify-center px-4">

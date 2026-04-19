@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import TopTabs from "@/app/(components)/TopTabs";
 import WalletMenuPill from "@/components/WalletMenuPill";
 import { NotificationInbox } from "@/components/NotificationInbox";
+import { StatusDot } from "@/components/ui";
 
 export type AppTitlebarWarning = {
   key: string;
@@ -24,9 +25,13 @@ type AppTitlebarProps = {
 };
 
 function StatusIndicator({ connected }: { connected: boolean }) {
+  // Uses the shared <StatusDot /> primitive so the wallet-connected indicator
+  // stays visually consistent with the sidebar chat header, BoardActions
+  // section chip, and any future status pill we add. The surrounding
+  // .pray-status-indicator text styling is preserved for backward compat.
   return (
     <div className="pray-status-indicator">
-      <span className={`pray-status-dot ${connected ? "pray-status-dot--online" : "pray-status-dot--offline"}`} />
+      <StatusDot status={connected ? "online" : "offline"} />
       <span className="pray-status-text">{connected ? "CONNECTED" : "DISCONNECTED"}</span>
     </div>
   );

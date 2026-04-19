@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-export type HapticPattern = 'light' | 'medium' | 'heavy' | 'selection' | 'success' | 'error';
+export type HapticPattern = 'light' | 'medium' | 'heavy' | 'selection' | 'success' | 'error' | 'heartbeat';
 
 const hapticPatterns: Record<HapticPattern, number | number[]> = {
   light: 10,
@@ -9,6 +9,8 @@ const hapticPatterns: Record<HapticPattern, number | number[]> = {
   selection: [5, 10],
   success: [10, 50, 10],
   error: [20, 100, 20, 100],
+  // heartbeat: heavy thud, short silence, light follow-up — anchors a sacred beat
+  heartbeat: [40, 80, 120],
 };
 
 export function useHaptic() {

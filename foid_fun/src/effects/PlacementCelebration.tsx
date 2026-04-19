@@ -1,11 +1,16 @@
 // src/effects/PlacementCelebration.tsx
 // "Olympus meets FOID Terminal" — cinematic multi-beat celebration for loreboard placements
 "use client";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { spawn } from "@/lib/spawn";
 import { getAudioSettings } from "@/lib/audioSettings";
 import { BLOCK_EXPLORER_URL } from "@/lib/contracts";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
+import {
+  pickPersonalization,
+  type Personalization,
+} from "@/effects/placementPersonalization";
+import { startParticles } from "@/effects/particleCanvas";
 
 type PlacementCelebrationProps = {
   itemName: string;
@@ -13,29 +18,17 @@ type PlacementCelebrationProps = {
   proposalId: number | null;
   previewUrl: string;
   ipfsCid?: string;
+  /**
+   * Optional pre-computed personalization. If omitted, the component falls
+   * back to `pickPersonalization(proposalId)` with no user-milestone info.
+   */
+  personalization?: Personalization;
 };
 
 const DURATION = 9600;
 
 export function showPlacementCelebration(opts: PlacementCelebrationProps) {
   spawn(<PlacementCelebration {...opts} />, DURATION);
-}
-
-/* ── FOID brand palette ─────────────────────────────────────────────── */
-
-const FOID_COLORS = [
-  "#74ffeb", // cyan (primary)
-  "#a78bfa", // purple
-  "#fbbf24", // gold
-  "#f472b6", // pink
-  "#22c55e", // green
-  "#06b6d4", // teal
-  "#e879f9", // magenta
-  "#ffffff", // white
-];
-
-function pickColor(i: number) {
-  return FOID_COLORS[i % FOID_COLORS.length];
 }
 
 /* ── Slot counter hook ──────────────────────────────────────────────── */
@@ -73,10 +66,19 @@ export default function PlacementCelebration({
   proposalId,
   previewUrl,
   ipfsCid,
+  personalization,
 }: PlacementCelebrationProps) {
   const [exiting, setExiting] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  // Ref on the SHARE TO X button so we can move focus to it once the slab
+  // has settled. Keyboard users land on the logical next action, and screen
+  // readers announce the button label.
+  const shareBtnRef = useRef<HTMLButtonElement>(null);
   const { display: slotDisplay, landed: slotLanded } = useSlotCounter(proposalId);
+
+  // Personalization — milestone number / meme id / prime → headline variant
+  const pers =
+    personalization ?? pickPersonalization(proposalId);
 
   // Sound effects
   useEffect(() => {
@@ -88,10 +90,36 @@ export default function PlacementCelebration({
     });
   }, []);
 
+  // Haptics — mobile only, respects reduced-motion preference.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+    // Synced to the flash → shockwave → slab-enter beats.
+    navigator.vibrate([12, 40, 18, 30, 24]);
+  }, []);
+
   // Auto-exit animation before spawn TTL
   useEffect(() => {
     const exitTimer = setTimeout(() => setExiting(true), DURATION - 700);
     return () => clearTimeout(exitTimer);
+  }, []);
+
+  // Move focus to the SHARE button once the slab animation has settled
+  // (~2000ms matches pc-share-in animation delay). Screen readers announce
+  // "Share to X, button" and keyboard users can hit Enter to tweet without
+  // reaching for the mouse. Respects reduced-motion by firing immediately.
+  useEffect(() => {
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const delay = prefersReduced ? 0 : 2100;
+    const focusTimer = setTimeout(() => {
+      shareBtnRef.current?.focus?.({ preventScroll: true });
+    }, delay);
+    return () => clearTimeout(focusTimer);
   }, []);
 
   // Click-to-close with exit animation
@@ -108,52 +136,44 @@ export default function PlacementCelebration({
     return () => clearTimeout(t);
   }, [exiting]);
 
-  // Share to X — randomised tweet templates
+  // Share to X — randomised tweet templates.
+  // The share URL deep-links back into the same celebration for anyone who
+  // clicks it: /board?celebrate=<proposalId> → the board page re-runs the
+  // celebration component on mount using on-chain data.
   const handleShare = () => {
+    const deepLink =
+      proposalId != null
+        ? `https://foid.fun/board?celebrate=${proposalId}`
+        : "https://foid.fun/board";
     const tweets = [
-      `do you know what? i just made the ${proposalId != null ? `#${proposalId}` : ""} proposal to the @foidfun loreboard!!\n\ngo check it out and vote.\n\nhttps://foid.fun/board`,
-      `yeowww i proposed a meme to the @foidfun loreboard!!\n\nhttps://foid.fun/board`,
-      `yippppeeee i just proposed an image to the @foidfun loreboard!!\n\nhttps://foid.fun/board`,
+      `do you know what? i just made the ${proposalId != null ? `#${proposalId}` : ""} proposal to the @foidfun loreboard!!\n\ngo check it out and vote.\n\n${deepLink}`,
+      `yeowww i proposed a meme to the @foidfun loreboard!!\n\n${deepLink}`,
+      `yippppeeee i just proposed an image to the @foidfun loreboard!!\n\n${deepLink}`,
     ];
     const text = encodeURIComponent(tweets[Math.floor(Math.random() * tweets.length)]);
     window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
   };
 
-  // Precomputed particles — FOID palette
-  const sparkles = useMemo(() => Array.from({ length: 200 }, (_, i) => ({
-    d: i * 14,
-    x: `${(Math.random() * 200 - 100).toFixed(1)}vw`,
-    y: `${(Math.random() * 200 - 100).toFixed(1)}vh`,
-    color: pickColor(i),
-    type: Math.random() > 0.5 ? "sparkle" : "star",
-  })), []);
-
-  const crystals = useMemo(() => Array.from({ length: 140 }, (_, i) => ({
-    d: i * 20,
-    x: `${(Math.random() * 200 - 100).toFixed(1)}vw`,
-    y: `${(Math.random() * 200 - 100).toFixed(1)}vh`,
-    color: pickColor(i),
-  })), []);
-
-  const confetti = useMemo(() => Array.from({ length: 100 }, (_, i) => ({
-    d: i * 24,
-    x: `${(Math.random() * 200 - 100).toFixed(1)}vw`,
-    y: `${(Math.random() * 200 - 100).toFixed(1)}vh`,
-    color: FOID_COLORS[Math.floor(Math.random() * FOID_COLORS.length)],
-  })), []);
-
-  const rings = useMemo(() => Array.from({ length: 60 }, (_, i) => ({
-    d: i * 32,
-    x: `${(Math.random() * 200 - 100).toFixed(1)}vw`,
-    y: `${(Math.random() * 200 - 100).toFixed(1)}vh`,
-    color: pickColor(i),
-  })), []);
+  // Particle system moved to <canvas>. Starting the particles here keeps
+  // the lifecycle scoped to this component — spawn's TTL unmounts us, and
+  // the stop fn runs via the cleanup below. See src/effects/particleCanvas.ts.
+  const particleCanvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = particleCanvasRef.current;
+    if (!canvas) return;
+    // 200 particles on Canvas replaces 500 DOM nodes. The previous
+    // implementation drew sparkles+stars (200), crystals (140), confetti (100),
+    // rings (60); weights in particleCanvas.ts approximate that mix.
+    const stop = startParticles(canvas, { count: 200, durationMs: 5500 });
+    return stop;
+  }, []);
 
   return (
     <div
       ref={rootRef}
       aria-live="polite"
       role="status"
+      aria-label={`Placement confirmed: ${itemName}${proposalId != null ? `, proposal number ${proposalId}` : ""}`}
       className={`pc-fullscreen ${exiting ? "pc-exiting" : ""}`}
       onClick={handleClose}
     >
@@ -211,19 +231,34 @@ export default function PlacementCelebration({
 
         {/* Beat 3: The Slab */}
         <div className="pc-slab">
-          {/* Hero image — prefer IPFS gateway URL, fall back to data URL */}
-          {(ipfsCid || previewUrl) && (
+          {/* Hero image — prefer the local data/blob URL (instant, always works
+               for the uploader) and fall back to the IPFS gateway only if the
+               local URL is unavailable. A freshly pinned CID can take 10s–several
+               minutes to propagate across public gateways, so relying on IPFS
+               first made the hero image appear broken for the entire ~9.6s
+               celebration. */}
+          {(previewUrl || ipfsCid) && (
             <div className="pc-hero-frame">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={ipfsCid ? cidToHttpUrl(ipfsCid) : previewUrl}
+                src={previewUrl || (ipfsCid ? cidToHttpUrl(ipfsCid) : "")}
                 alt={itemName}
                 className="pc-hero-img"
                 referrerPolicy="no-referrer"
+                decoding="async"
+                // @ts-expect-error — fetchpriority is a standard HTML attr.
+                // This is the LCP element of the celebration; promote it so
+                // the browser fetches it ahead of anything else on the page.
+                fetchpriority="high"
                 onError={(e) => {
-                  // Fall back to data URL if IPFS gateway fails
-                  if (previewUrl && (e.target as HTMLImageElement).src !== previewUrl) {
-                    (e.target as HTMLImageElement).src = previewUrl;
+                  // If the local preview ever fails (e.g. blob URL already
+                  // revoked), fall forward to the IPFS gateway as a last resort.
+                  const img = e.target as HTMLImageElement;
+                  if (ipfsCid) {
+                    const gatewayUrl = cidToHttpUrl(ipfsCid);
+                    if (gatewayUrl && img.src !== gatewayUrl) {
+                      img.src = gatewayUrl;
+                    }
                   }
                 }}
               />
@@ -231,8 +266,9 @@ export default function PlacementCelebration({
             </div>
           )}
 
-          {/* ENGRAVED headline */}
-          <span className="pc-headline">ENGRAVED</span>
+          {/* Headline — adapts to milestone / meme / prime variants */}
+          <span className="pc-headline">{pers.headline}</span>
+          {pers.subhead && <span className="pc-subhead">{pers.subhead}</span>}
 
           {/* Slot counter + meta */}
           <div className="pc-meta">
@@ -241,38 +277,43 @@ export default function PlacementCelebration({
                 {slotDisplay}
               </span>
             )}
-            <a
-              className="pc-chip"
-              href={`${BLOCK_EXPLORER_URL}/tx/${txHash}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {txHash.slice(0, 10)}...
-            </a>
+            {/* B3: deep-link celebrations (?celebrate=<id>) don't have a
+                 local txHash, so the chip would render an empty "/tx/" link.
+                 Only show the chip when we have a real hash to link to. */}
+            {txHash && txHash.length > 0 && (
+              <a
+                className="pc-chip"
+                href={`${BLOCK_EXPLORER_URL}/tx/${txHash}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {txHash.slice(0, 10)}...
+              </a>
+            )}
           </div>
 
           {/* Share button */}
-          <button type="button" className="pc-share" onClick={handleShare}>
+          <button
+            ref={shareBtnRef}
+            type="button"
+            className="pc-share"
+            onClick={handleShare}
+            aria-label="Share placement announcement on X"
+          >
             SHARE TO X
           </button>
         </div>
       </div>
 
-      {/* Beat 4: Particle stage */}
-      <div className="pc-particles" aria-hidden>
-        {sparkles.map((s, i) => (
-          <i key={`s${i}`} className="pc-p" style={{ "--d": `${s.d}ms`, "--x": s.x, "--y": s.y, "--color": s.color, "--type": s.type } as React.CSSProperties} />
-        ))}
-        {crystals.map((c, i) => (
-          <i key={`c${i}`} className="pc-crystal" style={{ "--d": `${c.d}ms`, "--x": c.x, "--y": c.y, "--color": c.color } as React.CSSProperties} />
-        ))}
-        {confetti.map((c, i) => (
-          <i key={`f${i}`} className="pc-confetti" style={{ "--d": `${c.d}ms`, "--x": c.x, "--y": c.y, "--color": c.color } as React.CSSProperties} />
-        ))}
-        {rings.map((r, i) => (
-          <i key={`r${i}`} className="pc-ring" style={{ "--d": `${r.d}ms`, "--x": r.x, "--y": r.y, "--color": r.color } as React.CSSProperties} />
-        ))}
-      </div>
+      {/* Beat 4: Particle stage — single <canvas> backed by particleCanvas.ts.
+           Previously 500 DOM nodes (sparkles/crystals/confetti/rings) each
+           with a CSS animation; that spiked INP past 400ms on lower-end
+           devices. Canvas consolidates the whole burst into one rAF loop. */}
+      <canvas
+        ref={particleCanvasRef}
+        className="pc-particles-canvas"
+        aria-hidden="true"
+      />
 
       <style jsx>{`
         /* ══════════════════════════════════════════════════════════════
@@ -487,6 +528,23 @@ export default function PlacementCelebration({
           100% { background-position: 100% 50%; }
         }
 
+        /* ── Personalization subhead (milestone / meme id / prime) ── */
+        .pc-subhead {
+          font-family: var(--font-terminal, ui-monospace, "SF Mono", monospace);
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.24em;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.55);
+          text-align: center;
+          opacity: 0;
+          animation: pc-subhead-in 500ms 1500ms ease-out forwards;
+        }
+        @keyframes pc-subhead-in {
+          from { opacity: 0; transform: translateY(4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
         /* ── Slot counter + meta ── */
         .pc-meta {
           display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
@@ -499,7 +557,7 @@ export default function PlacementCelebration({
         }
 
         .pc-slot {
-          font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+          font-family: var(--font-terminal, ui-monospace, "SF Mono", monospace);
           font-size: 13px; font-weight: 700;
           letter-spacing: 0.08em;
           color: rgba(116, 255, 235, 0.9);
@@ -522,7 +580,7 @@ export default function PlacementCelebration({
         }
 
         .pc-chip {
-          font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+          font-family: var(--font-terminal, ui-monospace, "SF Mono", monospace);
           font-size: 10px; letter-spacing: 0.06em;
           padding: 4px 10px; border-radius: 8px;
           border: 1px solid rgba(255,255,255,0.12);
@@ -546,7 +604,7 @@ export default function PlacementCelebration({
             linear-gradient(180deg, rgba(116,255,235,0.15), rgba(116,255,235,0.04) 60%),
             rgba(6, 14, 28, 0.9);
           color: rgba(116, 255, 235, 0.95);
-          font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+          font-family: var(--font-terminal, ui-monospace, "SF Mono", monospace);
           font-size: 13px; font-weight: 700;
           letter-spacing: 0.18em;
           cursor: pointer;
@@ -579,70 +637,29 @@ export default function PlacementCelebration({
         }
 
         /* ══════════════════════════════════════════════════════════════
-           BEAT 4: PARTICLES
-           ══════════════════════════════════════════════════════════ */
-        .pc-particles {
-          position: fixed; inset: -6% -12%;
-          pointer-events: none; z-index: 3;
-        }
-
-        .pc-p {
-          position: absolute; left: 50%; top: 50%;
-          width: 7px; height: 7px; border-radius: 50%;
-          background: var(--color);
-          box-shadow: 0 0 16px var(--color);
-          opacity: 0;
-          animation: pc-burst 5.5s steps(12) var(--d) forwards;
-        }
-        .pc-p[style*="--type:star"] {
-          clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
-        }
-
-        .pc-crystal {
-          position: absolute; left: 50%; top: 50%;
-          width: 9px; height: 13px;
-          background: var(--color);
-          clip-path: polygon(50% 0%, 100% 35%, 80% 100%, 20% 100%, 0% 35%);
-          opacity: 0;
-          animation: pc-burst 5s steps(10) var(--d) forwards;
-        }
-
-        .pc-confetti {
-          position: absolute; left: 50%; top: 50%;
-          width: 6px; height: 6px;
-          background: var(--color);
-          transform: rotate(45deg);
-          opacity: 0;
-          animation: pc-burst 5s steps(12) var(--d) forwards;
-        }
-
-        .pc-ring {
-          position: absolute; left: 50%; top: 50%;
-          width: 11px; height: 11px; border-radius: 50%;
-          border: 2px solid var(--color);
-          background: transparent;
-          opacity: 0;
-          animation: pc-ring-burst 4.5s ease-out var(--d) forwards;
-        }
-
-        @keyframes pc-burst {
-          0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
-          12%  { opacity: 1; }
-          100% { opacity: 0; transform: translate(calc(var(--x) - 50%), calc(var(--y) - 50%)) scale(2.5) rotate(1080deg); }
-        }
-        @keyframes pc-ring-burst {
-          0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
-          18%  { opacity: 0.8; }
-          100% { opacity: 0; transform: translate(calc(var(--x) - 50%), calc(var(--y) - 50%)) scale(4); }
+           BEAT 4: PARTICLES (canvas)
+           ══════════════════════════════════════════════════════════
+           Single <canvas> covering the viewport; particleCanvas.ts drives
+           the render loop. The old .pc-p / .pc-crystal / .pc-confetti /
+           .pc-ring classes are gone — all their visuals live in the
+           canvas 2D draw calls. */
+        .pc-particles-canvas {
+          position: fixed;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          z-index: 3;
         }
 
         /* ══════════════════════════════════════════════════════════════
            REDUCED MOTION
            ══════════════════════════════════════════════════════════ */
         @media (prefers-reduced-motion: reduce) {
-          .pc-flash, .pc-particles, .pc-lightning, .pc-shockwave { display: none; }
+          .pc-flash, .pc-particles-canvas, .pc-lightning, .pc-shockwave { display: none; }
           .pc-slab { animation: none; opacity: 1; }
           .pc-headline { animation: none; opacity: 1; -webkit-text-fill-color: #74ffeb; }
+          .pc-subhead { animation: none; opacity: 1; }
           .pc-hero-frame { animation: none; opacity: 1; }
           .pc-hero-sheen { display: none; }
           .pc-meta, .pc-share { animation: none; opacity: 1; }

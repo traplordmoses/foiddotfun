@@ -255,7 +255,7 @@ export function useNotifications(
           {
             duration: 6000,
             style: {
-              fontFamily: "var(--font-mono, monospace)",
+              fontFamily: "var(--font-terminal, monospace)",
               fontSize: "11px",
               letterSpacing: "0.04em",
             },

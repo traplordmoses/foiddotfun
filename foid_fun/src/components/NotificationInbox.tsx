@@ -93,7 +93,7 @@ function EnvelopeButton({
           position: absolute; top: -2px; right: -4px;
           min-width: 14px; height: 14px; padding: 0 3px;
           border-radius: 7px;
-          font-size: 8px; font-weight: 700; font-family: var(--font-mono, monospace);
+          font-size: 8px; font-weight: 700; font-family: var(--font-terminal, monospace);
           color: #000; line-height: 14px; text-align: center;
         }
         @keyframes ni-bounce {
@@ -260,16 +260,16 @@ function NotificationCard({
           margin-bottom: 3px;
         }
         .ni-card__label {
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 8px; font-weight: 700;
           letter-spacing: 0.2em; text-transform: uppercase;
         }
         .ni-card__time {
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 9px; color: rgba(255,255,255,0.3);
         }
         .ni-card__message {
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 11px; line-height: 1.4;
           color: rgba(255,255,255,0.7);
         }
@@ -288,7 +288,7 @@ function NotificationCard({
         .ni-card__vote-labels {
           display: flex; justify-content: space-between;
           font-size: 8px; color: rgba(255,255,255,0.3);
-          margin-top: 2px; font-family: var(--font-mono, monospace);
+          margin-top: 2px; font-family: var(--font-terminal, monospace);
         }
         /* Action buttons */
         .ni-card__actions {
@@ -296,7 +296,7 @@ function NotificationCard({
         }
         .ni-card__btn {
           padding: 3px 10px; border-radius: 6px;
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 8px; font-weight: 700;
           letter-spacing: 0.15em; cursor: pointer;
           border: 1px solid rgba(255,255,255,0.15);
@@ -458,7 +458,7 @@ function InboxPanel({
           flex-shrink: 0;
         }
         .ni-panel__title {
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 10px; font-weight: 700;
           letter-spacing: 0.2em; color: rgba(116,255,235,0.8);
           text-transform: uppercase;
@@ -470,7 +470,7 @@ function InboxPanel({
           padding: 3px 10px; border-radius: 8px;
           border: 1px solid rgba(116,255,235,0.2);
           background: rgba(116,255,235,0.04);
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 9px; font-weight: 600;
           letter-spacing: 0.12em; color: rgba(255,255,255,0.5);
           cursor: pointer;
@@ -503,11 +503,11 @@ function InboxPanel({
         }
         .ni-empty__icon { opacity: 0.3; }
         .ni-empty__text {
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 12px; color: rgba(255,255,255,0.4);
         }
         .ni-empty__sub {
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           font-size: 10px; color: rgba(255,255,255,0.25);
         }
         .ni-empty__skeleton {

@@ -1,6 +1,7 @@
 'use client';
 
 import { Component, type ReactNode } from 'react';
+import * as Sentry from '@sentry/nextjs';
 
 interface Props {
   children: ReactNode;
@@ -8,6 +9,12 @@ interface Props {
   title?: string;
   /** Description shown below the title */
   description?: string;
+  /**
+   * Optional route tag. When set, Sentry groups reports under this name so
+   * /board crashes don't get lumped in with /pray crashes in the dashboard.
+   * Pass the route name that owns this boundary ("board", "pray", etc.).
+   */
+  route?: string;
 }
 
 interface State {
@@ -31,6 +38,15 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: { componentStack: string }) {
     console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+    // Forward to Sentry with a route tag so crashes are grouped per-surface
+    // (/board vs /pray vs /vote). `captureException` is a no-op when Sentry
+    // has no DSN, so this stays silent in local dev without branching here.
+    Sentry.withScope((scope) => {
+      if (this.props.route) scope.setTag('route', this.props.route);
+      scope.setTag('boundary', 'error-boundary');
+      scope.setExtra('componentStack', errorInfo.componentStack);
+      Sentry.captureException(error);
+    });
   }
 
   render() {

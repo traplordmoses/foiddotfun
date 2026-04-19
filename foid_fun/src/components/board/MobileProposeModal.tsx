@@ -11,6 +11,7 @@ import { capRectToMaxCells, MAX_CELLS_PER_RECT } from "@/lib/boardImages";
 import { parseWeb3Error, isUserRejection } from "@/lib/errors";
 import { PaintEditor } from "@/components/PaintEditor";
 import { MobilePlacementPicker, type PlacedItem } from "@/components/MobilePlacementPicker";
+import { PreviewOnBoardModal } from "@/components/PreviewOnBoardModal";
 import { normalizeCidString } from "@/lib/board/helpers";
 
 // ============================================================================
@@ -92,6 +93,19 @@ export function MobileProposeModal({
   const [imageAspectRatio, setImageAspectRatio] = useState<number | undefined>(undefined);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // ---- Phase 5 · Step 17 — preview-on-board peek ----
+  // The preview modal renders ABOVE the still-mounted PaintEditor while
+  // step === "paint". Setting previewFile enters preview; clearing it
+  // exits. PaintEditor itself is never unmounted during the round-trip,
+  // so history, overlays, filters and zoom are all preserved for free.
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
+  const [previewRect, setPreviewRect] = useState<Rect | null>(null);
+  const [previewAspect, setPreviewAspect] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    return () => { if (previewFileUrl) URL.revokeObjectURL(previewFileUrl); };
+  }, [previewFileUrl]);
+
   const placementFee = process.env.NEXT_PUBLIC_PLACEMENT_FEE_WEI ?? "1000000000000000";
   const feeEth = (Number(BigInt(placementFee)) / 1e18).toFixed(4);
 
@@ -143,15 +157,20 @@ export function MobileProposeModal({
     }
   };
 
-  const handleSubmit = async () => {
-    if (!file || !address || !isConnected || !placementRect) return;
+  // submitPlacement is the shared core of both the regular "Place Here" from
+  // the position step and the Step-17 "Place Here" coming directly from the
+  // preview modal. Passing file + rect explicitly lets the preview path skip
+  // the position step entirely: the user has already configured placement,
+  // so we go straight to upload.
+  const submitPlacement = async (submitFile: File, submitRect: Rect) => {
+    if (!address || !isConnected) return;
 
-    if (hasOverlap(placementRect, allOccupiedRects)) {
+    if (hasOverlap(submitRect, allOccupiedRects)) {
       setErrorMsg("Placement overlaps an existing or pending meme");
       setStep("error");
       return;
     }
-    if (!isTouching(placementRect, allOccupiedRects)) {
+    if (!isTouching(submitRect, allOccupiedRects)) {
       setErrorMsg("Placement must touch an existing meme on the board");
       setStep("error");
       return;
@@ -160,16 +179,16 @@ export function MobileProposeModal({
     try {
       setStep("uploading");
 
-      const kind = await sniffImageType(file);
+      const kind = await sniffImageType(submitFile);
       const mime = kind ? mimeFromType(kind) : null;
       if (!mime) throw new Error("Only PNG or JPG images allowed");
 
-      const cid = await uploadImage(file.name, file, mime as "image/png" | "image/jpeg");
+      const cid = await uploadImage(submitFile.name, submitFile, mime as "image/png" | "image/jpeg");
       if (!cid) throw new Error("IPFS upload disabled — configure PINATA_JWT");
 
       setStep("submitting");
 
-      const contractRect = worldToContractRect(placementRect);
+      const contractRect = worldToContractRect(submitRect);
       const normalizedCid = normalizeCidString(cid);
       await proposeLoreboard({
         ipfsCid: normalizedCid,
@@ -180,7 +199,7 @@ export function MobileProposeModal({
       });
 
       setStep("done");
-      onSuccess(`Meme placed on board! (${file.name})`);
+      onSuccess(`Meme placed on board! (${submitFile.name})`);
     } catch (e: unknown) {
       if (isUserRejection(e)) {
         setStep("pick");
@@ -190,6 +209,63 @@ export function MobileProposeModal({
       setErrorMsg(parsed.message);
       setStep("error");
     }
+  };
+
+  const handleSubmit = async () => {
+    if (!file || !placementRect) return;
+    await submitPlacement(file, placementRect);
+  };
+
+  // ---- Step 17 handlers ----
+
+  const handlePreviewOnBoard = async (editedFile: File) => {
+    // Keep `file` untouched — PaintEditor is still mounted and the user may
+    // return without placing. We stash the composed peek file in previewFile
+    // so the picker can display + submit it.
+    if (previewFileUrl) URL.revokeObjectURL(previewFileUrl);
+    const url = URL.createObjectURL(editedFile);
+    setPreviewFile(editedFile);
+    setPreviewFileUrl(url);
+
+    try {
+      const { w, h } = await getImageSizeFromFile(editedFile);
+      setPreviewAspect(w / h);
+      let rect = snapRect({ x: 0, y: 0, w, h });
+      rect = capRectToMaxCells(rect, MAX_CELLS_PER_RECT);
+      setPreviewRect(rect);
+    } catch {
+      setPreviewAspect(undefined);
+      setPreviewRect(snapRect({ x: 0, y: 0, w: TILE, h: TILE }));
+    }
+  };
+
+  const handlePreviewClose = () => {
+    if (previewFileUrl) URL.revokeObjectURL(previewFileUrl);
+    setPreviewFile(null);
+    setPreviewFileUrl(null);
+    setPreviewRect(null);
+    setPreviewAspect(undefined);
+    // step stays "paint" — editor remains mounted, state intact.
+  };
+
+  const handlePreviewPlace = async () => {
+    if (!previewFile || !previewRect) return;
+    // Commit the peek-composed file + rect as the real placement state so
+    // the UI tells a consistent story, then kick off upload directly.
+    setFile(previewFile);
+    if (preview) URL.revokeObjectURL(preview);
+    setPreview(previewFileUrl);
+    setPlacementRect(previewRect);
+    setImageAspectRatio(previewAspect);
+    // We've transferred ownership of the preview URL into `preview`; null
+    // the preview slot WITHOUT revoking (would kill the URL we just kept).
+    const committedFile = previewFile;
+    const committedRect = previewRect;
+    setPreviewFile(null);
+    setPreviewFileUrl(null);
+    setPreviewRect(null);
+    setPreviewAspect(undefined);
+    await submitPlacement(committedFile, committedRect);
   };
 
   useEffect(() => {
@@ -220,7 +296,7 @@ export function MobileProposeModal({
           </button>
         )}
 
-        <h2 className="text-sm font-bold tracking-widest uppercase mb-4" style={{ color: "#e040fb" }}>
+        <h2 className="text-sm font-bold tracking-widest uppercase mb-4" style={{ color: "var(--foid-magenta)" }}>
           Propose Meme
         </h2>
 
@@ -254,11 +330,32 @@ export function MobileProposeModal({
         )}
 
         {step === "paint" && file && (
-          <PaintEditor
-            imageFile={file}
-            onDone={handlePaintDone}
-            onCancel={() => setStep("pick")}
-          />
+          <>
+            {/*
+              PaintEditor stays mounted for the full duration of step === "paint",
+              including while the preview modal is open above it. This is how
+              drawing state (history, overlays, filters, zoom/pan) survives the
+              preview round-trip — the editor is never unmounted.
+            */}
+            <PaintEditor
+              imageFile={file}
+              onDone={handlePaintDone}
+              onCancel={() => setStep("pick")}
+              onPreviewOnBoard={handlePreviewOnBoard}
+            />
+            {previewFile && previewFileUrl && previewRect && (
+              <PreviewOnBoardModal
+                previewUrl={previewFileUrl}
+                rect={previewRect}
+                imageAspectRatio={previewAspect}
+                placedRects={placedRects}
+                pendingRects={pendingVoteRects}
+                onRectChange={setPreviewRect}
+                onBackToPaint={handlePreviewClose}
+                onPlaceHere={handlePreviewPlace}
+              />
+            )}
+          </>
         )}
 
         {step === "position" && preview && placementRect && (
@@ -276,7 +373,7 @@ export function MobileProposeModal({
 
         {(step === "uploading" || step === "submitting") && (
           <div className="py-8 flex flex-col items-center gap-4">
-            <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "#e040fb", borderTopColor: "transparent" }} />
+            <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--foid-magenta)", borderTopColor: "transparent" }} />
             <p className="text-sm" style={{ color: "rgba(255,255,255,0.8)" }}>
               {step === "uploading" ? "Uploading to IPFS..." : "Confirm transaction in wallet..."}
             </p>

@@ -892,7 +892,7 @@ function PrayPageContent() {
         }
         .pray-wallet-pill__address {
           font-size: 10px;
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           color: #0f0f0f;
         }
         .pray-wallet-chevron {
@@ -1026,7 +1026,7 @@ function PrayPageContent() {
         .pray-stats-cell__value {
           font-size: 20px;
           font-weight: 700;
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
           color: #00e5ff;
           text-shadow: 0 0 18px rgba(0, 229, 255, 0.45);
           line-height: 1;
@@ -1044,7 +1044,7 @@ function PrayPageContent() {
         }
         .pray-chain-info__row:last-child { border-bottom: none; }
         .pray-chain-info__label { font-size: 11px; color: rgba(255, 255, 255, 0.4); }
-        .pray-chain-info__value { font-size: 12px; font-family: var(--font-mono, monospace); color: rgba(255, 255, 255, 0.8); font-weight: 600; }
+        .pray-chain-info__value { font-size: 12px; font-family: var(--font-terminal, monospace); color: rgba(255, 255, 255, 0.8); font-weight: 600; }
         .pray-chain-info__value--hash { color: #00ffd5; }
         .pray-chain-info__value--ready { color: #00ff88; text-shadow: 0 0 8px rgba(0, 255, 136, 0.5); }
         
@@ -1112,7 +1112,7 @@ function PrayPageContent() {
           margin-top: 6px;
           font-size: 10px;
           color: rgba(255, 255, 255, 0.4);
-          font-family: var(--font-mono, monospace);
+          font-family: var(--font-terminal, monospace);
         }
         .pray-tier-progress__meta--max {
           justify-content: center;
@@ -1163,6 +1163,7 @@ function PrayPageContent() {
             height: auto;
             min-height: 100svh;
             overflow: visible;
+            padding: 8px;
           }
           .pray-window-frame {
             width: 100%;
