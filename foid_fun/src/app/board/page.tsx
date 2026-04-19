@@ -92,7 +92,10 @@ import {
   getBoundsFromRects,
   STAGE_CANVAS_W,
   STAGE_CANVAS_H,
+  STAGE_PAD_X,
+  STAGE_PAD_Y,
 } from "@/lib/boardCoordinates";
+import { BOARD_OFFSET_X, BOARD_OFFSET_Y } from "@/lib/boardSpace";
 import {
   capRectToMaxCells,
   downscaleToMaxCells,
@@ -398,18 +401,33 @@ function BoardPageContent() {
       // measured. A 0-area viewport would make visiblePlaced's AABB filter
       // reject every placement — don't commit until we have real dims.
       if (v.w <= 0 || v.h <= 0) return;
+      // usePanZoom publishes the viewport in STAGE-local coords (i.e.
+      // derived from pan/scale applied to .board-stage). `p.rect` on
+      // canonized proposals lives in WORLD coords (see normalizeProposals →
+      // contractToWorldRect in hooks/board/useBoardData.ts). Convert
+      // stage → world here by undoing the offsets that toStageRect adds:
+      //   stage = world + BOARD_OFFSET + STAGE_PAD
+      // so world = stage − (BOARD_OFFSET + STAGE_PAD).
+      // Without this, every canonized placement falls outside the
+      // intersection test in useVisiblePlacements and nothing renders.
+      const vWorld = {
+        x: v.x - (BOARD_OFFSET_X + STAGE_PAD_X),
+        y: v.y - (BOARD_OFFSET_Y + STAGE_PAD_Y),
+        w: v.w,
+        h: v.h,
+      };
       const last = lastVisibleRef.current;
-      const sigX = v.w * 0.25;
-      const sigY = v.h * 0.25;
+      const sigX = vWorld.w * 0.25;
+      const sigY = vWorld.h * 0.25;
       if (
         !last ||
-        Math.abs(v.x - last.x) > sigX ||
-        Math.abs(v.y - last.y) > sigY ||
-        Math.abs(v.w - last.w) > sigX ||
-        Math.abs(v.h - last.h) > sigY
+        Math.abs(vWorld.x - last.x) > sigX ||
+        Math.abs(vWorld.y - last.y) > sigY ||
+        Math.abs(vWorld.w - last.w) > sigX ||
+        Math.abs(vWorld.h - last.h) > sigY
       ) {
-        lastVisibleRef.current = v;
-        setVisibleRect(v);
+        lastVisibleRef.current = vWorld;
+        setVisibleRect(vWorld);
       }
     });
     return unsubscribe;
