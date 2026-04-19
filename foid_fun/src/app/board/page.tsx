@@ -61,8 +61,9 @@ import {
   toastBatch,
   dismissItemToast,
 } from "@/lib/board/toasts";
-import { pickPersonalization } from "@/effects/placementPersonalization";
+import { pickPersonalization, tierAccentFor } from "@/effects/placementPersonalization";
 import { useUserPlacements } from "@/hooks/useUserPlacements";
+import { usePrayerTiers, PRAYER_TIER_DEFS } from "@/hooks/usePrayerTiers";
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { celebratePlacement } from "@/effects/celebrate";
@@ -265,6 +266,11 @@ function BoardPageContent() {
     },
     [bindStage]
   );
+
+  // Prayer tier — drives the phase-γ tier subhead + slab tint + high-tier
+  // particle burst inside the celebration. Safe to call when not connected
+  // (hook no-ops and returns tier=null).
+  const { tier: prayerTier } = usePrayerTiers(address);
 
   // Ambient presence — Figma-style cursor ghosts via Supabase Realtime.
   // Broadcasts the local cursor in WORLD coordinates so remote renderers
@@ -801,8 +807,29 @@ function BoardPageContent() {
         // Milestone detection runs against the count *before* this item
         // landed — that way item #100 says "100 ENGRAVED", not #101.
         const prevCount = userPlacementCountAtSubmitStart.current;
-        const personalization = pickPersonalization(status.proposalId ?? null, prevCount);
+        const basePers = pickPersonalization(status.proposalId ?? null, prevCount);
         userPlacementCountAtSubmitStart.current = prevCount + 1;
+
+        // Phase γ — fold in prayer tier info. The tier itself drives the
+        // second subhead line, the slab border tint, and (for tier ≥ 9) a
+        // secondary particle burst. Safe to pass undefineds; celebration
+        // skips the tier treatment when tierLevel is absent or 0.
+        const tierAccent = prayerTier ? tierAccentFor(prayerTier.level) : null;
+        const tierDef = prayerTier
+          ? PRAYER_TIER_DEFS.find((t) => t.level === prayerTier.level)
+          : null;
+        const personalization =
+          prayerTier && prayerTier.level > 0
+            ? {
+                ...basePers,
+                tierLevel: prayerTier.level,
+                tierName: prayerTier.name,
+                tierAccent: tierAccent ?? basePers.accent,
+                tierSubhead: tierDef
+                  ? `${prayerTier.name} · ${tierDef.minDays}+ day streak`
+                  : prayerTier.name,
+              }
+            : basePers;
 
         celebratePlacement({
           itemName: item.name,

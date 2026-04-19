@@ -23,7 +23,37 @@ export type Personalization = {
   subhead: string | null;
   /** Accent hex, drives headline glow + slot-counter border. */
   accent: string;
+  /**
+   * Optional tier info (phase γ). When present, celebration renders a
+   * tier-flavored second subhead line and tints the slab border/glow in
+   * tierAccent. Levels 9+ trigger an additional particle burst.
+   */
+  tierLevel?: number;
+  tierName?: string;
+  tierSubhead?: string; // e.g. "Certified · 21+ day streak"
+  tierAccent?: string;
 };
+
+/**
+ * Map PrayerTiers level 1–10 to a celebration accent color.
+ * Level 0 (unranked) → no tier treatment (returns null).
+ * See CLAUDE.md for the canonical Lurker → Mommy Milker table.
+ */
+export function tierAccentFor(level: number): string | null {
+  switch (level) {
+    case 1: return "#74ffeb"; // cyan — Lurker
+    case 2: return "#a8f0d1"; // mint — NPC
+    case 3: return "#72e1ff"; // aqua — Tapped In
+    case 4: return "#8faaf2"; // periwinkle — Locked In
+    case 5: return "#a78bfa"; // purple — Certified
+    case 6: return "#cdb7ff"; // lavender — Undeniable
+    case 7: return "#fbbf24"; // gold — Built Different
+    case 8: return "#ffa552"; // tangerine — Inevitable
+    case 9: return "#f472b6"; // pink — Transcendent (particle burst)
+    case 10: return "#e040fb"; // magenta — Mommy Milker (particle burst)
+    default: return null;
+  }
+}
 
 const DEFAULT: Personalization = {
   variant: "default",

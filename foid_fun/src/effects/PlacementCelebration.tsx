@@ -168,6 +168,30 @@ export default function PlacementCelebration({
     return stop;
   }, []);
 
+  // Phase γ — secondary tier-accent particle burst for high tiers
+  // (Transcendent lvl 9, Mommy Milker lvl 10). Fires ~1.6s after entry so it
+  // feels like an *additional* reward, not part of the main burst.
+  const tierCanvasRef = useRef<HTMLCanvasElement>(null);
+  const tierLevel = pers.tierLevel ?? 0;
+  const tierAccent = pers.tierAccent ?? null;
+  useEffect(() => {
+    if (tierLevel < 9 || !tierAccent) return;
+    const canvas = tierCanvasRef.current;
+    if (!canvas) return;
+    let stop: (() => void) | null = null;
+    const t = window.setTimeout(() => {
+      stop = startParticles(canvas, {
+        count: 140,
+        durationMs: 2500,
+        colors: [tierAccent, "#ffffff"],
+      });
+    }, 1600);
+    return () => {
+      window.clearTimeout(t);
+      stop?.();
+    };
+  }, [tierLevel, tierAccent]);
+
   return (
     <div
       ref={rootRef}
@@ -230,7 +254,17 @@ export default function PlacementCelebration({
         </svg>
 
         {/* Beat 3: The Slab */}
-        <div className="pc-slab">
+        <div
+          className="pc-slab"
+          style={
+            tierAccent
+              ? {
+                  borderColor: `${tierAccent}66`,
+                  boxShadow: `inset 0 0 60px ${tierAccent}14, inset 0 1px 0 rgba(255,255,255,0.06), 0 40px 120px rgba(0, 0, 0, 0.7), 0 0 80px ${tierAccent}22`,
+                }
+              : undefined
+          }
+        >
           {/* Hero image — prefer the local data/blob URL (instant, always works
                for the uploader) and fall back to the IPFS gateway only if the
                local URL is unavailable. A freshly pinned CID can take 10s–several
@@ -269,6 +303,14 @@ export default function PlacementCelebration({
           {/* Headline — adapts to milestone / meme / prime variants */}
           <span className="pc-headline">{pers.headline}</span>
           {pers.subhead && <span className="pc-subhead">{pers.subhead}</span>}
+          {pers.tierSubhead && (
+            <span
+              className="pc-tier-subhead"
+              style={tierAccent ? { color: tierAccent, borderColor: `${tierAccent}55` } : undefined}
+            >
+              {pers.tierSubhead}
+            </span>
+          )}
 
           {/* Slot counter + meta */}
           <div className="pc-meta">
@@ -314,6 +356,15 @@ export default function PlacementCelebration({
         className="pc-particles-canvas"
         aria-hidden="true"
       />
+
+      {/* Phase γ — secondary burst for Transcendent / Mommy Milker tiers */}
+      {tierLevel >= 9 && tierAccent && (
+        <canvas
+          ref={tierCanvasRef}
+          className="pc-particles-canvas pc-particles-canvas--tier"
+          aria-hidden="true"
+        />
+      )}
 
       <style jsx>{`
         /* ══════════════════════════════════════════════════════════════
@@ -543,6 +594,28 @@ export default function PlacementCelebration({
         @keyframes pc-subhead-in {
           from { opacity: 0; transform: translateY(4px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Tier subhead (phase γ — streak/tier flex) ── */
+        .pc-tier-subhead {
+          font-family: var(--font-terminal, ui-monospace, "SF Mono", monospace);
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.28em;
+          text-transform: uppercase;
+          color: rgba(167, 139, 250, 0.9);
+          border: 1px solid rgba(167, 139, 250, 0.25);
+          padding: 3px 10px;
+          border-radius: 999px;
+          background: rgba(167, 139, 250, 0.05);
+          opacity: 0;
+          animation: pc-subhead-in 500ms 1650ms ease-out forwards;
+        }
+
+        /* Secondary tier-accent particle canvas stacks above the main one */
+        .pc-particles-canvas--tier {
+          z-index: 4;
+          mix-blend-mode: screen;
         }
 
         /* ── Slot counter + meta ── */
