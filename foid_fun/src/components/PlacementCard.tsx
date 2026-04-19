@@ -255,6 +255,10 @@ function PlacementCardInner({
           className="absolute inset-0 h-full w-full object-cover pointer-events-none"
           loading="lazy"
           decoding="async"
+          // @ts-expect-error — fetchpriority is a standard HTML attribute.
+          // "auto" lets the browser promote the hero (first above-the-fold
+          // image) without us having to know which card that is.
+          fetchpriority="auto"
           onLoad={handleLoad}
           onError={handleError}
           referrerPolicy="no-referrer"

@@ -49,6 +49,10 @@ function VotingGhostInner({
         className="board-voting-ghost__img"
         draggable={false}
         loading="lazy"
+        decoding="async"
+        // @ts-expect-error — fetchpriority is a standard HTML attribute,
+        // but React's typings haven't caught up in all versions.
+        fetchpriority="low"
         onError={(e) => tryNextGateway(e.currentTarget, cid)}
       />
       <div className="board-voting-ghost__badge">

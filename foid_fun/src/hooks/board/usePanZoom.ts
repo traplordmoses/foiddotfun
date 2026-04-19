@@ -89,6 +89,15 @@ export function usePanZoom(containerRef: RefObject<HTMLElement | null>): UsePanZ
   const scaleRef = useRef(1);
   const panRef = useRef({ x: 0, y: 0 });
   const stageElRef = useRef<HTMLElement | null>(null);
+
+  // Mirror of `spaceDown` state so onContainerPointerDown can read the
+  // current value without taking spaceDown as a dep. Phase β perf — a
+  // stable handler identity means board-canvas children don't re-render
+  // when the user toggles the pan mode.
+  const spaceDownRef = useRef(false);
+  useEffect(() => {
+    spaceDownRef.current = spaceDown;
+  }, [spaceDown]);
   const commitScheduledRef = useRef(false);
   const transformScheduledRef = useRef(false);
   const momentumRafRef = useRef<number | null>(null);
@@ -416,7 +425,11 @@ export function usePanZoom(containerRef: RefObject<HTMLElement | null>): UsePanZ
       // anchors the view rather than fighting a decaying velocity.
       cancelMomentum();
 
-      if (spaceDown) {
+      // Phase β: read spaceDown via ref so this handler's identity is
+      // stable across renders — otherwise every board-canvas child gets
+      // a new onPointerDown every time the user toggles space. cancelMomentum
+      // is already stable (no React state deps).
+      if (spaceDownRef.current) {
         e.preventDefault();
         panStartRef.current = { x: e.clientX, y: e.clientY };
         panOriginRef.current = { ...panRef.current };
@@ -435,7 +448,7 @@ export function usePanZoom(containerRef: RefObject<HTMLElement | null>): UsePanZ
       setDraggingBoard(true);
       e.currentTarget.setPointerCapture?.(e.pointerId);
     },
-    [spaceDown, cancelMomentum]
+    [cancelMomentum]
   );
 
   // ---------------------------------------------------------------------------

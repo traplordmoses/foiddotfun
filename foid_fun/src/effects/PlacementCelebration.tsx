@@ -245,6 +245,11 @@ export default function PlacementCelebration({
                 alt={itemName}
                 className="pc-hero-img"
                 referrerPolicy="no-referrer"
+                decoding="async"
+                // @ts-expect-error — fetchpriority is a standard HTML attr.
+                // This is the LCP element of the celebration; promote it so
+                // the browser fetches it ahead of anything else on the page.
+                fetchpriority="high"
                 onError={(e) => {
                   // If the local preview ever fails (e.g. blob URL already
                   // revoked), fall forward to the IPFS gateway as a last resort.
