@@ -158,3 +158,20 @@
     --foid-motion-slow: 0ms;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   RETRO MODE (easter egg — toggled for 30s by the Konami code on /board)
+   Overrides the brand palette with an 8-bit NES-ish lineup and tightens
+   motion so the board reads as a CRT render for a few seconds.
+   ══════════════════════════════════════════════════════════════════════ */
+body.retro-mode {
+  --foid-cyan: #2ecc71;
+  --foid-purple: #9b59b6;
+  --foid-pink: #e63946;
+  --foid-gold: #f1c40f;
+  --foid-green: #2ecc71;
+  --foid-red: #e63946;
+  --foid-magenta: #9b59b6;
+  --foid-pink-soft: #e63946;
+  filter: saturate(1.15) contrast(1.05);
+}

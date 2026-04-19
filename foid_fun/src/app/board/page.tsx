@@ -46,6 +46,8 @@ import { usePresence } from "@/hooks/board/usePresence";
 import { OnboardingTour, ONBOARDING_STORAGE_KEY } from "@/components/board/OnboardingTour";
 import { SoundToggle } from "@/components/board/SoundToggle";
 import { FeaturedRibbon, useFeaturedProposal } from "@/components/board/FeaturedRibbon";
+import { FpsCounter } from "@/components/board/FpsCounter";
+import { track } from "@/lib/analytics";
 // BatchReviewModal is only rendered after the user clicks SUBMIT PROPOSAL.
 // Dynamic-import keeps the dry-run-preview + gas-estimation logic off the
 // initial /board bundle. The in-flight fetch is masked by user action.
@@ -280,6 +282,11 @@ function BoardPageContent() {
   // (so we don't stomp their chosen view repeatedly).
   const idleUsedRef = useRef(false);
 
+  // Easter egg state — retro palette via Konami code + FPS HUD gated on
+  // localStorage('board-debug')==='1'. Both are purely visual, no
+  // persistence beyond the session.
+  const [showFps, setShowFps] = useState(false);
+
   // Prayer tier — drives the phase-γ tier subhead + slab tint + high-tier
   // particle burst inside the celebration. Safe to call when not connected
   // (hook no-ops and returns tier=null).
@@ -310,6 +317,42 @@ function BoardPageContent() {
       el.removeEventListener("pointerleave", onLeave);
     };
   }, [presenceEnabled, screenToWorld, sendPresenceCursor]);
+
+  // Konami code (↑↑↓↓←→←→BA) → retro palette for 30s. Body class carries
+  // the override; tokens.css rewrites --foid-* under .retro-mode.
+  useEffect(() => {
+    const SEQ = [
+      "ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown",
+      "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight",
+      "b", "a",
+    ];
+    let idx = 0;
+    let revertTimer: number | null = null;
+    const onKey = (e: KeyboardEvent) => {
+      const needed = SEQ[idx];
+      const pressed = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (pressed === needed) {
+        idx++;
+        if (idx >= SEQ.length) {
+          idx = 0;
+          document.body.classList.add("retro-mode");
+          track("retro_mode_triggered");
+          if (revertTimer) window.clearTimeout(revertTimer);
+          revertTimer = window.setTimeout(() => {
+            document.body.classList.remove("retro-mode");
+          }, 30_000);
+        }
+      } else {
+        idx = 0;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      if (revertTimer) window.clearTimeout(revertTimer);
+      document.body.classList.remove("retro-mode");
+    };
+  }, []);
 
   // Idle-zoom to featured proposal after 10s of inactivity. Listens on
   // pointer + wheel + key events to reset the timer. Fires exactly once
@@ -905,6 +948,35 @@ function BoardPageContent() {
           personalization,
         });
 
+        // Easter egg — ASCII FOID logo for the meme proposal IDs. The
+        // celebration already handles the visual variant via personalization;
+        // this is purely a wink for devtools users.
+        const memeIds = [69, 420, 1337];
+        if (status.proposalId != null && memeIds.includes(status.proposalId)) {
+          // eslint-disable-next-line no-console
+          console.log(
+            `
+    ███████╗ ██████╗ ██╗██████╗
+    ██╔════╝██╔═══██╗██║██╔══██╗
+    █████╗  ██║   ██║██║██║  ██║
+    ██╔══╝  ██║   ██║██║██║  ██║
+    ██║     ╚██████╔╝██║██████╔╝
+    ╚═╝      ╚═════╝ ╚═╝╚═════╝
+    —— proposal #${status.proposalId} engraved ——
+`
+          );
+        }
+
+        // Easter egg — FPS HUD for 10s if board-debug localStorage flag is
+        // set. Lets power users sanity-check frame rates around landing.
+        try {
+          if (window.localStorage.getItem("board-debug") === "1") {
+            setShowFps(true);
+          }
+        } catch {
+          /* noop */
+        }
+
         // First-placement onboarding — queue tour to fire after celebration
         // exits (~9.6s). Uses the same signal as the milestone personalization
         // (prevCount === 0) so the tour shows exactly once, only for truly
@@ -1273,6 +1345,7 @@ function BoardPageContent() {
                   >
                     {/* Featured-proposal ribbon — floats in screen space at
                          the top of the canvas, outside the panning stage. */}
+                    {showFps && <FpsCounter onDone={() => setShowFps(false)} />}
                     <FeaturedRibbon
                       proposal={ribbonDismissed ? null : featuredProposal}
                       onView={(p) => {
