@@ -35,21 +35,22 @@
     "size": "size-limit",
     "size:why": "size-limit --why"
   },
+  "//size-limit": "Measures the SYNC entry chunk per route only (app/<route>/**). Async chunks from dynamic imports (BatchReviewModal, PaintEditor, etc.) land in shared hashed chunks under .next/static/chunks/<hash>.js and are NOT covered here. The INP side of async-import regressions is caught by Lighthouse CI in foid-fun-ci.yml. Budgets are ~2x current measured brotli size, sized to fail cleanly on a real regression (e.g. a fat new sync import) without tripping on routine growth. TODO: swap this for @size-limit/webpack or a Puppeteer transferred-JS gate for honest per-route async coverage — ~2-day lift, tracked in follow-up.",
   "size-limit": [
     {
       "name": "/board",
       "path": ".next/static/chunks/app/board/**/*.js",
-      "limit": "240 KB"
+      "limit": "80 KB"
     },
     {
       "name": "/pray",
       "path": ".next/static/chunks/app/pray/**/*.js",
-      "limit": "200 KB"
+      "limit": "50 KB"
     },
     {
       "name": "/vote",
       "path": ".next/static/chunks/app/vote/**/*.js",
-      "limit": "180 KB"
+      "limit": "50 KB"
     }
   ],
   "dependencies": {
