@@ -46,3 +46,22 @@ Thumbs.db
 .vercel
 .env.mainnet
 .claude/worktrees/
+
+# Rust build artifacts
+**/target/
+
+# Python
+.venv/
+__pycache__/
+
+# Foundry (solidity)
+cache/
+broadcast/
+
+# Runtime data
+logs/
+data/*.db
+
+# Backups
+*.bak
+script.bak/
