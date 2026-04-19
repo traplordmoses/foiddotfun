@@ -176,6 +176,13 @@ export default function PlacementCelebration({
   const tierAccent = pers.tierAccent ?? null;
   useEffect(() => {
     if (tierLevel < 9 || !tierAccent) return;
+    // Respect prefers-reduced-motion — the primary particle canvas is already
+    // hidden via CSS in that mode; the secondary tier burst was previously
+    // still starting regardless, firing on an invisible canvas.
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
     const canvas = tierCanvasRef.current;
     if (!canvas) return;
     let stop: (() => void) | null = null;
@@ -733,6 +740,7 @@ export default function PlacementCelebration({
           .pc-slab { animation: none; opacity: 1; }
           .pc-headline { animation: none; opacity: 1; -webkit-text-fill-color: #74ffeb; }
           .pc-subhead { animation: none; opacity: 1; }
+          .pc-tier-subhead { animation: none; opacity: 1; }
           .pc-hero-frame { animation: none; opacity: 1; }
           .pc-hero-sheen { display: none; }
           .pc-meta, .pc-share { animation: none; opacity: 1; }
