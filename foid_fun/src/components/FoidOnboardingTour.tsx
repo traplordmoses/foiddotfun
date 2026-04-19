@@ -235,7 +235,7 @@ export default function FoidOnboardingTour() {
       {/* Skip button */}
       <button
         onClick={dismiss}
-        className="absolute top-6 right-6 text-[10px] tracking-[0.3em] uppercase text-white/30 hover:text-white/60 transition-colors z-10"
+        className="absolute top-6 right-6 text-[10px] tracking-[0.3em] uppercase text-white/60 hover:text-white/90 transition-colors z-10"
         style={{ fontFamily: 'var(--font-display)' }}
       >
         SKIP
