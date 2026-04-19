@@ -13,6 +13,7 @@ import React, {
   useRef,
   useState,
   useEffect,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useSearchParams } from "next/navigation";
@@ -41,6 +42,18 @@ import { PlacementGhost } from "@/components/board/PlacementGhost";
 import { VotingGhost } from "@/components/board/VotingGhost";
 import { PendingItemCard } from "@/components/board/PendingItemCard";
 import { BoardActions } from "@/components/board/BoardActions";
+import { PresenceLayer } from "@/components/board/PresenceLayer";
+import { usePresence } from "@/hooks/board/usePresence";
+import { OnboardingTour, ONBOARDING_STORAGE_KEY } from "@/components/board/OnboardingTour";
+import { SoundToggle } from "@/components/board/SoundToggle";
+import { PresenceToggle } from "@/components/board/PresenceToggle";
+import {
+  getPresenceSettings,
+  subscribe as subscribePresenceSettings,
+} from "@/lib/presenceSettings";
+import { FeaturedRibbon, useFeaturedProposal } from "@/components/board/FeaturedRibbon";
+import { FpsCounter } from "@/components/board/FpsCounter";
+import { track } from "@/lib/analytics";
 // BatchReviewModal is only rendered after the user clicks SUBMIT PROPOSAL.
 // Dynamic-import keeps the dry-run-preview + gas-estimation logic off the
 // initial /board bundle. The in-flight fetch is masked by user action.
@@ -58,8 +71,9 @@ import {
   toastBatch,
   dismissItemToast,
 } from "@/lib/board/toasts";
-import { pickPersonalization } from "@/effects/placementPersonalization";
+import { pickPersonalization, tierAccentFor } from "@/effects/placementPersonalization";
 import { useUserPlacements } from "@/hooks/useUserPlacements";
+import { usePrayerTiers, PRAYER_TIER_DEFS } from "@/hooks/usePrayerTiers";
 import { PlacementCard, type Placement } from "@/components/PlacementCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { celebratePlacement } from "@/effects/celebrate";
@@ -84,7 +98,10 @@ import {
   getBoundsFromRects,
   STAGE_CANVAS_W,
   STAGE_CANVAS_H,
+  STAGE_PAD_X,
+  STAGE_PAD_Y,
 } from "@/lib/boardCoordinates";
+import { BOARD_OFFSET_X, BOARD_OFFSET_Y } from "@/lib/boardSpace";
 import {
   capRectToMaxCells,
   downscaleToMaxCells,
@@ -230,6 +247,11 @@ function BoardPageContent() {
   // Mobile propose modal
   const [showMobilePropose, setShowMobilePropose] = useState(false);
 
+  // Post-placement onboarding tour — fires once per user after their first
+  // successful placement. Gated on localStorage ONBOARDING_STORAGE_KEY.
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const onboardingQueuedRef = useRef(false);
+
   // Desktop paint editor state
   const [desktopPaintFile, setDesktopPaintFile] = useState<File | null>(null);
   const [desktopPaintPos, setDesktopPaintPos] = useState<DropPos | undefined>(undefined);
@@ -258,6 +280,131 @@ function BoardPageContent() {
     [bindStage]
   );
 
+  // Featured proposal — drives the "Proposal of the Day" ribbon and
+  // the idle-zoom behavior below. Fetched once on mount.
+  const featuredProposal = useFeaturedProposal();
+  const [ribbonDismissed, setRibbonDismissed] = useState(false);
+
+  // Idle-zoom — after 10s of no user interaction, auto-zoom to the
+  // featured proposal. Any pointer/wheel/key on the canvas resets the
+  // timer. Disabled once dismissed or once the user manually interacts
+  // (so we don't stomp their chosen view repeatedly).
+  const idleUsedRef = useRef(false);
+
+  // Easter egg state — retro palette via Konami code + FPS HUD gated on
+  // localStorage('board-debug')==='1'. Both are purely visual, no
+  // persistence beyond the session.
+  const [showFps, setShowFps] = useState(false);
+
+  // Prayer tier — drives the phase-γ tier subhead + slab tint + high-tier
+  // particle burst inside the celebration. Safe to call when not connected
+  // (hook no-ops and returns tier=null).
+  const { tier: prayerTier } = usePrayerTiers(address);
+
+  // Ambient presence — Figma-style cursor ghosts via Supabase Realtime.
+  // Broadcasts the local cursor in WORLD coordinates so remote renderers
+  // (which mount inside .board-stage) get the pan/zoom transform for free.
+  //
+  // User-facing opt-out: PresenceToggle writes to presenceSettings; when
+  // flipped off, usePresence fully unsubscribes (no send, no receive).
+  const presencePrefEnabled = useSyncExternalStore(
+    subscribePresenceSettings,
+    () => getPresenceSettings().enabled,
+    () => true,
+  );
+  const { peers: presencePeers, sendCursor: sendPresenceCursor, enabled: presenceEnabled } =
+    usePresence({ address, enabled: presencePrefEnabled });
+
+  // Wire pointer tracking on the board canvas. We attach via a ref-based
+  // listener rather than an onPointerMove JSX handler so we don't interact
+  // with the pan/zoom handler's event flow.
+  useEffect(() => {
+    if (!presenceEnabled) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const onMove = (e: PointerEvent) => {
+      const world = screenToWorld(e.clientX, e.clientY);
+      sendPresenceCursor(world);
+    };
+    const onLeave = () => sendPresenceCursor(null);
+    el.addEventListener("pointermove", onMove, { passive: true });
+    el.addEventListener("pointerleave", onLeave, { passive: true });
+    return () => {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerleave", onLeave);
+    };
+  }, [presenceEnabled, screenToWorld, sendPresenceCursor]);
+
+  // Konami code (↑↑↓↓←→←→BA) → retro palette for 30s. Body class carries
+  // the override; tokens.css rewrites --foid-* under .retro-mode.
+  useEffect(() => {
+    const SEQ = [
+      "ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown",
+      "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight",
+      "b", "a",
+    ];
+    let idx = 0;
+    let revertTimer: number | null = null;
+    const onKey = (e: KeyboardEvent) => {
+      const needed = SEQ[idx];
+      const pressed = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (pressed === needed) {
+        idx++;
+        if (idx >= SEQ.length) {
+          idx = 0;
+          document.body.classList.add("retro-mode");
+          track("retro_mode_triggered");
+          if (revertTimer) window.clearTimeout(revertTimer);
+          revertTimer = window.setTimeout(() => {
+            document.body.classList.remove("retro-mode");
+          }, 30_000);
+        }
+      } else {
+        idx = 0;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      if (revertTimer) window.clearTimeout(revertTimer);
+      document.body.classList.remove("retro-mode");
+    };
+  }, []);
+
+  // Idle-zoom to featured proposal after 10s of inactivity. Listens on
+  // pointer + wheel + key events to reset the timer. Fires exactly once
+  // per page load — after the first auto-zoom, the user has seen the
+  // featured proposal and further nudges would feel like a hijack.
+  useEffect(() => {
+    if (!featuredProposal || ribbonDismissed || idleUsedRef.current) return;
+    const el = containerRef.current;
+    if (!el) return;
+    let timer: number | null = null;
+    const arm = () => {
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (idleUsedRef.current) return;
+        idleUsedRef.current = true;
+        try {
+          zoomToRect(featuredProposal.rect, 48);
+        } catch {
+          /* rect not renderable — silently skip */
+        }
+      }, 10_000);
+    };
+    const reset = () => arm();
+    arm();
+    el.addEventListener("pointerdown", reset);
+    el.addEventListener("wheel", reset, { passive: true });
+    window.addEventListener("keydown", reset);
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      el.removeEventListener("pointerdown", reset);
+      el.removeEventListener("wheel", reset);
+      window.removeEventListener("keydown", reset);
+    };
+  }, [featuredProposal, ribbonDismissed, zoomToRect]);
+
   // Viewport-virtualization state (Phase 2 · Step 7). Only commits when the
   // visible AABB has drifted far enough that the culled set could have changed.
   const [visibleRect, setVisibleRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -268,18 +415,33 @@ function BoardPageContent() {
       // measured. A 0-area viewport would make visiblePlaced's AABB filter
       // reject every placement — don't commit until we have real dims.
       if (v.w <= 0 || v.h <= 0) return;
+      // usePanZoom publishes the viewport in STAGE-local coords (i.e.
+      // derived from pan/scale applied to .board-stage). `p.rect` on
+      // canonized proposals lives in WORLD coords (see normalizeProposals →
+      // contractToWorldRect in hooks/board/useBoardData.ts). Convert
+      // stage → world here by undoing the offsets that toStageRect adds:
+      //   stage = world + BOARD_OFFSET + STAGE_PAD
+      // so world = stage − (BOARD_OFFSET + STAGE_PAD).
+      // Without this, every canonized placement falls outside the
+      // intersection test in useVisiblePlacements and nothing renders.
+      const vWorld = {
+        x: v.x - (BOARD_OFFSET_X + STAGE_PAD_X),
+        y: v.y - (BOARD_OFFSET_Y + STAGE_PAD_Y),
+        w: v.w,
+        h: v.h,
+      };
       const last = lastVisibleRef.current;
-      const sigX = v.w * 0.25;
-      const sigY = v.h * 0.25;
+      const sigX = vWorld.w * 0.25;
+      const sigY = vWorld.h * 0.25;
       if (
         !last ||
-        Math.abs(v.x - last.x) > sigX ||
-        Math.abs(v.y - last.y) > sigY ||
-        Math.abs(v.w - last.w) > sigX ||
-        Math.abs(v.h - last.h) > sigY
+        Math.abs(vWorld.x - last.x) > sigX ||
+        Math.abs(vWorld.y - last.y) > sigY ||
+        Math.abs(vWorld.w - last.w) > sigX ||
+        Math.abs(vWorld.h - last.h) > sigY
       ) {
-        lastVisibleRef.current = v;
-        setVisibleRect(v);
+        lastVisibleRef.current = vWorld;
+        setVisibleRect(vWorld);
       }
     });
     return unsubscribe;
@@ -484,11 +646,18 @@ function BoardPageContent() {
         try {
           workingFile = await convertToJpeg(workingFile);
           kind = "jpg";
-        } catch { addStatus("Could not process image.", "error"); return; }
+        } catch {
+          addStatus("Could not process image.", "error");
+          // Phase γ — SFX: invalid drop
+          import("@/lib/sfx").then((sfx) => sfx.default.playDropInvalid()).catch(() => {});
+          return;
+        }
       }
       // Open paint editor before placing on board
       setDesktopPaintFile(workingFile);
       setDesktopPaintPos(pos);
+      // Phase γ — SFX: valid drop, paint editor is about to open
+      import("@/lib/sfx").then((sfx) => sfx.default.playDropValid()).catch(() => {});
     } finally {
       setBusy(false);
       setGhost(null);
@@ -761,14 +930,46 @@ function BoardPageContent() {
         else if (s.state === "failed") toastFailed(s.id, s.name, s.detail);
         else if (s.state === "rejected") toastInfo(s.id, "Transaction cancelled");
         else if (s.state === "queued") toastInfo(s.id, `${s.name} kept for retry`);
+
+        // Phase γ — signature lifecycle SFX. Dynamic import keeps the audio
+        // graph off the initial board bundle.
+        if (s.state === "signing" || s.state === "confirmed" || s.state === "failed" || s.state === "rejected") {
+          import("@/lib/sfx").then((m) => {
+            const sfx = m.default;
+            if (s.state === "signing") sfx.playSignatureRequested();
+            else if (s.state === "confirmed") sfx.playSignatureConfirmed();
+            else if (s.state === "failed" || s.state === "rejected") sfx.playSignatureRejected();
+          }).catch(() => {});
+        }
       },
       onItemConfirmed: (status, item) => {
         if (!status.txHash) return;
         // Milestone detection runs against the count *before* this item
         // landed — that way item #100 says "100 ENGRAVED", not #101.
         const prevCount = userPlacementCountAtSubmitStart.current;
-        const personalization = pickPersonalization(status.proposalId ?? null, prevCount);
+        const basePers = pickPersonalization(status.proposalId ?? null, prevCount);
         userPlacementCountAtSubmitStart.current = prevCount + 1;
+
+        // Phase γ — fold in prayer tier info. The tier itself drives the
+        // second subhead line, the slab border tint, and (for tier ≥ 9) a
+        // secondary particle burst. Safe to pass undefineds; celebration
+        // skips the tier treatment when tierLevel is absent or 0.
+        const tierAccent = prayerTier ? tierAccentFor(prayerTier.level) : null;
+        const tierDef = prayerTier
+          ? PRAYER_TIER_DEFS.find((t) => t.level === prayerTier.level)
+          : null;
+        const personalization =
+          prayerTier && prayerTier.level > 0
+            ? {
+                ...basePers,
+                tierLevel: prayerTier.level,
+                tierName: prayerTier.name,
+                tierAccent: tierAccent ?? basePers.accent,
+                tierSubhead: tierDef
+                  ? `${prayerTier.name} · ${tierDef.minDays}+ day streak`
+                  : prayerTier.name,
+              }
+            : basePers;
 
         celebratePlacement({
           itemName: item.name,
@@ -778,6 +979,51 @@ function BoardPageContent() {
           ipfsCid: status.cid,
           personalization,
         });
+
+        // Easter egg — ASCII FOID logo for the meme proposal IDs. The
+        // celebration already handles the visual variant via personalization;
+        // this is purely a wink for devtools users.
+        const memeIds = [69, 420, 1337];
+        if (status.proposalId != null && memeIds.includes(status.proposalId)) {
+          // eslint-disable-next-line no-console
+          console.log(
+            `
+    ███████╗ ██████╗ ██╗██████╗
+    ██╔════╝██╔═══██╗██║██╔══██╗
+    █████╗  ██║   ██║██║██║  ██║
+    ██╔══╝  ██║   ██║██║██║  ██║
+    ██║     ╚██████╔╝██║██████╔╝
+    ╚═╝      ╚═════╝ ╚═╝╚═════╝
+    —— proposal #${status.proposalId} engraved ——
+`
+          );
+        }
+
+        // Easter egg — FPS HUD for 10s if board-debug localStorage flag is
+        // set. Lets power users sanity-check frame rates around landing.
+        try {
+          if (window.localStorage.getItem("board-debug") === "1") {
+            setShowFps(true);
+          }
+        } catch {
+          /* noop */
+        }
+
+        // First-placement onboarding — queue tour to fire after celebration
+        // exits (~9.6s). Uses the same signal as the milestone personalization
+        // (prevCount === 0) so the tour shows exactly once, only for truly
+        // first-time placers.
+        if (prevCount === 0 && !onboardingQueuedRef.current) {
+          try {
+            const seen = window.localStorage.getItem(ONBOARDING_STORAGE_KEY);
+            if (!seen) {
+              onboardingQueuedRef.current = true;
+              window.setTimeout(() => setShowOnboarding(true), 9800);
+            }
+          } catch {
+            /* noop */
+          }
+        }
       },
       onBatchDone: ({ confirmed, failed, rejected }) => {
         if (confirmed.length && !failed.length && !rejected.length) {
@@ -1129,6 +1375,24 @@ function BoardPageContent() {
                     onWheel={onCanvasWheel}
                     style={{ cursor: spaceDown ? (isPanning ? "grabbing" : "grab") : "default" }}
                   >
+                    {/* Featured-proposal ribbon — floats in screen space at
+                         the top of the canvas, outside the panning stage. */}
+                    {showFps && <FpsCounter onDone={() => setShowFps(false)} />}
+                    <FeaturedRibbon
+                      proposal={ribbonDismissed ? null : featuredProposal}
+                      onView={(p) => {
+                        idleUsedRef.current = true; // counts as interaction
+                        try { zoomToRect(p.rect, 48); } catch {}
+                      }}
+                      onVote={(p) => {
+                        idleUsedRef.current = true;
+                        try { zoomToRect(p.rect, 48); } catch {}
+                        // Open the full-vote surface in a new tab so the
+                        // user keeps their board view.
+                        window.open(`/vote?proposal=${p.id}`, "_blank");
+                      }}
+                      onDismiss={() => setRibbonDismissed(true)}
+                    />
                     <div
                     ref={stageCallbackRef}
                     className="board-stage"
@@ -1164,6 +1428,9 @@ function BoardPageContent() {
 
                     {/* Ghost */}
                     {ghost && <PlacementGhost ghost={ghost} />}
+
+                    {/* Ambient presence — remote cursors in world space */}
+                    <PresenceLayer peers={presencePeers} />
 
                     {/* Proposals — virtualized */}
                     {visibleVotingProposals.map((p) => {
@@ -1243,6 +1510,20 @@ function BoardPageContent() {
               {/* Sidebar */}
               <div className="board-sidebar">
                 <div className="board-sidebar__scroller">
+                  {/* Sidebar toggles — SFX + ambient cursor presence.
+                       PresenceToggle controls whether this client broadcasts
+                       + receives cursor ghosts via Supabase Realtime. */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      gap: 6,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <PresenceToggle />
+                    <SoundToggle />
+                  </div>
                   {/* Actions */}
                   <BoardActions
                     submissionFeeWei={SUBMISSION_FEE_WEI}
@@ -1306,8 +1587,12 @@ function BoardPageContent() {
                       </div>
                       <div className="debug-missing">
                         <strong>missing:</strong>{" "}
-                        {proposalDebug.missingBoardPayload.length
-                          ? proposalDebug.missingBoardPayload.join(", ")
+                        {/* Defensive optional access: the multicall refactor
+                            in 3c3fcd0 made missingBoardPayload optional on
+                            the debug payload. Bare .length here crashes the
+                            entire board when ?debug=1 is set. */}
+                        {(proposalDebug.missingBoardPayload?.length ?? 0)
+                          ? proposalDebug.missingBoardPayload!.join(", ")
                           : "none"}
                       </div>
                       <pre className="debug-json">{JSON.stringify(proposalDebug.samplePending ?? [], null, 2)}</pre>
@@ -1347,6 +1632,7 @@ function BoardPageContent() {
         onCancel={closeReviewModal}
       />
     )}
+    <OnboardingTour open={showOnboarding} onClose={() => setShowOnboarding(false)} />
     </main>
   );
 
