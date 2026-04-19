@@ -7,6 +7,7 @@ import AnimatedBackground from "@/components/AnimatedBackground";
 import FloatingElements from "@/components/FloatingElements";
 import SfxInitializer from "@/components/SfxInitializer";
 import { ClientLayout } from "@/components/ClientLayout";
+import { WebVitalsReporter } from "@/app/_vitals";
 
 // app/layout.tsx (or wherever your metadata lives)
 export const metadata = {
@@ -105,6 +106,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <div className="app-viewport">
         <SfxInitializer />
         <ClientLayout />
+        <WebVitalsReporter />
         {children}
       </div>
     </Providers>

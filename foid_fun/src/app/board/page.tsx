@@ -522,6 +522,7 @@ function BoardPageContent() {
     proposals,
     voting: swipeVotingProposals,
     debug: proposalDebug,
+    loading: boardLoading,
     refetch: refetchBoardData,
   } = useBoardData();
 
@@ -1580,10 +1581,16 @@ function BoardPageContent() {
                         <span className="board-section__sub">pending feed</span>
                       </div>
                       <div className="debug-stats">
+                        <span>proposals: {proposals.length}</span>
+                        <span>voting: {swipeVotingProposals.length}</span>
+                        <span>loading: {boardLoading ? "true" : "false"}</span>
                         <span>pendingActiveCount: {proposalDebug.pendingActiveCount}</span>
                         <span>boardEventsCount: {proposalDebug.boardEventsCount}</span>
                         <span>joinedRenderableCount: {proposalDebug.joinedRenderableCount}</span>
                         <span>pendingEvents: {proposalDebug.pendingEvents?.length ?? 0}</span>
+                        {typeof (proposalDebug as unknown as { indexerLagSeconds?: number }).indexerLagSeconds === "number" && (
+                          <span>indexerLagSec: {(proposalDebug as unknown as { indexerLagSeconds: number }).indexerLagSeconds}</span>
+                        )}
                       </div>
                       <div className="debug-missing">
                         <strong>missing:</strong>{" "}
@@ -1594,6 +1601,55 @@ function BoardPageContent() {
                         {(proposalDebug.missingBoardPayload?.length ?? 0)
                           ? proposalDebug.missingBoardPayload!.join(", ")
                           : "none"}
+                      </div>
+                      <div className="debug-actions" style={{ display: "flex", gap: 6, flexWrap: "wrap", margin: "6px 0" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const payload = {
+                              proposalsLen: proposals.length,
+                              votingLen: swipeVotingProposals.length,
+                              loading: boardLoading,
+                              debug: proposalDebug,
+                              statusLogTail: statusMessages.slice(-10).map((m) => ({
+                                text: m.text,
+                                type: m.type,
+                                t: typeof m.timestamp?.toISOString === "function"
+                                  ? m.timestamp.toISOString()
+                                  : String(m.timestamp),
+                              })),
+                            };
+                            if (typeof navigator !== "undefined" && navigator.clipboard) {
+                              navigator.clipboard
+                                .writeText(JSON.stringify(payload, null, 2))
+                                .then(() => addStatus("Debug JSON copied to clipboard", "success"))
+                                .catch(() => addStatus("Clipboard copy failed", "error"));
+                            }
+                          }}
+                          style={{ fontSize: 11, padding: "2px 6px" }}
+                        >
+                          Copy as JSON
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            refetchBoardData();
+                            addStatus("Force re-tick triggered", "info");
+                          }}
+                          style={{ fontSize: 11, padding: "2px 6px" }}
+                        >
+                          Force re-tick
+                        </button>
+                      </div>
+                      <div className="debug-status-tail" style={{ fontSize: 11, opacity: 0.75, margin: "4px 0" }}>
+                        <strong>status log (last 10):</strong>
+                        <ul style={{ paddingLeft: 14, margin: "2px 0" }}>
+                          {statusMessages.slice(-10).map((m) => (
+                            <li key={m.id}>
+                              [{m.type}] {m.text}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                       <pre className="debug-json">{JSON.stringify(proposalDebug.samplePending ?? [], null, 2)}</pre>
                       <pre className="debug-json">{JSON.stringify(proposalDebug.sampleJoined ?? [], null, 2)}</pre>

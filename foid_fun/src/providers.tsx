@@ -20,6 +20,7 @@ import { TARGET_CHAIN, TARGET_CHAIN_ID } from "@/lib/chain";
 import { FALLBACK_RPC_URL } from "@/config/canonical";
 import { NetworkSwitcher } from "@/components/NetworkSwitcher";
 import { foidEmbeddedWallet } from "@/lib/connectors/embeddedRainbowKit";
+import { AnalyticsBoot } from "@/components/AnalyticsBoot";
 
 const PROJECT_ID =
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ||
@@ -77,6 +78,7 @@ export function Providers({ children }: { children: ReactNode }) {
           showRecentTransactions={true}
         >
           <NetworkSwitcher />
+          <AnalyticsBoot />
           {children}
           <Toaster
             position="top-right"

@@ -1,0 +1,58 @@
+# .github/workflows/bundle-size.yml
+# Bundle-size gate for foid_fun/. Runs size-limit against the built .next
+# output and fails the PR if any per-route chunk exceeds its budget
+# (package.json "size-limit" array). Comments a diff-vs-main summary on
+# the PR via the size-limit-action.
+#
+# Kept separate from foid-fun-ci.yml so a Lighthouse flake doesn't mask a
+# bundle regression and vice versa.
+
+name: Bundle size
+
+on:
+  pull_request:
+    paths:
+      - "foid_fun/**"
+      - ".github/workflows/bundle-size.yml"
+  push:
+    branches: [main]
+
+jobs:
+  size:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: foid_fun
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.27.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: foid_fun/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+        env:
+          # Build-only placeholder — no real key ever lands in a public build
+          # artifact. size-limit only needs the bundle to exist.
+          NEXT_PUBLIC_POSTHOG_KEY: ""
+
+      - name: Size check
+        uses: andresz1/size-limit-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          package_manager: pnpm
+          directory: foid_fun
+          skip_step: install
+          script: pnpm size
