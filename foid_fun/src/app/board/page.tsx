@@ -13,6 +13,7 @@ import React, {
   useRef,
   useState,
   useEffect,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useSearchParams } from "next/navigation";
@@ -45,6 +46,11 @@ import { PresenceLayer } from "@/components/board/PresenceLayer";
 import { usePresence } from "@/hooks/board/usePresence";
 import { OnboardingTour, ONBOARDING_STORAGE_KEY } from "@/components/board/OnboardingTour";
 import { SoundToggle } from "@/components/board/SoundToggle";
+import { PresenceToggle } from "@/components/board/PresenceToggle";
+import {
+  getPresenceSettings,
+  subscribe as subscribePresenceSettings,
+} from "@/lib/presenceSettings";
 import { FeaturedRibbon, useFeaturedProposal } from "@/components/board/FeaturedRibbon";
 import { FpsCounter } from "@/components/board/FpsCounter";
 import { track } from "@/lib/analytics";
@@ -298,8 +304,16 @@ function BoardPageContent() {
   // Ambient presence — Figma-style cursor ghosts via Supabase Realtime.
   // Broadcasts the local cursor in WORLD coordinates so remote renderers
   // (which mount inside .board-stage) get the pan/zoom transform for free.
+  //
+  // User-facing opt-out: PresenceToggle writes to presenceSettings; when
+  // flipped off, usePresence fully unsubscribes (no send, no receive).
+  const presencePrefEnabled = useSyncExternalStore(
+    subscribePresenceSettings,
+    () => getPresenceSettings().enabled,
+    () => true,
+  );
   const { peers: presencePeers, sendCursor: sendPresenceCursor, enabled: presenceEnabled } =
-    usePresence({ address });
+    usePresence({ address, enabled: presencePrefEnabled });
 
   // Wire pointer tracking on the board canvas. We attach via a ref-based
   // listener rather than an onPointerMove JSX handler so we don't interact
@@ -1496,8 +1510,18 @@ function BoardPageContent() {
               {/* Sidebar */}
               <div className="board-sidebar">
                 <div className="board-sidebar__scroller">
-                  {/* Sound toggle — flips global SFX on/off for the board */}
-                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+                  {/* Sidebar toggles — SFX + ambient cursor presence.
+                       PresenceToggle controls whether this client broadcasts
+                       + receives cursor ghosts via Supabase Realtime. */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      gap: 6,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <PresenceToggle />
                     <SoundToggle />
                   </div>
                   {/* Actions */}
