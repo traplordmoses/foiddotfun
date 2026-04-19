@@ -11,7 +11,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { track } from "@/lib/analytics";
+import { useBoardAnalytics } from "@/hooks/useBoardAnalytics";
 
 export const ONBOARDING_STORAGE_KEY = "board-onboarding-seen-v1";
 
@@ -85,6 +85,7 @@ const TITLE_ID = "onboarding-tour-title";
 const BODY_ID = "onboarding-tour-body";
 
 export function OnboardingTour({ open, onClose, steps = DEFAULT_STEPS }: Props) {
+  const analytics = useBoardAnalytics();
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<AnchorRect>(null);
   const [mounted, setMounted] = useState(false);
@@ -157,9 +158,11 @@ export function OnboardingTour({ open, onClose, steps = DEFAULT_STEPS }: Props) 
     } catch {
       /* noop */
     }
-    track(kind === "completed" ? "onboarding_completed" : "onboarding_skipped", {
-      step: index,
-    });
+    if (kind === "completed") {
+      analytics.trackOnboardingCompleted({ step: index });
+    } else {
+      analytics.trackOnboardingSkipped({ step: index });
+    }
     onClose();
   };
 
