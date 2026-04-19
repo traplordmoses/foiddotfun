@@ -75,6 +75,14 @@ export function markGatewaySuccess(gatewayUrl: string): void {
   safeSet(FAILED_KEY, JSON.stringify(failed));
 }
 
+/**
+ * Count of CSP-whitelisted gateways in FALLBACK_GATEWAY_BASES (ipfsUrl.ts).
+ * If every whitelisted gateway has been marked failed, we reset the circuit
+ * breaker — otherwise a transient network blip can permanently lock out all
+ * images for the session.
+ */
+const CSP_WHITELISTED_GATEWAY_COUNT = 4;
+
 /** Record a gateway that returned an error or timed out. */
 export function markGatewayFailure(gatewayUrl: string): void {
   const base = gatewayBase(gatewayUrl);
@@ -87,6 +95,13 @@ export function markGatewayFailure(gatewayUrl: string): void {
   // the next load doesn't keep hitting it.
   if (safeGet(PREFERRED_KEY) === base) {
     safeRemove(PREFERRED_KEY);
+  }
+  // Escape hatch: if every CSP-whitelisted gateway is now marked failed,
+  // reset the failed list. This prevents runaway circuit-breaker poisoning
+  // from a transient network issue leaving the session permanently unable
+  // to load images.
+  if (getFailedGateways().length >= CSP_WHITELISTED_GATEWAY_COUNT) {
+    safeRemove(FAILED_KEY);
   }
 }
 
