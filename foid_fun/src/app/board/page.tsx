@@ -1563,8 +1563,12 @@ function BoardPageContent() {
                       </div>
                       <div className="debug-missing">
                         <strong>missing:</strong>{" "}
-                        {proposalDebug.missingBoardPayload.length
-                          ? proposalDebug.missingBoardPayload.join(", ")
+                        {/* Defensive optional access: the multicall refactor
+                            in 3c3fcd0 made missingBoardPayload optional on
+                            the debug payload. Bare .length here crashes the
+                            entire board when ?debug=1 is set. */}
+                        {(proposalDebug.missingBoardPayload?.length ?? 0)
+                          ? proposalDebug.missingBoardPayload!.join(", ")
                           : "none"}
                       </div>
                       <pre className="debug-json">{JSON.stringify(proposalDebug.samplePending ?? [], null, 2)}</pre>
