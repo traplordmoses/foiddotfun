@@ -1,7 +1,7 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import AppTitlebar, { type AppTitlebarWarning } from "@/app/(components)/AppTitlebar";
 
 import { useAccount, useChainId, usePublicClient, useReadContract, useDisconnect, useSwitchChain } from "wagmi";
@@ -16,12 +16,19 @@ import { formatViemError } from "@/lib/prayerErrors";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
 import { MobileWalletButton } from "@/components/MobileWalletButton";
 import { useHaptic } from "@/hooks/useHaptic";
+import { tierAccent } from "@/lib/tierAccent";
 import { PRAYER_REGISTRY_ABI } from "@/lib/contracts/abis/prayerRegistry";
 import { PRAYER_MIRROR_ABI } from "@/lib/contracts/abis/prayerMirror";
 import { parseEventLogs } from "viem";
 import { PrayerErrorBoundary } from "@/components/PrayerErrorBoundary";
 import { getTierFromStreak } from "@/hooks/usePrayerTiers";
 import { usePrayerMemory, type JournalEntry } from "@/hooks/usePrayerMemory";
+import PrayerAltarStrip from "@/components/PrayerAltarStrip";
+import PrayerJournalDrawer from "@/components/PrayerJournalDrawer";
+import PrayerBoot from "@/components/PrayerBoot";
+import TierUnlockCinematic from "@/components/TierUnlockCinematic";
+import { useTierUnlockWatcher } from "@/hooks/useTierUnlockWatcher";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 /* --- env: prayer contract addresses from canonical config --- */
 import { CONTRACTS } from "@/lib/contracts/addresses";
@@ -119,6 +126,21 @@ function PrayPageContent() {
   // Optimistic UI updates
   const [optimisticStreak, setOptimisticStreak] = useState<number | null>(null);
   const [optimisticTotal, setOptimisticTotal] = useState<number | null>(null);
+  // Afterglow: ~3s halo around the altar after a successful prayer
+  const [afterglow, setAfterglow] = useState(false);
+  // Journal drawer (mobile swipe-up / tap)
+  const [journalOpen, setJournalOpen] = useState(false);
+  const afterglowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Clear afterglow timer on unmount to avoid state updates on an unmounted
+  // component if the user navigates away during the 3s window.
+  useEffect(() => {
+    return () => {
+      if (afterglowTimerRef.current) {
+        clearTimeout(afterglowTimerRef.current);
+        afterglowTimerRef.current = null;
+      }
+    };
+  }, []);
   // const [votes, setVotes] = useState<VoteWire[]>([]);
   // const [votesLoading, setVotesLoading] = useState(false);
   // const [votesError, setVotesError] = useState<string | null>(null);
@@ -131,32 +153,19 @@ function PrayPageContent() {
     setHydrated(true);
   }, []);
 
-  // Lock viewport on mobile to prevent iOS auto-zoom when focusing inputs
+  // Ensure mobile viewport allows pinch-zoom (accessibility).
+  // iOS auto-zoom on input focus is handled by bumping the terminal field
+  // to 16px in globals.css — we do NOT disable user scaling.
   useEffect(() => {
     const isMobile = window.innerWidth < 1024;
     if (!isMobile) return;
 
-    const LOCKED = "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no";
+    const OPEN = "width=device-width, initial-scale=1, viewport-fit=cover";
     const allMetas = document.querySelectorAll('meta[name="viewport"]');
     const originals = Array.from(allMetas).map((m) => m.getAttribute("content") ?? "");
-    const lockMetas = () => allMetas.forEach((m) => m.setAttribute("content", LOCKED));
-    lockMetas();
-
-    const observer = new MutationObserver((mutations) => {
-      for (const mut of mutations) {
-        if (
-          mut.type === "attributes" &&
-          (mut.target as Element).getAttribute?.("name") === "viewport" &&
-          (mut.target as Element).getAttribute("content") !== LOCKED
-        ) {
-          (mut.target as Element).setAttribute("content", LOCKED);
-        }
-      }
-    });
-    allMetas.forEach((m) => observer.observe(m, { attributes: true, attributeFilter: ["content"] }));
+    allMetas.forEach((m) => m.setAttribute("content", OPEN));
 
     return () => {
-      observer.disconnect();
       allMetas.forEach((m, i) => m.setAttribute("content", originals[i]));
     };
   }, []);
@@ -402,7 +411,16 @@ function PrayPageContent() {
       setOptimisticStreak(null);
       setOptimisticTotal(null);
     });
-  }, [publicClient]);
+
+    // Sacred beat: heartbeat haptic + 3s afterglow halo on the altar
+    triggerHaptic('heartbeat');
+    setAfterglow(true);
+    if (afterglowTimerRef.current) clearTimeout(afterglowTimerRef.current);
+    afterglowTimerRef.current = setTimeout(() => {
+      setAfterglow(false);
+      afterglowTimerRef.current = null;
+    }, 3000);
+  }, [publicClient, triggerHaptic]);
 
   const handleSwitchWallet = useCallback(() => {
     triggerHaptic('medium');
@@ -420,7 +438,34 @@ function PrayPageContent() {
   const displayMilestones = 0; // mirror contract doesn't expose milestones separately
   const hasAnyPrayers = Number(displayTotal ?? 0) > 0;
   const streakNumber = typeof displayStreak === 'bigint' ? Number(displayStreak) : typeof displayStreak === 'number' ? displayStreak : 0;
+  const longestStreakNumber = typeof displayLongest === 'bigint' ? Number(displayLongest) : typeof displayLongest === 'number' ? displayLongest : 0;
+  const totalPrayersNumber = typeof displayTotal === 'bigint' ? Number(displayTotal) : typeof displayTotal === 'number' ? displayTotal : 0;
   const tierProgress = useMemo(() => getTierFromStreak(streakNumber), [streakNumber]);
+
+  // Page-level tier accent: lifts the cyan→gold evolution from the altar strip
+  // to the whole <main>, so caret color, altar strip, and any downstream
+  // consumers share a single --pray-accent custom property.
+  const prayAccent = tierAccent(isConnected ? tierProgress.current.level : 0);
+
+  // Tier-unlock cinematic watcher — fires a one-shot play when a user's streak
+  // crosses a milestone day (7/14/21/30/45/60/75/90). Persisted per wallet.
+  const { pendingUnlock, clearPendingUnlock } = useTierUnlockWatcher(
+    streakNumber,
+    isConnected,
+    address,
+  );
+
+  // Day-90 pixel easter egg — renders iff the Mommy Milker cinematic has
+  // played at least once (any wallet on this device). Re-read after each
+  // unlock completes so a just-played tier 10 immediately toggles it.
+  const [mommyPixelUnlocked, setMommyPixelUnlocked] = useState(false);
+  useEffect(() => {
+    try {
+      setMommyPixelUnlocked(localStorage.getItem("foid_tier_10_pixel_unlocked") === "1");
+    } catch {
+      // noop
+    }
+  }, [pendingUnlock]);
 
   const canRenderTime = nowSeconds !== null;
   const nextAllowedSecondsRaw = typeof nextAllowed === "bigint" ? Number(nextAllowed) : typeof nextAllowed === "number" ? nextAllowed : null;
@@ -430,61 +475,111 @@ function PrayPageContent() {
     : "";
 
   return (
-    <main className="pray-page relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center" style={{ height: "100vh" }}>
+    <main
+      className="pray-page relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center"
+      style={{ height: "100dvh", ["--pray-accent" as string]: prayAccent } as CSSProperties}
+    >
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
+      {/* Film grain — static SVG turbulence, pointer-events: none */}
+      <div
+        className="pointer-events-none fixed inset-0 pray-grain"
+        aria-hidden="true"
+        style={{ zIndex: 1 }}
+      />
+      {/* Pilot light — bottom-right amber pixel */}
+      <div className="pray-pilot-light" aria-hidden="true" />
 
-      {/* Mobile Layout */}
-      <div className="lg:hidden relative z-10 flex flex-col items-center w-full px-2 sm:px-4 pt-2 pb-28 pb-safe">
-        {/* Terminal — always visible (shadow mode when disconnected) */}
-          <section className="vista-window vista-window--media flex flex-col w-full mb-4 overflow-hidden" style={{ height: "calc(100dvh - 96px)" }}>
-            <div className="vista-window__titlebar flex-shrink-0">
-              <div className="vista-window__controls" aria-hidden="true">
-                <span className="vista-window__control vista-window__control--minimize" />
-                <span className="vista-window__control vista-window__control--restore" />
-                <span className="vista-window__control vista-window__control--close" />
-              </div>
-              <span className="vista-window__title text-[12px]">
-                <Image
-                  src="/foidmommy.gif"
-                  alt=""
-                  width={40}
-                  height={40}
-                  className="inline-block h-10 w-10"
-                />
-                {" "}foid_mommy_terminal.exe
-              </span>
+      {/* Mobile-only boot sequence (plays once per session) */}
+      <div className="lg:hidden">
+        <PrayerBoot />
+      </div>
+
+      {/* Tier unlock cinematic — plays once per (wallet, tier) on streak milestones */}
+      {pendingUnlock !== null && (
+        <TierUnlockCinematic
+          tierLevel={pendingUnlock}
+          onComplete={clearPendingUnlock}
+        />
+      )}
+
+      {/* Day-90 easter egg — a 3×3 iridescent pixel, only after tier 10 has played */}
+      {mommyPixelUnlocked && <span className="mommy-pixel lg:hidden" aria-hidden="true" />}
+
+      {/* Mobile Layout — ritual-first, chrome-minimal */}
+      <div
+        className="lg:hidden relative z-10 flex flex-col w-full px-3 pb-safe"
+        style={{ height: "100dvh", paddingTop: "max(env(safe-area-inset-top), 8px)" }}
+      >
+        {/* Clean titlebar: wordmark + inline wallet (no fake Windows chrome) */}
+        <header className="pray-mobile-titlebar">
+          <span className="pray-mobile-titlebar__wordmark">
+            foid_mommy<span className="pray-mobile-titlebar__accent">.exe</span>
+          </span>
+          <div className="pray-mobile-titlebar__wallet">
+            <ConnectButton
+              chainStatus="icon"
+              showBalance={false}
+              accountStatus={{ smallScreen: "address", largeScreen: "address" }}
+            />
+          </div>
+        </header>
+
+        {/* Wrong Chain Warning */}
+        {wrongChain && (
+          <div className="pray-mobile-chain-warn">
+            <span>⚠ switch to fluent</span>
+          </div>
+        )}
+
+        {/* The altar — streak, tier, cooldown, Mommy portal */}
+        <PrayerAltarStrip
+          streak={streakNumber}
+          tier={tierProgress}
+          nowSeconds={nowSeconds}
+          nextAllowedAt={nextAllowed as bigint | undefined}
+          loading={statsLoading}
+          connected={isConnected}
+          afterglow={afterglow}
+          hasEverPrayed={hasAnyPrayers}
+        />
+
+        {/* Journey trigger — small pill below the altar that opens the drawer */}
+        <button
+          type="button"
+          className="pray-journey-trigger"
+          onClick={() => {
+            triggerHaptic('light');
+            setJournalOpen(true);
+          }}
+          aria-label="Open your prayer journey"
+        >
+          <span className="pray-journey-trigger__handle" aria-hidden="true" />
+          <span className="pray-journey-trigger__label">journey</span>
+          <span className="pray-journey-trigger__chevron" aria-hidden="true">˅</span>
+        </button>
+
+        {/* Terminal — fills remaining height */}
+        <section className="pray-mobile-terminal">
+          <div className="pray-liquid-glass-terminal pray-mobile-terminal__inner">
+            <div className="frutiger-terminal flicker w-full h-full flex flex-col">
+              <FoidMommyTerminal
+                className="w-full h-full min-h-0 mobile-terminal"
+                ensureWalletReady={ensureWalletReady}
+                submitPrayer={submitPrayer}
+                waitForReceipt={waitForReceipt}
+                nextAllowedAt={nextAllowed as bigint | undefined}
+                onChainStreak={streakNumber}
+                registryReady={!missingRegistry}
+                chainOk={!wrongChain}
+                requiredChainId={FLUENT_CHAIN_ID}
+                autoStart={false}
+                shadowMode={!isConnected}
+                walletAddress={address}
+                onRequestConnect={handleSwitchWallet}
+              />
             </div>
-
-            <div className="vista-window__body vista-window__body--flush flex-1 min-h-0 overflow-hidden !border-0 !bg-transparent">
-              {/* Wrong Chain Warning */}
-              {wrongChain && (
-                <div className="px-3 py-2 bg-yellow-900/20 border-b border-yellow-500/30 flex-shrink-0">
-                  <p className="text-xs text-yellow-400 font-terminal">⚠ SWITCH TO FLUENT</p>
-                </div>
-              )}
-
-              {/* Terminal */}
-              <div className="flex-1 min-h-0 relative pray-liquid-glass-terminal overflow-hidden">
-                <div className="frutiger-terminal flicker w-full h-full flex flex-col">
-                  <FoidMommyTerminal
-                    className="w-full h-full min-h-0 mobile-terminal"
-                    ensureWalletReady={ensureWalletReady}
-                    submitPrayer={submitPrayer}
-                    waitForReceipt={waitForReceipt}
-                    nextAllowedAt={nextAllowed as bigint | undefined}
-                    onChainStreak={streakNumber}
-                    registryReady={!missingRegistry}
-                    chainOk={!wrongChain}
-                    requiredChainId={FLUENT_CHAIN_ID}
-                    autoStart={false}
-                    shadowMode={!isConnected}
-                    walletAddress={address}
-                    onRequestConnect={handleSwitchWallet}
-                  />
-                </div>
-              </div>
-            </div>
-          </section>
+          </div>
+        </section>
       </div>
 
       {/* Desktop Layout */}
@@ -530,35 +625,30 @@ function PrayPageContent() {
                   </div>
                 </div>
 
-                {/* Manual pane - no header */}
-                <div className="pray-pane pray-pane--manual pray-pane--panel">
-                  <div className="pray-pane__body pray-pane__body--no-header">
-                    <div className="pray-scroll space-y-4 text-sm">
-                      <h3 className="pray-manual__hero">F O I D &nbsp;&nbsp; M O M M Y</h3>
-                      <span className="pray-manual__label">WELCOME TO FOID_MOMMY_TERMINAL.EXE</span>
-                      <p className="pray-manual__intro">
-                        <span className="block">
-                          foid_mommy_terminal.exe is a daily on-chain ritual. tell foid mommy how you&apos;re feeling,
-                          she&apos;ll listen and construct a prayer. submit your prayer on-chain, so your proof of prayer
-                          is recorded. your message is private. it&apos;s hashed locally and only the hash is anchored
-                          on-chain. show up each day to build your streak. the more you pray, the bigger your mifoid&apos;s
-                          boobs will be.
-                        </span>
-                        <span className="block mt-2" style={{ opacity: 0.55, fontSize: "0.85em" }}>
-                          mommy remembers how you&apos;re feeling each day to improve your experience.
-                          only the feeling label and date are kept on your device — your prayers stay private.
-                          type /forget in the terminal anytime to erase everything.
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Stats pane */}
+                {/* Sidebar pane - manual + stats merged */}
                 <div className="pray-pane pray-pane--stats pray-pane--panel">
-                  <div className="pray-pane__title">YOUR PRAYERS</div>
                   <div className="pray-pane__body font-terminal text-xs sm:text-[13px] leading-snug">
-                    <div className="pray-scroll">
+                    <div className="pray-scroll space-y-4">
+                      <div className="pray-manual__section">
+                        <h3 className="pray-manual__hero">F O I D &nbsp;&nbsp; M O M M Y</h3>
+                        <span className="pray-manual__label">WELCOME TO FOID_MOMMY_TERMINAL.EXE</span>
+                        <p className="pray-manual__intro">
+                          <span className="block">
+                            foid_mommy_terminal.exe is a daily on-chain ritual. tell foid mommy how you&apos;re feeling,
+                            she&apos;ll listen and construct a prayer. submit your prayer on-chain, so your proof of prayer
+                            is recorded. your message is private. it&apos;s hashed locally and only the hash is anchored
+                            on-chain. show up each day to build your streak. the more you pray, the bigger your mifoid&apos;s
+                            boobs will be.
+                          </span>
+                          <span className="block mt-2" style={{ opacity: 0.55, fontSize: "0.85em" }}>
+                            mommy remembers how you&apos;re feeling each day to improve your experience.
+                            only the feeling label and date are kept on your device — your prayers stay private.
+                            type /forget in the terminal anytime to erase everything.
+                          </span>
+                        </p>
+                      </div>
+                      <div className="pray-sidebar-divider" aria-hidden="true" />
+                      <div className="pray-sidebar-section-title">YOUR PRAYERS</div>
                       <div className="pray-stats-grid" role="region" aria-label="Prayer statistics">
                         <div className="pray-stats-cell" role="status" aria-label="Current prayer streak">
                           <span className="pray-stats-cell__label">CURRENT STREAK</span>
@@ -692,31 +782,29 @@ function PrayPageContent() {
                         </div>
                         {missingMirror && <div className="pray-stats-notice">stats unavailable (mirror not set).</div>}
                         {walletDisconnected && <div className="pray-stats-notice">connect your wallet to start logging prayers.</div>}
+
+                        {hasJournalConsent && journalEntries.length > 0 && (
+                          <>
+                            <div className="pray-sidebar-divider" aria-hidden="true" />
+                            <div className="pray-sidebar-section-title">YOUR JOURNEY</div>
+                            <div className="pray-journal">
+                              {journalEntries.slice(-14).reverse().map((entry: JournalEntry, i: number) => {
+                                const d = new Date(entry.date + "T00:00:00");
+                                const dateLabel = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                                return (
+                                  <div key={`${entry.date}-${i}`} className="pray-journal__entry">
+                                    <span className="pray-journal__date">{dateLabel}</span>
+                                    <span className="pray-journal__feeling">{entry.feelingKey}</span>
+                                    <span className="pray-journal__time">{entry.timeOfDay}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
                       </div>
                   </div>
                 </div>
-
-                {/* Prayer journal pane */}
-                {hasJournalConsent && journalEntries.length > 0 && (
-                  <div className="pray-pane pray-pane--panel" style={{ marginTop: "var(--pray-gap, 12px)" }}>
-                    <div className="pray-pane__title">YOUR JOURNEY</div>
-                    <div className="pray-pane__body font-terminal text-xs leading-snug">
-                      <div className="pray-journal">
-                        {journalEntries.slice(-14).reverse().map((entry: JournalEntry, i: number) => {
-                          const d = new Date(entry.date + "T00:00:00");
-                          const dateLabel = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                          return (
-                            <div key={`${entry.date}-${i}`} className="pray-journal__entry">
-                              <span className="pray-journal__date">{dateLabel}</span>
-                              <span className="pray-journal__feeling">{entry.feelingKey}</span>
-                              <span className="pray-journal__time">{entry.timeOfDay}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )}
 
               </div>
             </div>
@@ -728,12 +816,117 @@ function PrayPageContent() {
       {/* Enhanced styles */}
       <style jsx>{`
         :global(.pray-dashboard) { background: transparent !important; }
+
+        /* ===== Mobile titlebar + altar layout (ritual-first) ===== */
+        .pray-mobile-titlebar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          height: 44px;
+          padding: 0 4px;
+          margin-bottom: 8px;
+          flex-shrink: 0;
+          flex-grow: 0;
+        }
+        .pray-mobile-titlebar__wordmark {
+          font-family: var(--font-terminal, "JetBrains Mono", monospace);
+          font-size: 12px;
+          letter-spacing: 0.18em;
+          text-transform: lowercase;
+          color: rgba(255, 255, 255, 0.6);
+          font-weight: 600;
+        }
+        .pray-mobile-titlebar__accent {
+          color: #00ffd5;
+          opacity: 0.7;
+        }
+        .pray-mobile-titlebar__wallet {
+          display: flex;
+          align-items: center;
+        }
+        .pray-mobile-titlebar__wallet :global(button) {
+          min-height: 40px !important;
+          font-size: 11px !important;
+        }
+        .pray-mobile-chain-warn {
+          flex-shrink: 0;
+          padding: 6px 10px;
+          margin-bottom: 8px;
+          background: rgba(120, 90, 0, 0.15);
+          border: 1px solid rgba(255, 209, 102, 0.25);
+          border-radius: 8px;
+          font-family: var(--font-terminal, monospace);
+          font-size: 11px;
+          letter-spacing: 0.1em;
+          color: #ffd166;
+          text-align: center;
+        }
+        /* Journey trigger — small tappable pill that opens the journal drawer.
+           Doubles as a visible "drag up" affordance without needing a full
+           gesture library. */
+        .pray-journey-trigger {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          align-self: center;
+          margin: 10px 0 4px;
+          padding: 6px 14px 8px;
+          background: transparent;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 999px;
+          color: rgba(255, 255, 255, 0.55);
+          font-family: var(--font-terminal, "JetBrains Mono", monospace);
+          font-size: 10px;
+          letter-spacing: 0.2em;
+          text-transform: lowercase;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: color 0.18s ease, border-color 0.18s ease,
+            background 0.18s ease;
+          min-height: 40px;
+        }
+        .pray-journey-trigger:hover,
+        .pray-journey-trigger:active {
+          color: #00ffd5;
+          border-color: rgba(0, 255, 213, 0.35);
+          background: rgba(0, 255, 213, 0.04);
+        }
+        .pray-journey-trigger__handle {
+          display: inline-block;
+          width: 22px;
+          height: 2px;
+          border-radius: 2px;
+          background: rgba(255, 255, 255, 0.3);
+        }
+        .pray-journey-trigger__chevron {
+          font-size: 12px;
+          line-height: 1;
+          transform: rotate(180deg);
+          opacity: 0.7;
+        }
+
+        .pray-mobile-terminal {
+          flex: 1;
+          min-height: 0;
+          margin-top: 6px;
+          display: flex;
+          flex-direction: column;
+        }
+        .pray-mobile-terminal__inner {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          padding: 12px !important;
+        }
+
         .pray-page {
           display: flex;
           justify-content: center;
           align-items: center;
           position: relative;
-          height: 100vh;
+          height: 100dvh;
           background: transparent;
           overflow: auto;
           padding: 24px;
@@ -777,8 +970,67 @@ function PrayPageContent() {
         }
         :global(.vignette) {
           background-color: transparent !important;
-          background-image: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.35) 100%) !important;
-          opacity: 0.55;
+          background-image: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.5) 100%) !important;
+          opacity: 0.7;
+        }
+
+        /* Film grain — static SVG noise, rendered once, 3% opacity.
+           Using a data-URI SVG keeps this zero-cost (no network, no animation). */
+        :global(.pray-grain) {
+          opacity: 0.03;
+          mix-blend-mode: overlay;
+          background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+          background-size: 160px 160px;
+          background-repeat: repeat;
+        }
+
+        /* Pilot light — 3x3 amber pixel, gently breathing. */
+        :global(.pray-pilot-light) {
+          position: fixed;
+          right: calc(env(safe-area-inset-right, 0px) + 10px);
+          bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+          width: 3px;
+          height: 3px;
+          background: #d88040;
+          box-shadow: 0 0 6px rgba(216, 128, 64, 0.9), 0 0 12px rgba(216, 128, 64, 0.4);
+          z-index: 2;
+          pointer-events: none;
+          animation: pray-pilot-pulse 2.6s ease-in-out infinite;
+        }
+        @keyframes pray-pilot-pulse {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 1; }
+        }
+
+        /* Mommy pixel — 3×3 iridescent easter egg for day-90 unlockers.
+           Static, no tooltip, no animation. Positioned inconspicuously near
+           the top-left of the altar strip on mobile. */
+        :global(.mommy-pixel) {
+          position: fixed;
+          top: calc(env(safe-area-inset-top, 0px) + 56px);
+          left: 8px;
+          width: 3px;
+          height: 3px;
+          background: conic-gradient(from 0deg, #8b5cf6, #ffcc5c, #6eead8, #8b5cf6);
+          z-index: 3;
+          pointer-events: none;
+        }
+
+        /* Terminal focus glow — outer container glows when input is focused. */
+        :global(.pray-liquid-glass-terminal) {
+          transition: box-shadow 0.2s ease;
+        }
+        :global(.pray-page .pray-liquid-glass-terminal:has(:focus)) {
+          box-shadow:
+            inset 0 0 0 1px rgba(110, 234, 216, 0.25),
+            inset 0 0 24px rgba(110, 234, 216, 0.08) !important;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          :global(.pray-pilot-light) {
+            animation: none;
+            opacity: 0.7;
+          }
         }
 
         .pray-main-grid {
@@ -975,10 +1227,26 @@ function PrayPageContent() {
           font-size: 12px;
           line-height: 1.55;
           color: rgba(255, 255, 255, 0.6);
-          padding-bottom: 8px;
-          border-bottom: 1px solid rgba(0, 255, 213, 0.08);
+          padding-bottom: 0;
+          border-bottom: none;
+          margin-bottom: 0;
         }
-        .pray-manual__section { margin-bottom: 12px; }
+        .pray-manual__section { margin-bottom: 4px; }
+
+        /* Merged sidebar dividers + section titles */
+        .pray-sidebar-divider {
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(0, 255, 213, 0.18), transparent);
+          margin: 10px 0 6px 0;
+        }
+        .pray-sidebar-section-title {
+          font-size: 10px;
+          letter-spacing: 0.32em;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.55);
+          margin-bottom: 8px;
+          font-weight: 600;
+        }
         .pray-manual__label {
           display: block;
           font-size: 10px;
@@ -1224,11 +1492,14 @@ function PrayPageContent() {
             padding-bottom: calc(var(--safe-bottom, 0px) + 8px);
           }
 
-          /* Ensure minimum 48px touch targets on mobile */
-          button,
-          :global(button),
-          [role="button"],
-          :global([role="button"]) {
+          /* Minimum 48px touch targets — scoped to tappable controls only so
+             decorative chrome (vista dots, feeling chips, inline icons) isn't
+             inflated. Apply .pray-tap to any button that should meet the
+             guideline. */
+          .pray-tap,
+          button[type="submit"],
+          :global(.pray-tap),
+          :global(button[type="submit"]) {
             min-height: 48px;
             min-width: 48px;
           }
@@ -1253,7 +1524,18 @@ function PrayPageContent() {
           }
         }
       `}</style>
-      <MobileWalletButton />
+      <MobileWalletButton suppress />
+
+      {/* Prayer journey drawer — mobile swipe-up / tap trigger above */}
+      <PrayerJournalDrawer
+        isOpen={journalOpen}
+        onClose={() => setJournalOpen(false)}
+        entries={journalEntries}
+        hasConsent={hasJournalConsent}
+        streak={streakNumber}
+        longestStreak={longestStreakNumber}
+        totalPrayers={totalPrayersNumber}
+      />
     </main>
   );
 }

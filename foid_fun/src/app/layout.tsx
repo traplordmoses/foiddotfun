@@ -1,7 +1,7 @@
 import "./tokens.css";
 import "./globals.css";
 import type { ReactNode } from "react";
-import { IBM_Plex_Sans, JetBrains_Mono, Sora } from "next/font/google";
+import { Fraunces, IBM_Plex_Sans, JetBrains_Mono, Sora } from "next/font/google";
 import { Providers } from "@/providers";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import FloatingElements from "@/components/FloatingElements";
@@ -63,12 +63,20 @@ const bodyFont = IBM_Plex_Sans({
   weight: ["400", "500", "600"],
 });
 
+const serifFont = Fraunces({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-serif",
+  weight: ["400", "500"],
+  style: ["normal", "italic"],
+});
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
       suppressHydrationWarning
-      className={`h-full overflow-hidden ${displayFont.variable} ${bodyFont.variable} ${jetbrainsMono.variable}`}
+      className={`h-full overflow-hidden ${displayFont.variable} ${bodyFont.variable} ${jetbrainsMono.variable} ${serifFont.variable}`}
     >
       <head>
         <link rel="manifest" href="/site.webmanifest" />

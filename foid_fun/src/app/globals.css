@@ -246,6 +246,7 @@ html.cmp-active .app-viewport {
   --font-display: "Sora", var(--font-body);
   --font-ui: var(--font-body);
   --font-terminal: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-serif: "Fraunces", "Cormorant Garamond", Georgia, "Times New Roman", serif;
   --terminal-font-size: 16px;
   --terminal-log-size: 15.5px;
   --terminal-line-height: 1.55;
@@ -2330,6 +2331,11 @@ html.cmp-active .app-viewport {
   .foid-terminal__line--foid {
     color: var(--text-bright);
     text-shadow: 0 0 12px rgba(255, 107, 213, 0.12);
+    /* Mommy speaks in serif — distinct from mono system/user lines */
+    font-family: var(--font-serif);
+    font-size: 15.5px;
+    line-height: 1.65;
+    letter-spacing: 0;
   }
 
   .foid-terminal__line--foid strong,
@@ -2391,7 +2397,7 @@ html.cmp-active .app-viewport {
     font-family: var(--font-terminal);
     font-size: var(--terminal-log-size);
     line-height: 1.45;
-    caret-color: #6eead8;
+    caret-color: var(--pray-accent, #6eead8);
   }
 
   .foid-terminal__field--multiline {
@@ -4017,6 +4023,13 @@ html.cmp-active .app-viewport {
     font-size: 13px !important;
     line-height: 1.45 !important;
     margin-bottom: 8px !important;
+  }
+
+  /* Mommy's serif voice survives the mobile mono override. Slightly
+     smaller than desktop (14.5px vs 15.5px) to fit the narrow column. */
+  .mobile-terminal .foid-terminal__line--foid {
+    font-size: 14.5px !important;
+    line-height: 1.6 !important;
   }
 
   /* Chat log - FIXED HEIGHT with scroll.
