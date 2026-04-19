@@ -11,6 +11,9 @@ export type JournalEntry = {
   date: string;        // YYYY-MM-DD
   feelingKey: FeelingKey;
   timeOfDay: TimeOfDay;
+  // Short (1–2 syllable) word Mommy wrote back that day. Optional so
+  // older localStorage entries without it still parse cleanly.
+  mommyWord?: string;
 };
 
 export type ConsentState = 'granted' | 'denied' | null;
@@ -143,12 +146,13 @@ export function usePrayerMemory(walletAddress?: string) {
   }, [walletAddress]);
 
   const addEntry = useCallback(
-    (feelingKey: FeelingKey) => {
+    (feelingKey: FeelingKey, mommyWord?: string) => {
       if (consentState !== 'granted') return;
       const entry: JournalEntry = {
         date: todayString(),
         feelingKey,
         timeOfDay: getTimeOfDay(),
+        ...(mommyWord ? { mommyWord } : {}),
       };
       setEntries((prev) => {
         // Don't duplicate for the same day

@@ -7,6 +7,7 @@ import { usePrayerDraft } from "@/hooks/usePrayerDraft";
 import { usePrayerMemory } from "@/hooks/usePrayerMemory";
 import { useMobile } from "@/hooks/useMobile";
 import { getTierFromStreak } from "@/hooks/usePrayerTiers";
+import PrayerEcho from "@/components/PrayerEcho";
 
 export type FeelingKey =
   | "happy"
@@ -220,6 +221,44 @@ const feelingOrder: FeelingKey[] = [
   "pain",
 ];
 
+// One short word Mommy "writes back" per prayer. Persisted in the journal
+// and surfaced in the journey drawer so the user has something to hold.
+// Keep these 1–2 syllables — they are meant to land, not to explain.
+const MOMMY_WORDS: Record<FeelingKey, string[]> = {
+  happy: ["hold", "glow", "keep"],
+  calm: ["rest", "steady", "quiet"],
+  hopeful: ["forward", "open", "yes"],
+  stressed: ["unclench", "one thing", "breathe"],
+  sad: ["stay", "soft", "held"],
+  angry: ["burn", "pass", "soften"],
+  tired: ["sleep", "enough", "rest"],
+  lost: ["one step", "here", "listen"],
+  guilty: ["clean", "forgive", "begin"],
+  pain: ["stay", "held", "breathe"],
+  freeform: ["heard", "kept", "witnessed"],
+};
+
+function pickMommyWord(feeling: FeelingKey): string {
+  const pool = MOMMY_WORDS[feeling] ?? MOMMY_WORDS.freeform;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// Post-submit Mommy lines, tailored to the user's declared feeling.
+// Fired once after the existing "thank you for trusting me..." beat.
+const postSubmitLines: Record<FeelingKey, string> = {
+  happy: "hold this. it's real.",
+  calm: "rest now.",
+  hopeful: "this hope is yours. keep walking.",
+  stressed: "unclench. i've got it.",
+  sad: "i'm staying here with you.",
+  angry: "your anger makes sense. let it pass.",
+  tired: "sleep. you earned it.",
+  lost: "one step. just one.",
+  guilty: "tomorrow starts clean.",
+  pain: "i see you. i'm here.",
+  freeform: "i hear you, love.",
+};
+
 type Stage =
   | "idle"
   | "loading"
@@ -345,6 +384,13 @@ export default function FoidMommyTerminal({
   const [prayerRevealing, setPrayerRevealing] = useState(false);
   const [prayerMessageId, setPrayerMessageId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  // Ritual beat state: dim the terminal during the silent pause before hashing.
+  const [ceremonyDim, setCeremonyDim] = useState(false);
+  // Ritual beat state: show the user's prayer briefly, reversed, then fade.
+  const [echoText, setEchoText] = useState("");
+  const [echoActive, setEchoActive] = useState(false);
+  // Message ids currently showing the chromatic-aberration flash.
+  const [chromaticIds, setChromaticIds] = useState<Set<string>>(() => new Set());
   const [feelingKey, setFeelingKey] = useState<FeelingKey | null>(null);
   const [feelingInput, setFeelingInput] = useState("");
   const [secondChatInput, setSecondChatInput] = useState("");
@@ -396,6 +442,25 @@ export default function FoidMommyTerminal({
 
   const updateMessage = useCallback((id: string, text: string) => {
     setMessages((prev) => prev.map((msg) => (msg.id === id ? { ...msg, text } : msg)));
+  }, []);
+
+  // Briefly marks a message id for chromatic-aberration styling. CSS handles
+  // the 400ms animation; we just add/remove the class via state.
+  const flashChromatic = useCallback((id: string) => {
+    setChromaticIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    const timer = window.setTimeout(() => {
+      setChromaticIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, 420);
+    timeoutsRef.current.push(timer);
   }, []);
 
   const typeMessage = useCallback(
@@ -796,17 +861,32 @@ export default function FoidMommyTerminal({
         setSuggestedPrayer(prayer);
         setPrayerText(prayer);
 
-        await sleep(800);
+        // ── Ritual beat: the pause. Dim the terminal, hold for 900ms, release.
+        // The hashing beat that follows is typed at speed: 60 so the three
+        // system messages read slower than normal — triple the usual weight.
+        setCeremonyDim(true);
+        await sleep(900);
+        setCeremonyDim(false);
 
-        // Auto-submit to chain
-        await typeMessage({ role: "system", text: "hashing your prayer locally..." });
+        // Auto-submit to chain (slowed + chromatic flash on the ritual phrases)
+        const hashingId = await typeMessage({
+          role: "system",
+          text: "hashing your prayer locally...",
+          speed: 60,
+        });
+        flashChromatic(hashingId);
         await sleep(600);
-        await typeMessage({ role: "system", text: "hash ready." });
+        const hashReadyId = await typeMessage({
+          role: "system",
+          text: "hash ready.",
+          speed: 60,
+        });
+        flashChromatic(hashReadyId);
         await sleep(400);
         await typeMessage({
           role: "foid",
           text: "anchoring only the hash on-chain. your prayer stays with you.",
-          speed: 20,
+          speed: 60,
         });
         await typeMessage({
           role: "foid",
@@ -832,7 +912,7 @@ export default function FoidMommyTerminal({
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [addMessage, typeMessage, isProcessing, feelingKey, initialFeelingText, hasMemoryConsent, getRecentFeelings],
+    [addMessage, typeMessage, isProcessing, feelingKey, initialFeelingText, hasMemoryConsent, getRecentFeelings, flashChromatic],
   );
 
   const feelingLimit = 140;
@@ -940,16 +1020,35 @@ export default function FoidMommyTerminal({
       if (waitForReceipt && result?.txHash) {
         await sleep(500);
         updateMessage(statusId, "weaving into the chain...");
+        // Brief chromatic-aberration flash tied to the status message id.
+        flashChromatic(statusId);
         await waitForReceipt(result.txHash);
       }
 
       updateMessage(statusId, "status: anchored.");
       await sleep(300);
-      await typeMessage({ role: "system", text: "done. your prayer is anchored." });
+      const anchoredId = await typeMessage({
+        role: "system",
+        text: "done. your prayer is anchored.",
+      });
+      flashChromatic(anchoredId);
+
+      // ── Ritual beat: the echo. User's words, witnessed then gone.
+      // Fire-and-forget: the echo is purely visual and dissolves on its own.
+      if (prayerToSend) {
+        setEchoText(prayerToSend);
+        setEchoActive(true);
+      }
+
       await typeMessage({
         role: "foid",
         text: "thank you for trusting me, anon. drink water, unclench your jaw, breathe.",
       });
+
+      // ── Ritual beat: the post-submit line, tailored to the feeling.
+      const postLine =
+        postSubmitLines[feelingToSend ?? "freeform"] ?? postSubmitLines.freeform;
+      await typeMessage({ role: "foid", text: postLine, speed: 30 });
 
       sfx.playReward();
       sfx.playAnchorBell();
@@ -957,9 +1056,10 @@ export default function FoidMommyTerminal({
       const nextAllowedTimestamp = Math.floor(Date.now() / 1000) + 86400;
       celebrateTransaction(result?.txHash, nextAllowedTimestamp);
 
-      // Record feeling in memory journal
+      // Record feeling in memory journal along with a short word Mommy
+      // "wrote back" for the day.
       if (hasMemoryConsent && feelingKey) {
-        addMemoryEntry(feelingKey);
+        addMemoryEntry(feelingKey, pickMommyWord(feelingKey));
       }
 
       setStage("afterglow");
@@ -1149,6 +1249,7 @@ export default function FoidMommyTerminal({
     hasMemoryConsent,
     addMemoryEntry,
     onDailyCheckInChoice,
+    flashChromatic,
     // nextAllowedText and stage are used in afterglow flow but declared later
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ]);
@@ -1486,7 +1587,7 @@ export default function FoidMommyTerminal({
 
   return (
     <div
-      className={`foid-terminal foid-cli w-full ${className ?? ""}`}
+      className={`foid-terminal foid-cli w-full${ceremonyDim ? " foid-terminal--ceremony-dim" : ""} ${className ?? ""}`}
     >
       {/* IDLE STATE: Show only centered START button */}
       {stage === "idle" && !autoStart ? (
@@ -1518,6 +1619,7 @@ export default function FoidMommyTerminal({
                 }
 
                 const isPrayerLine = msg.id === prayerMessageId;
+                const isChromatic = chromaticIds.has(msg.id);
 
                 return (
                   <div
@@ -1531,7 +1633,7 @@ export default function FoidMommyTerminal({
                           : `foid-terminal__line--system${
                               msg.text.toLowerCase().startsWith("booting") ? " foid-terminal__line--boot" : ""
                             }`
-                    }`}
+                    }${isChromatic ? " foid-terminal__line--chromatic" : ""}`}
                   >
                     {msg.role === "user" && (
                       <span className="foid-terminal__prompt">{promptLabel}</span>
@@ -1586,6 +1688,16 @@ export default function FoidMommyTerminal({
       <PrayerFocalOverlay
         active={prayerRevealing}
         messages={messages}
+      />
+
+      {/* ── Ritual beat: prayer echo (reversed, low opacity, dissolves) ── */}
+      <PrayerEcho
+        text={echoText}
+        active={echoActive}
+        onDone={() => {
+          setEchoActive(false);
+          setEchoText("");
+        }}
       />
     </div>
   );
