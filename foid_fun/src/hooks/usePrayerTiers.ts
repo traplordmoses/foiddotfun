@@ -34,7 +34,9 @@ export interface TierProgress {
 
 /** Compute tier + progress from a streak day count (client-side, no contract call needed). */
 export function getTierFromStreak(streakDays: number): TierProgress {
-  let currentTier: TierInfo = { level: 0, name: "Unranked", multiplierBps: 0, minDays: 0 };
+  // Level-0 placeholder name for users who haven't prayed yet.
+  // Intentionally brand-voiced lowercase — Moses can override.
+  let currentTier: TierInfo = { level: 0, name: "not yet", multiplierBps: 0, minDays: 0 };
   let nextTier: TierInfo | null = TIERS[0];
 
   for (let i = TIERS.length - 1; i >= 0; i--) {
