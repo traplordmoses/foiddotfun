@@ -46,6 +46,20 @@ import {
   tryDecodeEventLog,
 } from "./lib/workerHelpers";
 
+export { buildManifestPayload } from "./lib/manifest";
+
+export function selectMaturedPlacementIds(params: {
+  epochId: number;
+  nowSec: number;
+  endsAtSec: number;
+  placements: { epoch: number; id: string }[];
+}): string[] {
+  if (params.nowSec < params.endsAtSec) return [];
+  return params.placements
+    .filter((p) => p.epoch === params.epochId)
+    .map((p) => p.id);
+}
+
 dotenv.config();
 dotenv.config({ path: ".env.local", override: true });
 
