@@ -703,7 +703,7 @@ function Sparkline({ points }: { points: { date: string; value: number; entry: J
     >
       <defs>
         <linearGradient id="journal-spark-stroke" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="var(--altar-accent, #6eead8)" />
+          <stop offset="0%" stopColor="var(--pray-accent, #6eead8)" />
           <stop offset="100%" stopColor="#f7d877" />
         </linearGradient>
       </defs>
@@ -729,7 +729,7 @@ function Sparkline({ points }: { points: { date: string; value: number; entry: J
           cx={xFor(i)}
           cy={yFor(p.value)}
           r={3}
-          fill="var(--altar-accent, #6eead8)"
+          fill="var(--pray-accent, #6eead8)"
         >
           <title>{`${p.date}: ${p.entry.feelingKey}`}</title>
         </circle>
