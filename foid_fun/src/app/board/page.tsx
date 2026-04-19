@@ -44,6 +44,7 @@ import { BoardActions } from "@/components/board/BoardActions";
 import { PresenceLayer } from "@/components/board/PresenceLayer";
 import { usePresence } from "@/hooks/board/usePresence";
 import { OnboardingTour, ONBOARDING_STORAGE_KEY } from "@/components/board/OnboardingTour";
+import { SoundToggle } from "@/components/board/SoundToggle";
 // BatchReviewModal is only rendered after the user clicks SUBMIT PROPOSAL.
 // Dynamic-import keeps the dry-run-preview + gas-estimation logic off the
 // initial /board bundle. The in-flight fetch is masked by user action.
@@ -524,11 +525,18 @@ function BoardPageContent() {
         try {
           workingFile = await convertToJpeg(workingFile);
           kind = "jpg";
-        } catch { addStatus("Could not process image.", "error"); return; }
+        } catch {
+          addStatus("Could not process image.", "error");
+          // Phase γ — SFX: invalid drop
+          import("@/lib/sfx").then((sfx) => sfx.default.playDropInvalid()).catch(() => {});
+          return;
+        }
       }
       // Open paint editor before placing on board
       setDesktopPaintFile(workingFile);
       setDesktopPaintPos(pos);
+      // Phase γ — SFX: valid drop, paint editor is about to open
+      import("@/lib/sfx").then((sfx) => sfx.default.playDropValid()).catch(() => {});
     } finally {
       setBusy(false);
       setGhost(null);
@@ -801,6 +809,17 @@ function BoardPageContent() {
         else if (s.state === "failed") toastFailed(s.id, s.name, s.detail);
         else if (s.state === "rejected") toastInfo(s.id, "Transaction cancelled");
         else if (s.state === "queued") toastInfo(s.id, `${s.name} kept for retry`);
+
+        // Phase γ — signature lifecycle SFX. Dynamic import keeps the audio
+        // graph off the initial board bundle.
+        if (s.state === "signing" || s.state === "confirmed" || s.state === "failed" || s.state === "rejected") {
+          import("@/lib/sfx").then((m) => {
+            const sfx = m.default;
+            if (s.state === "signing") sfx.playSignatureRequested();
+            else if (s.state === "confirmed") sfx.playSignatureConfirmed();
+            else if (s.state === "failed" || s.state === "rejected") sfx.playSignatureRejected();
+          }).catch(() => {});
+        }
       },
       onItemConfirmed: (status, item) => {
         if (!status.txHash) return;
@@ -1323,6 +1342,10 @@ function BoardPageContent() {
               {/* Sidebar */}
               <div className="board-sidebar">
                 <div className="board-sidebar__scroller">
+                  {/* Sound toggle — flips global SFX on/off for the board */}
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+                    <SoundToggle />
+                  </div>
                   {/* Actions */}
                   <BoardActions
                     submissionFeeWei={SUBMISSION_FEE_WEI}

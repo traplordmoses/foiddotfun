@@ -656,6 +656,160 @@ export function playAmbientHum(): { stop: () => void } {
   };
 }
 
+// ============================================================================
+// Phase γ — Board state-transition SFX
+// All synthesized inline. Each one returns early if audio is unlocked=false
+// or sfxEnabled=false, and scales output by sfxVolume.
+// ============================================================================
+
+/** Short upward chime when a placement drops on a valid cell. */
+export function playDropValid(): void {
+  if (!isBrowser || !unlocked) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
+  const ac = ensureCtx();
+  if (!ac) return;
+  const vol = 0.18 * settings.sfxVolume;
+  const now = ac.currentTime;
+  const osc = ac.createOscillator();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(660, now);
+  osc.frequency.exponentialRampToValueAtTime(880, now + 0.08);
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(vol, now + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+  osc.connect(g);
+  g.connect(ac.destination);
+  osc.start(now);
+  osc.stop(now + 0.14);
+}
+
+/** Muted buzz when a placement drops on an invalid cell. */
+export function playDropInvalid(): void {
+  if (!isBrowser || !unlocked) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
+  const ac = ensureCtx();
+  if (!ac) return;
+  const vol = 0.14 * settings.sfxVolume;
+  const now = ac.currentTime;
+  const osc = ac.createOscillator();
+  osc.type = "sawtooth";
+  osc.frequency.value = 110;
+  const filt = ac.createBiquadFilter();
+  filt.type = "lowpass";
+  filt.frequency.value = 400;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(vol, now + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+  osc.connect(filt);
+  filt.connect(g);
+  g.connect(ac.destination);
+  osc.start(now);
+  osc.stop(now + 0.1);
+}
+
+/** Short click when the paint editor tool changes. */
+export function playPaintToolChange(): void {
+  if (!isBrowser || !unlocked) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
+  const ac = ensureCtx();
+  if (!ac) return;
+  const vol = 0.12 * settings.sfxVolume;
+  const now = ac.currentTime;
+  const osc = ac.createOscillator();
+  osc.type = "square";
+  osc.frequency.value = 1200;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(vol, now);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
+  osc.connect(g);
+  g.connect(ac.destination);
+  osc.start(now);
+  osc.stop(now + 0.04);
+}
+
+/** Ascending bleep when a wallet signature is requested. */
+export function playSignatureRequested(): void {
+  if (!isBrowser || !unlocked) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
+  const ac = ensureCtx();
+  if (!ac) return;
+  const vol = 0.16 * settings.sfxVolume;
+  const now = ac.currentTime;
+  const osc = ac.createOscillator();
+  osc.type = "square";
+  osc.frequency.setValueAtTime(400, now);
+  osc.frequency.exponentialRampToValueAtTime(800, now + 0.18);
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(vol, now + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+  osc.connect(g);
+  g.connect(ac.destination);
+  osc.start(now);
+  osc.stop(now + 0.24);
+}
+
+/** Bell tone when a signature is confirmed on-chain. */
+export function playSignatureConfirmed(): void {
+  if (!isBrowser || !unlocked) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
+  const ac = ensureCtx();
+  if (!ac) return;
+  const vol = 0.18 * settings.sfxVolume;
+  const now = ac.currentTime;
+  // Fundamental — A5 triangle
+  const fund = ac.createOscillator();
+  fund.type = "triangle";
+  fund.frequency.value = 880;
+  const fg = ac.createGain();
+  fg.gain.setValueAtTime(vol, now);
+  fg.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+  fund.connect(fg);
+  fg.connect(ac.destination);
+  fund.start(now);
+  fund.stop(now + 0.44);
+  // Overtone — A6 sine, quieter
+  const over = ac.createOscillator();
+  over.type = "sine";
+  over.frequency.value = 1760;
+  const og = ac.createGain();
+  og.gain.setValueAtTime(vol * 0.35, now);
+  og.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
+  over.connect(og);
+  og.connect(ac.destination);
+  over.start(now);
+  over.stop(now + 0.34);
+}
+
+/** Descending blip when a signature is rejected. */
+export function playSignatureRejected(): void {
+  if (!isBrowser || !unlocked) return;
+  const settings = getAudioSettings();
+  if (!settings.sfxEnabled) return;
+  const ac = ensureCtx();
+  if (!ac) return;
+  const vol = 0.15 * settings.sfxVolume;
+  const now = ac.currentTime;
+  const osc = ac.createOscillator();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(500, now);
+  osc.frequency.exponentialRampToValueAtTime(200, now + 0.14);
+  const g = ac.createGain();
+  g.gain.setValueAtTime(vol, now);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+  osc.connect(g);
+  g.connect(ac.destination);
+  osc.start(now);
+  osc.stop(now + 0.17);
+}
+
 const sfx = {
   init,
   unlock,
@@ -670,6 +824,13 @@ const sfx = {
   playVictoryChord,
   playAnchorBell,
   playAmbientHum,
+  // Phase γ additions
+  playDropValid,
+  playDropInvalid,
+  playPaintToolChange,
+  playSignatureRequested,
+  playSignatureConfirmed,
+  playSignatureRejected,
   typing,
   playTypingTick,
   background,
