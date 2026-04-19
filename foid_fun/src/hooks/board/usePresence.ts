@@ -105,56 +105,79 @@ export function usePresence(opts: UsePresenceOpts = {}): UsePresenceReturn {
   useEffect(() => {
     if (!active || !supabase) return;
 
-    const channel = supabase.channel(CHANNEL_NAME, {
-      config: { broadcast: { self: false } },
-    });
+    // Everything here is wrapped in try/catch because Supabase Realtime's
+    // `.subscribe()` can throw SYNCHRONOUSLY on iOS Safari and in-app
+    // browsers when the WebSocket constructor fails (CSP refusal, mixed
+    // content, private-browsing restrictions). An uncaught throw from a
+    // useEffect propagates to the nearest error boundary — in our case
+    // that's BoardPage's ErrorBoundary, which used to show "Board Error:
+    // WebSocket not available: The operation is insecure." instead of
+    // just quietly disabling the cursor ghosts. Presence is an ambient
+    // nice-to-have; it must never crash the board.
+    let channel: ReturnType<NonNullable<typeof supabase>["channel"]> | null = null;
+    let cleanupTimer: number | null = null;
 
-    channel.on("broadcast", { event: "cursor" }, (msg: { payload: PresenceBroadcastPayload }) => {
-      const payload = msg.payload;
-      if (!payload || !payload.sessionId) return;
-      if (payload.sessionId === sessionId) return; // ignore self
-      setPeers((prev) => {
-        const next = new Map(prev);
-        next.set(payload.sessionId, {
-          sessionId: payload.sessionId,
-          displayName: payload.displayName || "anon",
-          cursor: payload.cursor,
-          lastSeen: Date.now(),
-        });
-        return next;
+    try {
+      channel = supabase.channel(CHANNEL_NAME, {
+        config: { broadcast: { self: false } },
       });
-    });
 
-    channel.subscribe((status) => {
-      if (status === "SUBSCRIBED") {
-        channelRef.current = channel;
-      }
-    });
+      channel.on(
+        "broadcast",
+        { event: "cursor" },
+        (msg: { payload: PresenceBroadcastPayload }) => {
+          const payload = msg.payload;
+          if (!payload || !payload.sessionId) return;
+          if (payload.sessionId === sessionId) return; // ignore self
+          setPeers((prev) => {
+            const next = new Map(prev);
+            next.set(payload.sessionId, {
+              sessionId: payload.sessionId,
+              displayName: payload.displayName || "anon",
+              cursor: payload.cursor,
+              lastSeen: Date.now(),
+            });
+            return next;
+          });
+        },
+      );
 
-    // Idle cleanup — drop peers that haven't broadcast in STALE_MS.
-    const cleanup = window.setInterval(() => {
-      const cutoff = Date.now() - STALE_MS;
-      setPeers((prev) => {
-        let changed = false;
-        const next = new Map(prev);
-        for (const [id, state] of prev) {
-          if (state.lastSeen < cutoff) {
-            next.delete(id);
-            changed = true;
-          }
+      channel.subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          channelRef.current = channel;
         }
-        return changed ? next : prev;
       });
-    }, CLEANUP_INTERVAL);
+
+      // Idle cleanup — drop peers that haven't broadcast in STALE_MS.
+      cleanupTimer = window.setInterval(() => {
+        const cutoff = Date.now() - STALE_MS;
+        setPeers((prev) => {
+          let changed = false;
+          const next = new Map(prev);
+          for (const [id, state] of prev) {
+            if (state.lastSeen < cutoff) {
+              next.delete(id);
+              changed = true;
+            }
+          }
+          return changed ? next : prev;
+        });
+      }, CLEANUP_INTERVAL);
+    } catch (err) {
+      // Degrade to no-op. `peers` stays empty; sendCursor already guards
+      // on `active`, and the channelRef never being populated means any
+      // later send attempts silently bail.
+      console.warn("[usePresence] realtime unavailable, degrading:", err);
+    }
 
     return () => {
-      window.clearInterval(cleanup);
+      if (cleanupTimer != null) window.clearInterval(cleanupTimer);
       if (sendTimerRef.current) {
         window.clearTimeout(sendTimerRef.current);
         sendTimerRef.current = null;
       }
       try {
-        supabase?.removeChannel(channel);
+        if (channel) supabase?.removeChannel(channel);
       } catch {
         /* noop */
       }
