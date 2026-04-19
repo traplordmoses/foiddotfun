@@ -53,7 +53,7 @@ import {
 } from "@/lib/presenceSettings";
 import { FeaturedRibbon, useFeaturedProposal } from "@/components/board/FeaturedRibbon";
 import { FpsCounter } from "@/components/board/FpsCounter";
-import { track } from "@/lib/analytics";
+import { useBoardAnalytics } from "@/hooks/useBoardAnalytics";
 // BatchReviewModal is only rendered after the user clicks SUBMIT PROPOSAL.
 // Dynamic-import keeps the dry-run-preview + gas-estimation logic off the
 // initial /board bundle. The in-flight fetch is masked by user action.
@@ -233,6 +233,10 @@ function BoardPageContent() {
   const clearBoardState = useBoard((s) => s.clearAll);
   const setCidFor = useBoard((s) => s.setCidFor);
 
+  // Analytics — stable callbacks, no-ops when NEXT_PUBLIC_POSTHOG_KEY is
+  // unset or DNT is on. Timing math for placements lives in the hook.
+  const analytics = useBoardAnalytics();
+
   // Wallet
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
@@ -352,7 +356,7 @@ function BoardPageContent() {
         if (idx >= SEQ.length) {
           idx = 0;
           document.body.classList.add("retro-mode");
-          track("retro_mode_triggered");
+          analytics.trackRetroModeTriggered();
           if (revertTimer) window.clearTimeout(revertTimer);
           revertTimer = window.setTimeout(() => {
             document.body.classList.remove("retro-mode");
@@ -368,7 +372,7 @@ function BoardPageContent() {
       if (revertTimer) window.clearTimeout(revertTimer);
       document.body.classList.remove("retro-mode");
     };
-  }, []);
+  }, [analytics]);
 
   // Idle-zoom to featured proposal after 10s of inactivity. Listens on
   // pointer + wheel + key events to reset the timer. Fires exactly once
