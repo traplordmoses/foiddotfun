@@ -24,7 +24,11 @@ export type OnboardingStep = {
 
 export const DEFAULT_STEPS: OnboardingStep[] = [
   {
-    anchor: ".board-stage",
+    // Anchor on .board-window (the pan/zoom container) rather than
+    // .board-stage (its transformed child). getBoundingClientRect on the
+    // stage returns the post-transform box, which balloons to several
+    // thousand pixels when zoomed out and pushes the spotlight off-screen.
+    anchor: ".board-window",
     title: "You're on the board",
     body:
       "Your meme is in voting for 72h — here's where you'll watch it land or get rejected.",
@@ -77,17 +81,50 @@ function clampToViewport(
   };
 }
 
+const TITLE_ID = "onboarding-tour-title";
+const BODY_ID = "onboarding-tour-body";
+
 export function OnboardingTour({ open, onClose, steps = DEFAULT_STEPS }: Props) {
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState<AnchorRect>(null);
   const [mounted, setMounted] = useState(false);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
+  const nextBtnRef = useRef<HTMLButtonElement | null>(null);
+  const skipBtnRef = useRef<HTMLButtonElement | null>(null);
+  // Element that had focus before the tour opened. Restored on close so
+  // keyboard / screen-reader users return to where they were.
+  const previousActiveRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => setMounted(true), []);
 
   // Reset to step 0 whenever the tour opens.
   useEffect(() => {
     if (open) setIndex(0);
+  }, [open]);
+
+  // Focus management — when the tour opens, capture the current activeElement
+  // so we can return focus to it on close, and move focus into the dialog
+  // (to the primary Next button). Screen readers announce the dialog via
+  // aria-labelledby/aria-describedby once focus lands inside it.
+  useEffect(() => {
+    if (!open) return;
+    if (typeof document !== "undefined") {
+      previousActiveRef.current =
+        (document.activeElement as HTMLElement | null) ?? null;
+    }
+    // Defer one tick so the tooltip + button refs are attached after render.
+    const t = window.setTimeout(() => {
+      nextBtnRef.current?.focus({ preventScroll: true });
+    }, 0);
+    return () => {
+      window.clearTimeout(t);
+      // Restore focus — ignore errors if the previous element is gone.
+      try {
+        previousActiveRef.current?.focus?.({ preventScroll: true });
+      } catch {
+        /* noop */
+      }
+    };
   }, [open]);
 
   // Recompute anchor rect on step change, scroll, or resize.
@@ -206,6 +243,33 @@ export function OnboardingTour({ open, onClose, steps = DEFAULT_STEPS }: Props) 
       <motion.div
         ref={tooltipRef}
         key={`onboarding-tip-${index}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={TITLE_ID}
+        aria-describedby={BODY_ID}
+        tabIndex={-1}
+        onKeyDown={(e) => {
+          // Escape dismisses as skipped.
+          if (e.key === "Escape") {
+            e.preventDefault();
+            finish("skipped");
+            return;
+          }
+          // Tab focus trap — only Skip and Next are focusable inside the
+          // dialog. Wrap between them in DOM order (Skip first, Next last).
+          if (e.key !== "Tab") return;
+          const first = skipBtnRef.current;
+          const last = nextBtnRef.current;
+          if (!first || !last) return;
+          const active = document.activeElement;
+          if (e.shiftKey && active === first) {
+            e.preventDefault();
+            last.focus();
+          } else if (!e.shiftKey && active === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }}
         initial={{ opacity: 0, y: arrowEdge === "top" ? -8 : 8, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
@@ -225,6 +289,7 @@ export function OnboardingTour({ open, onClose, steps = DEFAULT_STEPS }: Props) 
           padding: "14px 16px 12px",
           fontFamily:
             "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          outline: "none",
         }}
       >
         <div
@@ -247,6 +312,7 @@ export function OnboardingTour({ open, onClose, steps = DEFAULT_STEPS }: Props) 
             STEP {index + 1} / {steps.length}
           </div>
           <button
+            ref={skipBtnRef}
             type="button"
             onClick={() => finish("skipped")}
             style={{
@@ -264,6 +330,7 @@ export function OnboardingTour({ open, onClose, steps = DEFAULT_STEPS }: Props) 
         </div>
 
         <div
+          id={TITLE_ID}
           style={{
             fontSize: 15,
             fontWeight: 700,
@@ -273,7 +340,10 @@ export function OnboardingTour({ open, onClose, steps = DEFAULT_STEPS }: Props) 
         >
           {step.title}
         </div>
-        <div style={{ fontSize: 13, lineHeight: 1.45, color: "rgba(255,255,255,0.85)" }}>
+        <div
+          id={BODY_ID}
+          style={{ fontSize: 13, lineHeight: 1.45, color: "rgba(255,255,255,0.85)" }}
+        >
           {step.body}
         </div>
 
@@ -286,6 +356,7 @@ export function OnboardingTour({ open, onClose, steps = DEFAULT_STEPS }: Props) 
           }}
         >
           <button
+            ref={nextBtnRef}
             type="button"
             onClick={next}
             style={{
