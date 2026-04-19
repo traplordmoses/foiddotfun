@@ -1,0 +1,56 @@
+# .github/workflows/bundle-size.yml
+# Bundle-size gate for foid_fun/. Runs `pnpm size` against the built
+# .next output and fails the PR if any per-route chunk exceeds its
+# budget (package.json "size-limit" array).
+#
+# We deliberately avoid andresz1/size-limit-action@v1 — it hardcodes
+# `npx size-limit --json` for its base-vs-PR diff, which bypasses our
+# pnpm install and tries to fetch size-limit globally. The auto-installed
+# package doesn't find @size-limit/preset-app and crashes with
+# "Install Size Limit preset depends on type of the project". Running
+# `pnpm size` directly gives us the same gate without the diff comment.
+#
+# Kept separate from foid-fun-ci.yml so a Lighthouse flake doesn't mask
+# a bundle regression and vice versa.
+
+name: Bundle size
+
+on:
+  pull_request:
+    paths:
+      - "foid_fun/**"
+      - ".github/workflows/bundle-size.yml"
+  push:
+    branches: [main]
+
+jobs:
+  size:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: foid_fun
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: foid_fun/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+        env:
+          # Build-only placeholder. The bundle just needs to exist —
+          # size-limit reads static chunks from .next/static/chunks/app/**.
+          NEXT_PUBLIC_POSTHOG_KEY: ""
+
+      - name: Size check
+        run: pnpm size
