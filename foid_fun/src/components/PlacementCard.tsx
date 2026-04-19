@@ -253,7 +253,14 @@ function PlacementCardInner({
           width={width}
           height={height}
           className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-          loading="lazy"
+          // loading="eager" intentional: the board-stage ancestor has a
+          // non-identity CSS transform applied via direct DOM mutation
+          // (usePanZoom rAF). IntersectionObserver-driven lazy loading is
+          // unreliable inside transformed ancestors in Chrome/Safari, and
+          // on a 65536² stage images may never begin loading at all.
+          // Viewport virtualization already caps rendered placements to
+          // ~15–25, so eager is cheap. See also MobileBoard.tsx.
+          loading="eager"
           decoding="async"
           // @ts-expect-error — fetchpriority is a standard HTML attribute.
           // "auto" lets the browser promote the hero (first above-the-fold

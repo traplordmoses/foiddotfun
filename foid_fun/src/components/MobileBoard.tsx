@@ -205,7 +205,14 @@ export function MobileBoard({
                     alt="Board item"
                     width={node.width}
                     height={node.height}
-                    loading="lazy"
+                    // loading="eager" intentional: the board-stage ancestor
+                    // has a non-identity CSS transform applied via direct DOM
+                    // mutation (usePanZoom rAF). IntersectionObserver-driven
+                    // lazy loading is unreliable inside transformed ancestors
+                    // in Chrome/Safari, so images may never begin loading.
+                    // Viewport virtualization bounds rendered nodes, so eager
+                    // is cheap. See also PlacementCard.tsx.
+                    loading="eager"
                     decoding="async"
                     className="w-full h-full object-cover pointer-events-none"
                     style={isVoting ? { opacity: 0.6 } : undefined}

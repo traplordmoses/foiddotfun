@@ -2,12 +2,16 @@ const HTTP_URL_REGEX = /^https?:\/\//i;
 const IPFS_SCHEME_REGEX = /^ipfs:\/\//i;
 const IPFS_PATH_PREFIX = "/ipfs/";
 
+// IMPORTANT: This list MUST stay in sync with the CSP img-src/connect-src
+// whitelist in next.config.mjs:20. Any gateway added here that is not
+// whitelisted by the CSP will be blocked by the browser, fire onError on
+// the <img>, poison the session circuit breaker (ipfsGatewayCache.ts),
+// and can cascade into "no images ever load" failures. If you change
+// one list, mirror the change in the other.
 const FALLBACK_GATEWAY_BASES = [
   "https://ipfs.io",
-  "https://ipfs.filebase.io",
   "https://dweb.link",
-  "https://4everland.io",
-  "https://w3s.link",
+  "https://cloudflare-ipfs.com",
   "https://gateway.pinata.cloud",
 ];
 const PROXY_PATH_RAW = process.env.NEXT_PUBLIC_IPFS_PROXY_PATH?.trim();
