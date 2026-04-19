@@ -16,24 +16,6 @@ type Props = {
   hasEverPrayed: boolean;
 };
 
-// Tier-reactive accent color: cool cyan → warm gold as streak climbs
-function tierAccent(level: number): string {
-  const map: Record<number, string> = {
-    0: "#6eead8",
-    1: "#6eead8",
-    2: "#7adcd0",
-    3: "#8ed0c4",
-    4: "#a4c2b1",
-    5: "#bab49b",
-    6: "#caa585",
-    7: "#d49a6f",
-    8: "#dc8f56",
-    9: "#d88040",
-    10: "#d8b56e",
-  };
-  return map[level] ?? "#6eead8";
-}
-
 function formatCountdown(seconds: number): string {
   if (seconds <= 0) return "ready";
   const h = Math.floor(seconds / 3600);
@@ -88,7 +70,6 @@ export default function PrayerAltarStrip({
   hasEverPrayed,
 }: Props) {
   const displayStreak = useCountUp(streak);
-  const accent = tierAccent(tier.current.level);
 
   const cooldownSeconds =
     nowSeconds !== null && nextAllowedAt
@@ -109,7 +90,6 @@ export default function PrayerAltarStrip({
   return (
     <div
       className={`altar-strip ${afterglow ? "altar-strip--afterglow" : ""}`}
-      style={{ ["--altar-accent" as string]: accent }}
       role="region"
       aria-label="Prayer altar"
     >
@@ -132,7 +112,7 @@ export default function PrayerAltarStrip({
               cy="42"
               r={R}
               fill="none"
-              stroke="var(--altar-accent)"
+              stroke="var(--pray-accent, #6eead8)"
               strokeWidth="1.25"
               strokeLinecap="round"
               strokeDasharray="2 5"
@@ -154,7 +134,7 @@ export default function PrayerAltarStrip({
                 cy="42"
                 r={R}
                 fill="none"
-                stroke="var(--altar-accent)"
+                stroke="var(--pray-accent, #6eead8)"
                 strokeWidth="1.75"
                 strokeLinecap="round"
                 strokeDasharray={CIRC}
@@ -172,7 +152,7 @@ export default function PrayerAltarStrip({
               cy="42"
               r={R + 3}
               fill="none"
-              stroke="var(--altar-accent)"
+              stroke="var(--pray-accent, #6eead8)"
               strokeWidth="1"
               opacity="0.4"
               className="altar-portal__ready-ring"
@@ -271,7 +251,7 @@ export default function PrayerAltarStrip({
             background:
               radial-gradient(
                 circle at 18% 50%,
-                color-mix(in oklab, var(--altar-accent) 8%, transparent) 0%,
+                color-mix(in oklab, var(--pray-accent, #6eead8) 8%, transparent) 0%,
                 transparent 45%
               ),
               linear-gradient(
@@ -289,10 +269,10 @@ export default function PrayerAltarStrip({
           padding: 1px;
           background: linear-gradient(
             135deg,
-            color-mix(in oklab, var(--altar-accent) 18%, transparent),
+            color-mix(in oklab, var(--pray-accent, #6eead8) 18%, transparent),
             transparent 40%,
             transparent 60%,
-            color-mix(in oklab, var(--altar-accent) 10%, transparent)
+            color-mix(in oklab, var(--pray-accent, #6eead8) 10%, transparent)
           );
           -webkit-mask: linear-gradient(#fff 0 0) content-box,
             linear-gradient(#fff 0 0);
@@ -306,11 +286,11 @@ export default function PrayerAltarStrip({
             inset 0 1px 0 rgba(255, 255, 255, 0.06),
             inset 0 -1px 0 rgba(0, 0, 0, 0.35),
             0 0 32px
-              color-mix(in oklab, var(--altar-accent) 40%, transparent),
+              color-mix(in oklab, var(--pray-accent, #6eead8) 40%, transparent),
             0 4px 20px rgba(0, 0, 0, 0.35);
           border-color: color-mix(
             in oklab,
-            var(--altar-accent) 35%,
+            var(--pray-accent, #6eead8) 35%,
             transparent
           );
         }
@@ -330,7 +310,7 @@ export default function PrayerAltarStrip({
           border-radius: 50%;
           background: radial-gradient(
             circle,
-            color-mix(in oklab, var(--altar-accent) 22%, transparent) 0%,
+            color-mix(in oklab, var(--pray-accent, #6eead8) 22%, transparent) 0%,
             transparent 65%
           );
           filter: blur(6px);
@@ -348,9 +328,9 @@ export default function PrayerAltarStrip({
           border-radius: 50%;
           overflow: hidden;
           box-shadow:
-            0 0 0 1px color-mix(in oklab, var(--altar-accent) 25%, transparent),
+            0 0 0 1px color-mix(in oklab, var(--pray-accent, #6eead8) 25%, transparent),
             0 0 20px
-              color-mix(in oklab, var(--altar-accent) 15%, transparent);
+              color-mix(in oklab, var(--pray-accent, #6eead8) 15%, transparent);
           background: rgba(0, 0, 0, 0.4);
         }
         .altar-portal__gif :global(img) {
@@ -405,7 +385,7 @@ export default function PrayerAltarStrip({
            Subtle scale + glow on ready states only. */
         .altar-sparkle {
           font-size: 14px;
-          color: var(--altar-accent);
+          color: var(--pray-accent, #6eead8);
           text-shadow: 0 0 10px rgba(110, 234, 216, 0.55);
           transform: translateY(-1px);
           display: inline-block;
@@ -414,7 +394,7 @@ export default function PrayerAltarStrip({
         @supports (color: color-mix(in oklab, red, blue)) {
           .altar-sparkle {
             text-shadow: 0 0 10px
-              color-mix(in oklab, var(--altar-accent) 60%, transparent);
+              color-mix(in oklab, var(--pray-accent, #6eead8) 60%, transparent);
           }
         }
         .altar-sparkle--ready {
@@ -434,10 +414,10 @@ export default function PrayerAltarStrip({
           font-family: var(--font-terminal, "JetBrains Mono", monospace);
           font-size: 32px;
           font-weight: 700;
-          color: var(--altar-accent);
+          color: var(--pray-accent, #6eead8);
           letter-spacing: -0.02em;
           text-shadow: 0 0 18px
-            color-mix(in oklab, var(--altar-accent) 45%, transparent);
+            color-mix(in oklab, var(--pray-accent, #6eead8) 45%, transparent);
           font-variant-numeric: tabular-nums;
         }
         .altar-streak__label {
@@ -458,7 +438,7 @@ export default function PrayerAltarStrip({
           font-size: 10px;
           letter-spacing: 0.14em;
           text-transform: uppercase;
-          color: var(--altar-accent);
+          color: var(--pray-accent, #6eead8);
           font-weight: 600;
           white-space: nowrap;
           opacity: 0.9;
@@ -472,7 +452,7 @@ export default function PrayerAltarStrip({
         }
         .altar-tier__fill {
           height: 100%;
-          background: var(--altar-accent);
+          background: var(--pray-accent, #6eead8);
           box-shadow: 0 0 8px rgba(110, 234, 216, 0.55);
           transition: width 0.6s ease;
         }
@@ -480,11 +460,11 @@ export default function PrayerAltarStrip({
           .altar-tier__fill {
             background: linear-gradient(
               90deg,
-              color-mix(in oklab, var(--altar-accent) 60%, transparent),
-              var(--altar-accent)
+              color-mix(in oklab, var(--pray-accent, #6eead8) 60%, transparent),
+              var(--pray-accent, #6eead8)
             );
             box-shadow: 0 0 8px
-              color-mix(in oklab, var(--altar-accent) 55%, transparent);
+              color-mix(in oklab, var(--pray-accent, #6eead8) 55%, transparent);
           }
         }
         .altar-tier__meta {

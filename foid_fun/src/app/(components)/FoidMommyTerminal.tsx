@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { celebrateTransaction } from "@/effects/celebrate";
 import sfx from "@/lib/sfx";
 import { attachTypingClicks, initTypingClicks } from "@/lib/typingClicks";
+import { typographize } from "@/lib/typographize";
 import { formatViemError } from "@/lib/prayerErrors";
 import { usePrayerDraft } from "@/hooks/usePrayerDraft";
 import { usePrayerMemory } from "@/hooks/usePrayerMemory";
@@ -436,7 +437,9 @@ export default function FoidMommyTerminal({
 
   const addMessage = useCallback((role: MessageRole, text: string) => {
     const id = makeId();
-    setMessages((prev) => [...prev, { id, role, text }]);
+    // Typographic polish only for Mommy's lines — never for user/system.
+    const finalText = role === "foid" ? typographize(text) : text;
+    setMessages((prev) => [...prev, { id, role, text: finalText }]);
     return id;
   }, []);
 
@@ -466,15 +469,20 @@ export default function FoidMommyTerminal({
   const typeMessage = useCallback(
     (input: TypeMessageInput) =>
       new Promise<string>((resolve) => {
+        // Typographic polish only for Mommy's lines — user/system text stays raw.
+        // Done here so curly quotes/em-dashes/ellipses reveal in the typed animation.
+        const sourceText =
+          input.role === "foid" ? typographize(input.text) : input.text;
+
         if (typeof window === "undefined") {
-          const id = addMessage(input.role, input.text);
+          const id = addMessage(input.role, sourceText);
           resolve(id);
           return;
         }
 
         const id = makeId();
         setMessages((prev) => [...prev, { id, role: input.role, text: "" }]);
-        if (!input.text) {
+        if (!sourceText) {
           sfx.typing.stop();
           resolve(id);
           return;
@@ -486,11 +494,11 @@ export default function FoidMommyTerminal({
         sfx.typing.start();
         const interval = window.setInterval(() => {
           index += 1;
-          const nextText = input.text.slice(0, index);
+          const nextText = sourceText.slice(0, index);
           setMessages((prev) =>
             prev.map((msg) => (msg.id === id ? { ...msg, text: nextText } : msg)),
           );
-          if (index >= input.text.length) {
+          if (index >= sourceText.length) {
             window.clearInterval(interval);
             intervalsRef.current = intervalsRef.current.filter((stored) => stored !== interval);
             sfx.typing.stop();

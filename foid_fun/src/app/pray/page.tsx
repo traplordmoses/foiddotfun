@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AppTitlebar, { type AppTitlebarWarning } from "@/app/(components)/AppTitlebar";
 
@@ -15,6 +16,7 @@ import { formatViemError } from "@/lib/prayerErrors";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
 import { MobileWalletButton } from "@/components/MobileWalletButton";
 import { useHaptic } from "@/hooks/useHaptic";
+import { tierAccent } from "@/lib/tierAccent";
 import { PRAYER_REGISTRY_ABI } from "@/lib/contracts/abis/prayerRegistry";
 import { PRAYER_MIRROR_ABI } from "@/lib/contracts/abis/prayerMirror";
 import { parseEventLogs } from "viem";
@@ -24,6 +26,8 @@ import { usePrayerMemory, type JournalEntry } from "@/hooks/usePrayerMemory";
 import PrayerAltarStrip from "@/components/PrayerAltarStrip";
 import PrayerJournalDrawer from "@/components/PrayerJournalDrawer";
 import PrayerBoot from "@/components/PrayerBoot";
+import TierUnlockCinematic from "@/components/TierUnlockCinematic";
+import { useTierUnlockWatcher } from "@/hooks/useTierUnlockWatcher";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 /* --- env: prayer contract addresses from canonical config --- */
@@ -438,6 +442,31 @@ function PrayPageContent() {
   const totalPrayersNumber = typeof displayTotal === 'bigint' ? Number(displayTotal) : typeof displayTotal === 'number' ? displayTotal : 0;
   const tierProgress = useMemo(() => getTierFromStreak(streakNumber), [streakNumber]);
 
+  // Page-level tier accent: lifts the cyan→gold evolution from the altar strip
+  // to the whole <main>, so caret color, altar strip, and any downstream
+  // consumers share a single --pray-accent custom property.
+  const prayAccent = tierAccent(isConnected ? tierProgress.current.level : 0);
+
+  // Tier-unlock cinematic watcher — fires a one-shot play when a user's streak
+  // crosses a milestone day (7/14/21/30/45/60/75/90). Persisted per wallet.
+  const { pendingUnlock, clearPendingUnlock } = useTierUnlockWatcher(
+    streakNumber,
+    isConnected,
+    address,
+  );
+
+  // Day-90 pixel easter egg — renders iff the Mommy Milker cinematic has
+  // played at least once (any wallet on this device). Re-read after each
+  // unlock completes so a just-played tier 10 immediately toggles it.
+  const [mommyPixelUnlocked, setMommyPixelUnlocked] = useState(false);
+  useEffect(() => {
+    try {
+      setMommyPixelUnlocked(localStorage.getItem("foid_tier_10_pixel_unlocked") === "1");
+    } catch {
+      // noop
+    }
+  }, [pendingUnlock]);
+
   const canRenderTime = nowSeconds !== null;
   const nextAllowedSecondsRaw = typeof nextAllowed === "bigint" ? Number(nextAllowed) : typeof nextAllowed === "number" ? nextAllowed : null;
   const cooldownActive = canRenderTime && typeof nextAllowedSecondsRaw === "number" && nextAllowedSecondsRaw > nowSeconds;
@@ -446,7 +475,10 @@ function PrayPageContent() {
     : "";
 
   return (
-    <main className="pray-page relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center" style={{ height: "100dvh" }}>
+    <main
+      className="pray-page relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center"
+      style={{ height: "100dvh", ["--pray-accent" as string]: prayAccent } as CSSProperties}
+    >
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
       {/* Film grain — static SVG turbulence, pointer-events: none */}
       <div
@@ -461,6 +493,17 @@ function PrayPageContent() {
       <div className="lg:hidden">
         <PrayerBoot />
       </div>
+
+      {/* Tier unlock cinematic — plays once per (wallet, tier) on streak milestones */}
+      {pendingUnlock !== null && (
+        <TierUnlockCinematic
+          tierLevel={pendingUnlock}
+          onComplete={clearPendingUnlock}
+        />
+      )}
+
+      {/* Day-90 easter egg — a 3×3 iridescent pixel, only after tier 10 has played */}
+      {mommyPixelUnlocked && <span className="mommy-pixel lg:hidden" aria-hidden="true" />}
 
       {/* Mobile Layout — ritual-first, chrome-minimal */}
       <div
@@ -957,6 +1000,20 @@ function PrayPageContent() {
         @keyframes pray-pilot-pulse {
           0%, 100% { opacity: 0.3; }
           50% { opacity: 1; }
+        }
+
+        /* Mommy pixel — 3×3 iridescent easter egg for day-90 unlockers.
+           Static, no tooltip, no animation. Positioned inconspicuously near
+           the top-left of the altar strip on mobile. */
+        :global(.mommy-pixel) {
+          position: fixed;
+          top: calc(env(safe-area-inset-top, 0px) + 56px);
+          left: 8px;
+          width: 3px;
+          height: 3px;
+          background: conic-gradient(from 0deg, #8b5cf6, #ffcc5c, #6eead8, #8b5cf6);
+          z-index: 3;
+          pointer-events: none;
         }
 
         /* Terminal focus glow — outer container glows when input is focused. */
