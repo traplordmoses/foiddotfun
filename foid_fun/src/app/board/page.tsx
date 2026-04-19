@@ -121,7 +121,6 @@ const PaintEditor = dynamic(
 import { RemovalVotePanel } from "@/components/RemovalVotePanel";
 import {
   useSwipeLoreboardGovernance,
-  usePlacementFlagCount,
   useHasFlaggedPlacement,
   useActivePlacementVote,
   usePlacementRemovalVote,
