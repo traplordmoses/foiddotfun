@@ -45,6 +45,7 @@ import { PresenceLayer } from "@/components/board/PresenceLayer";
 import { usePresence } from "@/hooks/board/usePresence";
 import { OnboardingTour, ONBOARDING_STORAGE_KEY } from "@/components/board/OnboardingTour";
 import { SoundToggle } from "@/components/board/SoundToggle";
+import { FeaturedRibbon, useFeaturedProposal } from "@/components/board/FeaturedRibbon";
 // BatchReviewModal is only rendered after the user clicks SUBMIT PROPOSAL.
 // Dynamic-import keeps the dry-run-preview + gas-estimation logic off the
 // initial /board bundle. The in-flight fetch is masked by user action.
@@ -268,6 +269,17 @@ function BoardPageContent() {
     [bindStage]
   );
 
+  // Featured proposal — drives the "Proposal of the Day" ribbon and
+  // the idle-zoom behavior below. Fetched once on mount.
+  const featuredProposal = useFeaturedProposal();
+  const [ribbonDismissed, setRibbonDismissed] = useState(false);
+
+  // Idle-zoom — after 10s of no user interaction, auto-zoom to the
+  // featured proposal. Any pointer/wheel/key on the canvas resets the
+  // timer. Disabled once dismissed or once the user manually interacts
+  // (so we don't stomp their chosen view repeatedly).
+  const idleUsedRef = useRef(false);
+
   // Prayer tier — drives the phase-γ tier subhead + slab tint + high-tier
   // particle burst inside the celebration. Safe to call when not connected
   // (hook no-ops and returns tier=null).
@@ -298,6 +310,40 @@ function BoardPageContent() {
       el.removeEventListener("pointerleave", onLeave);
     };
   }, [presenceEnabled, screenToWorld, sendPresenceCursor]);
+
+  // Idle-zoom to featured proposal after 10s of inactivity. Listens on
+  // pointer + wheel + key events to reset the timer. Fires exactly once
+  // per page load — after the first auto-zoom, the user has seen the
+  // featured proposal and further nudges would feel like a hijack.
+  useEffect(() => {
+    if (!featuredProposal || ribbonDismissed || idleUsedRef.current) return;
+    const el = containerRef.current;
+    if (!el) return;
+    let timer: number | null = null;
+    const arm = () => {
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (idleUsedRef.current) return;
+        idleUsedRef.current = true;
+        try {
+          zoomToRect(featuredProposal.rect, 48);
+        } catch {
+          /* rect not renderable — silently skip */
+        }
+      }, 10_000);
+    };
+    const reset = () => arm();
+    arm();
+    el.addEventListener("pointerdown", reset);
+    el.addEventListener("wheel", reset, { passive: true });
+    window.addEventListener("keydown", reset);
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      el.removeEventListener("pointerdown", reset);
+      el.removeEventListener("wheel", reset);
+      window.removeEventListener("keydown", reset);
+    };
+  }, [featuredProposal, ribbonDismissed, zoomToRect]);
 
   // Viewport-virtualization state (Phase 2 · Step 7). Only commits when the
   // visible AABB has drifted far enough that the culled set could have changed.
@@ -1225,6 +1271,23 @@ function BoardPageContent() {
                     onWheel={onCanvasWheel}
                     style={{ cursor: spaceDown ? (isPanning ? "grabbing" : "grab") : "default" }}
                   >
+                    {/* Featured-proposal ribbon — floats in screen space at
+                         the top of the canvas, outside the panning stage. */}
+                    <FeaturedRibbon
+                      proposal={ribbonDismissed ? null : featuredProposal}
+                      onView={(p) => {
+                        idleUsedRef.current = true; // counts as interaction
+                        try { zoomToRect(p.rect, 48); } catch {}
+                      }}
+                      onVote={(p) => {
+                        idleUsedRef.current = true;
+                        try { zoomToRect(p.rect, 48); } catch {}
+                        // Open the full-vote surface in a new tab so the
+                        // user keeps their board view.
+                        window.open(`/vote?proposal=${p.id}`, "_blank");
+                      }}
+                      onDismiss={() => setRibbonDismissed(true)}
+                    />
                     <div
                     ref={stageCallbackRef}
                     className="board-stage"
