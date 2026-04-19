@@ -41,7 +41,13 @@ import { PlacementGhost } from "@/components/board/PlacementGhost";
 import { VotingGhost } from "@/components/board/VotingGhost";
 import { PendingItemCard } from "@/components/board/PendingItemCard";
 import { BoardActions } from "@/components/board/BoardActions";
-import { BatchReviewModal } from "@/components/board/BatchReviewModal";
+// BatchReviewModal is only rendered after the user clicks SUBMIT PROPOSAL.
+// Dynamic-import keeps the dry-run-preview + gas-estimation logic off the
+// initial /board bundle. The in-flight fetch is masked by user action.
+const BatchReviewModal = dynamic(
+  () => import("@/components/board/BatchReviewModal").then((m) => ({ default: m.BatchReviewModal })),
+  { ssr: false }
+);
 import { SUBMISSION_FEE_WEI } from "@/lib/board/fees";
 import {
   toastUploading,
@@ -87,7 +93,14 @@ import {
 import { parseWeb3Error, isUserRejection } from "@/lib/errors";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { PaintEditor } from "@/components/PaintEditor";
+// PaintEditor is heavy (1800+ LOC, Canvas compositing, sticker drawer, text
+// tool). It's only needed AFTER the user drops an image. Splitting it out
+// with dynamic import keeps it off the /board initial bundle — first load
+// never pays for it, interaction-time load is masked by the image picker.
+const PaintEditor = dynamic(
+  () => import("@/components/PaintEditor").then((m) => ({ default: m.PaintEditor })),
+  { ssr: false }
+);
 import { RemovalVotePanel } from "@/components/RemovalVotePanel";
 import {
   useSwipeLoreboardGovernance,
@@ -113,6 +126,22 @@ import { MobileProposeModal } from "@/components/board/MobileProposeModal";
 const CARD_BORDER = "var(--foid-border-strong)";
 const CARD_SHADOW = "var(--foid-shadow-card)";
 const FLUENT_CHAIN_ID = TARGET_CHAIN_ID;
+
+// Module-level constant frame styles. Phase β perf — PlacementCard is
+// memoed with a custom compare that reads frameStyle.border/boxShadow, so
+// reusing the same object across renders means the memo short-circuits
+// during pan/zoom. Declared outside the component so identity survives
+// re-renders.
+const PLACEMENT_FRAME_ACTIVE: React.CSSProperties = {
+  border: "1px solid rgba(0,255,213,0.95)",
+  boxShadow: "var(--foid-shadow-glow-cyan)",
+  background: "rgba(8,18,36,0.35)",
+};
+const PLACEMENT_FRAME_DEFAULT: React.CSSProperties = {
+  border: `1px solid ${CARD_BORDER}`,
+  boxShadow: CARD_SHADOW,
+  background: "rgba(8,18,36,0.35)",
+};
 
 // ============================================================================
 // TYPES
@@ -1128,13 +1157,7 @@ function BoardPageContent() {
                           flagCount={flagCounts[p.id] ?? 0}
                           flagThreshold={flagThreshold}
                           flagLabel={`Flag (${flagFeeEth} ETH)`}
-                          frameStyle={{
-                            border: `1px solid ${isActive ? "rgba(0,255,213,0.95)" : CARD_BORDER}`,
-                            boxShadow: isActive
-                              ? "0 0 18px rgba(0,255,213,0.6), 0 0 42px rgba(0,255,213,0.25)"
-                              : CARD_SHADOW,
-                            background: "rgba(8,18,36,0.35)",
-                          }}
+                          frameStyle={isActive ? PLACEMENT_FRAME_ACTIVE : PLACEMENT_FRAME_DEFAULT}
                         />
                       );
                     })}
@@ -1345,7 +1368,11 @@ function BoardPageContent() {
 
 export default function BoardPage() {
   return (
-    <ErrorBoundary title="Board Error" description="Something went wrong loading the board. This has been logged.">
+    <ErrorBoundary
+      route="board"
+      title="Board Error"
+      description="Something went wrong loading the board. This has been logged."
+    >
       <Suspense
         fallback={
           <main className="min-h-screen w-full flex items-center justify-center px-4">

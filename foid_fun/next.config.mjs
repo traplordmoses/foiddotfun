@@ -1,3 +1,5 @@
+import { withSentryConfig } from "@sentry/nextjs";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -96,4 +98,21 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry wrapping. Source-map upload only runs in CI (where
+// SENTRY_AUTH_TOKEN is set). Everywhere else — local dev, previews without
+// the token — `withSentryConfig` is effectively a no-op beyond installing
+// the instrumentation wrappers, and those are cheap.
+const sentryOptions = {
+  silent: true,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Only upload source maps when we actually have credentials. Prevents
+  // `next build` from blocking waiting on a missing token.
+  disableSourceMapUpload: !process.env.SENTRY_AUTH_TOKEN,
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  disableLogger: true,
+};
+
+export default withSentryConfig(nextConfig, sentryOptions);

@@ -6,7 +6,7 @@ export const metadata = { title: "VOTE" };
 
 export default function VoteLayout({ children }: { children: ReactNode }) {
   return (
-    <ErrorBoundary title="Vote crashed" description="Something went wrong loading proposals. Try refreshing the page.">
+    <ErrorBoundary route="vote" title="Vote crashed" description="Something went wrong loading proposals. Try refreshing the page.">
       {children}
     </ErrorBoundary>
   );
