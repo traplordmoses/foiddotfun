@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JournalEntry } from "@/hooks/usePrayerMemory";
 import type { FeelingKey } from "@/app/(components)/FoidMommyTerminal";
@@ -71,6 +71,13 @@ export default function PrayerJournalDrawer({
   totalPrayers,
 }: Props) {
   const [popover, setPopover] = useState<Popover | null>(null);
+  // Reduced-motion: swap the drawer's spring enter/exit for a quick tween so
+  // RM users don't get the bounce, and drop the backdrop fade to match.
+  const reduceMotion = useReducedMotion();
+  const sheetTransition = reduceMotion
+    ? { duration: 0.15 }
+    : { type: "spring" as const, damping: 28, stiffness: 260 };
+  const backdropTransition = reduceMotion ? { duration: 0 } : { duration: 0.2 };
   // Refs for focus management — see the focus effect below.
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -223,7 +230,7 @@ export default function PrayerJournalDrawer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={backdropTransition}
             onClick={onClose}
           />
           <motion.div
@@ -235,7 +242,7 @@ export default function PrayerJournalDrawer({
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 28, stiffness: 260 }}
+            transition={sheetTransition}
             drag="y"
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={0.18}
