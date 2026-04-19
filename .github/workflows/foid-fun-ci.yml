@@ -84,8 +84,6 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
       - name: Run a11y + visual specs
         run: pnpm test:e2e -- --project=chromium tests/e2e/board/a11y.spec.ts tests/e2e/board/visual.spec.ts
-        env:
-          E2E_BASE_URL: ""
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
