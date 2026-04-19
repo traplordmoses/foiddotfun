@@ -41,6 +41,8 @@ import { PlacementGhost } from "@/components/board/PlacementGhost";
 import { VotingGhost } from "@/components/board/VotingGhost";
 import { PendingItemCard } from "@/components/board/PendingItemCard";
 import { BoardActions } from "@/components/board/BoardActions";
+import { PresenceLayer } from "@/components/board/PresenceLayer";
+import { usePresence } from "@/hooks/board/usePresence";
 // BatchReviewModal is only rendered after the user clicks SUBMIT PROPOSAL.
 // Dynamic-import keeps the dry-run-preview + gas-estimation logic off the
 // initial /board bundle. The in-flight fetch is masked by user action.
@@ -257,6 +259,32 @@ function BoardPageContent() {
     },
     [bindStage]
   );
+
+  // Ambient presence — Figma-style cursor ghosts via Supabase Realtime.
+  // Broadcasts the local cursor in WORLD coordinates so remote renderers
+  // (which mount inside .board-stage) get the pan/zoom transform for free.
+  const { peers: presencePeers, sendCursor: sendPresenceCursor, enabled: presenceEnabled } =
+    usePresence({ address });
+
+  // Wire pointer tracking on the board canvas. We attach via a ref-based
+  // listener rather than an onPointerMove JSX handler so we don't interact
+  // with the pan/zoom handler's event flow.
+  useEffect(() => {
+    if (!presenceEnabled) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const onMove = (e: PointerEvent) => {
+      const world = screenToWorld(e.clientX, e.clientY);
+      sendPresenceCursor(world);
+    };
+    const onLeave = () => sendPresenceCursor(null);
+    el.addEventListener("pointermove", onMove, { passive: true });
+    el.addEventListener("pointerleave", onLeave, { passive: true });
+    return () => {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerleave", onLeave);
+    };
+  }, [presenceEnabled, screenToWorld, sendPresenceCursor]);
 
   // Viewport-virtualization state (Phase 2 · Step 7). Only commits when the
   // visible AABB has drifted far enough that the culled set could have changed.
@@ -1164,6 +1192,9 @@ function BoardPageContent() {
 
                     {/* Ghost */}
                     {ghost && <PlacementGhost ghost={ghost} />}
+
+                    {/* Ambient presence — remote cursors in world space */}
+                    <PresenceLayer peers={presencePeers} />
 
                     {/* Proposals — virtualized */}
                     {visibleVotingProposals.map((p) => {
