@@ -12,8 +12,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useBoardAnalytics } from "@/hooks/useBoardAnalytics";
+import { ONBOARDING_STORAGE_KEY } from "@/lib/board/onboardingKey";
 
-export const ONBOARDING_STORAGE_KEY = "board-onboarding-seen-v1";
+export { ONBOARDING_STORAGE_KEY };
 
 export type OnboardingStep = {
   /** CSS selector for the element to point at. */
