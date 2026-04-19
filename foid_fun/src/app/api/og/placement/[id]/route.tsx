@@ -1,4 +1,4 @@
-// /src/app/api/og/placement/[id]/route.ts
+// /src/app/api/og/placement/[id]/route.tsx
 // Open-Graph share card for a single Loreboard proposal. When someone posts
 // foid.fun/board/proposal/123 to X, Farcaster, iMessage — this 1200×630
 // PNG is what renders in the preview.
@@ -7,6 +7,10 @@
 // extra HTTP round-trip to our own /api/swipe/proposals), fetches the
 // placement image from IPFS with a 1-hour revalidate, and composes a
 // palette-gradient card using Satori via next/og.
+//
+// Satori quirk: every <div> must have an explicit display (it only
+// supports flex / block / none / -webkit-box). We flatten the layout to
+// keep that invariant obvious.
 
 import { NextRequest } from "next/server";
 import { ImageResponse } from "next/og";
@@ -16,25 +20,11 @@ import { CONTRACTS, RPC_URL, CHAIN_CONFIG } from "@/lib/contracts/addresses";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
 import { loadOgFonts } from "@/lib/ogFont";
 
-// Node runtime — viem's http transport works on node and we want the
-// fetch-cache behavior for the IPFS image. (Edge would also work but
-// ImageResponse has a larger cold-start on edge when fonts aren't bundled.)
 export const runtime = "nodejs";
-export const revalidate = 300; // 5min page cache
+export const revalidate = 300;
 
 type ProposalTuple = [
-  bigint, // id
-  string, // proposer
-  string, // ipfsCid
-  bigint, // createdAt
-  bigint, // votingEndsAt
-  boolean, // finalized
-  boolean, // approved
-  bigint, // placementId
-  number, // gridX
-  number, // gridY
-  number, // gridW
-  number, // gridH
+  bigint, string, string, bigint, bigint, boolean, boolean, bigint, number, number, number, number
 ];
 
 type ProposalInfo = {
@@ -65,18 +55,12 @@ async function readProposal(id: number): Promise<ProposalInfo | null> {
       args: [BigInt(id)],
     })) as unknown;
     const t = raw as ProposalTuple;
-    // Some viem decode paths return an object with named fields; array
-    // access covers both — viem returns tuples as arrays by default.
-    const proposer = t[1] as string;
-    const ipfsCid = t[2] as string;
-    const finalized = t[5] as boolean;
-    const approved = t[6] as boolean;
     return {
       id,
-      proposer,
-      ipfsCid,
-      finalized,
-      approved,
+      proposer: t[1] as string,
+      ipfsCid: t[2] as string,
+      finalized: t[5] as boolean,
+      approved: t[6] as boolean,
     };
   } catch {
     return null;
@@ -91,44 +75,44 @@ function shortAddress(addr: string): string {
 const CARD_W = 1200;
 const CARD_H = 630;
 
-// Palette matches /src/app/tokens.css so the card reads as "FOID" at a glance.
-const COLORS = {
-  bgA: "#0e0f2b",
-  bgB: "#180a38",
+// Palette — mirrors tokens.css so the card reads as "FOID" at a glance.
+const C = {
+  bg: "linear-gradient(135deg, #0e0f2b 0%, #180a38 100%)",
   cyan: "#74ffeb",
   purple: "#a78bfa",
   pink: "#f472b6",
   gold: "#fbbf24",
+  white: "#ffffff",
 };
 
 function FallbackCard({ message }: { message: string }) {
   return (
     <div
       style={{
+        display: "flex",
+        flexDirection: "column",
         width: CARD_W,
         height: CARD_H,
-        display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: `linear-gradient(135deg, ${COLORS.bgA} 0%, ${COLORS.bgB} 100%)`,
-        color: "#fff",
-        fontSize: 48,
+        background: C.bg,
+        color: C.white,
         fontFamily: "Inter",
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-        <div
-          style={{
-            fontSize: 22,
-            letterSpacing: 8,
-            color: COLORS.cyan,
-            fontWeight: 700,
-          }}
-        >
-          FOID FOUNDATION
-        </div>
-        <div style={{ fontSize: 44, fontWeight: 700 }}>{message}</div>
+      <div
+        style={{
+          display: "flex",
+          fontSize: 22,
+          letterSpacing: 8,
+          color: C.cyan,
+          fontWeight: 700,
+          marginBottom: 16,
+        }}
+      >
+        FOID FOUNDATION
       </div>
+      <div style={{ display: "flex", fontSize: 44, fontWeight: 700 }}>{message}</div>
     </div>
   );
 }
@@ -141,145 +125,146 @@ function PlacementCard({
   imageUrl: string | null;
 }) {
   const engraved = p.finalized && p.approved;
+  const badgeColor = engraved ? C.gold : C.purple;
+  const badgeLabel = engraved ? "ENGRAVED ✦" : "IN VOTING";
   return (
     <div
       style={{
+        display: "flex",
         width: CARD_W,
         height: CARD_H,
-        display: "flex",
-        background: `linear-gradient(135deg, ${COLORS.bgA} 0%, ${COLORS.bgB} 100%)`,
-        color: "#fff",
+        background: C.bg,
+        color: C.white,
         fontFamily: "Inter",
-        position: "relative",
       }}
     >
-      {/* Left — image or placeholder */}
+      {/* Left — image panel */}
       <div
         style={{
+          display: "flex",
           width: CARD_W * 0.55,
           height: "100%",
-          display: "flex",
+          padding: 48,
           alignItems: "center",
           justifyContent: "center",
-          padding: 48,
         }}
       >
         <div
           style={{
+            display: "flex",
             width: "100%",
             height: "100%",
             borderRadius: 24,
-            border: `2px solid ${COLORS.cyan}55`,
-            boxShadow: `0 0 60px ${COLORS.purple}33, 0 20px 80px #00000080`,
+            border: `2px solid ${C.cyan}55`,
+            boxShadow: `0 0 60px ${C.purple}33, 0 20px 80px #00000080`,
             overflow: "hidden",
-            display: "flex",
             alignItems: "center",
             justifyContent: "center",
             background: "#00000066",
           }}
         >
           {imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
+            // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
             <img
               src={imageUrl}
-              alt=""
               width={560}
               height={510}
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
           ) : (
-            <div style={{ fontSize: 32, color: "#ffffff66" }}>no preview</div>
+            <div style={{ display: "flex", fontSize: 32, color: "#ffffff66" }}>
+              no preview
+            </div>
           )}
         </div>
       </div>
 
-      {/* Right — meta */}
+      {/* Right — stacked meta + wordmark */}
       <div
         style={{
-          width: CARD_W * 0.45,
           display: "flex",
           flexDirection: "column",
+          width: CARD_W * 0.45,
           padding: 48,
           paddingLeft: 0,
           justifyContent: "space-between",
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
           <div
             style={{
+              display: "flex",
               fontSize: 16,
               letterSpacing: 8,
-              color: COLORS.cyan,
+              color: C.cyan,
               fontWeight: 700,
+              marginBottom: 12,
             }}
           >
             FOID · LOREBOARD
           </div>
           <div
             style={{
+              display: "flex",
               fontSize: 84,
               fontWeight: 700,
               lineHeight: 1,
-              background: `linear-gradient(135deg, ${COLORS.cyan} 0%, ${COLORS.purple} 50%, ${COLORS.pink} 100%)`,
+              background: `linear-gradient(135deg, ${C.cyan} 0%, ${C.purple} 50%, ${C.pink} 100%)`,
               backgroundClip: "text",
               color: "transparent",
+              marginBottom: 14,
             }}
           >
             #{p.id}
           </div>
-          <div style={{ fontSize: 22, color: "#ffffffcc", display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ fontSize: 13, letterSpacing: 4, color: "#ffffff66" }}>PROPOSED BY</div>
-            <div style={{ fontFamily: "Inter", fontSize: 28, fontWeight: 700, color: "#fff" }}>
-              {shortAddress(p.proposer)}
-            </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 13,
+              letterSpacing: 4,
+              color: "#ffffff66",
+              marginBottom: 4,
+            }}
+          >
+            PROPOSED BY
           </div>
-
-          {engraved ? (
-            <div
-              style={{
-                display: "inline-flex",
-                alignSelf: "flex-start",
-                padding: "10px 18px",
-                background: `${COLORS.gold}22`,
-                border: `2px solid ${COLORS.gold}`,
-                borderRadius: 999,
-                color: COLORS.gold,
-                fontSize: 18,
-                fontWeight: 700,
-                letterSpacing: 6,
-                marginTop: 12,
-              }}
-            >
-              ENGRAVED ✦
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "inline-flex",
-                alignSelf: "flex-start",
-                padding: "10px 18px",
-                background: `${COLORS.purple}22`,
-                border: `2px solid ${COLORS.purple}`,
-                borderRadius: 999,
-                color: COLORS.purple,
-                fontSize: 18,
-                fontWeight: 700,
-                letterSpacing: 6,
-                marginTop: 12,
-              }}
-            >
-              IN VOTING
-            </div>
-          )}
+          <div
+            style={{
+              display: "flex",
+              fontSize: 28,
+              fontWeight: 700,
+              color: C.white,
+              marginBottom: 14,
+            }}
+          >
+            {shortAddress(p.proposer)}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignSelf: "flex-start",
+              padding: "10px 18px",
+              background: `${badgeColor}22`,
+              border: `2px solid ${badgeColor}`,
+              borderRadius: 999,
+              color: badgeColor,
+              fontSize: 18,
+              fontWeight: 700,
+              letterSpacing: 6,
+            }}
+          >
+            {badgeLabel}
+          </div>
         </div>
 
         <div
           style={{
+            display: "flex",
             fontSize: 18,
             color: "#ffffff66",
             letterSpacing: 2,
-            textAlign: "right",
             fontWeight: 700,
+            justifyContent: "flex-end",
           }}
         >
           foid.fun/board
