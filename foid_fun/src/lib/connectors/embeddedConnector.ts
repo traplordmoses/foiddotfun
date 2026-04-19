@@ -252,14 +252,42 @@ export function embeddedWalletConnector() {
 
               if (session.privateKey === WORKER_MANAGED_KEY) {
                 const { sessionSignTransaction } = await import("@/lib/wallet");
-                const nonce = Number(
-                  await rpcFetch("eth_getTransactionCount", [session.address, "pending"]),
-                );
-                const gasPrice = BigInt((await rpcFetch("eth_gasPrice")) as string);
-                const gas = tx.gas
-                  ? BigInt(tx.gas)
-                  : BigInt((await rpcFetch("eth_estimateGas", [tx])) as string);
+
+                let nonce: number;
+                try {
+                  nonce = Number(
+                    await rpcFetch("eth_getTransactionCount", [session.address, "pending"]),
+                  );
+                } catch (err) {
+                  console.error("[embeddedConnector] getTransactionCount failed:", err);
+                  throw new Error(
+                    `couldn't fetch wallet nonce from RPC: ${err instanceof Error ? err.message : String(err)}`,
+                  );
+                }
+
+                let gasPrice: bigint;
+                try {
+                  gasPrice = BigInt((await rpcFetch("eth_gasPrice")) as string);
+                } catch (err) {
+                  console.error("[embeddedConnector] getGasPrice failed:", err);
+                  throw new Error(
+                    `couldn't fetch gas price from RPC: ${err instanceof Error ? err.message : String(err)}`,
+                  );
+                }
+
+                let gas: bigint;
+                try {
+                  gas = tx.gas
+                    ? BigInt(tx.gas)
+                    : BigInt((await rpcFetch("eth_estimateGas", [tx])) as string);
+                } catch {
+                  gas = BigInt(500_000);
+                }
+
+                // Explicit legacy tx type — removes ambiguity for viem's
+                // transaction-type inference when signing.
                 const transaction = {
+                  type: "legacy" as const,
                   to: tx.to as Address,
                   value: tx.value ? BigInt(tx.value) : 0n,
                   data: (tx.data as `0x${string}`) ?? undefined,
@@ -268,7 +296,17 @@ export function embeddedWalletConnector() {
                   nonce,
                   chainId: TARGET_CHAIN_ID,
                 };
-                const signedTx = await sessionSignTransaction(transaction);
+
+                let signedTx: string;
+                try {
+                  signedTx = await sessionSignTransaction(transaction);
+                } catch (err) {
+                  console.error("[embeddedConnector] signTransaction failed:", err, { transaction });
+                  throw new Error(
+                    `wallet signing failed: ${err instanceof Error ? err.message : String(err)}`,
+                  );
+                }
+
                 return rpcFetch("eth_sendRawTransaction", [signedTx]);
               }
 
