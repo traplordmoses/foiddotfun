@@ -43,6 +43,7 @@ import { PendingItemCard } from "@/components/board/PendingItemCard";
 import { BoardActions } from "@/components/board/BoardActions";
 import { PresenceLayer } from "@/components/board/PresenceLayer";
 import { usePresence } from "@/hooks/board/usePresence";
+import { OnboardingTour, ONBOARDING_STORAGE_KEY } from "@/components/board/OnboardingTour";
 // BatchReviewModal is only rendered after the user clicks SUBMIT PROPOSAL.
 // Dynamic-import keeps the dry-run-preview + gas-estimation logic off the
 // initial /board bundle. The in-flight fetch is masked by user action.
@@ -231,6 +232,11 @@ function BoardPageContent() {
 
   // Mobile propose modal
   const [showMobilePropose, setShowMobilePropose] = useState(false);
+
+  // Post-placement onboarding tour — fires once per user after their first
+  // successful placement. Gated on localStorage ONBOARDING_STORAGE_KEY.
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const onboardingQueuedRef = useRef(false);
 
   // Desktop paint editor state
   const [desktopPaintFile, setDesktopPaintFile] = useState<File | null>(null);
@@ -806,6 +812,22 @@ function BoardPageContent() {
           ipfsCid: status.cid,
           personalization,
         });
+
+        // First-placement onboarding — queue tour to fire after celebration
+        // exits (~9.6s). Uses the same signal as the milestone personalization
+        // (prevCount === 0) so the tour shows exactly once, only for truly
+        // first-time placers.
+        if (prevCount === 0 && !onboardingQueuedRef.current) {
+          try {
+            const seen = window.localStorage.getItem(ONBOARDING_STORAGE_KEY);
+            if (!seen) {
+              onboardingQueuedRef.current = true;
+              window.setTimeout(() => setShowOnboarding(true), 9800);
+            }
+          } catch {
+            /* noop */
+          }
+        }
       },
       onBatchDone: ({ confirmed, failed, rejected }) => {
         if (confirmed.length && !failed.length && !rejected.length) {
@@ -1378,6 +1400,7 @@ function BoardPageContent() {
         onCancel={closeReviewModal}
       />
     )}
+    <OnboardingTour open={showOnboarding} onClose={() => setShowOnboarding(false)} />
     </main>
   );
 
