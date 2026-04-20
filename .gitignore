@@ -65,3 +65,11 @@ data/*.db
 # Backups
 *.bak
 script.bak/
+# Claude Code local state
+.claude/skills/
+# Playwright output
+**/test-results/
+**/playwright-report/
+# Agent-generated reports (ephemeral)
+posthog-setup-report.md
+*-setup-report.md
