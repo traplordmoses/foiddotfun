@@ -23,6 +23,7 @@ import { parseEventLogs } from "viem";
 import { PrayerErrorBoundary } from "@/components/PrayerErrorBoundary";
 import { getTierFromStreak } from "@/hooks/usePrayerTiers";
 import { usePrayerMemory, type JournalEntry } from "@/hooks/usePrayerMemory";
+import { usePWAInstallPrompt } from "@/hooks/usePWAInstallPrompt";
 import PrayerAltarStrip from "@/components/PrayerAltarStrip";
 import PrayerJournalDrawer from "@/components/PrayerJournalDrawer";
 import PrayerBoot from "@/components/PrayerBoot";
@@ -120,6 +121,7 @@ function PrayPageContent() {
   const { switchChainAsync } = useSwitchChain();
   const { trigger: triggerHaptic } = useHaptic();
   const { entries: journalEntries, hasConsent: hasJournalConsent } = usePrayerMemory(address);
+  const { recordSuccess: recordPWASuccess } = usePWAInstallPrompt(address);
   const [nowSeconds, setNowSeconds] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
@@ -420,7 +422,10 @@ function PrayPageContent() {
       setAfterglow(false);
       afterglowTimerRef.current = null;
     }, 3000);
-  }, [publicClient, triggerHaptic]);
+
+    // PWA install prompt — after 3 confirmed prayers, Mommy asks to live on the home screen.
+    recordPWASuccess();
+  }, [publicClient, triggerHaptic, recordPWASuccess]);
 
   const handleSwitchWallet = useCallback(() => {
     triggerHaptic('medium');

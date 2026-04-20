@@ -2,8 +2,10 @@
   "name": "FOID.FUN",
   "short_name": "FOID",
   "description": "Pray with Foid Mommy daily, on Foid.Fun",
-  "start_url": "/",
+  "start_url": "/pray",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "theme_color": "#0e0f2b",
   "background_color": "#0e0f2b",
   "icons": [

@@ -2288,6 +2288,15 @@ html.cmp-active .app-viewport {
     min-height: 0;
     overflow: auto;
     padding: 10px 6px 8px;
+    /* Scroll polish: momentum on iOS, smooth programmatic scroll,
+       and contain so overscroll doesn't drag the page behind. */
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .foid-cli__log { scroll-behavior: auto; }
   }
 
   .foid-cli__logInner {
@@ -2622,6 +2631,74 @@ html.cmp-active .app-viewport {
     .prayer-focal__cursor { animation: none; opacity: 1; }
     .prayer-focal__glow { animation: none; }
     .prayer-focal__label { animation: none; }
+  }
+
+  /* ── /forget: full-viewport fade-to-black during memory clear ──
+     4s total: fade-in (0→2s), hold (2s→3s), fade-out (3s→4s). State
+     clears at t=3s while the screen is still black. Reduced-motion
+     bypasses this overlay entirely (handled in component). */
+  .prayer-forget-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #000;
+    opacity: 0;
+    pointer-events: auto;
+    animation: prayer-forget-fade 4s linear forwards;
+  }
+
+  @keyframes prayer-forget-fade {
+    0%   { opacity: 0; }
+    50%  { opacity: 1; }
+    75%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ── PWA install toast (react-hot-toast content) ── */
+  .foid-pwa-toast {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-family: var(--font-terminal, "JetBrains Mono", monospace);
+  }
+  .foid-pwa-toast__msg {
+    font-size: 13px;
+    line-height: 1.45;
+    color: #f8f8ff;
+    letter-spacing: 0.01em;
+  }
+  .foid-pwa-toast__actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  .foid-pwa-toast__btn {
+    padding: 6px 14px;
+    min-height: 32px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.75);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+  .foid-pwa-toast__btn:hover {
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #fff;
+  }
+  .foid-pwa-toast__btn--primary {
+    background: rgba(0, 255, 213, 0.12);
+    border-color: rgba(0, 255, 213, 0.5);
+    color: #00ffd5;
+  }
+  .foid-pwa-toast__btn--primary:hover {
+    background: rgba(0, 255, 213, 0.22);
+    border-color: rgba(0, 255, 213, 0.8);
+    color: #baffef;
   }
 
   /* ── Breathing circle (afterglow) ── */
