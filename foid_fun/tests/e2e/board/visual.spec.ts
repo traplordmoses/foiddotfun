@@ -7,11 +7,20 @@
 // container at a single post-animation tick.
 //
 // Snapshot tolerance is set in playwright.config.ts (maxDiffPixelRatio: 0.02).
-// On first run, `npx playwright test --update-snapshots` generates the
-// reference PNGs; subsequent runs gate on <2% diff.
+// On first run, `PLAYWRIGHT_VISUAL=1 npx playwright test --update-snapshots`
+// generates the reference PNGs in tests/e2e/board/visual.spec.ts-snapshots/.
+// Baselines are platform-specific (Darwin vs Linux) — until the Linux set
+// is generated in a GHA workflow and committed, we gate the suite behind
+// PLAYWRIGHT_VISUAL so CI doesn't fail on first-run "actual" writes.
 import { test, expect } from "@playwright/test";
 
+const visualEnabled = process.env.PLAYWRIGHT_VISUAL === "1";
+
 test.describe("/board visual regression", () => {
+  test.skip(
+    !visualEnabled,
+    "Set PLAYWRIGHT_VISUAL=1 once Linux baselines are committed.",
+  );
   test("empty board renders consistently", async ({ page }) => {
     await page.goto("/board");
     await page.waitForSelector(".board-canvas");

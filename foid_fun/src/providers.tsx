@@ -1,6 +1,29 @@
 // src/providers.tsx
 "use client";
 
+// Stub indexedDB before the wagmi + RainbowKit imports below pull in
+// @walletconnect/keyvaluestorage, whose Core constructor hits indexedDB
+// at instantiation even on the server. Under "use client" this file is
+// still evaluated on the Node side during SSR; in the browser indexedDB
+// is already defined so the guard is a no-op.
+if (
+  typeof window === "undefined" &&
+  typeof (globalThis as { indexedDB?: unknown }).indexedDB === "undefined"
+) {
+  (globalThis as { indexedDB?: unknown }).indexedDB = {
+    open: () => {
+      const req: { onerror: ((e: unknown) => void) | null; onsuccess: null; result: null } = {
+        onerror: null,
+        onsuccess: null,
+        result: null,
+      };
+      queueMicrotask(() => req.onerror?.({ target: req, type: "error" }));
+      return req;
+    },
+    deleteDatabase: () => ({ onerror: null, onsuccess: null }),
+  } as unknown as IDBFactory;
+}
+
 import "@rainbow-me/rainbowkit/styles.css";
 import { ReactNode } from "react";
 import { WagmiProvider, http, fallback, createConfig } from "wagmi";

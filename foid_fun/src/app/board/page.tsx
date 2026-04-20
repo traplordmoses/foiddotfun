@@ -44,7 +44,7 @@ import { PendingItemCard } from "@/components/board/PendingItemCard";
 import { BoardActions } from "@/components/board/BoardActions";
 import { PresenceLayer } from "@/components/board/PresenceLayer";
 import { usePresence } from "@/hooks/board/usePresence";
-import { OnboardingTour, ONBOARDING_STORAGE_KEY } from "@/components/board/OnboardingTour";
+import { ONBOARDING_STORAGE_KEY } from "@/lib/board/onboardingKey";
 import { SoundToggle } from "@/components/board/SoundToggle";
 import { PresenceToggle } from "@/components/board/PresenceToggle";
 import {
@@ -118,6 +118,13 @@ const PaintEditor = dynamic(
   () => import("@/components/PaintEditor").then((m) => ({ default: m.PaintEditor })),
   { ssr: false }
 );
+// OnboardingTour is shown at most once per user (gated on the storage key
+// above). Dynamic-import keeps framer-motion + step copy off the /board
+// initial bundle for returning users.
+const OnboardingTour = dynamic(
+  () => import("@/components/board/OnboardingTour").then((m) => ({ default: m.OnboardingTour })),
+  { ssr: false }
+);
 import { RemovalVotePanel } from "@/components/RemovalVotePanel";
 import {
   useSwipeLoreboardGovernance,
@@ -131,7 +138,13 @@ import {
 // ============================================================================
 
 import { tryNextGateway, getImageSize } from "@/lib/board";
-import { MobileProposeModal } from "@/components/board/MobileProposeModal";
+// MobileProposeModal pulls in PaintEditor + image-picker + preview modal
+// statically. Dynamic-import keeps that entire subtree off the sync /board
+// bundle; it only loads when a mobile user opens the propose flow.
+const MobileProposeModal = dynamic(
+  () => import("@/components/board/MobileProposeModal").then((m) => ({ default: m.MobileProposeModal })),
+  { ssr: false }
+);
 
 // ============================================================================
 // CONSTANTS

@@ -235,7 +235,7 @@ export default function FoidOnboardingTour() {
       {/* Skip button */}
       <button
         onClick={dismiss}
-        className="absolute top-6 right-6 text-[10px] tracking-[0.3em] uppercase text-white/30 hover:text-white/60 transition-colors z-10"
+        className="absolute top-6 right-6 text-[10px] tracking-[0.3em] uppercase text-white/60 hover:text-white/90 transition-colors z-10"
         style={{ fontFamily: 'var(--font-display)' }}
       >
         SKIP
@@ -415,25 +415,39 @@ export default function FoidOnboardingTour() {
             {'<'} BACK
           </button>
 
-          {/* Dots */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {/* Dots — button is a 24x24 hit target to satisfy WCAG 2.2 AA
+              target-size (2.5.8). The visible pill is an inner span. */}
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
             {SLIDES.map((s, i) => (
               <button
                 key={i}
                 onClick={() => goTo(i)}
                 aria-label={`Go to slide ${i + 1}`}
                 style={{
-                  width: i === current ? 24 : 8,
-                  height: 8,
-                  borderRadius: 4,
-                  border: 'none',
-                  background: i === current ? slide.accent : 'rgba(255,255,255,0.2)',
-                  boxShadow: i === current ? `0 0 12px ${slide.accent}60` : 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
+                  width: 24,
+                  height: 24,
                   padding: 0,
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
-              />
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    display: 'block',
+                    width: i === current ? 20 : 8,
+                    height: 8,
+                    borderRadius: 4,
+                    background: i === current ? slide.accent : 'rgba(255,255,255,0.2)',
+                    boxShadow: i === current ? `0 0 12px ${slide.accent}60` : 'none',
+                    transition: 'all 0.3s ease',
+                  }}
+                />
+              </button>
             ))}
           </div>
 
