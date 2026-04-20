@@ -25,7 +25,7 @@ const nextConfig = {
               // WebSocket constructor — which used to escape `usePresence`
               // and crash the entire board. The hook is now try/caught too,
               // but CSP must still whitelist the host for realtime to work.
-              "connect-src 'self' https://rpc.testnet.fluent.xyz https://rpc.fluent.xyz https://*.quiknode.pro wss://*.quiknode.pro https://ipfs.io https://gateway.pinata.cloud https://cloudflare-ipfs.com https://dweb.link https://*.supabase.co wss://*.supabase.co",
+              "connect-src 'self' https://rpc.testnet.fluent.xyz https://rpc.fluent.xyz https://*.quiknode.pro wss://*.quiknode.pro https://ipfs.io https://gateway.pinata.cloud https://cloudflare-ipfs.com https://dweb.link https://*.supabase.co wss://*.supabase.co https://us.i.posthog.com https://us-assets.i.posthog.com https://*.sentry.io",
               "worker-src 'self' blob:",
               "object-src 'none'",
               "base-uri 'self'",
