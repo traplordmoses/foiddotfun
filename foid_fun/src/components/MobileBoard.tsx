@@ -59,18 +59,20 @@ export function MobileBoard({
     });
   }, [MAX_PAN_X, MAX_PAN_Y, MIN_PAN_X, MIN_PAN_Y]);
 
-  // Handle zoom
+  // Handle zoom — focal-point preserving: the world point under `center`
+  // stays under `center` after the scale change. Works for both pinch
+  // (center = midpoint of two fingers) and Ctrl+wheel (center = cursor).
   const handleZoom = useCallback(
     (newScale: number, center: { x: number; y: number }) => {
-      // Adjust position to zoom towards center
-      const scaleDiff = newScale - scale;
-      const newX = position.x - (center.x - screenWidth / 2) * scaleDiff;
-      const newY = position.y - (center.y - screenHeight / 2) * scaleDiff;
-
+      const worldX = (center.x - position.x) / scale;
+      const worldY = (center.y - position.y) / scale;
       setScale(newScale);
-      setPosition({ x: newX, y: newY });
+      setPosition({
+        x: center.x - worldX * newScale,
+        y: center.y - worldY * newScale,
+      });
     },
-    [scale, position, screenWidth, screenHeight]
+    [scale, position]
   );
 
   // Handle long press - open node preview
@@ -99,11 +101,10 @@ export function MobileBoard({
     [nodes, scale, position, onNodeClick]
   );
 
-  // Setup touch gestures
-  const { touchHandlers } = useTouchGestures({
+  // Setup pointer + wheel gestures (imperative binding on canvasRef)
+  useTouchGestures(canvasRef, {
     minZoom: 0.1,
     maxZoom: 10,
-    zoomSpeed: 0.005,
     onPan: handlePan,
     onZoom: handleZoom,
     onLongPress: handleLongPress,
@@ -150,7 +151,6 @@ export function MobileBoard({
       <div
         ref={canvasRef}
         className="absolute inset-0"
-        {...touchHandlers}
         style={{ touchAction: 'none' }}
       >
         <div

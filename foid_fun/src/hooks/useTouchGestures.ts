@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
-import type React from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 
 interface Point {
   x: number;
@@ -11,7 +10,6 @@ interface Point {
 interface TouchGestureConfig {
   minZoom?: number;
   maxZoom?: number;
-  zoomSpeed?: number;
   panEnabled?: boolean;
   zoomEnabled?: boolean;
   onPanStart?: (point: Point) => void;
@@ -24,264 +22,282 @@ interface TouchGestureConfig {
   onDoubleTap?: (point: Point) => void;
   onLongPress?: (point: Point) => void;
   longPressDuration?: number;
+  /** Pixels per wheel delta unit for plain (non-ctrl) wheel pan. */
+  wheelPanSpeed?: number;
+  /** Exponent coefficient for ctrl+wheel zoom; matches usePanZoom.ts. */
+  wheelZoomFactor?: number;
 }
 
-interface UseTouchGesturesReturn {
-  touchHandlers: {
-    onTouchStart: (e: React.TouchEvent) => void;
-    onTouchMove: (e: React.TouchEvent) => void;
-    onTouchEnd: (e: React.TouchEvent) => void;
-    onTouchCancel: (e: React.TouchEvent) => void;
-  };
-}
+type ActivePointer = {
+  x: number;
+  y: number;
+  pointerType: string;
+  startX: number;
+  startY: number;
+  startT: number;
+};
 
+/**
+ * Imperatively binds pointer + wheel listeners to `targetRef.current`.
+ *
+ * - Single pointer (mouse, pen, or touch) → drag-to-pan
+ * - Two-finger touch → pinch-zoom + two-finger pan
+ * - Ctrl/Cmd + wheel → focal-point zoom on cursor
+ * - Plain wheel → pan by (-deltaX, -deltaY)
+ *
+ * Window-level pointermove/up/cancel listeners are attached only while a
+ * gesture is active, and removed when the last pointer lifts. pointermove is
+ * the only listener registered with `{ passive: false }` (so it can call
+ * preventDefault during a drag); the idle pointerdown listener stays passive.
+ */
 export function useTouchGestures(
+  targetRef: RefObject<HTMLElement | null>,
   config: TouchGestureConfig = {}
-): UseTouchGesturesReturn {
-  const {
-    minZoom = 0.05,
-    maxZoom = 20,
-    zoomSpeed = 0.01,
-    panEnabled = true,
-    zoomEnabled = true,
-    onPanStart,
-    onPan,
-    onPanEnd,
-    onZoomStart,
-    onZoom,
-    onZoomEnd,
-    onTap,
-    onDoubleTap,
-    onLongPress,
-    longPressDuration = 500,
-  } = config;
+): void {
+  const configRef = useRef(config);
+  useEffect(() => {
+    configRef.current = config;
+  });
 
-  // State refs
-  const touchesRef = useRef<React.Touch[]>([]);
-  const lastTouchRef = useRef<Point>({ x: 0, y: 0 });
-  const lastDistanceRef = useRef<number>(0);
-  const lastCenterRef = useRef<Point>({ x: 0, y: 0 });
-  const currentScaleRef = useRef<number>(1);
-  const isPanningRef = useRef<boolean>(false);
-  const isZoomingRef = useRef<boolean>(false);
-  const lastTapRef = useRef<number>(0);
-  const tapTimeoutRef = useRef<NodeJS.Timeout>();
-  const longPressTimerRef = useRef<NodeJS.Timeout>();
-  const hasMoved = useRef<boolean>(false);
+  useEffect(() => {
+    const el = targetRef.current;
+    if (!el) return;
 
-  // Calculate distance between two touches
-  const getDistance = useCallback((touch1: React.Touch, touch2: React.Touch): number => {
-    const dx = touch2.clientX - touch1.clientX;
-    const dy = touch2.clientY - touch1.clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  }, []);
+    const active = new Map<number, ActivePointer>();
+    let isPanning = false;
+    let isPinching = false;
+    let lastSingle: Point = { x: 0, y: 0 };
+    let lastPinchDistance = 0;
+    let lastPinchCenter: Point = { x: 0, y: 0 };
+    let currentScale = 1;
+    let hasMoved = false;
+    let lastTapTime = 0;
+    let longPressTimer: ReturnType<typeof setTimeout> | undefined;
+    let windowListenersAttached = false;
 
-  // Calculate center point between two touches
-  const getCenter = useCallback((touch1: React.Touch, touch2: React.Touch): Point => {
-    return {
-      x: (touch1.clientX + touch2.clientX) / 2,
-      y: (touch1.clientY + touch2.clientY) / 2,
+    const distance = (a: Point, b: Point) => {
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      return Math.sqrt(dx * dx + dy * dy);
     };
-  }, []);
+    const midpoint = (a: Point, b: Point): Point => ({
+      x: (a.x + b.x) / 2,
+      y: (a.y + b.y) / 2,
+    });
+    const allPointersAreTouch = () => {
+      for (const p of active.values()) {
+        if (p.pointerType !== 'touch') return false;
+      }
+      return active.size > 0;
+    };
+    const twoTouchPointers = (): [ActivePointer, ActivePointer] | null => {
+      if (active.size !== 2 || !allPointersAreTouch()) return null;
+      const it = active.values();
+      return [it.next().value as ActivePointer, it.next().value as ActivePointer];
+    };
 
-  // Handle touch start
-  const handleTouchStart = useCallback(
-    (e: React.TouchEvent) => {
-      const touches = Array.from(e.touches);
-      touchesRef.current = touches;
+    const attachWindowListeners = () => {
+      if (windowListenersAttached) return;
+      window.addEventListener('pointermove', onPointerMove, { passive: false });
+      window.addEventListener('pointerup', onPointerEnd);
+      window.addEventListener('pointercancel', onPointerEnd);
+      windowListenersAttached = true;
+    };
+    const detachWindowListeners = () => {
+      if (!windowListenersAttached) return;
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerEnd);
+      window.removeEventListener('pointercancel', onPointerEnd);
+      windowListenersAttached = false;
+    };
 
-      if (touches.length === 1) {
-        // Single touch - potential pan or tap
-        const touch = touches[0];
-        lastTouchRef.current = { x: touch.clientX, y: touch.clientY };
-        hasMoved.current = false;
+    function onPointerDown(e: PointerEvent) {
+      // Only left mouse button starts a gesture; touch/pen always use button 0
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
 
+      try {
+        el!.setPointerCapture?.(e.pointerId);
+      } catch {
+        /* capture may fail if pointer already released elsewhere; ignore */
+      }
+
+      active.set(e.pointerId, {
+        x: e.clientX,
+        y: e.clientY,
+        pointerType: e.pointerType,
+        startX: e.clientX,
+        startY: e.clientY,
+        startT: Date.now(),
+      });
+      hasMoved = false;
+      attachWindowListeners();
+
+      const { panEnabled = true, zoomEnabled = true, onPanStart, onZoomStart, onLongPress, longPressDuration = 500 } =
+        configRef.current;
+
+      if (active.size === 1) {
+        lastSingle = { x: e.clientX, y: e.clientY };
         if (panEnabled) {
-          isPanningRef.current = true;
-          onPanStart?.({ x: touch.clientX, y: touch.clientY });
+          isPanning = true;
+          onPanStart?.(lastSingle);
         }
-
-        // Start long press timer
-        if (onLongPress) {
-          clearTimeout(longPressTimerRef.current);
-          longPressTimerRef.current = setTimeout(() => {
-            if (!hasMoved.current) {
-              onLongPress({ x: touch.clientX, y: touch.clientY });
-            }
+        // Long press is a touch-only affordance.
+        if (onLongPress && e.pointerType === 'touch') {
+          clearTimeout(longPressTimer);
+          longPressTimer = setTimeout(() => {
+            if (!hasMoved) onLongPress({ x: e.clientX, y: e.clientY });
           }, longPressDuration);
         }
-
-        // Check for double tap
-        const now = Date.now();
-        const timeSinceLastTap = now - lastTapRef.current;
-
-        if (timeSinceLastTap < 300) {
-          // Double tap detected
-          clearTimeout(tapTimeoutRef.current);
-          clearTimeout(longPressTimerRef.current);
-          onDoubleTap?.({ x: touch.clientX, y: touch.clientY });
-          lastTapRef.current = 0;
-        } else {
-          // Set timeout for single tap (only if not moved)
-          lastTapRef.current = now;
+      } else if (active.size === 2) {
+        clearTimeout(longPressTimer);
+        const pair = twoTouchPointers();
+        if (!pair) return; // second pointer was a mouse/pen — no pinch
+        const [a, b] = pair;
+        lastPinchDistance = distance(a, b);
+        lastPinchCenter = midpoint(a, b);
+        // Keep pan running on the pinch centroid
+        if (panEnabled && !isPanning) {
+          isPanning = true;
+          configRef.current.onPanStart?.(lastPinchCenter);
         }
-      } else if (touches.length === 2) {
-        // Cancel long press on multi-touch
-        clearTimeout(longPressTimerRef.current);
-        // Two touches - enable both pan and zoom detection
-        const distance = getDistance(touches[0], touches[1]);
-        const center = getCenter(touches[0], touches[1]);
-
-        lastDistanceRef.current = distance;
-        lastCenterRef.current = center;
-        lastTouchRef.current = center;
-
-        isPanningRef.current = panEnabled;
-        isZoomingRef.current = zoomEnabled;
-
-        onZoomStart?.(currentScaleRef.current);
-        onPanStart?.(center);
+        if (zoomEnabled) {
+          isPinching = true;
+          onZoomStart?.(currentScale);
+        }
       }
-    },
-    [panEnabled, zoomEnabled, onPanStart, onZoomStart, onTap, onDoubleTap, onLongPress, longPressDuration, getDistance]
-  );
+    }
 
-  // Handle touch move
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      e.preventDefault(); // Prevent scrolling
+    function onPointerMove(e: PointerEvent) {
+      const p = active.get(e.pointerId);
+      if (!p) return;
+      p.x = e.clientX;
+      p.y = e.clientY;
 
-      const touches = Array.from(e.touches);
-      touchesRef.current = touches;
+      const { panEnabled = true, zoomEnabled = true, minZoom = 0.05, maxZoom = 20, onPan, onZoom } = configRef.current;
 
-      if (touches.length === 1 && isPanningRef.current && panEnabled) {
-        // Single touch pan - ONE FINGER DRAG
-        const touch = touches[0];
-        const delta = {
-          x: touch.clientX - lastTouchRef.current.x,
-          y: touch.clientY - lastTouchRef.current.y,
-        };
+      // Suppress browser gestures (scroll, pull-to-refresh) while actively
+      // handling a gesture. Passive:false registration makes this valid.
+      if (isPanning || isPinching) e.preventDefault();
 
-        // Mark as moved if moved more than 5px (to distinguish from tap)
-        if (Math.abs(delta.x) > 5 || Math.abs(delta.y) > 5) {
-          hasMoved.current = true;
-          clearTimeout(longPressTimerRef.current);
+      if (active.size === 1 && isPanning && panEnabled) {
+        const delta = { x: e.clientX - lastSingle.x, y: e.clientY - lastSingle.y };
+        if (!hasMoved && (Math.abs(e.clientX - p.startX) > 5 || Math.abs(e.clientY - p.startY) > 5)) {
+          hasMoved = true;
+          clearTimeout(longPressTimer);
         }
-
         onPan?.(delta);
-        lastTouchRef.current = { x: touch.clientX, y: touch.clientY };
-      } else if (touches.length === 2) {
-        const distance = getDistance(touches[0], touches[1]);
-        const center = getCenter(touches[0], touches[1]);
-
-        // Two-finger pinch zoom (distance changes)
-        if (isZoomingRef.current && zoomEnabled && lastDistanceRef.current > 0) {
-          const scaleRatio = distance / lastDistanceRef.current;
-          const newScale = currentScaleRef.current * scaleRatio;
-          const clampedScale = Math.max(minZoom, Math.min(maxZoom, newScale));
-
-          currentScaleRef.current = clampedScale;
-          onZoom?.(clampedScale, center);
-        }
-
-        // Two-finger pan (center moves)
-        if (isPanningRef.current && panEnabled) {
-          const delta = {
-            x: center.x - lastCenterRef.current.x,
-            y: center.y - lastCenterRef.current.y,
-          };
-
-          onPan?.(delta);
-          lastCenterRef.current = center;
-        }
-
-        lastDistanceRef.current = distance;
+        lastSingle = { x: e.clientX, y: e.clientY };
+        return;
       }
-    },
-    [
-      panEnabled,
-      zoomEnabled,
-      minZoom,
-      maxZoom,
-      zoomSpeed,
-      onPan,
-      onZoom,
-      getDistance,
-      getCenter,
-    ]
-  );
 
-  // Handle touch end
-  const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      const touches = Array.from(e.touches);
-      touchesRef.current = touches;
+      const pair = twoTouchPointers();
+      if (pair) {
+        const [a, b] = pair;
+        const d = distance(a, b);
+        const c = midpoint(a, b);
 
-      if (touches.length === 0) {
-        // All touches ended
-        clearTimeout(longPressTimerRef.current);
+        if (isPinching && zoomEnabled && lastPinchDistance > 0) {
+          const ratio = d / lastPinchDistance;
+          const next = Math.max(minZoom, Math.min(maxZoom, currentScale * ratio));
+          currentScale = next;
+          onZoom?.(next, c);
+        }
+        if (isPanning && panEnabled) {
+          onPan?.({ x: c.x - lastPinchCenter.x, y: c.y - lastPinchCenter.y });
+        }
+        lastPinchDistance = d;
+        lastPinchCenter = c;
+        hasMoved = true;
+        clearTimeout(longPressTimer);
+      }
+    }
 
-        // Fire tap only if user didn't move
-        if (!hasMoved.current && lastTapRef.current > 0) {
+    function onPointerEnd(e: PointerEvent) {
+      const p = active.get(e.pointerId);
+      if (!p) return;
+      active.delete(e.pointerId);
+      try {
+        el!.releasePointerCapture?.(e.pointerId);
+      } catch {
+        /* pointer already released; ignore */
+      }
+
+      const { onTap, onDoubleTap, onPanEnd, onZoomEnd, onPanStart } = configRef.current;
+
+      if (active.size === 0) {
+        // Tap detection — touch only, short, no movement
+        if (p.pointerType === 'touch' && !hasMoved && Date.now() - p.startT < 300) {
           const now = Date.now();
-          if (now - lastTapRef.current < 300) {
-            onTap?.({ x: lastTouchRef.current.x, y: lastTouchRef.current.y });
+          const tapPt = { x: e.clientX, y: e.clientY };
+          if (now - lastTapTime < 300) {
+            onDoubleTap?.(tapPt);
+            lastTapTime = 0;
+          } else {
+            onTap?.(tapPt);
+            lastTapTime = now;
           }
         }
-
-        if (isPanningRef.current) {
-          onPanEnd?.();
-          isPanningRef.current = false;
-        }
-
-        if (isZoomingRef.current) {
+        if (isPinching) {
           onZoomEnd?.();
-          isZoomingRef.current = false;
+          isPinching = false;
         }
-
-        hasMoved.current = false;
-      } else if (touches.length === 1 && isZoomingRef.current) {
-        clearTimeout(longPressTimerRef.current);
-        // Went from two touches to one - end zoom, start pan
-        isZoomingRef.current = false;
+        if (isPanning) {
+          onPanEnd?.();
+          isPanning = false;
+        }
+        hasMoved = false;
+        clearTimeout(longPressTimer);
+        detachWindowListeners();
+      } else if (active.size === 1 && isPinching) {
+        // Finger lifted, one remains — end pinch, let pan continue on it.
+        isPinching = false;
         onZoomEnd?.();
-
-        if (panEnabled) {
-          const touch = touches[0];
-          lastTouchRef.current = { x: touch.clientX, y: touch.clientY };
-          isPanningRef.current = true;
-          onPanStart?.({ x: touch.clientX, y: touch.clientY });
+        const remaining = active.values().next().value as ActivePointer;
+        lastSingle = { x: remaining.x, y: remaining.y };
+        if (!isPanning && configRef.current.panEnabled !== false) {
+          isPanning = true;
+          onPanStart?.(lastSingle);
         }
       }
-    },
-    [panEnabled, onPanStart, onPanEnd, onZoomEnd]
-  );
+    }
 
-  // Handle touch cancel
-  const handleTouchCancel = useCallback(
-    (e: React.TouchEvent) => {
-      touchesRef.current = [];
-      clearTimeout(longPressTimerRef.current);
+    function onWheel(e: WheelEvent) {
+      const {
+        panEnabled = true,
+        zoomEnabled = true,
+        minZoom = 0.05,
+        maxZoom = 20,
+        onPan,
+        onZoom,
+        wheelPanSpeed = 1,
+        wheelZoomFactor = 0.003,
+      } = configRef.current;
 
-      if (isPanningRef.current) {
-        onPanEnd?.();
-        isPanningRef.current = false;
+      // Ctrl/Cmd + wheel = focal-point zoom. Trackpad pinch in Chrome/Safari
+      // also dispatches wheel events with ctrlKey=true, so this covers both.
+      if (e.ctrlKey || e.metaKey) {
+        if (!zoomEnabled) return;
+        e.preventDefault();
+        const factor = Math.exp(-e.deltaY * wheelZoomFactor);
+        const next = Math.max(minZoom, Math.min(maxZoom, currentScale * factor));
+        currentScale = next;
+        onZoom?.(next, { x: e.clientX, y: e.clientY });
+        return;
       }
+      // Plain wheel = pan. Negated so scroll-down moves content up (standard).
+      if (!panEnabled) return;
+      e.preventDefault();
+      onPan?.({ x: -e.deltaX * wheelPanSpeed, y: -e.deltaY * wheelPanSpeed });
+    }
 
-      if (isZoomingRef.current) {
-        onZoomEnd?.();
-        isZoomingRef.current = false;
-      }
-    },
-    [onPanEnd, onZoomEnd]
-  );
+    el.addEventListener('pointerdown', onPointerDown);
+    el.addEventListener('wheel', onWheel, { passive: false });
 
-  return {
-    touchHandlers: {
-      onTouchStart: handleTouchStart,
-      onTouchMove: handleTouchMove,
-      onTouchEnd: handleTouchEnd,
-      onTouchCancel: handleTouchCancel,
-    },
-  };
+    return () => {
+      el.removeEventListener('pointerdown', onPointerDown);
+      el.removeEventListener('wheel', onWheel);
+      detachWindowListeners();
+      clearTimeout(longPressTimer);
+    };
+  }, [targetRef]);
 }
