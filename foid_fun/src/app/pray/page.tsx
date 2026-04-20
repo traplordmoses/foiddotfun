@@ -552,7 +552,7 @@ function PrayPageContent() {
           hasEverPrayed={hasAnyPrayers}
         />
 
-        {/* Journey trigger — small pill below the altar that opens the drawer */}
+        {/* History trigger — pill below the altar that opens the journal drawer. */}
         <button
           type="button"
           className="pray-journey-trigger"
@@ -560,11 +560,10 @@ function PrayPageContent() {
             triggerHaptic('light');
             setJournalOpen(true);
           }}
-          aria-label="Open your prayer journey"
+          aria-label="View prayer history"
         >
-          <span className="pray-journey-trigger__handle" aria-hidden="true" />
-          <span className="pray-journey-trigger__label">journey</span>
-          <span className="pray-journey-trigger__chevron" aria-hidden="true">˅</span>
+          <span className="pray-journey-trigger__label">view history</span>
+          <span className="pray-journey-trigger__chevron" aria-hidden="true">⌄</span>
         </button>
 
         {/* Terminal — fills remaining height */}
@@ -875,23 +874,22 @@ function PrayPageContent() {
           color: #ffd166;
           text-align: center;
         }
-        /* Journey trigger — small tappable pill that opens the journal drawer.
-           Doubles as a visible "drag up" affordance without needing a full
-           gesture library. */
+        /* History trigger — tappable pill that opens the journal drawer.
+           Chevron points down to signal "expand / reveal more below". */
         .pray-journey-trigger {
           display: inline-flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
           align-self: center;
           margin: 10px 0 4px;
           padding: 6px 14px 8px;
           background: transparent;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.12);
           border-radius: 999px;
-          color: rgba(255, 255, 255, 0.55);
+          color: rgba(255, 255, 255, 0.7);
           font-family: var(--font-terminal, "JetBrains Mono", monospace);
-          font-size: 10px;
-          letter-spacing: 0.2em;
+          font-size: 11px;
+          letter-spacing: 0.16em;
           text-transform: lowercase;
           cursor: pointer;
           flex-shrink: 0;
@@ -902,21 +900,14 @@ function PrayPageContent() {
         .pray-journey-trigger:hover,
         .pray-journey-trigger:active {
           color: #00ffd5;
-          border-color: rgba(0, 255, 213, 0.35);
-          background: rgba(0, 255, 213, 0.04);
-        }
-        .pray-journey-trigger__handle {
-          display: inline-block;
-          width: 22px;
-          height: 2px;
-          border-radius: 2px;
-          background: rgba(255, 255, 255, 0.3);
+          border-color: rgba(0, 255, 213, 0.45);
+          background: rgba(0, 255, 213, 0.06);
         }
         .pray-journey-trigger__chevron {
-          font-size: 12px;
+          font-size: 14px;
           line-height: 1;
-          transform: rotate(180deg);
-          opacity: 0.7;
+          opacity: 0.75;
+          margin-top: -2px;
         }
 
         .pray-mobile-terminal {
