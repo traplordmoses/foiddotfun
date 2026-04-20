@@ -53,7 +53,6 @@ export type UsePanZoomReturn = {
   isPanning: boolean;
   draggingBoard: boolean;
   onContainerPointerDown: React.PointerEventHandler<HTMLDivElement>;
-  onCanvasWheel: React.WheelEventHandler<HTMLDivElement>;
   zoomToRect: (r: Rect, padding?: number) => void;
   screenToWorld: (clientX: number, clientY: number) => DropPos;
   /** Programmatic setters kept escape-hatch-only — prefer zoomToRect / default gestures. */
@@ -453,15 +452,20 @@ export function usePanZoom(containerRef: RefObject<HTMLElement | null>): UsePanZ
 
   // ---------------------------------------------------------------------------
   // Wheel zoom (focus-point preserving) — reads from refs, writes to refs.
+  //
+  // Attached via native addEventListener with { passive: false } so
+  // preventDefault() actually suppresses page scroll. React synthetic wheel
+  // handlers are passive since React 17, which turns preventDefault() into a
+  // no-op + console warning per event.
   // ---------------------------------------------------------------------------
 
-  const onCanvasWheel: React.WheelEventHandler<HTMLDivElement> = useCallback(
-    (e) => {
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
       if (e.shiftKey) return;
       e.preventDefault();
       cancelMomentum();
-      const el = containerRef.current;
-      if (!el) return;
       const factor = Math.exp(-e.deltaY * 0.003);
       const currScale = scaleRef.current;
       const currPan = panRef.current;
@@ -469,16 +473,16 @@ export function usePanZoom(containerRef: RefObject<HTMLElement | null>): UsePanZ
       const r = el.getBoundingClientRect();
       const cx = e.clientX - r.left;
       const cy = e.clientY - r.top;
-      // World point under the cursor should stay under the cursor after zoom.
       const wx = (cx - currPan.x) / currScale;
       const wy = (cy - currPan.y) / currScale;
       writeRefs({
         scale: nextScale,
         pan: { x: cx - wx * nextScale, y: cy - wy * nextScale },
       });
-    },
-    [containerRef, cancelMomentum, writeRefs]
-  );
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [containerRef, cancelMomentum, writeRefs]);
 
   // ---------------------------------------------------------------------------
   // zoomToRect / screenToWorld
@@ -562,7 +566,6 @@ export function usePanZoom(containerRef: RefObject<HTMLElement | null>): UsePanZ
       isPanning,
       draggingBoard,
       onContainerPointerDown,
-      onCanvasWheel,
       zoomToRect,
       screenToWorld,
       setScale,
@@ -578,7 +581,6 @@ export function usePanZoom(containerRef: RefObject<HTMLElement | null>): UsePanZ
       isPanning,
       draggingBoard,
       onContainerPointerDown,
-      onCanvasWheel,
       zoomToRect,
       screenToWorld,
       setScale,

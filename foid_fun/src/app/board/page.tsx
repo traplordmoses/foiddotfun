@@ -272,14 +272,14 @@ function BoardPageContent() {
   const [desktopPaintFile, setDesktopPaintFile] = useState<File | null>(null);
   const [desktopPaintPos, setDesktopPaintPos] = useState<DropPos | undefined>(undefined);
 
-  // Pan/zoom — extracted to a headless hook
+  // Pan/zoom — extracted to a headless hook. Wheel zoom is attached inside
+  // the hook via a non-passive native listener (so preventDefault works).
   const {
     scale,
     pan,
     spaceDown,
     isPanning,
     onContainerPointerDown,
-    onCanvasWheel,
     zoomToRect,
     screenToWorld,
     bindStage,
@@ -466,10 +466,23 @@ function BoardPageContent() {
   // Page-level browser zoom lock (pinch/Ctrl+wheel/double-tap) — its own hook
   useViewportZoomLock();
 
-  // Status messages
-  const [statusMessages, setStatusMessages] = useState<StatusMessage[]>([
-    { id: "init", text: "welcome to the mifoid loreboard!", type: "system", timestamp: new Date() }
-  ]);
+  // Status messages. Seeded post-mount so SSR and the first client render
+  // match (new Date() differs between server/client and breaks hydration).
+  const [statusMessages, setStatusMessages] = useState<StatusMessage[]>([]);
+  useEffect(() => {
+    setStatusMessages((prev) =>
+      prev.length
+        ? prev
+        : [
+            {
+              id: "init",
+              text: "welcome to the mifoid loreboard!",
+              type: "system",
+              timestamp: new Date(),
+            },
+          ],
+    );
+  }, []);
   // Screen-reader-only announcement mirror. TerminalChat is visual-only
   // (scrollable list), so assistive tech needs its own live region with a
   // single latest message. We clear+set on a microtask so repeated identical
@@ -590,7 +603,10 @@ function BoardPageContent() {
 
   const storedRectFor = useCallback((p: PendingItem) => p.rect, []);
 
-  const onPickClick = useCallback(() => fileInputRef.current?.click(), []);
+  const onPickClick = useCallback(() => {
+    analytics.trackProposeClicked({ source: "desktop_sidebar" });
+    fileInputRef.current?.click();
+  }, [analytics]);
 
   // Blob URL revocation is owned by the store: `removePending` revokes on
   // removal, `clearAll` revokes the whole batch. useProposalSubmit hands the
@@ -1125,16 +1141,22 @@ function BoardPageContent() {
     return () => window.removeEventListener("keydown", onKey);
   }, [busy, submittingProposals, showReviewModal, desktopPaintFile, announceSr]);
 
-  const boardParticles = useMemo(
-    () =>
+  // Ambient particle field. Generated post-mount so SSR renders zero
+  // particles and the client re-populates them — Math.random() during the
+  // SSR pass would produce a different DOM tree than the hydration pass.
+  const [boardParticles, setBoardParticles] = useState<
+    { left: number; top: number; delay: number; duration: number }[]
+  >([]);
+  useEffect(() => {
+    setBoardParticles(
       Array.from({ length: 20 }).map(() => ({
         left: Math.random() * 100,
         top: Math.random() * 100,
         delay: Math.random() * 5,
         duration: 8 + Math.random() * 12,
       })),
-    [],
-  );
+    );
+  }, []);
 
   const pendingVotes = proposals.filter((p) => (p.status === "voting" && p.isVotable));
   const firstPending = pendingVotes[0];
@@ -1389,7 +1411,6 @@ function BoardPageContent() {
                     onDragEnter={onDragEnter}
                     onDragLeave={onDragLeave}
                     onDrop={onDrop}
-                    onWheel={onCanvasWheel}
                     style={{ cursor: spaceDown ? (isPanning ? "grabbing" : "grab") : "default" }}
                   >
                     {/* Featured-proposal ribbon — floats in screen space at
