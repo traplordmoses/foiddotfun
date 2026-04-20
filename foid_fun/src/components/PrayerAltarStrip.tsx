@@ -102,11 +102,10 @@ export default function PrayerAltarStrip({
           height="84"
           viewBox="0 0 84 84"
         >
-          {/* Three visual states for the arc:
-              1. Never prayed → dashed placeholder ring (invites action)
-              2. Cooldown active → solid progressing ring (resting)
-              3. Ready to pray again → solid full ring + soft ready pulse */}
-          {!hasEverPrayed ? (
+          {/* Ring state indicates TODAY's prayer status:
+              - cooldownActive (prayed today) → solid ring, progresses as 24h window elapses
+              - !cooldownActive (haven't prayed today yet, or never prayed) → dashed ring */}
+          {!cooldownActive ? (
             <circle
               cx="42"
               cy="42"
@@ -141,7 +140,7 @@ export default function PrayerAltarStrip({
                 strokeDashoffset={dashOffset}
                 transform="rotate(-90 42 42)"
                 style={{ transition: "stroke-dashoffset 0.8s ease-out" }}
-                opacity={cooldownActive ? 0.9 : 0.85}
+                opacity={0.9}
                 vectorEffect="non-scaling-stroke"
               />
             </>
@@ -190,7 +189,7 @@ export default function PrayerAltarStrip({
 
         <div className="altar-tier">
           <span className="altar-tier__name">
-            {connected ? tier.current.name.toLowerCase() : "not yet"}
+            {!connected ? "—" : tier.current.name.toLowerCase()}
           </span>
           <div className="altar-tier__bar" aria-hidden="true">
             <div
