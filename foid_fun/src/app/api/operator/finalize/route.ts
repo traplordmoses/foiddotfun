@@ -8,7 +8,6 @@ import {
   stringToHex,
 } from "viem";
 import type { Abi } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
 import { FINALIZED_EVENT } from "@/lib/events";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 import { NextRequest, NextResponse } from "next/server";
@@ -32,7 +31,7 @@ import { hasOverlap } from "@/lib/grid";
 import { uploadJSON } from "@/lib/ipfs";
 import { ProposalStore } from "@/lib/proposalStore";
 import { sortCandidatesByTieBreak } from "@/lib/winnerSelection";
-import { CANONICAL_ADDRESSES, CHAIN_ID, CHAIN_NAME, requireCanonicalAddress } from "@/config/canonical";
+import { CANONICAL_ADDRESSES, CHAIN_ID, CHAIN_NAME, getOperatorAccount, requireCanonicalAddress } from "@/config/canonical";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,10 +40,17 @@ export const dynamic = "force-dynamic";
 
 const loreBoardManifestStoreAbiTyped = loreBoardManifestStoreAbi as Abi;
 
+const isDev = process.env.NODE_ENV === "development";
+const devLog: typeof console.log = (...args) => {
+  if (isDev) console.log(...args);
+};
+const devWarn: typeof console.warn = (...args) => {
+  if (isDev) console.warn(...args);
+};
+
 const getRuntimeConfig = () => {
   const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC;
   const treasuryEnv = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS;
-  const operatorPk = process.env.OPERATOR_PK;
   const manifestStoreEnv =
     (process.env.NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS ||
       process.env.NEXT_PUBLIC_LOREBOARD_ANCHOR ||
@@ -58,11 +64,8 @@ const getRuntimeConfig = () => {
       "NEXT_PUBLIC_FLUENT_RPC is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
     );
   }
-  if (!operatorPk) {
-    throw new Error(
-      "OPERATOR_PK is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
-    );
-  }
+
+  const operatorAccount = getOperatorAccount();
 
   const treasury = requireCanonicalAddress({
     label: "NEXT_PUBLIC_LOREBOARD_ADDRESS",
@@ -98,12 +101,6 @@ const getRuntimeConfig = () => {
       },
     },
   });
-
-  const operatorAccount = privateKeyToAccount(
-    operatorPk.startsWith("0x")
-      ? (operatorPk as `0x${string}`)
-      : (`0x${operatorPk}` as `0x${string}`)
-  );
 
   const publicClient = createPublicClient({ chain, transport: http(rpc) });
   const wallet = createWalletClient({
@@ -247,7 +244,7 @@ async function loadBaseBoardFromOnchain() {
     const manifestRaw = await fetchManifestFromCid(cid);
     if (manifestRaw) {
       const placements = normalizeManifestPlacements(manifestRaw);
-      console.log("[finalize] base placements from manifest store", {
+      devLog("[finalize] base placements from manifest store", {
         epoch: latestFromStore.epoch,
         cid,
         count: placements.length,
@@ -258,7 +255,7 @@ async function loadBaseBoardFromOnchain() {
         source: "manifest-store" as BaseBoardSource,
       };
     }
-    console.warn("[finalize] failed to load manifest from store CID", cid);
+    devWarn("[finalize] failed to load manifest from store CID", cid);
   }
 
   const latestBlock = await publicClient.getBlockNumber();
@@ -270,7 +267,7 @@ async function loadBaseBoardFromOnchain() {
   );
 
   if (!logs.length) {
-    console.log(
+    devLog(
       "[finalize] no Finalized logs on-chain yet and no manifest fallback – defaulting to empty board"
     );
     return { basePlacements: [] as Placement[], latestEpoch: null, source: "none" };
@@ -281,7 +278,7 @@ async function loadBaseBoardFromOnchain() {
   for (const log of logs) {
     const manifestCID = log.args.manifestCID;
     const epoch = Number(log.args.epoch);
-    console.log("[finalize] replaying manifest", {
+    devLog("[finalize] replaying manifest", {
       epoch,
       manifestCID,
       blockNumber: log.blockNumber?.toString(),
@@ -289,7 +286,7 @@ async function loadBaseBoardFromOnchain() {
 
     const manifestRaw = await fetchManifestFromCid(manifestCID);
     if (!manifestRaw) {
-      console.warn(
+      devWarn(
         "[finalize] failed to fetch manifest for epoch",
         epoch,
         "CID",
@@ -299,7 +296,7 @@ async function loadBaseBoardFromOnchain() {
     }
 
     const placements = normalizeManifestPlacements(manifestRaw);
-    console.log("[finalize] manifest placements", {
+    devLog("[finalize] manifest placements", {
       epoch,
       count: placements.length,
       ids: placements.map((p) => p.id),
@@ -312,7 +309,7 @@ async function loadBaseBoardFromOnchain() {
 
   const latestEpoch = Number(logs[logs.length - 1].args.epoch);
   const basePlacements = Array.from(byId.values());
-  console.log("[finalize] reconstructed base board from logs", {
+  devLog("[finalize] reconstructed base board from logs", {
     latestEpoch,
     count: basePlacements.length,
     ids: basePlacements.map((p) => p.id),
@@ -416,17 +413,25 @@ const fakeRootFromIds = (ids: Hex32[]): Hex32 => {
 /* ---------- POST /api/operator/finalize ---------- */
 
 export async function POST(req: NextRequest) {
-  // ── Auth: require OPERATOR_API_KEY header ──
+  // ── Auth: fail-closed if OPERATOR_API_KEY is unset or the header doesn't match ──
   const expectedKey = process.env.OPERATOR_API_KEY;
-  if (expectedKey) {
-    const provided = req.headers.get("x-operator-key");
-    if (provided !== expectedKey) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const provided = req.headers.get("x-operator-key");
+  if (!expectedKey || provided !== expectedKey) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const { publicClient, wallet, treasury, manifestStore, loreboardVm } =
-    getRuntimeConfig();
+  let runtime: ReturnType<typeof getRuntimeConfig>;
+  try {
+    runtime = getRuntimeConfig();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[finalize] runtime config error:", message);
+    return NextResponse.json(
+      { error: "Configuration error", details: message },
+      { status: 500 }
+    );
+  }
+  const { publicClient, wallet, treasury, manifestStore, loreboardVm } = runtime;
   let body: unknown = null;
   try {
     body = await req.json();
@@ -466,7 +471,7 @@ export async function POST(req: NextRequest) {
 
     if (onChainId == null) {
       // No on-chain proposal ID linked — cannot settle on-chain
-      console.warn(`[finalize] proposal ${candidate.id} has no on_chain_id, skipping`);
+      devWarn(`[finalize] proposal ${candidate.id} has no on_chain_id, skipping`);
       candidate.status = "rejected";
       rejected.push(candidate);
       markFinalized(candidate.id);
@@ -530,11 +535,11 @@ export async function POST(req: NextRequest) {
       }
 
       if (approved) {
-        console.log(`[finalize] proposal ${candidate.id} (chain=${onChainId}): APPROVED on-chain`);
+        devLog(`[finalize] proposal ${candidate.id} (chain=${onChainId}): APPROVED on-chain`);
         candidate.status = "accepted";
         passed.push(candidate);
       } else {
-        console.log(`[finalize] proposal ${candidate.id} (chain=${onChainId}): REJECTED on-chain (threshold not met)`);
+        devLog(`[finalize] proposal ${candidate.id} (chain=${onChainId}): REJECTED on-chain (threshold not met)`);
         candidate.status = "rejected";
         rejected.push(candidate);
       }
@@ -548,7 +553,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  console.log(`[finalize] vote settlement complete: ${passed.length} passed, ${rejected.length} rejected`);
+  devLog(`[finalize] vote settlement complete: ${passed.length} passed, ${rejected.length} rejected`);
 
   const sorted = sortCandidatesByTieBreak(passed);
 
@@ -558,7 +563,7 @@ export async function POST(req: NextRequest) {
   let nextAccepted: Placement[];
   if (basePlacements.length) {
     nextAccepted = basePlacements.map(clonePlacement);
-    console.log("[finalize] basePlacements seeded", {
+    devLog("[finalize] basePlacements seeded", {
       source: baseSource,
       count: nextAccepted.length,
       ids: nextAccepted.map((p) => p.id),
@@ -566,7 +571,7 @@ export async function POST(req: NextRequest) {
   } else {
     const acceptedSnapshot = listAccepted().map(clonePlacement);
     nextAccepted = acceptedSnapshot;
-    console.log("[finalize] basePlacements from accepted store fallback", {
+    devLog("[finalize] basePlacements from accepted store fallback", {
       source: baseSource,
       count: nextAccepted.length,
       ids: nextAccepted.map((p) => p.id),
@@ -613,7 +618,7 @@ export async function POST(req: NextRequest) {
         args: [baseInputs, candidateInputs],
       })) as readonly [Hex32[], Hex32[]];
 
-      console.log("[finalize] loreboard VM mode enabled", {
+      devLog("[finalize] loreboard VM mode enabled", {
         enabled: Boolean(loreboardVm),
         accepted: acceptedIds.length,
         rejected: rejectedIds.length,
@@ -660,7 +665,7 @@ export async function POST(req: NextRequest) {
 
       usedVm = true;
     } catch (error) {
-      console.warn(
+      devWarn(
         "[finalize] loreboard VM selection failed, falling back to JS",
         error
       );
@@ -718,7 +723,7 @@ export async function POST(req: NextRequest) {
   // Merge winners into the working board state
   nextAccepted = [...nextAccepted, ...added];
 
-  console.log("[finalize] nextAccepted before manifest upload", {
+  devLog("[finalize] nextAccepted before manifest upload", {
     epoch,
     count: nextAccepted.length,
     ids: nextAccepted.map((p) => p.id),
@@ -739,12 +744,12 @@ export async function POST(req: NextRequest) {
   let cid: string;
   try {
     cid = await uploadJSON(`mifoid-epoch-${epoch}.manifest.json`, manifest);
-    console.log("[operator/finalize] uploaded manifest:", cid);
+    devLog("[operator/finalize] uploaded manifest:", cid);
   } catch (e) {
     console.error("[operator/finalize] uploadJSON failed:", e);
     if (process.env.NODE_ENV !== "production") {
       cid = `dev-manifest-epoch-${epoch}`;
-      console.warn(
+      devWarn(
         "[operator/finalize] using DEV manifest CID fallback:",
         cid
       );
@@ -844,9 +849,9 @@ export async function POST(req: NextRequest) {
             `0x${Buffer.from(cidBytes).toString("hex")}` as `0x${string}`,
           ],
         });
-        console.log(`[finalize] registered placement ${placement.id} on SwipeLoreboard:`, placeForTx);
+        devLog(`[finalize] registered placement ${placement.id} on SwipeLoreboard:`, placeForTx);
       } catch (err) {
-        console.warn(`[finalize] SwipeLoreboard.placeFor failed for ${placement.id}:`, err);
+        devWarn(`[finalize] SwipeLoreboard.placeFor failed for ${placement.id}:`, err);
       }
     }
   }
