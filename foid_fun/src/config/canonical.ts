@@ -1,4 +1,5 @@
 import { getAddress, type Address } from "viem";
+import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 
 const DOTENV_HINT =
   "If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local.";
@@ -235,4 +236,34 @@ export function requireCanonicalAddress(params: {
     );
   }
   return normalized;
+}
+
+// Boot-time validation of OPERATOR_PK. If OPERATOR_PK is set but malformed,
+// surface the error in deploy logs immediately instead of deferring to the
+// first operator route call (where it would crash at auto-settle time).
+// We log + stash the error here and re-throw from getOperatorAccount() so
+// module load doesn't crash the process — the route returns 500 instead.
+let operatorPkError: string | null = null;
+let validatedOperatorAccount: PrivateKeyAccount | null = null;
+
+if (process.env.OPERATOR_PK) {
+  const raw = process.env.OPERATOR_PK.trim();
+  const normalized = (raw.startsWith("0x") ? raw : `0x${raw}`) as `0x${string}`;
+  try {
+    validatedOperatorAccount = privateKeyToAccount(normalized);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    operatorPkError = `OPERATOR_PK is malformed: ${msg}`;
+    console.error(`[config] ${operatorPkError}`);
+  }
+}
+
+export function getOperatorAccount(): PrivateKeyAccount {
+  if (operatorPkError) {
+    throw new Error(`[config] ${operatorPkError}`);
+  }
+  if (!validatedOperatorAccount) {
+    throw new Error("[config] OPERATOR_PK is required but not set");
+  }
+  return validatedOperatorAccount;
 }

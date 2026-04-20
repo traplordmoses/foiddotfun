@@ -13,19 +13,17 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  // ── Auth ──
+  // ── Auth: fail-closed. At least one secret must be set AND match. ──
   const cronSecret = process.env.CRON_SECRET;
   const operatorKey = process.env.OPERATOR_API_KEY;
   const authHeader = req.headers.get("authorization");
   const operatorHeader = req.headers.get("x-operator-key");
 
-  const authorized =
-    (cronSecret && authHeader === `Bearer ${cronSecret}`) ||
-    (operatorKey && operatorHeader === operatorKey) ||
-    process.env.NODE_ENV === "development";
+  const cronAuthorized = Boolean(cronSecret) && authHeader === `Bearer ${cronSecret}`;
+  const operatorAuthorized = Boolean(operatorKey) && operatorHeader === operatorKey;
 
-  if (!authorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!cronAuthorized && !operatorAuthorized) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   // ── Check for expired proposals ──
