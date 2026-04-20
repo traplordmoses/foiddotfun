@@ -402,6 +402,8 @@ export default function FoidMommyTerminal({
   const [suggestedPrayer, setSuggestedPrayer] = useState<string>("");
   const [hasAutoStarted, setHasAutoStarted] = useState(false);
   const [initialFeelingText, setInitialFeelingText] = useState("");
+  // /forget ritual: full-viewport black overlay during memory clear.
+  const [forgetFading, setForgetFading] = useState(false);
 
   const logRef = useRef<HTMLDivElement | null>(null);
   const isNearBottomRef = useRef(true);
@@ -1400,11 +1402,52 @@ export default function FoidMommyTerminal({
       const raw = currentInputValue;
       const trimmed = raw.trim();
 
-      // Global /forget command — erase all memory data
+      // Global /forget command — Mommy says goodbye, fade to black, clear memory.
       if (trimmed.toLowerCase() === "/forget") {
-        revokeConsent();
         setCommandInput("");
-        addMessage("system", "memory cleared. all feeling data has been erased from your device.");
+        const reduceMotion =
+          typeof window !== "undefined" &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        // Mommy's farewell — typographize handles the curly apostrophe + ellipsis.
+        await typeMessage({ role: "foid", text: "okay, love. i'm letting you go..." });
+
+        const clearAllState = () => {
+          resetTimers();
+          revokeConsent();
+          clearDraft();
+          setMessages([]);
+          setFeelingInput("");
+          setSecondChatInput("");
+          setPrayerInput("");
+          setPrayerText("");
+          setSuggestedPrayer("");
+          setInitialFeelingText("");
+          setFeelingKey(null);
+          setPrayerRevealing(false);
+          setPrayerMessageId(null);
+          setIsProcessing(false);
+          setStage("idle");
+        };
+
+        if (reduceMotion) {
+          clearAllState();
+          inputRef.current?.focus();
+          return;
+        }
+
+        setForgetFading(true);
+        // Overlay animation: fade 0→1 (2s), hold 1s, fade 1→0 (1s).
+        // Clear state at t=3s — while the screen is still black and fade-out begins.
+        const clearTimer = window.setTimeout(() => {
+          clearAllState();
+        }, 3000);
+        timeoutsRef.current.push(clearTimer);
+        const endTimer = window.setTimeout(() => {
+          setForgetFading(false);
+          inputRef.current?.focus();
+        }, 4000);
+        timeoutsRef.current.push(endTimer);
         return;
       }
 
@@ -1707,6 +1750,15 @@ export default function FoidMommyTerminal({
           setEchoText("");
         }}
       />
+
+      {/* ── /forget: full-viewport fade-to-black during memory clear ── */}
+      {forgetFading && (
+        <div
+          className="prayer-forget-overlay"
+          role="presentation"
+          aria-hidden="true"
+        />
+      )}
     </div>
   );
 }

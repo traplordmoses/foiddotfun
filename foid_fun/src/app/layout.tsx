@@ -26,7 +26,7 @@ export const metadata = {
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
     shortcut: "/favicon.ico",
   },
-  manifest: "/site.webmanifest",
+  manifest: "/manifest.json",
   openGraph: {
     title: "FOID.FUN — Loreboard",
     description:
@@ -80,7 +80,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={`h-full overflow-hidden ${displayFont.variable} ${bodyFont.variable} ${jetbrainsMono.variable} ${serifFont.variable}`}
     >
       <head>
-        <link rel="manifest" href="/site.webmanifest" />
+        <link rel="manifest" href="/manifest.json" />
         {/* Preconnect hints for IPFS gateways — the /board route loads
             placement images directly from whichever gateway is currently
             fastest (see src/lib/ipfsGatewayCache.ts). Preconnect opens
