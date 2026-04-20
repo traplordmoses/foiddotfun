@@ -143,6 +143,9 @@ export function BatchReviewModal({
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onCancel();
+      }}
     >
       <div className="brm-panel" ref={panelRef}>
         <header className="brm-header">

@@ -21,6 +21,11 @@ const POSTHOG_HOST =
 
 let booted = false;
 let optedOut = false;
+let initialized = false;
+// Queue for capture() calls that fire between posthog.init() and its async
+// `loaded` callback. Without this buffer, early track() calls hit posthog-js
+// before it has a working transport and can be silently dropped.
+const pendingCaptures: Array<[string, Record<string, unknown> | undefined]> = [];
 
 function hasDntEnabled(): boolean {
   if (typeof window === "undefined") return false;
@@ -49,13 +54,14 @@ export function analyticsEnabled(): boolean {
  * No-ops silently when the key is missing or DNT is on.
  */
 export function bootAnalytics(): void {
-  if (booted) return;
+  if (initialized) return;
   if (!POSTHOG_KEY) return;
   if (typeof window === "undefined") return;
   if (hasDntEnabled()) {
     optedOut = true;
     return;
   }
+  initialized = true;
   posthog.init(POSTHOG_KEY, {
     api_host: POSTHOG_HOST,
     capture_pageview: true,
@@ -65,12 +71,12 @@ export function bootAnalytics(): void {
     disable_session_recording: true,
     loaded: () => {
       booted = true;
+      while (pendingCaptures.length > 0) {
+        const next = pendingCaptures.shift();
+        if (next) posthog.capture(next[0], next[1]);
+      }
     },
   });
-  // PostHog resolves `loaded` asynchronously; mark booted immediately so
-  // early events queue into posthog-js's internal buffer rather than being
-  // dropped by analyticsEnabled().
-  booted = true;
 }
 
 /**
@@ -81,7 +87,16 @@ export function track(
   event: string,
   properties?: Record<string, unknown>,
 ): void {
-  if (!analyticsEnabled()) return;
+  if (!POSTHOG_KEY) return;
+  if (typeof window === "undefined") return;
+  if (hasDntEnabled()) return;
+  if (optedOut) return;
+  if (!booted) {
+    // Queue only when init has actually been kicked off — otherwise the
+    // call is a pre-boot orphan (SSR path or called before bootAnalytics).
+    if (initialized) pendingCaptures.push([event, properties]);
+    return;
+  }
   posthog.capture(event, properties);
 }
 
