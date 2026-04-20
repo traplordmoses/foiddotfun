@@ -81,7 +81,7 @@ export function markGatewaySuccess(gatewayUrl: string): void {
  * breaker — otherwise a transient network blip can permanently lock out all
  * images for the session.
  */
-const CSP_WHITELISTED_GATEWAY_COUNT = 4;
+const CSP_WHITELISTED_GATEWAY_COUNT = 3;
 
 /** Record a gateway that returned an error or timed out. */
 export function markGatewayFailure(gatewayUrl: string): void {
