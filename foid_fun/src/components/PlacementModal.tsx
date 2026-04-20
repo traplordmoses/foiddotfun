@@ -70,6 +70,9 @@ export function PlacementModal({ placement, onClose }: Props) {
     <div
       className="fixed inset-0 z-40 flex items-center justify-center"
       onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
       role="dialog"
       aria-modal="true"
       aria-label={`Placement detail: ${name ?? `Proposal #${placement.id}`}`}

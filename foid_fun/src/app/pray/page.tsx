@@ -21,6 +21,7 @@ import { PRAYER_REGISTRY_ABI } from "@/lib/contracts/abis/prayerRegistry";
 import { PRAYER_MIRROR_ABI } from "@/lib/contracts/abis/prayerMirror";
 import { parseEventLogs } from "viem";
 import { PrayerErrorBoundary } from "@/components/PrayerErrorBoundary";
+import { PrayErrorBoundary } from "./PrayErrorBoundary";
 import { getTierFromStreak } from "@/hooks/usePrayerTiers";
 import { usePrayerMemory, type JournalEntry } from "@/hooks/usePrayerMemory";
 import { usePWAInstallPrompt } from "@/hooks/usePWAInstallPrompt";
@@ -303,15 +304,17 @@ function PrayPageContent() {
       );
       const data = (`${PRAYER_SELECTOR}${encodedArgs.slice(2)}` as `0x${string}`);
 
-      const transportInfo = rpcClient.transport as { url?: string; type?: string } | undefined;
-      console.debug("submitPrayer", {
-        chainId: rpcClient.chain?.id ?? FLUENT_CHAIN_ID,
-        userChainId: chainId,
-        rpc: transportInfo?.url ?? transportInfo?.type ?? "unknown",
-        registry: registryAddress,
-        selector: PRAYER_SELECTOR,
-        args: [prayerHash, label, PRAYER_CATEGORY],
-      });
+      if (process.env.NODE_ENV === 'development') {
+        const transportInfo = rpcClient.transport as { url?: string; type?: string } | undefined;
+        console.debug("submitPrayer", {
+          chainId: rpcClient.chain?.id ?? FLUENT_CHAIN_ID,
+          userChainId: chainId,
+          rpc: transportInfo?.url ?? transportInfo?.type ?? "unknown",
+          registry: registryAddress,
+          selector: PRAYER_SELECTOR,
+          args: [prayerHash, label, PRAYER_CATEGORY],
+        });
+      }
 
       try {
         await rpcClient.call({ to: registryAddress, data, account: address as Address });
@@ -567,21 +570,23 @@ function PrayPageContent() {
         <section className="pray-mobile-terminal">
           <div className="pray-liquid-glass-terminal pray-mobile-terminal__inner">
             <div className="frutiger-terminal flicker w-full h-full flex flex-col">
-              <FoidMommyTerminal
-                className="w-full h-full min-h-0 mobile-terminal"
-                ensureWalletReady={ensureWalletReady}
-                submitPrayer={submitPrayer}
-                waitForReceipt={waitForReceipt}
-                nextAllowedAt={nextAllowed as bigint | undefined}
-                onChainStreak={streakNumber}
-                registryReady={!missingRegistry}
-                chainOk={!wrongChain}
-                requiredChainId={FLUENT_CHAIN_ID}
-                autoStart={false}
-                shadowMode={!isConnected}
-                walletAddress={address}
-                onRequestConnect={handleSwitchWallet}
-              />
+              <PrayErrorBoundary>
+                <FoidMommyTerminal
+                  className="w-full h-full min-h-0 mobile-terminal"
+                  ensureWalletReady={ensureWalletReady}
+                  submitPrayer={submitPrayer}
+                  waitForReceipt={waitForReceipt}
+                  nextAllowedAt={nextAllowed as bigint | undefined}
+                  onChainStreak={streakNumber}
+                  registryReady={!missingRegistry}
+                  chainOk={!wrongChain}
+                  requiredChainId={FLUENT_CHAIN_ID}
+                  autoStart={false}
+                  shadowMode={!isConnected}
+                  walletAddress={address}
+                  onRequestConnect={handleSwitchWallet}
+                />
+              </PrayErrorBoundary>
             </div>
           </div>
         </section>
@@ -612,21 +617,23 @@ function PrayPageContent() {
                   <svg className="pray-bracket pray-bracket--br" width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M22 2V22H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
 
                   <div className="frutiger-terminal flicker w-full flex min-h-0 flex-1 flex-col">
-                    <FoidMommyTerminal
-                      className="w-full h-full min-h-0"
-                      ensureWalletReady={ensureWalletReady}
-                      submitPrayer={submitPrayer}
-                      waitForReceipt={waitForReceipt}
-                      nextAllowedAt={nextAllowed as bigint | undefined}
-                      onChainStreak={streakNumber}
-                      registryReady={!missingRegistry}
-                      chainOk={!wrongChain}
-                      requiredChainId={FLUENT_CHAIN_ID}
-                      autoStart={true}
-                      shadowMode={!isConnected}
-                      walletAddress={address}
-                      onRequestConnect={handleSwitchWallet}
-                    />
+                    <PrayErrorBoundary>
+                      <FoidMommyTerminal
+                        className="w-full h-full min-h-0"
+                        ensureWalletReady={ensureWalletReady}
+                        submitPrayer={submitPrayer}
+                        waitForReceipt={waitForReceipt}
+                        nextAllowedAt={nextAllowed as bigint | undefined}
+                        onChainStreak={streakNumber}
+                        registryReady={!missingRegistry}
+                        chainOk={!wrongChain}
+                        requiredChainId={FLUENT_CHAIN_ID}
+                        autoStart={true}
+                        shadowMode={!isConnected}
+                        walletAddress={address}
+                        onRequestConnect={handleSwitchWallet}
+                      />
+                    </PrayErrorBoundary>
                   </div>
                 </div>
 
