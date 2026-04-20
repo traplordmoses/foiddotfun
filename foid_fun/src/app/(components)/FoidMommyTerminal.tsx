@@ -610,22 +610,11 @@ export default function FoidMommyTerminal({
     const isReturningUser = hasMemoryConsentRef.current && memoryEntriesLenRef.current > 0;
 
     const sequence = async () => {
-      // Returning users get a faster boot (skip ASCII art)
-      if (isReturningUser) {
-        await typeMessage({ role: "system", text: "foid mommy online.", speed: 24 });
-        await sleep(400);
-      } else {
-        addMessage("system", "\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557");
-        await sleep(100);
-        addMessage("system", "\u2551   FOID_MOMMY_TERMINAL v1.0   \u2551");
-        await sleep(100);
-        addMessage("system", "\u2551   loading... [\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588] 100%  \u2551");
-        await sleep(100);
-        addMessage("system", "\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D");
-        await sleep(400);
-        await typeMessage({ role: "system", text: "foid mommy online.", speed: 24 });
-        await sleep(600);
-      }
+      // Brief fade-in; the blinking caret on the composer input carries the
+      // "ready" cue. No ASCII box, no progress bar.
+      await sleep(400);
+      await typeMessage({ role: "system", text: "foid mommy online.", speed: 24 });
+      await sleep(isReturningUser ? 400 : 500);
 
       // Auto-grant memory consent (privacy disclosed in sidebar text)
       if (needsConsentPromptRef.current) {
@@ -724,7 +713,7 @@ export default function FoidMommyTerminal({
         return;
       }
 
-      addMessage("system", "tell me how you're feeling to start.");
+      await typeMessage({ role: "foid", text: "tell me how you're feeling to start.", speed: 26 });
       setStage("awaitFeeling");
     };
 
@@ -985,7 +974,7 @@ export default function FoidMommyTerminal({
     // ── Shadow mode: intercept before wallet check ──
     if (shadowMode) {
       await typeMessage({
-        role: "system",
+        role: "foid",
         text: "your prayer was heard, sweet one. connect your wallet to anchor it on-chain forever.",
       });
       // Save the prayer text so it persists via draft mechanism
@@ -1575,19 +1564,19 @@ export default function FoidMommyTerminal({
       case "awaitFeeling":
         return feelingOverLimit
           ? `${feelingCount}/${feelingLimit} — KEEP IT UNDER 140 CHARS`
-          : `TELL MOMMY HOW YOU FEEL • ${feelingCount}/${feelingLimit}`;
+          : `${feelingCount}/${feelingLimit}`;
       case "processingFeeling":
         return "FOID MOMMY IS THINKING...";
       case "awaitSecondChat":
         return secondChatOverLimit
           ? `${secondChatCount}/${secondChatLimit} — KEEP IT UNDER 200 CHARS`
-          : `SHARE WITH MOMMY • ${secondChatCount}/${secondChatLimit}`;
+          : `${secondChatCount}/${secondChatLimit}`;
       case "processingSecondChat":
         return "CRAFTING YOUR PRAYER...";
       case "awaitPrayer":
         return prayerOverLimit
           ? `${prayerCount}/${prayerLimit} — KEEP IT UNDER 240 CHARS`
-          : `TYPE YOUR PRAYER OR PRESS ENTER FOR MOMMY'S • ${prayerCount}/${prayerLimit}`;
+          : `${prayerCount}/${prayerLimit}`;
       case "txPending":
         return "SENDING TO CHAIN...";
       case "txFail":

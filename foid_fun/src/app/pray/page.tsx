@@ -30,7 +30,7 @@ import PrayerJournalDrawer from "@/components/PrayerJournalDrawer";
 import PrayerBoot from "@/components/PrayerBoot";
 import TierUnlockCinematic from "@/components/TierUnlockCinematic";
 import { useTierUnlockWatcher } from "@/hooks/useTierUnlockWatcher";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import WalletMenuPill from "@/components/WalletMenuPill";
 
 /* --- env: prayer contract addresses from canonical config --- */
 import { CONTRACTS } from "@/lib/contracts/addresses";
@@ -524,10 +524,11 @@ function PrayPageContent() {
             foid_mommy<span className="pray-mobile-titlebar__accent">.exe</span>
           </span>
           <div className="pray-mobile-titlebar__wallet">
-            <ConnectButton
-              chainStatus="icon"
-              showBalance={false}
-              accountStatus={{ smallScreen: "address", largeScreen: "address" }}
+            <WalletMenuPill
+              address={address}
+              isConnected={isConnected}
+              onDisconnect={() => disconnect()}
+              onSwitchWallet={handleSwitchWallet}
             />
           </div>
         </header>
