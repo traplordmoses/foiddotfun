@@ -222,6 +222,30 @@ const feelingOrder: FeelingKey[] = [
   "pain",
 ];
 
+// Quick-send mood chips for the awaitFeeling stage. Kept short and
+// one-syllable — they're meant for the days you don't have words.
+const MOOD_CHIPS: ReadonlyArray<"good" | "rough" | "numb" | "hyped"> = [
+  "good",
+  "rough",
+  "numb",
+  "hyped",
+];
+
+function relativeDateLabel(daysSince: number, isoDate: string): string {
+  if (daysSince <= 0) return "today";
+  if (daysSince === 1) return "yesterday";
+  if (daysSince < 7) return `${daysSince} days ago`;
+  const d = new Date(isoDate + "T00:00:00");
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function tierPerkLine(tierName: string, multiplier: number): string {
+  if (tierName === "Mommy Milker") {
+    return `${tierName} votes count ${multiplier}× on Loreboard (max)`;
+  }
+  return `${tierName} votes count ${multiplier}× on Loreboard`;
+}
+
 // One short word Mommy "writes back" per prayer. Persisted in the journal
 // and surfaced in the journey drawer so the user has something to hold.
 // Keep these 1–2 syllables — they are meant to land, not to explain.
@@ -410,6 +434,7 @@ export default function FoidMommyTerminal({
   const timeoutsRef = useRef<number[]>([]);
   const intervalsRef = useRef<number[]>([]);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const sendBtnRef = useRef<HTMLButtonElement | null>(null);
   const attachedTypingTargets = useRef(new WeakSet<HTMLElement>());
   const lastStageRef = useRef<Stage>("idle");
 
@@ -1629,16 +1654,99 @@ export default function FoidMommyTerminal({
     <div
       className={`foid-terminal foid-cli w-full${ceremonyDim ? " foid-terminal--ceremony-dim" : ""} ${className ?? ""}`}
     >
-      {/* IDLE STATE: Show only centered START button */}
+      {/* IDLE STATE: Two compact cards stacked above the START button */}
       {stage === "idle" && !autoStart ? (
-        <div className="flex items-center justify-center h-full w-full">
-          <button
-            onClick={handleStart}
-            className="min-h-[56px] px-12 py-4 bg-gradient-to-br from-green-400 to-green-600 text-black font-bold text-lg rounded-xl shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 touch-manipulation"
-          >
-            START PRAYING
-          </button>
-        </div>
+        (() => {
+          const lastEntry = hasMemoryConsent ? getLastEntry() : null;
+          const daysSince = hasMemoryConsent ? getDaysSinceLastPrayer() : null;
+          const showLastCard = Boolean(lastEntry && daysSince !== null);
+          const tierProgress = getTierFromStreak(onChainStreak ?? 0);
+          const currentMult = tierProgress.current.multiplierBps / 100;
+          const nextMult = tierProgress.next
+            ? tierProgress.next.multiplierBps / 100
+            : null;
+          const currentLabel =
+            tierProgress.current.level === 0 ? "—" : tierProgress.current.name;
+          return (
+            <div className="foid-terminal__idle">
+              {showLastCard && lastEntry && daysSince !== null && (
+                <div
+                  className="foid-idle-card foid-idle-card--history"
+                  aria-label="Last prayer summary"
+                >
+                  <div className="foid-idle-card__label">LAST PRAYER</div>
+                  <div className="foid-idle-card__meta">
+                    <span className="foid-idle-card__date">
+                      {relativeDateLabel(daysSince, lastEntry.date)}
+                    </span>
+                    <span className="foid-idle-card__dot" aria-hidden="true">
+                      •
+                    </span>
+                    <span className="foid-idle-card__mood">
+                      {(feelingsConfig[lastEntry.feelingKey]?.chipLabel ??
+                        lastEntry.feelingKey).slice(0, 60)}
+                    </span>
+                  </div>
+                  {lastEntry.mommyWord && (
+                    <div className="foid-idle-card__mommy">
+                      <span className="foid-idle-card__mommy-tag">mommy:</span>
+                      <span className="foid-idle-card__mommy-word">
+                        “{lastEntry.mommyWord}”
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div
+                className="foid-idle-card foid-idle-card--tier"
+                aria-label="Next tier progress"
+              >
+                <div className="foid-idle-card__label">NEXT TIER</div>
+                <div className="foid-idle-card__tier-row">
+                  <span className="foid-idle-card__tier-current">
+                    {currentLabel}
+                    <span className="foid-idle-card__mult">
+                      ({currentMult}×)
+                    </span>
+                  </span>
+                  <span
+                    className="foid-idle-card__tier-arrow"
+                    aria-hidden="true"
+                  >
+                    →
+                  </span>
+                  <span className="foid-idle-card__tier-next">
+                    {tierProgress.next ? tierProgress.next.name : "MAX"}
+                    {nextMult !== null && (
+                      <span className="foid-idle-card__mult">
+                        ({nextMult}×)
+                      </span>
+                    )}
+                  </span>
+                  {tierProgress.next && (
+                    <span className="foid-idle-card__tier-days">
+                      in {tierProgress.daysToNextTier}{" "}
+                      {tierProgress.daysToNextTier === 1 ? "day" : "days"}
+                    </span>
+                  )}
+                </div>
+                <div className="foid-idle-card__perk">
+                  {tierProgress.next
+                    ? tierPerkLine(tierProgress.next.name, nextMult ?? 0)
+                    : tierPerkLine(tierProgress.current.name, currentMult)}
+                </div>
+              </div>
+
+              <button
+                onClick={handleStart}
+                className="foid-idle-start min-h-[56px] px-12 py-4 bg-gradient-to-br from-green-400 to-green-600 text-black font-bold text-lg rounded-xl shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 touch-manipulation"
+              >
+                START PRAYING
+              </button>
+            </div>
+          );
+        })()
       ) : (
         /* ACTIVE STATE: Show full terminal interface */
         <>
@@ -1686,6 +1794,37 @@ export default function FoidMommyTerminal({
           </div>
 
           <div className="foid-cli__composer">
+            {stage === "awaitFeeling" && !inputLocked && (
+              <div
+                className="foid-mood-chips"
+                role="group"
+                aria-label="Quick mood chips"
+              >
+                {MOOD_CHIPS.map((word) => {
+                  const active =
+                    feelingInput.trim().toLowerCase() === word;
+                  return (
+                    <button
+                      key={word}
+                      type="button"
+                      className={`foid-mood-chip${
+                        active ? " foid-mood-chip--active" : ""
+                      }`}
+                      onClick={() => {
+                        setFeelingInput(word);
+                        // Send button only renders once the field has text;
+                        // defer focus to the next tick so it exists by then.
+                        window.setTimeout(() => {
+                          sendBtnRef.current?.focus();
+                        }, 0);
+                      }}
+                    >
+                      {word}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <form onSubmit={handleCommandSubmit} className="foid-terminal__input-wrap">
               <div className="foid-terminal__input">
                 <span className="foid-terminal__prompt">{promptLabel}</span>
@@ -1703,6 +1842,7 @@ export default function FoidMommyTerminal({
                 />
                 {currentInputValue.trim().length > 0 && !inputLocked && (
                   <button
+                    ref={sendBtnRef}
                     type="submit"
                     aria-label="Send"
                     className="foid-terminal__send-btn"
