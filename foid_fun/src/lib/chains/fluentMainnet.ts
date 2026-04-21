@@ -14,5 +14,11 @@ export const fluentMainnet = defineChain({
   blockExplorers: {
     default: { name: "FluentScan", url: CANONICAL_CHAIN.blockExplorer },
   },
+  contracts: {
+    multicall3: {
+      address: "0xcA11bde05977b3631167028862bE2a173976CA11",
+      blockCreated: 0,
+    },
+  },
   testnet: false,
 });

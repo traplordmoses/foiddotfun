@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback } from 'react';
-import { useReadContract, useAccount } from 'wagmi';
+import { useCallback, useMemo } from 'react';
+import { useReadContract, useReadContracts, useAccount } from 'wagmi';
 import { getWalletClient } from '@/lib/viem';
 import { CONTRACTS } from '@/lib/contracts/addresses';
 import { SWIPE_LOREBOARD_ABI } from '@/lib/contracts/abis/swipeLoreboard';
@@ -25,19 +25,27 @@ const isDeployed = govAddress.length > 2; // more than just "0x" or ""
 export function useSwipeLoreboardGovernance() {
   const { address } = useAccount();
 
-  const { data: flagFeeWei } = useReadContract({
-    address: govAddress,
-    abi: SWIPE_LOREBOARD_ABI,
-    functionName: 'flagFeeWei',
+  // Batched: the two governance constants go out in a single multicall3
+  // call rather than two separate eth_calls.
+  const { data: configData } = useReadContracts({
+    allowFailure: true,
+    contracts: [
+      {
+        address: govAddress,
+        abi: SWIPE_LOREBOARD_ABI,
+        functionName: 'flagFeeWei',
+      },
+      {
+        address: govAddress,
+        abi: SWIPE_LOREBOARD_ABI,
+        functionName: 'flagThreshold',
+      },
+    ],
     query: { enabled: isDeployed },
   });
 
-  const { data: flagThreshold } = useReadContract({
-    address: govAddress,
-    abi: SWIPE_LOREBOARD_ABI,
-    functionName: 'flagThreshold',
-    query: { enabled: isDeployed },
-  });
+  const flagFeeWei = configData?.[0]?.status === 'success' ? configData[0].result : undefined;
+  const flagThreshold = configData?.[1]?.status === 'success' ? configData[1].result : undefined;
 
   const flagPlacement = useCallback(async (placementId: number) => {
     if (!isDeployed) throw new Error("SwipeLoreboard not deployed — flagging unavailable in v1");
@@ -133,6 +141,55 @@ export function useActivePlacementVote(placementId: number) {
     query: { enabled: isDeployed },
   });
   return voteId ? Number(voteId) : 0;
+}
+
+/**
+ * Batched variant of `useActivePlacementVote`: takes N placement ids and
+ * issues a single multicall3 call instead of N individual eth_calls.
+ * Returns a Map<placementId, voteId> (voteId === 0 means no active vote).
+ */
+export function useActivePlacementVotes(placementIds: readonly string[]) {
+  const numericIds = useMemo(
+    () =>
+      placementIds
+        .map((id) => {
+          try {
+            return Number(BigInt(id));
+          } catch {
+            return NaN;
+          }
+        })
+        .filter((n) => Number.isFinite(n)),
+    [placementIds],
+  );
+
+  const contracts = useMemo(
+    () =>
+      numericIds.map((id) => ({
+        address: govAddress,
+        abi: SWIPE_LOREBOARD_ABI,
+        functionName: 'activeVoteForPlacement' as const,
+        args: [BigInt(id)] as const,
+      })),
+    [numericIds],
+  );
+
+  const { data } = useReadContracts({
+    allowFailure: true,
+    contracts,
+    query: { enabled: isDeployed && contracts.length > 0 },
+  });
+
+  return useMemo(() => {
+    const result = new Map<string, number>();
+    numericIds.forEach((id, i) => {
+      const entry = data?.[i];
+      const voteId =
+        entry?.status === 'success' && entry.result ? Number(entry.result) : 0;
+      result.set(String(id), voteId);
+    });
+    return result;
+  }, [numericIds, data]);
 }
 
 /** Read removal vote details by voteId. */
