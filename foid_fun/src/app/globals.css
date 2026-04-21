@@ -2923,22 +2923,22 @@ html.cmp-active .app-viewport {
 
   .prayer-echo {
     position: fixed;
-    top: 14%;
+    top: 7%;
     left: 50%;
     transform: translateX(-50%);
     pointer-events: none;
     z-index: 40;
     max-width: min(86vw, 720px);
-    opacity: 0.15;
+    opacity: 0.07;
     transition: opacity 1s ease-out;
     color: rgba(210, 235, 255, 0.95);
     font-family: var(--font-terminal, monospace);
-    font-size: clamp(0.95rem, 2vw, 1.15rem);
-    letter-spacing: 0.08em;
+    font-size: clamp(0.8rem, 1.5vw, 0.95rem);
+    letter-spacing: 0.24em;
     text-align: center;
-    filter: blur(0.35px);
+    filter: blur(1.2px);
     mix-blend-mode: screen;
-    text-shadow: 0 0 14px rgba(150, 210, 255, 0.3);
+    text-shadow: 0 0 18px rgba(150, 210, 255, 0.28);
   }
 
   .prayer-echo--fading {
