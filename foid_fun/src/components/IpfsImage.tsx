@@ -2,12 +2,16 @@
 // Shared <img> wrapper for IPFS CIDs with:
 //   - persistent gateway preference (localStorage via reorderGateways) so
 //     returning visitors skip the discovery phase entirely
-//   - one-shot parallel probe (probeGatewaysForCid) on first mount when no
-//     preference exists — races every candidate gateway in parallel and
-//     memoizes the winner, instead of waiting 6-18s for sequential fallbacks
-//   - 3s per-image stall timeout as a mid-session safety net (gateway that
-//     worked earlier suddenly becomes unreachable)
+//   - sequential per-image fallback with a 6s stall timeout (gateway that
+//     worked earlier suddenly becomes unreachable → advance to next)
 //   - failure/success memoization (circuit breaker) shared across the app
+//
+// Earlier revision had an in-component parallel gateway probe via new
+// Image() preloads — that regressed mobile: preloading the full placement
+// image across 5 gateways saturates the connection (~1.5MB wasted for a
+// 300KB image on a cold session). Reverted. A future probe implementation
+// should use Range: bytes=0-0 HEAD/GET to race gateways without downloading
+// the full payload.
 //
 // Drop-in replacement for raw <img src={cidToHttpUrl(cid)} onError={tryNextGateway} />.
 "use client";
@@ -19,7 +23,6 @@ import {
   markGatewayFailure,
   markGatewaySuccess,
 } from "@/lib/ipfsGatewayCache";
-import { probeGatewaysForCid } from "@/lib/ipfsGatewayProbe";
 
 type Props = {
   cid: string;
@@ -51,31 +54,15 @@ function IpfsImageInner({
   referrerPolicy = "no-referrer",
   onLoad,
   onError,
-  stallTimeoutMs = 3000,
+  stallTimeoutMs = 6000,
 }: Props) {
   // `reorderGateways` reads the persisted preferred gateway from
   // localStorage and moves it to the front — a returning visitor hits their
   // fast gateway on the very first image.
-  const [urls, setUrls] = useState<string[]>(() => reorderGateways(ipfsToHttp(cid)));
+  const urls = useMemo(() => reorderGateways(ipfsToHttp(cid)), [cid]);
   const [gatewayIdx, setGatewayIdx] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
-
-  // First visit (no cached preference): race every candidate gateway in
-  // parallel via <Image> preload. When the probe resolves, rebuild the URL
-  // list so the winner is first. The probe is a module-level singleton, so
-  // only one network race runs regardless of how many IpfsImage mounts.
-  useEffect(() => {
-    let cancelled = false;
-    probeGatewaysForCid(cid).then((winner) => {
-      if (cancelled || !winner) return;
-      const next = reorderGateways(ipfsToHttp(cid));
-      // Reset to index 0 — the winner is now at the front.
-      setUrls(next);
-      setGatewayIdx(0);
-    });
-    return () => { cancelled = true; };
-  }, [cid]);
 
   const src = urls[gatewayIdx] ?? "";
 
