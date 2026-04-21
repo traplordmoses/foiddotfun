@@ -922,7 +922,7 @@ function PrayPageContent() {
           min-height: 0;
           display: flex;
           flex-direction: column;
-          padding: 12px !important;
+          padding: 8px !important;
         }
 
         .pray-page {
@@ -1484,7 +1484,7 @@ function PrayPageContent() {
             padding: 14px;
           }
           .pray-liquid-glass-terminal :global(.frutiger-terminal) {
-            padding: 12px;
+            padding: 8px;
           }
           .pray-bracket {
             display: none;
@@ -1499,11 +1499,12 @@ function PrayPageContent() {
           /* Minimum 48px touch targets — scoped to tappable controls only so
              decorative chrome (vista dots, feeling chips, inline icons) isn't
              inflated. Apply .pray-tap to any button that should meet the
-             guideline. */
+             guideline. The inline send button is exempt; it's a compact icon
+             button sized to fit alongside the composer input. */
           .pray-tap,
-          button[type="submit"],
+          button[type="submit"]:not(.foid-terminal__send-btn),
           :global(.pray-tap),
-          :global(button[type="submit"]) {
+          :global(button[type="submit"]:not(.foid-terminal__send-btn)) {
             min-height: 48px;
             min-width: 48px;
           }

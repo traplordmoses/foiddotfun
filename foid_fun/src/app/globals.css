@@ -4164,6 +4164,7 @@ html.cmp-active .app-viewport {
     display: flex;
     flex-direction: column;
     font-size: 13px;
+    padding: 8px;
   }
 
   .mobile-terminal .foid-terminal__line {
@@ -4196,7 +4197,7 @@ html.cmp-active .app-viewport {
   /* Input area - FIXED at bottom */
   .mobile-terminal .foid-cli__composer {
     flex-shrink: 0;
-    padding: 16px 16px;
+    padding: 12px 10px;
     background: rgba(2, 8, 16, 0.65);
     backdrop-filter: blur(8px);
     border-top: 1px solid rgba(0, 255, 213, 0.1);
@@ -4208,7 +4209,9 @@ html.cmp-active .app-viewport {
 
   .mobile-terminal .foid-terminal__input {
     width: 100%;
-    padding: 12px 14px;
+    padding: 6px 8px 6px 12px;
+    gap: 8px;
+    align-items: center;
     background: rgba(2, 12, 20, 0.7);
     border: 1.5px solid rgba(0, 255, 213, 0.25);
     border-radius: 10px;
@@ -4231,12 +4234,16 @@ html.cmp-active .app-viewport {
     font-size: 16px !important;
     padding: 0 !important;
     margin: 0 !important;
-    line-height: 1.45 !important;
+    line-height: 1.35 !important;
+    letter-spacing: -0.01em;
   }
 
   .mobile-terminal .foid-terminal__send-btn {
-    width: 36px;
-    height: 36px;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    padding: 0 !important;
   }
 
   .mobile-terminal .foid-terminal__status {
@@ -4279,8 +4286,8 @@ html.cmp-active .app-viewport {
     height: 28px !important;
   }
 
-  /* Mobile START button styling */
-  .mobile-terminal button[type="submit"] {
+  /* Mobile START button styling (large primary buttons, not the inline send btn) */
+  .mobile-terminal button[type="submit"]:not(.foid-terminal__send-btn) {
     font-size: 15px !important;
     min-height: 52px !important;
     margin-top: 12px !important;
