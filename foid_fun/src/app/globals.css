@@ -2724,6 +2724,15 @@ html.cmp-active .app-viewport {
     100% { opacity: 0; }
   }
 
+  /* While the paint editor is mounted it should own the full viewport.
+     Toast notifications (e.g. "Voting in progress") would otherwise leak
+     above the modal on mobile, where the toaster sits at the same z-index
+     depth as the propose modal. `.foid-paint-active` is toggled by
+     PaintEditor on mount/unmount. */
+  html.foid-paint-active .foid-toaster-root {
+    display: none !important;
+  }
+
   /* ── PWA install toast (react-hot-toast content) ── */
   .foid-pwa-toast {
     display: flex;

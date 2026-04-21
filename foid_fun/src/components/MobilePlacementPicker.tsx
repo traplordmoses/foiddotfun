@@ -262,7 +262,7 @@ export function MobilePlacementPicker({
 
   const haloRgb = overlapping ? INVALID_RGB : !touching ? WARNING_RGB : VALID_RGB;
   const haloColor = haloTone(haloRgb, 0.9);
-  const statusText = overlapping ? "Overlapping" : !touching ? "Must touch" : "Valid";
+  const statusText = overlapping ? "Overlap" : !touching ? "Touch" : "Valid";
 
   const wTiles = Math.max(1, Math.round(rect.w / TILE));
   const hTiles = Math.max(1, Math.round(rect.h / TILE));
@@ -835,12 +835,16 @@ export function MobilePlacementPicker({
       </div>
 
       {/* Live W×H + status (compact — halo now carries the signal) */}
-      <div className="flex items-center justify-between px-1" style={{ fontSize: 11 }}>
+      <div className="flex items-center justify-between gap-2 px-1" style={{ fontSize: 11 }}>
         <span
           style={{
             fontFamily: "var(--font-terminal), monospace",
             color: "rgba(255,255,255,0.6)",
             letterSpacing: "0.08em",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            minWidth: 0,
           }}
         >
           {wTiles}×{hTiles} &middot; {totalCells} cells
@@ -850,6 +854,8 @@ export function MobilePlacementPicker({
             fontWeight: 700,
             color: haloColor,
             letterSpacing: "0.06em",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
           }}
         >
           {statusText}

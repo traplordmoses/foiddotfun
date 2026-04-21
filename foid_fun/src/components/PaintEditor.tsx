@@ -78,6 +78,12 @@ const MAGNIFIER_SRC_CSS = MAGNIFIER_SIZE / MAGNIFIER_ZOOM;
 // Trash zone
 const TRASH_SIZE = 64;
 
+// Height reserved for the mobile bottom tool rail. Includes the 44 px tap
+// target + 12 px label + 8 px vertical padding. Used both as the rail's own
+// height and as the anchor for every other bottom-docked mobile panel
+// (context strip, sticker drawer, trash zone) so they all sit above it.
+const MOBILE_TOOL_BAR_H = 64;
+
 // ============================================================================
 // HELPERS
 // ============================================================================
@@ -192,6 +198,16 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Mark <html> while the editor is mounted so global chrome (notification
+  // toasts from the Toaster portal — same DOM depth as everything else, so
+  // z-index alone can't reliably beat them on iOS) can opt out of rendering
+  // over the editor. CSS selector target: `html.foid-paint-active`.
+  useEffect(() => {
+    const html = document.documentElement;
+    html.classList.add("foid-paint-active");
+    return () => html.classList.remove("foid-paint-active");
   }, []);
 
   // Canvas refs
@@ -1485,10 +1501,14 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
         display: "flex",
         flexDirection: "column",
         background: "rgba(8, 12, 20, 0.98)",
-        // Bottom padding shrinks the canvas area so the music bar and the
-        // desktop bottom toolbar never occlude the image: canvas + strokes
-        // are guaranteed rendered fully above whichever chrome is present.
-        paddingBottom: (isDesktop ? 64 : 0) + (musicBarVisible ? 48 : 0),
+        // Bottom padding shrinks the canvas area so neither the tool rail,
+        // desktop bottom toolbar, nor the music bar ever occludes the
+        // image: canvas + strokes are guaranteed rendered fully above
+        // whichever chrome is present. Mobile reserves MOBILE_TOOL_BAR_H
+        // + a small gap for the horizontal tool rail introduced to replace
+        // the old right-edge vertical rail.
+        paddingBottom:
+          (isDesktop ? 64 : MOBILE_TOOL_BAR_H + 8) + (musicBarVisible ? 48 : 0),
         transition: "padding-bottom 0.2s ease",
       }}
     >
@@ -1787,29 +1807,46 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
       )}
 
       {/* ============ TOOL RAIL (mobile only; desktop uses bottom toolbar) ============ */}
+      {/*
+        Moved from a right-edge vertical rail to a bottom-horizontal strip
+        so one-handed thumb-reach works on phones. Scrolls horizontally when
+        the viewport is narrower than the full tool row. Chips carry an
+        icon + short label (per the mobile-UX brief — labels help, but the
+        44 px tap target is the actual priority). Every other bottom-docked
+        panel (context strip, sticker drawer, trash, effects drawer) uses
+        MOBILE_TOOL_BAR_H to stack cleanly above this rail.
+      */}
       {!isDesktop && (
-      <aside
+      <nav
         role="toolbar"
         aria-label="Paint tools"
         style={{
           position: "fixed",
-          top: "calc(max(8px, env(safe-area-inset-top)) + 56px)",
+          left: "max(8px, env(safe-area-inset-left))",
           right: "max(8px, env(safe-area-inset-right))",
+          bottom: `calc(max(8px, env(safe-area-inset-bottom)) + ${
+            musicBarVisible ? 48 : 0
+          }px)`,
+          height: MOBILE_TOOL_BAR_H,
           display: "flex",
-          flexDirection: "column",
-          gap: 6,
+          alignItems: "center",
+          gap: 4,
           zIndex: 50,
-          padding: 4,
-          borderRadius: 12,
-          background: "rgba(16,20,32,0.85)",
+          padding: "4px 6px",
+          borderRadius: 14,
+          background: "rgba(16,20,32,0.92)",
           backdropFilter: "blur(10px)",
           WebkitBackdropFilter: "blur(10px)",
           border: "1px solid rgba(255,255,255,0.08)",
           boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+          overflowX: "auto",
+          overflowY: "hidden",
+          WebkitOverflowScrolling: "touch",
         }}
       >
-        <RailChip
+        <BottomBarChip
           title="Draw (B)"
+          label="Draw"
           icon={ICON.draw}
           active={tool === "draw"}
           onClick={() => {
@@ -1818,8 +1855,9 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
             haptic("light");
           }}
         />
-        <RailChip
+        <BottomBarChip
           title="Text (T)"
+          label="Text"
           icon={ICON.text}
           active={tool === "text"}
           onClick={() => {
@@ -1829,8 +1867,9 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
             addTextOverlay();
           }}
         />
-        <RailChip
+        <BottomBarChip
           title="Meme text — top + bottom"
+          label="Meme"
           icon={ICON.memeText}
           active={false}
           onClick={() => {
@@ -1840,8 +1879,9 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
             addMemeTextOverlays();
           }}
         />
-        <RailChip
+        <BottomBarChip
           title="Sticker"
+          label="Sticker"
           icon={ICON.sticker}
           active={tool === "sticker" || showStickerDrawer}
           onClick={() => {
@@ -1850,8 +1890,9 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
             haptic("light");
           }}
         />
-        <RailChip
+        <BottomBarChip
           title="Stamp — paste an image on top"
+          label="Stamp"
           icon={ICON.stamp}
           active={false}
           onClick={() => {
@@ -1860,8 +1901,9 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
             stampInputRef.current?.click();
           }}
         />
-        <RailChip
+        <BottomBarChip
           title="Eyedropper (I)"
+          label="Pick"
           icon={ICON.pick}
           active={tool === "eyedropper"}
           onClick={() => {
@@ -1870,8 +1912,9 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
             haptic("light");
           }}
         />
-        <RailChip
+        <BottomBarChip
           title="Eraser (E)"
+          label="Eraser"
           icon={ICON.eraser}
           active={tool === "eraser"}
           onClick={() => {
@@ -1880,8 +1923,9 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
             haptic("light");
           }}
         />
-        <RailChip
+        <BottomBarChip
           title="Effects"
+          label="FX"
           icon={ICON.effects}
           active={effectsDrawerOpen || currentFilter !== null}
           onClick={() => {
@@ -1890,9 +1934,19 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
             haptic("light");
           }}
         />
-        <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "2px 4px" }} />
-        <RailChip
+        <div
+          aria-hidden="true"
+          style={{
+            width: 1,
+            alignSelf: "stretch",
+            background: "rgba(255,255,255,0.08)",
+            margin: "6px 4px",
+            flexShrink: 0,
+          }}
+        />
+        <BottomBarChip
           title="Undo"
+          label="Undo"
           icon={ICON.undo}
           active={false}
           onClick={() => {
@@ -1901,17 +1955,27 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
           }}
           disabled={historyIdx <= 0}
         />
-      </aside>
+      </nav>
       )}
 
       {/* ============ STICKER DRAWER ============ */}
+      {/*
+        Pops up immediately above the mobile bottom tool rail so the user's
+        thumb stays anchored in the same region — previously it hovered at
+        top-right next to the old vertical rail, which meant reaching back
+        up after tapping the Sticker tool.
+      */}
       {showStickerDrawer && (
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
             position: "fixed",
-            right: "calc(max(8px, env(safe-area-inset-right)) + 60px)",
-            top: "calc(max(8px, env(safe-area-inset-top)) + 56px)",
+            right: "max(8px, env(safe-area-inset-right))",
+            bottom: isDesktop
+              ? "calc(max(8px, env(safe-area-inset-bottom)) + 64px)"
+              : `calc(max(8px, env(safe-area-inset-bottom)) + ${
+                  MOBILE_TOOL_BAR_H + 8 + (musicBarVisible ? 48 : 0)
+                }px)`,
             display: "grid",
             gridTemplateColumns: "repeat(4, 48px)",
             gap: 6,
@@ -1956,11 +2020,9 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
           style={{
             position: "fixed",
             left: "max(8px, env(safe-area-inset-left))",
-            right: isDesktop
-              ? "max(8px, env(safe-area-inset-right))"
-              : "calc(max(8px, env(safe-area-inset-right)) + 60px)",
+            right: "max(8px, env(safe-area-inset-right))",
             bottom: `calc(max(8px, env(safe-area-inset-bottom)) + ${
-              (isDesktop ? 64 : 0) + (musicBarVisible ? 48 : 0)
+              (isDesktop ? 64 : MOBILE_TOOL_BAR_H + 8) + (musicBarVisible ? 48 : 0)
             }px)`,
             display: "flex",
             flexDirection: "column",
@@ -1980,78 +2042,85 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
         >
           {tool === "draw" && (
             <>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              {/* COLOR — fixed 2×5 grid of 10 swatches, flanked by the label
+                  on the left and the native color picker on the right. The
+                  old flex-wrap layout broke on narrow viewports (6 on row 1,
+                  3 + gap on row 2); the grid guarantees a clean 5-per-row
+                  regardless of tray width. */}
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <span
                   style={{
                     fontSize: 8,
                     color: "rgba(0,204,204,0.7)",
                     fontFamily: "var(--font-terminal), monospace",
                     letterSpacing: "0.1em",
-                    marginRight: 2,
+                    flexShrink: 0,
+                    width: 36,
                   }}
                 >
                   COLOR
                 </span>
-                {FOID_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => {
-                      setColor(c);
-                      haptic("light");
-                    }}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 6,
-                      border: color === c ? "2px solid #fff" : "1px solid rgba(255,255,255,0.15)",
-                      background: c,
-                      cursor: "pointer",
-                      flexShrink: 0,
-                      boxShadow: color === c ? `0 0 8px ${c}80` : "none",
-                    }}
-                  />
-                ))}
-                {STANDARD_COLORS.slice(0, 4).map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => {
-                      setColor(c);
-                      haptic("light");
-                    }}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 6,
-                      border: color === c ? "2px solid #00cccc" : `1px solid ${c === "#000000" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)"}`,
-                      background: c,
-                      cursor: "pointer",
-                      flexShrink: 0,
-                    }}
-                  />
-                ))}
+                <div
+                  style={{
+                    flex: 1,
+                    display: "grid",
+                    gridTemplateColumns: "repeat(5, 1fr)",
+                    gridAutoRows: 28,
+                    gap: 6,
+                  }}
+                >
+                  {[...FOID_COLORS, ...STANDARD_COLORS.slice(0, 4)].map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => {
+                        setColor(c);
+                        haptic("light");
+                      }}
+                      aria-label={`Set color ${c}`}
+                      aria-pressed={color === c}
+                      style={{
+                        height: 28,
+                        borderRadius: 6,
+                        border:
+                          color === c
+                            ? "2px solid #fff"
+                            : `1px solid ${c === "#000000" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.15)"}`,
+                        background: c,
+                        cursor: "pointer",
+                        padding: 0,
+                        boxShadow: color === c ? `0 0 8px ${c}80` : "none",
+                      }}
+                    />
+                  ))}
+                </div>
                 <input
                   type="color"
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
+                  aria-label="Custom color"
                   style={{
-                    width: 32,
+                    width: 28,
                     height: 28,
                     cursor: "pointer",
                     border: "1px solid rgba(255,255,255,0.15)",
                     borderRadius: 6,
                     padding: 0,
                     background: "transparent",
+                    flexShrink: 0,
                   }}
                 />
               </div>
 
-              <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+              {/* SIZE — brush thickness presets */}
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <span
                   style={{
                     fontSize: 8,
                     color: "rgba(0,204,204,0.7)",
                     fontFamily: "var(--font-terminal), monospace",
                     letterSpacing: "0.1em",
+                    flexShrink: 0,
+                    width: 36,
                   }}
                 >
                   SIZE
@@ -2060,8 +2129,10 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
                   <button
                     key={size}
                     onClick={() => setBrushSize(size)}
+                    aria-label={`Brush size ${size}`}
+                    aria-pressed={brushSize === size}
                     style={{
-                      width: 32,
+                      flex: 1,
                       height: 32,
                       borderRadius: 6,
                       border: brushSize === size ? "1px solid rgba(0,204,204,0.6)" : "1px solid rgba(255,255,255,0.1)",
@@ -2071,6 +2142,7 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
                       alignItems: "center",
                       justifyContent: "center",
                       color: brushSize === size ? "#00cccc" : "rgba(255,255,255,0.6)",
+                      padding: 0,
                     }}
                   >
                     <div
@@ -2083,13 +2155,20 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
                     />
                   </button>
                 ))}
+              </div>
+
+              {/* OPAC — full-width row so the slider has real runway. Value
+                  readout hugs the right edge. Previously the slider was
+                  squeezed inline with SIZE + Redo + Clear on a wrap row. */}
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <span
                   style={{
                     fontSize: 8,
                     color: "rgba(0,204,204,0.7)",
                     fontFamily: "var(--font-terminal), monospace",
                     letterSpacing: "0.1em",
-                    marginLeft: 4,
+                    flexShrink: 0,
+                    width: 36,
                   }}
                 >
                   OPAC
@@ -2100,21 +2179,29 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
                   max={100}
                   value={Math.round(brushOpacity * 100)}
                   onChange={(e) => setBrushOpacity(Number(e.target.value) / 100)}
-                  style={{ flex: 1, minWidth: 60, accentColor: "#00cccc", cursor: "pointer" }}
+                  aria-label="Brush opacity"
+                  style={{ flex: 1, minWidth: 0, accentColor: "#00cccc", cursor: "pointer", height: 28 }}
                 />
                 <span
                   style={{
-                    fontSize: 9,
+                    fontSize: 10,
                     color: "#00cccc",
                     fontFamily: "var(--font-terminal), monospace",
-                    minWidth: 28,
+                    minWidth: 34,
                     textAlign: "right",
+                    flexShrink: 0,
                   }}
                 >
                   {Math.round(brushOpacity * 100)}%
                 </span>
+              </div>
+
+              {/* Redo + Clear — right-aligned so the action cluster reads as
+                  secondary chrome to the primary color / size / opac rows. */}
+              <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
                 <button
                   title="Redo"
+                  aria-label="Redo"
                   onClick={() => {
                     redo();
                     haptic("light");
@@ -2131,6 +2218,7 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    padding: 0,
                   }}
                 >
                   {ICON.redo}
@@ -2140,7 +2228,7 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
                   onClick={handleClearClick}
                   style={{
                     height: 32,
-                    padding: "0 10px",
+                    padding: "0 12px",
                     borderRadius: 6,
                     border: clearPending ? "1px solid rgba(255,60,60,0.6)" : "1px solid rgba(255,255,255,0.1)",
                     background: clearPending ? "rgba(255,60,60,0.15)" : "rgba(255,255,255,0.04)",
@@ -2652,7 +2740,7 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
           style={{
             position: "fixed",
             bottom: `calc(max(20px, env(safe-area-inset-bottom)) + ${
-              (isDesktop ? 64 : 0) + (musicBarVisible ? 56 : 0)
+              (isDesktop ? 64 : MOBILE_TOOL_BAR_H + 8) + (musicBarVisible ? 56 : 0)
             }px)`,
             left: "50%",
             transform: `translate(-50%, 0) scale(${trashHot ? 1.15 : 1})`,
@@ -2825,39 +2913,6 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
         </div>
       </div>
 
-      {/* ============ SWIPE-UP-FROM-BOTTOM TRIGGER ============ */}
-      {/*
-        A thin invisible strip along the bottom edge. Only active when no
-        other bottom UI is in the way, so swipe gestures don't fight the
-        sticker drawer, bottom strip, trash zone, or seal animation.
-        Desktop replaces it with an explicit Effects button in the bottom
-        toolbar, so the gesture strip is suppressed there to avoid stealing
-        clicks from the toolbar.
-      */}
-      {!isDesktop &&
-        !effectsDrawerOpen &&
-        !showBottomStrip &&
-        !draggingOverlayId &&
-        !showStickerDrawer &&
-        sealPhase === "idle" && (
-          <div
-            onPointerDown={onDrawerPointerDown}
-            onPointerMove={onDrawerPointerMove}
-            onPointerUp={onDrawerPointerUp}
-            onPointerCancel={onDrawerPointerUp}
-            style={{
-              position: "fixed",
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 18,
-              zIndex: 44,
-              touchAction: "none",
-              background: "transparent",
-            }}
-          />
-        )}
-
       {/* ============ WAX-SEAL DONE ANIMATION ============ */}
       {/*
         The full-screen fixed backdrop still spans inset:0 (so the dim
@@ -2993,14 +3048,16 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
 // SUB-COMPONENTS
 // ============================================================================
 
-function RailChip({
+function BottomBarChip({
   title,
+  label,
   icon,
   active,
   onClick,
   disabled,
 }: {
   title: string;
+  label: string;
   icon: React.ReactNode;
   active: boolean;
   onClick: () => void;
@@ -3014,23 +3071,38 @@ function RailChip({
       onClick={onClick}
       disabled={disabled}
       style={{
-        width: 44,
-        height: 44,
+        width: 48,
+        height: 52,
         borderRadius: 8,
         border: active ? "1px solid rgba(0,204,204,0.6)" : "1px solid rgba(255,255,255,0.12)",
         background: active ? "rgba(0,204,204,0.18)" : "rgba(255,255,255,0.04)",
-        color: disabled ? "rgba(255,255,255,0.2)" : active ? "#00cccc" : "rgba(255,255,255,0.7)",
+        color: disabled ? "rgba(255,255,255,0.2)" : active ? "#00cccc" : "rgba(255,255,255,0.72)",
         cursor: disabled ? "not-allowed" : "pointer",
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
+        gap: 2,
         flexShrink: 0,
-        boxShadow: active ? "0 0 12px rgba(0,204,204,0.2), inset 0 1px 0 rgba(255,255,255,0.05)" : "none",
+        boxShadow: active
+          ? "0 0 12px rgba(0,204,204,0.2), inset 0 1px 0 rgba(255,255,255,0.05)"
+          : "none",
         transition: "all 0.15s",
-        padding: 0,
+        padding: "4px 0 3px",
       }}
     >
       {icon}
+      <span
+        style={{
+          fontSize: 8.5,
+          lineHeight: 1,
+          letterSpacing: "0.04em",
+          fontFamily: "var(--font-terminal), monospace",
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </span>
     </button>
   );
 }

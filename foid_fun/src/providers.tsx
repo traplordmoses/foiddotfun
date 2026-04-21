@@ -110,6 +110,7 @@ export function Providers({ children }: { children: ReactNode }) {
           {children}
           <Toaster
             position="top-right"
+            containerClassName="foid-toaster-root"
             toastOptions={{
               style: {
                 background: "rgba(28,32,48,0.82)",
