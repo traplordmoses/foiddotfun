@@ -7,6 +7,7 @@ import { formatViemError } from "@/lib/prayerErrors";
 import { usePrayerDraft } from "@/hooks/usePrayerDraft";
 import { usePrayerMemory } from "@/hooks/usePrayerMemory";
 import { useMobile } from "@/hooks/useMobile";
+import { useHaptic } from "@/hooks/useHaptic";
 import { getTierFromStreak } from "@/hooks/usePrayerTiers";
 import PrayerEcho from "@/components/PrayerEcho";
 
@@ -388,6 +389,7 @@ export default function FoidMommyTerminal({
   // Prayer draft persistence
   const { draft, saveDraft, clearDraft } = usePrayerDraft();
   const { isTouchDevice } = useMobile();
+  const { trigger: triggerHaptic } = useHaptic();
 
   // Prayer memory (feeling journal with transparent consent)
   const {
@@ -409,6 +411,10 @@ export default function FoidMommyTerminal({
   const [prayerRevealing, setPrayerRevealing] = useState(false);
   const [prayerMessageId, setPrayerMessageId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  // Typing indicator shown while Mommy is "thinking" between a user message
+  // and her typed reply. Guarded to a 600ms min display to avoid flicker.
+  const [mommyTyping, setMommyTyping] = useState(false);
+  const mommyTypingStartRef = useRef(0);
   // Ritual beat state: dim the terminal during the silent pause before hashing.
   const [ceremonyDim, setCeremonyDim] = useState(false);
   // Ritual beat state: show the user's prayer briefly, reversed, then fade.
@@ -461,6 +467,23 @@ export default function FoidMommyTerminal({
   nextAllowedAtRef.current = nextAllowedAt;
   onChainStreakRef.current = onChainStreak;
   grantConsentRef.current = grantConsent;
+
+  const startMommyTyping = useCallback(() => {
+    mommyTypingStartRef.current = Date.now();
+    setMommyTyping(true);
+  }, []);
+
+  const stopMommyTyping = useCallback(async () => {
+    const elapsed = Date.now() - mommyTypingStartRef.current;
+    const remaining = 600 - elapsed;
+    if (remaining > 0) {
+      await new Promise((r) => {
+        const t = window.setTimeout(r, remaining);
+        timeoutsRef.current.push(t);
+      });
+    }
+    setMommyTyping(false);
+  }, []);
 
   const addMessage = useCallback((role: MessageRole, text: string) => {
     const id = makeId();
@@ -786,6 +809,7 @@ export default function FoidMommyTerminal({
       setInitialFeelingText(inputText.trim());
       addMessage("user", inputText.trim());
       setStage("processingFeeling");
+      startMommyTyping();
 
       const config = feelingsConfig[feeling];
 
@@ -814,6 +838,7 @@ export default function FoidMommyTerminal({
         }
 
         // Show Foid Mommy's acknowledgment with follow-up question
+        await stopMommyTyping();
         await typeMessage({ role: "foid", text: customResponse });
 
         // Wait for user's second response
@@ -821,13 +846,14 @@ export default function FoidMommyTerminal({
       } catch (err) {
         console.error("processFeeling error:", err);
         // Fallback to canned response with question
+        await stopMommyTyping();
         await typeMessage({ role: "foid", text: config.response });
         setStage("awaitSecondChat");
       } finally {
         setIsProcessing(false);
       }
     },
-    [addMessage, typeMessage, isProcessing, hasMemoryConsent, getRecentFeelings],
+    [addMessage, typeMessage, isProcessing, hasMemoryConsent, getRecentFeelings, startMommyTyping, stopMommyTyping],
   );
 
   const handleSecondChat = useCallback(
@@ -839,6 +865,7 @@ export default function FoidMommyTerminal({
       setIsProcessing(true);
       addMessage("user", userResponse.trim());
       setStage("processingSecondChat");
+      startMommyTyping();
 
       const config = feelingsConfig[feelingKey];
       const ambientHum = sfx.playAmbientHum();
@@ -872,6 +899,7 @@ export default function FoidMommyTerminal({
         }
 
         // Show warm response + transition
+        await stopMommyTyping();
         await typeMessage({ role: "foid", text: warmResponse, speed: 24 });
 
         await sleep(600);
@@ -923,6 +951,7 @@ export default function FoidMommyTerminal({
         console.error("handleSecondChat error:", err);
         ambientHum.stop();
         // Fallback
+        await stopMommyTyping();
         await typeMessage({ role: "foid", text: "let me craft a prayer for this moment..." });
         await sleep(500);
         await typeMessage({ role: "foid", text: config.prayer, speed: 22 });
@@ -936,7 +965,7 @@ export default function FoidMommyTerminal({
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [addMessage, typeMessage, isProcessing, feelingKey, initialFeelingText, hasMemoryConsent, getRecentFeelings, flashChromatic],
+    [addMessage, typeMessage, isProcessing, feelingKey, initialFeelingText, hasMemoryConsent, getRecentFeelings, flashChromatic, startMommyTyping, stopMommyTyping],
   );
 
   const feelingLimit = 140;
@@ -1484,12 +1513,14 @@ export default function FoidMommyTerminal({
       }
 
       if (stage === "awaitFeeling") {
+        if (trimmed && !feelingOverLimit) triggerHaptic("light");
         await handleFeelingSubmit(raw);
         return;
       }
 
       if (stage === "awaitSecondChat") {
         if (!trimmed || secondChatOverLimit) return;
+        triggerHaptic("light");
         await handleSecondChat(trimmed);
         setSecondChatInput("");
         return;
@@ -1505,6 +1536,7 @@ export default function FoidMommyTerminal({
           inputRef.current?.focus();
           return;
         }
+        if (trimmed && !prayerOverLimit) triggerHaptic("light");
         await handlePrayerSubmit(raw);
         return;
       }
@@ -1535,6 +1567,7 @@ export default function FoidMommyTerminal({
     [
       addMessage,
       currentInputValue,
+      feelingOverLimit,
       handleEditPrayer,
       handleFeelingSubmit,
       handlePrayerSubmit,
@@ -1544,11 +1577,13 @@ export default function FoidMommyTerminal({
       inputLocked,
       nextAllowedText,
       onDailyCheckInChoice,
+      prayerOverLimit,
       secondChatOverLimit,
       stage,
       suggestedPrayer,
       revokeConsent,
       grantConsent,
+      triggerHaptic,
       typeMessage,
     ],
   );
@@ -1790,6 +1825,17 @@ export default function FoidMommyTerminal({
                   </div>
                 );
               })}
+              {mommyTyping && (
+                <div
+                  className="foid-terminal__line foid-terminal__line--foid foid-terminal__typing"
+                  role="status"
+                  aria-label="Foid Mommy is typing"
+                >
+                  <span className="foid-terminal__typing-dot" aria-hidden="true" />
+                  <span className="foid-terminal__typing-dot" aria-hidden="true" />
+                  <span className="foid-terminal__typing-dot" aria-hidden="true" />
+                </div>
+              )}
             </div>
           </div>
 
@@ -1811,6 +1857,7 @@ export default function FoidMommyTerminal({
                         active ? " foid-mood-chip--active" : ""
                       }`}
                       onClick={() => {
+                        triggerHaptic('light');
                         setFeelingInput(word);
                         // Send button only renders once the field has text;
                         // defer focus to the next tick so it exists by then.
@@ -1840,12 +1887,18 @@ export default function FoidMommyTerminal({
                   spellCheck={false}
                   disabled={inputLocked}
                 />
-                {currentInputValue.trim().length > 0 && !inputLocked && (
+                {!inputLocked && (
                   <button
                     ref={sendBtnRef}
                     type="submit"
                     aria-label="Send"
-                    className="foid-terminal__send-btn"
+                    aria-disabled={currentInputValue.trim().length === 0}
+                    disabled={currentInputValue.trim().length === 0}
+                    className={`foid-terminal__send-btn ${
+                      currentInputValue.trim().length > 0
+                        ? "foid-terminal__send-btn--active"
+                        : "foid-terminal__send-btn--dim"
+                    }`}
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="22" y1="2" x2="11" y2="13" />

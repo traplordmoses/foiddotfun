@@ -2443,7 +2443,8 @@ html.cmp-active .app-viewport {
     background: rgba(0, 255, 213, 0.15);
     color: #00ffd5;
     cursor: pointer;
-    transition: background 160ms ease, transform 100ms ease;
+    transition: background 160ms ease, transform 100ms ease,
+      box-shadow 200ms ease, opacity 160ms ease;
     align-self: center;
     touch-action: manipulation;
   }
@@ -2454,6 +2455,75 @@ html.cmp-active .app-viewport {
 
   .foid-terminal__send-btn:active {
     transform: scale(0.92);
+  }
+
+  /* Dim state when the input is empty — button reads as disabled-ish. */
+  .foid-terminal__send-btn--dim {
+    opacity: 0.35;
+    color: rgba(0, 255, 213, 0.6);
+    background: rgba(0, 255, 213, 0.06);
+    cursor: not-allowed;
+  }
+
+  /* Glow state when there is text to send — soft box-shadow pulse. */
+  .foid-terminal__send-btn--active {
+    animation: foid-send-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes foid-send-glow {
+    0%, 100% {
+      box-shadow:
+        0 0 0 0 rgba(0, 255, 213, 0),
+        0 0 8px rgba(0, 255, 213, 0.25);
+    }
+    50% {
+      box-shadow:
+        0 0 0 2px rgba(0, 255, 213, 0.22),
+        0 0 18px rgba(0, 255, 213, 0.55);
+    }
+  }
+
+  /* Typing indicator — three teal dots that bounce in sequence.
+     Rendered as a foid chat line so it sits naturally in the log. */
+  .foid-terminal__typing {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+  }
+  .foid-terminal__typing-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.4;
+    display: inline-block;
+    animation: foid-typing-bounce 1.4s ease-in-out infinite both;
+  }
+  .foid-terminal__typing-dot:nth-child(1) { animation-delay: 0ms; }
+  .foid-terminal__typing-dot:nth-child(2) { animation-delay: 200ms; }
+  .foid-terminal__typing-dot:nth-child(3) { animation-delay: 400ms; }
+
+  @keyframes foid-typing-bounce {
+    0%, 60%, 100% {
+      transform: translateY(0);
+      opacity: 0.35;
+    }
+    30% {
+      transform: translateY(-4px);
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .foid-terminal__send-btn--active {
+      animation: none;
+      box-shadow: 0 0 8px rgba(0, 255, 213, 0.3);
+    }
+    .foid-terminal__typing-dot {
+      animation: none;
+      opacity: 0.55;
+    }
   }
 
   .foid-terminal__status {
