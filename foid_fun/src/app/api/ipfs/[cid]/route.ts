@@ -13,7 +13,14 @@ function normalizeGateway(value?: string | null) {
   return strippedSlash.replace(/\/ipfs$/i, "");
 }
 
-const PINATA_GATEWAY_BASE = normalizeGateway(process.env.PINATA_GATEWAY) ?? "https://ipfs.io";
+// Default to Pinata's public gateway — the board's content is pinned there,
+// so it's the authoritative source. Previously defaulted to ipfs.io which
+// is notoriously flaky and defeated the whole point of having a JWT.
+// Operators with a paid Pinata plan should set PINATA_GATEWAY to their
+// dedicated gateway (e.g. https://<prefix>.mypinata.cloud) to get
+// authenticated, rate-limit-free reads.
+const PINATA_GATEWAY_BASE =
+  normalizeGateway(process.env.PINATA_GATEWAY) ?? "https://gateway.pinata.cloud";
 const PINATA_JWT = process.env.PINATA_JWT?.trim();
 
 export const runtime = "nodejs";
@@ -71,7 +78,16 @@ export async function GET(
     }
 
     const forwardedHeaders = new Headers(response.headers);
-    forwardedHeaders.set("Cache-Control", "public, max-age=600, s-maxage=600");
+    // IPFS content is content-addressed — the same CID always returns the
+    // same bytes. Safe to cache forever at the browser and the edge, and
+    // `immutable` tells the browser never to send revalidation requests.
+    // This is the single biggest lever on /board cold-load time: the first
+    // visitor pays the upstream fetch, everyone else in the cache window
+    // gets it from the edge (~10ms) or their browser cache (~0ms).
+    forwardedHeaders.set(
+      "Cache-Control",
+      "public, max-age=31536000, s-maxage=31536000, immutable",
+    );
     forwardedHeaders.delete("set-cookie");
 
     return new NextResponse(response.body, {

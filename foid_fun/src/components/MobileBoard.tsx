@@ -4,7 +4,7 @@ import { useRef, useState, useCallback } from 'react';
 import { useTouchGestures } from '@/hooks/useTouchGestures';
 import { useMobile } from '@/hooks/useMobile';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cidToHttpUrl } from '@/lib/ipfsUrl';
+import { ipfsImageUrls } from '@/lib/ipfsUrl';
 
 interface BoardNode {
   id: string;
@@ -201,7 +201,7 @@ export function MobileBoard({
                 {node.type === 'image' || node.type === 'meme' ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={cidToHttpUrl(node.content)}
+                    src={ipfsImageUrls(node.content)[0] ?? ''}
                     alt="Board item"
                     width={node.width}
                     height={node.height}

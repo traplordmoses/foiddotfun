@@ -22,9 +22,6 @@ const FALLBACK_GATEWAY_BASES = [
 ];
 const PROXY_PATH_RAW = process.env.NEXT_PUBLIC_IPFS_PROXY_PATH?.trim();
 const PROXY_PATH = PROXY_PATH_RAW ? PROXY_PATH_RAW.replace(/\/+$/, "") : null;
-const DEFAULT_PROXY_PATH = "/api/ipfs";
-const _PROXY_BASE = (PROXY_PATH ?? DEFAULT_PROXY_PATH).replace(/\/+$/, "") || DEFAULT_PROXY_PATH;
-void _PROXY_BASE; // reserved for future use
 
 function normalizeGatewayBase(value?: string | null): string | null {
   if (!value) return null;
@@ -185,6 +182,42 @@ export function cidToHttpUrl(cid: string): string {
 
 export function ipfsUrl(cid: string): string {
   return cidToHttpUrl(cid);
+}
+
+/**
+ * Build the same-origin proxy URL for a CID, or null if the proxy is not
+ * configured. The proxy (`src/app/api/ipfs/[cid]/route.ts`) fetches the
+ * content with our Pinata JWT and returns it with an immutable cache header,
+ * so second-visit + edge-cached content becomes effectively instant.
+ *
+ * Relative path is intentional — the browser resolves it against the page
+ * origin. Server-side callers that need an absolute URL should use
+ * `cidToHttpUrl` / `ipfsToHttp` instead.
+ */
+export function ipfsProxyUrl(uri?: string | null): string | null {
+  if (!PROXY_PATH) return null;
+  const cid = extractIpfsCid(uri ?? null);
+  if (!cid) return null;
+  return `${PROXY_PATH}/${cid}`;
+}
+
+/**
+ * URL list for rendering a CID as an `<img>` with client-side fallback:
+ *   1. Same-origin `/api/ipfs/<cid>` proxy (authenticated Pinata upstream,
+ *      edge-cached, HTTP/2-multiplexed with the page document).
+ *   2. Public gateway fallbacks (used only if the proxy errors / stalls).
+ *
+ * Returning the proxy as candidate #0 means a board with N cards opens one
+ * multiplexed connection to our server instead of N concurrent handshakes
+ * against Pinata/ipfs.io — which is what was turning a cold `/board` load
+ * into 1:20 when the lead gateway was degraded. Fallback list preserved so
+ * the circuit breaker still has somewhere to land if the proxy is down.
+ */
+export function ipfsImageUrls(uri: string): string[] {
+  const gatewayUrls = ipfsToHttp(uri);
+  const proxy = ipfsProxyUrl(uri);
+  if (!proxy) return gatewayUrls;
+  return [proxy, ...gatewayUrls];
 }
 
 export { cleanIpfsPath as normalizeIpfsPath };

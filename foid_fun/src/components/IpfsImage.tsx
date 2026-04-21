@@ -17,7 +17,7 @@
 "use client";
 
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
-import { ipfsToHttp } from "@/lib/ipfsUrl";
+import { ipfsImageUrls } from "@/lib/ipfsUrl";
 import {
   reorderGateways,
   markGatewayFailure,
@@ -56,10 +56,20 @@ function IpfsImageInner({
   onError,
   stallTimeoutMs = 6000,
 }: Props) {
-  // `reorderGateways` reads the persisted preferred gateway from
-  // localStorage and moves it to the front — a returning visitor hits their
-  // fast gateway on the very first image.
-  const urls = useMemo(() => reorderGateways(ipfsToHttp(cid)), [cid]);
+  // Candidate URL list:
+  //   [0] same-origin /api/ipfs/<cid> proxy (authenticated Pinata upstream,
+  //       edge-cached, HTTP/2-multiplexed with the page) — the fast path.
+  //   [1..] public-gateway fallbacks, reordered by the session circuit
+  //       breaker so a known-good gateway is tried before known-bad ones.
+  // Only the gateway portion is reordered; the proxy always stays at [0]
+  // because its latency characteristics are independent of the public
+  // gateway pool (it's our own server).
+  const urls = useMemo(() => {
+    const all = ipfsImageUrls(cid);
+    if (all.length <= 1) return all;
+    const [proxy, ...rest] = all;
+    return [proxy, ...reorderGateways(rest)];
+  }, [cid]);
   const [gatewayIdx, setGatewayIdx] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();

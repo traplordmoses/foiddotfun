@@ -1,5 +1,5 @@
 import { memo, useMemo, useState, useCallback, useEffect, useRef } from "react";
-import { ipfsToHttp } from "@/lib/ipfsUrl";
+import { ipfsImageUrls } from "@/lib/ipfsUrl";
 import {
   reorderGateways,
   markGatewaySuccess,
@@ -158,12 +158,21 @@ function PlacementCardInner({
   flagLabel,
 }: Props) {
   const { cid, x, y, width, height, name } = placement;
-  // Reorder gateways using the persistent cache: preferred (last-known-good) goes
-  // first; gateways that failed earlier are deprioritized.
-  // Earlier revision fired an in-mount parallel gateway probe that preloaded
-  // full images across every candidate — that saturated slow connections
-  // (see IpfsImage.tsx for the postmortem). Reverted.
-  const urls = useMemo(() => reorderGateways(ipfsToHttp(cid)), [cid]);
+  // Candidate URL list:
+  //   [0] same-origin /api/ipfs/<cid> proxy — authenticated Pinata upstream,
+  //       edge-cached, HTTP/2-multiplexed with the page. This is what makes
+  //       a /board with 20+ cards open one connection to our server instead
+  //       of N concurrent handshakes against Pinata/ipfs.io.
+  //   [1..] public-gateway fallbacks, reordered by the session circuit
+  //       breaker (preferred gateway first, failed ones deprioritized).
+  // Proxy stays at [0] — its latency is independent of the public pool, so
+  // it shouldn't get demoted by public-gateway failures.
+  const urls = useMemo(() => {
+    const all = ipfsImageUrls(cid);
+    if (all.length <= 1) return all;
+    const [proxy, ...rest] = all;
+    return [proxy, ...reorderGateways(rest)];
+  }, [cid]);
   const [gatewayIdx, setGatewayIdx] = useState(0);
   const [flagging, setFlagging] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
