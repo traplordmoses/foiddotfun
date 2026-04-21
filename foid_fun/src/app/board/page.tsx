@@ -132,7 +132,8 @@ import { useSwipeLoreboardGovernance } from "@/hooks/useSwipeLoreboardGovernance
 // HELPER FUNCTIONS (extracted to lib/board)
 // ============================================================================
 
-import { tryNextGateway, getImageSize } from "@/lib/board";
+import { getImageSize } from "@/lib/board";
+import { IpfsImage } from "@/components/IpfsImage";
 // MobileProposeModal pulls in PaintEditor + image-picker + preview modal
 // statically. Dynamic-import keeps that entire subtree off the sync /board
 // bundle; it only loads when a mobile user opens the propose flow.
@@ -207,7 +208,7 @@ class ChatErrorBoundary extends Component<{ children: ReactNode }, { failed: boo
 // (Image and coordinate utilities now imported from /src/lib/)
 // ============================================================================
 
-// isValidCid, normalizeCidString, tryNextGateway — imported from @/lib/board
+// isValidCid, normalizeCidString — imported from @/lib/board
 
 async function getPendingBytes(p: PendingItem): Promise<ArrayBuffer> {
   // Prefer using the File object directly if available
@@ -1476,8 +1477,7 @@ function BoardPageContent() {
                           style={{ left: sr.x, top: sr.y, width: sr.w, height: sr.h, cursor: "pointer" }}
                           onClick={() => setActivePlacement(proposalToPlacement(p))}
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={cidToHttpUrl(p.cid)} alt={p.name} className="board-proposal__img" draggable={false} loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, p.cid)} />
+                          <IpfsImage cid={p.cid} alt={p.name} className="board-proposal__img" />
                           {isSelectedProposal && <span className="board-proposal__badge">selected</span>}
                         </figure>
                       );

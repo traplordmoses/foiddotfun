@@ -5,8 +5,7 @@
 
 import React, { memo } from "react";
 import { toStageRect } from "@/lib/boardCoordinates";
-import { cidToHttpUrl } from "@/lib/ipfsUrl";
-import { tryNextGateway } from "@/lib/board";
+import { IpfsImage } from "@/components/IpfsImage";
 
 export type VotingGhostProps = {
   id: number;
@@ -42,18 +41,11 @@ function VotingGhostInner({
       }}
       title={`Proposal #${id} — voting in progress`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={cidToHttpUrl(cid)}
+      <IpfsImage
+        cid={cid}
         alt={`Proposal #${id}`}
         className="board-voting-ghost__img"
-        draggable={false}
-        loading="lazy"
-        decoding="async"
-        // @ts-expect-error — fetchpriority is a standard HTML attribute,
-        // but React's typings haven't caught up in all versions.
-        fetchpriority="low"
-        onError={(e) => tryNextGateway(e.currentTarget, cid)}
+        fetchPriority="low"
       />
       <div className="board-voting-ghost__badge">
         <span>VOTING #{id}</span>
