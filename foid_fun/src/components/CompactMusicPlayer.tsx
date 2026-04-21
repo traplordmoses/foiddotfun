@@ -8,6 +8,11 @@ import { getAudioSettings, setMusicEnabled } from "@/lib/audioSettings";
 const MusicPanelLogic = dynamic(() => import("./MusicPanel"), { ssr: false });
 
 const HIDE_DELAY_HOVER = 2000;
+// Max idle time the bar stays visible regardless of cursor position. Fixes the
+// case where the mouse settles over the bar (or a click moves focus elsewhere)
+// and the bar would otherwise stay up forever — it now always collapses after
+// ~3 s of no pointer/keyboard interaction on the bar itself.
+const IDLE_AUTO_HIDE_MS = 3000;
 const PLAYER_HEIGHT = 38;
 
 type CompactMusicPlayerProps = { mountLogic?: boolean };
@@ -16,6 +21,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
   const [state, setState] = useState(musicPanelController.getState());
   const [isVisible, setIsVisible] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const isMobileRef = useRef(false);
 
@@ -46,10 +52,47 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     hideTimer.current = setTimeout(() => setIsVisible(false), delay);
   }, [clearHideTimer]);
 
+  const clearIdleTimer = useCallback(() => {
+    if (idleTimer.current) {
+      clearTimeout(idleTimer.current);
+      idleTimer.current = null;
+    }
+  }, []);
+
+  const armIdleTimer = useCallback(() => {
+    clearIdleTimer();
+    idleTimer.current = setTimeout(() => setIsVisible(false), IDLE_AUTO_HIDE_MS);
+  }, [clearIdleTimer]);
+
   // Content push: toggle class on <html> to shrink vista-windows
   useEffect(() => {
     document.documentElement.classList.toggle("cmp-active", isVisible);
   }, [isVisible]);
+
+  // Idle auto-collapse: once the bar is up, start a 3 s timer that hides it
+  // even if the cursor is still inside. Interacting with the bar (move or
+  // click) re-arms it. This is the safety net for the "mouse parked on the
+  // bar" and "user clicked away mid-hover" cases, both of which would
+  // otherwise leave the bar open indefinitely.
+  useEffect(() => {
+    if (!isVisible) {
+      clearIdleTimer();
+      return;
+    }
+    armIdleTimer();
+    const bar = barRef.current;
+    if (!bar) return;
+    const reset = () => armIdleTimer();
+    bar.addEventListener("pointermove", reset);
+    bar.addEventListener("pointerdown", reset);
+    bar.addEventListener("keydown", reset);
+    return () => {
+      bar.removeEventListener("pointermove", reset);
+      bar.removeEventListener("pointerdown", reset);
+      bar.removeEventListener("keydown", reset);
+      clearIdleTimer();
+    };
+  }, [isVisible, armIdleTimer, clearIdleTimer]);
 
   // Track mobile state (player hidden on mobile via CSS, but ref used elsewhere)
   useEffect(() => {
@@ -97,8 +140,11 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
   const volumeIcon = volVal === 0 ? "\u{1F507}" : volVal < 0.5 ? "\u{1F509}" : "\u{1F50A}";
 
   useEffect(() => {
-    return () => clearHideTimer();
-  }, [clearHideTimer]);
+    return () => {
+      clearHideTimer();
+      clearIdleTimer();
+    };
+  }, [clearHideTimer, clearIdleTimer]);
 
   return (
     <>

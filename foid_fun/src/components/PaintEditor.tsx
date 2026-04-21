@@ -164,19 +164,34 @@ function drawOverlayToCtx(
 // ============================================================================
 
 export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: PaintEditorProps) {
-  // Track music bar expansion to add bottom padding
+  // Track music bar expansion to add bottom padding. The bar signals its
+  // visible state by toggling `.cmp-active` on <html>. Watching that class
+  // (not the old `.cmp-bar--visible` selector, which never existed) is how
+  // the editor keeps the canvas from being occluded when the Easter-egg
+  // player slides up.
   const [musicBarVisible, setMusicBarVisible] = useState(false);
   useEffect(() => {
-    const observer = new MutationObserver(() => {
-      const bar = document.querySelector(".cmp-bar--visible");
-      setMusicBarVisible(!!bar);
-    });
-    observer.observe(document.body, {
-      subtree: true,
+    const html = document.documentElement;
+    const sync = () => setMusicBarVisible(html.classList.contains("cmp-active"));
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(html, {
       attributes: true,
       attributeFilter: ["class"],
     });
     return () => observer.disconnect();
+  }, []);
+
+  // Desktop vs. mobile layout switch. Desktop (≥900 px) gets the classic
+  // horizontal FOID_PAINT.EXE bottom toolbar with labels; narrower viewports
+  // keep the existing right-side icon rail so mobile / tablet layout is
+  // unchanged. Re-evaluated on resize so an orientation change flips cleanly.
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 900);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
 
   // Canvas refs
@@ -1318,6 +1333,20 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
     setViewScale((s) => Math.min(5, Math.max(0.5, s * factor)));
   }, []);
 
+  const zoomIn = useCallback(() => {
+    setViewScale((s) => Math.min(5, s * 1.3));
+    haptic("light");
+  }, []);
+  const zoomOut = useCallback(() => {
+    setViewScale((s) => Math.max(0.5, s / 1.3));
+    haptic("light");
+  }, []);
+  const resetZoom = useCallback(() => {
+    setViewScale(1);
+    setViewOffset({ x: 0, y: 0 });
+    haptic("light");
+  }, []);
+
   // ============================================================================
   // BRUSH CURSOR
   // ============================================================================
@@ -1431,7 +1460,13 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
     ),
   };
 
-  const showBottomStrip = tool === "draw" || (tool === "text" && selectedOverlayId !== null);
+  // Mobile shows the contextual bottom strip for both drawing (color/size/
+  // opacity) and text editing. On desktop, color + size live in the main
+  // horizontal toolbar, so the contextual strip is only useful for text
+  // editing — otherwise it'd just duplicate controls.
+  const showBottomStrip = isDesktop
+    ? tool === "text" && selectedOverlayId !== null
+    : tool === "draw" || (tool === "text" && selectedOverlayId !== null);
   const selectedOverlay = selectedOverlayId
     ? paintOverlays.find((o) => o.id === selectedOverlayId) ?? null
     : null;
@@ -1450,7 +1485,10 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
         display: "flex",
         flexDirection: "column",
         background: "rgba(8, 12, 20, 0.98)",
-        paddingBottom: musicBarVisible ? 48 : 0,
+        // Bottom padding shrinks the canvas area so the music bar and the
+        // desktop bottom toolbar never occlude the image: canvas + strokes
+        // are guaranteed rendered fully above whichever chrome is present.
+        paddingBottom: (isDesktop ? 64 : 0) + (musicBarVisible ? 48 : 0),
         transition: "padding-bottom 0.2s ease",
       }}
     >
@@ -1609,8 +1647,10 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
         wired an onPreviewOnBoard callback, so PaintEditor stays backward-
         compatible with any caller that doesn't opt in. Sits immediately
         left of the Done pill, sharing the same top-right safe-area inset.
+        On desktop, PEEK moves into the bottom toolbar — rendered there
+        instead of the top-right.
       */}
-      {onPreviewOnBoard && (
+      {!isDesktop && onPreviewOnBoard && (
         <button
           onClick={handlePreviewOnBoard}
           disabled={previewDisabled}
@@ -1661,7 +1701,8 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
         </button>
       )}
 
-      {/* ============ DONE PILL ============ */}
+      {/* ============ DONE PILL (mobile only; desktop uses bottom toolbar) ============ */}
+      {!isDesktop && (
       <button
         onClick={handleDone}
         disabled={exporting || sealPhase !== "idle"}
@@ -1691,8 +1732,62 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
       >
         {sealPhase === "stamping" ? "SEALING..." : exporting ? "EXPORTING..." : "DONE"}
       </button>
+      )}
 
-      {/* ============ TOOL RAIL ============ */}
+      {/* ============ FOID_PAINT.EXE TITLE (desktop only) ============ */}
+      {isDesktop && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            top: "max(8px, env(safe-area-inset-top))",
+            left: "calc(max(8px, env(safe-area-inset-left)) + 52px)",
+            height: 40,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "0 14px",
+            borderRadius: 8,
+            border: "1px solid rgba(255,255,255,0.08)",
+            background: "rgba(16,20,32,0.85)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            color: "rgba(255,255,255,0.72)",
+            zIndex: 50,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              width: 14,
+              height: 14,
+              borderRadius: 2,
+              background: "linear-gradient(135deg, #00cccc 0%, #0088aa 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 9,
+              color: "#000",
+              fontWeight: 900,
+            }}
+          >
+            F
+          </div>
+          <span
+            style={{
+              fontFamily: "var(--font-terminal), monospace",
+              fontSize: 11,
+              letterSpacing: "0.12em",
+            }}
+          >
+            FOID_PAINT.EXE
+          </span>
+        </div>
+      )}
+
+      {/* ============ TOOL RAIL (mobile only; desktop uses bottom toolbar) ============ */}
+      {!isDesktop && (
       <aside
         role="toolbar"
         aria-label="Paint tools"
@@ -1807,6 +1902,7 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
           disabled={historyIdx <= 0}
         />
       </aside>
+      )}
 
       {/* ============ STICKER DRAWER ============ */}
       {showStickerDrawer && (
@@ -1860,8 +1956,12 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
           style={{
             position: "fixed",
             left: "max(8px, env(safe-area-inset-left))",
-            right: "calc(max(8px, env(safe-area-inset-right)) + 60px)",
-            bottom: `calc(max(8px, env(safe-area-inset-bottom)) + ${musicBarVisible ? 48 : 0}px)`,
+            right: isDesktop
+              ? "max(8px, env(safe-area-inset-right))"
+              : "calc(max(8px, env(safe-area-inset-right)) + 60px)",
+            bottom: `calc(max(8px, env(safe-area-inset-bottom)) + ${
+              (isDesktop ? 64 : 0) + (musicBarVisible ? 48 : 0)
+            }px)`,
             display: "flex",
             flexDirection: "column",
             gap: 6,
@@ -2150,13 +2250,410 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
         </div>
       )}
 
+      {/* ============ DESKTOP BOTTOM TOOLBAR — FOID_PAINT.EXE ============ */}
+      {/*
+        Classic MS-Paint-style horizontal strip shown on viewports ≥ 900 px.
+        All buttons are labelled because the right-side icon rail proved
+        unintelligible to new users. Order follows the canonical layout:
+        Draw · Eraser · Text · (Meme · Stamp · Sticker · Pick · Effects) ·
+        [color] · [size] · Undo · Redo · Clear · ZOOM −/+ · [Lock slot] ·
+        [PEEK] · DONE. Meme/Sticker/Effects are secondary but kept visible
+        so desktop users don't lose access to those features.
+
+        NOTE to Session A (stamp restoration): the Stamp button is already
+        wired here via stampInputRef.current?.click(). No stub slot needed.
+
+        NOTE to future selves: a draw-lock toggle once lived between ZOOM
+        and DONE in the old 3a74a88 layout — it's intentionally omitted
+        here because the `drawLock` state isn't implemented on the current
+        PaintEditor. If it comes back, drop the button into the slot
+        marked with a TODO comment below.
+      */}
+      {isDesktop && (
+        <div
+          role="toolbar"
+          aria-label="Paint tools"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "fixed",
+            left: "max(8px, env(safe-area-inset-left))",
+            right: "max(8px, env(safe-area-inset-right))",
+            bottom: `calc(max(8px, env(safe-area-inset-bottom)) + ${
+              musicBarVisible ? 48 : 0
+            }px)`,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "6px 10px",
+            height: 52,
+            borderRadius: 10,
+            background: "rgba(16,20,32,0.92)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+            zIndex: 50,
+            overflowX: "auto",
+          }}
+        >
+          <DeskBtn
+            label="Draw"
+            icon={ICON.draw}
+            active={tool === "draw"}
+            onClick={() => {
+              setTool("draw");
+              setShowStickerDrawer(false);
+              haptic("light");
+            }}
+          />
+          <DeskBtn
+            label="Eraser"
+            icon={ICON.eraser}
+            active={tool === "eraser"}
+            onClick={() => {
+              setTool("eraser");
+              setShowStickerDrawer(false);
+              haptic("light");
+            }}
+          />
+          <DeskBtn
+            label="Text"
+            icon={ICON.text}
+            active={tool === "text"}
+            onClick={() => {
+              setTool("text");
+              setShowStickerDrawer(false);
+              addTextOverlay();
+              haptic("light");
+            }}
+          />
+          <DeskBtn
+            label="Meme"
+            icon={ICON.memeText}
+            active={false}
+            onClick={() => {
+              setTool("text");
+              setShowStickerDrawer(false);
+              addMemeTextOverlays();
+              haptic("light");
+            }}
+          />
+          <DeskBtn
+            label="Stamp"
+            icon={ICON.stamp}
+            active={false}
+            onClick={() => {
+              setShowStickerDrawer(false);
+              stampInputRef.current?.click();
+              haptic("light");
+            }}
+          />
+          <DeskBtn
+            label="Sticker"
+            icon={ICON.sticker}
+            active={tool === "sticker" || showStickerDrawer}
+            onClick={() => {
+              setTool("sticker");
+              setShowStickerDrawer((v) => !v);
+              haptic("light");
+            }}
+          />
+          <DeskBtn
+            label="Pick"
+            icon={ICON.pick}
+            active={tool === "eyedropper"}
+            onClick={() => {
+              setTool("eyedropper");
+              setShowStickerDrawer(false);
+              haptic("light");
+            }}
+          />
+          <DeskBtn
+            label="Effects"
+            icon={ICON.effects}
+            active={effectsDrawerOpen || currentFilter !== null}
+            onClick={() => {
+              setEffectsDrawerOpen((v) => !v);
+              setShowStickerDrawer(false);
+              haptic("light");
+            }}
+          />
+
+          <DeskDivider />
+
+          {/* Color dot — native color input for full palette */}
+          <label
+            title="Color"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              height: 34,
+              padding: "0 8px",
+              borderRadius: 6,
+              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.04)",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 10,
+                fontFamily: "var(--font-terminal), monospace",
+                letterSpacing: "0.08em",
+                color: "rgba(255,255,255,0.55)",
+              }}
+            >
+              COLOR
+            </span>
+            <span
+              aria-hidden="true"
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: "50%",
+                background: color,
+                border: "2px solid rgba(255,255,255,0.25)",
+                boxShadow: `0 0 6px ${color}66`,
+              }}
+            />
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              style={{
+                width: 0,
+                height: 0,
+                padding: 0,
+                border: 0,
+                opacity: 0,
+                pointerEvents: "none",
+                position: "absolute",
+              }}
+            />
+          </label>
+
+          {/* Size picker */}
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              height: 34,
+              padding: "0 6px",
+              borderRadius: 6,
+              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.04)",
+              flexShrink: 0,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 10,
+                fontFamily: "var(--font-terminal), monospace",
+                letterSpacing: "0.08em",
+                color: "rgba(255,255,255,0.55)",
+              }}
+            >
+              SIZE
+            </span>
+            {[2, 4, 8, 16, 30].map((size) => (
+              <button
+                key={size}
+                title={`Brush size ${size}`}
+                aria-label={`Brush size ${size}`}
+                aria-pressed={brushSize === size}
+                onClick={() => {
+                  setBrushSize(size);
+                  haptic("light");
+                }}
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 4,
+                  border:
+                    brushSize === size
+                      ? "1px solid rgba(0,204,204,0.6)"
+                      : "1px solid rgba(255,255,255,0.08)",
+                  background:
+                    brushSize === size
+                      ? "rgba(0,204,204,0.18)"
+                      : "rgba(255,255,255,0.03)",
+                  color:
+                    brushSize === size ? "#00cccc" : "rgba(255,255,255,0.6)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                }}
+              >
+                <div
+                  style={{
+                    width: Math.min(size, 14),
+                    height: Math.min(size, 14),
+                    borderRadius: "50%",
+                    background: "currentColor",
+                  }}
+                />
+              </button>
+            ))}
+          </div>
+
+          <DeskDivider />
+
+          <DeskBtn
+            label="Undo"
+            icon={ICON.undo}
+            active={false}
+            onClick={() => {
+              undo();
+              haptic("light");
+            }}
+            disabled={historyIdx <= 0}
+          />
+          <DeskBtn
+            label="Redo"
+            icon={ICON.redo}
+            active={false}
+            onClick={() => {
+              redo();
+              haptic("light");
+            }}
+            disabled={historyIdx >= history.length - 1}
+          />
+          <DeskBtn
+            label={clearPending ? "Sure?" : "Clear"}
+            active={clearPending}
+            danger={clearPending}
+            onClick={handleClearClick}
+          />
+
+          <DeskDivider />
+
+          {/* Zoom controls */}
+          <span
+            style={{
+              fontSize: 9,
+              color: "rgba(255,255,255,0.4)",
+              fontFamily: "var(--font-terminal), monospace",
+              letterSpacing: "0.1em",
+              flexShrink: 0,
+            }}
+          >
+            ZOOM
+          </span>
+          <button
+            title="Zoom out"
+            aria-label="Zoom out"
+            onClick={zoomOut}
+            style={deskIconBtn(false)}
+          >
+            −
+          </button>
+          <button
+            title={viewScale === 1 ? "100%" : "Reset zoom"}
+            aria-label="Reset zoom"
+            onClick={resetZoom}
+            style={{
+              ...deskIconBtn(viewScale !== 1),
+              minWidth: 44,
+              fontSize: 10,
+              fontFamily: "var(--font-terminal), monospace",
+            }}
+          >
+            {Math.round(viewScale * 100)}%
+          </button>
+          <button
+            title="Zoom in"
+            aria-label="Zoom in"
+            onClick={zoomIn}
+            style={deskIconBtn(false)}
+          >
+            +
+          </button>
+
+          {/* TODO(drawLock): drop a Lock toggle here when the state is
+              re-implemented. Intentionally no-op today — see comment above. */}
+
+          <div style={{ flex: 1, minWidth: 4 }} />
+
+          {onPreviewOnBoard && (
+            <button
+              onClick={handlePreviewOnBoard}
+              disabled={previewDisabled}
+              title={
+                previewDisabled && isDrawing
+                  ? "Finish your stroke first"
+                  : "Preview on board"
+              }
+              aria-label="Preview on board"
+              style={{
+                height: 34,
+                padding: "0 12px",
+                borderRadius: 6,
+                border: "1px solid rgba(224,64,251,0.55)",
+                background:
+                  "linear-gradient(135deg, rgba(224,64,251,0.28), rgba(160,40,200,0.18))",
+                color: "#f06292",
+                fontSize: 11,
+                fontWeight: 700,
+                fontFamily: "var(--font-terminal), monospace",
+                letterSpacing: "0.1em",
+                cursor: previewDisabled ? "not-allowed" : "pointer",
+                opacity: previewDisabled ? 0.42 : 1,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                flexShrink: 0,
+              }}
+            >
+              {previewing ? "..." : "PEEK"}
+            </button>
+          )}
+          <button
+            onClick={handleDone}
+            disabled={exporting || sealPhase !== "idle"}
+            aria-label="Done"
+            style={{
+              height: 34,
+              padding: "0 18px",
+              borderRadius: 6,
+              border: "1px solid rgba(0,204,204,0.7)",
+              background:
+                "linear-gradient(135deg, rgba(0,204,204,0.4), rgba(0,180,180,0.25))",
+              color: "#00cccc",
+              fontSize: 12,
+              fontWeight: 700,
+              fontFamily: "var(--font-terminal), monospace",
+              letterSpacing: "0.12em",
+              cursor:
+                exporting || sealPhase !== "idle" ? "wait" : "pointer",
+              opacity: exporting || sealPhase !== "idle" ? 0.45 : 1,
+              boxShadow:
+                "0 0 14px rgba(0,204,204,0.2), inset 0 1px 0 rgba(255,255,255,0.08)",
+              flexShrink: 0,
+            }}
+          >
+            {sealPhase === "stamping"
+              ? "SEALING..."
+              : exporting
+              ? "EXPORTING..."
+              : "DONE"}
+          </button>
+        </div>
+      )}
+
       {/* ============ TRASH ZONE ============ */}
       {draggingOverlayId && (
         <div
           ref={trashZoneRef}
           style={{
             position: "fixed",
-            bottom: `calc(max(20px, env(safe-area-inset-bottom)) + ${musicBarVisible ? 56 : 0}px)`,
+            bottom: `calc(max(20px, env(safe-area-inset-bottom)) + ${
+              (isDesktop ? 64 : 0) + (musicBarVisible ? 56 : 0)
+            }px)`,
             left: "50%",
             transform: `translate(-50%, 0) scale(${trashHot ? 1.15 : 1})`,
             width: TRASH_SIZE,
@@ -2333,8 +2830,12 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
         A thin invisible strip along the bottom edge. Only active when no
         other bottom UI is in the way, so swipe gestures don't fight the
         sticker drawer, bottom strip, trash zone, or seal animation.
+        Desktop replaces it with an explicit Effects button in the bottom
+        toolbar, so the gesture strip is suppressed there to avoid stealing
+        clicks from the toolbar.
       */}
-      {!effectsDrawerOpen &&
+      {!isDesktop &&
+        !effectsDrawerOpen &&
         !showBottomStrip &&
         !draggingOverlayId &&
         !showStickerDrawer &&
@@ -2532,6 +3033,110 @@ function RailChip({
       {icon}
     </button>
   );
+}
+
+function DeskBtn({
+  label,
+  icon,
+  active,
+  onClick,
+  disabled,
+  danger,
+}: {
+  label: string;
+  icon?: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+}) {
+  const borderColor = danger
+    ? "rgba(255,80,80,0.55)"
+    : active
+    ? "rgba(0,204,204,0.55)"
+    : "rgba(255,255,255,0.1)";
+  const bg = danger
+    ? "rgba(255,80,80,0.14)"
+    : active
+    ? "rgba(0,204,204,0.15)"
+    : "rgba(255,255,255,0.04)";
+  const fg = disabled
+    ? "rgba(255,255,255,0.22)"
+    : danger
+    ? "#ff7070"
+    : active
+    ? "#00cccc"
+    : "rgba(255,255,255,0.72)";
+  return (
+    <button
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        height: 34,
+        padding: icon ? "0 10px 0 8px" : "0 10px",
+        borderRadius: 6,
+        border: `1px solid ${borderColor}`,
+        background: bg,
+        color: fg,
+        fontSize: 11,
+        fontFamily: "var(--font-terminal), monospace",
+        letterSpacing: "0.06em",
+        cursor: disabled ? "not-allowed" : "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        flexShrink: 0,
+        boxShadow: active
+          ? "0 0 10px rgba(0,204,204,0.15), inset 0 1px 0 rgba(255,255,255,0.06)"
+          : "none",
+        transition: "all 0.15s",
+      }}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function DeskDivider() {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        width: 1,
+        height: 22,
+        background: "rgba(255,255,255,0.08)",
+        flexShrink: 0,
+        margin: "0 4px",
+      }}
+    />
+  );
+}
+
+function deskIconBtn(active: boolean): React.CSSProperties {
+  return {
+    width: 30,
+    height: 30,
+    borderRadius: 5,
+    border: active
+      ? "1px solid rgba(0,204,204,0.55)"
+      : "1px solid rgba(255,255,255,0.1)",
+    background: active
+      ? "rgba(0,204,204,0.15)"
+      : "rgba(255,255,255,0.04)",
+    color: active ? "#00cccc" : "rgba(255,255,255,0.6)",
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    padding: 0,
+  };
 }
 
 function FilterChip({
