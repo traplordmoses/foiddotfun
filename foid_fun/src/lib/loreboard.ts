@@ -1,9 +1,13 @@
 import { createPublicClient, http } from "viem";
-import { CANONICAL_CHAIN } from "@/config/canonical";
+import { CANONICAL_CHAIN, getServerRpcUrl } from "@/config/canonical";
 import { cidToHttpUrl } from "./ipfsUrl";
 import { FINALIZED_EVENT } from "./events";
 
-const rpcUrl = process.env.NEXT_PUBLIC_FLUENT_RPC ?? CANONICAL_CHAIN.rpcUrl;
+// Server-only: this module reads logs across large block ranges and must
+// hit the private RPC directly (not the /api/rpc proxy, to avoid a self-
+// request loop and because batch eth_getLogs benefits from the dedicated
+// quota). Falls back to the public RPC if FLUENT_RPC_URL is not set.
+const rpcUrl = getServerRpcUrl() ?? CANONICAL_CHAIN.rpcUrl;
 const client = createPublicClient({
   transport: http(rpcUrl),
 });

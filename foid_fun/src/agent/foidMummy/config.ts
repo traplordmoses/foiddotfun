@@ -7,12 +7,14 @@ import {
   CHAIN_NAME as CANONICAL_CHAIN_NAME,
   CANONICAL_ADDRESSES,
   IS_MAINNET,
+  getServerRpcUrl,
 } from "@/config/canonical";
 
 // Load .env.local from foid_fun root
 dotenv.config({ path: path.join(process.cwd(), ".env.local") });
 
-export const RPC_URL = process.env.NEXT_PUBLIC_FLUENT_RPC || CANONICAL_RPC;
+// Agent is server-only; use the private RPC when available.
+export const RPC_URL = getServerRpcUrl() ?? CANONICAL_RPC;
 export const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID || CANONICAL_CHAIN_ID);
 
 const DEFAULT_LOREBOARD_SUBGRAPH = IS_MAINNET

@@ -124,18 +124,21 @@ function normalizeAddress(value: string, label: string): Address {
   }
 }
 
-// IMPORTANT: `process.env.NEXT_PUBLIC_*` must be referenced by LITERAL dot-
-// access so Next's DefinePlugin inlines the value into the client bundle.
-// `process.env[key]` / `pickEnvKey(["NEXT_PUBLIC_..."])` is NOT inlined —
-// at runtime in the browser `process.env` is essentially `{}`, so the
-// dynamic lookup resolves to undefined and the env-configured value is
-// silently replaced by the fallback.
-const RPC_URL_LITERAL =
-  process.env.NEXT_PUBLIC_FLUENT_RPC ||
-  process.env.NEXT_PUBLIC_RPC_URL ||
-  process.env.RPC_URL ||
-  process.env.FLUENT_RPC_URL ||
-  "";
+// RPC URLs — client/server split.
+//
+// SECURITY: the private/dedicated RPC (e.g. QuickNode) MUST only live in
+// non-`NEXT_PUBLIC_*` env vars. Next.js inlines any `process.env.NEXT_PUBLIC_*`
+// reference into the browser bundle at build time, which would ship the
+// private URL to every visitor AND leak it to MetaMask via
+// `wallet_addEthereumChain`. So this module deliberately does NOT read any
+// NEXT_PUBLIC_* RPC env var.
+//
+// - Browser code should use the `/api/rpc` proxy, which forwards to the
+//   private RPC server-side. See src/app/api/rpc/route.ts.
+// - Server code (API routes, cron, scripts) reads `FLUENT_RPC_URL` directly
+//   via `getServerRpcUrl()` below.
+// - `PUBLIC_RPC_URL` below is always the Fluent-hosted public URL — safe
+//   to ship to clients and to pass to `wallet_addEthereumChain`.
 
 export const CHAIN_ID = Number(
   process.env.NEXT_PUBLIC_CHAIN_ID || process.env.CHAIN_ID || DEFAULT_CHAIN_ID
@@ -145,23 +148,48 @@ if (!Number.isFinite(CHAIN_ID) || CHAIN_ID <= 0) {
   throw new Error(`[config] Invalid CHAIN_ID. ${DOTENV_HINT}`);
 }
 
-export const RPC_URL = RPC_URL_LITERAL || DEFAULT_RPC_URL;
+/** Public Fluent RPC — safe to expose to the browser and MetaMask. */
+export const PUBLIC_RPC_URL = DEFAULT_RPC_URL;
 
-/** Public RPC as fallback when QuickNode is down */
-export const FALLBACK_RPC_URL = DEFAULT_RPC_URL;
+/**
+ * Legacy export. Historically this was the dedicated/QuickNode URL, but
+ * that leaked into the client bundle. It now resolves to the public URL
+ * on the client. Server code should prefer `getServerRpcUrl()`.
+ */
+export const RPC_URL = PUBLIC_RPC_URL;
+
+/** Public RPC as fallback when the proxy/private RPC is down. */
+export const FALLBACK_RPC_URL = PUBLIC_RPC_URL;
+
+/**
+ * Server-only resolver for the private RPC. Returns `null` on the client
+ * (or if not configured). NEVER reference this from code that runs in the
+ * browser — use the `/api/rpc` proxy instead.
+ *
+ * NOTE: only reads non-`NEXT_PUBLIC_*` vars. Any reference to
+ * `process.env.NEXT_PUBLIC_*` in this file (which IS imported by client
+ * components) would inline the value into the browser bundle at build
+ * time — exactly what we're trying to prevent. Dynamic bracket access
+ * avoids that and lets transitional vars still be read server-side.
+ */
+export function getServerRpcUrl(): string | null {
+  if (typeof window !== "undefined") return null;
+  if (typeof process === "undefined") return null;
+  const env = process.env as Record<string, string | undefined>;
+  const value =
+    env.FLUENT_RPC_URL?.trim() ||
+    env.FLUENT_RPC?.trim() ||
+    env["NEXT_PUBLIC_FLUENT_RPC"]?.trim() ||
+    env["NEXT_PUBLIC_RPC_URL"]?.trim() ||
+    null;
+  return value || null;
+}
 
 export const BLOCK_EXPLORER =
   process.env.NEXT_PUBLIC_BLOCK_EXPLORER || DEFAULT_BLOCK_EXPLORER;
 
 export const CHAIN_NAME =
   process.env.NEXT_PUBLIC_CHAIN_NAME || DEFAULT_CHAIN_NAME;
-
-if (!RPC_URL_LITERAL) {
-  warnOnce(
-    "RPC_URL",
-    `[config] RPC URL not configured; falling back to ${DEFAULT_RPC_URL}. ${DOTENV_HINT}`
-  );
-}
 
 const boardAddressEnv = pickEnvKey([
   "BOARD_ADDRESS",

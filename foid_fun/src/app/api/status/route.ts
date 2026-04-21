@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { currentEpoch, secondsLeftInEpoch } from "@/lib/epoch";
 import { DEPLOY_BLOCK } from "@/lib/viem";
-import { CANONICAL_ADDRESSES } from "@/config/canonical";
+import { CANONICAL_ADDRESSES, getServerRpcUrl } from "@/config/canonical";
 
 const LOREBOARD_MANIFEST_STORE_ADDRESS = CANONICAL_ADDRESSES.manifestStore;
 import {
@@ -21,7 +21,7 @@ const cacheHeaders = {
 };
 
 export async function GET() {
-  const rpcUrl = process.env.NEXT_PUBLIC_FLUENT_RPC ?? "";
+  const rpcUrl = getServerRpcUrl() ?? "";
   let latestEpoch: number | null = null;
   let latestCid: string | null = null;
   let latestRoot: string | null = null;

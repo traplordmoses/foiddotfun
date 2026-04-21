@@ -1,139 +1,53 @@
-# QuickNode RPC Setup
+# Dedicated RPC Setup (QuickNode / Fluent-issued)
 
-Your app is now configured to use a dedicated QuickNode RPC endpoint with **50 req/sec** rate limit.
+Your dedicated Fluent RPC endpoint is kept **server-side only**. Clients reach it through the same-origin `/api/rpc` proxy so the URL is never inlined into the browser bundle, never shown to MetaMask, and never visible in DevTools Network.
 
-## ✅ What Was Changed
+## Environment variables
 
-### Updated Files:
-1. **`.env.local`** - All RPC URLs now point to QuickNode
-2. **`.env.local.example`** - Updated with QuickNode format (without actual token)
+Use non-`NEXT_PUBLIC_*` names so Next.js cannot inline them into the client bundle at build time:
 
-### Environment Variables Updated:
 ```bash
-NEXT_PUBLIC_RPC_URL=https://flashy-indulgent-knowledge.fluent-testnet.quiknode.pro/ef03557510e0b97fe678aeff63c7a9ef0181a852
-NEXT_PUBLIC_RPC=https://flashy-indulgent-knowledge.fluent-testnet.quiknode.pro/ef03557510e0b97fe678aeff63c7a9ef0181a852
-NEXT_PUBLIC_FLUENT_RPC=https://flashy-indulgent-knowledge.fluent-testnet.quiknode.pro/ef03557510e0b97fe678aeff63c7a9ef0181a852
-FLUENT_RPC=https://flashy-indulgent-knowledge.fluent-testnet.quiknode.pro/ef03557510e0b97fe678aeff63c7a9ef0181a852
-RPC_URL=https://flashy-indulgent-knowledge.fluent-testnet.quiknode.pro/ef03557510e0b97fe678aeff63c7a9ef0181a852
+# Server-only — the dedicated URL goes here
+FLUENT_RPC_URL=https://<your-dedicated-endpoint>
 ```
 
-## 🔐 Security
+**Do NOT set** any of these to the private URL — they get inlined into the browser JS:
 
-✅ **Token is secure:**
-- Stored in `.env.local` (gitignored)
-- **Never committed to GitHub**
-- Only accessible server-side and in your local dev environment
+- ❌ `NEXT_PUBLIC_FLUENT_RPC`
+- ❌ `NEXT_PUBLIC_RPC_URL`
+- ❌ `NEXT_PUBLIC_RPC`
 
-⚠️ **Important:**
-- Do NOT commit `.env.local` to git
-- Do NOT share the token publicly
-- Do NOT hardcode the token in any source files
+In Render / Vercel dashboards, delete those three keys. Re-deploy after removing.
 
-## 🚀 To Activate
+## Architecture
 
-### Restart your dev server:
-```bash
-# Stop current server (Ctrl+C)
-npm run dev
-```
+| Caller | Path | URL seen |
+|---|---|---|
+| Browser JS (viem / wagmi reads) | `window → /api/rpc → FLUENT_RPC_URL` | only `/api/rpc` |
+| FOID embedded wallet | same as above | only `/api/rpc` |
+| MetaMask (injected wallet) | user's own chain config | **public** Fluent RPC (`rpc.fluent.xyz` / `rpc.testnet.fluent.xyz`) |
+| API routes / cron / scripts | direct | `FLUENT_RPC_URL` |
 
-The app will now use QuickNode automatically!
+If the proxy is unreachable, the client transport falls back to the public Fluent RPC automatically (defined in `src/providers.tsx`).
 
-## ✅ Verify It's Working
+## Proxy hardening
 
-### Test the endpoint:
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
-  https://flashy-indulgent-knowledge.fluent-testnet.quiknode.pro/ef03557510e0b97fe678aeff63c7a9ef0181a852
-```
+`src/app/api/rpc/route.ts` enforces:
 
-Expected response:
-```json
-{"jsonrpc":"2.0","id":1,"result":"0x..."}
-```
+- Same-origin check (Origin or Referer host must match request host)
+- JSON-RPC method allowlist: `eth_*`, `net_*`, `web3_*`
+- Batch size cap: 50 calls per request
+- `runtime = "nodejs"`, `dynamic = "force-dynamic"` (no caching)
 
-### Check in your app:
-1. Open browser DevTools → Network tab
-2. Look for RPC requests
-3. Verify they go to `flashy-indulgent-knowledge.fluent-testnet.quiknode.pro`
+## Verifying the fix
 
-## 📊 Benefits
-
-### Before (Public RPC):
-- ⚠️ Rate limited
-- ⚠️ Shared with all users
-- ⚠️ Can be slow during high traffic
-- ⚠️ No guaranteed uptime
-
-### After (QuickNode):
-- ✅ **50 req/sec** dedicated rate limit
-- ✅ Higher reliability (99.9% uptime SLA)
-- ✅ Faster response times
-- ✅ Better for production use
-- ✅ Metrics & monitoring dashboard
-
-## 🔄 Fallback to Public RPC
-
-If QuickNode is down, you can quickly switch back:
-
-1. Edit `.env.local`:
+1. Build for production: `pnpm build`
+2. Grep the built client bundle for the dedicated hostname:
    ```bash
-   # Comment out QuickNode
-   # NEXT_PUBLIC_FLUENT_RPC=https://flashy-indulgent-knowledge.fluent-testnet.quiknode.pro/ef03557510e0b97fe678aeff63c7a9ef0181a852
-
-   # Use public RPC
-   NEXT_PUBLIC_FLUENT_RPC=https://rpc.testnet.fluent.xyz
+   grep -r "<your-dedicated-host>" foid_fun/.next/static/ || echo "clean ✓"
    ```
+3. Load the site, open DevTools → Network, pray or submit a tx. All RPC requests should go to `/api/rpc` (same origin). The MetaMask "add network" prompt should show the public Fluent RPC.
 
-2. Restart dev server
+## If the dedicated RPC was ever deployed with a `NEXT_PUBLIC_*` prefix
 
-## 📈 Monitoring
-
-Check your QuickNode dashboard:
-- Request count
-- Error rates
-- Response times
-- Rate limit usage
-
-Login at: https://dashboard.quicknode.com
-
-## 🎯 Best Practices
-
-1. **Monitor usage** - Check QuickNode dashboard periodically
-2. **Handle rate limits** - Add retry logic for 429 errors
-3. **Test thoroughly** - Verify all blockchain interactions work
-4. **Keep token secret** - Never expose in client-side code or logs
-
-## 🐛 Troubleshooting
-
-### If requests fail:
-
-1. **Check token is correct:**
-   ```bash
-   grep QUICKNODE_TOKEN .env.local
-   ```
-
-2. **Verify endpoint is accessible:**
-   ```bash
-   curl -I https://flashy-indulgent-knowledge.fluent-testnet.quiknode.pro/ef03557510e0b97fe678aeff63c7a9ef0181a852
-   ```
-
-3. **Check QuickNode dashboard:**
-   - Is the endpoint active?
-   - Have you hit rate limits?
-   - Any service issues?
-
-4. **Restart dev server:**
-   ```bash
-   # Stop and restart to pick up new env vars
-   npm run dev
-   ```
-
-### If errors persist:
-- Contact QuickNode support
-- Temporarily switch to public RPC (see Fallback section above)
-
----
-
-**Setup completed!** 🎉 Your app is now using the QuickNode RPC endpoint.
+The URL has been shipped to every site visitor since that deploy. **Rotate the token with Fluent / QuickNode** before relying on this fix.

@@ -66,12 +66,17 @@ const connectors = connectorsForWallets(
   },
 );
 
+// Primary client transport goes through the same-origin /api/rpc proxy so
+// the dedicated RPC URL stays server-side. FALLBACK_RPC_URL (public Fluent
+// RPC) is used if the proxy is unreachable.
+const CLIENT_RPC_PROXY = "/api/rpc";
+
 export const config = createConfig({
   connectors,
   chains: [TARGET_CHAIN],
   transports: {
     [TARGET_CHAIN_ID]: fallback([
-      http(TARGET_CHAIN.rpcUrls.default.http[0], { retryCount: 3, retryDelay: 500 }),
+      http(CLIENT_RPC_PROXY, { retryCount: 3, retryDelay: 500 }),
       http(FALLBACK_RPC_URL, { retryCount: 2, retryDelay: 1000 }),
     ]),
   },

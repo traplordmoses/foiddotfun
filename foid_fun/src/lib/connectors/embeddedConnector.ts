@@ -23,12 +23,9 @@ type EIP1193Provider = { request: EIP1193RequestFn };
 
 const ACTIVE_KEY = "foid-embedded-active";
 
-const PRIMARY_RPC =
-  process.env.NEXT_PUBLIC_FLUENT_RPC ??
-  process.env.NEXT_PUBLIC_RPC ??
-  process.env.NEXT_PUBLIC_RPC_URL ??
-  TARGET_CHAIN.rpcUrls.default.http[0];
-
+// Primary: same-origin /api/rpc proxy (keeps the dedicated RPC off the
+// client bundle and out of DevTools Network). Fallback: public Fluent RPC.
+const PRIMARY_RPC = "/api/rpc";
 const FALLBACK_RPC = TARGET_CHAIN.rpcUrls.default.http[0];
 
 const RPC_URLS = [PRIMARY_RPC, FALLBACK_RPC];

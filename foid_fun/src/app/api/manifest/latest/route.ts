@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { CANONICAL_ADDRESSES } from "@/config/canonical";
+import { CANONICAL_ADDRESSES, getServerRpcUrl } from "@/config/canonical";
 
 const LOREBOARD_MANIFEST_STORE_ADDRESS = CANONICAL_ADDRESSES.manifestStore;
 import { ipfsToHttp } from "@/lib/ipfsUrl";
@@ -14,7 +14,7 @@ import type { BoardManifest } from "@/types/manifest";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const RPC_URL = process.env.NEXT_PUBLIC_FLUENT_RPC ?? "";
+const RPC_URL = getServerRpcUrl() ?? "";
 const CACHE_TTL_MS = 45_000;
 const CACHE_HEADERS = {
   "Cache-Control": "no-store, max-age=0, must-revalidate, proxy-revalidate",

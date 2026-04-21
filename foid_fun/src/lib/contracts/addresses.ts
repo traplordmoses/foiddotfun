@@ -49,7 +49,10 @@ export const CHAIN_CONFIG = {
   blockExplorer: BLOCK_EXPLORER,
 } as const;
 
-export const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL ?? CHAIN_CONFIG.rpcUrl;
+// Historically read NEXT_PUBLIC_RPC_URL, but that inlined the private RPC
+// into the browser bundle. Always resolves to the public RPC now; server
+// code should go through `getServerRpcUrl()` in @/config/canonical.
+export const RPC_URL = CHAIN_CONFIG.rpcUrl;
 
 // Use canonical deploy block
 export const DEPLOY_BLOCK: bigint = CANONICAL_DEPLOY_BLOCK;

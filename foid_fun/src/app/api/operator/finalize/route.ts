@@ -31,7 +31,7 @@ import { hasOverlap } from "@/lib/grid";
 import { uploadJSON } from "@/lib/ipfs";
 import { ProposalStore } from "@/lib/proposalStore";
 import { sortCandidatesByTieBreak } from "@/lib/winnerSelection";
-import { CANONICAL_ADDRESSES, CHAIN_ID, CHAIN_NAME, getOperatorAccount, requireCanonicalAddress } from "@/config/canonical";
+import { CANONICAL_ADDRESSES, CHAIN_ID, CHAIN_NAME, getOperatorAccount, getServerRpcUrl, requireCanonicalAddress } from "@/config/canonical";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,7 +49,7 @@ const devWarn: typeof console.warn = (...args) => {
 };
 
 const getRuntimeConfig = () => {
-  const rpc = process.env.NEXT_PUBLIC_FLUENT_RPC;
+  const rpc = getServerRpcUrl();
   const treasuryEnv = process.env.NEXT_PUBLIC_LOREBOARD_ADDRESS;
   const manifestStoreEnv =
     (process.env.NEXT_PUBLIC_LOREBOARD_MANIFEST_STORE_ADDRESS ||
@@ -61,7 +61,7 @@ const getRuntimeConfig = () => {
 
   if (!rpc) {
     throw new Error(
-      "NEXT_PUBLIC_FLUENT_RPC is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
+      "FLUENT_RPC_URL is required. If you're using .env.local, run with DOTENV_CONFIG_PATH=.env.local."
     );
   }
 

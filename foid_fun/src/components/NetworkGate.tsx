@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { FLUENT_CHAIN_ID, FLUENT_CHAIN_NAME, BLOCK_EXPLORER_URL } from "@/lib/contracts";
-import { RPC_URL as CANONICAL_RPC } from "@/config/canonical";
+import { PUBLIC_RPC_URL } from "@/config/canonical";
 
-const rpcUrl =
-  (process.env.NEXT_PUBLIC_RPC as string | undefined) ??
-  (process.env.NEXT_PUBLIC_RPC_URL as string | undefined) ??
-  CANONICAL_RPC;
+// Always advertise the public Fluent RPC to MetaMask. The dedicated /
+// private RPC is proxied server-side via /api/rpc and is never exposed
+// to the injected wallet (the URL passed here is shown to users and
+// stored in their wallet config).
+const rpcUrl = PUBLIC_RPC_URL;
 
 interface NetworkGateProps {
   chainId: number;

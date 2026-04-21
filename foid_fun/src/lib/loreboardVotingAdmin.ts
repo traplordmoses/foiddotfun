@@ -26,6 +26,9 @@ let _publicClient: VotingPublicClient | null = null;
 
 function ensureClients() {
   if (!_walletClient || !_publicClient) {
+    // Server-only (called from /api/voting/bootstrap). Prefer the private
+    // `FLUENT_RPC_URL`; the NEXT_PUBLIC_* vars are kept only as a
+    // transitional fallback while production env is migrated.
     const rpcUrl =
       process.env.FLUENT_RPC_URL ??
       process.env.FLUENT_RPC ??
