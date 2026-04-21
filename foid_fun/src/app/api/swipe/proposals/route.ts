@@ -8,13 +8,32 @@ import { ProposalStore } from "@/lib/proposalStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
-export async function GET() {
-  try {
+// ──────────────────────────────────────────────────────────────────────
+// In-process cache (see /api/proposals/route.ts for the full rationale).
+//
+// This route is even heavier than /api/proposals — it reads each proposal
+// individually in batches of 5 and issues two more RPC calls per proposal
+// (voteWeightFor + voteWeightAgainst). Without caching, a 20-proposal
+// board burns ~60 RPC round-trips on every visitor.
+// ──────────────────────────────────────────────────────────────────────
+
+type SwipePayload = { proposals: unknown[]; count: number };
+
+const CACHE_TTL_MS = 15_000;
+let cachedPayload: { data: SwipePayload; at: number } | null = null;
+let inflightFetch: Promise<SwipePayload> | null = null;
+
+function getCached(): SwipePayload | null {
+  if (!cachedPayload) return null;
+  if (Date.now() - cachedPayload.at > CACHE_TTL_MS) return null;
+  return cachedPayload.data;
+}
+
+async function fetchSwipeProposalsFromChain(): Promise<SwipePayload> {
     const contractAddress = CONTRACTS.SWIPE as `0x${string}`;
     if (!contractAddress) {
-      return NextResponse.json({ proposals: [], error: "Loreboard contract not configured" });
+      return { proposals: [], count: 0 };
     }
 
     const client = createPublicClient({
@@ -35,7 +54,7 @@ export async function GET() {
 
     const proposalCount = Number(count);
     if (proposalCount === 0) {
-      return NextResponse.json({ proposals: [], count: 0 });
+      return { proposals: [], count: 0 };
     }
 
     // New Loreboard Proposal struct:
@@ -161,10 +180,37 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json(
-      { proposals, count: proposalCount },
-      { headers: { "Cache-Control": "no-store, max-age=0" } }
-    );
+    return { proposals, count: proposalCount };
+}
+
+async function getSwipeProposals(): Promise<{ data: SwipePayload; fromCache: boolean }> {
+  const cached = getCached();
+  if (cached) return { data: cached, fromCache: true };
+
+  if (inflightFetch) return { data: await inflightFetch, fromCache: false };
+
+  inflightFetch = (async () => {
+    try {
+      const data = await fetchSwipeProposalsFromChain();
+      cachedPayload = { data, at: Date.now() };
+      return data;
+    } finally {
+      inflightFetch = null;
+    }
+  })();
+
+  return { data: await inflightFetch, fromCache: false };
+}
+
+export async function GET() {
+  try {
+    const { data, fromCache } = await getSwipeProposals();
+    return NextResponse.json(data, {
+      headers: {
+        "Cache-Control": "public, max-age=5, s-maxage=5, stale-while-revalidate=20",
+        "X-Swipe-Proposals-Cache": fromCache ? "HIT" : "MISS",
+      },
+    });
   } catch (error) {
     console.error("[api/swipe/proposals] Error:", error);
     return NextResponse.json({ proposals: [], error: String(error) }, { status: 500 });
