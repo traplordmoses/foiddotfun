@@ -4247,14 +4247,14 @@ html.cmp-active .app-viewport {
   }
 
   .mobile-terminal .foid-terminal__status {
-    margin-top: 10px;
-    font-size: 11px !important;
-    letter-spacing: 0.06em;
+    margin-top: 6px;
+    font-size: 10px !important;
+    letter-spacing: 0.08em;
     text-align: center;
-    padding: 8px 12px;
-    background: rgba(0, 12, 20, 0.5);
-    border: 1px solid rgba(0, 255, 213, 0.06);
-    border-radius: 6px;
+    padding: 2px 0 0;
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
