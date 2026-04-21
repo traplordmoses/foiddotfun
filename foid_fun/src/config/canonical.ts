@@ -124,39 +124,39 @@ function normalizeAddress(value: string, label: string): Address {
   }
 }
 
+// IMPORTANT: `process.env.NEXT_PUBLIC_*` must be referenced by LITERAL dot-
+// access so Next's DefinePlugin inlines the value into the client bundle.
+// `process.env[key]` / `pickEnvKey(["NEXT_PUBLIC_..."])` is NOT inlined —
+// at runtime in the browser `process.env` is essentially `{}`, so the
+// dynamic lookup resolves to undefined and the env-configured value is
+// silently replaced by the fallback.
+const RPC_URL_LITERAL =
+  process.env.NEXT_PUBLIC_FLUENT_RPC ||
+  process.env.NEXT_PUBLIC_RPC_URL ||
+  process.env.RPC_URL ||
+  process.env.FLUENT_RPC_URL ||
+  "";
+
 export const CHAIN_ID = Number(
-  pickEnvKey(["CHAIN_ID", "NEXT_PUBLIC_CHAIN_ID"]) ?? DEFAULT_CHAIN_ID
+  process.env.NEXT_PUBLIC_CHAIN_ID || process.env.CHAIN_ID || DEFAULT_CHAIN_ID
 );
 
 if (!Number.isFinite(CHAIN_ID) || CHAIN_ID <= 0) {
   throw new Error(`[config] Invalid CHAIN_ID. ${DOTENV_HINT}`);
 }
 
-export const RPC_URL =
-  pickEnvKey([
-    "RPC_URL",
-    "NEXT_PUBLIC_FLUENT_RPC",
-    "FLUENT_RPC_URL",
-    "NEXT_PUBLIC_RPC_URL",
-  ]) ?? DEFAULT_RPC_URL;
+export const RPC_URL = RPC_URL_LITERAL || DEFAULT_RPC_URL;
 
 /** Public RPC as fallback when QuickNode is down */
 export const FALLBACK_RPC_URL = DEFAULT_RPC_URL;
 
 export const BLOCK_EXPLORER =
-  pickEnvKey(["NEXT_PUBLIC_BLOCK_EXPLORER"]) ?? DEFAULT_BLOCK_EXPLORER;
+  process.env.NEXT_PUBLIC_BLOCK_EXPLORER || DEFAULT_BLOCK_EXPLORER;
 
 export const CHAIN_NAME =
-  pickEnvKey(["NEXT_PUBLIC_CHAIN_NAME"]) ?? DEFAULT_CHAIN_NAME;
+  process.env.NEXT_PUBLIC_CHAIN_NAME || DEFAULT_CHAIN_NAME;
 
-if (
-  !pickEnvKey([
-    "RPC_URL",
-    "NEXT_PUBLIC_FLUENT_RPC",
-    "FLUENT_RPC_URL",
-    "NEXT_PUBLIC_RPC_URL",
-  ])
-) {
+if (!RPC_URL_LITERAL) {
   warnOnce(
     "RPC_URL",
     `[config] RPC URL not configured; falling back to ${DEFAULT_RPC_URL}. ${DOTENV_HINT}`

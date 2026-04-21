@@ -126,12 +126,7 @@ const OnboardingTour = dynamic(
   { ssr: false }
 );
 import { RemovalVotePanel } from "@/components/RemovalVotePanel";
-import {
-  useSwipeLoreboardGovernance,
-  useHasFlaggedPlacement,
-  useActivePlacementVote,
-  usePlacementRemovalVote,
-} from "@/hooks/useSwipeLoreboardGovernance";
+import { useSwipeLoreboardGovernance } from "@/hooks/useSwipeLoreboardGovernance";
 
 // ============================================================================
 // HELPER FUNCTIONS (extracted to lib/board)

@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import {
   useSwipeLoreboardGovernance,
-  useActivePlacementVote,
+  useActivePlacementVotes,
   usePlacementRemovalVote,
   useHasVotedOnPlacementRemoval,
   type RemovalVote,
@@ -236,31 +236,38 @@ function VoteCard({
   );
 }
 
-/* ── Active Vote Checker ──────────────────────────────────────────── */
-
-function ActiveVoteForPlacement({ placementId }: { placementId: string }) {
-  const numericId = Number(BigInt(placementId));
-  const voteId = useActivePlacementVote(numericId);
-  if (!voteId) return null;
-  return <VoteCard placementId={placementId} voteId={voteId} />;
-}
-
 /* ── Main Panel ───────────────────────────────────────────────────── */
 
 export function RemovalVotePanel({ placementIds }: Props) {
-  // Only render if there are placements to check
+  // Check first 20 placements for active votes. Batched into a single
+  // multicall3 call via useActivePlacementVotes — prior implementation
+  // rendered N <ActiveVoteForPlacement> children, each firing its own
+  // eth_call on mount and creating an RPC burst.
+  const idsToCheck = useMemo(
+    () => placementIds.slice(0, 20),
+    [placementIds],
+  );
+  const voteIdByPlacement = useActivePlacementVotes(idsToCheck);
+
+  const activePairs = useMemo(
+    () =>
+      idsToCheck
+        .map((id) => {
+          const numericId = Number(BigInt(id));
+          const voteId = voteIdByPlacement.get(String(numericId)) ?? 0;
+          return voteId > 0 ? { placementId: id, voteId } : null;
+        })
+        .filter((x): x is { placementId: string; voteId: number } => x !== null),
+    [idsToCheck, voteIdByPlacement],
+  );
+
   if (!placementIds.length) return null;
 
-  // Check first 20 placements for active votes (avoid too many RPC calls)
-  const idsToCheck = placementIds.slice(0, 20);
-
-  // Render vote cards inline — no section header, no empty state.
-  // The hint text now lives in the Actions section under pricing.
   return (
     <>
       <div className="rv-panel">
-        {idsToCheck.map((id) => (
-          <ActiveVoteForPlacement key={id} placementId={id} />
+        {activePairs.map(({ placementId, voteId }) => (
+          <VoteCard key={placementId} placementId={placementId} voteId={voteId} />
         ))}
       </div>
       <style jsx>{`
