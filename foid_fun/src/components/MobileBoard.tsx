@@ -4,7 +4,7 @@ import { useRef, useState, useCallback } from 'react';
 import { useTouchGestures } from '@/hooks/useTouchGestures';
 import { useMobile } from '@/hooks/useMobile';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ipfsImageUrls } from '@/lib/ipfsUrl';
+import { IpfsImage } from '@/components/IpfsImage';
 
 interface BoardNode {
   id: string;
@@ -199,21 +199,16 @@ export function MobileBoard({
                 whileTap={{ scale: 0.98 }}
               >
                 {node.type === 'image' || node.type === 'meme' ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={ipfsImageUrls(node.content)[0] ?? ''}
+                  // Shared IpfsImage: same-origin proxy at [0], public
+                  // gateway fallbacks at [1..] with a per-image stall timer.
+                  // Previous raw <img> had no onError handler — if the
+                  // proxy returned a 5xx or stalled, mobile showed a
+                  // broken image with no retry path. Using the shared
+                  // component makes mobile robust against single-gateway
+                  // flakiness the same way desktop already is.
+                  <IpfsImage
+                    cid={node.content}
                     alt="Board item"
-                    width={node.width}
-                    height={node.height}
-                    // loading="eager" intentional: the board-stage ancestor
-                    // has a non-identity CSS transform applied via direct DOM
-                    // mutation (usePanZoom rAF). IntersectionObserver-driven
-                    // lazy loading is unreliable inside transformed ancestors
-                    // in Chrome/Safari, so images may never begin loading.
-                    // Viewport virtualization bounds rendered nodes, so eager
-                    // is cheap. See also PlacementCard.tsx.
-                    loading="eager"
-                    decoding="async"
                     className="w-full h-full object-cover pointer-events-none"
                     style={isVoting ? { opacity: 0.6 } : undefined}
                     draggable={false}
