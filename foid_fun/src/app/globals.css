@@ -4194,13 +4194,13 @@ html.cmp-active .app-viewport {
     scroll-behavior: smooth;
   }
 
-  /* Input area - FIXED at bottom */
+  /* Input area - FIXED at bottom. Transparent so it blends with the terminal
+     background instead of creating a nested "tray" look. */
   .mobile-terminal .foid-cli__composer {
     flex-shrink: 0;
-    padding: 12px 10px;
-    background: rgba(2, 8, 16, 0.65);
-    backdrop-filter: blur(8px);
-    border-top: 1px solid rgba(0, 255, 213, 0.1);
+    padding: 10px 0 0;
+    background: transparent;
+    border-top: none;
   }
 
   .mobile-terminal .foid-terminal__input-wrap {
