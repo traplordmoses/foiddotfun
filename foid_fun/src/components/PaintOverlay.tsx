@@ -17,6 +17,8 @@ export type PaintOverlayItem =
       text: string;
       color: string;
       fontSize: number;   // px at scale=1
+      /** Impact-font meme styling (white fill + black stroke, uppercase). */
+      memeStyle?: boolean;
     }
   | {
       id: string;
@@ -27,6 +29,17 @@ export type PaintOverlayItem =
       rotation: number;
       content: string;    // emoji grapheme
       size: number;       // base font-size (px at scale=1)
+    }
+  | {
+      id: string;
+      kind: "stamp";
+      x: number;
+      y: number;
+      scale: number;
+      rotation: number;
+      src: string;        // data-URL or blob-URL
+      width: number;      // natural px at scale=1
+      height: number;
     };
 
 export type PaintOverlayPatch = Partial<{
@@ -39,6 +52,10 @@ export type PaintOverlayPatch = Partial<{
   fontSize: number;
   content: string;
   size: number;
+  width: number;
+  height: number;
+  src: string;
+  memeStyle: boolean;
 }>;
 
 interface PaintOverlayProps {
@@ -288,16 +305,30 @@ export function PaintOverlay({
   };
 
   if (overlay.kind === "text") {
-    const textStyle: React.CSSProperties = {
-      fontSize: overlay.fontSize,
-      color: overlay.color,
-      fontFamily: "var(--font-display), 'Sora', 'Impact', 'Arial Black', sans-serif",
-      fontWeight: 900,
-      letterSpacing: "0.02em",
-      textShadow: "0 1px 2px rgba(0,0,0,0.6), 0 0 6px rgba(0,0,0,0.3)",
-      whiteSpace: "pre",
-      lineHeight: 1.1,
-    };
+    const isMeme = overlay.memeStyle === true;
+    const textStyle: React.CSSProperties = isMeme
+      ? {
+          fontSize: overlay.fontSize,
+          color: "#ffffff",
+          fontFamily: "'Impact', 'Arial Black', 'Haettenschweiler', sans-serif",
+          fontWeight: 900,
+          letterSpacing: "0.04em",
+          textTransform: "uppercase",
+          WebkitTextStroke: `${Math.max(2, overlay.fontSize / 14)}px #000000`,
+          textAlign: "center",
+          whiteSpace: "pre",
+          lineHeight: 1.05,
+        }
+      : {
+          fontSize: overlay.fontSize,
+          color: overlay.color,
+          fontFamily: "var(--font-display), 'Sora', 'Impact', 'Arial Black', sans-serif",
+          fontWeight: 900,
+          letterSpacing: "0.02em",
+          textShadow: "0 1px 2px rgba(0,0,0,0.6), 0 0 6px rgba(0,0,0,0.3)",
+          whiteSpace: "pre",
+          lineHeight: 1.1,
+        };
     return (
       <div
         style={commonFrameStyle}
@@ -336,6 +367,34 @@ export function PaintOverlay({
         ) : (
           <div style={textStyle}>{overlay.text || " "}</div>
         )}
+      </div>
+    );
+  }
+
+  if (overlay.kind === "stamp") {
+    return (
+      <div
+        style={commonFrameStyle}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={overlay.src}
+          alt=""
+          draggable={false}
+          style={{
+            display: "block",
+            width: overlay.width,
+            height: overlay.height,
+            filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.4))",
+            pointerEvents: "none",
+            userSelect: "none",
+            WebkitUserSelect: "none",
+          }}
+        />
       </div>
     );
   }

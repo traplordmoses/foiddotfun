@@ -9,7 +9,7 @@
 // Target: < 16 ms for a 1000×1000 image on a mid-tier phone.
 // ============================================================================
 
-export type FilterId = "static" | "vhs" | "holyGlow" | "mommyPink";
+export type FilterId = "static" | "vhs" | "holyGlow" | "mommyPink" | "deepFried";
 
 export interface FilterSpec {
   id: FilterId;
@@ -21,6 +21,7 @@ export const FILTERS: FilterSpec[] = [
   { id: "vhs", label: "VHS" },
   { id: "holyGlow", label: "HOLY GLOW" },
   { id: "mommyPink", label: "MOMMY PINK" },
+  { id: "deepFried", label: "DEEP FRIED" },
 ];
 
 // ============================================================================
@@ -135,6 +136,95 @@ export function applyMommyPink(src: ImageData, tint = 0.38): ImageData {
 }
 
 // ============================================================================
+// DEEP FRIED — cranked brightness/contrast/saturation + noise + JPEG blockiness
+// ============================================================================
+// Three-pass effect:
+//  1. Per-pixel brightness × contrast × saturation (HSL-ish via luma-weighted mix).
+//  2. Per-pixel salt-and-pepper noise so the grain reads as compression artifact.
+//  3. A cheap JPEG-artifact fake: downscale to ~1/6 then upscale, pasted back at
+//     low alpha so edges blockify without obliterating the detail pass above.
+//
+// Numbers tuned to match the "my phone has been through three group chats and a
+// Facebook repost" look: brightness 1.3, contrast 1.6, saturation 2.2.
+
+export function applyDeepFried(src: ImageData): ImageData {
+  const w = src.width;
+  const h = src.height;
+  const s = src.data;
+  const dst = new ImageData(w, h);
+  const d = dst.data;
+  const n = s.length;
+
+  const brightness = 1.3;
+  const contrast = 1.6;
+  const saturation = 2.2;
+  const noise = 38;
+
+  for (let i = 0; i < n; i += 4) {
+    let r = s[i];
+    let g = s[i + 1];
+    let b = s[i + 2];
+
+    // Brightness: linear gain.
+    r *= brightness;
+    g *= brightness;
+    b *= brightness;
+
+    // Contrast around 128.
+    r = (r - 128) * contrast + 128;
+    g = (g - 128) * contrast + 128;
+    b = (b - 128) * contrast + 128;
+
+    // Saturation: mix toward luma by (1 - sat).
+    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    r = luma + (r - luma) * saturation;
+    g = luma + (g - luma) * saturation;
+    b = luma + (b - luma) * saturation;
+
+    // Salt-and-pepper noise — one sample per pixel, applied to all channels.
+    const np = (Math.random() - 0.5) * noise;
+    d[i] = r + np;
+    d[i + 1] = g + np;
+    d[i + 2] = b + np;
+    d[i + 3] = s[i + 3];
+  }
+
+  // Cheap JPEG-artifact pass: downscale then upscale with nearest-ish interpolation.
+  // We only run it in the browser — the SSR path has no OffscreenCanvas / document,
+  // and applyFilter is client-only anyway (ImageData comes off a real canvas).
+  if (typeof document !== "undefined") {
+    const scaleDown = 6;
+    const dw = Math.max(1, Math.floor(w / scaleDown));
+    const dh = Math.max(1, Math.floor(h / scaleDown));
+    const src2 = document.createElement("canvas");
+    src2.width = w;
+    src2.height = h;
+    const sctx = src2.getContext("2d");
+    const small = document.createElement("canvas");
+    small.width = dw;
+    small.height = dh;
+    const smctx = small.getContext("2d");
+    const out = document.createElement("canvas");
+    out.width = w;
+    out.height = h;
+    const octx = out.getContext("2d");
+    if (sctx && smctx && octx) {
+      sctx.putImageData(dst, 0, 0);
+      smctx.imageSmoothingEnabled = false;
+      smctx.drawImage(src2, 0, 0, dw, dh);
+      octx.imageSmoothingEnabled = false;
+      octx.drawImage(small, 0, 0, w, h);
+      // Composite the blocky layer at partial alpha over the color pass.
+      sctx.globalAlpha = 0.4;
+      sctx.drawImage(out, 0, 0);
+      return sctx.getImageData(0, 0, w, h);
+    }
+  }
+
+  return dst;
+}
+
+// ============================================================================
 // Entry point: pick a filter by id
 // ============================================================================
 
@@ -148,5 +238,7 @@ export function applyFilter(id: FilterId, src: ImageData): ImageData {
       return applyHolyGlow(src);
     case "mommyPink":
       return applyMommyPink(src);
+    case "deepFried":
+      return applyDeepFried(src);
   }
 }

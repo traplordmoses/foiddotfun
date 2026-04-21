@@ -26,7 +26,7 @@ interface PaintEditorProps {
   onPreviewOnBoard?: (editedFile: File) => void;
 }
 
-type Tool = "select" | "draw" | "eraser" | "sticker" | "text" | "eyedropper";
+type Tool = "select" | "draw" | "eraser" | "sticker" | "text" | "eyedropper" | "stamp";
 
 interface HistoryEntry {
   imageData: ImageData;
@@ -49,6 +49,10 @@ const DEFAULT_TEXT_FONT_SIZE = 48;
 const DEFAULT_STICKER_SIZE = 72;
 // Foid-branded text font — matches --font-display (Sora) used elsewhere in the app
 const TEXT_FONT_FAMILY = "'Sora', 'Inter', system-ui, sans-serif";
+// Classic meme-text font for the Top/Bottom Impact overlay mode
+const MEME_FONT_FAMILY = "'Impact', 'Arial Black', 'Haettenschweiler', sans-serif";
+// Default natural size for a freshly-placed stamp (largest side, px)
+const DEFAULT_STAMP_MAX = 240;
 // Foid palette for text overlays
 const TEXT_COLORS = ["#f06292", "#ffffff", "#000000", "#00cccc", "#a855f7", "#ffdd00"] as const;
 const DEFAULT_TEXT_COLOR = "#f06292";
@@ -101,7 +105,8 @@ function drawOverlayToCtx(
   ctx: CanvasRenderingContext2D,
   overlay: PaintOverlayItem,
   scaleX: number,
-  scaleY: number
+  scaleY: number,
+  stampCache?: Map<string, HTMLImageElement>
 ) {
   ctx.save();
   ctx.translate(overlay.x * scaleX, overlay.y * scaleY);
@@ -111,17 +116,38 @@ function drawOverlayToCtx(
   ctx.scale(overlay.scale * unifScale, overlay.scale * unifScale);
 
   if (overlay.kind === "text") {
-    ctx.font = `900 ${overlay.fontSize}px ${TEXT_FONT_FAMILY}`;
+    const isMeme = overlay.memeStyle === true;
+    const fontFamily = isMeme ? MEME_FONT_FAMILY : TEXT_FONT_FAMILY;
+    const body = isMeme ? (overlay.text || " ").toUpperCase() : overlay.text || " ";
+    ctx.font = `900 ${overlay.fontSize}px ${fontFamily}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
     ctx.miterLimit = 2;
-    // Stroke for legibility, matching on-screen textShadow
-    ctx.lineWidth = Math.max(2, overlay.fontSize / 16);
-    ctx.strokeStyle = "rgba(0,0,0,0.6)";
-    ctx.strokeText(overlay.text || " ", 0, 0);
-    ctx.fillStyle = overlay.color;
-    ctx.fillText(overlay.text || " ", 0, 0);
+    if (isMeme) {
+      ctx.lineWidth = Math.max(3, overlay.fontSize / 7);
+      ctx.strokeStyle = "#000000";
+      ctx.strokeText(body, 0, 0);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(body, 0, 0);
+    } else {
+      ctx.lineWidth = Math.max(2, overlay.fontSize / 16);
+      ctx.strokeStyle = "rgba(0,0,0,0.6)";
+      ctx.strokeText(body, 0, 0);
+      ctx.fillStyle = overlay.color;
+      ctx.fillText(body, 0, 0);
+    }
+  } else if (overlay.kind === "stamp") {
+    const img = stampCache?.get(overlay.src);
+    if (img && img.complete && img.naturalWidth > 0) {
+      ctx.drawImage(
+        img,
+        -overlay.width / 2,
+        -overlay.height / 2,
+        overlay.width,
+        overlay.height
+      );
+    }
   } else {
     // Sticker (emoji)
     ctx.font = `${overlay.size}px ${TEXT_FONT_FAMILY}`;
@@ -201,8 +227,13 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
   const [currentFilter, setCurrentFilter] = useState<FilterId | null>(null);
   const [filterPerfMs, setFilterPerfMs] = useState<number | null>(null);
 
-  // Wax-seal Done animation
+  // Wax-seal Done animation. `sealRect` captures the canvas-image bounds at
+  // stamp time so the seal SVG can anchor to the centre of the image (including
+  // current zoom + pan + scroll state) rather than the page.
   const [sealPhase, setSealPhase] = useState<"idle" | "stamping">("idle");
+  const [sealRect, setSealRect] = useState<
+    { x: number; y: number; w: number; h: number } | null
+  >(null);
 
   // Magnifier state
   const [magnifier, setMagnifier] = useState<{ x: number; y: number; visible: boolean }>({
@@ -226,6 +257,16 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
 
   const originalImageRef = useRef<HTMLImageElement | null>(null);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Stamp state: hidden <input> for picking an image file + in-memory cache of
+  // loaded HTMLImageElements keyed by overlay `src`. The cache lets the export
+  // path (composeCurrentFile) paint the stamp onto the final canvas without
+  // async re-loads per overlay.
+  const stampInputRef = useRef<HTMLInputElement>(null);
+  const stampImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  // Bumped whenever a stamp image finishes loading so React re-renders
+  // overlays that depend on the cache being populated.
+  const [, setStampCacheVersion] = useState(0);
 
   // ============================================================================
   // IMAGE LOADING
@@ -463,7 +504,13 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
         mctx.drawImage(draw, clampedSx, clampedSy, clampedSw, clampedSh, dx, dy, dw, dh);
         // Also composite any text/sticker overlays so the lens matches reality
         for (const ov of paintOverlays) {
-          drawOverlayToCtx(mctx, ov, MAGNIFIER_SIZE / srcW, MAGNIFIER_SIZE / srcH);
+          drawOverlayToCtx(
+            mctx,
+            ov,
+            MAGNIFIER_SIZE / srcW,
+            MAGNIFIER_SIZE / srcH,
+            stampImageCacheRef.current
+          );
         }
       } catch {
         /* defensive */
@@ -645,6 +692,49 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
     haptic("light");
   }, [canvasDisplaySize, color, paintOverlays, pushHistory]);
 
+  // Meme text: two classic Impact-styled overlays — one pinned top-centre and
+  // one bottom-centre of the image. Users can still drag them after placement,
+  // but the initial positions + styling match the "top text / bottom text"
+  // mental model. Additive to the free-positioned text tool above.
+  const addMemeTextOverlays = useCallback(() => {
+    const { w, h } = canvasDisplaySize;
+    if (!w || !h) return;
+    const fontSize = Math.max(28, Math.min(w / 10, 72));
+    const pad = Math.max(24, h * 0.08);
+    const topId = generateId();
+    const bottomId = generateId();
+    const top: PaintOverlayItem = {
+      id: topId,
+      kind: "text",
+      x: w / 2,
+      y: pad,
+      scale: 1,
+      rotation: 0,
+      text: "TOP TEXT",
+      color: "#ffffff",
+      fontSize,
+      memeStyle: true,
+    };
+    const bottom: PaintOverlayItem = {
+      id: bottomId,
+      kind: "text",
+      x: w / 2,
+      y: h - pad,
+      scale: 1,
+      rotation: 0,
+      text: "BOTTOM TEXT",
+      color: "#ffffff",
+      fontSize,
+      memeStyle: true,
+    };
+    const updated = [...paintOverlays, top, bottom];
+    setPaintOverlays(updated);
+    setSelectedOverlayId(topId);
+    setEditingOverlayId(topId);
+    pushHistory(updated);
+    haptic("light");
+  }, [canvasDisplaySize, paintOverlays, pushHistory]);
+
   const addStickerOverlay = useCallback(
     (content: string) => {
       const { w, h } = canvasDisplaySize;
@@ -670,6 +760,66 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
     [canvasDisplaySize, paintOverlays, pushHistory]
   );
 
+  // Stamp overlay: load a file as a data-URL + HTMLImageElement, then drop it
+  // in the centre of the canvas. Dimensions are constrained so a large stamp
+  // (say a 4000px JPEG) starts at DEFAULT_STAMP_MAX on its longest edge —
+  // small enough to see, large enough to immediately read.
+  const addStampFromFile = useCallback(
+    (file: File) => {
+      const { w: cw, h: ch } = canvasDisplaySize;
+      if (!cw || !ch) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result;
+        if (typeof dataUrl !== "string") return;
+        const img = new Image();
+        img.onload = () => {
+          const nw = img.naturalWidth;
+          const nh = img.naturalHeight;
+          if (!nw || !nh) return;
+          const longest = Math.max(nw, nh);
+          const targetMax = Math.min(DEFAULT_STAMP_MAX, Math.min(cw, ch) * 0.7);
+          const ratio = longest > targetMax ? targetMax / longest : 1;
+          const width = Math.round(nw * ratio);
+          const height = Math.round(nh * ratio);
+          stampImageCacheRef.current.set(dataUrl, img);
+          setStampCacheVersion((v) => v + 1);
+          const id = generateId();
+          const overlay: PaintOverlayItem = {
+            id,
+            kind: "stamp",
+            x: cw / 2,
+            y: ch / 2,
+            scale: 1,
+            rotation: 0,
+            src: dataUrl,
+            width,
+            height,
+          };
+          setPaintOverlays((prev) => {
+            const next = [...prev, overlay];
+            pushHistory(next);
+            return next;
+          });
+          setSelectedOverlayId(id);
+          haptic("light");
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    },
+    [canvasDisplaySize, pushHistory]
+  );
+
+  const handleStampInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) addStampFromFile(file);
+      e.target.value = "";
+    },
+    [addStampFromFile]
+  );
+
   const handleOverlayTransform = useCallback(
     (id: string, patch: PaintOverlayPatch) => {
       setPaintOverlays((prev) =>
@@ -685,6 +835,18 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
               ...(patch.text !== undefined ? { text: patch.text } : {}),
               ...(patch.color !== undefined ? { color: patch.color } : {}),
               ...(patch.fontSize !== undefined ? { fontSize: patch.fontSize } : {}),
+              ...(patch.memeStyle !== undefined ? { memeStyle: patch.memeStyle } : {}),
+            };
+          } else if (o.kind === "stamp") {
+            return {
+              ...o,
+              ...(patch.x !== undefined ? { x: patch.x } : {}),
+              ...(patch.y !== undefined ? { y: patch.y } : {}),
+              ...(patch.scale !== undefined ? { scale: patch.scale } : {}),
+              ...(patch.rotation !== undefined ? { rotation: patch.rotation } : {}),
+              ...(patch.width !== undefined ? { width: patch.width } : {}),
+              ...(patch.height !== undefined ? { height: patch.height } : {}),
+              ...(patch.src !== undefined ? { src: patch.src } : {}),
             };
           } else {
             return {
@@ -916,7 +1078,7 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
       const scaleX = img.naturalWidth / canvasDisplaySize.w;
       const scaleY = img.naturalHeight / canvasDisplaySize.h;
       for (const overlay of paintOverlays) {
-        drawOverlayToCtx(ectx, overlay, scaleX, scaleY);
+        drawOverlayToCtx(ectx, overlay, scaleX, scaleY, stampImageCacheRef.current);
       }
 
       const isPng =
@@ -952,6 +1114,16 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
 
   const handleDone = useCallback(() => {
     if (exporting || sealPhase !== "idle") return;
+    // Snapshot the image rect now so the seal can anchor to the current
+    // image centre — cheaper than re-reading on every paint during the
+    // animation, and avoids mid-animation drift if the layout shifts.
+    const bg = bgCanvasRef.current;
+    if (bg) {
+      const r = bg.getBoundingClientRect();
+      setSealRect({ x: r.left, y: r.top, w: r.width, h: r.height });
+    } else {
+      setSealRect(null);
+    }
     setExporting(true);
     setSealPhase("stamping");
     haptic("heavy");
@@ -1242,6 +1414,19 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
           fill="none"
           strokeLinejoin="round"
         />
+      </svg>
+    ),
+    stamp: (
+      <svg width="20" height="20" viewBox="0 0 14 14" fill="none">
+        <rect x="1" y="3" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
+        <circle cx="4" cy="6" r="1.2" fill="currentColor" />
+        <path d="M1 10L4.5 7L7 9L9.5 6.5L13 10" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+    memeText: (
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+        <text x="2" y="7" fontSize="6" fontWeight="900" fontFamily="Impact" fill="currentColor">TOP</text>
+        <text x="2" y="14" fontSize="6" fontWeight="900" fontFamily="Impact" fill="currentColor">BOT</text>
       </svg>
     ),
   };
@@ -1550,6 +1735,17 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
           }}
         />
         <RailChip
+          title="Meme text — top + bottom"
+          icon={ICON.memeText}
+          active={false}
+          onClick={() => {
+            setTool("text");
+            setShowStickerDrawer(false);
+            haptic("light");
+            addMemeTextOverlays();
+          }}
+        />
+        <RailChip
           title="Sticker"
           icon={ICON.sticker}
           active={tool === "sticker" || showStickerDrawer}
@@ -1557,6 +1753,16 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
             setTool("sticker");
             setShowStickerDrawer((v) => !v);
             haptic("light");
+          }}
+        />
+        <RailChip
+          title="Stamp — paste an image on top"
+          icon={ICON.stamp}
+          active={false}
+          onClick={() => {
+            setShowStickerDrawer(false);
+            haptic("light");
+            stampInputRef.current?.click();
           }}
         />
         <RailChip
@@ -2152,69 +2358,105 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
         )}
 
       {/* ============ WAX-SEAL DONE ANIMATION ============ */}
+      {/*
+        The full-screen fixed backdrop still spans inset:0 (so the dim
+        wash covers the whole editor), but the seal SVG + ENGRAVED label
+        are absolutely positioned inside at the centre of the image rect
+        captured at stamp-start. That way the seal lands on the image,
+        not the page, regardless of the current zoom/pan or which side
+        of the viewport the toolbars are occupying.
+      */}
       {sealPhase === "stamping" && (
         <div
           aria-hidden="true"
           style={{
             position: "fixed",
             inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
             zIndex: 70,
             pointerEvents: "none",
             animation: "paint-seal-bg 500ms ease-out forwards",
           }}
         >
-          <svg
-            width="220"
-            height="220"
-            viewBox="0 0 200 200"
+          <div
             style={{
-              animation: "paint-seal-stamp 500ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
-              filter:
-                "drop-shadow(0 10px 28px rgba(240, 98, 146, 0.55)) drop-shadow(0 2px 6px rgba(0,0,0,0.55))",
+              position: "absolute",
+              left: sealRect ? sealRect.x + sealRect.w / 2 : "50%",
+              top: sealRect ? sealRect.y + sealRect.h / 2 : "50%",
+              transform: "translate(-50%, -50%)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 14,
               willChange: "transform, opacity",
+              animation:
+                "paint-seal-stamp 500ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
             }}
           >
-            <defs>
-              <radialGradient id="foid-wax-grad" cx="50%" cy="42%" r="58%">
-                <stop offset="0%" stopColor="#ff9ec3" />
-                <stop offset="48%" stopColor="#f06292" />
-                <stop offset="100%" stopColor="#8a214d" />
-              </radialGradient>
-            </defs>
-            {/* Jagged wax puddle */}
-            <path
-              d="M100 10 L116 26 L138 18 L150 36 L172 42 L172 66 L188 82 L180 104 L190 128 L172 142 L166 166 L144 170 L128 186 L108 180 L90 190 L70 180 L52 186 L40 170 L22 162 L16 140 L8 118 L18 96 L10 74 L24 60 L26 38 L48 34 L60 14 L82 20 Z"
-              fill="url(#foid-wax-grad)"
-              stroke="rgba(0,0,0,0.38)"
-              strokeWidth="2"
-              strokeLinejoin="round"
-            />
-            {/* Inner recess */}
-            <rect
-              x="56"
-              y="54"
-              width="88"
-              height="92"
-              rx="14"
-              fill="rgba(16,20,32,0.22)"
-            />
-            {/* Foid F sigil */}
-            <path
-              d="M76 136 V66 h50 v11 h-34 v16 h26 v11 h-26 v32 z"
-              fill="rgba(255,255,255,0.94)"
-            />
-            <circle cx="100" cy="100" r="3.2" fill="rgba(255,255,255,0.94)" />
-          </svg>
+            <svg
+              width="220"
+              height="220"
+              viewBox="0 0 200 200"
+              style={{
+                filter:
+                  "drop-shadow(0 10px 28px rgba(240, 98, 146, 0.55)) drop-shadow(0 2px 6px rgba(0,0,0,0.55))",
+                display: "block",
+              }}
+            >
+              <defs>
+                <radialGradient id="foid-wax-grad" cx="50%" cy="42%" r="58%">
+                  <stop offset="0%" stopColor="#ff9ec3" />
+                  <stop offset="48%" stopColor="#f06292" />
+                  <stop offset="100%" stopColor="#8a214d" />
+                </radialGradient>
+              </defs>
+              {/* Jagged wax puddle */}
+              <path
+                d="M100 10 L116 26 L138 18 L150 36 L172 42 L172 66 L188 82 L180 104 L190 128 L172 142 L166 166 L144 170 L128 186 L108 180 L90 190 L70 180 L52 186 L40 170 L22 162 L16 140 L8 118 L18 96 L10 74 L24 60 L26 38 L48 34 L60 14 L82 20 Z"
+                fill="url(#foid-wax-grad)"
+                stroke="rgba(0,0,0,0.38)"
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+              {/* Inner recess */}
+              <rect
+                x="56"
+                y="54"
+                width="88"
+                height="92"
+                rx="14"
+                fill="rgba(16,20,32,0.22)"
+              />
+              {/* Foid F sigil */}
+              <path
+                d="M76 136 V66 h50 v11 h-34 v16 h26 v11 h-26 v32 z"
+                fill="rgba(255,255,255,0.94)"
+              />
+              <circle cx="100" cy="100" r="3.2" fill="rgba(255,255,255,0.94)" />
+            </svg>
+            <span
+              style={{
+                fontFamily: "var(--font-terminal), ui-monospace, monospace",
+                fontSize: 14,
+                fontWeight: 700,
+                letterSpacing: "0.36em",
+                color: "#f06292",
+                textTransform: "uppercase",
+                textAlign: "center",
+                textShadow:
+                  "0 0 12px rgba(240,98,146,0.55), 0 2px 6px rgba(0,0,0,0.6)",
+              }}
+            >
+              ENGRAVED
+            </span>
+          </div>
           <style>{`
             @keyframes paint-seal-stamp {
-              0%   { transform: scale(0.3) rotate(-12deg); opacity: 0; }
-              45%  { transform: scale(1.14) rotate(3deg);  opacity: 1; }
-              65%  { transform: scale(0.98) rotate(-1deg); opacity: 1; }
-              80%  { transform: scale(1) rotate(0deg);     opacity: 1; }
-              100% { transform: scale(1) rotate(0deg);     opacity: 0; }
+              0%   { transform: translate(-50%, -50%) scale(0.3) rotate(-12deg); opacity: 0; }
+              45%  { transform: translate(-50%, -50%) scale(1.14) rotate(3deg);  opacity: 1; }
+              65%  { transform: translate(-50%, -50%) scale(0.98) rotate(-1deg); opacity: 1; }
+              80%  { transform: translate(-50%, -50%) scale(1) rotate(0deg);     opacity: 1; }
+              100% { transform: translate(-50%, -50%) scale(1) rotate(0deg);     opacity: 0; }
             }
             @keyframes paint-seal-bg {
               0%   { background: rgba(8,12,20,0); }
@@ -2233,6 +2475,15 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
       <style>{`
         @keyframes paint-fade-in { from { opacity: 0; } to { opacity: 1; } }
       `}</style>
+
+      {/* Hidden file input for Stamp uploads — triggered by the Stamp rail chip */}
+      <input
+        ref={stampInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={handleStampInputChange}
+      />
     </div>
   );
 }
