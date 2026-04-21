@@ -71,6 +71,32 @@ export default function PrayerAltarStrip({
 }: Props) {
   const displayStreak = useCountUp(streak);
 
+  // Completion sweep — fires once when hasEverPrayed transitions false → true.
+  // Drives the dashed-to-solid stroke-dashoffset sweep + a short teal bloom.
+  // Skipped under prefers-reduced-motion so the ring just snaps to solid.
+  // Two-phase: "snap" holds the ring at full offset for one frame, then
+  // "draw" transitions down to the real offset over 600ms.
+  const hasEverPrayedPrev = useRef(hasEverPrayed);
+  const [sweepPhase, setSweepPhase] = useState<"idle" | "snap" | "draw">("idle");
+  useEffect(() => {
+    if (!hasEverPrayedPrev.current && hasEverPrayed) {
+      hasEverPrayedPrev.current = hasEverPrayed;
+      const reduceMotion =
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduceMotion) return;
+      setSweepPhase("snap");
+      const raf = requestAnimationFrame(() => setSweepPhase("draw"));
+      const timer = setTimeout(() => setSweepPhase("idle"), 900);
+      return () => {
+        cancelAnimationFrame(raf);
+        clearTimeout(timer);
+      };
+    }
+    hasEverPrayedPrev.current = hasEverPrayed;
+  }, [hasEverPrayed]);
+  const sweepActive = sweepPhase !== "idle";
+
   const cooldownSeconds =
     nowSeconds !== null && nextAllowedAt
       ? Math.max(0, Number(nextAllowedAt) - nowSeconds)
@@ -89,7 +115,7 @@ export default function PrayerAltarStrip({
 
   return (
     <div
-      className={`altar-strip ${afterglow ? "altar-strip--afterglow" : ""}`}
+      className={`altar-strip ${afterglow ? "altar-strip--afterglow" : ""} ${sweepActive ? "altar-strip--bloom" : ""}`}
       role="region"
       aria-label="Prayer altar"
     >
@@ -137,9 +163,17 @@ export default function PrayerAltarStrip({
                 strokeWidth="1.75"
                 strokeLinecap="round"
                 strokeDasharray={CIRC}
-                strokeDashoffset={dashOffset}
+                strokeDashoffset={sweepPhase === "snap" ? CIRC : dashOffset}
                 transform="rotate(-90 42 42)"
-                style={{ transition: "stroke-dashoffset 0.8s ease-out" }}
+                className={sweepActive ? "altar-portal__arc-sweep" : undefined}
+                style={{
+                  transition:
+                    sweepPhase === "snap"
+                      ? "none"
+                      : sweepPhase === "draw"
+                        ? "stroke-dashoffset 600ms ease-out"
+                        : "stroke-dashoffset 0.8s ease-out",
+                }}
                 opacity={0.9}
                 vectorEffect="non-scaling-stroke"
               />
@@ -331,6 +365,13 @@ export default function PrayerAltarStrip({
             0 0 20px
               color-mix(in oklab, var(--pray-accent, #6eead8) 15%, transparent);
           background: rgba(0, 0, 0, 0.4);
+          animation: altar-avatar-breath 4s ease-in-out infinite;
+          transform-origin: center center;
+          will-change: transform;
+        }
+        @keyframes altar-avatar-breath {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.02); }
         }
         .altar-portal__gif :global(img) {
           width: 100%;
@@ -342,6 +383,39 @@ export default function PrayerAltarStrip({
           animation: altar-ready-pulse 2.4s ease-in-out infinite;
           transform-origin: 42px 42px;
           transform-box: fill-box;
+        }
+        /* Completion sweep — the actual 600ms stroke-dashoffset draw-in is
+           driven by an inline style transition on the circle (the offset is
+           a dynamic value and styled-jsx interpolation can't reliably
+           propagate into a @keyframes block). This class just tags the
+           element so devtools can pinpoint it. */
+        .altar-portal__arc-sweep {
+          /* no-op: inline style drives the transition */
+        }
+        .altar-strip--bloom {
+          animation: altar-bloom 900ms ease-out;
+        }
+        @keyframes altar-bloom {
+          0% {
+            box-shadow:
+              inset 0 1px 0 rgba(255, 255, 255, 0.04),
+              inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+              0 4px 20px rgba(0, 0, 0, 0.35);
+          }
+          40% {
+            box-shadow:
+              inset 0 1px 0 rgba(255, 255, 255, 0.06),
+              inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+              0 0 44px
+                color-mix(in oklab, var(--pray-accent, #6eead8) 55%, transparent),
+              0 4px 20px rgba(0, 0, 0, 0.35);
+          }
+          100% {
+            box-shadow:
+              inset 0 1px 0 rgba(255, 255, 255, 0.04),
+              inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+              0 4px 20px rgba(0, 0, 0, 0.35);
+          }
         }
         @keyframes altar-breathe {
           0%,
@@ -529,6 +603,9 @@ export default function PrayerAltarStrip({
         @media (prefers-reduced-motion: reduce) {
           .altar-portal__aura,
           .altar-portal__ready-ring,
+          .altar-portal__gif,
+          .altar-portal__arc-sweep,
+          .altar-strip--bloom,
           .altar-sparkle--ready {
             animation: none;
           }
