@@ -1,9 +1,14 @@
-// IPFS gateway session cache + circuit breaker.
+// IPFS gateway cache + circuit breaker.
 //
-// Remembers which gateway served a placement successfully in this session,
-// so subsequent placements try that gateway first instead of round-robining
-// through the fallback list. Failed gateways are recorded and deprioritized
-// (or skipped entirely) for the remainder of the session.
+// Remembers which gateway served a placement successfully, so subsequent
+// placements try that gateway first instead of round-robining through the
+// fallback list. Failed gateways are recorded and deprioritized (or skipped
+// entirely) until the circuit-breaker escape hatch trips.
+//
+// Storage: localStorage (persists across sessions) with a sessionStorage
+// fallback for private-mode / quota-exceeded browsers, and an in-memory map
+// as the last resort. Persistence matters — a returning visitor shouldn't
+// have to re-probe gateways every time they land on /board.
 //
 // All reads/writes are guarded for SSR — functions are safe to call from any
 // React component without adding extra typeof window checks at the call site.
@@ -12,34 +17,45 @@ const PREFERRED_KEY = "foid:ipfs:preferred-base";
 const FAILED_KEY = "foid:ipfs:failed-bases";
 
 function isBrowser(): boolean {
-  return typeof window !== "undefined" && typeof sessionStorage !== "undefined";
+  return typeof window !== "undefined";
 }
+
+// Last-resort fallback when both localStorage and sessionStorage are
+// unavailable (rare, but iOS private mode historically threw on every write).
+const memoryStore = new Map<string, string>();
 
 function safeGet(key: string): string | null {
   if (!isBrowser()) return null;
   try {
-    return sessionStorage.getItem(key);
-  } catch {
-    return null;
-  }
+    const ls = window.localStorage?.getItem(key);
+    if (ls !== null && ls !== undefined) return ls;
+  } catch { /* fall through */ }
+  try {
+    const ss = window.sessionStorage?.getItem(key);
+    if (ss !== null && ss !== undefined) return ss;
+  } catch { /* fall through */ }
+  return memoryStore.get(key) ?? null;
 }
 
 function safeSet(key: string, value: string): void {
   if (!isBrowser()) return;
+  memoryStore.set(key, value);
   try {
-    sessionStorage.setItem(key, value);
+    window.localStorage?.setItem(key, value);
+    return;
+  } catch { /* fall through */ }
+  try {
+    window.sessionStorage?.setItem(key, value);
   } catch {
-    /* quota, private mode — non-fatal */
+    /* quota, private mode — memoryStore already has it */
   }
 }
 
 function safeRemove(key: string): void {
   if (!isBrowser()) return;
-  try {
-    sessionStorage.removeItem(key);
-  } catch {
-    /* non-fatal */
-  }
+  memoryStore.delete(key);
+  try { window.localStorage?.removeItem(key); } catch { /* non-fatal */ }
+  try { window.sessionStorage?.removeItem(key); } catch { /* non-fatal */ }
 }
 
 function gatewayBase(url: string): string {
@@ -81,7 +97,7 @@ export function markGatewaySuccess(gatewayUrl: string): void {
  * breaker — otherwise a transient network blip can permanently lock out all
  * images for the session.
  */
-const CSP_WHITELISTED_GATEWAY_COUNT = 3;
+const CSP_WHITELISTED_GATEWAY_COUNT = 5;
 
 /** Record a gateway that returned an error or timed out. */
 export function markGatewayFailure(gatewayUrl: string): void {

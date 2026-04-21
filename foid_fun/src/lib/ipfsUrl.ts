@@ -9,12 +9,16 @@ const IPFS_PATH_PREFIX = "/ipfs/";
 // and can cascade into "no images ever load" failures. If you change
 // one list, mirror the change in the other.
 // Order: Pinata first (content is pinned there), then public gateways.
+// Ordering is only the initial guess — probeGatewaysForCid races all of
+// these in parallel on first load and memoizes the winner in localStorage.
 // Cloudflare (cloudflare-ipfs.com) removed — host is globally dead
 // (ERR_NAME_NOT_RESOLVED).
 const FALLBACK_GATEWAY_BASES = [
   "https://gateway.pinata.cloud",
   "https://ipfs.io",
   "https://dweb.link",
+  "https://w3s.link",
+  "https://4everland.io",
 ];
 const PROXY_PATH_RAW = process.env.NEXT_PUBLIC_IPFS_PROXY_PATH?.trim();
 const PROXY_PATH = PROXY_PATH_RAW ? PROXY_PATH_RAW.replace(/\/+$/, "") : null;

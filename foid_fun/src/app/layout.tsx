@@ -86,17 +86,15 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             fastest (see src/lib/ipfsGatewayCache.ts). Preconnect opens
             TLS + DNS ahead of the first request so the hero image on
             the initial board render doesn't wait on handshake. */}
-        <link rel="preconnect" href="https://ipfs.io" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://gateway.pinata.cloud" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://w3s.link" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://ipfs.filebase.io" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://ipfs.io" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://dweb.link" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://w3s.link" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://4everland.io" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://ipfs.io" />
         <link rel="dns-prefetch" href="https://gateway.pinata.cloud" />
-        <link rel="dns-prefetch" href="https://w3s.link" />
-        <link rel="dns-prefetch" href="https://ipfs.filebase.io" />
+        <link rel="dns-prefetch" href="https://ipfs.io" />
         <link rel="dns-prefetch" href="https://dweb.link" />
+        <link rel="dns-prefetch" href="https://w3s.link" />
         <link rel="dns-prefetch" href="https://4everland.io" />
         <meta name="theme-color" content="#0e0f2b" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />

@@ -1,10 +1,11 @@
-import { memo, useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { memo, useState, useCallback, useEffect, useRef } from "react";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 import {
   reorderGateways,
   markGatewaySuccess,
   markGatewayFailure,
 } from "@/lib/ipfsGatewayCache";
+import { probeGatewaysForCid } from "@/lib/ipfsGatewayProbe";
 
 export type Placement = {
   id: string;
@@ -158,10 +159,25 @@ function PlacementCardInner({
   flagLabel,
 }: Props) {
   const { cid, x, y, width, height, name } = placement;
-  // Reorder gateways using the session cache: preferred (last-known-good) goes
-  // first; gateways that failed earlier this session are deprioritized.
-  const urls = useMemo(() => reorderGateways(ipfsToHttp(cid)), [cid]);
+  // Reorder gateways using the persistent cache: preferred (last-known-good) goes
+  // first; gateways that failed earlier are deprioritized.
+  const [urls, setUrls] = useState<string[]>(() => reorderGateways(ipfsToHttp(cid)));
   const [gatewayIdx, setGatewayIdx] = useState(0);
+
+  // Fire the parallel gateway probe on first mount. It's a module-level
+  // singleton — only one race runs per page load regardless of how many
+  // placement cards mount — and it short-circuits instantly if a preferred
+  // gateway has already been memoized from a previous visit. When the probe
+  // resolves, recompute the ordered gateway list so the winner is first.
+  useEffect(() => {
+    let cancelled = false;
+    probeGatewaysForCid(cid).then((winner) => {
+      if (cancelled || !winner) return;
+      setUrls(reorderGateways(ipfsToHttp(cid)));
+      setGatewayIdx(0);
+    });
+    return () => { cancelled = true; };
+  }, [cid]);
   const [flagging, setFlagging] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const src = urls[gatewayIdx] ?? `https://ipfs.io/ipfs/${cid}`;
