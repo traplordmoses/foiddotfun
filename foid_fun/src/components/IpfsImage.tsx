@@ -17,7 +17,7 @@
 "use client";
 
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
-import { ipfsImageUrls } from "@/lib/ipfsUrl";
+import { ipfsImageUrls, type IpfsImageOpts } from "@/lib/ipfsUrl";
 import {
   reorderGateways,
   markGatewayFailure,
@@ -40,6 +40,16 @@ type Props = {
   onLoad?: () => void;
   onError?: () => void;
   stallTimeoutMs?: number;
+  /**
+   * Target display width in CSS pixels. When provided the proxy requests
+   * a Pinata transform that returns a right-sized WebP instead of the
+   * full-resolution original — typically 4× smaller and 7× faster on
+   * Pinata CDN hit. The proxy auto-applies DPR 2, so pass the CSS width
+   * the card will actually occupy.
+   */
+  displayWidth?: number;
+  /** Optional matching height — only needed when aspect != source. */
+  displayHeight?: number;
 };
 
 function IpfsImageInner({
@@ -55,7 +65,13 @@ function IpfsImageInner({
   onLoad,
   onError,
   stallTimeoutMs = 6000,
+  displayWidth,
+  displayHeight,
 }: Props) {
+  const transformOpts: IpfsImageOpts | undefined =
+    displayWidth || displayHeight
+      ? { width: displayWidth, height: displayHeight, format: "webp", quality: 80 }
+      : undefined;
   // Candidate URL list:
   //   [0] same-origin /api/ipfs/<cid> proxy (authenticated Pinata upstream,
   //       edge-cached, HTTP/2-multiplexed with the page) — the fast path.
@@ -65,11 +81,12 @@ function IpfsImageInner({
   // because its latency characteristics are independent of the public
   // gateway pool (it's our own server).
   const urls = useMemo(() => {
-    const all = ipfsImageUrls(cid);
+    const all = ipfsImageUrls(cid, transformOpts);
     if (all.length <= 1) return all;
     const [proxy, ...rest] = all;
     return [proxy, ...reorderGateways(rest)];
-  }, [cid]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cid, transformOpts?.width, transformOpts?.height, transformOpts?.format, transformOpts?.quality]);
   const [gatewayIdx, setGatewayIdx] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();

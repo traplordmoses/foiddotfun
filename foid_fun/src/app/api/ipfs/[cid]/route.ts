@@ -13,13 +13,31 @@ function normalizeGateway(value?: string | null) {
   return strippedSlash.replace(/\/ipfs$/i, "");
 }
 
-// Default to Pinata's public gateway — the board's content is pinned there,
-// so it's the authoritative source. Operators with a paid Pinata plan
-// should set PINATA_GATEWAY to their dedicated gateway (e.g.
-// https://<prefix>.mypinata.cloud) to get authenticated, rate-limit-free
-// reads.
-const PINATA_GATEWAY_BASE =
-  normalizeGateway(process.env.PINATA_GATEWAY) ?? "https://gateway.pinata.cloud";
+// Upstream gateway selection:
+//   1. PINATA_GATEWAY — explicit server-only dedicated gateway
+//   2. NEXT_PUBLIC_IPFS_GATEWAY_BASE — reuse the client-side value if it
+//      already points at a `.mypinata.cloud` dedicated gateway. Saves
+//      the operator from having to set two env vars for the same thing.
+//   3. gateway.pinata.cloud — Pinata's public gateway, works for any
+//      pinned content but DOES NOT support image transforms, so the
+//      transform path in this route is effectively a no-op without a
+//      dedicated gateway.
+function resolvePinataBase(): string {
+  const explicit = normalizeGateway(process.env.PINATA_GATEWAY);
+  if (explicit) return explicit;
+
+  const fromClient = normalizeGateway(
+    process.env.NEXT_PUBLIC_IPFS_GATEWAY_BASE,
+  );
+  if (fromClient && /\.mypinata\.cloud$/i.test(fromClient)) {
+    return fromClient;
+  }
+
+  return "https://gateway.pinata.cloud";
+}
+
+const PINATA_GATEWAY_BASE = resolvePinataBase();
+const PINATA_HAS_TRANSFORMS = /\.mypinata\.cloud$/i.test(PINATA_GATEWAY_BASE);
 const PINATA_JWT = process.env.PINATA_JWT?.trim();
 
 export const runtime = "nodejs";
@@ -84,8 +102,57 @@ function bad(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
+// Query params accepted from the client; translate to Pinata's image-
+// transform API. Dedicated Pinata gateways serve the transformed variant
+// from their own edge cache separately from the original, so the same
+// CID can have many cached renditions. Measured: 118 KB JPEG → 29 KB
+// WebP, 820ms → 100ms on Pinata CDN HIT (`?img-width=400&img-format=webp
+// &img-quality=80`). Public gateways ignore these params — they serve
+// the original bytes — which is fine because we only fall back there on
+// proxy failure.
+const FORMAT_WHITELIST = new Set(["webp", "jpeg", "png", "auto"]);
+
+function parseTransformParams(search: URLSearchParams): {
+  search: string;
+  cacheSuffix: string;
+} {
+  // No-op when the configured gateway is the public one (it doesn't know
+  // `img-*`). Avoids poisoning the in-process cache with per-variant
+  // entries that all return the same original bytes.
+  if (!PINATA_HAS_TRANSFORMS) return { search: "", cacheSuffix: "" };
+
+  const w = search.get("w");
+  const h = search.get("h");
+  const f = search.get("f");
+  const q = search.get("q");
+
+  const upstream = new URLSearchParams();
+  // img-dpr=2 paired with img-width=<CSS_px> means a retina-clean render
+  // for the CSS pixel size the card asked for, without the client having
+  // to know the user's actual DPR.
+  if (w && /^\d+$/.test(w)) {
+    upstream.set("img-width", w);
+    upstream.set("img-dpr", "2");
+  }
+  if (h && /^\d+$/.test(h)) upstream.set("img-height", h);
+  if (f && FORMAT_WHITELIST.has(f)) upstream.set("img-format", f);
+  if (q && /^\d+$/.test(q)) {
+    const qn = Math.max(1, Math.min(100, parseInt(q, 10)));
+    upstream.set("img-quality", String(qn));
+  }
+  if (upstream.has("img-width") || upstream.has("img-height")) {
+    upstream.set("img-fit", "cover");
+  }
+
+  const s = upstream.toString();
+  return {
+    search: s ? `?${s}` : "",
+    cacheSuffix: s ? `|${s}` : "",
+  };
+}
+
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params?: { cid?: string | string[] } },
 ) {
   const rawCid = Array.isArray(params?.cid) ? params?.cid[0] : params?.cid;
@@ -99,7 +166,13 @@ export async function GET(
     return bad("Invalid CID format");
   }
 
-  const memoryHit = cacheGet(cleaned);
+  const { searchParams } = new URL(request.url);
+  const transform = parseTransformParams(searchParams);
+  // Cache transformed variants under distinct keys so a 200w WebP and the
+  // original JPEG don't collide in the Map.
+  const cacheKey = `${cleaned}${transform.cacheSuffix}`;
+
+  const memoryHit = cacheGet(cacheKey);
   if (memoryHit) {
     return new NextResponse(memoryHit.bytes, {
       status: 200,
@@ -107,7 +180,7 @@ export async function GET(
     });
   }
 
-  const url = `${PINATA_GATEWAY_BASE}/ipfs/${cleaned}`;
+  const url = `${PINATA_GATEWAY_BASE}/ipfs/${cleaned}${transform.search}`;
 
   const fetchHeaders = new Headers();
   if (PINATA_JWT) {
@@ -153,7 +226,7 @@ export async function GET(
     const contentType =
       response.headers.get("content-type") ?? "application/octet-stream";
 
-    cachePut(cleaned, { bytes, contentType });
+    cachePut(cacheKey, { bytes, contentType });
 
     return new NextResponse(bytes, {
       status: 200,

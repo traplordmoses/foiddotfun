@@ -212,6 +212,11 @@ export function MobileBoard({
                     className="w-full h-full object-cover pointer-events-none"
                     style={isVoting ? { opacity: 0.6 } : undefined}
                     draggable={false}
+                    // Mobile cards render at `node.width` world units. Asking
+                    // the proxy to transform to that CSS width (proxy bakes
+                    // in DPR 2) means we ship a ~4× smaller WebP instead of
+                    // the full-resolution original — big win on cellular.
+                    displayWidth={Math.max(64, Math.min(800, Math.round(node.width)))}
                   />
                 ) : (
                   <div className="text-white text-sm break-words bg-black/40 backdrop-blur-sm p-3 rounded-lg">
