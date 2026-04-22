@@ -5,6 +5,7 @@ import { CONTRACTS } from "@/lib/contracts/addresses";
 import { RPC_URL, CHAIN_CONFIG } from "@/lib/contracts/addresses";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
 import { ProposalStore } from "@/lib/proposalStore";
+import { goldskyEndpoint, goldskyQuery, GoldskyError } from "@/lib/goldsky";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
 // board burns ~60 RPC round-trips on every visitor.
 // ──────────────────────────────────────────────────────────────────────
 
-type SwipePayload = { proposals: unknown[]; count: number };
+type SwipePayload = { proposals: unknown[]; count: number; debug?: { source: "goldsky" | "rpc" } };
 
 const CACHE_TTL_MS = 15_000;
 let cachedPayload: { data: SwipePayload; at: number } | null = null;
@@ -28,6 +29,129 @@ function getCached(): SwipePayload | null {
   if (!cachedPayload) return null;
   if (Date.now() - cachedPayload.at > CACHE_TTL_MS) return null;
   return cachedPayload.data;
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Primary fetch path: Goldsky subgraph.
+//
+// This route's RPC path (below) is the heaviest in the app: each proposal
+// takes 3 round-trips (getProposal + 2 vote counts). At 20 active
+// proposals that's 60 RPC calls serialized in batches of 5. The
+// subgraph stores the same data pre-indexed, so one GraphQL query
+// (~80–200ms) replaces 60 eth_call round-trips.
+//
+// RPC path is kept as a fallback for the same reasons as /api/proposals:
+// missing subgraph URL, transient Goldsky outage, or when the subgraph
+// is visibly behind. Returning the RPC result on fallback means the app
+// still works end-to-end even if Goldsky is completely offline.
+// ──────────────────────────────────────────────────────────────────────
+
+type GoldskyVotingProposal = {
+  proposalId: string;
+  proposer: string;
+  ipfsCid: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  votingEndsAt: string;
+  finalized: boolean;
+  approved: boolean;
+  overlapRejected: boolean;
+  weightFor: string;
+  weightAgainst: string;
+  placement: { placementId: string } | null;
+};
+
+type GoldskyProposalsResponse = {
+  proposals: GoldskyVotingProposal[];
+};
+
+async function fetchFromGoldsky(): Promise<SwipePayload | null> {
+  if (!goldskyEndpoint("loreboard")) return null;
+
+  // Return voting + finalized proposals — the caller's mapping layer
+  // (mapActiveSwipe in useBoardData.ts) filters to `!finalized`, and we
+  // don't want to lose recently-finalized rows that other consumers of
+  // this endpoint might still render.
+  const query = `{
+    proposals(
+      first: 1000,
+      orderBy: proposalId,
+      orderDirection: desc,
+      where: { overlapRejected: false }
+    ) {
+      proposalId
+      proposer
+      ipfsCid
+      x
+      y
+      w
+      h
+      votingEndsAt
+      finalized
+      approved
+      overlapRejected
+      weightFor
+      weightAgainst
+      placement { placementId }
+    }
+  }`;
+
+  try {
+    const data = await goldskyQuery<GoldskyProposalsResponse>(
+      "loreboard",
+      query,
+      undefined,
+      { timeoutMs: 4_000 },
+    );
+
+    const proposals = data.proposals.map((p) => {
+      // Mirror the name-lookup the RPC path does, for UI parity.
+      let name: string | undefined;
+      try {
+        const stored = ProposalStore.get(p.proposalId);
+        if (stored?.name) name = stored.name;
+        if (!name && p.ipfsCid) {
+          const match = ProposalStore.all().find((s) => s.cid === p.ipfsCid);
+          if (match?.name) name = match.name;
+        }
+      } catch {
+        /* non-fatal */
+      }
+
+      return {
+        id: Number(p.proposalId),
+        proposer: p.proposer,
+        ipfsCid: p.ipfsCid,
+        imageUrl: p.ipfsCid ? cidToHttpUrl(p.ipfsCid) : null,
+        // Goldsky doesn't index createdAt on this schema — use 0 as a
+        // sentinel. Consumers on the board don't display it; they key
+        // off votingEndsAt.
+        createdAt: 0,
+        votingEndsAt: Number(p.votingEndsAt),
+        finalized: p.finalized,
+        approved: p.approved,
+        placementId: p.placement ? Number(p.placement.placementId) : 0,
+        forCount: Number(p.weightFor),
+        againstCount: Number(p.weightAgainst),
+        gridX: p.x,
+        gridY: p.y,
+        gridW: p.w,
+        gridH: p.h,
+        ...(name ? { name } : {}),
+      };
+    });
+
+    return { proposals, count: proposals.length, debug: { source: "goldsky" } };
+  } catch (err) {
+    if (err instanceof GoldskyError) {
+      console.warn("[api/swipe/proposals] Goldsky fallback to RPC:", err.message);
+    } else {
+      console.warn("[api/swipe/proposals] Goldsky unknown error, falling back:", err);
+    }
+    return null;
+  }
 }
 
 async function fetchSwipeProposalsFromChain(): Promise<SwipePayload> {
@@ -180,7 +304,7 @@ async function fetchSwipeProposalsFromChain(): Promise<SwipePayload> {
       }
     }
 
-    return { proposals, count: proposalCount };
+    return { proposals, count: proposalCount, debug: { source: "rpc" } };
 }
 
 async function getSwipeProposals(): Promise<{ data: SwipePayload; fromCache: boolean }> {
@@ -191,7 +315,8 @@ async function getSwipeProposals(): Promise<{ data: SwipePayload; fromCache: boo
 
   inflightFetch = (async () => {
     try {
-      const data = await fetchSwipeProposalsFromChain();
+      const fromSubgraph = await fetchFromGoldsky();
+      const data = fromSubgraph ?? (await fetchSwipeProposalsFromChain());
       cachedPayload = { data, at: Date.now() };
       return data;
     } finally {
