@@ -1305,16 +1305,7 @@ function BoardPageContent() {
           const placementId = node.id.replace('placed-', '');
           const placement = placed.find(p => p.id === placementId);
           if (placement) {
-            setActivePlacement({
-              id: placement.id,
-              cid: placement.cid,
-              x: placement.rect.x,
-              y: placement.rect.y,
-              width: placement.rect.w,
-              height: placement.rect.h,
-              proposer: (placement.owner ?? "") as `0x${string}`,
-              epochId: placement.epochSubmitted ?? 0,
-            });
+            setActivePlacement(proposalToPlacement(placement));
           }
         }}
       />
@@ -1448,7 +1439,7 @@ function BoardPageContent() {
                       return (
                         <PlacementCard
                           key={p.id}
-                          placement={{ id: p.id, cid: p.cid, x: sr.x, y: sr.y, width: sr.w, height: sr.h, proposer: (p.owner ?? "") as `0x${string}`, epochId: p.epochSubmitted ?? 0, status: "canonized" }}
+                          placement={proposalToPlacement(p)}
                           onOpen={setActivePlacement}
                           onFlag={handleFlagPlacement}
                           isFlagged={flaggedIds.has(p.id)}

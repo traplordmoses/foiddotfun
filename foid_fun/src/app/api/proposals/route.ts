@@ -102,9 +102,8 @@ function parsePlacement(raw: unknown): PlacementTuple {
 //   3. Subgraph is visibly behind — see `goldskyLookedAhead` below.
 // ──────────────────────────────────────────────────────────────────────
 
-type GoldskyPlacement = {
+type GoldskyCanonizedPlacement = {
   placementId: string;
-  proposalId: string;
   placer: string;
   ipfsCid: string;
   x: number;
@@ -115,8 +114,15 @@ type GoldskyPlacement = {
   blockTimestamp: string;
 };
 
-type GoldskyPlacementsResponse = {
-  placements: GoldskyPlacement[];
+type GoldskyCanonizedProposal = {
+  proposalId: string;
+  weightFor: string;
+  weightAgainst: string;
+  placement: GoldskyCanonizedPlacement | null;
+};
+
+type GoldskyCanonizedProposalsResponse = {
+  proposals: GoldskyCanonizedProposal[];
 };
 
 function formatPlacement(
@@ -130,6 +136,8 @@ function formatPlacement(
   h: number,
   placedAt: number,
   removed: boolean,
+  yesVotes: number = 0,
+  noVotes: number = 0,
 ): unknown {
   return {
     id: String(placementId),
@@ -151,8 +159,8 @@ function formatPlacement(
     epoch: 0,
     bidPerCellWei: "0",
     cidHash: "0x",
-    yesVotes: 0,
-    noVotes: 0,
+    yesVotes,
+    noVotes,
     status: "canonized" as const,
     isVotable: false,
     registeredAt: placedAt,
@@ -164,48 +172,64 @@ function formatPlacement(
 async function fetchFromGoldsky(): Promise<ProposalsPayload | null> {
   if (!goldskyEndpoint("loreboard")) return null;
 
+  // Query proposals (not placements) so we can pull vote tallies in the
+  // same hop. The subgraph links Proposal → Placement, and vote weights
+  // (`weightFor`/`weightAgainst`) live on the Proposal entity — the
+  // Placement entity doesn't carry them. Filter matches "canonized":
+  // finalized + approved + not overlap-rejected. Non-null, non-removed
+  // placement is enforced client-side below.
   const query = `{
-    placements(
-      where: { removed: false },
+    proposals(
+      where: { finalized: true, approved: true, overlapRejected: false },
       first: 1000,
-      orderBy: placementId,
+      orderBy: proposalId,
       orderDirection: asc
     ) {
-      placementId
       proposalId
-      placer
-      ipfsCid
-      x
-      y
-      w
-      h
-      removed
-      blockTimestamp
+      weightFor
+      weightAgainst
+      placement {
+        placementId
+        placer
+        ipfsCid
+        x
+        y
+        w
+        h
+        removed
+        blockTimestamp
+      }
     }
   }`;
 
   try {
-    const data = await goldskyQuery<GoldskyPlacementsResponse>(
+    const data = await goldskyQuery<GoldskyCanonizedProposalsResponse>(
       "loreboard",
       query,
       undefined,
       { timeoutMs: 4_000 },
     );
 
-    const proposals = data.placements.map((p) =>
-      formatPlacement(
-        p.placementId,
-        p.proposalId,
-        p.placer,
-        p.ipfsCid,
-        p.x,
-        p.y,
-        p.w,
-        p.h,
-        Number(p.blockTimestamp),
-        p.removed,
-      ),
-    );
+    const proposals = data.proposals
+      .filter((p): p is GoldskyCanonizedProposal & { placement: GoldskyCanonizedPlacement } =>
+        p.placement != null && !p.placement.removed,
+      )
+      .map((p) =>
+        formatPlacement(
+          p.placement.placementId,
+          p.proposalId,
+          p.placement.placer,
+          p.placement.ipfsCid,
+          p.placement.x,
+          p.placement.y,
+          p.placement.w,
+          p.placement.h,
+          Number(p.placement.blockTimestamp),
+          p.placement.removed,
+          Number(p.weightFor),
+          Number(p.weightAgainst),
+        ),
+      );
 
     return {
       proposals,
