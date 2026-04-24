@@ -44,7 +44,7 @@ export default function ProposalDetailPage() {
       }
     | undefined;
 
-  // On-chain vote hook — reads tallies and hasVoted directly from contract
+  // Onchain vote hook — reads tallies and hasVoted directly from contract
   const {
     castVote,
     isWriting,
@@ -62,7 +62,7 @@ export default function ProposalDetailPage() {
   useEffect(() => {
     if (isConfirmed) {
       refetch();
-      toast.success("Vote confirmed on-chain!");
+      toast.success("Vote confirmed onchain!");
     }
   }, [isConfirmed, refetch]);
 
@@ -224,7 +224,7 @@ export default function ProposalDetailPage() {
             {isActive && !hasVoted && (
               <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
                 <h2 className="mb-3 text-center text-xs font-semibold uppercase tracking-wider text-white/60">
-                  {isVoting ? (isWriting ? "Waiting for wallet..." : "Confirming on-chain...") : "Cast Your Vote"}
+                  {isVoting ? (isWriting ? "Waiting for wallet..." : "Confirming onchain...") : "Cast Your Vote"}
                 </h2>
                 <div className="flex gap-4">
                   <button
@@ -249,7 +249,7 @@ export default function ProposalDetailPage() {
 
             {hasVoted && !proposal.finalized && (
               <div className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 text-center text-sm text-purple-300">
-                Vote recorded on-chain. Results revealed when voting ends.
+                Vote recorded onchain. Results revealed when voting ends.
               </div>
             )}
 

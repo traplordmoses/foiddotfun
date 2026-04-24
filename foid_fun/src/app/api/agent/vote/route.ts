@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     const limit = checkRateLimit(auth.wallet, "vote");
     if (!limit.ok) return json(false, undefined, limit.error, 429);
 
-    // Submit vote on-chain via relayer to the agent voting contract
+    // Submit vote onchain via relayer to the agent voting contract
     const publicClient = getAgentPublicClient();
     const walletClient = getRelayerWalletClient();
     const account = getRelayerAccount();
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
         return json(false, undefined, "Proposal is not currently votable", 409);
       }
       console.error("[api/agent/vote] tx failed:", err);
-      return json(false, undefined, `On-chain submission failed: ${msg.slice(0, 200)}`, 500);
+      return json(false, undefined, `Onchain submission failed: ${msg.slice(0, 200)}`, 500);
     }
 
     recordAction(auth.wallet, "vote");

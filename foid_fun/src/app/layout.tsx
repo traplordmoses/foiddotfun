@@ -16,7 +16,7 @@ export const metadata = {
     template: "%s | FOID.FUN",
   },
   description:
-    "Loreboard — a shared, permanent, on-chain cultural canvas. Propose, vote, and build with the community on Foid.Fun",
+    "Loreboard — a shared, permanent, onchain cultural canvas. Propose, vote, and build with the community on Foid.Fun",
   icons: {
     icon: [
       { url: "/favicon.ico" },
@@ -30,7 +30,7 @@ export const metadata = {
   openGraph: {
     title: "FOID.FUN — Loreboard",
     description:
-      "A shared, permanent, on-chain cultural canvas governed by the community. Propose images, vote via swipe, and build culture together.",
+      "A shared, permanent, onchain cultural canvas governed by the community. Propose images, vote via swipe, and build culture together.",
     url: "https://www.foid.fun",
     siteName: "FOID Foundation",
     type: "website",
@@ -39,7 +39,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "FOID.FUN — Loreboard",
     description:
-      "On-chain cultural canvas. Propose, vote, build — governed by the community.",
+      "Onchain cultural canvas. Propose, vote, build — governed by the community.",
   },
 };
 

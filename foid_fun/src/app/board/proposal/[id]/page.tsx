@@ -18,7 +18,7 @@ export async function generateMetadata({
   const ogPath = `/api/og/placement/${encodeURIComponent(id)}`;
   const title = `Proposal #${id} — FOID Loreboard`;
   const description =
-    "A FOID Foundation loreboard proposal — placed on-chain, voted on by the community.";
+    "A FOID Foundation loreboard proposal — placed onchain, voted on by the community.";
   return {
     title,
     description,

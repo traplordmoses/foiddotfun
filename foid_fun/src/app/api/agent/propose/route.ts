@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     const bidPerCellWei = BASE_FEE_PER_CELL_WEI;
     const value = BigInt(cells) * bidPerCellWei;
 
-    // Submit on-chain via relayer to the agent board
+    // Submit onchain via relayer to the agent board
     const publicClient = getAgentPublicClient();
     const walletClient = getRelayerWalletClient();
     const account = getRelayerAccount();
@@ -136,7 +136,7 @@ export async function POST(req: Request) {
     } catch (err) {
       const msg = (err as Error).message ?? String(err);
       console.error("[api/agent/propose] tx failed:", err);
-      return json(false, undefined, `On-chain submission failed: ${msg.slice(0, 200)}`, 500);
+      return json(false, undefined, `Onchain submission failed: ${msg.slice(0, 200)}`, 500);
     }
 
     recordAction(auth.wallet, "propose");

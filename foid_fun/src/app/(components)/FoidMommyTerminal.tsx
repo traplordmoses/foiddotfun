@@ -304,7 +304,7 @@ export type FoidMommyTerminalProps = {
   waitForReceipt?: (hash: string) => Promise<void>;
   onDailyCheckInChoice?: (choice: "yes" | "not_now") => void;
   nextAllowedAt?: bigint | number | null;
-  onChainStreak?: number | null; // On-chain streak from PrayerMirror contract
+  onChainStreak?: number | null; // Onchain streak from PrayerMirror contract
   registryReady?: boolean;
   chainOk?: boolean;
   requiredChainId?: number | null;
@@ -674,7 +674,7 @@ export default function FoidMommyTerminal({
         const daysSince = getDaysSinceLastPrayerRef.current();
         const streak = localStreakRef.current;
 
-        // Graceful streak break — only show if on-chain also confirms streak is broken.
+        // Graceful streak break — only show if onchain also confirms streak is broken.
         // Local memory can be stale (different device, cleared storage, etc.),
         // so trust the contract when it says the streak is still active.
         const chainStreak = onChainStreakRef.current;
@@ -937,7 +937,7 @@ export default function FoidMommyTerminal({
         await sleep(400);
         await typeMessage({
           role: "foid",
-          text: "anchoring only the hash on-chain. your prayer stays with you.",
+          text: "anchoring only the hash onchain. your prayer stays with you.",
           speed: 60,
         });
         await typeMessage({
@@ -1029,7 +1029,7 @@ export default function FoidMommyTerminal({
     if (shadowMode) {
       await typeMessage({
         role: "foid",
-        text: "your prayer was heard, sweet one. connect your wallet to anchor it on-chain forever.",
+        text: "your prayer was heard, sweet one. connect your wallet to anchor it onchain forever.",
       });
       // Save the prayer text so it persists via draft mechanism
       saveDraft(prayerToSend);
@@ -1342,7 +1342,7 @@ export default function FoidMommyTerminal({
       await sleep(400);
       await typeMessage({
         role: "foid",
-        text: `anchoring only the hash on-chain. your ${flavor} stays with you.`,
+        text: `anchoring only the hash onchain. your ${flavor} stays with you.`,
         speed: 20,
       });
       await typeMessage({

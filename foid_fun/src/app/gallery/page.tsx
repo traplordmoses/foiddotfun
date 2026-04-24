@@ -118,7 +118,7 @@ function EngravingModal({
         </h3>
         <p className="mb-3 text-[10px] text-white/40">
           {ENGRAVE_DEPLOYED
-            ? "Sign your canonized meme. This is permanent and on-chain."
+            ? "Sign your canonized meme. This is permanent and onchain."
             : "Sign your canonized meme. This is permanent (in your browser)."}
         </p>
         <textarea
@@ -475,7 +475,7 @@ export default function GalleryPage() {
 
                 {entryCount !== undefined && (
                   <div className="text-[10px] text-white/40">
-                    {Number(entryCount)} {Number(entryCount) === 1 ? "entry" : "entries"} on-chain
+                    {Number(entryCount)} {Number(entryCount) === 1 ? "entry" : "entries"} onchain
                   </div>
                 )}
 

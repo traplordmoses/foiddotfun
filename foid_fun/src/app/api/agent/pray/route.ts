@@ -91,7 +91,7 @@ PRAYER: <2-3 sentence prayer>`,
       prayerText = "may this moment bring you what you need.";
     }
 
-    // Submit prayer on-chain via relayer
+    // Submit prayer onchain via relayer
     const prayerHash = keccak256(stringToBytes(prayerText));
     const publicClient = getAgentPublicClient();
     const walletClient = getRelayerWalletClient();
@@ -115,7 +115,7 @@ PRAYER: <2-3 sentence prayer>`,
         return json(false, undefined, "Prayer cooldown active. Only 1 prayer per 24h per relayer.", 429);
       }
       console.error("[api/agent/pray] tx failed:", err);
-      return json(false, undefined, `On-chain submission failed: ${msg.slice(0, 200)}`, 500);
+      return json(false, undefined, `Onchain submission failed: ${msg.slice(0, 200)}`, 500);
     }
 
     recordAction(auth.wallet, "pray");

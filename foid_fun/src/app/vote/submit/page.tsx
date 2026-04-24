@@ -137,7 +137,7 @@ export default function SwipeSubmitPage() {
 
                 <h1 className="mb-1 text-base font-bold text-white">Submit a Meme</h1>
                 <p className="mb-4 text-xs text-white/50">
-                  Propose a meme for the community to vote on. Winners get canonized forever.
+                  Propose a meme for the community to vote on. What passes gets canonized forever.
                 </p>
 
                 {/* Upload area */}

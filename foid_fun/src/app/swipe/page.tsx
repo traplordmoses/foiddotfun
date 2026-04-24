@@ -630,7 +630,7 @@ export default function SwipePage() {
   const hasMoreClosed = closedProposals.length > paginatedClosed.length;
   const currentProposal = activeProposals[0] ?? null;
 
-  // On-chain vote hook for current proposal
+  // Onchain vote hook for current proposal
   const {
     castVote,
     isConfirmed,
@@ -639,7 +639,7 @@ export default function SwipePage() {
     hasVoted: onChainHasVoted,
   } = useSwipeCastVote({ proposalId: currentProposal?.id ?? 0 });
 
-  // Sync on-chain hasVoted → local votedIds (cross-session recovery)
+  // Sync onchain hasVoted → local votedIds (cross-session recovery)
   useEffect(() => {
     if (onChainHasVoted && currentProposal && address) {
       setVotedIds((prev) => {
@@ -654,7 +654,7 @@ export default function SwipePage() {
 
   // Toast on confirmed vote
   useEffect(() => {
-    if (isConfirmed) toast.success("Vote confirmed on-chain!");
+    if (isConfirmed) toast.success("Vote confirmed onchain!");
   }, [isConfirmed]);
 
   // Toast on vote error
@@ -684,7 +684,7 @@ export default function SwipePage() {
       })()
     : null;
 
-  // Direct on-chain vote — optimistically advance the card, wallet popup fires
+  // Direct onchain vote — optimistically advance the card, wallet popup fires
   const handleVote = useCallback(
     async (proposalId: number, approve: boolean) => {
       if (!isConnected || !address) {
@@ -751,7 +751,7 @@ export default function SwipePage() {
                       ))}
                     </div>
                     {totalOnChain > 0 && (
-                      <span className="hidden sm:inline text-[10px] text-white/25">{totalOnChain} on-chain</span>
+                      <span className="hidden sm:inline text-[10px] text-white/25">{totalOnChain} onchain</span>
                     )}
                     {/* Tier badge — visible to all connected wallets */}
                     {isConnected && address && (

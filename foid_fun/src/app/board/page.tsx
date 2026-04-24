@@ -497,7 +497,7 @@ function BoardPageContent() {
     setStatusMessages(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, text, type, timestamp: new Date() }]);
     // Mirror everything except debug "info" into the SR live region. Keep
     // the AT chatty during submit so blind users know what's happening.
-    if (type !== "info" || text.match(/Uploading|Submitting|cancelled|on-chain|failed/i)) {
+    if (type !== "info" || text.match(/Uploading|Submitting|cancelled|onchain|failed/i)) {
       announceSr(text);
     }
   }, [announceSr]);
@@ -583,7 +583,7 @@ function BoardPageContent() {
   );
   const visibleVotingProposals = useVisiblePlacements(votingSource, visibleRect);
 
-  // On-chain swipe voting proposals carry x/y/w/h flat (not `.rect`), so we
+  // Onchain swipe voting proposals carry x/y/w/h flat (not `.rect`), so we
   // pass a rect accessor. Virtualizing these matters most on mainnet where
   // many proposals may be in-flight at once.
   const visibleSwipeVoting = useVisiblePlacements(
@@ -940,7 +940,7 @@ function BoardPageContent() {
         else if (s.state === "signing") addStatus(`Submitting ${s.name}...`, "info");
         else if (s.state === "confirmed") {
           addStatus(
-            `${s.name} on-chain ✓${s.txHash ? ` (tx: ${s.txHash.slice(0, 10)}...)` : ""}`,
+            `${s.name} onchain ✓${s.txHash ? ` (tx: ${s.txHash.slice(0, 10)}...)` : ""}`,
             "success"
           );
           if (s.cid) setCidFor(s.id, s.cid);
@@ -1238,7 +1238,7 @@ function BoardPageContent() {
         });
       });
 
-    // Add pending on-chain proposals (from PlacementProposed events)
+    // Add pending onchain proposals (from PlacementProposed events)
     const existingIds = new Set(nodes.map(n => n.id));
     swipeVotingProposals.forEach((p) => {
       const nodeId = `pending-${p.id}`;

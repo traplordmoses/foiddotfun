@@ -21,7 +21,7 @@ const tiles = [
     label: "Pray",
     href: "/pray",
     accent: "#00ffff",
-    description: "Daily on-chain ritual. Build streaks, earn voting power.",
+    description: "Daily onchain ritual. Build streaks, earn voting power.",
   },
   {
     title: "vote.exe",

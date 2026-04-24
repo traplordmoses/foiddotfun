@@ -9,7 +9,7 @@ import AppTitlebar from "@/app/(components)/AppTitlebar";
 const FEATURES = [
   {
     title: "TRAIT SELECTION",
-    body: "Milady-style trait picker.\nEach combination is unique\nand enforced on-chain.",
+    body: "Milady-style trait picker.\nEach combination is unique\nand enforced onchain.",
   },
   {
     title: "AGENT-RENDERED",

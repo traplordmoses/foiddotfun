@@ -761,7 +761,7 @@ function PrayPageContent() {
                         </div>
                       )}
 
-                        <div className="pray-chain-info" role="region" aria-label="On-chain prayer information">
+                        <div className="pray-chain-info" role="region" aria-label="Onchain prayer information">
                           <div className="pray-chain-info__row">
                             <span className="pray-chain-info__label">prayer hash</span>
                             <span className="pray-chain-info__value pray-chain-info__value--hash" aria-label={`Prayer hash: ${formattedPrayerHash}`}>{formattedPrayerHash}</span>
