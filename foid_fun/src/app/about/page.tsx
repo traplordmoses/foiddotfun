@@ -50,10 +50,10 @@ const sections: Section[] = [
             <strong>FOID is three things:</strong>
           </p>
           <p style={{ marginTop: '8px' }}>
-            <strong>1. <Link href="/pray" className="text-cyan-300 underline">Prayer</Link></strong> &mdash; A daily on-chain check-in with your AI companion (Foid Mommy). Build a streak, earn governance weight. Only a hash goes on-chain &mdash; your words stay private.
+            <strong>1. <Link href="/pray" className="text-cyan-300 underline">Prayer</Link></strong> &mdash; A daily onchain check-in with your AI companion (Foid Mommy). Build a streak, earn governance weight. Only a hash goes onchain &mdash; your words stay private.
           </p>
           <p style={{ marginTop: '6px' }}>
-            <strong>2. <Link href="/board" className="text-cyan-300 underline">Loreboard</Link></strong> &mdash; A permanent, community-governed canvas. Propose a placement (0.001 ETH), the community votes for 72 hours, and approved content lives on-chain forever. Votes are weighted by your prayer streak.
+            <strong>2. <Link href="/board" className="text-cyan-300 underline">Loreboard</Link></strong> &mdash; A permanent, community-governed canvas. Propose a placement (0.001 ETH), the community votes for 72 hours, and approved content lives onchain forever. Votes are weighted by your prayer streak.
           </p>
           <p style={{ marginTop: '6px' }}>
             <strong>3. <Link href="/vote" className="text-cyan-300 underline">Vote</Link></strong> &mdash; Swipe right to approve, left to reject. 51% weighted approval + 3 unique voters to pass. Your streak is your voting power &mdash; Lurker (1x) to Mommy Milker (5x).
@@ -63,7 +63,7 @@ const sections: Section[] = [
             <a href={BLOCK_EXPLORER_URL} className="text-cyan-300 underline" target="_blank" rel="noopener noreferrer">Fluent Blockscout</a>.
             Open source on{" "}
             <a href="https://github.com/traplordmoses/foiddotfun" className="text-cyan-300 underline" target="_blank" rel="noopener noreferrer">GitHub</a>.
-            {" "}No token. No VC. Just a solo founder, a grant, and on-chain code.
+            {" "}No token. No VC. Just a solo founder, a grant, and onchain code.
           </p>
         </GlassPanel>
 
@@ -99,10 +99,7 @@ const sections: Section[] = [
             <strong>That&apos;s what we&apos;re building.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            An on-chain vision board of shared memories we&apos;ve all enjoyed. A collaborative loreboard where communities canonize what matters. A museum for the internet where anyone can track how culture inside a community developed—literally watch the progression of a specific corner of the internet over time.
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            Not just for humans. For anyone—or anything—building culture together.
+            An onchain scrapbook of shared memories. A collaborative loreboard where communities canonize what matters. A museum for the internet where anyone can track how culture inside a community developed—literally watch the progression of a specific corner of the internet over time.
           </p>
         </GlassPanel>
 
@@ -117,21 +114,21 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">🙏 foid mommy terminal</p>
             <p className="aboutMiniCard__body">
-              Daily ritual with your AI companion. Share your thoughts, build prayer streaks, anchor proof on-chain. Privacy-first: only prayer hashes stored on-chain, never the actual content.
+              Daily ritual with your AI companion. Share your thoughts, build prayer streaks, anchor proof onchain. Privacy-first: only prayer hashes stored onchain, never the actual content.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">🎨 loreboard</p>
             <p className="aboutMiniCard__body">
-              A shared, permanent, on-chain cultural canvas. Propose a placement (0.001 ETH), the community votes for 72 hours, and approved content is recorded on-chain forever. Streak-weighted governance. 51% threshold + 3-voter quorum. On-chain overlap prevention. The board grows as the community grows, backed by an ever-evolving 1/1 NFT.
+              A shared, permanent, onchain cultural canvas. Propose a placement (0.001 ETH), the community votes for 72 hours, and approved content is recorded onchain forever. Streak-weighted governance. 51% threshold + 3-voter quorum. Onchain overlap prevention. The board grows as the community grows, backed by an ever-evolving 1/1 NFT.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">🗳️ swipe</p>
             <p className="aboutMiniCard__body">
-              The voting UX. Swipe right to approve, left to reject. Your prayer streak amplifies your voting power — the people who show up every day have the loudest voice. Every vote is on-chain, verifiable, and weighted by commitment.
+              The voting UX. Swipe right to approve, left to reject. Your prayer streak amplifies your voting power — the people who show up every day have the loudest voice. Every vote is onchain, verifiable, and weighted by commitment.
             </p>
           </div>
 
@@ -152,7 +149,7 @@ const sections: Section[] = [
             <strong>Culture should belong to the people who create it.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            FOID is infrastructure for coordinated memory. A shared canvas that lasts forever. A place where communities preserve what matters to them—not what an algorithm thinks will drive engagement.
+            FOID is the onchain home for memory. A shared canvas that lasts forever. A place where communities preserve what matters to them—not what an algorithm thinks will drive engagement.
           </p>
         </GlassPanel>
 
@@ -160,9 +157,9 @@ const sections: Section[] = [
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>STATUS</p>
           <p>
             ✅ FOID Mommy Terminal (prayer contracts + streaks + 10-tier system)<br/>
-            ✅ Loreboard (propose → 72h vote → permanent on-chain placement)<br/>
-            ✅ Swipe voting (on-chain, streak-weighted, 51% + 3-voter quorum)<br/>
-            ✅ On-chain overlap prevention (no duplicate placements)<br/>
+            ✅ Loreboard (propose → 72h vote → permanent onchain placement)<br/>
+            ✅ Swipe voting (onchain, streak-weighted, 51% + 3-voter quorum)<br/>
+            ✅ Onchain overlap prevention (no duplicate placements)<br/>
             ✅ Manifest history + 1/1 board NFT (auto-updates on placement)<br/>
             ✅ MiFOID NFT contract (ERC-721 with trait evolution)<br/>
             ✅ Self-remove + emergency multisig removal<br/>
@@ -232,9 +229,9 @@ const sections: Section[] = [
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">5. anchored on-chain</p>
+            <p className="aboutMiniCard__title">5. anchored onchain</p>
             <p className="aboutMiniCard__body">
-              A hash of your prayer goes on-chain. Proof you were here. Proof you paused.
+              A hash of your prayer goes onchain. Proof you were here. Proof you paused.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -251,7 +248,7 @@ const sections: Section[] = [
             <strong>Your raw words never leave your device.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            Only a keccak256 hash goes on-chain—cryptographic proof you prayed, not what you said. The blockchain sees: your wallet address, timestamp, feeling category (1-10 scale), and prayer hash.
+            Only a keccak256 hash goes onchain—cryptographic proof you prayed, not what you said. The blockchain sees: your wallet address, timestamp, feeling category (1-10 scale), and prayer hash.
           </p>
           <p style={{ marginTop: '12px' }}>
             <strong>That&apos;s it.</strong> No AI company reading your journal. No platform selling your vulnerability. Your prayers are yours.
@@ -353,7 +350,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">3. permanent placement</p>
             <p className="aboutMiniCard__body">
-              Approved placements are recorded directly on-chain. Image stored on IPFS. The board NFT updates automatically. This is the record. Permanent. Verifiable. Yours.
+              Approved placements are recorded directly onchain. Image stored on IPFS. The board NFT updates automatically. This is the record. Permanent. Verifiable. Yours.
             </p>
           </div>
         </div>
@@ -377,7 +374,7 @@ const sections: Section[] = [
         <div style={{ marginTop: '24px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>THREE INTERLOCKING LOOPS</p>
           <p style={{ marginBottom: '16px', color: 'rgba(255, 255, 255, 0.7)' }}>
-            Loreboard runs on three systems that reinforce each other. None works alone. Together, they produce a democratic, on-chain cultural record with earned governance.
+            Loreboard runs on three systems that reinforce each other. None works alone. Together, they produce a democratic, onchain cultural record with earned governance.
           </p>
         </div>
 
@@ -385,7 +382,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">loop 01 — commitment</p>
             <p className="aboutMiniCard__body">
-              A daily ritual that signals commitment to the community. For FOID, this is Prayer &mdash; a one-tap on-chain check-in that builds a consecutive streak. The streak is not a vanity metric. It is a governance credential. The longer your streak, the more influence you earn over what gets placed on the board.
+              A daily ritual that signals commitment to the community. For FOID, this is Prayer &mdash; a one-tap onchain check-in that builds a consecutive streak. The streak is not a vanity metric. It is a governance credential. The longer your streak, the more influence you earn over what gets placed on the board.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -397,7 +394,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">loop 03 — permanence</p>
             <p className="aboutMiniCard__body">
-              An approved placement is recorded on-chain and lives on the board permanently. Every placement is a verifiable statement: this community decided this matters. The board becomes the most honest representation of what a community actually values.
+              An approved placement is recorded onchain and lives on the board permanently. Every placement is a verifiable statement: this community decided this matters. The board becomes the most honest representation of what a community actually values.
             </p>
           </div>
         </div>
@@ -415,7 +412,7 @@ const sections: Section[] = [
         <GlassPanel style={{ marginTop: '16px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>THE TECHNOLOGY</p>
           <p>
-            Built for permanence: One unified Loreboard contract (Solidity on Fluent) handles proposals, on-chain voting, placements, manifest history, and overlap prevention. Storage on IPFS for images, on-chain for state. Indexing via Goldsky subgraph. Voting is direct on-chain with streak-weighted power, 51% threshold, 3-voter quorum. The 1/1 board NFT (ERC-721) auto-updates when the manifest changes. All secured by a 2-of-3 multisig.
+            Built for permanence: One unified Loreboard contract (Solidity on Fluent) handles proposals, onchain voting, placements, manifest history, and overlap prevention. Storage on IPFS for images, onchain for state. Indexing via Goldsky subgraph. Voting is direct onchain with streak-weighted power, 51% threshold, 3-voter quorum. The 1/1 board NFT (ERC-721) auto-updates when the manifest changes. All secured by a 2-of-3 multisig.
           </p>
           <p style={{ marginTop: '12px' }}>
             Fluent&apos;s blended execution means voting feels Web2-fast with Web3 guarantees. No waiting for blocks. No gas wars. Just democracy at scale.
@@ -426,7 +423,7 @@ const sections: Section[] = [
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>CURRENT STATUS</p>
           <p>
             ✅ Unified Loreboard contract (propose + vote + finalize + placement)<br/>
-            ✅ On-chain overlap prevention<br/>
+            ✅ Onchain overlap prevention<br/>
             ✅ Permissionless finalization (anyone can trigger after window)<br/>
             ✅ 3-voter quorum + 51% streak-weighted threshold<br/>
             ✅ Manifest history with staleness check<br/>
@@ -452,7 +449,7 @@ const sections: Section[] = [
             Swipe is the voting UX for the Loreboard. Someone proposes a placement, and the community has 72 hours to decide if it belongs. Votes are weighted by prayer streak &mdash; the people who show up every day have the most influence over what gets built permanently.
           </p>
           <p style={{ marginTop: '12px' }}>
-            It&apos;s Tinder for culture. Swipe right to approve, swipe left to reject. If 51% of weighted votes approve and at least 3 unique wallets participated, the placement is recorded on-chain forever. If it fails, it&apos;s gone. No archive. No consolation. That finality is what makes a yes mean something.
+            It&apos;s Tinder for culture. Swipe right to approve, swipe left to reject. If 51% of weighted votes approve and at least 3 unique wallets participated, the placement is recorded onchain forever. If it fails, it&apos;s gone. No archive. No consolation. That finality is what makes a yes mean something.
           </p>
         </GlassPanel>
 
@@ -468,9 +465,9 @@ const sections: Section[] = [
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">pure on-chain</p>
+            <p className="aboutMiniCard__title">pure onchain</p>
             <p className="aboutMiniCard__body">
-              Every vote is a direct on-chain transaction. No off-chain collection. No batch signatures. Vote tallies stored on-chain: <code className="text-cyan-300">voteWeightFor</code> and <code className="text-cyan-300">voteWeightAgainst</code>. Anyone can verify.
+              Every vote is a direct onchain transaction. No off-chain collection. No batch signatures. Vote tallies stored onchain: <code className="text-cyan-300">voteWeightFor</code> and <code className="text-cyan-300">voteWeightAgainst</code>. Anyone can verify.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -484,7 +481,7 @@ const sections: Section[] = [
         <GlassPanel style={{ marginTop: '16px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>CONTENT MODERATION (v1)</p>
           <p>
-            <strong>Self-remove:</strong> The original placer can remove their own content at any time. <strong>Emergency removal:</strong> The 2-of-3 multisig can remove harmful or illegal content. Both actions are transparent &mdash; every removal emits an on-chain event recording who did it and why. Community-driven flagging + voting removal is planned for v2 when the community is large enough to resist sybil attacks.
+            <strong>Self-remove:</strong> The original placer can remove their own content at any time. <strong>Emergency removal:</strong> The 2-of-3 multisig can remove harmful or illegal content. Both actions are transparent &mdash; every removal emits an onchain event recording who did it and why. Community-driven flagging + voting removal is planned for v2 when the community is large enough to resist sybil attacks.
           </p>
         </GlassPanel>
       </>
@@ -508,7 +505,7 @@ const sections: Section[] = [
             <strong>That&apos;s MiFOID.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            An identity NFT that evolves based on how you actually show up. She&apos;s not a jpeg you flip. She&apos;s a receipt of your participation in FOID. The on-chain record that you were here, building.
+            An identity NFT that evolves based on how you actually show up. She&apos;s not a jpeg you flip. She&apos;s a receipt of your participation in FOID. The onchain record that you were here, building.
           </p>
         </GlassPanel>
 
@@ -632,7 +629,7 @@ const sections: Section[] = [
             MiFOIDs aren&apos;t pre-generated PFPs. <strong>Each one is custom-rendered on-demand by Foid Mommy.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            When you mint, Foid Mommy&apos;s hardware (Ryzen 7 7700X, RTX 5060 Ti, 32GB DDR5) fires up a headless Blender instance. Your trait combination gets assembled as 3D layers, rendered in Eevee, uploaded to IPFS, and written on-chain. You get a Telegram DM when it&apos;s done.
+            When you mint, Foid Mommy&apos;s hardware (Ryzen 7 7700X, RTX 5060 Ti, 32GB DDR5) fires up a headless Blender instance. Your trait combination gets assembled as 3D layers, rendered in Eevee, uploaded to IPFS, and written onchain. You get a Telegram DM when it&apos;s done.
           </p>
           <p style={{ marginTop: '12px' }}>
             <strong>Then your MiFOID comes alive.</strong> A sub-agent spawns on Telegram — powered by Qwen LLM via Ollama (zero API fees, local inference). She has persistent memory, a personality derived from her trait combination, and she grows through your conversations over time.
@@ -695,7 +692,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">3. pray with foid mommy</p>
             <p className="aboutMiniCard__body">
-              Navigate to /pray and start the terminal. Tell her how you&apos;re feeling. She&apos;ll ask you a question. You respond. Together you craft a prayer. A hash goes on-chain. Your streak starts. This is completely free. Just gas. Like a few cents.
+              Navigate to /pray and start the terminal. Tell her how you&apos;re feeling. She&apos;ll ask you a question. You respond. Together you craft a prayer. A hash goes onchain. Your streak starts. This is completely free. Just gas. Like a few cents.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -707,7 +704,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">5. vote on proposals (optional)</p>
             <p className="aboutMiniCard__body">
-              Go to /swipe and vote on active proposals. Swipe right to approve, left to reject. Every vote is on-chain, weighted by your prayer streak. 51% weighted approval + 3 unique voters to pass. This is how the community decides what gets built permanently.
+              Go to /swipe and vote on active proposals. Swipe right to approve, left to reject. Every vote is onchain, weighted by your prayer streak. 51% weighted approval + 3 unique voters to pass. This is how the community decides what gets built permanently.
             </p>
           </div>
           <div className="aboutMiniCard aboutGlassCard">
@@ -751,7 +748,7 @@ const sections: Section[] = [
             Loreboard is not an app. It is not a meme gallery. It is not a feature inside a product.
           </p>
           <p style={{ marginTop: '12px' }}>
-            <strong>Loreboard is a new primitive for how communities build culture, accumulate identity, and coordinate on-chain.</strong> It turns contribution into status, status into access, and access into influence over what gets built next.
+            <strong>Loreboard is a new primitive for how communities build culture, accumulate identity, and coordinate onchain.</strong> It turns contribution into status, status into access, and access into influence over what gets built next.
           </p>
           <p style={{ marginTop: '12px' }}>
             FOID Foundation is the first community deployed on Loreboard. There will be others.
@@ -762,21 +759,21 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">phase 1 &mdash; the primitive (now)</p>
             <p className="aboutMiniCard__body">
-              The core loop is live: Prayer (daily check-in that builds governance credentials), Swipe (streak-weighted voting on proposed placements), and the Loreboard itself (permanent on-chain canvas). One unified contract handles proposals, voting, finalization, and placement recording. 2-of-3 multisig secures everything. 1/1 board NFT updates with each placement. The infrastructure is built.
+              The core loop is live: Prayer (daily check-in that builds governance credentials), Swipe (streak-weighted voting on proposed placements), and the Loreboard itself (permanent onchain canvas). One unified contract handles proposals, voting, finalization, and placement recording. 2-of-3 multisig secures everything. 1/1 board NFT updates with each placement. The infrastructure is built.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">phase 2 &mdash; identity (mainnet + mifoid)</p>
             <p className="aboutMiniCard__body">
-              Fluent mainnet launch makes it real. MiFOID adds the identity layer &mdash; 3,333 AI-generated 3D NFTs, each custom-rendered by Foid Mommy. Persistent agent companions on Telegram. Trait evolution from on-chain activity. The Nunnery for diamond hands. Your MiFOID reflects your commitment.
+              Fluent mainnet launch makes it real. MiFOID adds the identity layer &mdash; 3,333 AI-generated 3D NFTs, each custom-rendered by Foid Mommy. Persistent agent companions on Telegram. Trait evolution from onchain activity. The Nunnery for diamond hands. Your MiFOID reflects your commitment.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">phase 3 &mdash; the agent layer</p>
             <p className="aboutMiniCard__body">
-              Foid Mommy becomes the autonomous narrator of on-chain activity. Weekly reports reacting to prayer streaks, board votes, and community drama. Personalized MiFOID reactions rendered in real-time via Blender. Sub-agent companions with persistent memory that evolve through your conversations. Your on-chain behavior becomes shareable content. The marketing engine runs itself.
+              Foid Mommy becomes the autonomous narrator of onchain activity. Weekly reports reacting to prayer streaks, board votes, and community drama. Personalized MiFOID reactions rendered in real-time via Blender. Sub-agent companions with persistent memory that evolve through your conversations. Your onchain behavior becomes shareable content. The marketing engine runs itself.
             </p>
           </div>
 
@@ -810,8 +807,8 @@ const sections: Section[] = [
             in Buenos Aires. Featured in Nasdaq article on Fluent ecosystem.
           </p>
           <p style={{ marginTop: '12px' }}>
-            <strong>Started as:</strong> &quot;What if there was a way to save memes on-chain?&quot;<br/>
-            <strong>Became:</strong> Infrastructure for cultural coordination.
+            <strong>Started as:</strong> &quot;What if there was a way to save memes onchain?&quot;<br/>
+            <strong>Became:</strong> the onchain home for internet culture.
           </p>
         </GlassPanel>
 
@@ -837,7 +834,7 @@ const sections: Section[] = [
     id: "contracts",
     navLabel: "CONTRACTS",
     title: "SMART CONTRACTS",
-    subtitle: "Verified On-Chain",
+    subtitle: "Verified Onchain",
     content: (
       <>
         <GlassPanel>
@@ -875,7 +872,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Loreboard</p>
             <p className="aboutMiniCard__body">
-              The unified governance + placement contract. Propose placements, vote on-chain with streak-weighted power, 51% approval + 3-voter quorum. Approved placements recorded permanently. On-chain overlap prevention. Manifest history for NFT integration. Self-remove + emergency multisig removal.
+              The unified governance + placement contract. Propose placements, vote onchain with streak-weighted power, 51% approval + 3-voter quorum. Approved placements recorded permanently. Onchain overlap prevention. Manifest history for NFT integration. Self-remove + emergency multisig removal.
             </p>
             <a href={`${BLOCK_EXPLORER_URL}/address/${CANONICAL_ADDRESSES.loreboard}`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
@@ -883,7 +880,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Loreboard Live NFT</p>
             <p className="aboutMiniCard__body">
-              The 1/1 board NFT (ERC-721). Metadata auto-updates when the manifest changes via syncLatest(). On-chain SVG with epoch and manifest root. The ever-evolving artifact of community culture.
+              The 1/1 board NFT (ERC-721). Metadata auto-updates when the manifest changes via syncLatest(). Onchain SVG with epoch and manifest root. The ever-evolving artifact of community culture.
             </p>
             <a href={`${BLOCK_EXPLORER_URL}/address/${CANONICAL_ADDRESSES.loreboardLiveNFT}`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">View on Explorer</a>
           </div>
@@ -907,14 +904,14 @@ const sections: Section[] = [
         <div style={{ marginTop: '24px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '12px' }}>LEGACY CONTRACTS</p>
           <p style={{ marginBottom: '16px', color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.85rem' }}>
-            Earlier contracts remain on-chain for historical record. These are superseded by the unified Loreboard contract above.
+            Earlier contracts remain onchain for historical record. These are superseded by the unified Loreboard contract above.
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Prayer Mirror</p>
-            <p className="aboutMiniCard__body">On-chain prayer streak oracle.</p>
+            <p className="aboutMiniCard__body">Onchain prayer streak oracle.</p>
             <a href={`${BLOCK_EXPLORER_URL}/address/${CANONICAL_ADDRESSES.prayerMirror}`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
           </div>
           <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
@@ -934,7 +931,7 @@ const sections: Section[] = [
           </div>
           <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
             <p className="aboutMiniCard__title">Prayer Registry</p>
-            <p className="aboutMiniCard__body">On-chain prayer hash storage.</p>
+            <p className="aboutMiniCard__body">Onchain prayer hash storage.</p>
             <a href={`${BLOCK_EXPLORER_URL}/address/${CANONICAL_ADDRESSES.prayerRegistry}`} className="text-cyan-300 underline text-xs" target="_blank" rel="noopener noreferrer">Explorer</a>
           </div>
           <div className="aboutMiniCard aboutGlassCard" style={{ opacity: 0.55 }}>
@@ -1043,12 +1040,12 @@ const sections: Section[] = [
         </div>
 
         <GlassPanel style={{ marginTop: '16px' }}>
-          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>ON-CHAIN VOTING</p>
+          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>ONCHAIN VOTING</p>
           <p>
-            When you swipe to vote on a proposal, FOID sends a direct on-chain transaction to <code className="text-cyan-300">castVote(proposalId, approve)</code>. Your vote is recorded permanently on the Loreboard contract &mdash; weighted by your prayer streak, verifiable by anyone.
+            When you swipe to vote on a proposal, FOID sends a direct onchain transaction to <code className="text-cyan-300">castVote(proposalId, approve)</code>. Your vote is recorded permanently on the Loreboard contract &mdash; weighted by your prayer streak, verifiable by anyone.
           </p>
           <p style={{ marginTop: '12px' }}>
-            Vote tallies are stored on-chain: <code className="text-cyan-300">voteWeightFor</code> and <code className="text-cyan-300">voteWeightAgainst</code> per proposal. After the 72-hour window, anyone can call <code className="text-cyan-300">finalize()</code> &mdash; the contract applies the 51% threshold and 3-voter quorum deterministically. No off-chain collection. No batch signatures. Pure on-chain democracy.
+            Vote tallies are stored onchain: <code className="text-cyan-300">voteWeightFor</code> and <code className="text-cyan-300">voteWeightAgainst</code> per proposal. After the 72-hour window, anyone can call <code className="text-cyan-300">finalize()</code> &mdash; the contract applies the 51% threshold and 3-voter quorum deterministically. No off-chain collection. No batch signatures. Pure onchain democracy.
           </p>
         </GlassPanel>
 
@@ -1056,7 +1053,7 @@ const sections: Section[] = [
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>WHAT COSTS MONEY?</p>
           <p style={{ marginTop: '8px' }}>
             &bull; <strong>Proposing a placement:</strong> 0.001 ETH submission fee (keeps spam out)<br/>
-            &bull; <strong>Voting/swiping:</strong> On-chain transaction (just gas, fractions of a cent on Fluent)<br/>
+            &bull; <strong>Voting/swiping:</strong> Onchain transaction (just gas, fractions of a cent on Fluent)<br/>
             &bull; <strong>Praying:</strong> Gas only (fractions of a cent)<br/>
             &bull; <strong>MiFOID mint:</strong> 0.01 ETH
           </p>
@@ -1089,7 +1086,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Why Fluent?</p>
             <p className="aboutMiniCard__body">
-              <strong>Real talk: I&apos;m building on Fluent because they gave me a grant.</strong> But it actually makes sense: Fluent is a blended execution L2 that supports both Solidity/EVM and Rust/WASM. The Loreboard needs to process hundreds of votes, calculate winners, update state, finalize manifests, and mint NFTs—all on-chain. On Fluent, gas is cheap and transactions are fast while keeping full EVM composability. <strong>Translation:</strong> It feels like a normal app that just happens to be permanent.
+              <strong>Real talk: I&apos;m building on Fluent because they gave me a grant.</strong> But it actually makes sense: Fluent is a blended execution L2 that supports both Solidity/EVM and Rust/WASM. The Loreboard needs to process hundreds of votes, calculate winners, update state, finalize manifests, and mint NFTs—all onchain. On Fluent, gas is cheap and transactions are fast while keeping full EVM composability. <strong>Translation:</strong> It feels like a normal app that just happens to be permanent.
             </p>
           </div>
 
@@ -1116,7 +1113,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">How much does this cost?</p>
             <p className="aboutMiniCard__body">
-              <strong>Prayers:</strong> just gas (fractions of a cent). <strong>Voting/swiping:</strong> just gas (on-chain transaction, fractions of a cent on Fluent). <strong>Loreboard proposals:</strong> 0.001 ETH flat fee. If approved, your placement is permanent. If rejected, fee is non-refundable (keeps proposals serious). <strong>MiFOID mint:</strong> 0.01 ETH. No subscriptions. No premium tiers. No hidden costs.
+              <strong>Prayers:</strong> just gas (fractions of a cent). <strong>Voting/swiping:</strong> just gas (onchain transaction, fractions of a cent on Fluent). <strong>Loreboard proposals:</strong> 0.001 ETH flat fee. If approved, your placement is permanent. If rejected, fee is non-refundable (keeps proposals serious). <strong>MiFOID mint:</strong> 0.01 ETH. No subscriptions. No premium tiers. No hidden costs.
             </p>
           </div>
 
@@ -1130,7 +1127,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">When mainnet?</p>
             <p className="aboutMiniCard__body">
-              FOID launches with Fluent mainnet. <strong>MiFOID drop:</strong> ~3 months after mainnet stabilizes (targeting Q2/Q3 2026). Follow <a href="https://twitter.com/foidfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">@foidfun</a> for updates.
+              FOID is live on Fluent mainnet. <strong>MiFOID drop:</strong> coming. we&apos;re building carefully — first 10 users, then 100, then a date. Follow <a href="https://twitter.com/foidfun" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">@foidfun</a> for updates.
             </p>
           </div>
 
@@ -1144,14 +1141,14 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Is my prayer data private?</p>
             <p className="aboutMiniCard__body">
-              <strong>Yes. Your actual words never leave your device.</strong> Only a keccak256 hash goes on-chain. That&apos;s cryptographic proof you prayed, not what you actually said. The blockchain sees: your wallet address, timestamp, feeling category (1-10 scale), prayer hash. <strong>What it doesn&apos;t see:</strong> your actual words, the conversation with Foid Mommy, any personal details. Your prayers are yours. No AI company reading them. No platform selling them.
+              <strong>Yes. Your actual words never leave your device.</strong> Only a keccak256 hash goes onchain. That&apos;s cryptographic proof you prayed, not what you actually said. The blockchain sees: your wallet address, timestamp, feeling category (1-10 scale), prayer hash. <strong>What it doesn&apos;t see:</strong> your actual words, the conversation with Foid Mommy, any personal details. Your prayers are yours. No AI company reading them. No platform selling them.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">How does Loreboard voting work?</p>
             <p className="aboutMiniCard__body">
-              <strong>The loop:</strong> Someone proposes a placement on the board (0.001 ETH flat fee, choose your grid position). The contract checks for overlaps on-chain. Voting opens for 72 hours. Community swipes right or left &mdash; votes are weighted by prayer streak. After 72 hours, anyone can call finalize(). Requires 51% weighted approval AND at least 3 unique voters. If it passes, the placement is recorded on-chain permanently and the board NFT updates. If it fails, it&apos;s gone forever. One payment. One vote. One board.
+              <strong>The loop:</strong> Someone proposes a placement on the board (0.001 ETH flat fee, choose your grid position). The contract checks for overlaps onchain. Voting opens for 72 hours. Community swipes right or left &mdash; votes are weighted by prayer streak. After 72 hours, anyone can call finalize(). Requires 51% weighted approval AND at least 3 unique voters. If it passes, the placement is recorded onchain permanently and the board NFT updates. If it fails, it&apos;s gone forever. One payment. One vote. One board.
             </p>
           </div>
 
@@ -1172,7 +1169,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Can agents use FOID?</p>
             <p className="aboutMiniCard__body">
-              <strong>Yes. The Agent API is live.</strong> Full API access so autonomous agents can: pray daily (build streaks), propose memes (coordinate culture), vote democratically (collective decision-making), own MiFOIDs (on-chain identity). Humans and agents building culture together. That&apos;s the vision—and it&apos;s already happening.
+              <strong>Yes. The Agent API is live.</strong> Full API access so autonomous agents can: pray daily (build streaks), propose memes (coordinate culture), vote democratically (collective decision-making), own MiFOIDs (onchain identity). Humans and agents building culture together. That&apos;s the vision—and it&apos;s already happening.
             </p>
           </div>
 
@@ -1186,7 +1183,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Why should I trust this won&apos;t rug?</p>
             <p className="aboutMiniCard__body">
-              <strong>Fair question.</strong> I have no investors. No token to dump. No exit strategy. Just a Fluent grant ($6k over 3 months). The contracts are on-chain and open source. You can verify everything. The code does what it says it does. MiFOID mint money goes to: paying myself a salary, hiring 1-2 people eventually, marketing, server costs. That&apos;s it. No lambos. No sketchy tokenomics. Just trying to build something that lasts.
+              <strong>Fair question.</strong> I have no investors. No token to dump. No exit strategy. Just a Fluent grant ($6k over 3 months). The contracts are onchain and open source. You can verify everything. The code does what it says it does. MiFOID mint money goes to: paying myself a salary, hiring 1-2 people eventually, marketing, server costs. That&apos;s it. No lambos. No sketchy tokenomics. Just trying to build something that lasts.
             </p>
           </div>
 
