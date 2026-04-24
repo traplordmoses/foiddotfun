@@ -1447,8 +1447,6 @@ export default function AboutPage() {
           box-shadow:
             inset 0 0 0 1px rgba(255, 255, 255, 0.06),
             0 10px 24px rgba(0, 0, 0, 0.24);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
         }
 
         .aboutPane::before,
@@ -1463,14 +1461,14 @@ export default function AboutPage() {
           border: 1px solid rgba(255, 255, 255, 0.12);
           background: linear-gradient(
             180deg,
-            rgba(255, 255, 255, 0.06),
-            rgba(0, 0, 0, 0.16)
+            rgba(40, 60, 90, 0.45),
+            rgba(10, 20, 40, 0.55)
           );
           box-shadow:
             inset 0 0 0 1px rgba(255, 255, 255, 0.06),
             0 10px 24px rgba(0, 0, 0, 0.24);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          content-visibility: auto;
+          contain-intrinsic-size: auto 320px;
         }
 
         .aboutGlassCard > * {
@@ -1601,8 +1599,6 @@ export default function AboutPage() {
           text-transform: uppercase;
           background: rgba(255, 255, 255, 0.08);
           border-color: rgba(255, 255, 255, 0.15);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
           transform: translateY(0);
           justify-content: center;
           flex: 0 0 auto;
@@ -1624,8 +1620,6 @@ export default function AboutPage() {
         .aboutNavButton:hover {
           background: rgba(255, 255, 255, 0.15);
           border-color: rgba(255, 255, 255, 0.3);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
           transform: translateY(-1px);
           color: rgba(255, 255, 255, 0.92);
         }
@@ -1633,8 +1627,6 @@ export default function AboutPage() {
         .aboutNavButton--active {
           background: rgba(255, 255, 255, 0.2);
           border-color: rgba(255, 255, 255, 0.3);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
           box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
         }
 
@@ -1647,8 +1639,7 @@ export default function AboutPage() {
             position: sticky;
             top: 0;
             z-index: 10;
-            background: transparent;
-            backdrop-filter: blur(12px);
+            background: rgba(15, 25, 45, 0.75);
             padding-bottom: 12px !important;
           }
 
@@ -1733,6 +1724,8 @@ export default function AboutPage() {
           display: grid;
           gap: 14px;
           padding: 20px;
+          content-visibility: auto;
+          contain-intrinsic-size: auto 320px;
         }
 
         .aboutPanel > p {
