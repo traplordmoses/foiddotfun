@@ -18,6 +18,12 @@ export type PersonalizationVariant =
 
 export type Personalization = {
   variant: PersonalizationVariant;
+  /**
+   * Short label above the hero headline (milestone / count / edition).
+   * Rendered as a small, mono, letter-spaced dateline so the headline below
+   * stays a single monumental word. null = omit.
+   */
+  eyebrow: string | null;
   headline: string;
   /** Secondary line shown under the headline. null = omit. */
   subhead: string | null;
@@ -57,6 +63,7 @@ export function tierAccentFor(level: number): string | null {
 
 const DEFAULT: Personalization = {
   variant: "default",
+  eyebrow: null,
   headline: "ENGRAVED",
   subhead: null,
   accent: "#74ffeb",
@@ -83,10 +90,14 @@ export function pickPersonalization(
   userPlacementCount?: number
 ): Personalization {
   // User milestones take priority over meme numbers.
+  // Milestone variants use an `eyebrow` label instead of stuffing the count
+  // into the headline — keeps "ENGRAVED" a single monumental word and gives
+  // the milestone proper editorial hierarchy (eyebrow → hero → subhead).
   if (userPlacementCount === 0) {
     return {
       variant: "milestone-first",
-      headline: "FIRST ENGRAVING",
+      eyebrow: "FIRST",
+      headline: "ENGRAVED",
       subhead: "welcome to the loreboard",
       accent: "#fbbf24",
     };
@@ -94,7 +105,8 @@ export function pickPersonalization(
   if (userPlacementCount === 99) {
     return {
       variant: "milestone-hundred",
-      headline: "100 ENGRAVED",
+      eyebrow: "100",
+      headline: "ENGRAVED",
       subhead: "certified lurker",
       accent: "#a78bfa",
     };
@@ -102,7 +114,8 @@ export function pickPersonalization(
   if (userPlacementCount === 999) {
     return {
       variant: "milestone-thousand",
-      headline: "1000 ENGRAVED",
+      eyebrow: "1000",
+      headline: "ENGRAVED",
       subhead: "undeniable",
       accent: "#f472b6",
     };
@@ -110,11 +123,18 @@ export function pickPersonalization(
 
   if (proposalId != null) {
     if (proposalId === 69) {
-      return { variant: "meme-69", headline: "NICE", subhead: "proposal #69", accent: "#f472b6" };
+      return {
+        variant: "meme-69",
+        eyebrow: null,
+        headline: "NICE",
+        subhead: "proposal #69",
+        accent: "#f472b6",
+      };
     }
     if (proposalId === 420) {
       return {
         variant: "meme-420",
+        eyebrow: null,
         headline: "BLAZE IT",
         subhead: "proposal #420",
         accent: "#22c55e",
@@ -123,6 +143,7 @@ export function pickPersonalization(
     if (proposalId === 1337) {
       return {
         variant: "meme-1337",
+        eyebrow: null,
         headline: "ELITE",
         subhead: "proposal #1337",
         accent: "#06b6d4",
@@ -131,6 +152,7 @@ export function pickPersonalization(
     if (proposalId > 2 && proposalId < 10_000 && isPrime(proposalId)) {
       return {
         variant: "prime",
+        eyebrow: null,
         headline: "ENGRAVED",
         subhead: `prime #${proposalId}`,
         accent: "#e879f9",

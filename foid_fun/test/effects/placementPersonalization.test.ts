@@ -13,7 +13,9 @@ describe("pickPersonalization", () => {
     it("fires 'milestone-first' when userPlacementCount === 0", () => {
       const p = pickPersonalization(42, 0);
       expect(p.variant).toBe("milestone-first");
-      expect(p.headline).toBe("FIRST ENGRAVING");
+      // Milestones use eyebrow + hero split so "ENGRAVED" stays monumental.
+      expect(p.eyebrow).toBe("FIRST");
+      expect(p.headline).toBe("ENGRAVED");
       expect(p.subhead).toBe("welcome to the loreboard");
     });
 
@@ -22,13 +24,15 @@ describe("pickPersonalization", () => {
       // is their 100th. See the pickPersonalization docstring.
       const p = pickPersonalization(1, 99);
       expect(p.variant).toBe("milestone-hundred");
-      expect(p.headline).toBe("100 ENGRAVED");
+      expect(p.eyebrow).toBe("100");
+      expect(p.headline).toBe("ENGRAVED");
     });
 
     it("fires 'milestone-thousand' when userPlacementCount === 999", () => {
       const p = pickPersonalization(9999, 999);
       expect(p.variant).toBe("milestone-thousand");
-      expect(p.headline).toBe("1000 ENGRAVED");
+      expect(p.eyebrow).toBe("1000");
+      expect(p.headline).toBe("ENGRAVED");
     });
 
     it("user milestone takes priority over meme numbers", () => {
@@ -99,6 +103,7 @@ describe("pickPersonalization", () => {
     it("returns default when proposalId is null", () => {
       const p = pickPersonalization(null, 10);
       expect(p.variant).toBe("default");
+      expect(p.eyebrow).toBeNull();
       expect(p.headline).toBe("ENGRAVED");
       expect(p.subhead).toBeNull();
     });

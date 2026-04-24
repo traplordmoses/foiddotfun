@@ -307,6 +307,15 @@ export default function PlacementCelebration({
             </div>
           )}
 
+          {/* Eyebrow — small dateline label for milestones (FIRST, 100, 1000).
+               Renders above the hero word so "ENGRAVED" stays a single
+               monumental line instead of wrapping as a sentence. */}
+          {pers.eyebrow && (
+            <span className="pc-eyebrow" style={{ color: pers.accent }}>
+              · {pers.eyebrow} ·
+            </span>
+          )}
+
           {/* Headline — adapts to milestone / meme / prime variants */}
           <span className="pc-headline">{pers.headline}</span>
           {pers.subhead && <span className="pc-subhead">{pers.subhead}</span>}
@@ -545,6 +554,26 @@ export default function PlacementCelebration({
           to { transform: translateX(150%); }
         }
 
+        /* ── Eyebrow (milestone dateline) ── */
+        .pc-eyebrow {
+          font-family: var(--font-terminal, ui-monospace, "SF Mono", monospace);
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.4em;
+          text-transform: uppercase;
+          text-align: center;
+          /* Color is set inline from pers.accent so each milestone gets its
+             own hue (gold / purple / pink). */
+          text-shadow: 0 0 12px currentColor;
+          opacity: 0;
+          /* Enters ~150ms before the headline so it reads as a dateline. */
+          animation: pc-eyebrow-in 500ms 1150ms ease-out forwards;
+        }
+        @keyframes pc-eyebrow-in {
+          from { opacity: 0; transform: translateY(4px); letter-spacing: 0.2em; }
+          to   { opacity: 0.9; transform: translateY(0); letter-spacing: 0.4em; }
+        }
+
         /* ── ENGRAVED headline ── */
         .pc-headline {
           position: relative; z-index: 5;
@@ -552,7 +581,8 @@ export default function PlacementCelebration({
           font-weight: 900;
           font-size: clamp(30px, 6vw, 52px);
           letter-spacing: 0.32em;
-          line-height: 1;
+          line-height: 1.05;
+          text-wrap: balance;
           text-transform: uppercase;
           /* FOID palette gradient — cyan → purple → pink with white highlights */
           background: linear-gradient(
@@ -738,6 +768,7 @@ export default function PlacementCelebration({
         @media (prefers-reduced-motion: reduce) {
           .pc-flash, .pc-particles-canvas, .pc-lightning, .pc-shockwave { display: none; }
           .pc-slab { animation: none; opacity: 1; }
+          .pc-eyebrow { animation: none; opacity: 0.9; }
           .pc-headline { animation: none; opacity: 1; -webkit-text-fill-color: #74ffeb; }
           .pc-subhead { animation: none; opacity: 1; }
           .pc-tier-subhead { animation: none; opacity: 1; }
