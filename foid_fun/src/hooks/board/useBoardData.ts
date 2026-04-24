@@ -1,7 +1,7 @@
 // /src/hooks/board/useBoardData.ts
 // Unified data loading for the board. Replaces the two-track pattern in page.tsx:
 //   - /api/proposals  (canonized + voting)
-//   - /api/swipe/proposals  (on-chain voting in progress)
+//   - /api/swipe/proposals  (onchain voting in progress)
 // Exposes a single atomic snapshot with { proposals, voting, debug }.
 //
 // Previously this hook polled the expensive endpoints on a raw 12s interval —

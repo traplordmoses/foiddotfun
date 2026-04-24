@@ -139,7 +139,7 @@ export default function PlacementCelebration({
   // Share to X — randomised tweet templates.
   // The share URL deep-links back into the same celebration for anyone who
   // clicks it: /board?celebrate=<proposalId> → the board page re-runs the
-  // celebration component on mount using on-chain data.
+  // celebration component on mount using onchain data.
   const handleShare = () => {
     const deepLink =
       proposalId != null

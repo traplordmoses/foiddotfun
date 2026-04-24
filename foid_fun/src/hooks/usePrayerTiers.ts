@@ -61,7 +61,7 @@ export function getTierFromStreak(streakDays: number): TierProgress {
   return { current: currentTier, next: nextTier, daysToNextTier, progressPercent };
 }
 
-/** Hook to read tier info from the on-chain PrayerTiers contract for a given address. */
+/** Hook to read tier info from the onchain PrayerTiers contract for a given address. */
 export function usePrayerTiers(address?: string) {
   const contractAddress = CONTRACTS.PRAYER_TIERS as `0x${string}`;
   const enabled = !!address && !!contractAddress;

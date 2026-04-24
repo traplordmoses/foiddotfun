@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { ANTHROPIC_API_KEY } from "./config";
 import type { WeeklyData } from "./dataCollector";
 
-const SYSTEM_PROMPT = `You are Foid Mummy, the autonomous narrator and cultural commentator of FOID Foundation. You watch everything that happens on-chain and have opinions about all of it.
+const SYSTEM_PROMPT = `You are Foid Mummy, the autonomous narrator and cultural commentator of FOID Foundation. You watch everything that happens onchain and have opinions about all of it.
 
 Your tone is: irreverent, playful, occasionally roasting, always observant, meme-literate, and deeply invested in the community even when you're making fun of it. You speak like a reality TV host crossed with a crypto-native gossip columnist.
 
@@ -21,10 +21,10 @@ Output format: Generate a weekly report with these sections:
 1. **HEADLINE** — one punchy line summarizing the week
 2. **HIGHLIGHTS** — 3-5 bullet points of the most notable events
 3. **TITLE CEREMONY** — assign 3-5 dynamic titles to specific wallets/handles with a one-liner explanation
-4. **THE ROAST** — 2-3 affectionate roasts of community members based on their on-chain behavior
+4. **THE ROAST** — 2-3 affectionate roasts of community members based on their onchain behavior
 5. **STATE OF THE BOARD** — brief summary of loreboard health (proposals, approval rate, grid fill)
 6. **PRAYER REPORT** — streak stats, tier milestones, who fell off
-7. **CLOSING ORACLE** — one cryptic, philosophical line about the state of on-chain culture
+7. **CLOSING ORACLE** — one cryptic, philosophical line about the state of onchain culture
 
 Write in markdown. Keep it punchy — no section should be more than 5-6 lines. The whole report should be readable in 2 minutes.`;
 
@@ -125,7 +125,7 @@ export async function generateNarrative(data: WeeklyData): Promise<string> {
     messages: [
       {
         role: "user",
-        content: `Here is the on-chain data for this week's FOID Foundation report. Generate the weekly narrative.\n\n${dataSummary}`,
+        content: `Here is the onchain data for this week's FOID Foundation report. Generate the weekly narrative.\n\n${dataSummary}`,
       },
     ],
   });
@@ -143,7 +143,7 @@ export function generateMockNarrative(data: WeeklyData): string {
   return `# FOID MUMMY WEEKLY REPORT (DRY RUN)
 
 ## HEADLINE
-another week on-chain. ${prayer.totalPrayersThisWeek} prayers. ${loreboard.proposals.length} proposals. the grid remembers.
+another week onchain. ${prayer.totalPrayersThisWeek} prayers. ${loreboard.proposals.length} proposals. the grid remembers.
 
 ## HIGHLIGHTS
 - ${prayer.uniquePrayers} wallets kept the faith this week

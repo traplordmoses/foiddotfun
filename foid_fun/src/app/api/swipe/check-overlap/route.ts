@@ -1,7 +1,7 @@
 // GET /api/swipe/check-overlap?x=N&y=N&w=N&h=N
 // Pre-flight check before propose() — rejects if the rect
 // overlaps any existing voting or approved placement.
-// The contract also enforces this on-chain, but this saves gas on revert.
+// The contract also enforces this onchain, but this saves gas on revert.
 import { NextRequest, NextResponse } from "next/server";
 import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { CONTRACTS } from "@/lib/contracts/addresses";

@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
           if (sp.cid) proposalByCid.set(stripIpfs(sp.cid), sp);
         }
 
-        // Read on-chain placements and build entries for new ones
+        // Read onchain placements and build entries for new ones
         const newPlacements: ManifestPlacement[] = [];
         for (let i = 0; i < placementCount; i++) {
           const p = (await publicClient.readContract({
@@ -302,7 +302,7 @@ export async function POST(request: NextRequest) {
           const gridH = Math.abs(p.h);
           const cells = Math.floor(gridW / TILE) * Math.floor(gridH / TILE);
 
-          // Deterministic ID: use stored ID or derive from on-chain data
+          // Deterministic ID: use stored ID or derive from onchain data
           const placementId: string =
             meta?.id ??
             keccak256(
@@ -363,7 +363,7 @@ export async function POST(request: NextRequest) {
         );
         console.log(`[finalize] manifest uploaded: cid=${manifestCid}`);
 
-        // Anchor manifest on-chain via setManifestCID
+        // Anchor manifest onchain via setManifestCID
         const anchorHash: Hash = await walletClient.writeContract({
           address: contractAddress,
           abi: LOREBOARD_ABI,

@@ -10,7 +10,7 @@
 //
 // Aggregate emits:
 //   onItemProgress(itemId, state, detail?) — every transition
-//   onItemConfirmed(...)                    — when an item lands on-chain
+//   onItemConfirmed(...)                    — when an item lands onchain
 //   onAllDone({ confirmed, failed })        — at the end of the batch
 //
 // The caller decides what to do with partial failures (retry UI, toast, etc.).

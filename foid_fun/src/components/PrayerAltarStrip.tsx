@@ -12,7 +12,7 @@ type Props = {
   loading: boolean;
   connected: boolean;
   afterglow: boolean;
-  /** True if the user has anchored at least one prayer on-chain ever. */
+  /** True if the user has anchored at least one prayer onchain ever. */
   hasEverPrayed: boolean;
 };
 

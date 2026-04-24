@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { IS_MAINNET } from "@/config/canonical";
 
-// Loreboard unified subgraph — on-chain votes via castVote()
+// Loreboard unified subgraph — onchain votes via castVote()
 const DEFAULT_LOREBOARD_URL = IS_MAINNET
   ? "" // No mainnet subgraph deployed yet
   : "https://api.goldsky.com/api/public/project_cmkwd7dgh0bq501z7fog65iag/subgraphs/foid-loreboard-fluent-testnet/1.0.0/gn";

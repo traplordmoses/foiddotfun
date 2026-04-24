@@ -573,7 +573,7 @@ export function playVictoryChord(): void {
   master.gain.linearRampToValueAtTime(0, ac.currentTime + 1.2);
 }
 
-/** Resonant bell tone when prayer anchors on-chain */
+/** Resonant bell tone when prayer anchors onchain */
 export function playAnchorBell(): void {
   if (!isBrowser || !unlocked) return;
   const settings = getAudioSettings();
@@ -755,7 +755,7 @@ export function playSignatureRequested(): void {
   osc.stop(now + 0.24);
 }
 
-/** Bell tone when a signature is confirmed on-chain. */
+/** Bell tone when a signature is confirmed onchain. */
 export function playSignatureConfirmed(): void {
   if (!isBrowser || !unlocked) return;
   const settings = getAudioSettings();

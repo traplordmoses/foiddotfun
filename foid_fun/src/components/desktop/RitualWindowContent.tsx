@@ -52,7 +52,7 @@ export default function RitualWindowContent() {
 
       {/* Description */}
       <p className="text-sm text-white/70 mb-4 max-w-[240px]">
-        Anchor your presence on-chain. Build your streak. Shape your mifoid.
+        Anchor your presence onchain. Build your streak. Shape your mifoid.
       </p>
 
       {/* Streak Display */}

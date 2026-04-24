@@ -51,7 +51,7 @@ export function useSwipePropose() {
 
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
-        // Parse the ProposalCreated event to get the on-chain proposalId
+        // Parse the ProposalCreated event to get the onchain proposalId
         let proposalId: number | null = null;
         try {
           const { parseEventLogs } = await import("viem");

@@ -81,7 +81,7 @@ function isPrime(n: number): boolean {
 
 /**
  * Choose a variant for a freshly-confirmed placement. `proposalId` is the
- * on-chain id. `userPlacementCount` is the user's *previous* placement count
+ * onchain id. `userPlacementCount` is the user's *previous* placement count
  * (not including this one) so e.g. userPlacementCount === 0 means this is
  * their first.
  */

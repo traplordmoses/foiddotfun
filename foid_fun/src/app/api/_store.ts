@@ -303,7 +303,7 @@ export function getLatestManifest(): StoredManifest | null {
   };
 }
 
-// ─── On-chain linking helpers ───
+// ─── Onchain linking helpers ───
 
 export function getProposalByOnChainId(onChainId: number): Proposal | null {
   const db = getDb();

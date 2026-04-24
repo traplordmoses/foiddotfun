@@ -1,5 +1,5 @@
 // src/hooks/useSwipeCastVote.ts
-// Direct on-chain voting for Swipe proposals.
+// Direct onchain voting for Swipe proposals.
 // Replaces the old EIP-712 sign + SQLite + batch-finalize flow entirely.
 import { useCallback, useState } from "react";
 import {
@@ -38,7 +38,7 @@ export function useSwipeCastVote({ proposalId }: UseSwipeCastVoteParams) {
     hash: txHash ?? undefined,
   });
 
-  // Read on-chain vote tallies
+  // Read onchain vote tallies
   const { data: rawFor, refetch: refetchFor } = useReadContract({
     address: swipeAddress,
     abi: LOREBOARD_ABI,
@@ -114,7 +114,7 @@ export function useSwipeCastVote({ proposalId }: UseSwipeCastVoteParams) {
     error: writeError || confirmError,
     reset,
     refetch,
-    // Vote tallies (canonical on-chain voting path)
+    // Vote tallies (canonical onchain voting path)
     weightFor,
     weightAgainst,
     totalWeight,

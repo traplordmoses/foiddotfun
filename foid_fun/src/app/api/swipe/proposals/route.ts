@@ -246,7 +246,7 @@ async function fetchSwipeProposalsFromChain(): Promise<SwipePayload> {
 
         const p = parseProposal(result.value);
 
-        // Read on-chain vote tallies
+        // Read onchain vote tallies
         let forCount = 0;
         let againstCount = 0;
         try {

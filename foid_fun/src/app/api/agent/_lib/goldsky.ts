@@ -1,4 +1,4 @@
-// Direct on-chain reads for the agent board (no Goldsky subgraph yet).
+// Direct onchain reads for the agent board (no Goldsky subgraph yet).
 // Uses chunked getLogs to stay within QuickNode's 10 000-block limit.
 
 import type { Abi, Log } from "viem";

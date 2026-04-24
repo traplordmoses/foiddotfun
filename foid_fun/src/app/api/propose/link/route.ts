@@ -1,8 +1,8 @@
 // src/app/api/propose/link/route.ts
 //
-// Links a local proposal to its on-chain Swipe proposalId.
+// Links a local proposal to its onchain Swipe proposalId.
 // Called by the frontend after Swipe.proposeLoreboard() tx is confirmed.
-// The on-chain ID is needed for vote settlement via Swipe.finalize().
+// The onchain ID is needed for vote settlement via Swipe.finalize().
 
 import { NextRequest, NextResponse } from "next/server";
 import { linkOnChainId } from "../../_store";

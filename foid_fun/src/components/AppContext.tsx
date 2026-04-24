@@ -146,7 +146,7 @@ export function AppContext() {
               </div>
             ) : (
               <div className="text-xs text-white/70">
-                Your on-chain identity. One per soul.
+                Your onchain identity. One per soul.
               </div>
             )}
           </div>

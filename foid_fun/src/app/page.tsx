@@ -170,7 +170,7 @@ export default function LandingPage() {
                     the internet&apos;s permanent memory
                   </p>
                   <p className="home-tagline font-mono text-[9px] sm:text-[11px] tracking-[0.06em] text-center mt-3 sm:mt-4 max-w-[520px] mx-auto leading-relaxed">
-                    Pray daily. Vote on culture. Build the permanent internet collage.
+                    pray daily. vote on culture. build the permanent internet collage.
                   </p>
                 </div>
 

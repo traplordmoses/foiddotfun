@@ -128,7 +128,7 @@ export function useActivityFeed() {
       } else {
         // Ambient fallback — show gentle activity so homepage feels alive
         const ambient: Omit<ActivityItem, "id" | "timestamp">[] = [
-          { type: "prayer",   message: "prayer anchored on-chain",           accent: ACCENT.prayer },
+          { type: "prayer",   message: "prayer anchored onchain",             accent: ACCENT.prayer },
           { type: "vote",     message: "vote cast for on PROP #0",           accent: ACCENT.vote },
           { type: "proposal", message: "new proposal submitted to loreboard", accent: ACCENT.proposal },
           { type: "prayer",   message: "streak extended — day 12",           accent: ACCENT.prayer },

@@ -24,7 +24,7 @@ import {
   type Placement,
   type Proposal,
 } from "../../_store";
-// Legacy SQLite vote store removed — votes are on-chain now
+// Legacy SQLite vote store removed — votes are onchain now
 import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { loadLatestFinalized } from "@/lib/manifest";
 import { hasOverlap } from "@/lib/grid";
@@ -268,7 +268,7 @@ async function loadBaseBoardFromOnchain() {
 
   if (!logs.length) {
     devLog(
-      "[finalize] no Finalized logs on-chain yet and no manifest fallback – defaulting to empty board"
+      "[finalize] no Finalized logs onchain yet and no manifest fallback – defaulting to empty board"
     );
     return { basePlacements: [] as Placement[], latestEpoch: null, source: "none" };
   }
@@ -458,8 +458,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── On-chain vote settlement via Swipe.finalize() ──
-  // Each candidate's EIP-712 signed votes are submitted on-chain.
+  // ── Onchain vote settlement via Swipe.finalize() ──
+  // Each candidate's EIP-712 signed votes are submitted onchain.
   // The Swipe contract verifies signatures, checks weighted voting power,
   // and enforces the approval threshold (51%).
   const swipeAddress = CANONICAL_ADDRESSES.swipe as `0x${string}`;
@@ -470,7 +470,7 @@ export async function POST(req: NextRequest) {
     const onChainId = (candidate as Record<string, unknown>).on_chain_id as number | undefined;
 
     if (onChainId == null) {
-      // No on-chain proposal ID linked — cannot settle on-chain
+      // No onchain proposal ID linked — cannot settle onchain
       devWarn(`[finalize] proposal ${candidate.id} has no on_chain_id, skipping`);
       candidate.status = "rejected";
       rejected.push(candidate);
@@ -478,10 +478,10 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    // On-chain voting — the contract handles zero-vote rejection automatically
+    // Onchain voting — the contract handles zero-vote rejection automatically
 
     try {
-      // Call Loreboard.finalize() on-chain (single arg — permissionless, tallies are on-chain)
+      // Call Loreboard.finalize() onchain (single arg — permissionless, tallies are onchain)
       const finalizeTxHash = await wallet.writeContract({
         address: swipeAddress,
         abi: LOREBOARD_ABI,
@@ -535,11 +535,11 @@ export async function POST(req: NextRequest) {
       }
 
       if (approved) {
-        devLog(`[finalize] proposal ${candidate.id} (chain=${onChainId}): APPROVED on-chain`);
+        devLog(`[finalize] proposal ${candidate.id} (chain=${onChainId}): APPROVED onchain`);
         candidate.status = "accepted";
         passed.push(candidate);
       } else {
-        devLog(`[finalize] proposal ${candidate.id} (chain=${onChainId}): REJECTED on-chain (threshold not met)`);
+        devLog(`[finalize] proposal ${candidate.id} (chain=${onChainId}): REJECTED onchain (threshold not met)`);
         candidate.status = "rejected";
         rejected.push(candidate);
       }

@@ -114,7 +114,7 @@ async function createActiveWalletClient() {
       const addr = session.address as `0x${string}`;
       // Local nonce tracker to prevent collisions in rapid batch transactions.
       // Tracks the next nonce to use per-address so sequential sends don't
-      // all fetch the same on-chain nonce before any of them are mined.
+      // all fetch the same onchain nonce before any of them are mined.
       // Only advanced after a successful broadcast so a failed signing/send
       // doesn't permanently skip a nonce.
       let pendingNonce: number | null = null;

@@ -27,7 +27,7 @@ export async function GET(
 
   try {
     // Prayer data from main contracts (shared across all boards)
-    // Note: prayer stats reflect the relayer's on-chain state, not per-agent.
+    // Note: prayer stats reflect the relayer's onchain state, not per-agent.
     const [prayerStats, cooldown] = await Promise.all([
       client.readContract({
         address: CONTRACTS.PRAYER_MIRROR as `0x${string}`,
@@ -45,7 +45,7 @@ export async function GET(
     ]);
 
     // Agent board proposals and votes via direct contract event scanning.
-    // Note: on-chain bidder/voter is the relayer address, not the agent wallet.
+    // Note: onchain bidder/voter is the relayer address, not the agent wallet.
     // Per-agent attribution requires off-chain tracking or a subgraph.
     const [proposals, votes] = await Promise.allSettled([
       fetchProposals(address),

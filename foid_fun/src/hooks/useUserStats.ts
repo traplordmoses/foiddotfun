@@ -71,7 +71,7 @@ export function useUserStats(address: `0x${string}` | undefined) {
       }
 
       try {
-        // Count votes from SQLite via API (EIP-712 votes aren't on-chain events)
+        // Count votes from SQLite via API (EIP-712 votes aren't onchain events)
         const res = await fetch(`/api/swipe/vote?voter=${address}&count=true`);
         if (res.ok) {
           const data = await res.json();
