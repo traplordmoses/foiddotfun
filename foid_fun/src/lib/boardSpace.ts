@@ -6,8 +6,13 @@ const WORLD_RADIUS = WORLD_RADIUS_TILES * TILE;
 export const VIRTUAL_CANVAS_W = WORLD_RADIUS * 2;
 export const VIRTUAL_CANVAS_H = WORLD_RADIUS * 2;
 
-export const BOARD_OFFSET_X = VIRTUAL_CANVAS_W / 2;
-export const BOARD_OFFSET_Y = VIRTUAL_CANVAS_H / 2;
+// Frozen at the original 128-tile offset (4096) — existing placements were
+// stored on-chain with `contractX = worldX + 4096`. Deriving this from the
+// expanded WORLD_RADIUS would shift every existing placement by ~28k px.
+// See commit 6861059 for the world-radius expansion that broke this.
+const LEGACY_OFFSET = 128 * TILE;
+export const BOARD_OFFSET_X = LEGACY_OFFSET;
+export const BOARD_OFFSET_Y = LEGACY_OFFSET;
 
 export const WORLD_MIN_X = -WORLD_RADIUS;
 export const WORLD_MIN_Y = -WORLD_RADIUS;

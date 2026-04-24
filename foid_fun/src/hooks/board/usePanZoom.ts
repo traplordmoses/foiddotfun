@@ -396,9 +396,13 @@ export function usePanZoom(containerRef: RefObject<HTMLElement | null>): UsePanZ
     const el = containerRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
+    // Center viewport on world origin rather than stage center. BOARD_OFFSET
+    // is frozen at the legacy 4096 (see boardSpace.ts), so the stage center
+    // and world origin no longer coincide — centering on stage center would
+    // land the viewport ~28k px away from every existing placement.
     const initial = {
-      x: (r.width - STAGE_CANVAS_W) / 2,
-      y: (r.height - STAGE_CANVAS_H) / 2,
+      x: r.width / 2 - (STAGE_PAD_X + BOARD_OFFSET_X),
+      y: r.height / 2 - (STAGE_PAD_Y + BOARD_OFFSET_Y),
     };
     panRef.current = initial;
     scaleRef.current = 1;

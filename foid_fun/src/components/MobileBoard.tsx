@@ -35,9 +35,12 @@ export function MobileBoard({
   const { isMobile, screenWidth, screenHeight } = useMobile();
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  // Canvas state - start at 30% zoom for better overview
+  // Canvas state - start at 30% zoom for better overview, centered on world origin.
   const [scale, setScale] = useState(0.3);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState(() => ({
+    x: (typeof window !== 'undefined' ? window.innerWidth : 375) / 2,
+    y: (typeof window !== 'undefined' ? window.innerHeight : 667) / 2,
+  }));
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
 
   // Pan bounds - allow panning up to 2x screen dimensions from center
