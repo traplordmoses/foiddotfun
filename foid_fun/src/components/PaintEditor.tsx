@@ -1920,34 +1920,22 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
         >
           {tool === "draw" && (
             <>
-              {/* COLOR — fixed 2×5 grid of 10 swatches, flanked by the label
-                  on the left and the native color picker on the right. The
-                  old flex-wrap layout broke on narrow viewports (6 on row 1,
-                  3 + gap on row 2); the grid guarantees a clean 5-per-row
-                  regardless of tray width. */}
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span
-                  style={{
-                    fontSize: 8,
-                    color: "rgba(0,204,204,0.7)",
-                    fontFamily: "var(--font-terminal), monospace",
-                    letterSpacing: "0.1em",
-                    flexShrink: 0,
-                    width: 36,
-                  }}
-                >
-                  COLOR
-                </span>
-                <div
-                  style={{
-                    flex: 1,
-                    display: "grid",
-                    gridTemplateColumns: "repeat(5, 1fr)",
-                    gridAutoRows: 28,
-                    gap: 6,
-                  }}
-                >
-                  {[...FOID_COLORS, ...STANDARD_COLORS.slice(0, 4)].map((c) => (
+              {/* Colors — single row of 22 px circular swatches. Selection is
+                  a soft cyan ring instead of a thick white border so the
+                  active swatch reads as an accent, not a chunky chip. Custom
+                  picker sits at the end as a rainbow "+" swatch. */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 6,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  rowGap: 6,
+                }}
+              >
+                {[...FOID_COLORS, ...STANDARD_COLORS.slice(0, 4)].map((c) => {
+                  const selected = color === c;
+                  return (
                     <button
                       key={c}
                       onClick={() => {
@@ -1955,102 +1943,105 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
                         haptic("light");
                       }}
                       aria-label={`Set color ${c}`}
-                      aria-pressed={color === c}
+                      aria-pressed={selected}
                       style={{
-                        height: 28,
-                        borderRadius: 6,
-                        border:
-                          color === c
-                            ? "2px solid #fff"
-                            : `1px solid ${c === "#000000" ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.15)"}`,
+                        width: 22,
+                        height: 22,
+                        borderRadius: "50%",
+                        border: selected
+                          ? "2px solid #00cccc"
+                          : `1px solid ${c === "#000000" ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.18)"}`,
                         background: c,
                         cursor: "pointer",
                         padding: 0,
-                        boxShadow: color === c ? `0 0 8px ${c}80` : "none",
+                        flexShrink: 0,
+                        boxShadow: selected ? "0 0 8px rgba(0,204,204,0.55)" : "none",
+                        transition: "box-shadow 0.15s, border-color 0.15s",
                       }}
                     />
-                  ))}
-                </div>
-                <input
-                  type="color"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                  aria-label="Custom color"
+                  );
+                })}
+                <label
+                  title="Custom color"
                   style={{
-                    width: 28,
-                    height: 28,
+                    position: "relative",
+                    width: 22,
+                    height: 22,
+                    flexShrink: 0,
                     cursor: "pointer",
-                    border: "1px solid rgba(255,255,255,0.15)",
-                    borderRadius: 6,
-                    padding: 0,
-                    background: "transparent",
-                    flexShrink: 0,
-                  }}
-                />
-              </div>
-
-              {/* SIZE — brush thickness presets */}
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <span
-                  style={{
-                    fontSize: 8,
-                    color: "rgba(0,204,204,0.7)",
-                    fontFamily: "var(--font-terminal), monospace",
-                    letterSpacing: "0.1em",
-                    flexShrink: 0,
-                    width: 36,
                   }}
                 >
-                  SIZE
-                </span>
-                {[2, 4, 8, 16, 30].map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setBrushSize(size)}
-                    aria-label={`Brush size ${size}`}
-                    aria-pressed={brushSize === size}
+                  <input
+                    type="color"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    aria-label="Custom color"
                     style={{
-                      flex: 1,
-                      height: 32,
-                      borderRadius: 6,
-                      border: brushSize === size ? "1px solid rgba(0,204,204,0.6)" : "1px solid rgba(255,255,255,0.1)",
-                      background: brushSize === size ? "rgba(0,204,204,0.15)" : "rgba(255,255,255,0.04)",
+                      position: "absolute",
+                      inset: 0,
+                      width: 22,
+                      height: 22,
+                      opacity: 0,
                       cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: brushSize === size ? "#00cccc" : "rgba(255,255,255,0.6)",
-                      padding: 0,
                     }}
-                  >
-                    <div
-                      style={{
-                        width: Math.min(size, 16),
-                        height: Math.min(size, 16),
-                        borderRadius: "50%",
-                        background: "currentColor",
-                      }}
-                    />
-                  </button>
-                ))}
+                  />
+                  <div
+                    aria-hidden
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: "50%",
+                      background:
+                        "conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)",
+                      border: "1px solid rgba(255,255,255,0.25)",
+                    }}
+                  />
+                </label>
               </div>
 
-              {/* OPAC — full-width row so the slider has real runway. Value
-                  readout hugs the right edge. Previously the slider was
-                  squeezed inline with SIZE + Redo + Clear on a wrap row. */}
+              {/* Size + Opacity in one row. Size dots are fixed-width pills,
+                  leaving the rest of the width for the opacity slider. The
+                  old layout stacked three full-width rows (SIZE / OPAC /
+                  REDO+CLEAR) which felt heavy on a phone. */}
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span
-                  style={{
-                    fontSize: 8,
-                    color: "rgba(0,204,204,0.7)",
-                    fontFamily: "var(--font-terminal), monospace",
-                    letterSpacing: "0.1em",
-                    flexShrink: 0,
-                    width: 36,
-                  }}
-                >
-                  OPAC
-                </span>
+                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                  {[2, 4, 8, 16, 30].map((size) => {
+                    const active = brushSize === size;
+                    return (
+                      <button
+                        key={size}
+                        onClick={() => setBrushSize(size)}
+                        aria-label={`Brush size ${size}`}
+                        aria-pressed={active}
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: 6,
+                          border: active
+                            ? "1px solid rgba(0,204,204,0.6)"
+                            : "1px solid rgba(255,255,255,0.08)",
+                          background: active ? "rgba(0,204,204,0.12)" : "transparent",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: active ? "#00cccc" : "rgba(255,255,255,0.55)",
+                          padding: 0,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: Math.min(size / 2, 12),
+                            height: Math.min(size / 2, 12),
+                            borderRadius: "50%",
+                            background: "currentColor",
+                          }}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
                 <input
                   type="range"
                   min={5}
@@ -2058,14 +2049,20 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
                   value={Math.round(brushOpacity * 100)}
                   onChange={(e) => setBrushOpacity(Number(e.target.value) / 100)}
                   aria-label="Brush opacity"
-                  style={{ flex: 1, minWidth: 0, accentColor: "#00cccc", cursor: "pointer", height: 28 }}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    accentColor: "#00cccc",
+                    cursor: "pointer",
+                    height: 22,
+                  }}
                 />
                 <span
                   style={{
                     fontSize: 10,
                     color: "#00cccc",
                     fontFamily: "var(--font-terminal), monospace",
-                    minWidth: 34,
+                    minWidth: 30,
                     textAlign: "right",
                     flexShrink: 0,
                   }}
@@ -2074,9 +2071,16 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
                 </span>
               </div>
 
-              {/* Redo + Clear — right-aligned so the action cluster reads as
-                  secondary chrome to the primary color / size / opac rows. */}
-              <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
+              {/* Redo + Clear — small icon-weight buttons so they read as
+                  secondary. Right-aligned. */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 6,
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                }}
+              >
                 <button
                   title="Redo"
                   aria-label="Redo"
@@ -2086,13 +2090,17 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
                   }}
                   disabled={historyIdx >= history.length - 1}
                   style={{
-                    width: 32,
-                    height: 32,
+                    width: 26,
+                    height: 26,
                     borderRadius: 6,
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    background: "rgba(255,255,255,0.04)",
-                    color: historyIdx >= history.length - 1 ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.65)",
-                    cursor: historyIdx >= history.length - 1 ? "not-allowed" : "pointer",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "transparent",
+                    color:
+                      historyIdx >= history.length - 1
+                        ? "rgba(255,255,255,0.22)"
+                        : "rgba(255,255,255,0.55)",
+                    cursor:
+                      historyIdx >= history.length - 1 ? "not-allowed" : "pointer",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -2105,12 +2113,16 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
                   title={clearPending ? "Tap again to confirm" : "Clear all"}
                   onClick={handleClearClick}
                   style={{
-                    height: 32,
-                    padding: "0 12px",
+                    height: 26,
+                    padding: "0 10px",
                     borderRadius: 6,
-                    border: clearPending ? "1px solid rgba(255,60,60,0.6)" : "1px solid rgba(255,255,255,0.1)",
-                    background: clearPending ? "rgba(255,60,60,0.15)" : "rgba(255,255,255,0.04)",
-                    color: clearPending ? "#ff6666" : "rgba(255,255,255,0.65)",
+                    border: clearPending
+                      ? "1px solid rgba(255,60,60,0.5)"
+                      : "1px solid rgba(255,255,255,0.08)",
+                    background: clearPending
+                      ? "rgba(255,60,60,0.12)"
+                      : "transparent",
+                    color: clearPending ? "#ff6666" : "rgba(255,255,255,0.55)",
                     fontSize: 10,
                     fontFamily: "var(--font-terminal), monospace",
                     letterSpacing: "0.04em",
