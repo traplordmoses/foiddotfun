@@ -93,9 +93,20 @@ export default function VotePage() {
   });
 
   // ── Fetch proposals ──
-  const refetchProposals = useCallback(async () => {
+  //
+  // `forceFresh` skips the server's 15s in-memory cache (via ?bust=1).
+  // Scheduled polls and visibility-change refetches leave it off so the
+  // cache still coalesces bursts across users. Two moments flip it on:
+  //   1. Supabase `useBoardEvents` notifies us a proposal was just
+  //      created or finalized — the cached snapshot predates the event.
+  //   2. After the user votes — they expect the next active proposal
+  //      to reflect the vote they just cast.
+  const refetchProposals = useCallback(async (opts: { forceFresh?: boolean } = {}) => {
+    const url = opts.forceFresh
+      ? "/api/swipe/proposals?bust=1"
+      : "/api/swipe/proposals";
     try {
-      const res = await fetch("/api/swipe/proposals");
+      const res = await fetch(url);
       if (!res.ok) throw new Error("fetch failed");
       const data = await res.json();
       setProposals(data.proposals ?? []);
@@ -109,20 +120,25 @@ export default function VotePage() {
   }, []);
 
   useEffect(() => {
-    refetchProposals();
-    const interval = setInterval(refetchProposals, 15_000);
+    // Initial mount: bust the server cache. Users typically land on
+    // /vote right after submitting a proposal elsewhere (/swipe, /board)
+    // — a 15s-stale cache would hide their submission. One extra
+    // proposalCount probe per visit is cheap; subsequent polls reuse
+    // the cache as normal.
+    refetchProposals({ forceFresh: true });
+    const interval = setInterval(() => refetchProposals(), 15_000);
     let debounceTimer: ReturnType<typeof setTimeout>;
     const onVis = () => {
       if (document.visibilityState === "visible") {
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(refetchProposals, 2000);
+        debounceTimer = setTimeout(() => refetchProposals(), 2000);
       }
     };
     document.addEventListener("visibilitychange", onVis);
     return () => { clearInterval(interval); document.removeEventListener("visibilitychange", onVis); clearTimeout(debounceTimer); };
   }, [refetchProposals]);
 
-  useBoardEvents(useCallback(() => { refetchProposals(); }, [refetchProposals]));
+  useBoardEvents(useCallback(() => { refetchProposals({ forceFresh: true }); }, [refetchProposals]));
 
   // ── Multicall hasVoted check (Phase 5: single RPC instead of N+1) ──
   useEffect(() => {
@@ -301,7 +317,11 @@ export default function VotePage() {
         setTxHashes(hashes);
         saveVotedIds(address, votedIds);
         setPendingDecisions(new Map());
-        refetchProposals();
+        // Bypass the 15s server cache — the vote tallies on active
+        // proposals changed, and we want the next card to reflect
+        // reality (including any new proposals that landed while we
+        // were signing).
+        refetchProposals({ forceFresh: true });
         setTimeout(() => {
           setBatchSigning(false);
           setVictoryCount(submitted);
@@ -375,7 +395,7 @@ export default function VotePage() {
                         </button>
                       ))}
                     </div>
-                    {totalOnChain > 0 && <span className="hidden sm:inline text-[10px] text-white/25">{totalOnChain} on-chain</span>}
+                    {totalOnChain > 0 && <span className="hidden sm:inline text-[10px] text-white/25">{totalOnChain} onchain</span>}
                   </div>
                 </div>
 
@@ -392,7 +412,7 @@ export default function VotePage() {
                     <div className="mb-3 text-4xl opacity-30" aria-hidden="true">&#x26A0;</div>
                     <h2 className="text-base font-medium text-white/70">Failed to load proposals</h2>
                     <p className="mt-2 text-sm text-white/40">Check your connection and try again.</p>
-                    <button onClick={refetchProposals} className="mt-4 rounded-lg bg-purple-600/30 px-4 py-2 text-xs font-semibold text-purple-300 hover:bg-purple-600/50 transition">
+                    <button onClick={() => refetchProposals({ forceFresh: true })} className="mt-4 rounded-lg bg-purple-600/30 px-4 py-2 text-xs font-semibold text-purple-300 hover:bg-purple-600/50 transition">
                       Retry
                     </button>
                   </div>
