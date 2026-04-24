@@ -91,7 +91,11 @@ function IpfsImageInner({
   const [loaded, setLoaded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const src = urls[gatewayIdx] ?? "";
+  useEffect(() => {
+    setGatewayIdx(0);
+  }, [cid]);
+
+  const src = urls[gatewayIdx] ?? urls[0] ?? "";
 
   const handleError = () => {
     setLoaded(false);

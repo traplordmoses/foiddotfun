@@ -1,6 +1,6 @@
 import { TILE, type Rect } from "@/lib/grid";
 
-const WORLD_RADIUS_TILES = 128; // ±128 tiles from genesis
+const WORLD_RADIUS_TILES = 1024; // ±1024 tiles from genesis (65536×65536 world)
 const WORLD_RADIUS = WORLD_RADIUS_TILES * TILE;
 
 export const VIRTUAL_CANVAS_W = WORLD_RADIUS * 2;

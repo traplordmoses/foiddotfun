@@ -12,7 +12,7 @@ import {
 // CONSTANTS
 // ============================================================================
 
-export const GRID_MULTIPLIER = 8;
+export const GRID_MULTIPLIER = 1;
 export const STAGE_CANVAS_W = VIRTUAL_CANVAS_W * GRID_MULTIPLIER;
 export const STAGE_CANVAS_H = VIRTUAL_CANVAS_H * GRID_MULTIPLIER;
 export const STAGE_PAD_X = (STAGE_CANVAS_W - VIRTUAL_CANVAS_W) / 2;

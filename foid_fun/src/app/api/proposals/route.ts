@@ -336,8 +336,59 @@ async function fetchFromRpc(): Promise<ProposalsPayload> {
   };
 }
 
+// If the subgraph is behind the chain head by more than this many placements,
+// fall back to RPC so a freshly-finalized proposal shows up right away instead
+// of waiting for Goldsky to catch up (can be several minutes on busy days).
+const SUBGRAPH_LAG_TOLERANCE = 0;
+
+async function rpcPlacementCount(): Promise<number | null> {
+  const contractAddress = CONTRACTS.SWIPE as `0x${string}`;
+  if (!contractAddress || contractAddress.length < 42) return null;
+  try {
+    const client = createPublicClient({
+      chain: {
+        id: CHAIN_CONFIG.id,
+        name: CHAIN_CONFIG.name,
+        nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+        rpcUrls: { default: { http: [RPC_URL] } },
+      },
+      transport: http(RPC_URL),
+    });
+    const count = (await client.readContract({
+      address: contractAddress,
+      abi: LOREBOARD_ABI,
+      functionName: "placementCount",
+    })) as bigint;
+    return Number(count);
+  } catch {
+    return null;
+  }
+}
+
 async function fetchAllPlacements(): Promise<ProposalsPayload> {
-  const fromSubgraph = await fetchFromGoldsky();
+  const [fromSubgraph, chainPlacementCount] = await Promise.all([
+    fetchFromGoldsky(),
+    rpcPlacementCount(),
+  ]);
+
+  // Subgraph lag detection: if the chain reports more placements than the
+  // subgraph returned, the subgraph hasn't indexed the latest PlacementCreated
+  // events yet. Fall back to RPC so the board doesn't hide just-finalized
+  // placements for minutes.
+  if (fromSubgraph && chainPlacementCount !== null) {
+    const lag = chainPlacementCount - fromSubgraph.proposals.length;
+    if (lag > SUBGRAPH_LAG_TOLERANCE) {
+      console.warn(
+        `[api/proposals] subgraph behind by ${lag} placements (${fromSubgraph.proposals.length} vs ${chainPlacementCount}); falling back to RPC`,
+      );
+      const rpcData = await fetchFromRpc();
+      return {
+        ...rpcData,
+        debug: { ...rpcData.debug, note: `subgraph lag ${lag}, used rpc` },
+      };
+    }
+  }
+
   if (fromSubgraph) return fromSubgraph;
   return fetchFromRpc();
 }

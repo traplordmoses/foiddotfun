@@ -183,7 +183,10 @@ function PlacementCardInner({
   const [gatewayIdx, setGatewayIdx] = useState(0);
   const [flagging, setFlagging] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const src = urls[gatewayIdx] ?? `https://ipfs.io/ipfs/${cid}`;
+  useEffect(() => {
+    setGatewayIdx(0);
+  }, [cid]);
+  const src = urls[gatewayIdx] ?? urls[0] ?? `https://ipfs.io/ipfs/${cid}`;
 
   const handleFlagClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();

@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TILE = 32;
-const WORLD_RADIUS_TILES = 128;
+const WORLD_RADIUS_TILES = 1024;
 const BOARD_WIDTH_TILES = WORLD_RADIUS_TILES * 2;
 const BOARD_HEIGHT_TILES = WORLD_RADIUS_TILES * 2;
 
