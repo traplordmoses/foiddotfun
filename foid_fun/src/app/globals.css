@@ -2731,6 +2731,14 @@ html.cmp-active .app-viewport {
     display: none !important;
   }
 
+  /* The mobile wallet button lives in the page chrome at `fixed top-4 right-4`
+     — exactly where the editor's DONE pill sits — so it ends up covering DONE
+     once the editor opens. Hide it for the duration; the user can't fire a
+     wallet interaction mid-edit anyway. */
+  html.foid-paint-active .mobile-wallet-button {
+    display: none !important;
+  }
+
   /* ── PWA install toast (react-hot-toast content) ── */
   .foid-pwa-toast {
     display: flex;

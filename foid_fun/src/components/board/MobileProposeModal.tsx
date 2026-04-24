@@ -11,7 +11,6 @@ import { capRectToMaxCells, MAX_CELLS_PER_RECT } from "@/lib/boardImages";
 import { parseWeb3Error, isUserRejection } from "@/lib/errors";
 import { PaintEditor } from "@/components/PaintEditor";
 import { MobilePlacementPicker, type PlacedItem } from "@/components/MobilePlacementPicker";
-import { PreviewOnBoardModal } from "@/components/PreviewOnBoardModal";
 import { normalizeCidString } from "@/lib/board/helpers";
 
 // ============================================================================
@@ -92,19 +91,6 @@ export function MobileProposeModal({
   const [placementRect, setPlacementRect] = useState<Rect | null>(null);
   const [imageAspectRatio, setImageAspectRatio] = useState<number | undefined>(undefined);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  // ---- Phase 5 · Step 17 — preview-on-board peek ----
-  // The preview modal renders ABOVE the still-mounted PaintEditor while
-  // step === "paint". Setting previewFile enters preview; clearing it
-  // exits. PaintEditor itself is never unmounted during the round-trip,
-  // so history, overlays, filters and zoom are all preserved for free.
-  const [previewFile, setPreviewFile] = useState<File | null>(null);
-  const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
-  const [previewRect, setPreviewRect] = useState<Rect | null>(null);
-  const [previewAspect, setPreviewAspect] = useState<number | undefined>(undefined);
-  useEffect(() => {
-    return () => { if (previewFileUrl) URL.revokeObjectURL(previewFileUrl); };
-  }, [previewFileUrl]);
 
   const placementFee = process.env.NEXT_PUBLIC_PLACEMENT_FEE_WEI ?? "1000000000000000";
   const feeEth = (Number(BigInt(placementFee)) / 1e18).toFixed(4);
@@ -216,58 +202,6 @@ export function MobileProposeModal({
     await submitPlacement(file, placementRect);
   };
 
-  // ---- Step 17 handlers ----
-
-  const handlePreviewOnBoard = async (editedFile: File) => {
-    // Keep `file` untouched — PaintEditor is still mounted and the user may
-    // return without placing. We stash the composed peek file in previewFile
-    // so the picker can display + submit it.
-    if (previewFileUrl) URL.revokeObjectURL(previewFileUrl);
-    const url = URL.createObjectURL(editedFile);
-    setPreviewFile(editedFile);
-    setPreviewFileUrl(url);
-
-    try {
-      const { w, h } = await getImageSizeFromFile(editedFile);
-      setPreviewAspect(w / h);
-      let rect = snapRect({ x: 0, y: 0, w, h });
-      rect = capRectToMaxCells(rect, MAX_CELLS_PER_RECT);
-      setPreviewRect(rect);
-    } catch {
-      setPreviewAspect(undefined);
-      setPreviewRect(snapRect({ x: 0, y: 0, w: TILE, h: TILE }));
-    }
-  };
-
-  const handlePreviewClose = () => {
-    if (previewFileUrl) URL.revokeObjectURL(previewFileUrl);
-    setPreviewFile(null);
-    setPreviewFileUrl(null);
-    setPreviewRect(null);
-    setPreviewAspect(undefined);
-    // step stays "paint" — editor remains mounted, state intact.
-  };
-
-  const handlePreviewPlace = async () => {
-    if (!previewFile || !previewRect) return;
-    // Commit the peek-composed file + rect as the real placement state so
-    // the UI tells a consistent story, then kick off upload directly.
-    setFile(previewFile);
-    if (preview) URL.revokeObjectURL(preview);
-    setPreview(previewFileUrl);
-    setPlacementRect(previewRect);
-    setImageAspectRatio(previewAspect);
-    // We've transferred ownership of the preview URL into `preview`; null
-    // the preview slot WITHOUT revoking (would kill the URL we just kept).
-    const committedFile = previewFile;
-    const committedRect = previewRect;
-    setPreviewFile(null);
-    setPreviewFileUrl(null);
-    setPreviewRect(null);
-    setPreviewAspect(undefined);
-    await submitPlacement(committedFile, committedRect);
-  };
-
   useEffect(() => {
     return () => { if (preview) URL.revokeObjectURL(preview); };
   }, [preview]);
@@ -330,32 +264,11 @@ export function MobileProposeModal({
         )}
 
         {step === "paint" && file && (
-          <>
-            {/*
-              PaintEditor stays mounted for the full duration of step === "paint",
-              including while the preview modal is open above it. This is how
-              drawing state (history, overlays, filters, zoom/pan) survives the
-              preview round-trip — the editor is never unmounted.
-            */}
-            <PaintEditor
-              imageFile={file}
-              onDone={handlePaintDone}
-              onCancel={() => setStep("pick")}
-              onPreviewOnBoard={handlePreviewOnBoard}
-            />
-            {previewFile && previewFileUrl && previewRect && (
-              <PreviewOnBoardModal
-                previewUrl={previewFileUrl}
-                rect={previewRect}
-                imageAspectRatio={previewAspect}
-                placedRects={placedRects}
-                pendingRects={pendingVoteRects}
-                onRectChange={setPreviewRect}
-                onBackToPaint={handlePreviewClose}
-                onPlaceHere={handlePreviewPlace}
-              />
-            )}
-          </>
+          <PaintEditor
+            imageFile={file}
+            onDone={handlePaintDone}
+            onCancel={() => setStep("pick")}
+          />
         )}
 
         {step === "position" && preview && placementRect && (

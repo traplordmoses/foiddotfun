@@ -175,9 +175,16 @@ export function PaintOverlay({
     [editing, overlay.id, onSelect, onDragStart, recomputeStart]
   );
 
+  // Meme-style text (top/bottom) is a locked template: users can select and
+  // edit the text, and resize via the bottom-strip slider, but dragging and
+  // pinch-scaling on the overlay itself are disabled. Everything else keeps
+  // the full translate + pinch-scale gesture.
+  const locked = overlay.kind === "text" && overlay.memeStyle === true;
+
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
       if (editing) return;
+      if (locked) return;
       if (!pointersRef.current.has(e.pointerId)) return;
       pointersRef.current.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
       lastClientRef.current = { x: e.clientX, y: e.clientY };
@@ -226,7 +233,7 @@ export function PaintOverlay({
 
       onTransform(overlay.id, patch);
     },
-    [editing, viewScale, onTransform, overlay.id, recomputeStart]
+    [editing, locked, viewScale, onTransform, overlay.id, recomputeStart]
   );
 
   const finishPointer = useCallback(
@@ -277,6 +284,14 @@ export function PaintOverlay({
     },
     [finishPointer]
   );
+
+  // Touch events are a separate stream from pointer events. The canvas
+  // container listens for touchstart/touchmove to drive view-level pinch-zoom
+  // and pan — if we don't stop propagation here, a two-finger gesture on a
+  // stamp/sticker zooms the whole canvas instead of resizing the overlay.
+  const stopTouch = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation();
+  }, []);
 
   // Text-edit local buffer so re-renders don't blow away in-flight input
   const [editValue, setEditValue] = useState<string>(
@@ -336,6 +351,9 @@ export function PaintOverlay({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
+        onTouchStart={stopTouch}
+        onTouchMove={stopTouch}
+        onTouchEnd={stopTouch}
       >
         {editing ? (
           <input
@@ -379,6 +397,9 @@ export function PaintOverlay({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
+        onTouchStart={stopTouch}
+        onTouchMove={stopTouch}
+        onTouchEnd={stopTouch}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -407,6 +428,9 @@ export function PaintOverlay({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
+      onTouchStart={stopTouch}
+      onTouchMove={stopTouch}
+      onTouchEnd={stopTouch}
     >
       <div
         style={{

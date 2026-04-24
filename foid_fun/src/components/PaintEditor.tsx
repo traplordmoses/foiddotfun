@@ -13,17 +13,6 @@ interface PaintEditorProps {
   imageFile: File;
   onDone: (editedFile: File) => void;
   onCancel: () => void;
-  /**
-   * Phase 5 · Step 17 — Preview on Board.
-   * When supplied, the editor shows a "peek" button in the top bar. Clicking
-   * it composes the current canvas (bg + filter + strokes + overlays) into a
-   * File and hands it to the host, which is expected to render a placement
-   * modal ABOVE this editor without unmounting it. When the user returns,
-   * the editor is still mounted so paint state (history, overlays, filters,
-   * zoom/pan) is preserved untouched. No side effects are mutated here —
-   * composing is read-only with respect to editor state.
-   */
-  onPreviewOnBoard?: (editedFile: File) => void;
 }
 
 type Tool = "select" | "draw" | "eraser" | "sticker" | "text" | "eyedropper" | "stamp";
@@ -169,7 +158,7 @@ function drawOverlayToCtx(
 // PAINT EDITOR COMPONENT
 // ============================================================================
 
-export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: PaintEditorProps) {
+export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
   // Track music bar expansion to add bottom padding. The bar signals its
   // visible state by toggling `.cmp-active` on <html>. Watching that class
   // (not the old `.cmp-bar--visible` selector, which never existed) is how
@@ -1079,7 +1068,6 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
   // ============================================================================
 
   const [exporting, setExporting] = useState(false);
-  const [previewing, setPreviewing] = useState(false);
 
   // Pure composite — returns a File without touching editor state. Used by
   // both the final "Done" flow (which also runs the seal animation) and the
@@ -1164,22 +1152,6 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
       composeAndEmit();
     }, 460);
   }, [exporting, sealPhase, composeAndEmit]);
-
-  // Step 17 — Preview on Board. Compose silently (no seal animation) and hand
-  // the file to the host. State is untouched so the round-trip is transparent.
-  const previewDisabled =
-    !loaded || isDrawing || exporting || previewing || sealPhase !== "idle";
-  const handlePreviewOnBoard = useCallback(async () => {
-    if (!onPreviewOnBoard || previewDisabled) return;
-    setPreviewing(true);
-    haptic("light");
-    try {
-      const file = await composeCurrentFile();
-      if (file) onPreviewOnBoard(file);
-    } finally {
-      setPreviewing(false);
-    }
-  }, [onPreviewOnBoard, previewDisabled, composeCurrentFile]);
 
   // ============================================================================
   // KEYBOARD SHORTCUTS
@@ -1661,66 +1633,6 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
         &times;
       </button>
 
-      {/* ============ PREVIEW ON BOARD BUTTON ============ */}
-      {/*
-        Phase 5 · Step 17 — peek button. Only rendered when the host has
-        wired an onPreviewOnBoard callback, so PaintEditor stays backward-
-        compatible with any caller that doesn't opt in. Sits immediately
-        left of the Done pill, sharing the same top-right safe-area inset.
-        On desktop, PEEK moves into the bottom toolbar — rendered there
-        instead of the top-right.
-      */}
-      {!isDesktop && onPreviewOnBoard && (
-        <button
-          onClick={handlePreviewOnBoard}
-          disabled={previewDisabled}
-          title={
-            previewDisabled && isDrawing
-              ? "Finish your stroke first"
-              : "Preview on board"
-          }
-          aria-label="Preview on board"
-          style={{
-            position: "fixed",
-            top: "max(8px, env(safe-area-inset-top))",
-            right: "calc(max(8px, env(safe-area-inset-right)) + 100px)",
-            padding: "0 12px",
-            height: 40,
-            borderRadius: 999,
-            border: "1px solid rgba(224,64,251,0.55)",
-            background:
-              "linear-gradient(135deg, rgba(224,64,251,0.28), rgba(160,40,200,0.18))",
-            color: "#f06292",
-            fontSize: 11,
-            fontWeight: 700,
-            fontFamily: "var(--font-terminal), monospace",
-            letterSpacing: "0.1em",
-            cursor: previewDisabled ? "not-allowed" : "pointer",
-            opacity: previewDisabled ? 0.42 : 1,
-            transition: "opacity 160ms ease, transform 120ms ease",
-            boxShadow:
-              "0 0 18px rgba(224,64,251,0.22), inset 0 1px 0 rgba(255,255,255,0.08), 0 2px 8px rgba(0,0,0,0.4)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-            zIndex: 50,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path
-              d="M1 8C2.8 4.5 5.2 3 8 3s5.2 1.5 7 5c-1.8 3.5-4.2 5-7 5S2.8 11.5 1 8Z"
-              stroke="currentColor"
-              strokeWidth="1.3"
-              fill="none"
-            />
-            <circle cx="8" cy="8" r="2.2" stroke="currentColor" strokeWidth="1.3" fill="none" />
-          </svg>
-          {previewing ? "..." : "PEEK"}
-        </button>
-      )}
-
       {/* ============ DONE PILL (mobile only; desktop uses bottom toolbar) ============ */}
       {!isDesktop && (
       <button
@@ -1856,18 +1768,6 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
           }}
         />
         <BottomBarChip
-          title="Text (T)"
-          label="Text"
-          icon={ICON.text}
-          active={tool === "text"}
-          onClick={() => {
-            setTool("text");
-            setShowStickerDrawer(false);
-            haptic("light");
-            addTextOverlay();
-          }}
-        />
-        <BottomBarChip
           title="Meme text — top + bottom"
           label="Meme"
           icon={ICON.memeText}
@@ -1880,17 +1780,6 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
           }}
         />
         <BottomBarChip
-          title="Sticker"
-          label="Sticker"
-          icon={ICON.sticker}
-          active={tool === "sticker" || showStickerDrawer}
-          onClick={() => {
-            setTool("sticker");
-            setShowStickerDrawer((v) => !v);
-            haptic("light");
-          }}
-        />
-        <BottomBarChip
           title="Stamp — paste an image on top"
           label="Stamp"
           icon={ICON.stamp}
@@ -1899,17 +1788,6 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
             setShowStickerDrawer(false);
             haptic("light");
             stampInputRef.current?.click();
-          }}
-        />
-        <BottomBarChip
-          title="Eyedropper (I)"
-          label="Pick"
-          icon={ICON.pick}
-          active={tool === "eyedropper"}
-          onClick={() => {
-            setTool("eyedropper");
-            setShowStickerDrawer(false);
-            haptic("light");
           }}
         />
         <BottomBarChip
@@ -2339,24 +2217,6 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
       )}
 
       {/* ============ DESKTOP BOTTOM TOOLBAR — FOID_PAINT.EXE ============ */}
-      {/*
-        Classic MS-Paint-style horizontal strip shown on viewports ≥ 900 px.
-        All buttons are labelled because the right-side icon rail proved
-        unintelligible to new users. Order follows the canonical layout:
-        Draw · Eraser · Text · (Meme · Stamp · Sticker · Pick · Effects) ·
-        [color] · [size] · Undo · Redo · Clear · ZOOM −/+ · [Lock slot] ·
-        [PEEK] · DONE. Meme/Sticker/Effects are secondary but kept visible
-        so desktop users don't lose access to those features.
-
-        NOTE to Session A (stamp restoration): the Stamp button is already
-        wired here via stampInputRef.current?.click(). No stub slot needed.
-
-        NOTE to future selves: a draw-lock toggle once lived between ZOOM
-        and DONE in the old 3a74a88 layout — it's intentionally omitted
-        here because the `drawLock` state isn't implemented on the current
-        PaintEditor. If it comes back, drop the button into the slot
-        marked with a TODO comment below.
-      */}
       {isDesktop && (
         <div
           role="toolbar"
@@ -2667,39 +2527,6 @@ export function PaintEditor({ imageFile, onDone, onCancel, onPreviewOnBoard }: P
 
           <div style={{ flex: 1, minWidth: 4 }} />
 
-          {onPreviewOnBoard && (
-            <button
-              onClick={handlePreviewOnBoard}
-              disabled={previewDisabled}
-              title={
-                previewDisabled && isDrawing
-                  ? "Finish your stroke first"
-                  : "Preview on board"
-              }
-              aria-label="Preview on board"
-              style={{
-                height: 34,
-                padding: "0 12px",
-                borderRadius: 6,
-                border: "1px solid rgba(224,64,251,0.55)",
-                background:
-                  "linear-gradient(135deg, rgba(224,64,251,0.28), rgba(160,40,200,0.18))",
-                color: "#f06292",
-                fontSize: 11,
-                fontWeight: 700,
-                fontFamily: "var(--font-terminal), monospace",
-                letterSpacing: "0.1em",
-                cursor: previewDisabled ? "not-allowed" : "pointer",
-                opacity: previewDisabled ? 0.42 : 1,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                flexShrink: 0,
-              }}
-            >
-              {previewing ? "..." : "PEEK"}
-            </button>
-          )}
           <button
             onClick={handleDone}
             disabled={exporting || sealPhase !== "idle"}

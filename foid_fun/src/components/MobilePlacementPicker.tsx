@@ -185,6 +185,12 @@ export function MobilePlacementPicker({
 }: MobilePlacementPickerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [aspectLocked, setAspectLocked] = useState(true);
+  // Move/Resize split — resize handles at their 24×24 touch targets make the
+  // candidate rect uncomfortably "active" when a user just wants to drag. In
+  // MOVE, handles are hidden and a single-touch anywhere on the minimap drags
+  // the candidate. In RESIZE, handles are live and empty-space taps go back
+  // to panning the minimap. Pinch always zooms the minimap regardless of mode.
+  const [mode, setMode] = useState<"move" | "resize">("move");
   const { trigger: haptic } = useHaptic();
 
   // --- Responsive minimap width (Step 8) ---
@@ -263,6 +269,22 @@ export function MobilePlacementPicker({
   const haloRgb = overlapping ? INVALID_RGB : !touching ? WARNING_RGB : VALID_RGB;
   const haloColor = haloTone(haloRgb, 0.9);
   const statusText = overlapping ? "Overlap" : !touching ? "Touch" : "Valid";
+
+  // Which of the four sides of the candidate are flush against an existing
+  // (or pending) rect. Used to render brighter edge accents so users can see
+  // *where* they're touching as they drag, not just that validity is green.
+  const touchingSides = useMemo(() => {
+    const s = { top: false, right: false, bottom: false, left: false };
+    for (const o of allOccupiedRects) {
+      const xOverlap = o.x < rect.x + rect.w && o.x + o.w > rect.x;
+      const yOverlap = o.y < rect.y + rect.h && o.y + o.h > rect.y;
+      if (o.y + o.h === rect.y && xOverlap) s.top = true;
+      if (o.y === rect.y + rect.h && xOverlap) s.bottom = true;
+      if (o.x + o.w === rect.x && yOverlap) s.left = true;
+      if (o.x === rect.x + rect.w && yOverlap) s.right = true;
+    }
+    return s;
+  }, [allOccupiedRects, rect]);
 
   const wTiles = Math.max(1, Math.round(rect.w / TILE));
   const hTiles = Math.max(1, Math.round(rect.h / TILE));
@@ -356,8 +378,11 @@ export function MobilePlacementPicker({
       }
       lastTapRef.current = { t: now, x: localX, y: localY };
 
-      // Candidate drag
-      if (pointOnCandidate(localX, localY)) {
+      // Candidate drag. In MOVE mode, the whole minimap acts as a drag handle
+      // for the candidate — the user asked for "touch anywhere on the screen
+      // and move the picture". In RESIZE mode, keep the original behavior so
+      // the user can still pan the minimap to explore.
+      if (mode === "move" || pointOnCandidate(localX, localY)) {
         gestureRef.current = {
           kind: "drag-candidate",
           pointerId: e.pointerId,
@@ -370,7 +395,7 @@ export function MobilePlacementPicker({
         return;
       }
 
-      // Empty-space tap = pan minimap
+      // Resize mode, empty-space tap = pan minimap
       gestureRef.current = {
         kind: "pan-minimap",
         pointerId: e.pointerId,
@@ -381,6 +406,7 @@ export function MobilePlacementPicker({
     [
       minimapZoom,
       minimapPan,
+      mode,
       pointOnCandidate,
       viewToWorld,
       teleportTo,
@@ -630,17 +656,58 @@ export function MobilePlacementPicker({
 
   return (
     <div className="flex flex-col items-stretch gap-3 w-full">
-      {/* Instruction + aspect lock row */}
-      <div className="flex items-center justify-between w-full px-1">
-        <p className="text-[10px] uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.55)" }}>
-          Drag &middot; Double-tap to teleport &middot; Pinch to zoom
-        </p>
-        {imageAspectRatio && imageAspectRatio > 0 && (
+      {/* Mode toggle — replaces the old instruction strip. Tabs are easier to
+          hit than inline text and make the current gesture model unambiguous:
+          move vs. resize are genuinely different interactions. */}
+      <div className="flex items-center gap-2 w-full">
+        <div
+          role="tablist"
+          aria-label="Placement mode"
+          className="flex flex-1 p-1 rounded-lg"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          <button
+            role="tab"
+            aria-selected={mode === "move"}
+            onClick={() => { setMode("move"); haptic("light"); }}
+            className="flex-1 py-2 rounded-md text-[11px] font-bold uppercase tracking-widest"
+            style={{
+              background: mode === "move"
+                ? "linear-gradient(135deg, rgba(0,204,204,0.25), rgba(0,180,180,0.15))"
+                : "transparent",
+              color: mode === "move" ? "#00cccc" : "rgba(255,255,255,0.5)",
+              border: mode === "move" ? "1px solid rgba(0,204,204,0.5)" : "1px solid transparent",
+              transition: "all 0.15s",
+            }}
+          >
+            Move
+          </button>
+          <button
+            role="tab"
+            aria-selected={mode === "resize"}
+            onClick={() => { setMode("resize"); haptic("light"); }}
+            className="flex-1 py-2 rounded-md text-[11px] font-bold uppercase tracking-widest"
+            style={{
+              background: mode === "resize"
+                ? "linear-gradient(135deg, rgba(224,64,251,0.25), rgba(160,40,200,0.15))"
+                : "transparent",
+              color: mode === "resize" ? "#f06292" : "rgba(255,255,255,0.5)",
+              border: mode === "resize" ? "1px solid rgba(224,64,251,0.5)" : "1px solid transparent",
+              transition: "all 0.15s",
+            }}
+          >
+            Resize
+          </button>
+        </div>
+        {imageAspectRatio && imageAspectRatio > 0 && mode === "resize" && (
           <button
             onClick={() => { setAspectLocked((v) => !v); haptic("medium"); }}
             className="flex items-center gap-1 select-none"
             style={{
-              height: 26,
+              height: 34,
               padding: "0 10px",
               borderRadius: 6,
               border: aspectLocked
@@ -674,6 +741,13 @@ export function MobilePlacementPicker({
           </button>
         )}
       </div>
+
+      {/* Subline hint — mode-specific */}
+      <p className="text-[10px] uppercase tracking-widest px-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+        {mode === "move"
+          ? "Drag anywhere · double-tap to teleport · pinch to zoom"
+          : "Drag handles to resize · pinch to zoom"}
+      </p>
 
       {/* Mini-board view — full width (Step 8) */}
       <div
@@ -791,8 +865,74 @@ export function MobilePlacementPicker({
           }}
         />
 
-        {/* 8 Resize handles — 24 px targets (Step 10) */}
-        {HANDLE_CONFIGS.map((cfg) => {
+        {/* Touching-edge accents — bright green bars along any side of the
+            candidate that is flush against an existing/pending placement.
+            Gives visual confirmation of *where* the placement is sticking,
+            not just that it's valid. */}
+        {touchingSides.top && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: vx,
+              top: vy - 2,
+              width: vw,
+              height: 4,
+              background: VALID_COLOR,
+              boxShadow: `0 0 8px ${VALID_COLOR}`,
+              zIndex: 11,
+              borderRadius: 2,
+            }}
+          />
+        )}
+        {touchingSides.bottom && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: vx,
+              top: vy + vh - 2,
+              width: vw,
+              height: 4,
+              background: VALID_COLOR,
+              boxShadow: `0 0 8px ${VALID_COLOR}`,
+              zIndex: 11,
+              borderRadius: 2,
+            }}
+          />
+        )}
+        {touchingSides.left && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: vx - 2,
+              top: vy,
+              width: 4,
+              height: vh,
+              background: VALID_COLOR,
+              boxShadow: `0 0 8px ${VALID_COLOR}`,
+              zIndex: 11,
+              borderRadius: 2,
+            }}
+          />
+        )}
+        {touchingSides.right && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: vx + vw - 2,
+              top: vy,
+              width: 4,
+              height: vh,
+              background: VALID_COLOR,
+              boxShadow: `0 0 8px ${VALID_COLOR}`,
+              zIndex: 11,
+              borderRadius: 2,
+            }}
+          />
+        )}
+
+        {/* 8 Resize handles — hidden in MOVE mode so the rect is cleanly
+            draggable without fat touch targets stealing pointers. */}
+        {mode === "resize" && HANDLE_CONFIGS.map((cfg) => {
           if (cfg.edge && hideEdgeHandles) return null;
           const dims = getHandleDims(cfg.shape);
           const hx = vx + vw * cfg.fx - dims.w / 2;
