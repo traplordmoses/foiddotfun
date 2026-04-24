@@ -70,14 +70,25 @@ type RawSwipeProposal = {
   approved: boolean;
 };
 
-async function fetchBoardProposals(signal: AbortSignal): Promise<ListProposalsResponse> {
-  const res = await fetch("/api/proposals", { cache: "no-store", signal });
+async function fetchBoardProposals(
+  signal: AbortSignal,
+  forceFresh = false,
+): Promise<ListProposalsResponse> {
+  const url = forceFresh ? "/api/proposals?bust=1" : "/api/proposals";
+  const res = await fetch(url, { cache: "no-store", signal });
   if (!res.ok) throw new Error(`/api/proposals ${res.status}`);
   return res.json();
 }
 
-async function fetchSwipeProposals(signal: AbortSignal): Promise<{ proposals: RawSwipeProposal[] }> {
-  const res = await fetch("/api/swipe/proposals", { cache: "no-store", signal });
+async function fetchSwipeProposals(
+  signal: AbortSignal,
+  forceFresh = false,
+): Promise<{ proposals: RawSwipeProposal[] }> {
+  // `bust=1` tells the API to skip its in-memory cache — necessary after
+  // a successful submit so the user doesn't see a pre-submit cached
+  // response for up to 15s. See /api/swipe/proposals/route.ts.
+  const url = forceFresh ? "/api/swipe/proposals?bust=1" : "/api/swipe/proposals";
+  const res = await fetch(url, { cache: "no-store", signal });
   if (!res.ok) return { proposals: [] };
   return res.json();
 }
@@ -122,31 +133,35 @@ export function useBoardData(intervalMs: number = DEFAULT_INTERVAL_MS): UseBoard
   const [debug, setDebug] = useState<ListProposalsResponse["debug"] | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const runTick = useCallback(async (signal: AbortSignal) => {
-    const [boardRes, swipeRes] = await Promise.allSettled([
-      fetchBoardProposals(signal),
-      fetchSwipeProposals(signal),
-    ]);
+  const runTick = useCallback(
+    async (signal: AbortSignal, opts: { forceFresh?: boolean } = {}) => {
+      const forceFresh = opts.forceFresh ?? false;
+      const [boardRes, swipeRes] = await Promise.allSettled([
+        fetchBoardProposals(signal, forceFresh),
+        fetchSwipeProposals(signal, forceFresh),
+      ]);
 
-    if (signal.aborted) return;
+      if (signal.aborted) return;
 
-    const boardData: ListProposalsResponse =
-      boardRes.status === "fulfilled"
-        ? boardRes.value
-        : { proposals: [], debug: undefined };
-    const swipeData: { proposals: RawSwipeProposal[] } =
-      swipeRes.status === "fulfilled" ? swipeRes.value : { proposals: [] };
+      const boardData: ListProposalsResponse =
+        boardRes.status === "fulfilled"
+          ? boardRes.value
+          : { proposals: [], debug: undefined };
+      const swipeData: { proposals: RawSwipeProposal[] } =
+        swipeRes.status === "fulfilled" ? swipeRes.value : { proposals: [] };
 
-    const normalized = normalizeProposals(boardData.proposals);
-    const activeSwipe = mapActiveSwipe(swipeData.proposals ?? []);
+      const normalized = normalizeProposals(boardData.proposals);
+      const activeSwipe = mapActiveSwipe(swipeData.proposals ?? []);
 
-    startTransition(() => {
-      setProposals(normalized);
-      setDebug(boardData.debug ?? null);
-      setVoting(activeSwipe);
-      setLoading(false);
-    });
-  }, []);
+      startTransition(() => {
+        setProposals(normalized);
+        setDebug(boardData.debug ?? null);
+        setVoting(activeSwipe);
+        setLoading(false);
+      });
+    },
+    [],
+  );
 
   // Shared ref so refetch() and the scheduled tick participate in the same
   // cancellation pool — prevents two concurrent fetches where the slower
@@ -166,12 +181,14 @@ export function useBoardData(intervalMs: number = DEFAULT_INTERVAL_MS): UseBoard
 
   const refetch = useCallback(async () => {
     // The caller wants fresh data — cancel anything currently in flight so
-    // the new fetch can't be stomped by a stale response.
+    // the new fetch can't be stomped by a stale response. `forceFresh`
+    // also skips the server's in-memory cache (via ?bust=1), so a
+    // just-submitted proposal doesn't wait for the 15s TTL to roll over.
     abortAll();
     const controller = new AbortController();
     controllersRef.current.push(controller);
     try {
-      await runTick(controller.signal);
+      await runTick(controller.signal, { forceFresh: true });
     } catch (err) {
       if ((err as { name?: string })?.name === "AbortError") return;
       startTransition(() => setLoading(false));

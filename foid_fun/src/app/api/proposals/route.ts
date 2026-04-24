@@ -342,9 +342,13 @@ async function fetchAllPlacements(): Promise<ProposalsPayload> {
   return fetchFromRpc();
 }
 
-async function getPlacements(): Promise<{ data: ProposalsPayload; fromCache: boolean }> {
-  const cached = getCached();
-  if (cached) return { data: cached, fromCache: true };
+async function getPlacements(
+  opts: { forceFresh?: boolean } = {},
+): Promise<{ data: ProposalsPayload; fromCache: boolean }> {
+  if (!opts.forceFresh) {
+    const cached = getCached();
+    if (cached) return { data: cached, fromCache: true };
+  }
 
   if (inflightFetch) return { data: await inflightFetch, fromCache: false };
 
@@ -372,9 +376,12 @@ type PlacementWithPlacer = { owner: string };
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const owner = searchParams.get("owner")?.toLowerCase() ?? null;
+  // Callers that need post-mutation freshness (e.g. board refetch after a
+  // successful submit) pass `?bust=1` to skip the in-memory cache.
+  const forceFresh = searchParams.has("bust");
 
   try {
-    const { data: full, fromCache } = await getPlacements();
+    const { data: full, fromCache } = await getPlacements({ forceFresh });
 
     // Owner filter applied post-cache: the underlying list is shared, but
     // we re-scope per-request so each dashboard call only sees its own

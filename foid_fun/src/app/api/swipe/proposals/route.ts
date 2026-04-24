@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http } from "viem";
 import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { CONTRACTS } from "@/lib/contracts/addresses";
@@ -307,16 +307,92 @@ async function fetchSwipeProposalsFromChain(): Promise<SwipePayload> {
     return { proposals, count: proposalCount, debug: { source: "rpc" } };
 }
 
-async function getSwipeProposals(): Promise<{ data: SwipePayload; fromCache: boolean }> {
-  const cached = getCached();
-  if (cached) return { data: cached, fromCache: true };
+// ──────────────────────────────────────────────────────────────────────
+// Cheap onchain probe: just the Proposal count. Used as a sync-lag
+// check against Goldsky — if the subgraph's highest indexed proposal
+// trails the chain, a user who just proposed wouldn't see their
+// submission on the board. One eth_call is cheap (~30–100ms) and runs
+// in parallel with the Goldsky query, so it doesn't add latency on the
+// happy path.
+// ──────────────────────────────────────────────────────────────────────
+async function getOnchainProposalCount(): Promise<number | null> {
+  const contractAddress = CONTRACTS.SWIPE as `0x${string}`;
+  if (!contractAddress) return null;
+
+  try {
+    const client = createPublicClient({
+      chain: {
+        id: CHAIN_CONFIG.id,
+        name: CHAIN_CONFIG.name,
+        nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+        rpcUrls: { default: { http: [RPC_URL] } },
+      },
+      transport: http(RPC_URL),
+    });
+    const count = (await client.readContract({
+      address: contractAddress,
+      abi: LOREBOARD_ABI,
+      functionName: "proposalCount",
+    })) as bigint;
+    return Number(count);
+  } catch (err) {
+    console.warn("[api/swipe/proposals] proposalCount probe failed:", err);
+    return null;
+  }
+}
+
+function maxProposalIdFromGoldsky(payload: SwipePayload): number {
+  let max = -1;
+  for (const p of payload.proposals) {
+    if (typeof p === "object" && p !== null && "id" in p) {
+      const id = Number((p as { id: unknown }).id);
+      if (Number.isFinite(id) && id > max) max = id;
+    }
+  }
+  return max;
+}
+
+async function getSwipeProposals(
+  opts: { forceFresh?: boolean } = {},
+): Promise<{ data: SwipePayload; fromCache: boolean }> {
+  if (!opts.forceFresh) {
+    const cached = getCached();
+    if (cached) return { data: cached, fromCache: true };
+  }
 
   if (inflightFetch) return { data: await inflightFetch, fromCache: false };
 
   inflightFetch = (async () => {
     try {
-      const fromSubgraph = await fetchFromGoldsky();
-      const data = fromSubgraph ?? (await fetchSwipeProposalsFromChain());
+      // Parallel: Goldsky (primary data) + onchain proposalCount (sync
+      // check). The count lets us detect subgraph lag after the fact —
+      // if Goldsky's highest indexed proposal trails the chain, the
+      // user's just-submitted proposal is missing and we fall back to
+      // RPC to pick it up.
+      const [fromSubgraph, onchainCount] = await Promise.all([
+        fetchFromGoldsky(),
+        getOnchainProposalCount(),
+      ]);
+
+      const goldskyLagging =
+        fromSubgraph != null &&
+        onchainCount != null &&
+        maxProposalIdFromGoldsky(fromSubgraph) + 1 < onchainCount;
+
+      let data: SwipePayload;
+      if (!fromSubgraph || goldskyLagging) {
+        if (goldskyLagging && fromSubgraph) {
+          console.warn(
+            `[api/swipe/proposals] Subgraph behind chain ` +
+              `(goldsky max id=${maxProposalIdFromGoldsky(fromSubgraph)}, ` +
+              `chain proposalCount=${onchainCount}) — falling back to RPC`,
+          );
+        }
+        data = await fetchSwipeProposalsFromChain();
+      } else {
+        data = fromSubgraph;
+      }
+
       cachedPayload = { data, at: Date.now() };
       return data;
     } finally {
@@ -327,9 +403,16 @@ async function getSwipeProposals(): Promise<{ data: SwipePayload; fromCache: boo
   return { data: await inflightFetch, fromCache: false };
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Clients that need post-mutation freshness (e.g. useBoardData.refetch()
+  // after a user submits a proposal) pass `?bust=1` to skip the in-memory
+  // cache. Scheduled/block-driven polls leave it off so the cache still
+  // coalesces bursts.
+  const { searchParams } = new URL(request.url);
+  const forceFresh = searchParams.has("bust");
+
   try {
-    const { data, fromCache } = await getSwipeProposals();
+    const { data, fromCache } = await getSwipeProposals({ forceFresh });
     return NextResponse.json(data, {
       headers: {
         "Cache-Control": "public, max-age=5, s-maxage=5, stale-while-revalidate=20",
