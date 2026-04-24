@@ -646,16 +646,16 @@ function PrayPageContent() {
                         <span className="pray-manual__label">WELCOME TO FOID_MOMMY_TERMINAL.EXE</span>
                         <p className="pray-manual__intro">
                           <span className="block">
-                            foid_mommy_terminal.exe is a daily on-chain ritual. tell foid mommy how you&apos;re feeling,
-                            she&apos;ll listen and construct a prayer. submit your prayer on-chain, so your proof of prayer
-                            is recorded. your message is private. it&apos;s hashed locally and only the hash is anchored
-                            on-chain. show up each day to build your streak. the more you pray, the bigger your mifoid&apos;s
-                            boobs will be.
+                            foid_mommy_terminal.exe is a daily onchain ritual. tell foid mommy how you&apos;re feeling.
+                            she listens and helps you craft a prayer. submit it onchain. your words never leave your
+                            device. hashed locally, only the hash is anchored onchain — proof you showed up, not what
+                            you said. show up every day. build your streak. the more you pray, the bigger your
+                            mifoid&apos;s boobs will be.
                           </span>
                           <span className="block mt-2" style={{ opacity: 0.55, fontSize: "0.85em" }}>
-                            mommy remembers how you&apos;re feeling each day to improve your experience.
-                            only the feeling label and date are kept on your device — your prayers stay private.
-                            type /forget in the terminal anytime to erase everything.
+                            mommy remembers how you&apos;re feeling day to day — so she can meet you where you are.
+                            only the feeling label and date are kept on your device. your prayers stay yours.
+                            type /forget in the terminal to erase everything.
                           </span>
                         </p>
                       </div>
