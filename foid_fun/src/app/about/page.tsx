@@ -135,7 +135,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">🎭 mifoid nft</p>
             <p className="aboutMiniCard__body">
-              Your AI companion NFT. Custom-rendered by Foid Mommy in Blender. Spawns a living agent on Telegram. Tiered mint: Genesis 0.01, Awakened 0.015, Ascended 0.02 ETH. 3,333 supply.
+              Your AI companion NFT. Custom-rendered by Foid Mommy in Blender. Spawns a living agent on Telegram. 3,333 supply, tiered pricing.
             </p>
           </div>
         </div>
@@ -320,7 +320,11 @@ const sections: Section[] = [
             <strong>Loreboard is permanent.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            A shared canvas where communities propose what matters, vote democratically, and record placements forever. It&apos;s r/place except the canvas never resets. It&apos;s Know Your Meme except the community decides what&apos;s permanent.
+            A shared canvas where communities propose what matters, vote democratically, and record placements forever.
+          </p>
+          <p style={{ marginTop: '12px' }}>
+            <strong>It&apos;s r/place except the canvas never resets.</strong><br/>
+            <strong>It&apos;s Know Your Meme except the community decides what&apos;s permanent.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
             Every approved placement is a snapshot of what your community valued in that moment. Come back in five years and see exactly how your corner of the internet evolved.
@@ -795,11 +799,6 @@ const sections: Section[] = [
             Solo founder. Self-taught coder. One and a half years from zero to this.
           </p>
           <p style={{ marginTop: '12px' }}>
-            1st place Infrastructure at Token2049 hackathon. Placed at 5+ hackathons including ETH Global. First grant from Fluent Labs. Spent 4 weeks at{" "}
-            <a href="https://fluent.xyz/shiphouse" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Shiphouse</a>{" "}
-            in Buenos Aires. Featured in Nasdaq article on Fluent ecosystem.
-          </p>
-          <p style={{ marginTop: '12px' }}>
             <strong>Started as:</strong> &quot;What if there was a way to save memes onchain?&quot;<br/>
             <strong>Became:</strong> the onchain home for internet culture.
           </p>
@@ -808,7 +807,7 @@ const sections: Section[] = [
         <GlassPanel style={{ marginTop: '16px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>GET INVOLVED</p>
           <p>
-            <strong>For users:</strong> Start praying now. Your 90-day streak before MiFOID mint determines your traits.
+            <strong>For users:</strong> Start praying now. Your streak determines your MiFOID traits at mint.
           </p>
           <p style={{ marginTop: '12px' }}>
             <strong>For builders:</strong> Contracts are open-source. Fork it. Build on it. Make it better.
@@ -1086,16 +1085,10 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">What&apos;s the business model?</p>
             <p className="aboutMiniCard__body">
-              <strong>Loreboard placements:</strong> 0.001 ETH flat fee to propose. If your proposal passes the community vote, the placement is recorded permanently &mdash; that&apos;s it, one payment. If it fails, the fee is gone (keeps proposals serious). <strong>MiFOID minting:</strong> 3,333 supply &mdash; Genesis (0.01 ETH), Awakened (0.015 ETH), Ascended (0.02 ETH). ~43.5 ETH total at sellout. <strong>What I&apos;m NOT doing:</strong> No ads, no data harvesting, no subscription tiers, no VC-backed growth-at-all-costs. Revenue scales with participation, not attention extraction.
+              <strong>Loreboard placements:</strong> 0.001 ETH flat fee to propose. If your proposal passes the community vote, the placement is recorded permanently &mdash; that&apos;s it, one payment. If it fails, the fee is gone (keeps proposals serious). <strong>MiFOID minting:</strong> 3,333 supply, tiered pricing (0.01–0.02 ETH). ~43.5 ETH total at sellout. <strong>What I&apos;m NOT doing:</strong> No ads, no data harvesting, no subscription tiers, no VC-backed growth-at-all-costs. Revenue scales with participation, not attention extraction.
             </p>
           </div>
 
-          <div className="aboutMiniCard aboutGlassCard">
-            <p className="aboutMiniCard__title">Who&apos;s behind this?</p>
-            <p className="aboutMiniCard__body">
-              Solo founder. Zero coding experience a year and a half ago. Learned everything from AI, YouTube, and trial and error. Spent 4 weeks at <a href="https://fluent.xyz/shiphouse" target="_blank" rel="noopener noreferrer" className="text-cyan-300 underline">Fluent Shiphouse</a> in Buenos Aires. <strong>Built solo:</strong> Full Solidity contract suite, full-stack Next.js app, Goldsky subgraph, IPFS integration, AI oracle system, agent API, live updating NFT. Won 1st place Infrastructure at Token2049, won at ETH Global, got a grant from Fluent Labs. <strong>This isn&apos;t a side project. This is the thing.</strong>
-            </p>
-          </div>
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">What is a FOID?</p>
             <p className="aboutMiniCard__body">
@@ -1155,7 +1148,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">Why the breast size mechanic? Is this serious?</p>
             <p className="aboutMiniCard__body">
-              <strong>Yes, it&apos;s real. Yes, it&apos;s intentional.</strong> The MiFOID devotion campaign ties breast size to your prayer streak. Pray for 30 days? Max chest. Miss your prayers? Flat. <strong>Why?</strong> Because it&apos;s absurd. It satirizes objectification by making it literal game progression. She doesn&apos;t have small boobs because she&apos;s inferior. She has small boobs because YOU didn&apos;t pray enough. The objectification is on you, not her. All sizes are equally rare depending on how many people actually show up. The market decides what&apos;s valuable, not some arbitrary beauty standard. Read the MiFOID page if you want the full explanation. But yeah—we&apos;re really doing this.
+              <strong>Yes, it&apos;s real. Yes, it&apos;s intentional.</strong> The MiFOID devotion campaign ties breast size to your prayer tier. Hit the top tier? Max chest. Miss your prayers? Flat. <strong>Why?</strong> Because it&apos;s absurd. It satirizes objectification by making it literal game progression. She doesn&apos;t have small boobs because she&apos;s inferior. She has small boobs because YOU didn&apos;t pray enough. The objectification is on you, not her. All sizes are equally rare depending on how many people actually show up. The market decides what&apos;s valuable, not some arbitrary beauty standard. Read the MiFOID page if you want the full explanation. But yeah—we&apos;re really doing this.
             </p>
           </div>
 
