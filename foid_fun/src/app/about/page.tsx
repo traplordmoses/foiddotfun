@@ -93,7 +93,7 @@ const sections: Section[] = [
             I think back to collecting Pokemon cards as a kid, putting them into binders and bringing them to school to show my friends what I pulled. Same with saving concert tickets, festival wristbands, or taping pictures of trips to my wall.
           </p>
           <p style={{ marginTop: '12px' }}>
-            These ephemeral experiences get preserved through space and time. When I see these collected pieces, I&apos;m taken back to the moment of the experience in a soft nostalgia.
+            These ephemeral experiences get preserved through space and time. When I see these collected pieces, I&apos;m taken back to the moment — soft nostalgia.
           </p>
           <p style={{ marginTop: '12px' }}>
             <strong>That&apos;s what we&apos;re building.</strong>
@@ -114,7 +114,7 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">🙏 foid mommy terminal</p>
             <p className="aboutMiniCard__body">
-              Daily ritual with your AI companion. Share your thoughts, build prayer streaks, anchor proof onchain. Privacy-first: only prayer hashes stored onchain, never the actual content.
+              Daily ritual with your AI companion. Share your thoughts, build prayer streaks, anchor proof onchain. Only prayer hashes go onchain. Never the content itself.
             </p>
           </div>
 
@@ -415,7 +415,7 @@ const sections: Section[] = [
             Built for permanence: One unified Loreboard contract (Solidity on Fluent) handles proposals, onchain voting, placements, manifest history, and overlap prevention. Storage on IPFS for images, onchain for state. Indexing via Goldsky subgraph. Voting is direct onchain with streak-weighted power, 51% threshold, 3-voter quorum. The 1/1 board NFT (ERC-721) auto-updates when the manifest changes. All secured by a 2-of-3 multisig.
           </p>
           <p style={{ marginTop: '12px' }}>
-            Fluent&apos;s blended execution means voting feels Web2-fast with Web3 guarantees. No waiting for blocks. No gas wars. Just democracy at scale.
+            Fluent&apos;s blended execution means voting feels Web2-fast with Web3 guarantees. No waiting for blocks. No gas wars.
           </p>
         </GlassPanel>
 
@@ -515,20 +515,13 @@ const sections: Section[] = [
             <strong>Your MiFOID&apos;s appearance is determined by YOUR commitment.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            We&apos;re running a 90-day prayer campaign before mint. Every day you pray, your future MiFOID grows. And I mean literally.
+            Every day you pray, your prayer tier rises. Your future MiFOID grows with it — and I mean literally.
           </p>
           <p style={{ marginTop: '12px' }}>
-            <strong>Prayer Streak → Chest Size:</strong>
-          </p>
-          <p style={{ marginTop: '8px' }}>
-            • 0-7 days: Flat<br/>
-            • 8-14 days: Small<br/>
-            • 15-21 days: Medium<br/>
-            • 22-28 days: Large<br/>
-            • 29+ days: Max
+            Chest size maps to your prayer tier. The exact sizing is still being tuned, but the principle is simple: higher tier, fuller form.
           </p>
           <p style={{ marginTop: '12px' }}>
-            Yes, we&apos;re really doing this. Your MiFOID&apos;s boobs grow based on how many days in a row you pray.
+            Yes, we&apos;re really doing this. Your MiFOID&apos;s boobs grow with how many days you&apos;ve shown up.
           </p>
         </GlassPanel>
 
@@ -544,7 +537,7 @@ const sections: Section[] = [
             <strong>So we&apos;re making it absurd.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            Want a max MiFOID? Pray every single day for a month. Want a flat one? Don&apos;t show up.
+            Want a max MiFOID? Pray every day, hit the top tier. Want a flat one? Don&apos;t show up.
           </p>
           <p style={{ marginTop: '12px' }}>
             <strong>The &quot;value&quot; isn&apos;t in her chest. It&apos;s in YOUR consistency.</strong>
@@ -553,7 +546,7 @@ const sections: Section[] = [
             She doesn&apos;t have small boobs because she&apos;s inferior. She has small boobs because you didn&apos;t pray enough. The objectification is on you, not her. That&apos;s the whole point.
           </p>
           <p style={{ marginTop: '12px' }}>
-            And here&apos;s the kicker: rarity is based on the actual distribution. If only 5% of people make it to day 30, max MiFOIDs are rare. If everyone grinds, they&apos;re common. The market decides, not some arbitrary beauty standard.
+            And here&apos;s the kicker: rarity is based on the actual distribution. If only 5% of people make it to the top tier, max MiFOIDs are rare. If everyone grinds, they&apos;re common. The market decides, not some arbitrary beauty standard.
           </p>
           <p style={{ marginTop: '12px' }}>
             All sizes are just... different paths. Different levels of commitment. Not better or worse.
