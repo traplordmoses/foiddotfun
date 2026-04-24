@@ -114,21 +114,21 @@ const sections: Section[] = [
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">🙏 foid mommy terminal</p>
             <p className="aboutMiniCard__body">
-              Daily ritual with your AI companion. Share your thoughts, build prayer streaks, anchor proof onchain. Only prayer hashes go onchain. Never the content itself.
+              Daily ritual with your AI companion. Build prayer streaks, anchor proof onchain — only the hash, never the content.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">🎨 loreboard</p>
             <p className="aboutMiniCard__body">
-              A shared, permanent, onchain cultural canvas. Propose a placement (0.001 ETH), the community votes for 72 hours, and approved content is recorded onchain forever. Streak-weighted governance. 51% threshold + 3-voter quorum. Onchain overlap prevention. The board grows as the community grows, backed by an ever-evolving 1/1 NFT.
+              A shared, permanent canvas. Propose a placement, the community votes for 72 hours, approved content lives onchain forever.
             </p>
           </div>
 
           <div className="aboutMiniCard aboutGlassCard">
             <p className="aboutMiniCard__title">🗳️ swipe</p>
             <p className="aboutMiniCard__body">
-              The voting UX. Swipe right to approve, left to reject. Your prayer streak amplifies your voting power — the people who show up every day have the loudest voice. Every vote is onchain, verifiable, and weighted by commitment.
+              The voting UX. Swipe right to approve, left to reject. Your prayer streak weights your vote.
             </p>
           </div>
 
@@ -558,37 +558,12 @@ const sections: Section[] = [
         </GlassPanel>
 
         <GlassPanel style={{ marginTop: '16px' }}>
-          <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>BODY COUNT (YEAH, WE&apos;RE GOING THERE TOO)</p>
-          <p>
-            Your MiFOID has a &quot;body count&quot;—how many times she&apos;s been transferred.
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            In real life, body count is used to shame women. High number = &quot;ran through.&quot; Low number = &quot;pure.&quot; It&apos;s purity culture bullshit.
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            <strong>We&apos;re making it just data.</strong>
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            0 transfers? She&apos;s a virgin. Been held by one wallet since birth. 50 transfers? She&apos;s been around. Traveled. Experienced.
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            Neither is good or bad. It&apos;s just what happened.
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            Some people will care about low body count (loyalty signal). Some will care about high body count (she&apos;s been loved by many). Some won&apos;t care at all.
-          </p>
-          <p style={{ marginTop: '12px' }}>
-            <strong>You decide what matters.</strong>
-          </p>
-        </GlassPanel>
-
-        <GlassPanel style={{ marginTop: '16px' }}>
           <p className="aboutMiniCard__title" style={{ marginBottom: '8px' }}>THE NUNNERY (CONFIRMED)</p>
           <p>
             There&apos;s one gated chat room that&apos;s real: <strong>The Nunnery.</strong>
           </p>
           <p style={{ marginTop: '12px' }}>
-            Virgin MiFOIDs only. 0 transfers. Day 1 holders who never sold.
+            Only MiFOIDs that have never been transferred. Day-1 holders who never sold.
           </p>
           <p style={{ marginTop: '12px' }}>
             This is the most exclusive room in FOID. Diamond hands only. The ones who held through everything.
