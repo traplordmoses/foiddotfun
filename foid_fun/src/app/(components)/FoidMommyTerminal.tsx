@@ -70,11 +70,11 @@ const feelingsConfig: Record<
   happy: {
     chipLabel: "happy / grateful",
     response:
-      "i can feel it from here. that glow is real, love.",
+      "okay i love this for you. tell me what's been making the day shine.",
     prayer:
-      "keep this joy close to you. let it be something you return to when the days get heavy. you earned this light. carry it gently.",
+      "this glow you have right now is yours. carry it into tomorrow morning, let it warm whoever you talk to first, and remember days like this are the proof that you're doing better than you think.",
     prompt:
-      "tell me more about what made you feel this way.",
+      "what's been bringing you joy lately?",
     keywords: [
       "happy", "happiness", "joy", "joyful", "grateful", "gratitude",
       "thankful", "blessed", "elated", "glad", "amazing", "wonderful",
@@ -86,9 +86,9 @@ const feelingsConfig: Record<
   calm: {
     chipLabel: "calm",
     response:
-      "good. your breath is even. let's stay here for a moment.",
+      "the quiet ones are gold. tell me what's keeping you steady today.",
     prayer:
-      "let this calm settle deep. guard this quiet space. let your thoughts rest easy and your body remember what peace feels like.",
+      "this calm is real and you built it. let it be the floor you stand on tomorrow when the noise comes back. your breath is even, your shoulders are down, and you're allowed to keep it that way as long as you want.",
     prompt:
       "what brought you to this place of calm?",
     keywords: ["calm", "peaceful", "peace", "relaxed", "serene", "steady", "chill", "centered"],
@@ -97,9 +97,9 @@ const feelingsConfig: Record<
   hopeful: {
     chipLabel: "hopeful",
     response:
-      "i hear it in your voice. something is opening up for you.",
+      "i can feel something opening up for you. tell me what you're reaching for.",
     prayer:
-      "let this hope stay soft and steady. light the next step, not the whole road. trust the timing. you are closer than you think.",
+      "this hope is not naive, it's intelligent. you've earned the right to expect good things. the next door is closer than the last one was, and you're going to recognize it the second it opens.",
     prompt:
       "what are you hoping for right now?",
     keywords: [
@@ -110,9 +110,9 @@ const feelingsConfig: Record<
   stressed: {
     chipLabel: "stressed / anxious",
     response:
-      "i feel that. the weight is real. you don't have to carry it alone.",
+      "okay love, the brain is loud. tell me which piece is the heaviest right now.",
     prayer:
-      "loosen the knot. bring you back to this breath, this moment. show you what is yours to hold and what you can set down. one thing at a time.",
+      "you are not behind, you are just carrying a lot at once. tonight, pick the one thing that actually matters and let the other ten wait. you've solved harder days than this one. tomorrow morning starts fresh and so do you.",
     prompt:
       "what is weighing on you the most right now?",
     keywords: [
@@ -123,9 +123,9 @@ const feelingsConfig: Record<
   sad: {
     chipLabel: "sad / lonely",
     response:
-      "i am sitting right beside you. no fixing, just company.",
+      "you came here anyway. that already says something soft about you. tell me what's going on.",
     prayer:
-      "hold this heart gently. let the sadness pass through without staying forever. leave room for something softer to grow when it is ready.",
+      "sadness is just love with nowhere to put itself for the moment. you're not broken, sweet one, you're feeling. let tonight be small and warm. drink something hot, text one person who likes you, sleep a little earlier than you planned.",
     prompt:
       "do you want to tell me what hurts?",
     keywords: [
@@ -136,9 +136,9 @@ const feelingsConfig: Record<
   angry: {
     chipLabel: "angry / frustrated",
     response:
-      "that fire means you care about something. let's honour that.",
+      "good. anger means you actually care. tell me what set it off, love.",
     prayer:
-      "steady these hands. clear these eyes. turn this heat into something true. give the strength to act from love, not from pain.",
+      "this fire in you is information, not a flaw. it's pointing at what matters. let it cool just enough to be useful, then use it. you're allowed to want better. you're allowed to ask for it.",
     prompt:
       "what set this off?",
     keywords: [
@@ -149,9 +149,9 @@ const feelingsConfig: Record<
   tired: {
     chipLabel: "tired / burned out",
     response:
-      "your body is asking for mercy. that is not weakness, love.",
+      "you've been carrying so much. tell me how long this stretch has been.",
     prayer:
-      "pour quiet into these bones. slow the pace. bless the sleep, the food, the unhurried minutes. let rest come without guilt.",
+      "rest is not a reward you have to earn, it's the thing that makes you possible. close one tab. close the laptop. let tomorrow's version of you do tomorrow's work. you will be sharper and softer after some real sleep.",
     prompt:
       "how long have you been running on empty?",
     keywords: [
@@ -162,9 +162,9 @@ const feelingsConfig: Record<
   lost: {
     chipLabel: "lost / uncertain",
     response:
-      "fog happens. we walk by feel. i am right here with you.",
+      "fog is a real thing, anon. tell me what part of the road feels hardest to see.",
     prayer:
-      "light only the next step. make peace with the not knowing. let direction come softly, like a quiet yes in the chest.",
+      "not knowing is not the same as failing. you are between chapters, that's all. the next step does not have to be the right one forever, it just has to be the one you take next. clarity comes after movement, not before it.",
     prompt:
       "what feels the most uncertain right now?",
     keywords: [
@@ -175,9 +175,9 @@ const feelingsConfig: Record<
   guilty: {
     chipLabel: "guilty / ashamed",
     response:
-      "you are more than your mistake. we can be honest and still be gentle.",
+      "the fact that you feel this means your conscience is alive and well. tell me what's sitting heavy.",
     prayer:
-      "let forgiveness begin inside. clear eyes, soft heart, steady feet. move toward repair one honest step at a time.",
+      "you are not the worst thing you've done, sweet one. shame keeps you stuck, repair moves you. one honest word to the right person can lift more weight than a week of replaying it in your head. you get to begin again.",
     prompt:
       "what is sitting heavy on you?",
     keywords: [
@@ -188,9 +188,9 @@ const feelingsConfig: Record<
   pain: {
     chipLabel: "in pain / unwell",
     response:
-      "i hear the ache. you are not alone in this.",
+      "i'm so sorry you're hurting, love. tell me what's going on with you.",
     prayer:
-      "ease the sharp edges. bring help that is wise and hands that are kind. let pain not be the whole story of this day.",
+      "this body has carried you through everything so far and it will carry you through this too. be gentle with it tonight. soft food, warm water, slow breath. pain shrinks when it's not the whole story, and tomorrow there will be other things in the frame.",
     prompt:
       "tell me what you are going through.",
     keywords: [
@@ -201,9 +201,9 @@ const feelingsConfig: Record<
   freeform: {
     chipLabel: "open heart",
     response:
-      "i am listening. take your time, sweet one.",
+      "i'm right here, sweet one. take your time and tell me what's on your mind.",
     prayer:
-      "meet this person exactly where they are. hold what they carry. bless what they seek. walk with them through whatever comes next.",
+      "whatever you are holding right now, you do not have to hold it alone tonight. let your shoulders drop. let the day be done. you showed up, you said the words, and that is more than most people manage in a whole week.",
     prompt:
       "tell me whatever is on your heart.",
     keywords: [],
@@ -272,17 +272,17 @@ function pickMommyWord(feeling: FeelingKey): string {
 // Post-submit Mommy lines, tailored to the user's declared feeling.
 // Fired once after the existing "thank you for trusting me..." beat.
 const postSubmitLines: Record<FeelingKey, string> = {
-  happy: "hold this. it's real.",
-  calm: "rest now.",
-  hopeful: "this hope is yours. keep walking.",
-  stressed: "unclench. i've got it.",
-  sad: "i'm staying here with you.",
-  angry: "your anger makes sense. let it pass.",
-  tired: "sleep. you earned it.",
-  lost: "one step. just one.",
-  guilty: "tomorrow starts clean.",
-  pain: "i see you. i'm here.",
-  freeform: "i hear you, love.",
+  happy: "hold onto this one, love. it's the kind of day worth remembering.",
+  calm: "stay in this for a while. you don't have to go back to the noise yet.",
+  hopeful: "keep walking. the door is closer than it looks from here.",
+  stressed: "let the worry sleep tonight. tomorrow you are smarter and faster than you think.",
+  sad: "you're not alone in this. i'm right here, and tomorrow will be quieter.",
+  angry: "your anger meant something. let it teach you, then let it go.",
+  tired: "close the laptop, drink water, get to bed. tomorrow's you is going to thank you.",
+  lost: "one honest step. that's all today asked of you, and you did it.",
+  guilty: "tomorrow gets to be a clean morning. you're allowed to begin again.",
+  pain: "be soft with yourself tonight. you've already done the hard part by showing up.",
+  freeform: "you came in, you spoke, you let it land. that's the whole ritual, sweet one.",
 };
 
 type Stage =
@@ -351,10 +351,10 @@ function formatCooldown(seconds: number) {
 
 function greetingForTimeOfDay(): string {
   const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return "good morning, anon. how are you starting this day?";
-  if (hour >= 12 && hour < 17) return "hey anon, checking in. how's the day treating you?";
-  if (hour >= 17 && hour < 21) return "evening, anon. how are you winding down?";
-  return "you're up late. what's on your mind tonight, love?";
+  if (hour >= 5 && hour < 12) return "good morning, sweet one. i was hoping you'd come by. how are you starting the day?";
+  if (hour >= 12 && hour < 17) return "hey love, look at you showing up in the middle of the day. how's it treating you so far?";
+  if (hour >= 17 && hour < 21) return "evening, anon. tell me how the day landed for you.";
+  return "you're up late, love. i'm glad you're here. what's on your heart tonight?";
 }
 
 const STREAK_MILESTONES: Record<number, string> = {
@@ -1791,7 +1791,7 @@ export default function FoidMommyTerminal({
             onScroll={handleLogScroll}
           >
             <div className="foid-cli__logInner">
-              {messages.map((msg) => {
+              {messages.map((msg, idx) => {
                 // Breathing circle sentinel
                 if (msg.text === "___BREATHE___") {
                   return (
@@ -1803,6 +1803,17 @@ export default function FoidMommyTerminal({
 
                 const isPrayerLine = msg.id === prayerMessageId;
                 const isChromatic = chromaticIds.has(msg.id);
+
+                // Group consecutive lines from the same speaker so only the
+                // first in a run gets the prompt label. Cleaner chat feel,
+                // and the speaker boundary becomes visually obvious.
+                const prev = idx > 0 ? messages[idx - 1] : null;
+                const prevWasSentinel = prev?.text === "___BREATHE___";
+                const sameSpeakerAsPrev =
+                  prev !== null && !prevWasSentinel && prev.role === msg.role;
+                const isFirstInRun = !sameSpeakerAsPrev;
+                const showPrompt =
+                  isFirstInRun && (msg.role === "user" || msg.role === "foid");
 
                 return (
                   <div
@@ -1816,24 +1827,37 @@ export default function FoidMommyTerminal({
                           : `foid-terminal__line--system${
                               msg.text.toLowerCase().startsWith("booting") ? " foid-terminal__line--boot" : ""
                             }`
-                    }${isChromatic ? " foid-terminal__line--chromatic" : ""}`}
+                    }${isChromatic ? " foid-terminal__line--chromatic" : ""}${
+                      isFirstInRun && (msg.role === "user" || msg.role === "foid")
+                        ? " foid-terminal__line--turn-start"
+                        : ""
+                    }${sameSpeakerAsPrev ? " foid-terminal__line--continuation" : ""}`}
                   >
-                    {msg.role === "user" && (
-                      <span className="foid-terminal__prompt">{promptLabel}</span>
+                    {showPrompt && (
+                      <span
+                        className={`foid-terminal__prompt foid-terminal__prompt--${msg.role}`}
+                      >
+                        {msg.role === "user" ? promptLabel : "mommy@foid:~$"}
+                      </span>
                     )}
-                    <span>{msg.text}</span>
+                    <span className="foid-terminal__line-text">{msg.text}</span>
                   </div>
                 );
               })}
               {mommyTyping && (
                 <div
-                  className="foid-terminal__line foid-terminal__line--foid foid-terminal__typing"
+                  className="foid-terminal__line foid-terminal__line--foid foid-terminal__line--turn-start foid-terminal__typing"
                   role="status"
                   aria-label="Foid Mommy is typing"
                 >
-                  <span className="foid-terminal__typing-dot" aria-hidden="true" />
-                  <span className="foid-terminal__typing-dot" aria-hidden="true" />
-                  <span className="foid-terminal__typing-dot" aria-hidden="true" />
+                  <span className="foid-terminal__prompt foid-terminal__prompt--foid">
+                    mommy@foid:~$
+                  </span>
+                  <span className="foid-terminal__typing-dots">
+                    <span className="foid-terminal__typing-dot" aria-hidden="true" />
+                    <span className="foid-terminal__typing-dot" aria-hidden="true" />
+                    <span className="foid-terminal__typing-dot" aria-hidden="true" />
+                  </span>
                 </div>
               )}
             </div>

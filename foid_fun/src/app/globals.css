@@ -2302,7 +2302,22 @@ html.cmp-active .app-viewport {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    gap: 6px;
+    gap: 2px;
+  }
+
+  /* Turn boundaries: the first line of a new speaker run gets extra top
+     space so user/mommy turns visually clump together — like a real chat
+     transcript inside the terminal. */
+  .foid-terminal__line--turn-start {
+    margin-top: 12px;
+  }
+  .foid-terminal__line--turn-start:first-child {
+    margin-top: 0;
+  }
+  /* Continuation lines (same speaker, no prompt) sit flush — no fake
+     prompt-column indent. Reads like Discord / iMessage. */
+  .foid-terminal__line--continuation .foid-terminal__line-text {
+    display: block;
   }
 
   .foid-cli__composer {
@@ -2362,6 +2377,27 @@ html.cmp-active .app-viewport {
     font-family: var(--font-terminal);
     letter-spacing: 0.02em;
     margin-right: 12px;
+    flex-shrink: 0;
+  }
+  /* Mommy's prompt is the pink-accent voice — visually distinct from the
+     user's cyan/green prompt so back-and-forth is unmistakable. */
+  .foid-terminal__prompt--foid {
+    color: var(--pink-accent, #ff6bd5);
+    text-shadow: 0 0 8px rgba(255, 107, 213, 0.35);
+    /* Mommy's lines are serif — but the prompt is mono so it reads as a
+       terminal label, not as part of her sentence. */
+    font-family: var(--font-terminal);
+    font-size: 13px;
+    /* The mono prompt sits slightly off-baseline against the serif body;
+       a small translate keeps them on the same line visually. */
+    transform: translateY(1px);
+  }
+  .foid-terminal__prompt--user {
+    color: var(--cyan-medium);
+  }
+  .foid-terminal__line-text {
+    flex: 1;
+    min-width: 0;
   }
 
   .foid-terminal__input-wrap {
@@ -2484,10 +2520,13 @@ html.cmp-active .app-viewport {
   /* Typing indicator — three teal dots that bounce in sequence.
      Rendered as a foid chat line so it sits naturally in the log. */
   .foid-terminal__typing {
+    align-items: center;
+    padding: 4px 0;
+  }
+  .foid-terminal__typing-dots {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 0;
   }
   .foid-terminal__typing-dot {
     width: 6px;
@@ -4185,7 +4224,31 @@ html.cmp-active .app-viewport {
   .mobile-terminal .foid-terminal__line {
     font-size: 13px !important;
     line-height: 1.45 !important;
-    margin-bottom: 8px !important;
+    margin-bottom: 4px !important;
+  }
+  /* On mobile, prompts are hidden — so a left-edge color rail does the
+     work of telling the user vs mommy turns apart. The !important here
+     overrides a global `border-color: transparent` reset that the prayer
+     page sets on every descendant of .frutiger-terminal. */
+  .mobile-terminal .foid-terminal__line--user,
+  .mobile-terminal .foid-terminal__line--foid {
+    padding-left: 10px !important;
+    border-left-width: 2px !important;
+    border-left-style: solid !important;
+  }
+  .mobile-terminal .foid-terminal__line--user {
+    border-left-color: var(--cyan-medium, #6eead8) !important;
+  }
+  .mobile-terminal .foid-terminal__line--foid {
+    border-left-color: var(--pink-accent, #ff6bd5) !important;
+  }
+  /* The first line of a new speaker turn on mobile: a touch more vertical
+     room so user/mommy clumps read like chat bubbles. */
+  .mobile-terminal .foid-terminal__line--turn-start {
+    margin-top: 12px !important;
+  }
+  .mobile-terminal .foid-terminal__line--continuation {
+    padding-left: 10px !important;
   }
 
   /* Mommy's serif voice survives the mobile mono override. Slightly

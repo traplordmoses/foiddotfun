@@ -482,6 +482,25 @@ function PrayPageContent() {
     ? new Date(nextAllowedSecondsRaw * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
     : "";
 
+  // Streak-loss deadline: PrayerRegistry resets streak if user prays > 48h
+  // after their last check-in (lastCheckIn + 2 * DAY). Since nextAllowedAt =
+  // lastCheckIn + 24h, the streak deadline is nextAllowedAt + 24h.
+  // We only surface this once a user has actually prayed (nextAllowedSecondsRaw > 0).
+  const streakDeadlineSeconds =
+    typeof nextAllowedSecondsRaw === "number" && nextAllowedSecondsRaw > 0
+      ? nextAllowedSecondsRaw + 86400
+      : null;
+  const streakSecondsLeft =
+    canRenderTime && streakDeadlineSeconds !== null
+      ? Math.max(0, streakDeadlineSeconds - nowSeconds)
+      : null;
+  // Urgent state: user can pray now AND streak deadline is within the
+  // remaining 24h window. This is the "pray today or lose your streak" beat.
+  const streakUrgent =
+    !cooldownActive && streakSecondsLeft !== null && streakSecondsLeft > 0;
+  const streakLost =
+    streakSecondsLeft !== null && streakSecondsLeft <= 0 && hasAnyPrayers;
+
   return (
     <main
       className="pray-page relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center"
@@ -550,6 +569,8 @@ function PrayPageContent() {
           connected={isConnected}
           afterglow={afterglow}
           hasEverPrayed={hasAnyPrayers}
+          streakSecondsLeft={streakSecondsLeft}
+          streakUrgent={streakUrgent}
         />
 
         {/* History trigger — pill below the altar that opens the journal drawer. */}
@@ -789,6 +810,25 @@ function PrayPageContent() {
                             <div className="pray-chain-info__row">
                               <span className="pray-chain-info__label">next window</span>
                               <span className="pray-chain-info__value" aria-label={`Next prayer window opens at ${nextWindowLabel}`}>{nextWindowLabel}</span>
+                            </div>
+                          )}
+                          {hasAnyPrayers && streakSecondsLeft !== null && (
+                            <div className="pray-chain-info__row">
+                              <span className="pray-chain-info__label">streak resets in</span>
+                              <span
+                                className={`pray-chain-info__value ${streakUrgent ? "pray-chain-info__value--urgent" : ""}`}
+                                role="timer"
+                                aria-live="polite"
+                                aria-label={
+                                  streakLost
+                                    ? "Streak has been lost"
+                                    : `Streak resets in ${formatDurationShort(streakSecondsLeft)}`
+                                }
+                              >
+                                {streakLost
+                                  ? "lost"
+                                  : formatDurationShort(streakSecondsLeft)}
+                              </span>
                             </div>
                           )}
                         </div>
@@ -1319,6 +1359,17 @@ function PrayPageContent() {
         .pray-chain-info__value { font-size: 12px; font-family: var(--font-terminal, monospace); color: rgba(255, 255, 255, 0.8); font-weight: 600; }
         .pray-chain-info__value--hash { color: #00ffd5; }
         .pray-chain-info__value--ready { color: #00ff88; text-shadow: 0 0 8px rgba(0, 255, 136, 0.5); }
+        /* Urgent variant — used by the streak-loss deadline once the cooldown
+           has elapsed and the user has < 24h to pray or break their streak. */
+        .pray-chain-info__value--urgent {
+          color: #ffb84d;
+          text-shadow: 0 0 8px rgba(255, 184, 77, 0.55);
+          animation: pray-urgent-pulse 2.2s ease-in-out infinite;
+        }
+        @keyframes pray-urgent-pulse {
+          0%, 100% { opacity: 0.85; }
+          50% { opacity: 1; }
+        }
         
         /* Streak nudge micro-copy */
         .pray-streak-nudge {
