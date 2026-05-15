@@ -213,20 +213,17 @@ Connected-wallet dashboard showing prayer stats, user's board placements with st
 
 Suggested cron: `0 */6 * * * npm run auto:finalize`
 
-### X Bot (`foid_bot/src/`)
+### X Bot (`foid_bot/src/`) — ARCHIVED
 
-Monitors on-chain events and posts observational tweets.
+The automated X bot is **archived** (as of 2026-05-15). Source is preserved
+but the Render cron job has been removed. See `foid_fun/foid_bot/ARCHIVED.md`
+for revival steps and the known issues that should be fixed first.
 
-- **index.ts** — Main loop: load state, query Goldsky, classify events, generate tweet, post, save state
-- **goldsky.ts** — GraphQL queries for PlacementProposed, VoteCast, EpochFinalized since last check
-- **personality.ts** — OpenAI gpt-4o-mini with system prompt: lowercase, dry wit, observational, under 220 chars, no emojis/hashtags
-- **twitter.ts** — Wraps twitter-api-v2 with `postTweet(text)` function
-- **state.json** — Persists lastCheckedTimestamp, daily tweet timestamps, posted event IDs
-
-Rate limits: max 6 tweets/day, minimum 2 hours between tweets.
-Event priority: canonization > epoch finalized > vote surge (5+ votes) > new proposal > quiet observation (if 6+ hours idle).
-
-Run: `npx tsx foid_bot/src/index.ts` from project root.
+Active X integration is **user-initiated only**: share buttons on
+`<PlacementCelebration>` (post-placement) and `<NotificationInbox>`
+(post-canonization), with copy templates centralized in
+`src/lib/shareTemplates.ts`. Rich previews come from
+`/api/og/placement/[id]` via the `/board/proposal/[id]` share page.
 
 ## Data Layer
 

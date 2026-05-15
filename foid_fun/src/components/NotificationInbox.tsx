@@ -8,6 +8,12 @@ import { useVoteAlerts } from "@/hooks/useVoteAlerts";
 import { toIpfsHttpUrl } from "@/lib/ipfsUrl";
 import { getAudioSettings } from "@/lib/audioSettings";
 import { IS_MAINNET } from "@/config/canonical";
+import {
+  buildPlacementShareUrl,
+  buildXIntentUrl,
+  canonizationTweetTemplates,
+  pickRandom,
+} from "@/lib/shareTemplates";
 
 type Props = { address: `0x${string}` | undefined };
 
@@ -128,12 +134,14 @@ function NotificationCard({
   const label = TYPE_LABELS[notification.type] ?? "UPDATE";
   const votes = notification.placement.votes;
 
+  // Share to X — pulls templates from src/lib/shareTemplates.ts so copy can
+  // be tuned in one place. The share URL points at /board/proposal/<id> so
+  // the tweet gets the rich preview card (og:image is wired on that route).
   const handleShare = () => {
     const p = notification.placement;
-    const text = encodeURIComponent(
-      `My lore got canonized on the FOID loreboard! Epoch ${p.epoch}\n\nhttps://foid.fun/board`,
-    );
-    window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
+    const url = buildPlacementShareUrl(p.id);
+    const tweet = pickRandom(canonizationTweetTemplates(p.epoch, url));
+    window.open(buildXIntentUrl(tweet), "_blank");
   };
 
   const handleClick = () => {
