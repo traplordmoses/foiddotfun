@@ -1,9 +1,10 @@
 // /src/app/board/proposal/[id]/page.tsx
 // Thin share page. Purpose is to expose og:image + twitter:image metadata
 // pointing at /api/og/placement/[id] so Farcaster, X, iMessage all get a
-// rich preview. Human traffic is bounced back to /board?proposal=id via a
+// rich preview. Human traffic is bounced to /board?celebrate=<id> via a
 // client redirect — a server redirect() would strip the <meta> tags that
-// crawlers need before they follow anything.
+// crawlers need before they follow anything. ?celebrate= replays the
+// PlacementCelebration so the recipient lands on a moment, not just a board.
 
 import type { Metadata } from "next";
 
@@ -45,7 +46,7 @@ export async function generateMetadata({
 }
 
 export default function ProposalSharePage({ params }: { params: Params }) {
-  const target = `/board?proposal=${encodeURIComponent(params.id)}`;
+  const target = `/board?celebrate=${encodeURIComponent(params.id)}`;
   return (
     <div
       style={{

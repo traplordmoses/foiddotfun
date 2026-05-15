@@ -11,6 +11,12 @@ import {
   type Personalization,
 } from "@/effects/placementPersonalization";
 import { startParticles } from "@/effects/particleCanvas";
+import {
+  buildPlacementShareUrl,
+  buildXIntentUrl,
+  pickRandom,
+  proposalTweetTemplates,
+} from "@/lib/shareTemplates";
 
 type PlacementCelebrationProps = {
   itemName: string;
@@ -136,22 +142,16 @@ export default function PlacementCelebration({
     return () => clearTimeout(t);
   }, [exiting]);
 
-  // Share to X — randomised tweet templates.
-  // The share URL deep-links back into the same celebration for anyone who
-  // clicks it: /board?celebrate=<proposalId> → the board page re-runs the
-  // celebration component on mount using onchain data.
+  // Share to X — pulls templates from src/lib/shareTemplates.ts so copy can
+  // be tuned in one place. The share URL points at /board/proposal/<id>,
+  // which has og:image + twitter:image metadata so the tweet preview shows
+  // the placement card. That page client-redirects humans to
+  // /board?celebrate=<id> so anyone clicking the link sees the celebration
+  // replay. See src/app/board/proposal/[id]/page.tsx.
   const handleShare = () => {
-    const deepLink =
-      proposalId != null
-        ? `https://foid.fun/board?celebrate=${proposalId}`
-        : "https://foid.fun/board";
-    const tweets = [
-      `do you know what? i just made the ${proposalId != null ? `#${proposalId}` : ""} proposal to the @foidfun loreboard!!\n\ngo check it out and vote.\n\n${deepLink}`,
-      `yeowww i proposed a meme to the @foidfun loreboard!!\n\n${deepLink}`,
-      `yippppeeee i just proposed an image to the @foidfun loreboard!!\n\n${deepLink}`,
-    ];
-    const text = encodeURIComponent(tweets[Math.floor(Math.random() * tweets.length)]);
-    window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
+    const url = buildPlacementShareUrl(proposalId);
+    const tweet = pickRandom(proposalTweetTemplates(proposalId, url));
+    window.open(buildXIntentUrl(tweet), "_blank");
   };
 
   // Particle system moved to <canvas>. Starting the particles here keeps
