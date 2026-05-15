@@ -14,6 +14,12 @@ type Props = {
   afterglow: boolean;
   /** True if the user has anchored at least one prayer onchain ever. */
   hasEverPrayed: boolean;
+  /** Seconds remaining before the streak resets (lastCheckIn + 48h).
+      Null until the user has prayed at least once. */
+  streakSecondsLeft?: number | null;
+  /** Whether the streak countdown is in its "pray today or lose it" phase
+      (cooldown elapsed, < 24h remaining). */
+  streakUrgent?: boolean;
 };
 
 function formatCountdown(seconds: number): string {
@@ -59,6 +65,15 @@ function useCountUp(target: number, durationMs = 500): number {
   return value;
 }
 
+function formatStreakDeadlineShort(seconds: number): string {
+  if (seconds <= 0) return "lost";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h >= 1) return `${h}h ${m.toString().padStart(2, "0")}m`;
+  const s = seconds % 60;
+  return `${m}m ${s.toString().padStart(2, "0")}s`;
+}
+
 export default function PrayerAltarStrip({
   streak,
   tier,
@@ -68,6 +83,8 @@ export default function PrayerAltarStrip({
   connected,
   afterglow,
   hasEverPrayed,
+  streakSecondsLeft = null,
+  streakUrgent = false,
 }: Props) {
   const displayStreak = useCountUp(streak);
 
@@ -253,6 +270,32 @@ export default function PrayerAltarStrip({
                 : formatCountdown(cooldownSeconds)}
           </span>
         </div>
+
+        {/* Streak-loss deadline. Only shows for users who've prayed at
+            least once — otherwise there's no streak to lose. The urgent
+            state kicks in once cooldown is over and the streak window is
+            ticking toward reset. */}
+        {connected && hasEverPrayed && streakSecondsLeft !== null && (
+          <div
+            className={`altar-streak-deadline ${streakUrgent ? "altar-streak-deadline--urgent" : ""}`}
+            role="timer"
+            aria-live="polite"
+            aria-label={
+              streakSecondsLeft <= 0
+                ? "Streak lost"
+                : `Streak resets in ${formatStreakDeadlineShort(streakSecondsLeft)}`
+            }
+          >
+            <span className="altar-streak-deadline__label">
+              {streakSecondsLeft <= 0 ? "streak lost" : "streak resets in"}
+            </span>
+            {streakSecondsLeft > 0 && (
+              <span className="altar-streak-deadline__value">
+                {formatStreakDeadlineShort(streakSecondsLeft)}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <style jsx>{`
@@ -571,6 +614,58 @@ export default function PrayerAltarStrip({
           text-transform: uppercase;
           letter-spacing: 0.15em;
           font-size: 10px;
+        }
+
+        /* Streak-loss deadline — sits below the cooldown row. Calm dim
+           tone when streak is safe (in cooldown), warm amber pulse when
+           the user can pray and the 24h window is ticking. */
+        .altar-streak-deadline {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+          margin-top: 2px;
+        }
+        .altar-streak-deadline__label {
+          font-size: 9px;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.35);
+        }
+        .altar-streak-deadline__value {
+          font-family: var(--font-terminal, monospace);
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.65);
+          font-variant-numeric: tabular-nums;
+        }
+        .altar-streak-deadline--urgent .altar-streak-deadline__label {
+          color: rgba(255, 184, 77, 0.85);
+        }
+        .altar-streak-deadline--urgent .altar-streak-deadline__value {
+          color: #ffb84d;
+          text-shadow: 0 0 8px rgba(255, 184, 77, 0.55);
+          font-weight: 600;
+          animation: altar-streak-pulse 2.2s ease-in-out infinite;
+        }
+        @keyframes altar-streak-pulse {
+          0%, 100% { opacity: 0.9; }
+          50% { opacity: 1; }
+        }
+        @media (max-width: 374px) {
+          .altar-streak-deadline {
+            margin-top: 0;
+          }
+          .altar-streak-deadline__label {
+            font-size: 8.5px;
+            letter-spacing: 0.12em;
+          }
+          .altar-streak-deadline__value {
+            font-size: 10px;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .altar-streak-deadline--urgent .altar-streak-deadline__value {
+            animation: none;
+          }
         }
 
         /* Narrow phones (iPhone SE, small Androids): fold the cooldown value
