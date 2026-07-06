@@ -723,6 +723,11 @@ body {
     gap: 0;
     padding: 0;
     border-radius: var(--foid-radius-xl);
+    /* Window physics: every route's window opens with one scale-and-settle
+       spring (slight overshoot). Runs on mount only — navigating remounts
+       the window, so switching rooms feels like opening an app, not
+       swapping a page. */
+    animation: foid-window-open 0.42s cubic-bezier(0.3, 1.28, 0.36, 1);
 
     /* Liquid glass */
     background: var(--foid-glass-window-bg);
@@ -5509,4 +5514,24 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .foid-img-loading { animation: none; }
+}
+
+/* ============================================================================
+   WINDOW PHYSICS — the shared open animation for .vista-window (see the
+   window block in @layer components). One spring for every room.
+   ============================================================================ */
+@keyframes foid-window-open {
+  from {
+    opacity: 0;
+    transform: scale(0.965) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vista-window {
+    animation: none;
+  }
 }
