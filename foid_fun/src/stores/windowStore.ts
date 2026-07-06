@@ -83,6 +83,11 @@ type WindowStoreV2 = {
   windows: Partial<Record<AppId, OSWindowState>>;
   /** Back → front. Focused app = zOrder[zOrder.length - 1]. */
   zOrder: AppId[];
+  /** "Show desktop" memory: the ids that were open when minimizeAll ran,
+   *  so the next Home click restores exactly that set (zOrder is left
+   *  untouched, so the previous front window comes back focused).
+   *  Session-only — never persisted. */
+  showDesktopStash: AppId[] | null;
 
   /** Create (or restore) a window, then focus it. One instance per app. */
   open: (id: AppId, params?: Record<string, string>) => void;
@@ -94,6 +99,13 @@ type WindowStoreV2 = {
   minimize: (id: AppId) => void;
   /** Un-minimize + focus (dock tile click). Alias of focus. */
   restore: (id: AppId) => void;
+  /** HOME dock tile, "show desktop": genie every open window to the dock,
+   *  remembering the set for the return trip. No-op when nothing is open. */
+  minimizeAll: () => void;
+  /** HOME again with everything parked: bring back the stashed set (or
+   *  every minimized window when there's no stash, e.g. the user parked
+   *  them one by one). Clears the stash. */
+  restoreAll: () => void;
   toggleMaximize: (id: AppId) => void;
   setPos: (id: AppId, pos: WindowPos) => void;
   setSize: (id: AppId, size: WindowSize | null) => void;
@@ -128,6 +140,7 @@ export const useWindowStoreV2 = create<WindowStoreV2>()(
     (set, get) => ({
       windows: {},
       zOrder: [],
+      showDesktopStash: null,
 
       open: (id, params) => {
         const s = get();
@@ -192,6 +205,45 @@ export const useWindowStoreV2 = create<WindowStoreV2>()(
         }),
 
       restore: (id) => get().focus(id),
+
+      minimizeAll: () =>
+        set((s) => {
+          const openIds = s.zOrder.filter(
+            (id) => s.windows[id]?.status === "open",
+          );
+          if (!openIds.length) return s;
+          const windows = { ...s.windows };
+          for (const id of openIds) {
+            windows[id] = { ...windows[id]!, status: "minimized" };
+          }
+          return { windows, showDesktopStash: openIds };
+        }),
+
+      restoreAll: () =>
+        set((s) => {
+          // Stash entries may have been closed while parked — drop them.
+          const stashed = (s.showDesktopStash ?? []).filter(
+            (id) => s.windows[id],
+          );
+          const ids = stashed.length
+            ? stashed
+            : s.zOrder.filter((id) => s.windows[id]?.status === "minimized");
+          if (!ids.length) {
+            return s.showDesktopStash ? { showDesktopStash: null } : s;
+          }
+          const now = Date.now();
+          const windows = { ...s.windows };
+          for (const id of ids) {
+            windows[id] = {
+              ...windows[id]!,
+              status: "open",
+              lastFocusedAt: now,
+            };
+          }
+          // zOrder untouched: the pre-minimize front window is still the
+          // tail among the restored set, so it comes back focused.
+          return { windows, showDesktopStash: null };
+        }),
 
       toggleMaximize: (id) =>
         set((s) => {

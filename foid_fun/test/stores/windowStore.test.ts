@@ -32,7 +32,7 @@ const ALL_APPS: AppId[] = [
 const store = () => useWindowStoreV2.getState();
 
 beforeEach(() => {
-  useWindowStoreV2.setState({ windows: {}, zOrder: [] });
+  useWindowStoreV2.setState({ windows: {}, zOrder: [], showDesktopStash: null });
 });
 
 describe("windowStore v2 — open", () => {
@@ -133,6 +133,106 @@ describe("windowStore v2 — minimize (amber orb)", () => {
     store().open("files");
     store().minimize("files");
     expect(focusedAppId(store())).toBeUndefined();
+  });
+});
+
+describe("windowStore v2 — show desktop (HOME dock tile)", () => {
+  it("minimizeAll parks every open window and stashes the set", () => {
+    store().open("files");
+    store().open("mifoid");
+    store().open("board");
+    store().minimizeAll();
+    expect(store().windows.files?.status).toBe("minimized");
+    expect(store().windows.mifoid?.status).toBe("minimized");
+    expect(store().windows.board?.status).toBe("minimized");
+    expect(store().showDesktopStash).toEqual(["files", "mifoid", "board"]);
+    expect(focusedAppId(store())).toBeUndefined();
+    // zOrder survives so restore brings the same stacking back.
+    expect(store().zOrder).toEqual(["files", "mifoid", "board"]);
+  });
+
+  it("minimizeAll only stashes windows that were open", () => {
+    store().open("files");
+    store().open("mifoid");
+    store().minimize("files"); // parked by hand first
+    store().minimizeAll();
+    expect(store().showDesktopStash).toEqual(["mifoid"]);
+  });
+
+  it("minimizeAll no-ops (same state reference) with nothing open", () => {
+    store().open("files");
+    store().minimize("files");
+    const before = useWindowStoreV2.getState();
+    store().minimizeAll();
+    expect(useWindowStoreV2.getState()).toBe(before);
+  });
+
+  it("restoreAll brings back the stashed set with the previous focus", () => {
+    store().open("files");
+    store().open("mifoid");
+    store().focus("files"); // front = files
+    store().minimizeAll();
+    store().restoreAll();
+    expect(store().windows.files?.status).toBe("open");
+    expect(store().windows.mifoid?.status).toBe("open");
+    expect(focusedAppId(store())).toBe("files");
+    expect(store().showDesktopStash).toBeNull();
+  });
+
+  it("restoreAll leaves hand-parked windows out of a stashed restore", () => {
+    store().open("files");
+    store().open("mifoid");
+    store().minimize("files"); // parked by hand BEFORE show-desktop
+    store().minimizeAll(); // stashes only mifoid
+    store().restoreAll();
+    expect(store().windows.mifoid?.status).toBe("open");
+    expect(store().windows.files?.status).toBe("minimized");
+  });
+
+  it("restoreAll without a stash restores every minimized window", () => {
+    store().open("files");
+    store().open("mifoid");
+    store().minimize("files");
+    store().minimize("mifoid");
+    store().restoreAll();
+    expect(store().windows.files?.status).toBe("open");
+    expect(store().windows.mifoid?.status).toBe("open");
+    expect(focusedAppId(store())).toBe("mifoid");
+  });
+
+  it("restoreAll skips stash entries closed while parked", () => {
+    store().open("files");
+    store().open("mifoid");
+    store().minimizeAll();
+    store().close("files");
+    store().restoreAll();
+    expect(store().windows.files).toBeUndefined();
+    expect(store().windows.mifoid?.status).toBe("open");
+  });
+
+  it("restoreAll with no windows at all is a quiet no-op", () => {
+    const before = useWindowStoreV2.getState();
+    store().restoreAll();
+    expect(useWindowStoreV2.getState()).toBe(before);
+  });
+
+  it("HOME toggle round-trip: minimizeAll ↔ restoreAll", () => {
+    store().open("pray");
+    store().open("board");
+    // Click 1: show desktop.
+    store().minimizeAll();
+    expect(focusedAppId(store())).toBeUndefined();
+    // Click 2: bring the set back, board still in front.
+    store().restoreAll();
+    expect(focusedAppId(store())).toBe("board");
+    // A later dock-tile restore then HOME again re-stashes the new set.
+    store().minimizeAll();
+    store().focus("pray");
+    store().minimizeAll();
+    expect(store().showDesktopStash).toEqual(["pray"]);
+    store().restoreAll();
+    expect(focusedAppId(store())).toBe("pray");
+    expect(store().windows.board?.status).toBe("minimized");
   });
 });
 

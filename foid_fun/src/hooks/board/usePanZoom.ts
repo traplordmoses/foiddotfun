@@ -76,6 +76,12 @@ const MOMENTUM_DECAY = 0.92;
 const MOMENTUM_STOP = 0.1; // px/frame
 const VELOCITY_WINDOW_MS = 80;
 
+/** Pan-from-anywhere (founder feel, 2026-07): a press on a placement arms a
+ *  POTENTIAL pan. Travel past this many px makes it a real pan (and eats the
+ *  release click); below it, the gesture stays a clean click and the
+ *  placement's lightbox opens. ~6px matches typical browser click slop. */
+export const PAN_CLICK_THRESHOLD_PX = 6;
+
 export type UsePanZoomOptions = {
   /**
    * Gate for the WINDOW-level keyboard shortcuts this hook owns (space-to-
@@ -124,6 +130,17 @@ export function usePanZoom(
   const panOriginRef = useRef({ x: 0, y: 0 });
   const boardDragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const velocitySamplesRef = useRef<PointSample[]>([]);
+  /** A press on a placement armed a potential pan — becomes a real pan once
+   *  the pointer travels PAN_CLICK_THRESHOLD_PX (see the routing handler). */
+  const armedPanRef = useRef<{
+    x: number;
+    y: number;
+    pointerId: number;
+    el: HTMLElement;
+  } | null>(null);
+  /** Set when an armed pan crossed the threshold: the click that fires on
+   *  release must NOT reach the placement (no lightbox after a pan). */
+  const suppressClickRef = useRef(false);
 
   // --- Viewport subscribers (for virtualization, etc.) ---
   const viewportSubsRef = useRef(new Set<(v: Viewport) => void>());
@@ -449,12 +466,16 @@ export function usePanZoom(
 
   const onContainerPointerDown: React.PointerEventHandler<HTMLDivElement> = useCallback(
     (e) => {
-      const interactive = (e.target as HTMLElement).closest(
+      const target = e.target as HTMLElement;
+      const interactive = target.closest(
         "figure,button,input,textarea,select,label"
       );
       // Any new gesture cancels momentum immediately so the user's touch
       // anchors the view rather than fighting a decaying velocity.
       cancelMomentum();
+      // A fresh press always clears a stale suppression flag (a captured
+      // pan whose click never fired must not eat THIS gesture's click).
+      suppressClickRef.current = false;
 
       // Phase β: read spaceDown via ref so this handler's identity is
       // stable across renders — otherwise every board-canvas child gets
@@ -468,7 +489,33 @@ export function usePanZoom(
         e.currentTarget.setPointerCapture?.(e.pointerId);
         return;
       }
-      if (interactive) return;
+      if (interactive) {
+        // Pan-from-anywhere applies to the WORLD (things inside the panning
+        // stage), never to screen-space chrome: the propose dock, HUD and
+        // toggles mostly stopPropagation() already — this guard covers the
+        // rest (e.g. the featured ribbon's buttons).
+        const stage = stageElRef.current;
+        if (!stage || !stage.contains(target)) return;
+        // Pending items own their gestures — the move/resize handles and
+        // the remove button must always win over a board pan.
+        if (target.closest(".board-pending")) return;
+        // Placement/proposal media: arm a potential pan. No preventDefault —
+        // below the movement threshold this stays a click and the placement
+        // opens its lightbox exactly as before.
+        armedPanRef.current = {
+          x: e.clientX,
+          y: e.clientY,
+          pointerId: e.pointerId,
+          el: e.currentTarget,
+        };
+        boardDragStartRef.current = {
+          x: e.clientX,
+          y: e.clientY,
+          panX: panRef.current.x,
+          panY: panRef.current.y,
+        };
+        return;
+      }
       e.preventDefault();
       boardDragStartRef.current = {
         x: e.clientX,
@@ -481,6 +528,60 @@ export function usePanZoom(
     },
     [cancelMomentum]
   );
+
+  // ---------------------------------------------------------------------------
+  // Pan-from-anywhere: promote an armed press to a real pan past the
+  // threshold, and suppress the release click that would open the lightbox.
+  // Listeners are window-level and permanent (cheap no-op when disarmed) so
+  // the promotion happens even when the pointer leaves the canvas.
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    const onMove = (ev: PointerEvent) => {
+      const armed = armedPanRef.current;
+      if (!armed || ev.pointerId !== armed.pointerId) return;
+      if (
+        Math.hypot(ev.clientX - armed.x, ev.clientY - armed.y) <
+        PAN_CLICK_THRESHOLD_PX
+      ) {
+        return;
+      }
+      // It's a pan. boardDragStartRef was seeded at pointerdown, so the
+      // existing draggingBoard machinery picks up from the press point.
+      armedPanRef.current = null;
+      suppressClickRef.current = true;
+      try {
+        armed.el.setPointerCapture?.(armed.pointerId);
+      } catch {
+        // Pointer already gone (pointercancel race) — the pan still works,
+        // it just isn't captured; window-level listeners drive it anyway.
+      }
+      setDraggingBoard(true);
+    };
+    const disarm = (ev: PointerEvent) => {
+      if (armedPanRef.current?.pointerId === ev.pointerId) {
+        armedPanRef.current = null;
+      }
+    };
+    // Capture phase at window: runs before React's delegated handlers, so a
+    // post-pan click never reaches the placement button underneath.
+    const onClickCapture = (ev: MouseEvent) => {
+      if (!suppressClickRef.current) return;
+      suppressClickRef.current = false;
+      ev.preventDefault();
+      ev.stopPropagation();
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", disarm);
+    window.addEventListener("pointercancel", disarm);
+    window.addEventListener("click", onClickCapture, true);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", disarm);
+      window.removeEventListener("pointercancel", disarm);
+      window.removeEventListener("click", onClickCapture, true);
+    };
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Wheel zoom (focus-point preserving) — reads from refs, writes to refs.

@@ -18,10 +18,14 @@ import {
   useTransform,
   type MotionValue,
 } from 'framer-motion';
-import { useWindowStore, useWindowStoreV2 } from '@/stores/windowStore';
+import { focusedAppId, useWindowStore, useWindowStoreV2 } from '@/stores/windowStore';
 import { useAmpStore } from '@/stores/ampStore';
 import { useChatAppStore } from '@/stores/chatAppStore';
-import { desktopAppForHref } from '@/config/desktop';
+import {
+  desktopAppForHref,
+  DESKTOP_MIN_WIDTH,
+  FOID_DESKTOP_ENABLED,
+} from '@/config/desktop';
 
 interface NavItem {
   href: string;
@@ -110,6 +114,13 @@ const navItems: NavItem[] = [
 const MAGNIFY_RADIUS = 90;
 const MAGNIFY_SCALE = 1.4;
 
+// Auto-hide: after this long with zero user activity the dock slides off
+// the bottom edge (founder #5). Any activity brings it straight back.
+const DOCK_HIDE_AFTER_MS = 60_000;
+// Cursor within this many px of the bottom edge always reveals the dock —
+// belt and suspenders on top of the general activity listeners.
+const DOCK_REVEAL_ZONE_PX = 10;
+
 // Icon wrapper that magnifies with cursor proximity. mouseX is Infinity
 // whenever the cursor is off the dock (or the device has no fine pointer),
 // which resolves to scale 1 — so touch and reduced-motion pay zero cost.
@@ -146,6 +157,7 @@ export function Dock() {
   // FOID OS shell windows — the desktop is the default home now (Stage C),
   // so on lg+ viewports the dock is a real OS dock: open/focus/restore.
   const osWindows = useWindowStoreV2((s) => s.windows);
+  const osZOrder = useWindowStoreV2((s) => s.zOrder);
   const ampOpen = useAmpStore((s) => s.open);
   const toggleAmp = useAmpStore((s) => s.toggle);
   const chatOpen = useChatAppStore((s) => s.open);
@@ -167,11 +179,108 @@ export function Dock() {
     };
   }, []);
 
+  // ── Auto-hide (founder #5) ────────────────────────────────────────────
+  // 60s with no pointer/keyboard/wheel activity → the dock slides off the
+  // bottom edge and fades, leaving wallpaper + windows. ANY activity brings
+  // it back instantly and re-arms the timer. Fine-pointer desktops only —
+  // on touch the dock is primary navigation and never hides.
+  //
+  // Cost discipline: one shared timeout, passive capture listeners, and a
+  // ref-gated state flip so per-pointermove work while visible is a ref
+  // read — zero re-renders.
+  const [dockHidden, setDockHidden] = useState(false);
+  const dockHiddenRef = useRef(false);
+  const dockHoverRef = useRef(false);
+  useEffect(() => {
+    const fine = window.matchMedia('(pointer: fine)');
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const setHidden = (next: boolean) => {
+      if (dockHiddenRef.current === next) return;
+      dockHiddenRef.current = next;
+      setDockHidden(next);
+    };
+    const schedule = () => {
+      clearTimeout(timer);
+      if (!fine.matches) return;
+      timer = window.setTimeout(hide, DOCK_HIDE_AFTER_MS) as unknown as ReturnType<typeof setTimeout>;
+    };
+    const hide = () => {
+      // Never vanish under the cursor or mid window drag/resize (the body
+      // class covers both gestures) — re-arm and retry after another quiet
+      // minute instead.
+      if (
+        dockHoverRef.current ||
+        document.body.classList.contains('foid-window-dragging')
+      ) {
+        schedule();
+        return;
+      }
+      setHidden(true);
+    };
+    const wake = () => {
+      setHidden(false);
+      schedule();
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      // Any motion is activity; the bottom edge is ALSO an explicit reveal
+      // zone so the dock stays reachable even if the activity set is ever
+      // gated harder.
+      if (e.clientY >= window.innerHeight - DOCK_REVEAL_ZONE_PX) {
+        setHidden(false);
+      }
+      wake();
+    };
+    const onFineChange = () => {
+      if (!fine.matches) {
+        clearTimeout(timer);
+        setHidden(false); // touch: dock is primary nav, always visible
+      } else {
+        schedule();
+      }
+    };
+
+    window.addEventListener('pointermove', onPointerMove, { capture: true, passive: true });
+    window.addEventListener('pointerdown', wake, { capture: true, passive: true });
+    window.addEventListener('keydown', wake, { capture: true, passive: true });
+    window.addEventListener('wheel', wake, { capture: true, passive: true });
+    fine.addEventListener('change', onFineChange);
+    schedule();
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('pointermove', onPointerMove, true);
+      window.removeEventListener('pointerdown', wake, true);
+      window.removeEventListener('keydown', wake, true);
+      window.removeEventListener('wheel', wake, true);
+      fine.removeEventListener('change', onFineChange);
+    };
+  }, []);
+
+  // Shell viewport flag for the HOME tile (client-only: false on the server
+  // and the first paint, so hydration stays consistent). While true and on
+  // "/", HOME is "show desktop" — a window toggle, not a navigation.
+  const [desktopShell, setDesktopShell] = useState(false);
+  useEffect(() => {
+    if (!FOID_DESKTOP_ENABLED) return;
+    const mq = window.matchMedia(`(min-width: ${DESKTOP_MIN_WIDTH}px)`);
+    const update = () => setDesktopShell(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
   return (
     <nav
-      className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none"
+      className={`foid-dock fixed left-0 right-0 z-50 flex justify-center pointer-events-none${
+        dockHidden ? ' foid-dock--hidden' : ''
+      }`}
       style={{ bottom: 'calc(10px + env(safe-area-inset-bottom, 0px))' }}
       aria-label="Primary navigation"
+      // Stays in the DOM while hidden (visibility-based hiding preserves
+      // tab order); aria-hidden + non-hit-testability come along for free.
+      aria-hidden={dockHidden || undefined}
+      onMouseEnter={() => { dockHoverRef.current = true; }}
+      onMouseLeave={() => { dockHoverRef.current = false; }}
     >
       <div
         className="pointer-events-auto flex items-center h-16 px-3 rounded-[24px] border border-white/[0.16] backdrop-blur-2xl"
@@ -186,7 +295,15 @@ export function Dock() {
         onMouseLeave={magnify ? () => mouseX.set(Infinity) : undefined}
       >
         {navItems.map((item) => {
-          const isActive = !item.external && (item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`));
+          const isHome = item.href === '/';
+          // HOME in the shell is "show desktop": its puck only lights when
+          // the desktop itself is the foreground — on "/" with no window
+          // focused (all closed or all parked in the dock).
+          const nothingFocused =
+            focusedAppId({ windows: osWindows, zOrder: osZOrder }) === undefined;
+          const isActive = !item.external && (isHome
+            ? pathname === '/' && (!desktopShell || nothingFocused)
+            : pathname === item.href || pathname.startsWith(`${item.href}/`));
           // FOID OS shell: app tiles open desktop windows instead of
           // navigating (lg+ only); null when the desktop is opted out
           // (NEXT_PUBLIC_FOID_DESKTOP=0) or the item isn't a shell app.
@@ -242,7 +359,28 @@ export function Dock() {
               prefetch={true}
               className="relative flex flex-col items-center justify-center h-full min-w-[64px] px-2 touch-manipulation"
               aria-current={isActive ? "page" : undefined}
+              aria-label={isHome && desktopShell ? 'Show desktop' : undefined}
               onClick={(e) => {
+                // FOID OS shell HOME = "show desktop" (macOS F11 feel):
+                // on the desktop, genie every open window to the dock;
+                // click again with everything parked to bring the same
+                // set back. On mobile and from other routes (incl.
+                // ?standalone=1 pages) it stays a plain navigation to /.
+                if (
+                  isHome &&
+                  FOID_DESKTOP_ENABLED &&
+                  window.innerWidth >= DESKTOP_MIN_WIDTH &&
+                  pathname === '/'
+                ) {
+                  e.preventDefault();
+                  const os = useWindowStoreV2.getState();
+                  const anyOpen = os.zOrder.some(
+                    (id) => os.windows[id]?.status === 'open',
+                  );
+                  if (anyOpen) os.minimizeAll();
+                  else os.restoreAll();
+                  return;
+                }
                 // FOID OS shell: open/focus/restore the app's desktop
                 // window instead of navigating (desktop viewports only —
                 // mobile keeps route navigation). From another route, jump

@@ -194,6 +194,7 @@
 }
 .board-dock__pill,
 .board-dock__flyout,
+.board-dock__quiet,
 .board-dock__note {
   pointer-events: auto;
 }

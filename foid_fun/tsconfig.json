@@ -51,7 +51,9 @@
     "next.config.mjs",
     ".next/types/**/*.ts",
     "scripts/**/*",
-    ".next-prod/types/**/*.ts"
+    ".next-prod/types/**/*.ts",
+    ".next-desktop/types/**/*.ts",
+    ".next-optout/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
