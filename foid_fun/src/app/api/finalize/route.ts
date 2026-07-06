@@ -32,7 +32,17 @@ export async function POST(req: NextRequest) {
   const S = getStore();
 
   const url = new URL(req.url);
-  const force = url.searchParams.get("force") === "1";
+  // The ?force=1 quorum/threshold bypass is OPERATOR-ONLY — it can pass a
+  // proposal that never met quorum, or close one whose voting window is still
+  // open. Public callers must not reach it. Without the operator CRON_SECRET
+  // bearer, ?force=1 is silently downgraded to a normal finalize (which only
+  // closes genuinely-qualified, window-ended proposals). This keeps the
+  // ReferendumRail no-force nudge working while closing the public bypass.
+  const rawForce = url.searchParams.get("force") === "1";
+  const cronSecret = process.env.CRON_SECRET;
+  const forceAuthorized =
+    Boolean(cronSecret) && req.headers.get("authorization") === `Bearer ${cronSecret}`;
+  const force = rawForce && forceAuthorized;
 
   // close proposals whose window ended (or all, if force)
   const candidates = listProposals().filter(
