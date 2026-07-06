@@ -1523,8 +1523,9 @@ function BoardPageContent() {
 
                   {!items.length && !busy && !ghost && !placed.length && (
                     <div className="board-hint">
-                      <span className="board-hint__primary">DROP IMAGE TO PROPOSE</span>
-                      <span className="board-hint__sub">space + drag to pan • scroll to zoom</span>
+                      <span className="board-hint__title">the canvas is open</span>
+                      <span className="board-hint__primary">drop an image to propose the first placement</span>
+                      <span className="board-hint__sub">the community votes · approved images live here forever</span>
                     </div>
                   )}
                   {dragOver && <div className="board-dragover" />}

@@ -64,7 +64,10 @@ function IpfsImageInner({
   referrerPolicy = "no-referrer",
   onLoad,
   onError,
-  stallTimeoutMs = 6000,
+  // 4s: long enough for a slow-but-working gateway to first-byte, short
+  // enough that a dead one costs less than half the old 6s wait. Repeat
+  // visitors skip discovery entirely via the persisted gateway ordering.
+  stallTimeoutMs = 4000,
   displayWidth,
   displayHeight,
 }: Props) {
@@ -136,7 +139,11 @@ function IpfsImageInner({
     <img
       src={src}
       alt={alt ?? ""}
-      className={className}
+      // While pixels are in flight the img box shows the shared shimmer
+      // (background on the img itself — no wrapper, so caller layout is
+      // untouched). Class drops on load so the shimmer never bleeds through
+      // transparent PNGs.
+      className={`${className ?? ""} ${loaded ? "" : "foid-img-loading"}`.trim()}
       style={style}
       draggable={draggable}
       loading={loading}

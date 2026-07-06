@@ -185,25 +185,9 @@ body {
   }
 }
 
-/* ===== MUSIC PLAYER CONTENT PUSH ===== */
-/* When the compact music player is visible, shrink vista-windows so content
-   shifts up and the player doesn't overlay the bottom of the page. */
-.vista-window {
-  transition: max-height 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
-              height 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
-}
-html.cmp-active .vista-window {
-  max-height: calc(94vh - 38px) !important;
-  height: calc(94vh - 38px) !important;
-}
-html.cmp-active .app-viewport {
-  padding-bottom: calc(var(--safe-bottom, 0px) + 38px);
-}
-@media (max-width: 1023px) {
-  html.cmp-active .app-viewport {
-    padding-bottom: calc(var(--safe-bottom, 0px) + 118px);
-  }
-}
+/* Music player: floats as a fixed overlay (CompactMusicPlayer) and never
+   resizes the window behind it. The old html.cmp-active "content push"
+   shrank every vista-window by 38px on show/hide — a feelable layout jump. */
 
 /* ===== ABOUT PAGE TYPOGRAPHY POLISH (NO LAYOUT / NO GLASS CHANGES) ===== */
 .about-page {
@@ -5492,4 +5476,31 @@ html.cmp-active .app-viewport {
 .voting-item__counts,
 .board-actions__pricing {
   font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================================
+   IMAGE LOADING SHIMMER — applied by <IpfsImage/> (and PlacementCard) while
+   pixels are in flight. Background lives on the <img> itself so no wrapper
+   element disturbs caller layout; the class drops on load.
+   ============================================================================ */
+.foid-img-loading {
+  background:
+    linear-gradient(
+      110deg,
+      rgba(255, 255, 255, 0.04) 30%,
+      rgba(140, 220, 255, 0.10) 46%,
+      rgba(140, 220, 255, 0.16) 50%,
+      rgba(140, 220, 255, 0.10) 54%,
+      rgba(255, 255, 255, 0.04) 70%
+    ),
+    rgba(10, 24, 40, 0.5);
+  background-size: 220% 100%, 100% 100%;
+  animation: foid-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes foid-shimmer {
+  0% { background-position: 120% 0, 0 0; }
+  100% { background-position: -120% 0, 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .foid-img-loading { animation: none; }
 }

@@ -246,7 +246,7 @@ function PrayPageContent() {
   }, [FLUENT_CHAIN_ID, address, chainId, isConnected]);
 
   const submitPrayer = useCallback(
-    async (prayer: string, feeling: FeelingKey) => {
+    async (prayer: string, feeling: FeelingKey, onStatus?: (text: string) => void) => {
       const registryAddress = registryRef.current;
       if (!registryAddress) throw new Error("missing registry address on this page.");
       if (!address) throw new Error("connect your wallet before anchoring your prayer.");
@@ -257,11 +257,14 @@ function PrayPageContent() {
 
       // Switch to Fluent if needed — switchChainAsync resolves only
       // after the wallet has actually switched, so no polling required.
+      // This is the longest silent wait in the pipeline (1–3s), so narrate it.
       if (chainId !== FLUENT_CHAIN_ID) {
         try {
+          onStatus?.("asking your wallet to switch to fluent...");
           await switchChainAsync?.({ chainId: FLUENT_CHAIN_ID });
           // Brief pause to let wallet provider settle after chain switch
           await new Promise(resolve => setTimeout(resolve, 300));
+          onStatus?.("switched. preparing your prayer...");
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : "Failed to switch chain";
           throw new Error(`please switch to Fluent (chain ${FLUENT_CHAIN_ID}). ${message}`);
@@ -316,6 +319,7 @@ function PrayPageContent() {
         });
       }
 
+      onStatus?.("checking with the chain...");
       try {
         await rpcClient.call({ to: registryAddress, data, account: address as Address });
       } catch (error: unknown) {
@@ -358,6 +362,7 @@ function PrayPageContent() {
         setOptimisticTotal(currentTotal + 1);
       });
 
+      onStatus?.("awaiting wallet...");
       const walletClient = await getWalletClient();
       try {
         const txHash = await walletClient.sendTransaction({
@@ -689,9 +694,9 @@ function PrayPageContent() {
                             {statsLoading ? (
                               <span className="animate-pulse opacity-50">···</span>
                             ) : !address ? (
-                              "–"
+                              <span className="pray-stats-ghost" aria-label="preview">7</span>
                             ) : !hasAnyPrayers ? (
-                              "—"
+                              "0"
                             ) : (
                               <>
                                 {displayStreak?.toString?.() ?? "0"}
@@ -706,9 +711,9 @@ function PrayPageContent() {
                             {statsLoading ? (
                               <span className="animate-pulse opacity-50">···</span>
                             ) : !address ? (
-                              "–"
+                              <span className="pray-stats-ghost" aria-label="preview">21</span>
                             ) : !hasAnyPrayers ? (
-                              "—"
+                              "0"
                             ) : (
                               displayLongest?.toString?.() ?? "0"
                             )}
@@ -720,9 +725,9 @@ function PrayPageContent() {
                             {statsLoading ? (
                               <span className="animate-pulse opacity-50">···</span>
                             ) : !address ? (
-                              "–"
+                              <span className="pray-stats-ghost" aria-label="preview">30</span>
                             ) : !hasAnyPrayers ? (
-                              "—"
+                              "0"
                             ) : (
                               <>
                                 {displayTotal?.toString?.() ?? "0"}
@@ -737,9 +742,9 @@ function PrayPageContent() {
                             {statsLoading ? (
                               <span className="animate-pulse opacity-50">···</span>
                             ) : !address ? (
-                              "–"
+                              <span className="pray-stats-ghost" aria-label="preview">2</span>
                             ) : !hasAnyPrayers ? (
-                              "—"
+                              "0"
                             ) : (
                               displayMilestones.toString()
                             )}
@@ -833,7 +838,12 @@ function PrayPageContent() {
                           )}
                         </div>
                         {missingMirror && <div className="pray-stats-notice">stats unavailable (mirror not set).</div>}
-                        {walletDisconnected && <div className="pray-stats-notice">connect your wallet to start logging prayers.</div>}
+                        {walletDisconnected && (
+                          <div className="pray-stats-notice">
+                            this is what week three looks like. connect to begin —
+                            streaks compound your loreboard vote up to 5×.
+                          </div>
+                        )}
 
                         {hasJournalConsent && journalEntries.length > 0 && (
                           <>
@@ -1454,6 +1464,15 @@ function PrayPageContent() {
           border: 1px dashed rgba(255, 255, 255, 0.1);
           border-radius: 6px;
           background: rgba(0, 0, 0, 0.15);
+        }
+
+        /* Disconnected zero state: the stats grid shows a ghosted preview
+           of a real week-three account instead of dashes that read as a
+           rendering bug. The notice under it does the selling. */
+        .pray-stats-ghost {
+          opacity: 0.26;
+          filter: blur(0.4px);
+          user-select: none;
         }
 
         /* Glass backdrops */
