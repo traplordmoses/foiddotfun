@@ -6151,12 +6151,13 @@ body.foid-window-dragging .vista-window * {
 }
 
 /* ============================================================================
-   FOID OS DESKTOP SHELL — Stage A (flag: NEXT_PUBLIC_FOID_DESKTOP).
-   The multi-window layer <Desktop/> renders at /. Windows are absolutely
-   positioned inside this fixed layer; stacking comes from windowStore v2's
-   zOrder as an inline z-index (WINDOW_Z_BASE 10 + stack position), so a
-   full desktop still sits below the dock (--foid-z-nav) and every
-   overlay/modal tier. DOM order stays stable while z changes.
+   FOID OS DESKTOP SHELL — the default home on lg+ viewports (Stage C;
+   NEXT_PUBLIC_FOID_DESKTOP=0 opts out). The multi-window layer <Desktop/>
+   renders at /. Windows are absolutely positioned inside this fixed layer;
+   stacking comes from windowStore v2's zOrder as an inline z-index
+   (WINDOW_Z_BASE 10 + stack position), so a full desktop still sits below
+   the dock (--foid-z-nav) and every overlay/modal tier. DOM order stays
+   stable while z changes.
    ============================================================================ */
 .os-desktop {
   position: fixed;

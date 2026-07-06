@@ -1,12 +1,17 @@
 // src/components/os/Desktop.tsx
-// FOID OS desktop shell (Stage A, flag: NEXT_PUBLIC_FOID_DESKTOP).
+// FOID OS desktop shell — THE home experience on lg+ viewports (Stage C;
+// NEXT_PUBLIC_FOID_DESKTOP=0 is the emergency opt-out).
 //
-// Rendered by the home route when the flag is on: the wallpaper stack in
-// the root layout (AnimatedBackground, FloatingElements, scene-tint,
-// SkyTint) IS the desktop; this component only contributes the window
-// layer. Open windows come from windowStore v2; apps lazy-load via
-// next/dynamic so a fresh desktop costs nothing until a dock tile is
-// clicked.
+// Rendered by the home route: the wallpaper stack in the root layout
+// (AnimatedBackground, FloatingElements, scene-tint, SkyTint) IS the
+// desktop; this component only contributes the window layer. Open windows
+// come from windowStore v2; apps lazy-load via next/dynamic so a fresh
+// desktop costs nothing until a dock tile is clicked.
+//
+// URL contract (Stage C): open windows sync to /?apps=pray,board&focus=board
+// via history.replaceState — shareable, reload-safe, zero history spam. On
+// mount, ?apps= seeds the store (validated ids, one instance per app,
+// capped); with no ?apps=, the last persisted layout rehydrates instead.
 //
 // Stacking contract: windows mount in openedAt order and NEVER reorder in
 // the DOM — focus changes only flip the z-index each OSWindow derives from
@@ -15,10 +20,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import OSWindow from "@/components/os/OSWindow";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { parseDesktopAppsParam } from "@/config/desktop";
 import {
+  focusedAppId,
   hydrateWindowStore,
   useWindowStoreV2,
   type AppId,
@@ -142,17 +149,73 @@ const DESKTOP_APPS: Partial<Record<AppId, DesktopApp>> = {
   },
 };
 
+/** Serialize the open windows into the shell query (?apps=…&focus=…) and
+ *  replaceState it onto the URL — reload restores the layout, copy-paste
+ *  shares it, and no history entries pile up (you don't back-button between
+ *  windows in macOS either). App-scoped params already in the query ride
+ *  along untouched. */
+function useDesktopUrlSync(mounted: boolean) {
+  const zOrder = useWindowStoreV2((s) => s.zOrder);
+  const windows = useWindowStoreV2((s) => s.windows);
+  const lastWrittenRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!mounted) return;
+    // The shell only lives at "/" — never rewrite another route's URL
+    // (e.g. a store tick racing a client navigation away).
+    if (window.location.pathname !== "/") return;
+
+    const ids = zOrder.filter((id) => DESKTOP_APPS[id]);
+    const url = new URL(window.location.href);
+    if (ids.length) {
+      url.searchParams.set("apps", ids.join(","));
+      const focus = focusedAppId({ windows, zOrder });
+      if (focus) url.searchParams.set("focus", focus);
+      else url.searchParams.delete("focus"); // everything minimized
+    } else {
+      url.searchParams.delete("apps");
+      url.searchParams.delete("focus");
+    }
+
+    // Keep the shareable form literal — URLSearchParams percent-encodes the
+    // comma, but "?apps=pray,board" is the documented grammar and both read
+    // back identically.
+    const next =
+      url.pathname + url.search.replace(/%2C/gi, ",") + url.hash;
+    const current =
+      window.location.pathname + window.location.search + window.location.hash;
+    if (next === current || next === lastWrittenRef.current) return;
+    lastWrittenRef.current = next;
+    // Native replaceState is router-integrated on Next 14.2+, so
+    // useSearchParams stays truthful for apps that read deep-link params.
+    window.history.replaceState(window.history.state, "", next);
+  }, [mounted, zOrder, windows]);
+}
+
 export default function Desktop() {
   const windows = useWindowStoreV2((s) => s.windows);
 
-  // Windows render only after mount: the store's persisted layout hydrates
-  // client-side (skipHydration), so SSR markup and the first client render
-  // agree on an empty desktop — the wallpaper.
+  // Windows render only after mount: layout state is client-side only
+  // (skipHydration on the persisted store), so SSR markup and the first
+  // client render agree on an empty desktop — the wallpaper.
+  //
+  // Seeding order: an ?apps= deep link wins outright (open exactly what
+  // the link says — open() merges into anything this session already
+  // opened); only a bare "/" restores the last persisted layout.
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    hydrateWindowStore();
+    const { apps, focus } = parseDesktopAppsParam(window.location.search);
+    if (apps.length) {
+      const store = useWindowStoreV2.getState();
+      for (const id of apps) store.open(id);
+      if (focus) store.focus(focus);
+    } else {
+      hydrateWindowStore();
+    }
     setMounted(true);
   }, []);
+
+  useDesktopUrlSync(mounted);
 
   const openWindows = mounted
     ? (Object.values(windows) as OSWindowState[])

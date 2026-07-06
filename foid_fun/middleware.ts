@@ -31,10 +31,15 @@ export function middleware(request: NextRequest) {
 
   if (request.nextUrl.pathname !== "/") return NextResponse.next();
 
-  // Redirect to /enter only if user hasn't entered before (no cookie)
+  // Redirect to /enter only if user hasn't entered before (no cookie).
+  // The query string rides along so desktop deep links (/?apps=pray,board
+  // — multi-window plan, Stage C) survive the boot: /enter hands the same
+  // params back to the shell as its destination.
   const enteredCookie = request.cookies.get("foid_entered");
   if (!enteredCookie) {
-    return NextResponse.redirect(new URL("/enter", request.url));
+    const enterUrl = new URL("/enter", request.url);
+    enterUrl.search = request.nextUrl.search;
+    return NextResponse.redirect(enterUrl);
   }
 
   return NextResponse.next();

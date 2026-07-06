@@ -1,22 +1,24 @@
 "use client";
 
 // MIFOID.EXE route (/mifoid) — thin window wrapper around the extracted
-// MifoidApp (src/apps/MifoidApp.tsx). The app content is shared verbatim
-// with the desktop shell's MIFOID window (multi-window plan §4): this page
-// only owns the standalone presentation — full-viewport main (.mifoid-page
-// hangs the window-width reflow rules), one vista-window, titlebar wallet
-// wiring.
+// MifoidApp (src/apps/MifoidApp.tsx). Stage C: on desktop viewports this
+// route hands off to the shell with MIFOID focused (useDesktopHandoff);
+// mobile — and ?standalone=1 — keep the standalone presentation:
+// full-viewport main (.mifoid-page hangs the window-width reflow rules),
+// one vista-window, titlebar wallet wiring.
 
 import { useCallback, useEffect, useState } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
+import { useDesktopHandoff } from "@/components/os/useDesktopHandoff";
 import MifoidApp from "@/apps/MifoidApp";
 
 export default function MiFOIDPage() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
+  const handedOff = useDesktopHandoff("mifoid");
 
   /* Hydration fix — server renders disconnected, client may differ */
   const [mounted, setMounted] = useState(false);
@@ -26,6 +28,8 @@ export default function MiFOIDPage() {
     disconnect();
     setTimeout(() => openConnectModal?.(), 100);
   }, [disconnect, openConnectModal]);
+
+  if (handedOff) return null;
 
   return (
     <main

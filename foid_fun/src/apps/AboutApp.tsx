@@ -2,8 +2,8 @@
 // ABOUT.EXE — the FOID OS about browser, extracted from the /about route so
 // the same component renders in BOTH presentations (multi-window plan §4):
 //   - the /about route page (thin wrapper: main + vista-window + titlebar)
-//   - a desktop shell window (<OSWindow appId="about">) when the
-//     NEXT_PUBLIC_FOID_DESKTOP flag is on
+//   - a desktop shell window (<OSWindow appId="about">) — the default
+//     about surface on lg+ viewports since Stage C (routes hand off)
 //
 // Same Finder anatomy as FILES.EXE (files.css classes wholesale): glass
 // sidebar (Favorites drive the category filter, Locations link to the repo

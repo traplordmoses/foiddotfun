@@ -2,8 +2,8 @@
 // VOTE.EXE — the swipe-voting deck, extracted from the /vote route so the
 // same component renders in BOTH presentations (multi-window plan §4):
 //   - the /vote route page (thin wrapper: main + vista-window + titlebar)
-//   - a desktop shell window (<OSWindow appId="vote">) when the
-//     NEXT_PUBLIC_FOID_DESKTOP flag is on
+//   - a desktop shell window (<OSWindow appId="vote">) — the default
+//     vote surface on lg+ viewports since Stage C (routes hand off)
 //
 // Stage-B blockers handled here (plan §4 VOTE row):
 //   - Full-screen overlays (UndoPill, DetailDrawer, TxOverlay,

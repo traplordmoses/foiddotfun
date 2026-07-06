@@ -143,8 +143,8 @@ export function Dock() {
   const mouseX = useMotionValue(Infinity);
   const windowMinimized = useWindowStore((s) => s.minimized);
   const restoreWindow = useWindowStore((s) => s.restore);
-  // FOID OS shell windows (flag-gated; empty map when the flag is off, so
-  // this subscription never re-renders the dock in production).
+  // FOID OS shell windows — the desktop is the default home now (Stage C),
+  // so on lg+ viewports the dock is a real OS dock: open/focus/restore.
   const osWindows = useWindowStoreV2((s) => s.windows);
   const ampOpen = useAmpStore((s) => s.open);
   const toggleAmp = useAmpStore((s) => s.toggle);
@@ -187,9 +187,9 @@ export function Dock() {
       >
         {navItems.map((item) => {
           const isActive = !item.external && (item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`));
-          // FOID OS shell (flag-gated): migrated apps open as desktop
-          // windows instead of navigating; null when the flag is off or the
-          // app isn't a shell app yet.
+          // FOID OS shell: app tiles open desktop windows instead of
+          // navigating (lg+ only); null when the desktop is opted out
+          // (NEXT_PUBLIC_FOID_DESKTOP=0) or the item isn't a shell app.
           const osAppId = desktopAppForHref(item.href);
           const osWin = osAppId ? osWindows[osAppId] : undefined;
 

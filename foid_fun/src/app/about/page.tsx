@@ -1,26 +1,31 @@
 "use client";
 
 // ABOUT.EXE route (/about) — thin window wrapper around the extracted
-// AboutApp (src/apps/AboutApp.tsx). The app content is shared verbatim with
-// the desktop shell's ABOUT window (multi-window plan §4): this page only
-// owns the standalone presentation — full-viewport main, one vista-window,
-// AppTitlebar wallet wiring (useAccount + useSwitchWallet with the
-// mounted-guard so the server-rendered "disconnected" frame never
-// mismatches a connected client).
+// AboutApp (src/apps/AboutApp.tsx). Stage C: on desktop viewports this
+// route hands off to the shell with ABOUT focused (useDesktopHandoff);
+// mobile — and ?standalone=1 — keep the standalone presentation:
+// full-viewport main, one vista-window, AppTitlebar wallet wiring
+// (useAccount + useSwitchWallet with the mounted-guard so the
+// server-rendered "disconnected" frame never mismatches a connected
+// client).
 
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { useSwitchWallet } from "@/hooks/useSwitchWallet";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
+import { useDesktopHandoff } from "@/components/os/useDesktopHandoff";
 import AboutApp from "@/apps/AboutApp";
 
 export default function AboutPage() {
   const { address, isConnected } = useAccount();
   const { disconnect, switchWallet } = useSwitchWallet();
+  const handedOff = useDesktopHandoff("about");
 
   /* Hydration fix — server renders disconnected, client may differ */
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+
+  if (handedOff) return null;
 
   return (
     <main
