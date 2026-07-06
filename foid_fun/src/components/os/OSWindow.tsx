@@ -97,6 +97,14 @@ export default function OSWindow({
   children,
 }: OSWindowProps) {
   const frameRef = useRef<HTMLElement | null>(null);
+  // True while a drag or resize gesture owns the frame's geometry. The
+  // store-state effect below must NOT write left/top/width/height (or clear
+  // the transient drag transform) mid-gesture: pointerdown focus() creates a
+  // fresh win object, and re-applying the OLD committed geometry while the
+  // transform carries the live delta reads as the window snapping back to
+  // its pre-drag spot. Gestures always end in a setPos/setSize commit, so
+  // the skipped effect re-runs with final values on release.
+  const draggingRef = useRef(false);
 
   const win = useWindowStoreV2((s) => s.windows[appId]);
   const stackIndex = useWindowStoreV2((s) => s.zOrder.indexOf(appId));
@@ -117,6 +125,8 @@ export default function OSWindow({
   useLayoutEffect(() => {
     const el = frameRef.current;
     if (!el || !win) return;
+    // A live gesture owns geometry — never fight it (see draggingRef).
+    if (draggingRef.current) return;
     const minimized = win.status === "minimized";
 
     el.classList.toggle("foid-window--maximized", win.maximized && !minimized);
@@ -225,14 +235,20 @@ export default function OSWindow({
         cancelAnimationFrame(raf);
         raf = 0;
       }
-      // Settle geometry while transitions are still suppressed (the
-      // dragging class): left/top take the committed position and the
-      // transient transform clears in the same style flush, so nothing
-      // animates. The store commit then re-writes identical values.
+      // Settle geometry while transitions are still suppressed: left/top
+      // take the committed position and the transient transform clears in
+      // the same style flush. The forced reflow makes the browser COMMIT
+      // those values with the body's dragging class still on (transition:
+      // none) — without it, the single recalc happens after the class is
+      // removed, and the base .vista-window transform transition (the genie)
+      // animates translate(Δ)→none: the window lands past the drop point by
+      // the drag delta and eases back — the live-site "snap-back".
       frame.style.transform = "";
       frame.style.left = `${live.x}px`;
       frame.style.top = `${live.y}px`;
+      void frame.offsetWidth; // flush styles inside the no-transition window
       document.body.classList.remove("foid-window-dragging");
+      draggingRef.current = false; // before setPos: the commit must apply
       useWindowStoreV2.getState().setPos(appId, live);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
@@ -250,6 +266,7 @@ export default function OSWindow({
       )
         return;
       dragging = true;
+      draggingRef.current = true;
       startX = e.clientX;
       startY = e.clientY;
       baseX = state.pos.x;
@@ -273,6 +290,13 @@ export default function OSWindow({
       if (raf) cancelAnimationFrame(raf);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      // Unmounted mid-drag (e.g. the window was closed): release the
+      // global gesture state we own.
+      if (dragging) {
+        dragging = false;
+        draggingRef.current = false;
+        document.body.classList.remove("foid-window-dragging");
+      }
     };
   }, [appId]);
 
@@ -335,11 +359,13 @@ export default function OSWindow({
         // Hand max-height control back to the stylesheet (dock clearance).
         el.style.maxHeight = "";
         document.body.style.cursor = "";
+        document.body.classList.remove("foid-window-dragging");
+        draggingRef.current = false; // before setSize: the commit must apply
         useWindowStoreV2.getState().setSize(appId, live);
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
-        document.body.classList.remove("foid-window-dragging");
       };
+      draggingRef.current = true; // same guard as drag: focus() re-renders
       document.body.classList.add("foid-window-dragging");
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);

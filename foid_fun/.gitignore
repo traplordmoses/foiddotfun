@@ -10,6 +10,8 @@ pnpm-debug.log*
 .next/
 .next/cache/
 .next-prod/
+.next-desktop/
+.next-optout/
 out/
 dist/
 coverage/

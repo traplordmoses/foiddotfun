@@ -6187,6 +6187,38 @@ body.foid-window-dragging .vista-window * {
   filter: saturate(0.72) brightness(0.86);
 }
 
+/* ── Dock auto-hide (founder #5) ─────────────────────────────────────────
+   60s of inactivity slides the dock off the bottom edge; any activity
+   brings it back. Hidden state keeps the nav in the DOM: visibility
+   (delayed past the exit slide — the CHAT/MUSIC.EXE pattern) makes it
+   non-hit-testable and unfocusable without destroying tab order. The
+   reappear transition is deliberately snappier than the hide so the dock
+   feels instant when summoned. */
+.foid-dock {
+  transition:
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease,
+    visibility 0s;
+}
+.foid-dock--hidden {
+  transform: translateY(calc(100% + 24px));
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.35s ease,
+    visibility 0s linear 0.35s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .foid-dock {
+    transition: opacity 0.2s ease, visibility 0s;
+  }
+  .foid-dock--hidden {
+    transform: none;
+    transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+  }
+}
+
 /* Empty desktop — a quiet dock-adjacent hint, not a hero. */
 .os-desktop__hint {
   position: absolute;
