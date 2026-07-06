@@ -228,24 +228,21 @@ export default function WalletMenuPill({
         <div className="aero-wallet-menu__balance" style={{
           padding: "8px 12px",
           borderBottom: "1px solid rgba(255,255,255,0.1)",
-          fontSize: "11px",
-          color: "rgba(255,255,255,0.7)",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
         }}>
-          <span style={{ letterSpacing: "0.1em", textTransform: "uppercase", fontSize: "9px" }}>Balance</span>
-          <span style={{ fontWeight: 700, color: "rgba(255,255,255,0.95)", fontSize: "12px" }}>
+          <span className="foid-label">Balance</span>
+          <span className="foid-data" style={{ fontWeight: 700 }}>
             {Number(balanceData.formatted).toFixed(4)} ETH
           </span>
         </div>
       )}
       {/* Passkey protection status for embedded wallet */}
       {isEmbeddedWallet && passkeyStatus !== null && (
-        <div style={{
+        <div className="foid-label" style={{
           padding: "6px 12px",
           borderBottom: "1px solid rgba(255,255,255,0.1)",
-          fontSize: "10px",
           display: "flex",
           alignItems: "center",
           gap: "6px",

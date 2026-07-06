@@ -135,20 +135,17 @@ export function FeaturedRibbon({ proposal, onView, onVote, onDismiss }: Props) {
         }}
       >
         <div
+          className="foid-label"
           style={{
-            fontSize: 10,
-            letterSpacing: 2,
             color: "#fbbf24",
             fontWeight: 700,
-            textTransform: "uppercase",
           }}
         >
           proposal of the day
         </div>
         <div
+          className="foid-data"
           style={{
-            fontSize: 12,
-            color: "#fff",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -161,18 +158,15 @@ export function FeaturedRibbon({ proposal, onView, onVote, onDismiss }: Props) {
       <button
         type="button"
         onClick={() => onView?.(proposal)}
+        className="foid-label"
         style={{
           padding: "4px 10px",
           background: "rgba(116, 255, 235, 0.1)",
           border: "1px solid rgba(116, 255, 235, 0.4)",
           color: "#74ffeb",
-          fontFamily: "inherit",
-          fontSize: 11,
           fontWeight: 700,
           borderRadius: 6,
           cursor: "pointer",
-          letterSpacing: 0.5,
-          textTransform: "uppercase",
         }}
         aria-label={`View proposal ${proposal.id}`}
       >
@@ -181,18 +175,15 @@ export function FeaturedRibbon({ proposal, onView, onVote, onDismiss }: Props) {
       <button
         type="button"
         onClick={() => onVote?.(proposal)}
+        className="foid-label"
         style={{
           padding: "4px 10px",
           background: "linear-gradient(135deg, #fbbf24, #f472b6)",
           border: "1px solid rgba(251, 191, 36, 0.6)",
           color: "#0e0f2b",
-          fontFamily: "inherit",
-          fontSize: 11,
           fontWeight: 800,
           borderRadius: 6,
           cursor: "pointer",
-          letterSpacing: 0.5,
-          textTransform: "uppercase",
         }}
         aria-label={`Vote on proposal ${proposal.id}`}
       >

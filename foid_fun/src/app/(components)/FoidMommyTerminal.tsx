@@ -300,7 +300,14 @@ type Stage =
 
 export type FoidMommyTerminalProps = {
   ensureWalletReady: () => Promise<void>;
-  submitPrayer: (prayer: string, feeling: FeelingKey) => Promise<SubmitPrayerResult>;
+  submitPrayer: (
+    prayer: string,
+    feeling: FeelingKey,
+    /** Narrative status channel — called with short lowercase phrases as the
+        submit pipeline progresses (chain switch, cooldown check, sending).
+        The terminal shows them on the live status line so no wait is silent. */
+    onStatus?: (text: string) => void,
+  ) => Promise<SubmitPrayerResult>;
   waitForReceipt?: (hash: string) => Promise<void>;
   onDailyCheckInChoice?: (choice: "yes" | "not_now") => void;
   nextAllowedAt?: bigint | number | null;
@@ -474,8 +481,10 @@ export default function FoidMommyTerminal({
   }, []);
 
   const stopMommyTyping = useCallback(async () => {
+    // 350ms min display: still enough to read as "she's thinking" without
+    // flicker, but doesn't tax every single AI round-trip by 600ms.
     const elapsed = Date.now() - mommyTypingStartRef.current;
-    const remaining = 600 - elapsed;
+    const remaining = 350 - elapsed;
     if (remaining > 0) {
       await new Promise((r) => {
         const t = window.setTimeout(r, remaining);
@@ -516,6 +525,10 @@ export default function FoidMommyTerminal({
     timeoutsRef.current.push(timer);
   }, []);
 
+  // rAF handles for in-flight typing animations. Each entry is a mutable
+  // token whose .id is refreshed every frame; resetTimers cancels them all.
+  const rafsRef = useRef<Set<{ id: number }>>(new Set());
+
   const typeMessage = useCallback(
     (input: TypeMessageInput) =>
       new Promise<string>((resolve) => {
@@ -538,25 +551,46 @@ export default function FoidMommyTerminal({
           return;
         }
 
+        // Reduced motion: reveal the full line at once — no per-char
+        // animation, no typing SFX.
+        if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+          setMessages((prev) =>
+            prev.map((msg) => (msg.id === id ? { ...msg, text: sourceText } : msg)),
+          );
+          resolve(id);
+          return;
+        }
+
         let index = 0;
         const speed = input.speed ?? 28;
 
+        // rAF-driven reveal: each frame advances to however many characters
+        // the elapsed time owes us. Under a busy main thread this catches up
+        // instead of stretching the line out, and it commits one state write
+        // per frame instead of one per character (the old setInterval did
+        // both worse).
         sfx.typing.start();
-        const interval = window.setInterval(() => {
-          index += 1;
-          const nextText = sourceText.slice(0, index);
-          setMessages((prev) =>
-            prev.map((msg) => (msg.id === id ? { ...msg, text: nextText } : msg)),
-          );
+        const handle = { id: 0 };
+        rafsRef.current.add(handle);
+        const start = performance.now();
+        const tick = (now: number) => {
+          const target = Math.min(sourceText.length, Math.floor((now - start) / speed));
+          if (target > index) {
+            index = target;
+            const nextText = sourceText.slice(0, index);
+            setMessages((prev) =>
+              prev.map((msg) => (msg.id === id ? { ...msg, text: nextText } : msg)),
+            );
+          }
           if (index >= sourceText.length) {
-            window.clearInterval(interval);
-            intervalsRef.current = intervalsRef.current.filter((stored) => stored !== interval);
+            rafsRef.current.delete(handle);
             sfx.typing.stop();
             resolve(id);
+            return;
           }
-        }, speed);
-
-        intervalsRef.current.push(interval);
+          handle.id = window.requestAnimationFrame(tick);
+        };
+        handle.id = window.requestAnimationFrame(tick);
       }),
     [addMessage],
   );
@@ -564,8 +598,10 @@ export default function FoidMommyTerminal({
   const resetTimers = useCallback(() => {
     timeoutsRef.current.forEach((id) => window.clearTimeout(id));
     intervalsRef.current.forEach((id) => window.clearInterval(id));
+    rafsRef.current.forEach((handle) => window.cancelAnimationFrame(handle.id));
     timeoutsRef.current = [];
     intervalsRef.current = [];
+    rafsRef.current.clear();
     sfx.typing.stop();
   }, []);
 
@@ -659,10 +695,12 @@ export default function FoidMommyTerminal({
 
     const sequence = async () => {
       // Brief fade-in; the blinking caret on the composer input carries the
-      // "ready" cue. No ASCII box, no progress bar.
-      await sleep(400);
+      // "ready" cue. No ASCII box, no progress bar. Beats here are short —
+      // the opening should feel alive, not liturgical; the ceremony pause
+      // is reserved for the hashing beat later.
+      await sleep(150);
       await typeMessage({ role: "system", text: "foid mommy online.", speed: 24 });
-      await sleep(isReturningUser ? 400 : 500);
+      await sleep(isReturningUser ? 200 : 250);
 
       // Auto-grant memory consent (privacy disclosed in sidebar text)
       if (needsConsentPromptRef.current) {
@@ -685,7 +723,7 @@ export default function FoidMommyTerminal({
             text: "you missed yesterday. that's okay. you're here now.",
             speed: 26,
           });
-          await sleep(400);
+          await sleep(200);
         }
 
         // Streak milestone
@@ -695,14 +733,14 @@ export default function FoidMommyTerminal({
             text: STREAK_MILESTONES[streak],
             speed: 30,
           });
-          await sleep(400);
+          await sleep(200);
         } else if (streak > 1) {
           await typeMessage({
             role: "foid",
             text: `day ${streak}.`,
             speed: 30,
           });
-          await sleep(300);
+          await sleep(150);
         }
 
         // Feeling pattern or last feeling reference
@@ -750,7 +788,7 @@ export default function FoidMommyTerminal({
           month: "short",
           day: "numeric",
         });
-        await sleep(400);
+        await sleep(200);
         await typeMessage({
           role: "foid",
           text: `you already prayed today, love. come back in ${cooldownLabel}. your last prayer is still with me.`,
@@ -791,10 +829,11 @@ export default function FoidMommyTerminal({
   useEffect(() => {
     if (autoStart && stage === "idle" && !hasAutoStarted) {
       setHasAutoStarted(true);
-      // Show boot animation for 1.5 seconds before starting
+      // One boot beat before Mommy comes online. 600ms reads as "waking
+      // up"; the old 1.5s read as a hang.
       const timer = setTimeout(() => {
         handleStart();
-      }, 1500);
+      }, 600);
       return () => clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -814,9 +853,8 @@ export default function FoidMommyTerminal({
       const config = feelingsConfig[feeling];
 
       try {
-        await sleep(250);
-
-        // Call AI to get first response with follow-up question
+        // No artificial delay — the AI round-trip is the wait, and the
+        // typing indicator (350ms min display) covers the fast case.
         const res = await fetch("/api/foid-mommy", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -871,9 +909,7 @@ export default function FoidMommyTerminal({
       const ambientHum = sfx.playAmbientHum();
 
       try {
-        await sleep(250);
-
-        // Call AI to get second response + prayer
+        // No artificial delay — the AI round-trip is the wait.
         const res = await fetch("/api/foid-mommy", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -898,11 +934,12 @@ export default function FoidMommyTerminal({
           }
         }
 
-        // Show warm response + transition
+        // Show warm response + transition. One held breath before the
+        // prayer reveals — this pause is intentional, keep it felt.
         await stopMommyTyping();
         await typeMessage({ role: "foid", text: warmResponse, speed: 24 });
 
-        await sleep(600);
+        await sleep(400);
 
         // Show the prayer — slower, reverent
         setPrayerRevealing(true);
@@ -914,8 +951,10 @@ export default function FoidMommyTerminal({
         setPrayerText(prayer);
 
         // ── Ritual beat: the pause. Dim the terminal, hold for 900ms, release.
-        // The hashing beat that follows is typed at speed: 60 so the three
-        // system messages read slower than normal — triple the usual weight.
+        // This is THE deliberate pause of the whole flow — everything else
+        // was compressed so this one still lands. The hashing beat types at
+        // speed: 45, slower than conversation but not funereal (60 made the
+        // three ritual lines take ~5s of typing alone).
         setCeremonyDim(true);
         await sleep(900);
         setCeremonyDim(false);
@@ -924,21 +963,21 @@ export default function FoidMommyTerminal({
         const hashingId = await typeMessage({
           role: "system",
           text: "hashing your prayer locally...",
-          speed: 60,
+          speed: 45,
         });
         flashChromatic(hashingId);
-        await sleep(600);
+        await sleep(350);
         const hashReadyId = await typeMessage({
           role: "system",
           text: "hash ready.",
-          speed: 60,
+          speed: 45,
         });
         flashChromatic(hashReadyId);
-        await sleep(400);
+        await sleep(250);
         await typeMessage({
           role: "foid",
           text: "anchoring only the hash onchain. your prayer stays with you.",
-          speed: 60,
+          speed: 45,
         });
         await typeMessage({
           role: "foid",
@@ -953,11 +992,11 @@ export default function FoidMommyTerminal({
         // Fallback
         await stopMommyTyping();
         await typeMessage({ role: "foid", text: "let me craft a prayer for this moment..." });
-        await sleep(500);
+        await sleep(300);
         await typeMessage({ role: "foid", text: config.prayer, speed: 22 });
         setSuggestedPrayer(config.prayer);
         setPrayerText(config.prayer);
-        await sleep(600);
+        await sleep(350);
         await handleConfirm(config.prayer, feelingKey);
       } finally {
         setIsProcessing(false);
@@ -1066,7 +1105,15 @@ export default function FoidMommyTerminal({
     timeoutsRef.current.push(waitingTimer);
 
     try {
-      const result = await submitPrayer(prayerToSend, feelingToSend);
+      // The submit pipeline narrates its own progress (chain switch,
+      // cooldown check, sending) through the status line, so even the
+      // 1–3s wallet chain-switch never reads as a hang. The first narrated
+      // status cancels the generic 1200ms fallback so it can't stomp a
+      // more specific message.
+      const result = await submitPrayer(prayerToSend, feelingToSend, (text) => {
+        window.clearTimeout(waitingTimer);
+        updateMessage(statusId, text);
+      });
       window.clearTimeout(waitingTimer);
       updateMessage(statusId, "sending to fluent...");
 

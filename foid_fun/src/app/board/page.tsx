@@ -278,6 +278,7 @@ function BoardPageContent() {
     onContainerPointerDown,
     zoomToRect,
     screenToWorld,
+    setScale,
     bindStage,
     subscribeViewport,
   } = usePanZoom(containerRef);
@@ -1518,13 +1519,21 @@ function BoardPageContent() {
                       />
                     ))}
                     </div>
-                    <BoardHUD scale={scale} pan={pan} mode={spaceDown ? "PAN" : "PLACE"} />
+                    <BoardHUD
+                      scale={scale}
+                      pan={pan}
+                      mode={spaceDown ? "PAN" : "PLACE"}
+                      onZoomIn={() => setScale((s) => s * 1.2)}
+                      onZoomOut={() => setScale((s) => s / 1.2)}
+                      onZoomReset={() => setScale(1)}
+                    />
                     <div className="board-hint-bottom" role="note">scroll to zoom • hold space to pan</div>
 
                   {!items.length && !busy && !ghost && !placed.length && (
                     <div className="board-hint">
-                      <span className="board-hint__primary">DROP IMAGE TO PROPOSE</span>
-                      <span className="board-hint__sub">space + drag to pan • scroll to zoom</span>
+                      <span className="board-hint__title">the canvas is open</span>
+                      <span className="board-hint__primary">drop an image to propose the first placement</span>
+                      <span className="board-hint__sub">the community votes · approved images live here forever</span>
                     </div>
                   )}
                   {dragOver && <div className="board-dragover" />}

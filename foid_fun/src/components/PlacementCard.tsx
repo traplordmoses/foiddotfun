@@ -227,8 +227,10 @@ function PlacementCardInner({
     if (winner) markGatewaySuccess(winner);
   };
 
-  // Timeout fallback — if image doesn't load within 6s, try next gateway.
+  // Timeout fallback — if image doesn't load within 4s, try next gateway.
   // Timing out is treated as a failure for circuit-breaker purposes.
+  // (4s matches IpfsImage: long enough for a slow gateway's first byte,
+  // half the wait of the old 6s when a gateway is dead.)
   useEffect(() => {
     setLoaded(false);
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -239,7 +241,7 @@ function PlacementCardInner({
         const next = gatewayIdx + 1;
         if (next < urls.length) setGatewayIdx(next);
       }
-    }, 6000);
+    }, 4000);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gatewayIdx, urls.length]);
@@ -274,7 +276,7 @@ function PlacementCardInner({
           alt={name ?? ""}
           width={width}
           height={height}
-          className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+          className={`absolute inset-0 h-full w-full object-cover pointer-events-none${loaded ? "" : " foid-img-loading"}`}
           // loading="eager" intentional: the board-stage ancestor has a
           // non-identity CSS transform applied via direct DOM mutation
           // (usePanZoom rAF). IntersectionObserver-driven lazy loading is

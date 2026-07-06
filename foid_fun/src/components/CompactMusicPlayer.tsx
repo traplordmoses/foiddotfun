@@ -64,9 +64,13 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     idleTimer.current = setTimeout(() => setIsVisible(false), IDLE_AUTO_HIDE_MS);
   }, [clearIdleTimer]);
 
-  // Content push: toggle class on <html> to shrink vista-windows
+  // Visibility signal only: PaintEditor observes this class to pad its
+  // toolbar clear of the bar. No stylesheet may attach layout to it — the
+  // old "content push" rules shrank every vista-window by 38px on
+  // show/hide, a feelable layout jump. The player is a pure overlay.
   useEffect(() => {
     document.documentElement.classList.toggle("cmp-active", isVisible);
+    return () => document.documentElement.classList.remove("cmp-active");
   }, [isVisible]);
 
   // Idle auto-collapse: once the bar is up, start a 3 s timer that hides it
@@ -261,10 +265,10 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           :global(.cmp-hover-zone) { display: none; }
         }
 
-        /* --- Outer wrapper: fixed, centers the bar --- */
+        /* --- Outer wrapper: fixed, centers the floating bar --- */
         :global(.cmp-bar-outer) {
           position: fixed;
-          bottom: 0;
+          bottom: 12px;
           left: 0;
           right: 0;
           z-index: 50;
@@ -277,7 +281,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           transform: translateY(0);
         }
         :global(.cmp-bar-outer--hidden) {
-          transform: translateY(100%);
+          transform: translateY(calc(100% + 16px));
           transition-duration: 0.3s;
           transition-timing-function: ease-in;
         }
@@ -304,15 +308,15 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           backdrop-filter: blur(24px) saturate(1.3);
           -webkit-backdrop-filter: blur(24px) saturate(1.3);
 
-          /* Borders */
-          border-top: 1px solid rgba(255, 255, 255, 0.22);
-          border-left: 1px solid rgba(255, 255, 255, 0.15);
-          border-right: 1px solid rgba(255, 255, 255, 0.15);
-          border-radius: 14px 14px 0 0;
+          /* Borders — full ring; the bar floats, it isn't docked */
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          border-top-color: rgba(255, 255, 255, 0.22);
+          border-radius: var(--foid-radius-lg);
 
-          /* Shadow */
+          /* Shadow — floating elevation, light from above */
           box-shadow:
-            0 -4px 20px rgba(0, 40, 80, 0.25),
+            0 12px 32px rgba(0, 10, 30, 0.45),
+            0 -4px 20px rgba(0, 40, 80, 0.15),
             inset 0 1px 0 rgba(255, 255, 255, 0.2);
 
           color: rgba(255, 255, 255, 0.92);
@@ -329,7 +333,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           left: 0;
           right: 0;
           height: 50%;
-          border-radius: 14px 14px 0 0;
+          border-radius: var(--foid-radius-lg) var(--foid-radius-lg) 0 0;
           background: linear-gradient(
             180deg,
             rgba(255, 255, 255, 0.12) 0%,
@@ -355,7 +359,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
 
         @media (max-width: 1023px) {
           :global(.cmp-bar) {
-            border-radius: 12px 12px 0 0;
+            border-radius: var(--foid-radius-md);
           }
         }
 
