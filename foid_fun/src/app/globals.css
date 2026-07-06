@@ -345,6 +345,14 @@ body {
   --terminal-font-size: 16px;
   --terminal-log-size: 15.5px;
   --terminal-line-height: 1.55;
+  /* Shared prompt column: every speaker label (mommy@foid / anon@foid, log
+     and composer alike) pads to this width so all message text starts on
+     one vertical line — the terminal's left gutter rhythm. Slightly wider
+     than the widest label so min-width, not natural width, sets the column. */
+  --terminal-prompt-col: 122px;
+  /* Log lines share this inline inset with the composer's inner offset
+     (6px outer + 1px border + 11px padding) so prompt columns align. */
+  --terminal-gutter: 18px;
   --bg-deepest: #05070b;
   --bg-deep: #0a1118;
   --bg-panel: #0c1721;
@@ -708,6 +716,8 @@ body {
       --terminal-font-size: 14.5px;
       --terminal-log-size: 14px;
       --terminal-line-height: 1.5;
+      --terminal-prompt-col: 108px;
+      --terminal-gutter: 12px;
     }
   }
 
@@ -740,6 +750,13 @@ body {
     gap: 0;
     padding: 0;
     border-radius: var(--foid-radius-xl);
+    /* FOID OS: the frame is a size-query container so window CONTENT reflows
+       with the WINDOW (WindowFrame writes inline width/height), not the
+       viewport. Every room's responsive rules should prefer
+       `@container foid-window (…)` over viewport @media. inline-size only —
+       widths are always definite (w-full/grid tracks), heights sometimes
+       aren't (decorative windows), so size containment would be unsafe. */
+    container: foid-window / inline-size;
     /* Window physics: every route's window opens with one scale-and-settle
        spring (slight overshoot). Runs on mount only — navigating remounts
        the window, so switching rooms feels like opening an app, not
@@ -2436,7 +2453,9 @@ body {
     flex: 1;
     min-height: 0;
     overflow: auto;
-    padding: 10px 6px 8px;
+    /* Inline inset matches the composer's inner offset so the log's prompt
+       column and the composer's prompt column sit on the same vertical. */
+    padding: 10px var(--terminal-gutter, 18px) 8px;
     /* Scroll polish: momentum on iOS, smooth programmatic scroll,
        and contain so overscroll doesn't drag the page behind. */
     scroll-behavior: smooth;
@@ -2465,10 +2484,15 @@ body {
   .foid-terminal__line--turn-start:first-child {
     margin-top: 0;
   }
-  /* Continuation lines (same speaker, no prompt) sit flush — no fake
-     prompt-column indent. Reads like Discord / iMessage. */
+  /* Continuation lines (same speaker, no prompt) indent to the shared text
+     column, so each speaker's turn reads as one clean left-aligned block
+     instead of sawtoothing back to column 0. System runs stay flush-left —
+     they're kernel chatter, not speech. */
   .foid-terminal__line--continuation .foid-terminal__line-text {
     display: block;
+  }
+  .foid-terminal__line--continuation:not(.foid-terminal__line--system) {
+    padding-left: calc(var(--terminal-prompt-col, 122px) + 10px);
   }
 
   .foid-cli__composer {
@@ -2489,7 +2513,7 @@ body {
   .foid-terminal__line {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 10px;
     white-space: pre-wrap;
   }
 
@@ -2527,7 +2551,9 @@ body {
     white-space: nowrap;
     font-family: var(--font-terminal);
     letter-spacing: 0.02em;
-    margin-right: 12px;
+    /* Fixed prompt column (flex gap owns the spacing): both speakers' labels
+       pad to the same width so all message text shares one left edge. */
+    min-width: var(--terminal-prompt-col, 122px);
     flex-shrink: 0;
   }
   /* Mommy's prompt is the pink-accent voice — visually distinct from the
@@ -2549,6 +2575,10 @@ body {
   .foid-terminal__line-text {
     flex: 1;
     min-width: 0;
+    /* Measure clamp: in a maximized / grip-widened window, lines would run
+       wall-to-wall. ~72ch (of each line's own face) keeps prose readable;
+       at the default window width this changes nothing. */
+    max-width: 72ch;
   }
 
   .foid-terminal__input-wrap {
@@ -2558,10 +2588,13 @@ body {
   }
 
   .foid-terminal__input {
+    position: relative; /* anchors the absolute block caret */
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    padding: 8px 12px;
+    /* 6px composer inset + 1px border + 11px = 18px — the shared terminal
+       gutter, so the composer prompt sits exactly under the log prompts. */
+    padding: 8px 11px;
     border-radius: 6px;
     border: 1px solid var(--border-glow);
     background: var(--bg-deepest);
@@ -2586,12 +2619,24 @@ body {
     background: transparent;
     border: none;
     outline: none;
-    padding: 0 0 0 8px;
+    padding: 0;
     color: var(--text-bright);
     font-family: var(--font-terminal);
     font-size: var(--terminal-log-size);
     line-height: 1.45;
     caret-color: var(--pray-accent, #6eead8);
+    /* Neutralize the global aero input skin (rounded pill + inset ring) —
+       inside the terminal the OUTER .foid-terminal__input is the control;
+       a second rounded box around the text reads as a UI-inside-UI glitch. */
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* While the field is empty the block caret at the prompt is THE caret —
+     hide the native thin caret so they don't double up. The moment there's
+     text, :placeholder-shown stops matching and the native caret returns. */
+  .foid-terminal__field:placeholder-shown {
+    caret-color: transparent;
   }
 
   .foid-terminal__field--multiline {
@@ -2610,9 +2655,52 @@ body {
     color: var(--text-dim);
   }
 
+  /* While the block caret is parked at the type-point (field empty+enabled),
+     nudge the hint right so the block doesn't sit on its first letter.
+     Typed text still starts exactly at the caret position. */
+  .foid-terminal__field:enabled::placeholder {
+    text-indent: 16px;
+  }
+
   .foid-terminal__field:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  /* ── Block caret ────────────────────────────────────────────────────────
+     Old-school block cursor that blinks at the exact spot typed text will
+     appear, while the terminal is ready for input. Absolutely positioned
+     (no layout shift when it comes and goes). Shown only when the field is
+     empty (placeholder visible) and enabled; hidden while Mommy is busy
+     (field disabled) or once the user starts typing (native caret returns
+     via the :placeholder-shown rule above). */
+  .foid-terminal__caret {
+    display: none;
+    position: absolute;
+    /* input padding (11px) + prompt column + flex gap (10px) = field left */
+    left: calc(11px + var(--terminal-prompt-col, 122px) + 10px);
+    top: calc(8px + 0.18em);
+    width: 0.6em;
+    height: 1.25em;
+    font-size: var(--terminal-log-size);
+    background: var(--pray-accent, #6eead8);
+    box-shadow: 0 0 6px rgba(110, 234, 216, 0.55);
+    pointer-events: none;
+    animation: foid-caret-blink 1.06s steps(2, start) infinite;
+  }
+  .foid-terminal__input:has(.foid-terminal__field:placeholder-shown:not(:disabled))
+    .foid-terminal__caret {
+    display: block;
+  }
+  @keyframes foid-caret-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .foid-terminal__caret {
+      animation: none;
+      opacity: 0.85;
+    }
   }
 
   .foid-terminal__send-btn {
@@ -2715,10 +2803,12 @@ body {
   }
 
   .foid-terminal__status {
-    font-size: 9px;
+    font-size: 10px;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--text-dim);
+    /* 6px composer inset + 12px = 18px: sits on the shared gutter line. */
+    padding-inline: 12px;
   }
 
   .foid-terminal__status--error {
@@ -3050,20 +3140,14 @@ body {
       justify-content: flex-start;
     }
 
-    .pray-main-grid {
-      grid-template-columns: 1fr;
-      grid-template-rows: minmax(0, 1fr);
-      grid-template-areas: "panel";
-    }
-
+    /* NOTE: the legacy "stack panes into one panel area + tab switcher"
+       rules that lived here are gone. No component renders .pray-mobile-tabs
+       or toggles .pray-pane--mobile-hidden anymore, and re-pointing the
+       panes at a nonexistent "panel" grid area made the terminal and stats
+       panes overlap at exactly-1024px viewports (where the desktop tree is
+       still visible but this media query already matches). */
     .pray-mobile-tabs {
       display: flex;
-    }
-
-    .pray-pane--terminal,
-    .pray-pane--manual,
-    .pray-pane--stats {
-      grid-area: panel;
     }
 
     .pray-pane--mobile-hidden {
@@ -4808,7 +4892,8 @@ body {
   gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 2px 2px 8px;
+  /* 6px composer inset + 12px = 18px: first chip sits on the gutter line. */
+  padding: 2px 12px 8px;
   margin-bottom: 4px;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -4820,8 +4905,8 @@ body {
 
 .foid-mood-chip {
   flex-shrink: 0;
-  min-height: 36px;
-  padding: 6px 14px;
+  min-height: 40px;
+  padding: 8px 16px;
   border: 1px solid rgba(110, 234, 216, 0.3);
   border-radius: 999px;
   background: transparent;
@@ -4854,6 +4939,39 @@ body {
 
 .foid-mood-chip--active:hover {
   background: rgba(110, 234, 216, 1);
+}
+
+/* Touch devices: chips are primary input on wordless days — give them the
+   full 44px guideline hit target. */
+@media (pointer: coarse) {
+  .foid-mood-chip {
+    min-height: 44px;
+    padding: 10px 18px;
+  }
+}
+
+/* ── Pray window container queries ──────────────────────────────────────
+   The pray .vista-window is a named inline-size container (container-type
+   set in pray/page.tsx styled-jsx) because the window is resizable via the
+   corner grip independently of the viewport. Below ~900px of WINDOW width,
+   two squeezed columns are worse than one good one: the sidebar bows out
+   and the terminal takes the full frame. Lives here (plain CSS, unlayered)
+   because styled-jsx's compiler mangles named @container rules, and the
+   doubled class outguns the styled-jsx base rule's jsx-hash specificity. */
+@container pray-window (max-width: 899px) {
+  .pray-window-frame .pray-main-grid.pray-main-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "terminal";
+  }
+  .pray-window-frame .pray-pane--stats.pray-pane--stats {
+    display: none;
+  }
+}
+@container pray-window (max-width: 659px) {
+  .pray-window-frame .pray-main-grid.pray-main-grid {
+    padding: 10px;
+    gap: 10px;
+  }
 }
 
 /* Extra small mobile devices */
@@ -5640,6 +5758,13 @@ body.foid-window-dragging {
 body.foid-window-dragging .vista-window {
   transition: none; /* 1:1 tracking while dragging/resizing */
 }
+/* While a drag/resize gesture is live, inner content must track the frame
+   1:1 too — any transition on width-affected properties (cards, grids,
+   buttons with `transition: all`) reads as jelly-lag against the cursor.
+   Transitions only; ambient animations (sparkles, shimmer) keep playing. */
+body.foid-window-dragging .vista-window * {
+  transition-duration: 0s !important;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .vista-window.foid-window--minimized {
@@ -5671,5 +5796,114 @@ body.foid-window-dragging .vista-window {
 @media (max-width: 1023px) {
   .foid-window-edge {
     display: none;
+  }
+}
+
+/* ============================================================================
+   HOME (/) — WINDOW-WIDTH REFLOW
+   The launcher's base styles live in page.tsx styled-jsx; the @container
+   blocks live here because styled-jsx's stylis (3.x) predates @container.
+   .home-page-prefixed so these outrank the styled-jsx base rules.
+   Breakpoints are WINDOW widths (the .vista-window container), so the tile
+   grid wraps 4 → 2 → 1 as the OS window is resized, not with the viewport.
+   ============================================================================ */
+@container foid-window (max-width: 1020px) {
+  .home-page .home-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .home-page .home-card {
+    padding: 22px 16px;
+  }
+  .home-page .home-card--hero {
+    padding: 28px 20px;
+  }
+  .home-page .home-card__label {
+    font-size: 16px;
+    letter-spacing: 0.16em;
+  }
+  .home-page .home-card__desc {
+    font-size: 11px;
+  }
+}
+@media (min-width: 769px) {
+  @container foid-window (max-width: 700px) {
+    /* Reclaim the desktop title-zone air when the window gets narrow
+       (mobile already runs padding 0 + auto-margin distribution). */
+    .home-page .home-title-zone {
+      padding-top: 12px;
+    }
+  }
+}
+@container foid-window (max-width: 520px) {
+  .home-page .home-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .home-page .home-card {
+    padding: 16px 14px;
+  }
+  .home-page .home-card--hero {
+    padding: 22px 16px;
+  }
+  .home-page .home-card__label {
+    font-size: 15px;
+    letter-spacing: 0.14em;
+  }
+}
+@container foid-window (max-width: 430px) {
+  /* Phone-width windows: label-only tiles keep the launcher on one screen. */
+  .home-page .home-card__desc {
+    display: none;
+  }
+  .home-page .home-card__cta {
+    font-size: 11px;
+    padding: 8px 20px;
+  }
+}
+
+/* ============================================================================
+   MIFOID.EXE — WINDOW-WIDTH REFLOW
+   The page's split layout keys off Tailwind lg:* (viewport), so a narrow
+   WINDOW on a wide screen kept two squished columns with the floating
+   paint-windows smeared over the feature text. These rules re-key the
+   layout to the window container. Structural selectors (no page classes to
+   hang off): the split row is the only `.relative.z-10.flex` child of the
+   body, its two children are the feature column and the GameBoy stage.
+   ============================================================================ */
+.mifoid-page .mifoid-feature-title {
+  /* Window-scaled type (was lg:text-[clamp(…,1.5vw,…)] — viewport-keyed). */
+  font-size: clamp(14px, 1.7cqw, 22px);
+}
+.mifoid-page .mifoid-diamond + div > p {
+  font-size: clamp(12px, 1.25cqw, 15px);
+}
+@media (min-width: 1024px) {
+  @container foid-window (max-width: 1000px) {
+    .mifoid-page .mifoid-iridescent > .relative.z-10.flex {
+      flex-direction: column; /* overrides lg:flex-row */
+      overflow-y: auto; /* overrides lg:overflow-visible */
+      padding-top: 2.5rem;
+    }
+    .mifoid-page .mifoid-iridescent > .relative.z-10.flex > div {
+      height: auto; /* overrides lg:h-full on both columns */
+      margin-right: 0; /* overrides lg:mr-[40px] xl:mr-[70px] */
+    }
+    .mifoid-page .mifoid-iridescent > .relative.z-10.flex > div:first-child {
+      /* Stacked feature list: centered measure instead of hugging the
+         left edge of a full-width column. */
+      max-width: 560px;
+    }
+    .mifoid-page .mifoid-iridescent > .relative.z-10.flex > div:last-child {
+      padding-bottom: 24px; /* stacked stage needs its own exit air */
+    }
+    .mifoid-page .mifoid-paint-window {
+      /* The floats hang ±100px outside the GameBoy — in a narrow window
+         they cover the features and clip on the frame. */
+      display: none;
+    }
+    .mifoid-page .mifoid-gameboy-wrap {
+      width: 240px; /* overrides lg:w-[280px] xl:w-[320px] */
+    }
   }
 }

@@ -9,6 +9,7 @@ pnpm-debug.log*
 # === Next.js / build artifacts ===
 .next/
 .next/cache/
+.next-prod/
 out/
 dist/
 coverage/

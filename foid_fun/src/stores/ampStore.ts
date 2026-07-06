@@ -1,5 +1,5 @@
 // src/stores/ampStore.ts
-// FOID AMP visibility — the deck is a dock app now, not a bottom-edge
+// MUSIC.EXE visibility — the deck is a dock app now, not a bottom-edge
 // hover reveal. The dock's AMP tile toggles it; the deck's close orb
 // closes it. Position memory stays inside CompactMusicPlayer.
 import { create } from "zustand";

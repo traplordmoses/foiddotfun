@@ -564,8 +564,11 @@
   }
 }
 
-/* ── Narrow viewports ──────────────────────────────────────────────────── */
-@media (max-width: 640px) {
+/* ── Narrow WINDOWS (FOID OS) ──────────────────────────────────────────────
+   Breakpoints are container queries against the .vista-window frame
+   (`foid-window`), not the viewport, so the Finder chrome compresses when
+   the OS window is resized — and on phones too, where window ≈ viewport. */
+@container foid-window (max-width: 760px) {
   .files-sidebar {
     width: 156px;
   }
@@ -582,7 +585,12 @@
   .files-grid {
     grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
   }
-  /* Name-only list on phones — Kind/Date live in the player + status bar. */
+}
+@container foid-window (max-width: 620px) {
+  .files-sidebar {
+    width: 140px;
+  }
+  /* Name-only list — Kind/Date live in the player + status bar. */
   .files-listhead,
   .files-row {
     grid-template-columns: minmax(0, 1fr);

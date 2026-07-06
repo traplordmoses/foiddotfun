@@ -2,11 +2,17 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
-import ActivityBubbles from "@/components/ActivityBubbles";
+
+// Import-only optimization: ActivityBubbles pulls the Supabase client via
+// useActivityFeed. Lazy-loading it keeps Supabase out of the landing page's
+// First Load JS — the bubbles only appear once live events arrive anyway.
+// ssr:false is behavior-neutral: the container renders empty until the feed ticks.
+const ActivityBubbles = dynamic(() => import("@/components/ActivityBubbles"), { ssr: false });
 
 const tiles = [
   {
@@ -230,15 +236,22 @@ export default function LandingPage() {
           100% { background-position: 0% 50%; }
         }
 
-        /* Title — bigger, glowing */
+        /* Title — bigger, glowing. cqw sizes it against the WINDOW (the
+           .vista-window is a foid-window query container), so it scales
+           when the OS window is resized; the vw line is the fallback for
+           engines without container units. */
         :global(.home-title) {
           font-size: clamp(28px, 5vw, 54px);
+          font-size: clamp(22px, 6.2cqw, 54px);
           color: rgba(255, 255, 255, 0.95);
           text-shadow: 0 0 30px rgba(200, 180, 255, 0.3), 0 0 60px rgba(168, 130, 255, 0.15);
         }
 
-        /* Subtitle — pink gradient like MiFOID feature titles */
-        :global(.home-subtitle) {
+        /* Subtitle — pink gradient like MiFOID feature titles.
+           p.-qualified so the container-scaled size outranks the Tailwind
+           text-[…] utilities regardless of stylesheet order. */
+        :global(p.home-subtitle) {
+          font-size: clamp(10px, 1.75cqw, 15px);
           background: linear-gradient(135deg, var(--foid-pink-bloom) 0%, #ffcce0 50%, var(--foid-pink-bloom) 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
@@ -246,7 +259,8 @@ export default function LandingPage() {
         }
 
         /* Tagline — subtle, informative */
-        :global(.home-tagline) {
+        :global(p.home-tagline) {
+          font-size: clamp(9px, 1.3cqw, 11px);
           color: rgba(255, 255, 255, 0.45);
           text-shadow: 0 0 12px rgba(200, 180, 255, 0.1);
         }
@@ -293,14 +307,23 @@ export default function LandingPage() {
           50% { transform: scale(1.02) translateY(-8px); }
         }
 
-        /* Tile grid */
+        /* Tile grid. Column count tracks the WINDOW width (4 → 2 → 1) via
+           the @container foid-window rules in globals.css — stylis inside
+           styled-jsx predates @container, so the blocks live there. */
         :global(.home-grid) {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 16px;
         }
         :global(.home-card--hero) {
           grid-column: 1 / -1;
+        }
+
+        /* Window too short for the content → scroll, never clip/overlap.
+           div.-qualified to outrank Tailwind's overflow-hidden utility. */
+        :global(div.home-content-col) {
+          overflow: hidden auto;
+          scrollbar-width: thin;
         }
 
         /* Cards — glass panels inside the iridescent body */
@@ -318,7 +341,13 @@ export default function LandingPage() {
           -webkit-backdrop-filter: blur(12px);
           text-decoration: none;
           text-align: center;
-          transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+          /* Hover props only — "all" would animate padding/size while the
+             window is being resized and fight the live reflow. */
+          transition:
+            transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+            border-color 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+            background 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+            box-shadow 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
           overflow: hidden;
           cursor: pointer;
         }
@@ -381,6 +410,7 @@ export default function LandingPage() {
         }
         :global(.home-card--hero .home-card__label) {
           font-size: clamp(28px, 3.5vw, 42px);
+          font-size: clamp(20px, 4.2cqw, 42px); /* window-scaled; vw fallback above */
           letter-spacing: 0.28em;
           margin-bottom: 8px;
         }
@@ -419,7 +449,11 @@ export default function LandingPage() {
           background: linear-gradient(135deg, rgba(255, 107, 213, 0.3) 0%, rgba(168, 85, 247, 0.3) 100%);
           border: 1px solid rgba(255, 107, 213, 0.25);
           backdrop-filter: blur(8px);
-          transition: all 0.28s ease;
+          transition:
+            background 0.28s ease,
+            border-color 0.28s ease,
+            box-shadow 0.28s ease,
+            color 0.28s ease;
         }
         :global(.home-card:hover .home-card__cta) {
           background: linear-gradient(135deg, rgba(255, 107, 213, 0.5) 0%, rgba(168, 85, 247, 0.5) 100%);
@@ -428,20 +462,27 @@ export default function LandingPage() {
           color: #fff;
         }
 
-        /* Mobile: space-evenly so title + buttons distribute across full height */
+        /* Mobile: auto margins distribute title + grid across the height
+           like space-evenly did, but collapse to 0 when the window is too
+           short — content then top-aligns and scrolls instead of clipping
+           at both ends. */
         @media (max-width: 768px) {
-          :global(.home-content-col) {
-            justify-content: space-evenly !important;
-          }
           :global(.home-title-zone) {
             flex: 0 0 auto;
             padding: 0;
+            margin-top: auto;
+            margin-bottom: auto;
           }
           :global(.home-grid-wrapper) {
             flex: 0 0 auto;
+            margin-top: auto;
+            margin-bottom: auto;
           }
         }
-        /* Desktop: title zone takes measured space */
+        /* Desktop: title zone takes measured space; the grid wrapper grows
+           but never shrinks below its content (flex-shrink 0), so a short
+           window scrolls instead of squashing the justify-centered grid
+           out both ends. */
         @media (min-width: 769px) {
           :global(.home-title-zone) {
             flex: 0 0 auto;
@@ -449,60 +490,14 @@ export default function LandingPage() {
             padding-bottom: 8px;
           }
           :global(.home-grid-wrapper) {
-            flex: 1;
+            flex: 1 0 auto;
             padding-bottom: 12px;
           }
         }
 
-        /* Responsive — tablet */
-        @media (max-width: 768px) {
-          :global(.home-grid) {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 14px;
-          }
-          :global(.home-card) {
-            padding: 22px 14px;
-          }
-          :global(.home-card--hero) {
-            padding: 30px 20px;
-          }
-          :global(.home-card__label) {
-            font-size: 16px;
-            letter-spacing: 0.16em;
-          }
-          :global(.home-card--hero .home-card__label) {
-            font-size: 22px;
-          }
-          :global(.home-card__desc) {
-            font-size: 10px;
-          }
-        }
-        /* Responsive — mobile */
-        @media (max-width: 480px) {
-          :global(.home-grid) {
-            gap: 12px;
-          }
-          :global(.home-card) {
-            padding: 22px 14px;
-          }
-          :global(.home-card--hero) {
-            padding: 28px 18px;
-          }
-          :global(.home-card__label) {
-            font-size: 15px;
-            letter-spacing: 0.14em;
-          }
-          :global(.home-card--hero .home-card__label) {
-            font-size: 20px;
-          }
-          :global(.home-card__desc) {
-            display: none;
-          }
-          :global(.home-card__cta) {
-            font-size: 11px;
-            padding: 8px 20px;
-          }
-        }
+        /* Column count / card compaction under narrow WINDOWS lives in
+           globals.css as @container foid-window rules (grid 4 → 2 → 1,
+           smaller card padding + labels, desc hidden on phone-width). */
       `}</style>
     </main>
   );

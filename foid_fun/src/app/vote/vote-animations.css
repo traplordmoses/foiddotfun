@@ -128,3 +128,33 @@
   @keyframes hint-swipe { 0%, 100% { opacity: 0; } }
   @keyframes shimmer { 0%, 100% { background-position: 0 0; } }
 }
+
+/* ── FOID OS window reflow ─────────────────────────────────────────────────
+   VOTE.EXE content must track the WINDOW, not the viewport. The tab panels
+   (#vote-panel-active/-completed/-history) become flex columns that fill the
+   window body, replacing the old inline `min-height: 50vh` floors that
+   off-centered the empty/loading states and clipped them in short windows. */
+[id^="vote-panel-"] {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto; /* shorter than the content → scroll, never clip */
+}
+[id^="vote-panel-"] > div {
+  /* Fill the panel when there's room, grow past it (and let the panel
+     scroll) when there isn't. !important neutralizes the inline
+     min-height: 50vh viewport floors written by page.tsx. */
+  flex: 1 0 auto !important;
+  min-height: 0 !important;
+}
+
+/* Closed/My-Votes result grids: 2-up only when the WINDOW is wide enough
+   (Tailwind's sm:grid-cols-2 keys off the viewport and squishes cards in a
+   narrow window on a wide screen). */
+@container foid-window (max-width: 700px) {
+  #vote-panel-completed > .grid,
+  #vote-panel-history > .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

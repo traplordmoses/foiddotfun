@@ -223,6 +223,10 @@ export function Dock() {
             <Link
               key={item.href}
               href={item.href}
+              // Explicit prefetch: the dock is always on screen, so every
+              // route's chunks + RSC payload are fetched ahead of the click
+              // (production only — dev never prefetches).
+              prefetch={true}
               className="relative flex flex-col items-center justify-center h-full min-w-[64px] px-2 touch-manipulation"
               aria-current={isActive ? "page" : undefined}
               onClick={(e) => {
@@ -263,7 +267,7 @@ export function Dock() {
           );
         })}
 
-        {/* Divider, then FOID AMP — an app tile, not a route. Toggles the
+        {/* Divider, then MUSIC.EXE — an app tile, not a route. Toggles the
             deck (CompactMusicPlayer). Desktop only: the deck itself is
             hidden on mobile. */}
         <div className="hidden lg:block w-px self-stretch my-3 mx-1" style={{ background: 'rgba(255, 255, 255, 0.14)' }} aria-hidden="true" />
@@ -271,7 +275,7 @@ export function Dock() {
           type="button"
           onClick={toggleAmp}
           aria-pressed={ampOpen}
-          aria-label={ampOpen ? 'Close FOID AMP' : 'Open FOID AMP'}
+          aria-label={ampOpen ? 'Close MUSIC.EXE' : 'Open MUSIC.EXE'}
           className="relative hidden lg:flex flex-col items-center justify-center h-full min-w-[64px] px-2 touch-manipulation"
         >
           {ampOpen && (
@@ -302,7 +306,7 @@ export function Dock() {
               </div>
             </DockIcon>
             <span className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${ampOpen ? 'text-white' : 'text-white/55'}`}>
-              AMP
+              Music
             </span>
           </motion.div>
           {ampOpen && (

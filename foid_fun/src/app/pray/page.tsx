@@ -1000,6 +1000,12 @@ function PrayPageContent() {
           width: 100%;
           min-height: 0;
           background: rgba(6, 10, 18, 0.88);
+          /* The window is resizable via the corner grip (inline width set by
+             WindowFrame), so layout must respond to the WINDOW's width, not
+             the viewport's. Making the frame a container lets the grid below
+             reflow when the user drags the window narrow. */
+          container-type: inline-size;
+          container-name: pray-window;
         }
         .pray-window-frame .vista-window__body {
           background:
@@ -1096,6 +1102,11 @@ function PrayPageContent() {
           height: 100%;
         }
 
+        /* Grip-resized narrow window: the @container rules that reflow this
+           grid live in globals.css (pray-scoped) — styled-jsx's compiler
+           mangles named container queries (it emits a stray unconditional
+           copy of the inner rules), so they must stay out of this block. */
+
         .pray-pane {
           display: flex;
           flex-direction: column;
@@ -1144,12 +1155,12 @@ function PrayPageContent() {
         
         .pray-liquid-glass-terminal :global(.frutiger-terminal *) { border-color: transparent; }
         
-        /* Input styling with spacing fix */
-        .pray-liquid-glass-terminal :global(.foid-terminal__prompt) { margin-right: 12px; }
-        .pray-liquid-glass-terminal :global(.foid-terminal__field) { padding-left: 8px; }
+        /* Composer field: placeholder reads as a dimmed hint at input size —
+           no extra indent, so hint and typed text share the same left edge.
+           (Prompt/field spacing is owned by the shared terminal gutter
+           system in globals.css — no local margin/padding overrides.) */
         .pray-liquid-glass-terminal :global(.foid-terminal__field)::placeholder {
-          font-size: 0.85em;
-          padding-left: 4px;
+          font-size: 0.9em;
         }
         .pray-liquid-glass-terminal :global(.foid-terminal__input) {
           border: 1px solid rgba(0, 255, 213, 0.25) !important;

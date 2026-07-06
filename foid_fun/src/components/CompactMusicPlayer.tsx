@@ -23,7 +23,7 @@ type CompactMusicPlayerProps = { mountLogic?: boolean };
 
 export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPlayerProps) {
   const [state, setState] = useState(musicPanelController.getState());
-  // FOID AMP is a dock app: the dock's AMP tile toggles it, the deck's
+  // MUSIC.EXE is a dock app: the dock's Music tile toggles it, the deck's
   // close orb closes it. No hover-reveal, no auto-hide.
   const isVisible = useAmpStore((s) => s.open);
   const closeAmp = useAmpStore((s) => s.close);
@@ -95,7 +95,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
   const handleBarPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (isMobileRef.current) return;
     const target = e.target as HTMLElement;
-    if (target.closest("button, input, a, select")) return;
+    if (target.closest("button, input, a, select, .cmp-resize")) return;
     e.preventDefault();
 
     const startX = e.clientX;
@@ -129,6 +129,42 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
   }, [barOffset]);
+
+  // Adjustable deck width — drag the right edge (400–760px). The LCD lane
+  // flexes; transport and the right cluster keep their geometry.
+  const [deckWidth, setDeckWidth] = useState<number | null>(null);
+  const startDeckResize = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (isMobileRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const bar = barRef.current;
+    if (!bar) return;
+    const startX = e.clientX;
+    const baseW = deckWidth ?? bar.getBoundingClientRect().width;
+    let live = baseW;
+    let raf = 0;
+    document.body.style.cursor = "ew-resize";
+    const onMove = (ev: PointerEvent) => {
+      live = Math.max(400, Math.min(760, baseW + (ev.clientX - startX)));
+      if (!raf) {
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          bar.style.width = `${live}px`;
+          bar.style.maxWidth = "none";
+        });
+      }
+    };
+    const onUp = () => {
+      document.body.style.cursor = "";
+      document.body.classList.remove("foid-window-dragging");
+      setDeckWidth(live);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    document.body.classList.add("foid-window-dragging");
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [deckWidth]);
 
   // Windowshade — the Winamp classic. The titlebar's shade button (or a
   // double-click on the strip) collapses the deck to just the title bar
@@ -175,7 +211,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         </div>
       )}
 
-      {/* FOID AMP deck — opened from the dock's AMP tile */}
+      {/* MUSIC.EXE deck — opened from the dock's Music tile */}
       <div className={`cmp-bar-outer ${isVisible ? "cmp-bar-outer--visible" : "cmp-bar-outer--hidden"}`}>
         <div
           ref={barRef}
@@ -183,8 +219,17 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           onPointerDown={handleBarPointerDown}
           style={{
             transform: barOffset ? `translate(${barOffset.x}px, ${barOffset.y}px)` : undefined,
+            width: deckWidth ? `${deckWidth}px` : undefined,
+            maxWidth: deckWidth ? "none" : undefined,
           }}
         >
+          {/* Right-edge width grip — drag to size the deck (400–760px) */}
+          <div
+            className="cmp-resize"
+            role="presentation"
+            aria-hidden="true"
+            onPointerDown={startDeckResize}
+          />
           {/* Titlebar strip — the visible drag surface + window controls.
               Close on the left (mac convention), shade toggle on the right,
               brand centered. Double-click shades, the Winamp way. */}
@@ -196,11 +241,11 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
             <button
               type="button"
               className="cmp-titlebar__close vista-window__control vista-window__control--close"
-              aria-label="Close FOID AMP"
+              aria-label="Close MUSIC.EXE"
               title="Close"
               onClick={closeAmp}
             />
-            <span className="cmp-titlebar__brand">FOID AMP</span>
+            <span className="cmp-titlebar__brand">MUSIC.EXE</span>
             <button
               type="button"
               className="cmp-titlebar__shade"
@@ -360,13 +405,29 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           :global(.cmp-bar-outer) { display: none !important; }
         }
 
-        /* ===== FOID AMP deck: Winamp layout in aero glass ===== */
+        /* ===== MUSIC.EXE deck: Winamp layout in aero glass ===== */
         :global(.cmp-bar) {
           width: calc(100% - 32px);
           max-width: 560px;
           display: flex;
           flex-direction: column;
           align-items: stretch;
+        }
+
+        /* --- Width grip: right edge of the deck, below the titlebar --- */
+        :global(.cmp-resize) {
+          position: absolute;
+          top: 22px;
+          right: 0;
+          bottom: 0;
+          width: 7px;
+          cursor: ew-resize;
+          z-index: 3;
+        }
+        @media (max-width: 1023px) {
+          :global(.cmp-resize) {
+            display: none;
+          }
         }
 
         /* --- Titlebar strip: the visible drag surface + window controls --- */
