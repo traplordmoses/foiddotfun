@@ -201,6 +201,39 @@ export default function ChatApp() {
           cursor: grab;
           user-select: none;
           -webkit-user-select: none;
+          position: relative;
+          overflow: hidden;
+        }
+        /* Aero shine — a soft specular sweep gliding across the titlebar,
+           long idle between passes. Decorative only. */
+        .chat-app__titlebar::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          left: 0;
+          width: 34%;
+          background: linear-gradient(
+            100deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.16) 45%,
+            rgba(160, 255, 240, 0.2) 55%,
+            transparent 100%
+          );
+          transform: translateX(-160%) skewX(-18deg);
+          animation: chat-app-shine 7s linear infinite;
+          pointer-events: none;
+        }
+        @keyframes chat-app-shine {
+          0% { transform: translateX(-160%) skewX(-18deg); }
+          18% { transform: translateX(480%) skewX(-18deg); }
+          100% { transform: translateX(480%) skewX(-18deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .chat-app__titlebar::after {
+            animation: none;
+            opacity: 0;
+          }
         }
         .chat-app__close {
           position: static;

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { CloseIcon, HourglassIcon, SendIcon, SparkleIcon } from "@/components/icons/AeroIcons";
 import { supabase, SUPABASE_ENABLED, type BoardMessage } from "@/lib/supabase";
 import toast from "react-hot-toast";
 
@@ -30,6 +31,22 @@ const COOLDOWN_MS = 3000;
 // In-memory buffer cap. Realtime INSERTs append for as long as the tab
 // lives; the display already filters to 24h, so keep the array bounded too.
 const MAX_BUFFER = 200;
+
+// Deterministic pastel identity per wallet — regulars get a recognizable
+// chip color. FNV-ish string hash; hue drives the gel chip tint (CSS
+// --chip-h), a higher bit picks the bubble's cyan/pink glass tint so the
+// two don't correlate visually.
+function hashSender(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) >>> 0;
+  // Avalanche finalizer (murmur3-style): without it, addresses that differ
+  // only in the last character land ~1° apart on the hue wheel and read as
+  // the same chip color.
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x45d9f3b) >>> 0;
+  h ^= h >>> 16;
+  return h >>> 0;
+}
 
 // Append-only merge by id — used by the initial load, realtime INSERTs, and
 // post-reconnect backfill. Skipping ids we already hold means the realtime
@@ -261,7 +278,7 @@ export function TerminalChat({
             ? err.message
             : "Message failed to send";
       toast(friendly, {
-        icon: "\u274c",
+        icon: <CloseIcon size={12} />,
         style: {
           background: "rgba(255, 79, 110, 0.16)",
           color: "#ffeef0",
@@ -341,14 +358,33 @@ export function TerminalChat({
           const labelClass = isSystem ? "terminal-chat__system" : "terminal-chat__user";
           const labelText = isSystem ? "SYSTEM" : isChat ? (msg.user || "anon") : "milady";
 
+          // Chat rows become glass bubbles: sender hash → pastel chip hue +
+          // alternating cyan/pink glass tint, so regulars are recognizable.
+          const senderHash = isChat ? hashSender(msg.user || "anon") : 0;
+          const bubbleClass = isChat
+            ? ` terminal-chat__line--bubble terminal-chat__line--tint-${((senderHash >>> 8) & 1) === 0 ? "a" : "b"}`
+            : "";
+          const chipStyle = isChat
+            ? ({ "--chip-h": String(senderHash % 360) } as React.CSSProperties)
+            : undefined;
+
           return (
-            <div key={msg.id} className={`terminal-chat__line ${lineClass}`}>
+            <div key={msg.id} className={`terminal-chat__line ${lineClass}${bubbleClass}`}>
               <span className="terminal-chat__time">{formatTime(msg.timestamp)}</span>
-              <span className={labelClass}>{labelText}</span>
+              <span className={labelClass} style={chipStyle}>
+                {isSystem && <SparkleIcon size={10} />}
+                {labelText}
+              </span>
               <span className="terminal-chat__text">{msg.text}</span>
             </div>
           );
         })}
+        {!allMessages.some((msg) => msg.variant === "chat") && (
+          <div className="terminal-chat__empty">
+            <span>it&rsquo;s quiet in here&hellip; say gm</span>
+            <SparkleIcon size={13} />
+          </div>
+        )}
       </div>
       <div className="terminal-chat__input-row">
         <span className="terminal-chat__prompt" aria-hidden="true">&gt;</span>
@@ -368,8 +404,10 @@ export function TerminalChat({
           className="terminal-chat__send"
           onClick={() => void handleSend()}
           disabled={isSendDisabled}
+          aria-label={isCoolingDown ? "Cooling down — one moment" : "Send message"}
+          title={isCoolingDown ? "Cooling down — one moment" : "Send"}
         >
-          {isCoolingDown ? "WAIT" : "SEND"}
+          {isCoolingDown ? <HourglassIcon size={14} /> : <SendIcon size={15} />}
         </button>
       </div>
       {walletAddress && (

@@ -2,6 +2,19 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ChevronIcon,
+  CloseIcon,
+  MuteIcon,
+  NextIcon,
+  PauseIcon,
+  PlayIcon,
+  PrevIcon,
+  ShuffleIcon,
+  SwapIcon,
+  VolumeIcon,
+  type VolumeLevel,
+} from "@/components/icons/AeroIcons";
 import { musicPanelController } from "@/components/musicPanelController";
 import { getAudioSettings, setMusicEnabled } from "@/lib/audioSettings";
 import { useAmpStore } from "@/stores/ampStore";
@@ -253,7 +266,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
   }, [volume]);
 
   const volVal = volume ?? 0;
-  const volumeIcon = volVal === 0 ? "\u{1F507}" : volVal < 0.5 ? "\u{1F509}" : "\u{1F50A}";
+  const volumeLevel: VolumeLevel = volVal === 0 ? "mute" : volVal < 0.5 ? "low" : "high";
 
   return (
     <>
@@ -295,7 +308,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
                   title="Switch to deck skin"
                   aria-label="Switch to deck skin"
                 >
-                  <span aria-hidden="true">{"⤢"}</span>
+                  <SwapIcon size={11} />
                 </button>
                 <button
                   type="button"
@@ -304,7 +317,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
                   title="Close"
                   aria-label="Close MUSIC.EXE"
                 >
-                  <span aria-hidden="true">{"×"}</span>
+                  <CloseIcon size={10} />
                 </button>
               </div>
               {/* Spectrum analyzer — pure decoration */}
@@ -345,7 +358,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
               title={isPlaying ? "Pause" : "Play"}
               aria-label={isPlaying ? "Pause" : "Play"}
             >
-              <span aria-hidden="true">{isPlaying ? "⏸" : "▶"}</span>
+              {isPlaying ? <PauseIcon size={20} tone="sea" /> : <PlayIcon size={20} tone="sea" />}
             </button>
 
             {/* Lower shell: volume lane + gel transport row */}
@@ -370,7 +383,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
                 title="Previous"
                 aria-label="Previous"
               >
-                {"⏮"}
+                <PrevIcon size={13} tone="sea" />
               </button>
               <button
                 className="cmp-gel cmp-gel--pebble"
@@ -379,7 +392,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
                 title="Next"
                 aria-label="Next"
               >
-                {"⏭"}
+                <NextIcon size={13} tone="sea" />
               </button>
               <button
                 className={`cmp-gel cmp-gel--pebble ${shuffle ? "cmp-gel--lit" : ""}`}
@@ -389,7 +402,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
                 aria-label={shuffle ? "Shuffle on" : "Shuffle off"}
                 aria-pressed={shuffle}
               >
-                {"\u{1F500}"}
+                <ShuffleIcon size={13} tone="sea" />
               </button>
               <button
                 className="cmp-gel cmp-gel--pebble"
@@ -399,7 +412,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
                 aria-label={volVal === 0 ? "Unmute" : "Mute"}
                 aria-pressed={volVal === 0}
               >
-                {volVal === 0 ? "\u{1F507}" : "\u{1F50A}"}
+                {volVal === 0 ? <MuteIcon size={13} tone="sea" /> : <VolumeIcon size={13} tone="sea" level="high" />}
               </button>
             </div>
           </div>
@@ -445,7 +458,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
               title={shaded ? "Expand" : "Shade"}
               onClick={toggleShade}
             >
-              <span aria-hidden="true">{shaded ? "▾" : "▴"}</span>
+              <ChevronIcon size={9} dir={shaded ? "down" : "up"} />
             </button>
           </div>
 
@@ -459,7 +472,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
                 title={isPlaying ? "Pause" : "Play"}
                 aria-label={isPlaying ? "Pause" : "Play"}
               >
-                {isPlaying ? "⏸" : "▶"}
+                {isPlaying ? <PauseIcon size={10} /> : <PlayIcon size={10} />}
               </button>
               <div className="cmp-shade__title" title={currentTrackName}>
                 {currentTrackName}
@@ -472,7 +485,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           {/* Transport cluster \u2014 gel buttons */}
           <div className="cmp-transport">
             <button className="cmp-gel" type="button" onClick={handlePrev} title="Previous" aria-label="Previous">
-              {"\u23EE"}
+              <PrevIcon size={13} />
             </button>
             <button
               className="cmp-gel cmp-gel--play"
@@ -481,10 +494,10 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
               title={isPlaying ? "Pause" : "Play"}
               aria-label={isPlaying ? "Pause" : "Play"}
             >
-              {isPlaying ? "\u23F8" : "\u25B6"}
+              {isPlaying ? <PauseIcon size={16} /> : <PlayIcon size={16} />}
             </button>
             <button className="cmp-gel" type="button" onClick={handleNext} title="Next" aria-label="Next">
-              {"\u23ED"}
+              <NextIcon size={13} />
             </button>
           </div>
 
@@ -537,10 +550,12 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
             title={shuffle ? "Shuffle on" : "Shuffle off"}
             aria-label={shuffle ? "Shuffle on" : "Shuffle off"}
           >
-            {"\u{1F500}"}
+            <ShuffleIcon size={12} />
           </button>
           <div className="cmp-volume">
-            <span className="cmp-volume__icon">{volumeIcon}</span>
+            <span className="cmp-volume__icon">
+              <VolumeIcon size={15} level={volumeLevel} />
+            </span>
             <input
               type="range"
               min="0"
@@ -661,10 +676,11 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           height: 16px;
           padding: 0;
           border: 1px solid rgba(255, 255, 255, 0.18);
+          border-top-color: rgba(255, 255, 255, 0.3);
           border-radius: 5px;
-          background: rgba(255, 255, 255, 0.08);
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
           color: var(--foid-text-dim);
-          font-size: 9px;
           line-height: 1;
           cursor: pointer;
           flex-shrink: 0;
@@ -882,8 +898,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           height: 26px;
           font-size: 10px;
         }
-        /* Lit toggle (shuffle on) — cyan ring glow; works even though the
-           glyph is a color emoji that ignores 'color'. */
+        /* Lit toggle (shuffle on) — cyan ring glow around the gel icon. */
         :global(.cmp-gel--lit) {
           border-color: var(--foid-border-strong);
           background: linear-gradient(
@@ -1017,8 +1032,10 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           z-index: 1;
         }
         :global(.cmp-volume__icon) {
-          font-size: 13px;
-          opacity: 0.55;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0.75;
           cursor: default;
           line-height: 1;
         }
@@ -1161,7 +1178,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           pointer-events: none;
         }
 
-        /* Display chrome: return-to-deck + close, tiny glyph chips */
+        /* Display chrome: return-to-deck + close, tiny aero-icon chips */
         :global(.cmp-pebble__chrome) {
           display: flex;
           justify-content: flex-end;

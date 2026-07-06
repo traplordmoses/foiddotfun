@@ -428,3 +428,19 @@ Mitigations to build (in order of value):
 
 *Verification for this plan: `pnpm typecheck` clean on the branch (no src changes made);
 all file:line references checked against `design/foid-os-media` on 2026-07-06.*
+
+---
+
+## Founder decisions (2026-07-06)
+
+The four open questions are answered — these are binding for stage A:
+
+1. **Close vs minimize:** the red orb CLOSES the app (removes the window);
+   the amber orb minimizes to the dock. Green stays maximize.
+2. **App cap:** no hard product limit needed — apps are light. Engineering
+   may set a generous safety cap (~6 concurrent) purely as a guard.
+3. **Instancing:** one app can only be open ONCE — `AppId` keys the window
+   store map directly, no instance ids.
+4. **Desktop + /enter:** the desktop/home IS the /enter boot experience —
+   FOID OS boots through the /enter loading animation into the shell.
+   (/enter animation upgrade in progress in parallel.)
