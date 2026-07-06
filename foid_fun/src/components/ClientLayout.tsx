@@ -20,6 +20,9 @@ const FairyDustCursor = dynamic(() => import('@/components/FairyDustCursor'), { 
 const FoidWalletOnboarding = dynamic(() => import('@/components/FoidWalletOnboarding'), { ssr: false });
 const FoidOnboardingTour = dynamic(() => import('@/components/FoidOnboardingTour'), { ssr: false });
 const PostWalletWelcome = dynamic(() => import('@/components/PostWalletWelcome'), { ssr: false });
+// CHAT.EXE — floating chat window opened from the dock's Chat tile.
+// Desktop-only chrome; the Supabase socket only connects on first open.
+const ChatApp = dynamic(() => import('@/components/ChatApp'), { ssr: false });
 
 export function ClientLayout() {
   const { isMobile } = useMobile();
@@ -43,6 +46,7 @@ export function ClientLayout() {
       <FoidOnboardingTour />
       <PostWalletWelcome />
       <CompactMusicPlayer mountLogic={true} />
+      <ChatApp />
     </>
   );
 }

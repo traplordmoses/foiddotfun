@@ -5907,3 +5907,138 @@ body.foid-window-dragging .vista-window * {
     }
   }
 }
+
+/* ============================================================================
+   TERMINAL CHAT — shared by the /board sidebar and the CHAT.EXE dock app.
+   Moved here from board.css so the component renders identically on every
+   route. Board-scoped sizing overrides stay in board.css
+   (.board-section--chat …). Uses global tokens only.
+   ============================================================================ */
+.terminal-chat {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background:
+    linear-gradient(180deg, rgba(16, 36, 55, 0.92), rgba(6, 14, 24, 0.9)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 40%),
+    var(--foid-panel-strong);
+  border-radius: var(--foid-radius-md);
+  border: 1px solid var(--foid-glass-border);
+  overflow: hidden;
+  font-family: var(--font-terminal);
+  box-shadow:
+    inset 0 2px 6px rgba(255, 255, 255, 0.08),
+    0 0 20px rgba(116, 255, 235, 0.12);
+}
+.terminal-chat::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 35%);
+  pointer-events: none;
+  opacity: 0.18;
+  mix-blend-mode: screen;
+  z-index: -1;
+}
+.terminal-chat::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 100% 3px, 3px 100%;
+  opacity: 0.08;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  z-index: -1;
+}
+.terminal-chat__messages { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; font-size: 11px; line-height: 1.5; position: relative; z-index: 1; }
+.terminal-chat__line { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.terminal-chat__time { color: rgba(255,255,255,0.35); font-size: 9px; }
+.terminal-chat__user { color: var(--foid-accent); font-weight: 600; background: var(--foid-accent-soft); padding: 1px 5px; border-radius: 2px; font-size: 9px; }
+.terminal-chat__system { color: #ffcc00; font-weight: 600; font-style: italic; font-size: 9px; }
+.terminal-chat__text { color: rgba(255,255,255,0.85); font-size: 11px; }
+.terminal-chat__line--success .terminal-chat__text { color: var(--foid-accent); }
+.terminal-chat__line--error .terminal-chat__text { color: var(--foid-red-vivid); }
+.terminal-chat__input-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  gap: 8px;
+  border-top: 1px solid var(--foid-accent-soft);
+  background: rgba(5, 15, 26, 0.85);
+  position: sticky;
+  bottom: 0;
+  backdrop-filter: blur(12px);
+  z-index: 2;
+  overflow: hidden;
+}
+.terminal-chat__prompt { color: var(--foid-accent); margin-right: 6px; font-weight: 600; font-size: 12px; text-shadow: 0 0 8px var(--foid-glow); flex-shrink: 0; }
+.terminal-chat__input { flex: 1; min-width: 0; background: rgba(11,24,38,0.55); border: 1px solid var(--foid-accent-soft); border-radius: 4px; outline: none; color: white; font-family: inherit; font-size: 11px; padding: 6px 10px; transition: border-color 0.2s, box-shadow 0.2s; }
+.terminal-chat__input:focus { border-color: var(--foid-accent); box-shadow: 0 0 10px var(--foid-glow); }
+.terminal-chat__input:focus-visible {
+  outline: 2px solid var(--foid-accent);
+  outline-offset: 3px;
+}
+.terminal-chat__input::placeholder { color: rgba(255,255,255,0.35); }
+.terminal-chat__line--chat .terminal-chat__text { color: #ccffd8; }
+.terminal-chat__send {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--foid-accent-soft);
+  background: var(--foid-accent-soft);
+  color: var(--foid-accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.terminal-chat__send:hover:not(:disabled) {
+  background: var(--foid-accent);
+  box-shadow:
+    0 0 10px var(--foid-accent-soft),
+    0 0 18px var(--foid-warm);
+  transform: translateY(-1px);
+}
+.terminal-chat__send:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+.terminal-chat__send:focus-visible {
+  outline: 2px solid var(--foid-accent);
+  outline-offset: 3px;
+}
+.terminal-chat__char-counter {
+  text-align: right;
+  font-size: 9px;
+  color: rgba(255,255,255,0.35);
+  padding: 2px 12px 4px;
+  font-family: var(--font-terminal);
+}
+.terminal-chat__char-counter[data-warn] {
+  color: var(--foid-red-vivid);
+  font-weight: 600;
+}
+.terminal-chat__reconnecting {
+  text-align: center;
+  font-size: 9px;
+  color: #ffcc00;
+  padding: 4px;
+  opacity: 0.7;
+  animation: reconnect-blink 1.2s ease-in-out infinite;
+}
+@keyframes reconnect-blink {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.9; }
+}

@@ -20,6 +20,7 @@ import {
 } from 'framer-motion';
 import { useWindowStore } from '@/stores/windowStore';
 import { useAmpStore } from '@/stores/ampStore';
+import { useChatAppStore } from '@/stores/chatAppStore';
 
 interface NavItem {
   href: string;
@@ -142,6 +143,8 @@ export function Dock() {
   const restoreWindow = useWindowStore((s) => s.restore);
   const ampOpen = useAmpStore((s) => s.open);
   const toggleAmp = useAmpStore((s) => s.toggle);
+  const chatOpen = useChatAppStore((s) => s.open);
+  const toggleChat = useChatAppStore((s) => s.toggle);
 
   // Magnification only makes sense with a hovering fine pointer, and only
   // when the user hasn't asked for reduced motion.
@@ -310,6 +313,54 @@ export function Dock() {
             </span>
           </motion.div>
           {ampOpen && (
+            <span
+              aria-hidden="true"
+              className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+              style={{ background: 'rgba(150, 220, 255, 0.95)', boxShadow: '0 0 6px rgba(150, 220, 255, 0.8)' }}
+            />
+          )}
+        </button>
+
+        {/* CHAT.EXE — the loreboard chat as an app tile. Toggles the
+            floating chat window (ChatApp). Desktop only: mobile keeps the
+            board sidebar chat. */}
+        <button
+          type="button"
+          onClick={toggleChat}
+          aria-pressed={chatOpen}
+          aria-label={chatOpen ? 'Close CHAT.EXE' : 'Open CHAT.EXE'}
+          className="relative hidden lg:flex flex-col items-center justify-center h-full min-w-[64px] px-2 touch-manipulation"
+        >
+          {chatOpen && (
+            <span
+              aria-hidden="true"
+              className="absolute inset-x-0.5 inset-y-1.5 rounded-2xl border border-white/[0.22]"
+              style={{
+                background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05))',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 16px rgba(120, 200, 255, 0.18)',
+              }}
+            />
+          )}
+          <motion.div
+            className="relative z-10 flex flex-col items-center justify-center"
+            whileTap={{ scale: 0.88 }}
+            transition={{ duration: 0.1 }}
+          >
+            <DockIcon mouseX={mouseX}>
+              <div
+                className={`transition-colors duration-200 ${chatOpen ? 'text-white' : 'text-white/55'}`}
+                style={chatOpen ? { filter: 'drop-shadow(0 0 8px rgba(150, 220, 255, 0.55))' } : undefined}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </div>
+            </DockIcon>
+            <span className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${chatOpen ? 'text-white' : 'text-white/55'}`}>
+              Chat
+            </span>
+          </motion.div>
+          {chatOpen && (
             <span
               aria-hidden="true"
               className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"

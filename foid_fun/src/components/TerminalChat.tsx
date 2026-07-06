@@ -27,6 +27,41 @@ export type TerminalChatProps = {
 
 const MAX_MESSAGE_LENGTH = 280;
 const COOLDOWN_MS = 3000;
+// In-memory buffer cap. Realtime INSERTs append for as long as the tab
+// lives; the display already filters to 24h, so keep the array bounded too.
+const MAX_BUFFER = 200;
+
+// Append-only merge by id — used by the initial load, realtime INSERTs, and
+// post-reconnect backfill. Skipping ids we already hold means the realtime
+// echo of our own reconciled send never double-enters the buffer.
+function mergeMessages(prev: BoardMessage[], incoming: BoardMessage[]): BoardMessage[] {
+  const seen = new Set(prev.map((m) => m.id));
+  const additions = incoming.filter((m) => !seen.has(m.id));
+  if (additions.length === 0) return prev;
+  return [...prev, ...additions].slice(-MAX_BUFFER);
+}
+
+// Last-24h chat history (max 100 rows). Shared by the mount load and the
+// reconnect backfill — messages inserted while the socket was down used to
+// be invisible until a full page reload.
+async function fetchRecentChat(): Promise<BoardMessage[]> {
+  if (!supabase) return [];
+  const since = new Date();
+  since.setHours(since.getHours() - 24);
+  try {
+    const { data, error } = await supabase
+      .from("board_messages")
+      .select("*")
+      .eq("type", "chat")
+      .gte("created_at", since.toISOString())
+      .order("created_at", { ascending: true })
+      .limit(100);
+    return !error && data ? data : [];
+  } catch (err) {
+    console.error("Failed to load chat messages:", err);
+    return [];
+  }
+}
 
 // ============================================================================
 // COMPONENT
@@ -45,10 +80,20 @@ export function TerminalChat({
   const [supabaseMessages, setSupabaseMessages] = useState<BoardMessage[]>([]);
   const [realtimeStatus, setRealtimeStatus] = useState<"connected" | "disconnected" | "reconnecting">("disconnected");
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Scroll anchoring: only follow new messages when the user is already at
+  // (or near) the bottom. Someone reading history must never get yanked
+  // down by an incoming message; sending your own re-pins (see handleSend).
+  const pinnedRef = useRef(true);
 
-  // Auto-scroll to bottom when messages change
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+  }, []);
+
+  // Auto-scroll to bottom when messages change (only while pinned)
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && pinnedRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [statusMessages, supabaseMessages]);
@@ -57,28 +102,15 @@ export function TerminalChat({
   useEffect(() => {
     if (!enableSupabase || !SUPABASE_ENABLED || !supabase) return;
 
-    const loadMessages = async () => {
-      const twentyFourHoursAgo = new Date();
-      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
-
-      try {
-        const { data, error } = await supabase!
-          .from("board_messages")
-          .select("*")
-          .eq("type", "chat")
-          .gte("created_at", twentyFourHoursAgo.toISOString())
-          .order("created_at", { ascending: true })
-          .limit(100);
-
-        if (data && !error) {
-          setSupabaseMessages(data);
-        }
-      } catch (err) {
-        console.error("Failed to load chat messages:", err);
+    let cancelled = false;
+    void fetchRecentChat().then((rows) => {
+      if (!cancelled && rows.length > 0) {
+        setSupabaseMessages((prev) => mergeMessages(prev, rows));
       }
+    });
+    return () => {
+      cancelled = true;
     };
-
-    void loadMessages();
   }, [enableSupabase]);
 
   // Subscribe to real-time messages with reconnection
@@ -112,14 +144,25 @@ export function TerminalChat({
             },
             (payload) => {
               if (payload.new) {
-                setSupabaseMessages((prev) => [...prev, payload.new]);
+                setSupabaseMessages((prev) => mergeMessages(prev, [payload.new]));
               }
             }
           )
           .subscribe((status) => {
             if (status === "SUBSCRIBED") {
               setRealtimeStatus("connected");
+              const wasReconnect = attempt > 0;
               attempt = 0;
+              // Backfill anything inserted while the socket was down —
+              // postgres_changes has no replay, so a drop is a silent gap
+              // until the next reload without this.
+              if (wasReconnect) {
+                void fetchRecentChat().then((rows) => {
+                  if (!cancelled && rows.length > 0) {
+                    setSupabaseMessages((prev) => mergeMessages(prev, rows));
+                  }
+                });
+              }
             } else if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
               setRealtimeStatus("disconnected");
               if (!cancelled) {
@@ -157,6 +200,8 @@ export function TerminalChat({
 
     setIsSending(true);
     setInput("");
+    // Your own message always scrolls into view, even if you were reading history.
+    pinnedRef.current = true;
 
     // Optimistic: show the message immediately
     const optimisticId = `local-${Date.now()}-${Math.random()}`;
@@ -184,6 +229,19 @@ export function TerminalChat({
         throw new Error(err.error || `HTTP ${res.status}`);
       }
 
+      // Reconcile: swap the optimistic entry for the server row so the
+      // realtime echo dedupes by id instead of the text+5s heuristic
+      // (which showed doubles whenever realtime delivery lagged >5s).
+      const payload = (await res.json().catch(() => null)) as { message?: BoardMessage } | null;
+      const serverRow = payload?.message;
+      if (serverRow && typeof serverRow.id === "string") {
+        setSupabaseMessages((prev) =>
+          prev.some((m) => m.id === serverRow.id)
+            ? prev.filter((m) => m.id !== optimisticId) // realtime echo beat us
+            : prev.map((m) => (m.id === optimisticId ? serverRow : m))
+        );
+      }
+
       // Call parent callback if provided
       if (onSend) {
         await onSend(trimmed);
@@ -195,7 +253,14 @@ export function TerminalChat({
         prev.filter((m) => m.id !== optimisticId)
       );
       // Show error toast (use toast() not toast.error() — errors are suppressed in production)
-      toast(err instanceof Error ? err.message : "Message failed to send", {
+      // A fetch-level TypeError means the request never left (offline/DNS).
+      const friendly =
+        err instanceof TypeError
+          ? "network offline — message not sent"
+          : err instanceof Error
+            ? err.message
+            : "Message failed to send";
+      toast(friendly, {
         icon: "\u274c",
         style: {
           background: "rgba(255, 79, 110, 0.16)",
@@ -265,7 +330,7 @@ export function TerminalChat({
 
   return (
     <div className={`terminal-chat ${className}`}>
-      <div ref={scrollRef} className="terminal-chat__messages">
+      <div ref={scrollRef} onScroll={handleScroll} className="terminal-chat__messages">
         {realtimeStatus === "reconnecting" && (
           <div className="terminal-chat__reconnecting">reconnecting...</div>
         )}

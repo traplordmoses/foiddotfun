@@ -12,6 +12,16 @@ const MusicPanelLogic = dynamic(() => import("./MusicPanel"), { ssr: false });
 // html.cmp-active with a fixed 64+48px pad, so anything ≤ ~100px is safe.
 const PLAYER_HEIGHT = 54;
 
+// Easter-egg skin persistence. "deck" (default) is the Winamp bar; "pebble"
+// is the Frutiger Aero portable-CD-player shell reached by double-clicking
+// the deck body.
+type MusicSkin = "deck" | "pebble";
+const SKIN_STORAGE_KEY = "foid-music-skin";
+
+// Spectrum analyzer: 14 bars with pseudo-random stagger. Negative delays
+// start each bar mid-cycle so the strip never "launches" in unison.
+const PEBBLE_EQ_DELAYS = Array.from({ length: 14 }, (_, i) => (i * 137) % 860);
+
 const formatTime = (seconds: number) => {
   const safe = Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
   const m = Math.floor(safe / 60);
@@ -41,6 +51,38 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
   const progressPercent = Number.isFinite(progress) ? Math.min(1, Math.max(0, progress)) : 0;
   const timeLabel = duration > 0 || elapsed > 0 ? formatTime(elapsed) : "--:--";
 
+  // ── Easter egg: the Frutiger Aero "pebble" skin. Double-click the deck
+  // BODY (not the titlebar — that stays windowshade) and MUSIC.EXE morphs
+  // into a glossy white portable-CD-player blob; double-click the pebble's
+  // shell to morph back. Sticky across reloads via localStorage.
+  const [skin, setSkin] = useState<MusicSkin>("deck");
+  useEffect(() => {
+    // Hydration-safe: read the stored skin after mount only.
+    try {
+      if (localStorage.getItem(SKIN_STORAGE_KEY) === "pebble") setSkin("pebble");
+    } catch {
+      /* storage unavailable — session-only skin */
+    }
+  }, []);
+  const switchSkin = useCallback((next: MusicSkin) => {
+    setSkin(next);
+    try {
+      localStorage.setItem(SKIN_STORAGE_KEY, next);
+    } catch {
+      /* storage unavailable — session-only skin */
+    }
+  }, []);
+  const handleBodyDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button, input, a, select, .cmp-resize")) return;
+    switchSkin("pebble");
+  }, [switchSkin]);
+  const handlePebbleDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button, input, a, select")) return;
+    switchSkin("deck");
+  }, [switchSkin]);
+
   // LCD marquee: only scroll when the track name actually overflows the LCD.
   // We measure the first (single) copy of the text against the container, so
   // toggling the duplicate copy on/off never skews the measurement.
@@ -64,7 +106,9 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     const ro = new ResizeObserver(measure);
     ro.observe(container);
     return () => ro.disconnect();
-  }, [currentTrackName]);
+    // `skin` dep: the LCD refs are null in pebble mode (effect no-ops), and
+    // the deck needs a fresh measure when it remounts on the way back.
+  }, [currentTrackName, skin]);
 
   // Visibility signal only: PaintEditor observes this class to pad its
   // toolbar clear of the bar. No stylesheet may attach layout to it — the
@@ -188,6 +232,20 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
   const handleNext = () => musicPanelController.next();
   const handleShuffle = () => musicPanelController.toggleShuffle();
 
+  // Pebble-only mute: 0 ↔ last non-zero level. setVolume (absolute) rather
+  // than adjustVolume (delta): a restore is an absolute op, and value-sets
+  // are idempotent under dev StrictMode double-invocation.
+  const preMuteVolumeRef = useRef(0.5);
+  const handleMute = () => {
+    const current = musicPanelController.getState().volume ?? 0;
+    if (current > 0) {
+      preMuteVolumeRef.current = current;
+      musicPanelController.setVolume(0);
+    } else {
+      musicPanelController.setVolume(preMuteVolumeRef.current || 0.5);
+    }
+  };
+
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newVol = parseFloat(e.target.value);
     const delta = newVol - (volume ?? 0);
@@ -213,6 +271,139 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
 
       {/* MUSIC.EXE deck — opened from the dock's Music tile */}
       <div className={`cmp-bar-outer ${isVisible ? "cmp-bar-outer--visible" : "cmp-bar-outer--hidden"}`}>
+        {skin === "pebble" ? (
+          /* ── Pebble skin: Frutiger Aero portable CD player. Same wrapper
+             (open/close animation + drag offset), no titlebar, no width
+             grip, no windowshade. Double-click the shell to morph back. */
+          <div
+            ref={barRef}
+            className="cmp-pebble"
+            onPointerDown={handleBarPointerDown}
+            onDoubleClick={handlePebbleDoubleClick}
+            title="drag to move · double-click the shell to return to the deck"
+            style={{
+              transform: barOffset ? `translate(${barOffset.x}px, ${barOffset.y}px)` : undefined,
+            }}
+          >
+            {/* Blue glass display blob */}
+            <div className="cmp-pebble__display">
+              <div className="cmp-pebble__chrome">
+                <button
+                  type="button"
+                  className="cmp-pebble__chip"
+                  onClick={() => switchSkin("deck")}
+                  title="Switch to deck skin"
+                  aria-label="Switch to deck skin"
+                >
+                  <span aria-hidden="true">{"⤢"}</span>
+                </button>
+                <button
+                  type="button"
+                  className="cmp-pebble__chip"
+                  onClick={closeAmp}
+                  title="Close"
+                  aria-label="Close MUSIC.EXE"
+                >
+                  <span aria-hidden="true">{"×"}</span>
+                </button>
+              </div>
+              {/* Spectrum analyzer — pure decoration */}
+              <div
+                className={`cmp-pebble__eq ${isPlaying ? "cmp-pebble__eq--live" : ""}`}
+                aria-hidden="true"
+              >
+                {PEBBLE_EQ_DELAYS.map((delay, i) => (
+                  <span
+                    key={i}
+                    className="cmp-pebble__eqbar"
+                    style={{ animationDelay: `-${delay}ms` }}
+                  />
+                ))}
+              </div>
+              <div className="cmp-pebble__meta">
+                <span className="cmp-pebble__label">Title</span>
+                <div className="cmp-pebble__track" title={currentTrackName}>
+                  {currentTrackName}
+                </div>
+              </div>
+              <div
+                className="cmp-pebble__lcd"
+                title={duration > 0 ? `${formatTime(elapsed)} / ${formatTime(duration)}` : undefined}
+              >
+                <span className="cmp-pebble__elapsed">{timeLabel}</span>
+                <span className="cmp-pebble__total">
+                  Total {duration > 0 ? formatTime(duration) : "--:--"}
+                </span>
+              </div>
+            </div>
+
+            {/* Green-ring gel play button, straddling the display edge */}
+            <button
+              type="button"
+              className={`cmp-pebble__play ${isPlaying ? "cmp-pebble__play--on" : ""}`}
+              onClick={handleToggle}
+              title={isPlaying ? "Pause" : "Play"}
+              aria-label={isPlaying ? "Pause" : "Play"}
+            >
+              <span aria-hidden="true">{isPlaying ? "⏸" : "▶"}</span>
+            </button>
+
+            {/* Lower shell: volume lane + gel transport row */}
+            <div className="cmp-pebble__volume-row">
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={volVal}
+                onChange={handleVolumeChange}
+                className="cmp-pebble__volume"
+                title={`Volume: ${Math.round(volVal * 100)}%`}
+                aria-label="Volume"
+              />
+            </div>
+            <div className="cmp-pebble__row">
+              <button
+                className="cmp-gel cmp-gel--pebble"
+                type="button"
+                onClick={handlePrev}
+                title="Previous"
+                aria-label="Previous"
+              >
+                {"⏮"}
+              </button>
+              <button
+                className="cmp-gel cmp-gel--pebble"
+                type="button"
+                onClick={handleNext}
+                title="Next"
+                aria-label="Next"
+              >
+                {"⏭"}
+              </button>
+              <button
+                className={`cmp-gel cmp-gel--pebble ${shuffle ? "cmp-gel--lit" : ""}`}
+                type="button"
+                onClick={handleShuffle}
+                title={shuffle ? "Shuffle on" : "Shuffle off"}
+                aria-label={shuffle ? "Shuffle on" : "Shuffle off"}
+                aria-pressed={shuffle}
+              >
+                {"\u{1F500}"}
+              </button>
+              <button
+                className="cmp-gel cmp-gel--pebble"
+                type="button"
+                onClick={handleMute}
+                title={volVal === 0 ? "Unmute" : "Mute"}
+                aria-label={volVal === 0 ? "Unmute" : "Mute"}
+                aria-pressed={volVal === 0}
+              >
+                {volVal === 0 ? "\u{1F507}" : "\u{1F50A}"}
+              </button>
+            </div>
+          </div>
+        ) : (
         <div
           ref={barRef}
           className={`cmp-bar ${shaded ? "cmp-bar--shaded" : ""}`}
@@ -277,7 +468,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
             </div>
           )}
 
-          <div className="cmp-body" hidden={shaded}>
+          <div className="cmp-body" hidden={shaded} onDoubleClick={handleBodyDoubleClick}>
           {/* Transport cluster \u2014 gel buttons */}
           <div className="cmp-transport">
             <button className="cmp-gel" type="button" onClick={handlePrev} title="Previous" aria-label="Previous">
@@ -364,6 +555,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           </div>
           </div>
         </div>
+        )}
       </div>
 
       <style jsx global>{`
@@ -892,6 +1084,389 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           background: var(--foid-cyan-electric);
         }
 
+        /* ═══════════════════════════════════════════════════════════════
+           PEBBLE — hidden Frutiger Aero skin. A glossy white organic
+           portable-CD-player blob with a blue glass display. Reached by
+           double-clicking the deck body; double-click the shell to leave.
+           Blue family is hardcoded (#4a9eff/#1d5fa8 range): this skin IS
+           the themed artifact. Text + focus colors come from tokens.
+           ═══════════════════════════════════════════════════════════════ */
+        :global(.cmp-pebble) {
+          position: relative;
+          width: 330px;
+          height: 300px;
+          flex-shrink: 0;
+          padding: 22px 40px 0;
+          pointer-events: auto;
+          cursor: grab;
+          user-select: none;
+          -webkit-user-select: none;
+          /* Organic asymmetric blob */
+          border-radius: 53% 47% 46% 54% / 52% 55% 45% 48%;
+          /* White glossy plastic */
+          background:
+            radial-gradient(120% 90% at 30% 10%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 55%),
+            linear-gradient(165deg, #ffffff 0%, #f2f7fb 38%, #dfe9f2 68%, #c7d8e8 100%);
+          /* Drop shadow + white lip + blue border band + lower shading */
+          box-shadow:
+            0 24px 48px rgba(0, 20, 50, 0.45),
+            0 8px 18px rgba(0, 20, 50, 0.28),
+            inset 0 0 0 2px rgba(255, 255, 255, 0.85),
+            inset 0 0 0 8px rgba(74, 158, 255, 0.5),
+            inset 0 0 0 10px rgba(29, 95, 168, 0.22),
+            inset 0 -16px 26px rgba(120, 160, 205, 0.35);
+        }
+        /* Top-left specular highlight — the wet-plastic sheen */
+        :global(.cmp-pebble::before) {
+          content: "";
+          position: absolute;
+          top: 8px;
+          left: 34px;
+          width: 158px;
+          height: 62px;
+          border-radius: 50%;
+          background: radial-gradient(ellipse at 45% 40%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 72%);
+          transform: rotate(-10deg);
+          pointer-events: none;
+          z-index: 2;
+        }
+
+        /* --- Display: inner blue glass blob --- */
+        :global(.cmp-pebble__display) {
+          position: relative;
+          height: 158px;
+          padding: 12px 34px 14px 28px;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          z-index: 1;
+          border-radius: 54px 74px 68px 78px / 46px 54px 68px 48px;
+          background: linear-gradient(178deg, #9fd0f5 0%, #4b8ed0 34%, #1d5fa8 62%, #0b3a78 100%);
+          box-shadow:
+            inset 0 2px 8px rgba(255, 255, 255, 0.5),
+            inset 0 -10px 22px rgba(2, 18, 52, 0.55),
+            0 2px 0 rgba(255, 255, 255, 0.75),
+            0 6px 14px rgba(10, 45, 100, 0.35);
+        }
+        /* Glossy sweep across the top of the glass */
+        :global(.cmp-pebble__display::before) {
+          content: "";
+          position: absolute;
+          top: 0;
+          left: 6%;
+          right: 8%;
+          height: 46%;
+          border-radius: 50% 50% 46% 44% / 100% 100% 30% 26%;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.04));
+          pointer-events: none;
+        }
+
+        /* Display chrome: return-to-deck + close, tiny glyph chips */
+        :global(.cmp-pebble__chrome) {
+          display: flex;
+          justify-content: flex-end;
+          gap: 6px;
+          position: relative;
+          z-index: 1;
+        }
+        :global(.cmp-pebble__chip) {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 20px;
+          height: 20px;
+          padding: 0;
+          border-radius: 50%;
+          border: 1px solid rgba(255, 255, 255, 0.4);
+          background: rgba(255, 255, 255, 0.14);
+          color: rgba(255, 255, 255, 0.9);
+          font-size: 11px;
+          line-height: 1;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: background var(--foid-motion-fast) ease, color var(--foid-motion-fast) ease;
+        }
+        :global(.cmp-pebble__chip:hover) {
+          background: rgba(255, 255, 255, 0.3);
+          color: #ffffff;
+        }
+
+        /* Spectrum analyzer — decorative bars, dance only while playing */
+        :global(.cmp-pebble__eq) {
+          display: flex;
+          align-items: flex-end;
+          gap: 3px;
+          height: 18px;
+          margin-top: 4px;
+          position: relative;
+          z-index: 1;
+        }
+        :global(.cmp-pebble__eqbar) {
+          flex: 1;
+          height: 100%;
+          border-radius: 1.5px;
+          background: linear-gradient(180deg, #f2ffff 0%, #8fd3ff 55%, #3fa2ff 100%);
+          opacity: 0.85;
+          transform: scaleY(0.18);
+          transform-origin: bottom;
+        }
+        /* Static (paused) skyline — vary resting heights */
+        :global(.cmp-pebble__eqbar:nth-child(2n)) { transform: scaleY(0.3); }
+        :global(.cmp-pebble__eqbar:nth-child(3n)) { transform: scaleY(0.42); }
+        :global(.cmp-pebble__eqbar:nth-child(5n)) { transform: scaleY(0.24); }
+        :global(.cmp-pebble__eq--live .cmp-pebble__eqbar) {
+          animation: cmp-eq-dance 860ms ease-in-out infinite alternate;
+        }
+        :global(.cmp-pebble__eq--live .cmp-pebble__eqbar:nth-child(3n)) {
+          animation-duration: 700ms;
+        }
+        :global(.cmp-pebble__eq--live .cmp-pebble__eqbar:nth-child(4n)) {
+          animation-duration: 1020ms;
+        }
+        @keyframes cmp-eq-dance {
+          from { transform: scaleY(0.14); }
+          to { transform: scaleY(1); }
+        }
+
+        /* Track meta: TITLE micro-label + name */
+        :global(.cmp-pebble__meta) {
+          margin-top: 6px;
+          min-width: 0;
+          position: relative;
+          z-index: 1;
+        }
+        :global(.cmp-pebble__label) {
+          display: block;
+          font-family: var(--font-terminal);
+          font-size: 8px;
+          letter-spacing: 0.3em;
+          text-transform: uppercase;
+          color: rgba(214, 236, 255, 0.7);
+        }
+        :global(.cmp-pebble__track) {
+          font-family: var(--font-terminal);
+          font-size: 11px;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--foid-text);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        /* LCD: big segmented elapsed + small total */
+        :global(.cmp-pebble__lcd) {
+          margin-top: auto;
+          margin-left: 8px;
+          display: flex;
+          align-items: baseline;
+          gap: 10px;
+          position: relative;
+          z-index: 1;
+        }
+        :global(.cmp-pebble__elapsed) {
+          display: inline-block;
+          font-family: var(--font-terminal);
+          font-size: 28px;
+          line-height: 1;
+          letter-spacing: 0.04em;
+          font-variant-numeric: tabular-nums;
+          color: #eafcff;
+          transform: skewX(-5deg);
+          text-shadow:
+            0 0 10px color-mix(in srgb, var(--foid-cyan-electric) 55%, transparent),
+            0 0 26px color-mix(in srgb, var(--foid-cyan-electric) 30%, transparent);
+        }
+        :global(.cmp-pebble__total) {
+          font-family: var(--font-terminal);
+          font-size: 10px;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          font-variant-numeric: tabular-nums;
+          color: rgba(214, 236, 255, 0.8);
+        }
+
+        /* --- Green ring play button, straddling the display edge --- */
+        :global(.cmp-pebble__play) {
+          position: absolute;
+          right: 34px;
+          top: 156px;
+          width: 54px;
+          height: 54px;
+          padding: 0;
+          z-index: 3;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          font-size: 16px;
+          line-height: 1;
+          color: #17456f;
+          cursor: pointer;
+          border: 5px solid #b9c6d2;
+          background: radial-gradient(circle at 34% 28%, #ffffff 0%, #eef6fc 42%, #c6d9e9 100%);
+          box-shadow:
+            inset 0 2px 3px rgba(255, 255, 255, 0.95),
+            inset 0 -4px 8px rgba(90, 130, 170, 0.4),
+            0 6px 12px rgba(5, 35, 80, 0.35);
+          transition:
+            border-color var(--foid-motion-fast),
+            box-shadow var(--foid-motion-fast),
+            color var(--foid-motion-fast);
+        }
+        :global(.cmp-pebble__play:hover) {
+          color: #0b2f52;
+          border-color: #a7bacb;
+        }
+        :global(.cmp-pebble__play:active) {
+          box-shadow:
+            inset 0 3px 7px rgba(40, 80, 130, 0.55),
+            0 3px 8px rgba(5, 35, 80, 0.3);
+        }
+        :global(.cmp-pebble__play--on) {
+          border-color: #4ade80;
+          box-shadow:
+            inset 0 2px 3px rgba(255, 255, 255, 0.95),
+            inset 0 -4px 8px rgba(74, 160, 110, 0.35),
+            0 6px 12px rgba(5, 35, 80, 0.35),
+            0 0 16px rgba(74, 222, 128, 0.55);
+          animation: cmp-ring-pulse 2.4s ease-in-out infinite;
+        }
+        :global(.cmp-pebble__play--on:hover) {
+          border-color: #5ee892;
+        }
+        @keyframes cmp-ring-pulse {
+          0%, 100% {
+            box-shadow:
+              inset 0 2px 3px rgba(255, 255, 255, 0.95),
+              inset 0 -4px 8px rgba(74, 160, 110, 0.35),
+              0 6px 12px rgba(5, 35, 80, 0.35),
+              0 0 12px rgba(74, 222, 128, 0.45);
+          }
+          50% {
+            box-shadow:
+              inset 0 2px 3px rgba(255, 255, 255, 0.95),
+              inset 0 -4px 8px rgba(74, 160, 110, 0.35),
+              0 6px 12px rgba(5, 35, 80, 0.35),
+              0 0 26px rgba(74, 222, 128, 0.85);
+          }
+        }
+
+        /* --- Lower shell: volume lane (clears the play button) + row --- */
+        :global(.cmp-pebble__volume-row) {
+          margin: 14px 58px 0 0;
+        }
+        :global(.cmp-pebble__volume) {
+          -webkit-appearance: none;
+          appearance: none;
+          display: block;
+          width: 100%;
+          height: 10px;
+          padding: 0;
+          margin: 0;
+          box-sizing: border-box;
+          border-radius: 6px;
+          background: linear-gradient(180deg, #b6cddf 0%, #e4f0f9 70%, #f6fbff 100%);
+          box-shadow:
+            inset 0 2px 4px rgba(40, 80, 130, 0.45),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.9);
+          outline: none;
+          cursor: pointer;
+        }
+        :global(.cmp-pebble__volume::-webkit-slider-thumb) {
+          -webkit-appearance: none;
+          width: 26px;
+          height: 14px;
+          margin-top: -2px;
+          border-radius: 999px;
+          background: linear-gradient(180deg, #ffffff 0%, #dceaf6 55%, #b4cde4 100%);
+          border: 1px solid rgba(110, 150, 190, 0.85);
+          box-shadow:
+            0 2px 4px rgba(20, 60, 110, 0.35),
+            inset 0 1px 0 #ffffff;
+          cursor: pointer;
+        }
+        :global(.cmp-pebble__volume::-moz-range-thumb) {
+          width: 26px;
+          height: 14px;
+          border-radius: 999px;
+          background: linear-gradient(180deg, #ffffff 0%, #dceaf6 55%, #b4cde4 100%);
+          border: 1px solid rgba(110, 150, 190, 0.85);
+          box-shadow:
+            0 2px 4px rgba(20, 60, 110, 0.35),
+            inset 0 1px 0 #ffffff;
+          cursor: pointer;
+        }
+        :global(.cmp-pebble__volume::-moz-range-track) {
+          height: 10px;
+          border-radius: 6px;
+          background: linear-gradient(180deg, #b6cddf 0%, #e4f0f9 70%, #f6fbff 100%);
+        }
+        :global(.cmp-pebble__volume::-moz-range-progress) {
+          height: 10px;
+          border-radius: 6px;
+          background: linear-gradient(180deg, #7cc0f2, #3f8fd8);
+        }
+
+        :global(.cmp-pebble__row) {
+          margin-top: 18px;
+          display: flex;
+          justify-content: center;
+          gap: 14px;
+        }
+        /* Light-shell gel variant — same chassis as .cmp-gel, milk-glass
+           palette. Declared after the base rules so the overrides win. */
+        :global(.cmp-gel--pebble) {
+          width: 30px;
+          height: 30px;
+          font-size: 10px;
+          color: #2b5d8c;
+          border-color: rgba(120, 160, 200, 0.75);
+          border-top-color: rgba(255, 255, 255, 0.95);
+          background: linear-gradient(180deg, #ffffff 0%, #e9f2fa 46%, #bfd6e9 100%);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.95),
+            inset 0 -2px 4px rgba(90, 130, 170, 0.4),
+            0 2px 5px rgba(15, 55, 105, 0.28);
+        }
+        :global(.cmp-gel--pebble:hover) {
+          color: #123c66;
+          border-color: rgba(90, 140, 190, 0.9);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.95),
+            inset 0 -2px 4px rgba(90, 130, 170, 0.4),
+            0 2px 6px rgba(15, 55, 105, 0.32),
+            0 0 10px rgba(120, 190, 255, 0.5);
+        }
+        :global(.cmp-gel--pebble:active) {
+          color: #123c66;
+          box-shadow:
+            inset 0 2px 6px rgba(40, 80, 130, 0.5),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+        }
+        :global(.cmp-gel--pebble.cmp-gel--lit) {
+          border-color: color-mix(in srgb, var(--foid-cyan-electric) 55%, #7aa8cc);
+          background: linear-gradient(
+            180deg,
+            #ffffff 0%,
+            color-mix(in srgb, var(--foid-cyan-electric) 18%, #e9f2fa) 46%,
+            #bfd6e9 100%
+          );
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.95),
+            inset 0 -2px 4px rgba(90, 130, 170, 0.4),
+            0 0 10px var(--foid-glow),
+            0 0 16px color-mix(in srgb, var(--foid-cyan-electric) 35%, transparent);
+        }
+
+        /* Focus — token ring plus a dark halo so it reads on white shell */
+        :global(.cmp-pebble button:focus-visible),
+        :global(.cmp-pebble input:focus-visible) {
+          outline: 2px solid var(--foid-focus-ring);
+          outline-offset: 2px;
+          box-shadow: 0 0 0 5px rgba(11, 58, 120, 0.5);
+        }
+
         /* --- Reduced motion: no marquee, no entry glow, no seek easing.
            The overflowing title falls back to a hard-clipped single copy. --- */
         @media (prefers-reduced-motion: reduce) {
@@ -915,6 +1490,13 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           }
           :global(.cmp-seek__fill) {
             transition: none;
+          }
+          /* Pebble: spectrum bars hold their static skyline, no ring pulse */
+          :global(.cmp-pebble__eq--live .cmp-pebble__eqbar) {
+            animation: none;
+          }
+          :global(.cmp-pebble__play--on) {
+            animation: none;
           }
         }
       `}</style>
