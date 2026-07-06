@@ -358,7 +358,7 @@ html.cmp-active .app-viewport {
   --text-medium: rgba(200, 230, 245, 0.78);
   --text-dim: rgba(152, 188, 206, 0.7);
   --green-positive: #00ff88;
-  --pink-accent: #ff6bd5;
+  --pink-accent: var(--foid-pink-hot);
   --yellow-warning: #ffd166;
   --fx-matrix-opacity: 0.4;
   --fx-scanline-opacity: 0.12;
@@ -1608,18 +1608,18 @@ html.cmp-active .app-viewport {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #ff4757;
+    background: var(--foid-red-vivid);
     box-shadow: 0 0 8px rgba(255, 71, 87, 0.6);
   }
 
   .pray-status-dot--online {
-    background: #00ffd5;
+    background: var(--foid-cyan-electric);
     box-shadow: 0 0 10px rgba(0, 255, 213, 0.8), 0 0 20px rgba(0, 255, 213, 0.4);
     animation: pray-pulse 2s ease-in-out infinite;
   }
 
   .pray-status-dot--offline {
-    background: #ff4757;
+    background: var(--foid-red-vivid);
     box-shadow: 0 0 8px rgba(255, 71, 87, 0.6);
   }
 
@@ -2587,7 +2587,7 @@ html.cmp-active .app-viewport {
     border: none;
     border-radius: 6px;
     background: rgba(0, 255, 213, 0.15);
-    color: #00ffd5;
+    color: var(--foid-cyan-electric);
     cursor: pointer;
     transition: background 160ms ease, transform 100ms ease,
       box-shadow 200ms ease, opacity 160ms ease;
@@ -2694,7 +2694,7 @@ html.cmp-active .app-viewport {
 
   /* ── Prayer line in terminal (after overlay dissolves) ── */
   .foid-terminal__line--prayer {
-    color: #00ffd5;
+    color: var(--foid-cyan-electric);
     text-shadow: 0 0 10px rgba(0, 255, 213, 0.2);
     opacity: 1;
     transition: opacity 0.6s ease;
@@ -2783,7 +2783,7 @@ html.cmp-active .app-viewport {
     font-family: var(--font-terminal, var(--font-terminal, monospace));
     font-size: clamp(18px, 2.8vw, 26px);
     line-height: 1.6;
-    color: #00ffd5;
+    color: var(--foid-cyan-electric);
     text-align: center;
     text-shadow:
       0 0 12px rgba(0, 255, 213, 0.4),
@@ -2798,7 +2798,7 @@ html.cmp-active .app-viewport {
     display: inline-block;
     width: 2px;
     height: 1em;
-    background: #00ffd5;
+    background: var(--foid-cyan-electric);
     margin-left: 2px;
     vertical-align: text-bottom;
     animation: focal-cursor-blink 0.8s steps(2) infinite;
@@ -2929,7 +2929,7 @@ html.cmp-active .app-viewport {
   .foid-pwa-toast__btn--primary {
     background: rgba(0, 255, 213, 0.12);
     border-color: rgba(0, 255, 213, 0.5);
-    color: #00ffd5;
+    color: var(--foid-cyan-electric);
   }
   .foid-pwa-toast__btn--primary:hover {
     background: rgba(0, 255, 213, 0.22);
@@ -4726,7 +4726,7 @@ html.cmp-active .app-viewport {
 }
 
 .foid-idle-card__tier-next {
-  color: #6eead8;
+  color: var(--foid-mint);
 }
 
 .foid-idle-card__mult {
@@ -5133,7 +5133,7 @@ html.cmp-active .app-viewport {
 
 /* Subtitle — pink gradient text like MiFOID feature titles */
 .home-subtitle {
-  background: linear-gradient(135deg, #f5a0c0 0%, #ffcce0 50%, #f5a0c0 100%);
+  background: linear-gradient(135deg, var(--foid-pink-bloom) 0%, #ffcce0 50%, var(--foid-pink-bloom) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 0 14px rgba(245, 160, 192, 0.25));
@@ -5141,7 +5141,7 @@ html.cmp-active .app-viewport {
 
 /* Tile labels — pink gradient text effect */
 .home-tile__label--glow {
-  background: linear-gradient(135deg, #f5a0c0 0%, #ffcce0 50%, #f5a0c0 100%);
+  background: linear-gradient(135deg, var(--foid-pink-bloom) 0%, #ffcce0 50%, var(--foid-pink-bloom) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   text-shadow: none;
@@ -5456,14 +5456,27 @@ html.cmp-active .app-viewport {
   overflow-y: auto;
   padding: 20px 22px;
   border-radius: var(--foid-radius-xl);
+  color: var(--foid-text);
+  outline: none;
+  animation: foid-fade-in var(--foid-motion-base) var(--foid-ease-out);
+}
+/* glass — window elevation; the default dialog material */
+.foid-modal--glass {
   background: var(--foid-glass-window-bg);
   border: 1px solid var(--foid-glass-window-border);
   backdrop-filter: var(--foid-glass-window-blur);
   -webkit-backdrop-filter: var(--foid-glass-window-blur);
   box-shadow: var(--foid-shadow-float);
-  color: var(--foid-text);
-  outline: none;
-  animation: foid-fade-in var(--foid-motion-base) var(--foid-ease-out);
+}
+/* slab — dark terminal slab for confirm/ceremony dialogs on dark rooms */
+.foid-modal--slab {
+  background: rgba(6, 14, 28, 0.94);
+  border: 1px solid var(--foid-border-subtle);
+  box-shadow:
+    var(--foid-shadow-slab),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 80px rgba(116, 255, 235, 0.08);
+  font-family: var(--font-terminal);
 }
 
 /* ============================================================================

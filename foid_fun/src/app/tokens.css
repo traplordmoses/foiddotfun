@@ -118,6 +118,10 @@
      (Not the same hue as --foid-cyan; both are canon.)
      ══════════════════════════════════════════════════════════════════════ */
   --foid-cyan-electric: #00ffd5;
+  --foid-mint: #6eead8;        /* pray accent (default --pray-accent hue) */
+  --foid-red-vivid: #ff4757;   /* error/no-vote hue behind the tone-err quad */
+  --foid-pink-bloom: #f5a0c0;  /* soft pink in gloss/shine recipes */
+  --foid-pink-hot: #ff6bd5;    /* terminal pink accent (Mommy highlights) */
   --foid-focus-ring: rgba(160, 255, 240, 0.85);
 
   /* ══════════════════════════════════════════════════════════════════════

@@ -854,7 +854,7 @@ export default function EnterGate({
           font-size: 18px;
           font-weight: 600;
           letter-spacing: 8px;
-          color: #00ffd5;
+          color: var(--foid-cyan-electric);
           text-transform: uppercase;
           text-shadow: 0 0 30px rgba(0, 255, 213, 0.5);
         }

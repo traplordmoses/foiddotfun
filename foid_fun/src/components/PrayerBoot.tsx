@@ -127,7 +127,7 @@ export default function PrayerBoot() {
             font-family: var(--font-terminal, "JetBrains Mono", monospace);
             font-size: 13px;
             letter-spacing: 0.22em;
-            color: #6eead8;
+            color: var(--foid-mint);
             text-shadow: 0 0 12px rgba(110, 234, 216, 0.4);
           }
         `}</style>
@@ -194,7 +194,7 @@ export default function PrayerBoot() {
           font-family: var(--font-terminal, "JetBrains Mono", monospace);
           font-size: 13px;
           letter-spacing: 0.22em;
-          color: #6eead8;
+          color: var(--foid-mint);
           text-shadow: 0 0 12px rgba(110, 234, 216, 0.4);
           min-height: 16px;
         }
@@ -203,7 +203,7 @@ export default function PrayerBoot() {
           width: 7px;
           height: 12px;
           margin-left: 2px;
-          background: #6eead8;
+          background: var(--foid-mint);
           vertical-align: middle;
           animation: prayer-boot-caret 0.6s steps(2) infinite;
         }
@@ -215,7 +215,7 @@ export default function PrayerBoot() {
           left: 0;
           right: 0;
           height: 2px;
-          background: #6eead8;
+          background: var(--foid-mint);
           opacity: 0.5;
           box-shadow: 0 0 12px rgba(110, 234, 216, 0.6);
           pointer-events: none;

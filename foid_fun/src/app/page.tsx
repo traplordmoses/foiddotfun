@@ -239,7 +239,7 @@ export default function LandingPage() {
 
         /* Subtitle — pink gradient like MiFOID feature titles */
         :global(.home-subtitle) {
-          background: linear-gradient(135deg, #f5a0c0 0%, #ffcce0 50%, #f5a0c0 100%);
+          background: linear-gradient(135deg, var(--foid-pink-bloom) 0%, #ffcce0 50%, var(--foid-pink-bloom) 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           filter: drop-shadow(0 0 14px rgba(245, 160, 192, 0.3));
@@ -372,7 +372,7 @@ export default function LandingPage() {
           font-weight: 700;
           letter-spacing: 0.2em;
           text-transform: uppercase;
-          background: linear-gradient(135deg, #f5a0c0 0%, #ffcce0 50%, #f5a0c0 100%);
+          background: linear-gradient(135deg, var(--foid-pink-bloom) 0%, #ffcce0 50%, var(--foid-pink-bloom) 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           filter: drop-shadow(0 0 14px rgba(245, 160, 192, 0.3));

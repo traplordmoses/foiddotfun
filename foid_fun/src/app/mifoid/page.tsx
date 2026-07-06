@@ -224,7 +224,7 @@ export default function MiFOIDPage() {
 
         /* Feature titles — pink gradient text */
         :global(.mifoid-feature-title) {
-          background: linear-gradient(135deg, #f5a0c0 0%, #ffcce0 50%, #f5a0c0 100%);
+          background: linear-gradient(135deg, var(--foid-pink-bloom) 0%, #ffcce0 50%, var(--foid-pink-bloom) 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           text-shadow: none;

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useEffect, useMemo } from "react";
+import { Modal } from "@/components/ui";
 import { TILE, snapRect, hasOverlap, isTouching, type Rect } from "@/lib/grid";
 import { sniffImageType, mimeFromType } from "@/lib/image";
 import { convertToJpeg } from "@/lib/imageConvert";
@@ -206,20 +207,24 @@ export function MobileProposeModal({
     return () => { if (preview) URL.revokeObjectURL(preview); };
   }, [preview]);
 
+  // Escape / backdrop must not dismiss mid-transaction — the user would
+  // lose upload/signing progress with no way back.
+  const busy = step === "uploading" || step === "submitting";
+  const guardedClose = () => {
+    if (!busy) onClose();
+  };
+
   return (
-    <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
-      onClick={(e) => { if (e.target === e.currentTarget && step !== "uploading" && step !== "submitting") onClose(); }}
+    <Modal
+      open
+      onClose={guardedClose}
+      label="Propose meme"
+      variant="slab"
+      maxWidth={384}
+      closeOnBackdrop={!busy}
+      className="relative"
     >
-      <div
-        className="w-[90vw] max-w-sm rounded-2xl p-5 relative"
-        style={{
-          background: "linear-gradient(135deg, rgba(20,10,40,0.95), rgba(10,5,30,0.98))",
-          border: "1px solid rgba(224,64,251,0.3)",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.6), 0 0 60px rgba(224,64,251,0.15)",
-        }}
-      >
+      <>
         {step !== "uploading" && step !== "submitting" && (
           <button
             onClick={onClose}
@@ -319,7 +324,7 @@ export function MobileProposeModal({
             </button>
           </div>
         )}
-      </div>
-    </div>
+      </>
+    </Modal>
   );
 }
