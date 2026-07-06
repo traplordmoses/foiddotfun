@@ -1,8 +1,23 @@
+// src/components/Dock.tsx
+// The FOID OS dock — primary navigation on every viewport. Successor to
+// MobileNav (the titlebar tab row is gone; nav is the brand's chrome now).
+//
+// A floating glass pill 10px off the bottom edge. A spring-loaded glass
+// puck slides between items; on pointer-fine devices, icons magnify
+// macOS-style under the cursor. Touch devices skip magnification and keep
+// the plain tap targets. prefers-reduced-motion skips it too.
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import {
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+  type MotionValue,
+} from 'framer-motion';
 
 interface NavItem {
   href: string;
@@ -78,15 +93,62 @@ const navItems: NavItem[] = [
   },
 ];
 
-export function MobileNav() {
-  const pathname = usePathname();
+// Cursor influence radius and peak icon scale for the magnification.
+const MAGNIFY_RADIUS = 90;
+const MAGNIFY_SCALE = 1.4;
+
+// Icon wrapper that magnifies with cursor proximity. mouseX is Infinity
+// whenever the cursor is off the dock (or the device has no fine pointer),
+// which resolves to scale 1 — so touch and reduced-motion pay zero cost.
+function DockIcon({
+  mouseX,
+  children,
+}: {
+  mouseX: MotionValue<number>;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const distance = useTransform(mouseX, (val) => {
+    if (val === Infinity) return MAGNIFY_RADIUS;
+    const bounds = ref.current?.getBoundingClientRect();
+    if (!bounds) return MAGNIFY_RADIUS;
+    return Math.abs(val - (bounds.x + bounds.width / 2));
+  });
+  const scaleRaw = useTransform(distance, [0, MAGNIFY_RADIUS], [MAGNIFY_SCALE, 1]);
+  const scale = useSpring(scaleRaw, { stiffness: 380, damping: 26, mass: 0.4 });
 
   return (
-    // FOID OS dock: a floating glass pill, not an edge-docked bar. The nav
-    // is the brand's chrome — same material as the windows above it.
+    <motion.div ref={ref} style={{ scale, transformOrigin: 'bottom center' }}>
+      {children}
+    </motion.div>
+  );
+}
+
+export function Dock() {
+  const pathname = usePathname();
+  const mouseX = useMotionValue(Infinity);
+
+  // Magnification only makes sense with a hovering fine pointer, and only
+  // when the user hasn't asked for reduced motion.
+  const [magnify, setMagnify] = useState(false);
+  useEffect(() => {
+    const fine = window.matchMedia('(pointer: fine)');
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setMagnify(fine.matches && !reduce.matches);
+    update();
+    fine.addEventListener('change', update);
+    reduce.addEventListener('change', update);
+    return () => {
+      fine.removeEventListener('change', update);
+      reduce.removeEventListener('change', update);
+    };
+  }, []);
+
+  return (
     <nav
-      className="lg:hidden fixed left-0 right-0 z-50 flex justify-center pointer-events-none"
+      className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none"
       style={{ bottom: 'calc(10px + env(safe-area-inset-bottom, 0px))' }}
+      aria-label="Primary navigation"
     >
       <div
         className="pointer-events-auto flex items-center h-16 px-2 rounded-[24px] border border-white/[0.16] backdrop-blur-2xl"
@@ -97,6 +159,8 @@ export function MobileNav() {
             '0 12px 32px rgba(0, 10, 30, 0.5), 0 0 40px rgba(100, 180, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.18)',
           maxWidth: 'calc(100vw - 20px)',
         }}
+        onMouseMove={magnify ? (e) => mouseX.set(e.clientX) : undefined}
+        onMouseLeave={magnify ? () => mouseX.set(Infinity) : undefined}
       >
         {navItems.map((item) => {
           const isActive = !item.external && (item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`));
@@ -107,14 +171,16 @@ export function MobileNav() {
               whileTap={{ scale: 0.88 }}
               transition={{ duration: 0.1 }}
             >
-              <motion.div
-                className={`transition-colors duration-200 ${isActive ? 'text-white' : 'text-white/55'}`}
-                animate={{ y: isActive ? -1 : 0, scale: isActive ? 1.08 : 1 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 26 }}
-                style={isActive ? { filter: 'drop-shadow(0 0 8px rgba(150, 220, 255, 0.55))' } : undefined}
-              >
-                {item.icon}
-              </motion.div>
+              <DockIcon mouseX={mouseX}>
+                <motion.div
+                  className={`transition-colors duration-200 ${isActive ? 'text-white' : 'text-white/55'}`}
+                  animate={{ y: isActive ? -1 : 0 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 26 }}
+                  style={isActive ? { filter: 'drop-shadow(0 0 8px rgba(150, 220, 255, 0.55))' } : undefined}
+                >
+                  {item.icon}
+                </motion.div>
+              </DockIcon>
               <span className={`
                 text-[10px] mt-1 font-medium transition-colors duration-200
                 ${isActive ? 'text-white' : 'text-white/55'}
