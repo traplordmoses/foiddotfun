@@ -178,10 +178,27 @@ body {
   z-index: 2;
 }
 
-/* On mobile, add extra bottom padding for the fixed bottom nav */
+/* The Dock floats over the bottom edge on EVERY viewport — reserve
+   clearance so window content (terminal composer, board sidebar) never
+   hides behind it. Dock = 64px pill + 10px gap. */
 @media (max-width: 1023px) {
   .app-viewport {
     padding-bottom: calc(var(--safe-bottom, 0px) + 80px);
+  }
+}
+@media (min-width: 1024px) {
+  .app-viewport {
+    padding-bottom: calc(var(--safe-bottom, 0px) + 90px);
+  }
+  /* Pages size their windows with h-[94vh] utilities AND center them
+     vertically, so each px of max-height reduction moves the bottom edge
+     only half a px. 190 is the solved constant that clears the dock
+     (64px pill + 10px gap + ~8px breathing) on pray, board, and home at
+     laptop viewport heights — measured, not derived. A cleaner fix is
+     flex-fitting the page wrappers; tracked as follow-up. (max-height is
+     a separate property, so no !important fight with h-[94vh].) */
+  .app-viewport .vista-window {
+    max-height: calc(100dvh - 190px);
   }
 }
 
@@ -4144,7 +4161,6 @@ body {
   .frutiger-button,
   .btn-foid,
   .frutiger-nav-box,
-  .pray-nav-tab,
   .aero-wallet-pill {
     transition: none !important;
   }
@@ -4268,7 +4284,7 @@ body {
     justify-content: flex-start !important;
   }
 
-  /* 4. Vista windows: fill available height above MobileNav with breathing room */
+  /* 4. Vista windows: fill available height above the Dock with breathing room */
   .vista-window--terminal,
   .vista-window--media {
     height: calc(100dvh - 96px) !important;

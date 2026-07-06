@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import FairyDustCursor from '@/components/FairyDustCursor';
-import { MobileNav } from '@/components/MobileNav';
+import { Dock } from '@/components/Dock';
 import CompactMusicPlayer from '@/components/CompactMusicPlayer';
 import FoidWalletOnboarding from '@/components/FoidWalletOnboarding';
 import FoidOnboardingTour from '@/components/FoidOnboardingTour';
@@ -27,7 +27,7 @@ export function ClientLayout() {
   return (
     <>
       {!isMobile && <FairyDustCursor />}
-      <MobileNav />
+      <Dock />
       <FoidWalletOnboarding />
       <FoidOnboardingTour />
       <PostWalletWelcome />

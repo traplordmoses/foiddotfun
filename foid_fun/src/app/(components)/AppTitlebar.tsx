@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useMemo } from "react";
-import TopTabs from "@/app/(components)/TopTabs";
 import WalletMenuPill from "@/components/WalletMenuPill";
 import { NotificationInbox } from "@/components/NotificationInbox";
 import { StatusDot } from "@/components/ui";
@@ -64,15 +63,6 @@ export default function AppTitlebar({
   }, []);
   const buildLabel = buildCommit ? `BUILD:${buildCommit.slice(0, 7)}` : null;
 
-  const tabItems = useMemo(() => [
-    { label: "HOME", href: "/" },
-    { label: "PRAY", href: "/pray" },
-    { label: "BOARD", href: "/board" },
-    { label: "VOTE", href: "/vote" },
-    { label: "MIFOID", href: "/mifoid" },
-    { label: "ABOUT", href: "/about" },
-  ], []);
-
   return (
     <>
       <div className="app-titlebar">
@@ -115,10 +105,8 @@ export default function AppTitlebar({
             </span>
           </div>
         </div>
-        {/* Row 2: nav tabs — always full width, scrollable */}
-        <div className="app-titlebar__tabs hidden md:block">
-          <TopTabs items={tabItems} />
-        </div>
+        {/* Navigation lives in the Dock (bottom of every viewport) — the
+            titlebar is pure window chrome: controls, title, status, wallet. */}
       </div>
       <style jsx global>{`
         :global(.app-titlebar) {
@@ -173,96 +161,6 @@ export default function AppTitlebar({
           margin-left: auto;
           flex-shrink: 0;
           font-size: 8px;
-        }
-
-        :global(.app-titlebar__tabs) {
-          position: relative;
-          z-index: 1;
-          border-top: 1px solid rgba(255, 255, 255, 0.12);
-          padding: 6px 12px;
-          background: rgba(0, 30, 70, 0.2);
-        }
-
-        :global(.pray-nav-tabs-wrapper) {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          overflow: hidden;
-          background: transparent;
-          box-shadow: none;
-        }
-
-        :global(.pray-nav-tabs) {
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          padding-bottom: 0;
-          overflow-x: auto;
-          overflow-y: hidden;
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-          background: transparent;
-          border: none;
-          box-shadow: none;
-        }
-        :global(.pray-nav-tabs::-webkit-scrollbar) {
-          display: none;
-        }
-
-        /* Glass tabs — same aero material as the titlebar they sit in.
-           Active = brighter glass with an inner shine, not a color swap. */
-        :global(.pray-nav-tab) {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 24px;
-          min-width: 0;
-          padding: 4px 12px;
-          font-size: 10px;
-          font-weight: 600;
-          letter-spacing: 0.12em;
-          color: rgba(255, 255, 255, 0.82);
-          background: rgba(255, 255, 255, 0.10);
-          border: 1px solid rgba(255, 255, 255, 0.26);
-          border-radius: var(--foid-radius-pill, 999px);
-          text-decoration: none;
-          transition: background var(--foid-motion-fast, 150ms) ease,
-                      border-color var(--foid-motion-fast, 150ms) ease,
-                      color var(--foid-motion-fast, 150ms) ease,
-                      transform var(--foid-motion-fast, 150ms) ease;
-          position: relative;
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.35),
-            0 2px 8px rgba(0, 20, 50, 0.18);
-          flex-shrink: 0;
-          white-space: nowrap;
-          text-shadow: 0 1px 2px rgba(0, 20, 50, 0.35);
-        }
-
-        :global(.pray-nav-tab:hover) {
-          color: #ffffff;
-          background: rgba(255, 255, 255, 0.18);
-          border-color: rgba(255, 255, 255, 0.42);
-          transform: translateY(-1px);
-        }
-
-        :global(.pray-nav-tab:focus-visible) {
-          outline: 2px solid var(--foid-focus-ring, rgba(160, 255, 240, 0.85));
-          outline-offset: 2px;
-        }
-
-        :global(.pray-nav-tab--active) {
-          color: #ffffff;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.16));
-          border-color: rgba(255, 255, 255, 0.6);
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.6),
-            0 0 14px rgba(150, 220, 255, 0.35);
-          transform: none;
-        }
-
-        :global(.pray-nav-tab--active:hover) {
-          transform: none;
         }
 
         :global(.pray-build-tag) {
