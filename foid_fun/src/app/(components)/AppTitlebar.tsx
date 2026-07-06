@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useMemo } from "react";
+import { WindowControls } from "@/app/(components)/WindowFrame";
 import WalletMenuPill from "@/components/WalletMenuPill";
 import { NotificationInbox } from "@/components/NotificationInbox";
 import { StatusDot } from "@/components/ui";
@@ -66,13 +67,10 @@ export default function AppTitlebar({
   return (
     <>
       <div className="app-titlebar">
-        {/* Row 1: controls + title + wallet/status */}
+        {/* Row 1: controls + title + wallet/status. The controls are live —
+            WindowControls also wires titlebar drag + the corner resize. */}
         <div className="app-titlebar__row">
-          <div className="vista-window__controls" aria-hidden="true">
-            <span className="vista-window__control vista-window__control--minimize" />
-            <span className="vista-window__control vista-window__control--restore" />
-            <span className="vista-window__control vista-window__control--close" />
-          </div>
+          <WindowControls />
           <span className="vista-window__title text-[9px] sm:text-[11px] truncate">
             <Image src="/foidmommy.gif" alt="" width={24} height={24} className="inline-block h-5 w-5 sm:h-6 sm:w-6 align-middle mr-1 sm:mr-2 flex-shrink-0" />
             <span className="truncate">{title}</span>
