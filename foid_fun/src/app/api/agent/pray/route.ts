@@ -3,6 +3,7 @@ import { keccak256, stringToBytes } from "viem";
 import { verifyAgentSignature } from "../_lib/auth";
 import { checkRateLimit, recordAction } from "@/lib/rateLimit";
 import { isGloballyRateLimited } from "../_lib/globalCap";
+import { requireAgentSecret } from "../_lib/apiSecret";
 import { getRelayerWalletClient, getAgentPublicClient, getRelayerAccount } from "../_lib/relayer";
 import { PRAYER_REGISTRY_ABI } from "@/lib/contracts/abis";
 import { CONTRACTS } from "@/lib/contracts/addresses";
@@ -20,6 +21,9 @@ function json(success: boolean, data?: unknown, error?: string, status = 200) {
 }
 
 export async function POST(req: Request) {
+  // Fail-closed relayer gate: bot-only via AGENT_API_SECRET (see apiSecret.ts).
+  const gate = requireAgentSecret(req);
+  if (gate) return gate;
   try {
     const body = await req.json();
     const { wallet, feeling, message, signature, timestamp } = body;

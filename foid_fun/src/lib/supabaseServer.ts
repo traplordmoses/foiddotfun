@@ -3,7 +3,13 @@
 // Includes retry with exponential backoff.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Server-only: prefer the service-role key so board_events writes survive the
+// RLS lockdown (sql/lock_board_events_rls.sql) that denies anon INSERT. This
+// file has no "use client" and is only imported by API routes, so the service
+// key never reaches the browser. Falls back to the anon key when unset (writes
+// then fail closed once RLS is locked — the intended safety, matching chat).
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 500;

@@ -4,6 +4,7 @@ import type { Abi } from "viem";
 import { verifyAgentSignature } from "../_lib/auth";
 import { checkRateLimit, recordAction } from "@/lib/rateLimit";
 import { isGloballyRateLimited } from "../_lib/globalCap";
+import { requireAgentSecret } from "../_lib/apiSecret";
 import { getRelayerWalletClient, getAgentPublicClient, getRelayerAccount } from "../_lib/relayer";
 import { fluentChain } from "@/lib/viem";
 import { AGENT_BOARD } from "@/config/agentBoard";
@@ -25,6 +26,9 @@ function json(success: boolean, data?: unknown, error?: string, status = 200) {
 }
 
 export async function POST(req: Request) {
+  // Fail-closed relayer gate: bot-only via AGENT_API_SECRET (see apiSecret.ts).
+  const gate = requireAgentSecret(req);
+  if (gate) return gate;
   try {
     const body = await req.json();
     const { wallet, imageCid, x, y, width, height, signature, timestamp } = body;

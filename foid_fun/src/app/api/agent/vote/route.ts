@@ -3,6 +3,7 @@ import type { Abi } from "viem";
 import { verifyAgentSignature } from "../_lib/auth";
 import { checkRateLimit, recordAction } from "@/lib/rateLimit";
 import { isGloballyRateLimited } from "../_lib/globalCap";
+import { requireAgentSecret } from "../_lib/apiSecret";
 import { getRelayerWalletClient, getAgentPublicClient, getRelayerAccount } from "../_lib/relayer";
 import { AGENT_VOTING } from "@/config/agentBoard";
 import VotingAbi from "@/abi/loreboardVoting.json" assert { type: "json" };
@@ -21,6 +22,9 @@ function isBytes32(v: string): v is `0x${string}` {
 }
 
 export async function POST(req: Request) {
+  // Fail-closed relayer gate: bot-only via AGENT_API_SECRET (see apiSecret.ts).
+  const gate = requireAgentSecret(req);
+  if (gate) return gate;
   try {
     const body = await req.json();
     const { wallet, proposalId, support, signature, timestamp } = body;
