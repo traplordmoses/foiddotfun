@@ -130,12 +130,16 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     window.addEventListener("pointerup", onUp);
   }, [barOffset]);
 
-  const handleBarDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  // Windowshade — the Winamp classic. The titlebar's shade button (or a
+  // double-click on the strip) collapses the deck to just the title bar
+  // with a mini play control; same gesture expands it back.
+  const [shaded, setShaded] = useState(false);
+  const toggleShade = useCallback(() => setShaded((s) => !s), []);
+  const handleTitlebarDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     if (target.closest("button, input, a, select")) return;
-    setBarOffset(null);
-    if (barRef.current) barRef.current.style.transform = "";
-  }, []);
+    toggleShade();
+  }, [toggleShade]);
 
   // Controls — auto-enable music on play
   const handlePrev = () => musicPanelController.prev();
@@ -175,22 +179,60 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
       <div className={`cmp-bar-outer ${isVisible ? "cmp-bar-outer--visible" : "cmp-bar-outer--hidden"}`}>
         <div
           ref={barRef}
-          className="cmp-bar"
+          className={`cmp-bar ${shaded ? "cmp-bar--shaded" : ""}`}
           onPointerDown={handleBarPointerDown}
-          onDoubleClick={handleBarDoubleClick}
-          title="drag to move · double-click to snap home"
           style={{
             transform: barOffset ? `translate(${barOffset.x}px, ${barOffset.y}px)` : undefined,
-            cursor: barOffset ? "grab" : undefined,
           }}
         >
-          <button
-            type="button"
-            className="cmp-close vista-window__control vista-window__control--close"
-            aria-label="Close FOID AMP"
-            title="Close"
-            onClick={closeAmp}
-          />
+          {/* Titlebar strip — the visible drag surface + window controls.
+              Close on the left (mac convention), shade toggle on the right,
+              brand centered. Double-click shades, the Winamp way. */}
+          <div
+            className="cmp-titlebar"
+            onDoubleClick={handleTitlebarDoubleClick}
+            title="drag to move · double-click to shade"
+          >
+            <button
+              type="button"
+              className="cmp-titlebar__close vista-window__control vista-window__control--close"
+              aria-label="Close FOID AMP"
+              title="Close"
+              onClick={closeAmp}
+            />
+            <span className="cmp-titlebar__brand">FOID AMP</span>
+            <button
+              type="button"
+              className="cmp-titlebar__shade"
+              aria-label={shaded ? "Expand player" : "Collapse to title bar"}
+              aria-expanded={!shaded}
+              title={shaded ? "Expand" : "Shade"}
+              onClick={toggleShade}
+            >
+              <span aria-hidden="true">{shaded ? "▾" : "▴"}</span>
+            </button>
+          </div>
+
+          {shaded && (
+            /* Windowshade row: mini transport + title + time */
+            <div className="cmp-shade">
+              <button
+                className="cmp-gel cmp-gel--shade"
+                type="button"
+                onClick={handleToggle}
+                title={isPlaying ? "Pause" : "Play"}
+                aria-label={isPlaying ? "Pause" : "Play"}
+              >
+                {isPlaying ? "⏸" : "▶"}
+              </button>
+              <div className="cmp-shade__title" title={currentTrackName}>
+                {currentTrackName}
+              </div>
+              <span className="cmp-shade__time">{timeLabel}</span>
+            </div>
+          )}
+
+          <div className="cmp-body" hidden={shaded}>
           {/* Transport cluster \u2014 gel buttons */}
           <div className="cmp-transport">
             <button className="cmp-gel" type="button" onClick={handlePrev} title="Previous" aria-label="Previous">
@@ -210,29 +252,29 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
             </button>
           </div>
 
-          {/* Deck center: LCD + seek lane */}
+          {/* Deck center: LCD + seek lane. Brand lives in the titlebar now;
+              the LCD is title + time on one clean line. */}
           <div className="cmp-deck">
             <div className="cmp-lcd">
-              <div className="cmp-lcd__meta">
-                <span className="cmp-lcd__brand">FOID AMP</span>
+              <div className="cmp-lcd__row">
+                <div className="cmp-lcd__title" ref={lcdTitleRef} title={currentTrackName}>
+                  <div className={`cmp-lcd__scroll ${titleOverflows ? "cmp-lcd__scroll--marquee" : ""}`}>
+                    <span className="cmp-lcd__text" ref={lcdTextRef}>
+                      {currentTrackName}
+                    </span>
+                    {titleOverflows && (
+                      <span className="cmp-lcd__text cmp-lcd__text--dupe" aria-hidden="true">
+                        {currentTrackName}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <span
                   className="cmp-lcd__time"
                   title={duration > 0 ? `${formatTime(elapsed)} / ${formatTime(duration)}` : undefined}
                 >
                   {timeLabel}
                 </span>
-              </div>
-              <div className="cmp-lcd__title" ref={lcdTitleRef} title={currentTrackName}>
-                <div className={`cmp-lcd__scroll ${titleOverflows ? "cmp-lcd__scroll--marquee" : ""}`}>
-                  <span className="cmp-lcd__text" ref={lcdTextRef}>
-                    {currentTrackName}
-                  </span>
-                  {titleOverflows && (
-                    <span className="cmp-lcd__text cmp-lcd__text--dupe" aria-hidden="true">
-                      {currentTrackName}
-                    </span>
-                  )}
-                </div>
               </div>
             </div>
             {/* Read-only: musicPanelController exposes no seek/setProgress \u2014
@@ -274,6 +316,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
               title={`Volume: ${Math.round(volVal * 100)}%`}
               aria-label="Volume"
             />
+          </div>
           </div>
         </div>
       </div>
@@ -322,19 +365,111 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           width: calc(100% - 32px);
           max-width: 560px;
           display: flex;
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        /* --- Titlebar strip: the visible drag surface + window controls --- */
+        :global(.cmp-titlebar) {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          height: 22px;
+          padding: 0 8px;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(0, 0, 0, 0.18));
+          border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+          cursor: grab;
+          user-select: none;
+          -webkit-user-select: none;
+          position: relative;
+          z-index: 2;
+        }
+        :global(.cmp-titlebar__close) {
+          position: static;
+          width: 11px !important;
+          height: 11px !important;
+          flex-shrink: 0;
+        }
+        :global(.cmp-titlebar__brand) {
+          flex: 1;
+          text-align: center;
+          font-family: var(--font-terminal);
+          font-size: 9px;
+          letter-spacing: 0.3em;
+          text-transform: uppercase;
+          color: var(--foid-text-mute);
+          pointer-events: none;
+        }
+        :global(.cmp-titlebar__shade) {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 22px;
+          height: 16px;
+          padding: 0;
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          border-radius: 5px;
+          background: rgba(255, 255, 255, 0.08);
+          color: var(--foid-text-dim);
+          font-size: 9px;
+          line-height: 1;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: background var(--foid-motion-fast) ease;
+        }
+        :global(.cmp-titlebar__shade:hover) {
+          background: rgba(255, 255, 255, 0.16);
+          color: var(--foid-text);
+        }
+        :global(.cmp-titlebar__shade:focus-visible),
+        :global(.cmp-titlebar__close:focus-visible) {
+          outline: 2px solid var(--foid-focus-ring);
+          outline-offset: 2px;
+        }
+
+        /* --- Windowshade row: mini transport + title + time --- */
+        :global(.cmp-shade) {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          height: 30px;
+          padding: 0 10px;
+        }
+        :global(.cmp-shade__title) {
+          flex: 1;
+          min-width: 0;
+          font-family: var(--font-terminal);
+          font-size: 11px;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--foid-cyan-electric);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        :global(.cmp-shade__time) {
+          font-family: var(--font-terminal);
+          font-size: 10px;
+          color: var(--foid-text-dim);
+          font-variant-numeric: tabular-nums;
+          flex-shrink: 0;
+        }
+        :global(.cmp-gel--shade) {
+          width: 22px !important;
+          height: 22px !important;
+          font-size: 9px !important;
+        }
+
+        /* --- Deck body: transport / LCD / shuffle+volume --- */
+        :global(.cmp-body) {
+          display: flex;
           align-items: center;
           gap: 12px;
           height: ${PLAYER_HEIGHT}px;
           padding: 0 14px;
         }
-        /* Close orb — top-right of the chassis, mini window control */
-        :global(.cmp-close) {
-          position: absolute;
-          top: -4px;
-          right: -4px;
-          width: 14px !important;
-          height: 14px !important;
-          z-index: 3;
+        :global(.cmp-body[hidden]) {
+          display: none;
         }
         :global(.cmp-bar) {
 
@@ -415,8 +550,8 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 30px;
-          height: 30px;
+          width: 32px;
+          height: 32px;
           padding: 0;
           font-size: 11px;
           line-height: 1;
@@ -474,8 +609,8 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           opacity: 0.4;
         }
         :global(.cmp-gel--play) {
-          width: 36px;
-          height: 36px;
+          width: 38px;
+          height: 38px;
           font-size: 14px;
           color: var(--foid-text);
           border-color: var(--foid-border-subtle);
@@ -548,28 +683,20 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           );
           pointer-events: none;
         }
-        :global(.cmp-lcd__meta) {
+        :global(.cmp-lcd__row) {
           display: flex;
-          align-items: baseline;
+          align-items: center;
           justify-content: space-between;
-          gap: 8px;
-        }
-        :global(.cmp-lcd__brand) {
-          font-family: var(--font-body);
-          font-size: 9px;
-          font-weight: 600;
-          letter-spacing: 0.3em;
-          text-transform: uppercase;
-          color: var(--foid-text-mute);
-          line-height: 1.2;
+          gap: 10px;
         }
         :global(.cmp-lcd__time) {
           font-family: var(--font-terminal);
-          font-size: 9px;
+          font-size: 10px;
           letter-spacing: 0.08em;
           color: color-mix(in srgb, var(--foid-cyan) 70%, transparent);
           line-height: 1.2;
           font-variant-numeric: tabular-nums;
+          flex-shrink: 0;
         }
         :global(.cmp-lcd__title) {
           font-family: var(--font-terminal);
@@ -643,7 +770,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           line-height: 1;
         }
         :global(.cmp-volume__slider) {
-          width: 60px;
+          width: 76px;
           height: 5px;
           /* globals.css pads all inputs (0.65rem 0.9rem) — a range track must
              stay a slim 5px lane, so flatten the box model here. */
