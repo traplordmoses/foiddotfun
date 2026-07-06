@@ -32,20 +32,22 @@ export const ABOUT_DOCS: AboutDoc[] = [
     kind: "md",
     title: "FOID Foundation — The Internet's Permanent Memory",
     category: "docs",
-    updatedAt: "2026-07-05",
+    updatedAt: "2026-07-06",
     body: `# FOID FOUNDATION
 
 The Internet's Permanent Memory.
 
 ## TL;DR — FOID is three things
 
-**1. Prayer** — A daily onchain check-in with your AI companion (Foid Mommy). Build a streak, earn governance weight. Only a hash goes onchain — your words stay private. Start at [/pray](/pray).
+**1. Prayer** — A daily onchain check-in with your AI companion, Foid Mommy. Build a streak, earn governance weight. Only a hash goes onchain — your words stay on your device. Start at [/pray](/pray).
 
-**2. Loreboard** — A permanent, community-governed canvas. Propose a placement (0.001 ETH), the community votes for 72 hours, and approved content lives onchain forever. Votes are weighted by your prayer streak. See it at [/board](/board).
+**2. Loreboard** — A permanent, community-governed canvas. Propose a placement for a flat 0.001 ETH, the community votes for 72 hours, and approved content lives onchain forever. Votes are weighted by your prayer streak. See it at [/board](/board).
 
-**3. Vote** — Swipe right to approve, left to reject. 51% weighted approval + 3 unique voters to pass. Your streak is your voting power — Lurker (1x) to Mommy Milker (5x). Vote at [/vote](/vote).
+**3. Vote** — Swipe right to approve, left to reject. 51% weighted approval plus 3 unique voters to pass. Your streak is your voting power — Lurker (1x) up to Mommy Milker (5x). Vote at [/vote](/vote).
 
-All contracts are verified on [Fluent Blockscout](https://fluentscan.xyz). Open source on [GitHub](https://github.com/traplordmoses/foiddotfun). No token. No VC. Just a solo founder, a grant, and onchain code.
+All contracts are open source on [GitHub](https://github.com/traplordmoses/foiddotfun) and verified on [Fluent Blockscout](https://fluentscan.xyz), so you can read every line before you trust it. No token. No VC. No presale. Just a solo founder, a grant, and onchain code.
+
+New here? Start with getting-started.md, or skim glossary.md if a word trips you up.
 
 ---
 
@@ -57,7 +59,7 @@ It's beautiful how memes start inside an isolated social circle, but once they'r
 
 **But they don't last.**
 
-Memes are ephemeral in space and time. They only exist as long as people keep repeating them. Maybe there's something beautiful in a meme existing only in a specific moment. But eventually it gets buried in the graveyard of your camera roll — resurrected at some random point in the future, then forgotten again.
+Memes are ephemeral in space and time. They only exist as long as people keep repeating them. Maybe there's something beautiful in a meme living only in a specific moment. But eventually it gets buried in the graveyard of your camera roll — resurrected at some random point in the future, then forgotten again.
 
 ## Humans are collectors
 
@@ -71,16 +73,18 @@ An onchain scrapbook of shared memories. A collaborative loreboard where communi
 
 ## How it works
 
-FOID Foundation is a suite of linked apps that turn fleeting moments into permanent culture:
+FOID is a suite of linked apps that turn fleeting moments into permanent culture. Each one feeds the next:
 
-- **foid mommy terminal** — Daily ritual with your AI companion. Build prayer streaks, anchor proof onchain — only the hash, never the content. (prayer.md)
-- **loreboard** — A shared, permanent canvas. Propose a placement, the community votes for 72 hours, approved content lives onchain forever. (loreboard.md)
-- **swipe** — The voting UX. Swipe right to approve, left to reject. Your prayer streak weights your vote. (voting.md)
-- **mifoid nft** — Your AI companion NFT. Custom-rendered by Foid Mommy in Blender. Spawns a living agent on Telegram. 3,333 supply, tiered pricing. (mifoid.md)
+- **foid mommy terminal** — a daily ritual with your AI companion. Tell her how you're feeling, craft a prayer, anchor proof onchain — only the hash, never the words. Every day you show up, your streak grows and your voting weight climbs. (prayer.md)
+- **loreboard** — a shared, permanent canvas. Propose a placement, the community votes for 72 hours, approved content lives onchain forever. (loreboard.md)
+- **vote / swipe** — the governance layer. Swipe right to approve a proposal, left to reject. Your prayer streak weights your vote, so the people who show up most decide what gets built. (voting.md)
+- **mifoid nft** — your AI companion NFT. Custom-rendered by Foid Mommy in Blender, then spawned as a living agent on Telegram. Planned 3,333 supply with tiered pricing. (mifoid.md)
+
+The through-line: **prayer earns you a voice, and that voice decides what the Loreboard remembers.** Showing up isn't a vanity metric here — it's governance power.
 
 ## The vision
 
-Culture shouldn't be controlled by algorithms deciding what lives and dies. It shouldn't vanish when a platform shuts down or an account gets banned.
+Culture shouldn't be controlled by algorithms deciding what lives and dies. It shouldn't vanish when a platform shuts down, a server goes dark, or an account gets banned.
 
 **Culture should belong to the people who create it.**
 
@@ -88,16 +92,112 @@ FOID is the onchain home for memory. A shared canvas that lasts forever. A place
 
 ## Status — shipped
 
-- FOID Mommy Terminal (prayer contracts + streaks + 10-tier system)
+- FOID Mommy Terminal (prayer contracts, streaks, and the 10-tier system)
 - Loreboard (propose → 72h vote → permanent onchain placement)
-- Swipe voting (onchain, streak-weighted, 51% + 3-voter quorum)
-- Onchain overlap prevention (no duplicate placements)
-- Manifest history + 1/1 board NFT (auto-updates on placement)
-- MiFOID NFT contract (ERC-721 with trait evolution)
-- Self-remove + emergency multisig removal
+- Streak-weighted voting (onchain, 51% approval + 3-voter quorum)
+- Onchain overlap prevention (no two placements can occupy the same cells)
+- Manifest history + a 1/1 board NFT that auto-updates on every placement
+- MiFOID NFT contract (ERC-721 with trait uniqueness + tiered pricing)
+- Self-remove + emergency multisig removal for content moderation
 - 2-of-3 multisig securing all board contracts
-- Agent API (autonomous agents can pray, propose, vote)
-- Permissionless finalization (anyone can finalize after voting window)
+- Agent API (autonomous agents can pray, propose, and vote alongside humans)
+- Permissionless finalization (anyone can finalize a vote once the window closes)
+
+For exact addresses see contracts.txt. For every threshold, fee, and tier see parameters.txt.
+`,
+  },
+  {
+    id: "glossary",
+    name: "glossary.md",
+    kind: "md",
+    title: "Glossary — Every FOID Word, Defined",
+    category: "docs",
+    updatedAt: "2026-07-06",
+    body: `# GLOSSARY
+
+Every FOID Word, Defined.
+
+New here and hitting words you don't know? This is the decoder ring. Skim it once and the rest of the docs read easier.
+
+## The FOID universe
+
+### FOID
+The project, and the idea behind it: the internet's permanent memory. "Foid" was originally a slur ("female humanoid"); FOID reclaims it into three things — your AI companion (Foid Mommy), your cultural canvas (the Loreboard), and your identity NFT (MiFOID).
+
+### Foid Mommy
+Your AI companion in the prayer terminal. You check in with her daily, she asks a question, and together you craft a prayer. She's AI and you know it — but she's yours: she remembers your streak, doesn't judge, and never sells what you tell her.
+
+### Loreboard
+The permanent, community-governed canvas — one shared collage the whole community builds together, placement by placement. Propose a spot, the community votes, and approved content lives onchain forever. Think r/place that never resets.
+
+### Gallery
+The "yearbook" surface, separate from the Loreboard. Individual memes get swipe-voted and, if they pass, are canonized as their own standalone entries. The Loreboard is a collective mural; the Gallery is a hall of inductees.
+
+### MiFOID
+Your identity NFT and AI companion, custom-rendered by Foid Mommy and spawned as a living agent on Telegram. Its traits evolve based on how you actually show up. Holding one adds a +50 flat bonus to your voting weight. (Contract written, not yet deployed.)
+
+### The Nunnery
+The most exclusive gated chat room in FOID — open only to MiFOIDs that have never been transferred. Day-one holders who never sold.
+
+## How showing up works
+
+### Prayer
+The daily onchain check-in ritual. Only a hash of your prayer goes onchain, never your words. Each consecutive day extends your streak.
+
+### Streak
+Your run of consecutive daily prayers. Miss a day and it resets to zero — there's no buying it back. Your streak is the credential that earns your voting power.
+
+### Prayer tier
+The named rank your streak unlocks, from Lurker (day 1) up to Mommy Milker (day 90). Each tier carries a vote multiplier from 1x to 5x. See parameters.txt for the full ladder.
+
+### Streak-weighted voting
+The rule that your vote counts for more the longer your streak. It starts from a base weight of 100 and is scaled by your tier multiplier (so a 2x tier votes with 200 weight). The people who show up most decide what gets built.
+
+### Voting weight
+The actual number your vote is worth: base 100 × your tier multiplier, plus a flat +50 if you hold a MiFOID. The ceiling is 550 — a 90-day Mommy Milker holding a MiFOID.
+
+### Quorum
+The minimum participation a proposal needs to count. On the Loreboard that's 3 unique wallets — a placement can't pass on one person's vote alone.
+
+### Approval threshold
+The share of weighted votes a proposal needs to win: 51%. Onchain this is stored as \`approvalThresholdBps = 5100\` (bps = basis points, where 10,000 = 100%).
+
+### Finalization
+Tallying a proposal after its 72-hour window closes. It's permissionless — anyone can call \`finalize()\`, and the contract applies the threshold and quorum the same way regardless of who triggers it.
+
+### Placement
+A single approved image on the Loreboard, recorded onchain at a specific set of grid cells. Overlap prevention means no two placements can claim the same cells.
+
+## The onchain words
+
+### Onchain
+Recorded directly on the blockchain, where it's permanent and publicly verifiable — as opposed to sitting on a company's private server that can change or disappear.
+
+### Fluent
+The Layer 2 (L2) blockchain FOID runs on. Its "blended execution" runs both EVM (Solidity) and WASM (Rust) in one runtime, so the apps feel Web2-fast while staying permanent. Transactions cost a fraction of a cent.
+
+### Gas
+The small fee you pay to run a transaction onchain. On Fluent it's fractions of a cent.
+
+### keccak256 hash
+A one-way cryptographic fingerprint. It can prove a specific prayer existed without ever revealing the text — you can't reverse the hash back into your words. This is how prayers stay private while still being provably real.
+
+### IPFS
+The decentralized storage network where Loreboard and MiFOID images live, so no single server can take them down.
+
+### Multisig
+A wallet that requires multiple approvals to act. FOID's is 2-of-3: any two of three keyholders must sign. It owns the board contracts and can remove genuinely harmful content until community governance matures.
+
+### Sybil attack
+When one person spins up many wallets to fake a crowd and swing a vote. FOID's streak-weighting and quorum make this expensive, and community-run content removal is held back until the community is large enough to resist it.
+
+### ERC-721
+The Ethereum standard for non-fungible tokens (NFTs). Both the 1/1 Loreboard NFT and MiFOID are ERC-721 tokens.
+
+### Manifest
+The onchain record of the Loreboard's current state. Each time it changes, the 1/1 board NFT re-renders its metadata to match — so the NFT is always a live snapshot of the canvas.
+
+Still stuck on a term? DM [@foidfun](https://twitter.com/foidfun) and we'll explain it plainly.
 `,
   },
   {
@@ -106,7 +206,7 @@ FOID is the onchain home for memory. A shared canvas that lasts forever. A place
     kind: "md",
     title: "Loreboard — The Infinite Canvas",
     category: "docs",
-    updatedAt: "2026-07-05",
+    updatedAt: "2026-07-06",
     body: `# LOREBOARD
 
 The Infinite Canvas.
@@ -119,7 +219,7 @@ They flash across your timeline, get buried in the feed, disappear when the plat
 
 A shared canvas where communities propose what matters, vote democratically, and record placements forever.
 
-**It's r/place except the canvas never resets. It's Know Your Meme except the community decides what's permanent.**
+**It's r/place, except the canvas never resets. It's Know Your Meme, except the community itself decides what becomes permanent.**
 
 Every approved placement is a snapshot of what your community valued in that moment. Come back in five years and see exactly how your corner of the internet evolved.
 
@@ -127,9 +227,11 @@ Not just a meme board. **A cultural record.**
 
 ## How it works
 
-- **1. Propose** — Anyone can propose an image to the canvas. Drag your meme onto the grid (32×32px cells). Choose your spot. Upload to IPFS. The community decides if it belongs.
-- **2. Vote** — 72-hour democratic window. Swipe right or left. Votes weighted by prayer streak. 51% approval + 3 unique voters required. No shortcuts. No buying your way in.
-- **3. Permanent placement** — Approved placements are recorded directly onchain. Image stored on IPFS. The board NFT updates automatically. This is the record. Permanent. Verifiable. Yours.
+- **1. Propose** — Anyone can propose an image to the canvas. Drag your meme onto the grid, choose a free spot, and upload it to IPFS. Submitting costs a flat 0.001 ETH — enough to keep spam out, small enough that anyone can play. The community decides if it belongs.
+- **2. Vote** — A 72-hour democratic window opens. Everyone swipes right or left, and votes are weighted by prayer streak. It takes 51% weighted approval and at least 3 unique voters to pass. No shortcuts. No buying your way in.
+- **3. Permanent placement** — Approved placements are recorded directly onchain, with the image pinned on IPFS and the board's 1/1 NFT updating automatically. This is the record. Permanent. Verifiable. Yours.
+
+If a proposal fails — under 51%, or fewer than 3 voters — it never lands, and the 0.001 ETH is spent regardless. That finality is the point: a "yes" on the Loreboard actually means something.
 
 ## Why Loreboard matters
 
@@ -153,21 +255,25 @@ Loreboard runs on three systems that reinforce each other. None works alone. Tog
 
 check in daily → build streak → earn vote weight → govern placements → board grows → show up again
 
-The key insight: **streak is not just a number — it's zoning power.** The person who checks in every day is accumulating influence over what gets built on the board permanently. That changes the meaning of showing up.
+The key insight: **a streak is not just a number — it's influence.** The person who checks in every day accumulates a real say over what gets built on the board permanently. That changes the meaning of showing up: consistency becomes the thing that decides what your community remembers.
 
 ## The technology
 
-Built for permanence: One unified Loreboard contract (Solidity on Fluent) handles proposals, onchain voting, placements, manifest history, and overlap prevention. Storage on IPFS for images, onchain for state. Indexing via Goldsky subgraph. Voting is direct onchain with streak-weighted power, 51% threshold, 3-voter quorum. The 1/1 board NFT (ERC-721) auto-updates when the manifest changes. All secured by a 2-of-3 multisig.
+Built for permanence. One unified Loreboard contract (Solidity, deployed on Fluent) handles the whole lifecycle: proposals, onchain voting, placement recording, manifest history, and overlap prevention — so no two placements can ever claim the same cells. Images live on IPFS; all state lives onchain. Indexing runs through a Goldsky subgraph so the board loads fast. Voting is a direct onchain transaction with streak-weighted power, a 51% threshold, and a 3-voter quorum. The 1/1 board NFT (ERC-721) re-renders its onchain metadata whenever the manifest changes. Everything is owned by a 2-of-3 multisig.
 
-Fluent's blended execution means voting feels Web2-fast with Web3 guarantees. No waiting for blocks. No gas wars.
+Fluent's blended execution — EVM and WASM in one runtime — means voting feels Web2-fast with Web3 guarantees. No waiting on slow blocks. No gas wars.
+
+## A note on Loreboard vs. Gallery
+
+These are two different things, and it's worth keeping them straight. The **Loreboard** is the collaborative collage — a single shared canvas the community builds together, placement by placement. The **Gallery** ([/gallery](/gallery)) is the yearbook — individual memes that the community swipe-votes on and canonizes as standalone entries. Same swipe-to-decide spirit, two distinct surfaces.
 
 ## Current status
 
 - Unified Loreboard contract (propose + vote + finalize + placement)
 - Onchain overlap prevention
-- Permissionless finalization (anyone can trigger after window)
+- Permissionless finalization (anyone can trigger it after the window)
 - 3-voter quorum + 51% streak-weighted threshold
-- Manifest history with staleness check
+- Manifest history with a staleness check
 - 1/1 board NFT auto-updates via manifest sync
 - Self-remove + multisig emergency removal
 
@@ -180,7 +286,7 @@ View the canvas at [/board](/board).
     kind: "md",
     title: "Foid Mommy Terminal — Your Daily Pause",
     category: "docs",
-    updatedAt: "2026-07-05",
+    updatedAt: "2026-07-06",
     body: `# FOID MOMMY TERMINAL
 
 Your Daily Pause.
@@ -200,17 +306,19 @@ Every day, you connect your wallet and tell her how you're feeling. She asks a q
 ## How it works
 
 - **1. Check in** — Tell Foid Mommy how you're feeling — happy, anxious, lost, excited. She listens.
-- **2. She asks** — Two-turn conversation powered by AI. She remembers context, asks what matters.
+- **2. She asks** — A short, two-turn conversation powered by AI. She holds the context and asks what actually matters.
 - **3. You respond** — Share what's on your mind. No judgment. No saving it for ads.
 - **4. Prayer created** — Together you craft a daily affirmation — your words, your feeling, your moment.
 - **5. Anchored onchain** — A hash of your prayer goes onchain. Proof you were here. Proof you paused.
 - **6. Streak grows** — Come back tomorrow. Then the next day. Watch your consistency compound.
 
+Miss a day and the streak resets — that's what makes a long one mean something. There's no way to buy it back or backfill it. The only path to Mommy Milker is ninety days of actually showing up.
+
 ## Privacy first, always
 
 **Your raw words never leave your device.**
 
-Only a keccak256 hash goes onchain — cryptographic proof you prayed, not what you said. The blockchain sees: your wallet address, timestamp, feeling category (1-10 scale), and prayer hash.
+Only a keccak256 hash goes onchain — cryptographic proof you prayed, not a record of what you said. A hash is a one-way fingerprint: it can confirm a specific prayer existed, but it can't be reversed back into the text. All the chain ever stores is your wallet address, a timestamp, a feeling category (a 1-10 scale), and that hash.
 
 **That's it.** No AI company reading your journal. No platform selling your vulnerability. Your prayers are yours.
 
@@ -228,13 +336,13 @@ Foid Mommy gives you that space. She's AI, and you know she's AI. But she's your
 
 No subscription. No premium tier. No "unlock emotions with tokens."
 
-Just pay gas (a few cents on Fluent). That's it.
+Just pay gas — a fraction of a cent on Fluent. That's it.
 
 Your mental health ritual shouldn't have a paywall.
 
 ## Prayer tiers
 
-Your streak unlocks tiers that multiply your voting power across the entire ecosystem:
+Your streak isn't only for you. It unlocks tiers that multiply your voting power across the entire ecosystem — every day you show up, your say in what the Loreboard remembers grows:
 
 - Day 1: Lurker (1x)
 - Day 3: NPC (1.25x)
@@ -247,7 +355,9 @@ Your streak unlocks tiers that multiply your voting power across the entire ecos
 - Day 75: Transcendent (4x)
 - Day 90: **Mommy Milker (5x)**
 
-Hold a MiFOID NFT? **+50 flat voting bonus** on top of your tier multiplier. A Mommy Milker with a MiFOID has 550 voting weight — the maximum influence possible.
+The multiplier scales a base voting weight of 100. So a Certified prayer (2x) votes with 200 weight, while a fresh Lurker votes with 100.
+
+Hold a MiFOID NFT? **+50 flat voting bonus** on top of your tier multiplier. A Mommy Milker (5x → 500) with a MiFOID (+50) carries 550 voting weight — the most influence anyone can have.
 
 Start your streak at [/pray](/pray).
 `,
@@ -258,28 +368,36 @@ Start your streak at [/pray](/pray).
     kind: "md",
     title: "Vote — Swipe Right. Swipe Left. Permanent.",
     category: "docs",
-    updatedAt: "2026-07-05",
+    updatedAt: "2026-07-06",
     body: `# VOTE
 
 Swipe Right. Swipe Left. Permanent.
 
 **Swipe right: "this earns a spot." Swipe left: "no."**
 
-Swipe is the voting UX for the Loreboard. Someone proposes a placement, and the community has 72 hours to decide if it belongs. Votes are weighted by prayer streak — the people who show up every day have the most influence over what gets built permanently.
+Voting is the governance layer for the Loreboard. Someone proposes a placement, and the community has 72 hours to decide if it belongs. Votes are weighted by prayer streak — the people who show up every day have the most influence over what gets built permanently.
 
-It's Tinder for culture. Swipe right to approve, swipe left to reject. If 51% of weighted votes approve and at least 3 unique wallets participated, the placement is recorded onchain forever. If it fails, it's gone. No archive. No consolation. That finality is what makes a yes mean something.
+It's Tinder for culture. Swipe right to approve, swipe left to reject. If 51% of the weighted votes approve and at least 3 unique wallets took part, the placement is recorded onchain forever. If it falls short on either count, it's gone. No archive. No consolation. That finality is what makes a yes mean something.
 
-## The swipe UX
+## Two places, one system
 
-- **Streak = power.** Your prayer streak directly determines your voting weight. A 90-day Mommy Milker's vote is worth 5x an unranked voter's. Hold a MiFOID? +50 flat bonus on top. The people who show up every day have the loudest voice.
-- **Pure onchain.** Every vote is a direct onchain transaction. No off-chain collection. No batch signatures. Vote tallies stored onchain: \`voteWeightFor\` and \`voteWeightAgainst\`. Anyone can verify.
-- **Permissionless finalization.** After 72 hours, anyone can call \`finalize()\`. The contract applies the 51% threshold and 3-voter quorum deterministically. No admin. No gatekeeping. Pure democracy.
+- **[/vote](/vote)** — where you vote on other people's active proposals. This is the swipe deck.
+- **[/swipe](/swipe)** — where you submit your own placement to the Loreboard for the community to vote on.
+
+Same underlying contract, two entry points: one for deciding, one for proposing.
+
+## How the swipe works
+
+- **Streak = power.** Your prayer streak directly sets your voting weight. A 90-day Mommy Milker's vote is worth 5x an unranked voter's. Hold a MiFOID? A +50 flat bonus on top. The people who show up every day have the loudest voice. (See parameters.txt for the full weight table.)
+- **Pure onchain.** Every vote is a direct onchain transaction — no off-chain collection, no batched signatures. Tallies live onchain as \`voteWeightFor\` and \`voteWeightAgainst\`, so anyone can verify the count independently.
+- **One wallet, one vote per proposal.** You can't stack votes on the same placement. The quorum counts unique wallets, not raw transactions.
+- **Permissionless finalization.** Once the 72 hours are up, anyone can call \`finalize()\`. The contract applies the 51% threshold and 3-voter quorum deterministically. No admin, no gatekeeping — just the rules, executed the same way every time.
 
 ## Onchain voting, under the hood
 
-When you swipe to vote on a proposal, FOID sends a direct onchain transaction to \`castVote(proposalId, approve)\`. Your vote is recorded permanently on the Loreboard contract — weighted by your prayer streak, verifiable by anyone.
+When you swipe on a proposal, FOID sends a direct transaction to \`castVote(proposalId, approve)\`. Your vote is recorded permanently on the Loreboard contract, weighted by your prayer streak and verifiable by anyone.
 
-Vote tallies are stored onchain: \`voteWeightFor\` and \`voteWeightAgainst\` per proposal. After the 72-hour window, anyone can call \`finalize()\` — the contract applies the 51% threshold and 3-voter quorum deterministically. No off-chain collection. No batch signatures. Pure onchain democracy.
+After the window closes, \`finalize()\` reads \`voteWeightFor\` and \`voteWeightAgainst\`, checks that approvals cleared 51% of the weighted total, and confirms at least 3 unique wallets participated. If both hold, the placement lands on the board and the 1/1 NFT re-renders. If not, the proposal is closed out and nothing is placed. Because finalization is permissionless and deterministic, the outcome doesn't depend on the team being online — the math is the same no matter who triggers it.
 
 ## Content moderation (v1)
 
@@ -287,7 +405,7 @@ Vote tallies are stored onchain: \`voteWeightFor\` and \`voteWeightAgainst\` per
 
 **Emergency removal:** The 2-of-3 multisig can remove harmful or illegal content.
 
-Both actions are transparent — every removal emits an onchain event recording who did it and why. Community-driven flagging + voting removal is planned for v2 when the community is large enough to resist sybil attacks.
+Both actions are transparent — every removal emits an onchain event recording who did it. Community-driven flagging and vote-to-remove is planned for a later version, once the community is large enough to resist sybil attacks (one person spinning up many wallets to fake a crowd). Until then, the multisig is the backstop for anything genuinely harmful.
 
 Vote on active proposals at [/vote](/vote). Submit your own at [/swipe](/swipe).
 `,
@@ -298,18 +416,18 @@ Vote on active proposals at [/vote](/vote). Submit your own at [/swipe](/swipe).
     kind: "md",
     title: "MiFOIDs — Your AI Companion, Your Identity",
     category: "docs",
-    updatedAt: "2026-07-05",
+    updatedAt: "2026-07-06",
     body: `# MIFOIDS
 
 Your AI Companion, Your Identity.
 
 **What if instead of being called an android, you had one?**
 
-"Foid" started as a slur — "female humanoid," implying women are robotic, empty vessels. But here's the flip: What if every person had their own AI companion? Your own FOID who grows with you, remembers your journey, and proves your participation?
+"Foid" started as a slur — "female humanoid," implying women are robotic, empty vessels. But here's the flip: what if every person had their own AI companion? Your own FOID who grows with you, remembers your journey, and proves your participation?
 
 **That's MiFOID.**
 
-An identity NFT that evolves based on how you actually show up. She's not a jpeg you flip. She's a receipt of your participation in FOID. The onchain record that you were here, building.
+An identity NFT that evolves based on how you actually show up. She's not a jpeg you flip. She's a receipt of your participation in FOID — the onchain record that you were here, building. And once you hold one, you carry a +50 flat bonus into every Loreboard vote, on top of your prayer-tier multiplier.
 
 ## The devotion campaign (this is real)
 
@@ -325,7 +443,7 @@ Yes, we're really doing this. Your MiFOID's boobs grow with how many days you've
 
 Yeah. And before you ask — yes, I know how this sounds.
 
-Here's the thing: In the real world, breast size is used to objectify, categorize, and value women. Bigger = better. Smaller = lesser. It's reductive, shallow, and everywhere.
+Here's the thing: in the real world, breast size is used to objectify, categorize, and value women. Bigger = better. Smaller = lesser. It's reductive, shallow, and everywhere.
 
 **So we're making it absurd.**
 
@@ -335,7 +453,7 @@ Want a max MiFOID? Pray every day, hit the top tier. Want a flat one? Don't show
 
 She doesn't have small boobs because she's inferior. She has small boobs because you didn't pray enough. The objectification is on you, not her. That's the whole point.
 
-And here's the kicker: rarity is based on the actual distribution. If only 5% of people make it to the top tier, max MiFOIDs are rare. If everyone grinds, they're common. The market decides, not some arbitrary beauty standard.
+And here's the kicker: rarity tracks the actual distribution. If only 5% of people make it to the top tier, max MiFOIDs are rare. If everyone grinds, they're common. The market decides, not some arbitrary beauty standard.
 
 All sizes are just... different paths. Different levels of commitment. Not better or worse.
 
@@ -347,31 +465,33 @@ Only MiFOIDs that have never been transferred. Day-1 holders who never sold.
 
 This is the most exclusive room in FOID. Diamond hands only. The ones who held through everything.
 
-## Supply and timing
+## Supply and pricing
+
+The MiFOID contract is written but not yet deployed, so treat these as the intended launch parameters:
 
 - 3,333 total supply
 - Genesis (#1-#1,000): 0.01 ETH
 - Awakened (#1,001-#2,500): 0.015 ETH
 - Ascended (#2,501-#3,333): 0.02 ETH
-- Auto-ascending — price increases as supply fills
+- Auto-ascending — the price steps up as each tier fills, so the earliest believers pay the least
 
 ## What else could evolve
 
-Eyes that change based on streak length. Auras that reflect consistency. Badges for proposals. Backgrounds based on feelings. (Speculation — we're figuring it out.)
+Eyes that shift with streak length. Auras that reflect consistency. Badges for proposals that made it onto the board. Backgrounds keyed to your feeling history. (Speculation — we're still figuring out which traits make the cut.)
 
 ## Why this is different
 
-MiFOID is your receipt. When someone looks at her, they see your commitment. She's not just art. She's proof.
+MiFOID is your receipt. When someone looks at her, they see your commitment. She's not just art — she's proof, and that proof is legible onchain.
 
 ## Foid Mommy render pipeline
 
-MiFOIDs aren't pre-generated PFPs. **Each one is custom-rendered on-demand by Foid Mommy.**
+MiFOIDs aren't pre-generated PFPs. **Each one is custom-rendered on demand by Foid Mommy.**
 
-When you mint, Foid Mommy's hardware (Ryzen 7 7700X, RTX 5060 Ti, 32GB DDR5) fires up a headless Blender instance. Your trait combination gets assembled as 3D layers, rendered in Eevee, uploaded to IPFS, and written onchain. You get a Telegram DM when it's done.
+When you mint, Foid Mommy's hardware (Ryzen 7 7700X, RTX 5060 Ti, 32GB DDR5) fires up a headless Blender instance. Your trait combination is assembled as 3D layers, rendered in Eevee, uploaded to IPFS, and written onchain. You get a Telegram DM when she's ready.
 
-**Then your MiFOID comes alive.** A sub-agent spawns on Telegram — powered by Qwen LLM via Ollama (zero API fees, local inference). She has persistent memory, a personality derived from her trait combination, and she grows through your conversations over time.
+**Then your MiFOID comes alive.** A sub-agent spawns on Telegram — powered by a Qwen LLM running locally via Ollama (zero API fees, all local inference). She has persistent memory, a personality derived from her trait combination, and she grows through your conversations over time.
 
-Not a jpeg. Not a chatbot. A living agent that was rendered specifically for you, with a personality uniquely hers.
+Not a jpeg. Not a chatbot. A living agent that was rendered specifically for you, with a personality that's hers alone.
 
 ## This might fail
 
@@ -394,39 +514,47 @@ More at [/mifoid](/mifoid).
     kind: "md",
     title: "Wallet & Security — FOID Wallet v3 Under the Hood",
     category: "docs",
-    updatedAt: "2026-07-05",
+    updatedAt: "2026-07-06",
     body: `# WALLET & SECURITY
 
 How FOID Wallet v3 Works Under the Hood.
 
 **No extension. No seed phrase to memorize. Just a password and your passkey.**
 
-Most people who want to interact with FOID on mobile don't have MetaMask installed. FOID Wallet v3 lets anyone spin up a wallet in 30 seconds — just a password and a passkey (Touch ID / Face ID). A 12-word recovery phrase is generated for backup, but you never need to manage it day-to-day. No extension, no friction.
+Most people who want to try FOID on mobile don't have MetaMask installed. FOID Wallet v3 lets anyone spin up a wallet in about 30 seconds — just a password and a passkey (Touch ID / Face ID). A 12-word recovery phrase is generated for backup, but you never need to manage it day to day. No extension, no friction.
 
-It's not designed for holding serious value — use MetaMask or a hardware wallet for that. Think of it as a vibe-coded wallet for putting $10-100 in to interact with FOID, hold a MiFOID, place on the Loreboard. Open source — inspect it yourself.
+**This is a hot wallet for small amounts, not a vault.** Use MetaMask or a hardware wallet for anything you'd be upset to lose. Think of FOID Wallet as somewhere to park $10-100 so you can interact with FOID — pray, hold a MiFOID, place on the Loreboard. It's fully open source, so you can inspect exactly how it handles your keys.
+
+## The short version
+
+Your keys are encrypted with your password (and, on supported devices, your biometrics) and stored only on your device. The password is never sent anywhere and never stored. When you sign a transaction, the decrypted key only ever exists inside an isolated Web Worker, never on the page itself. If you clear your browser storage without your 12-word phrase, the wallet is gone — so write the phrase down.
 
 ## How it works
 
 ### 1. Create
 
-A 12-word BIP-39 mnemonic is generated and a private key derived via BIP-44 HD derivation. You pick a password (6+ chars). A WebAuthn passkey is created (Touch ID / Face ID / Windows Hello). The password is run through Argon2id (64MB memory-hard) to derive an encryption key — falling back to PBKDF2 (600k iterations) on devices without WASM. If your device supports WebAuthn PRF, a second key from biometric data is XOR'd with the password key — requiring both factors. Your private key + mnemonic are encrypted with AES-256-GCM. Vault integrity sealed with HMAC-SHA-256. Only the encrypted blob is stored in localStorage. The password is never stored anywhere.
+A 12-word BIP-39 mnemonic is generated, and a private key is derived from it via BIP-44 HD derivation. You pick a password (6+ characters). A WebAuthn passkey is created (Touch ID / Face ID / Windows Hello). Your password is run through Argon2id (64MB, memory-hard) to derive an encryption key — falling back to PBKDF2 (600k iterations) on devices without WASM. If your device supports WebAuthn PRF, a second key derived from your biometrics is XOR'd with the password key, so both factors are required. Your private key and mnemonic are then encrypted with AES-256-GCM, and the vault's integrity is sealed with HMAC-SHA-256. Only the encrypted blob lives in localStorage. The password is never stored anywhere.
 
 ### 2. Unlock
 
-Enter password, passkey prompt fires (biometric). Password attempts are rate-limited with exponential backoff — too many wrong tries and you wait. Vault HMAC is verified for tamper detection. Password + PRF output re-derive the same encryption key. AES-GCM decrypts the private key into a Web Worker — never on the main thread. A 30-minute session begins, auto-locks on timeout or page close.
+You enter your password and the passkey prompt fires for biometrics. Password attempts are rate-limited with exponential backoff — too many wrong tries and you're made to wait. The vault's HMAC is verified to catch tampering. Your password plus the PRF output re-derive the exact same encryption key, and AES-GCM decrypts the private key straight into a Web Worker — never onto the main thread. A 30-minute session begins and auto-locks on timeout or when you close the page.
 
 ### 3. Sign
 
-Transactions go through the embedded connector (wagmi-compatible). Value capped at 1 ETH per transaction to prevent catastrophic loss. Signing happens in the Web Worker where the key lives — XSS on the main thread cannot read it. Session refreshes on each sign operation. No popups, no extensions.
+Transactions go through the embedded connector (wagmi-compatible). Value is capped at 1 ETH per transaction as a guardrail against catastrophic mistakes. Signing happens inside the Web Worker where the key lives, so a cross-site scripting (XSS) bug on the main thread still can't read it. The session refreshes on each signing operation. No popups, no extensions.
 
 ## Security layers
 
-- **Encryption at rest** — AES-256-GCM (12-byte IV, 32-byte salt). The encrypted blob in localStorage is useless without the password. Vault integrity verified via HMAC-SHA-256 — tampered vaults are rejected.
-- **Key derivation** — Argon2id with 64MB memory-hard parameters (primary). Fallback: PBKDF2 with 600k iterations for devices without WASM. GPU brute-force attacks are impractical against either.
-- **Dual-factor encryption** — If device supports PRF: encryption key = password-derived key XOR biometric-derived key. Need both to decrypt.
-- **Worker session isolation** — Decrypted private key lives inside a Web Worker — never on the main thread. XSS cannot read Worker memory. 30-min auto-lock. Sensitive byte arrays explicitly zeroed after use.
-- **Password rate-limiting** — Exponential backoff on wrong password attempts with vault-stamped nonce. Prevents brute-force even with physical access to the device.
-- **Recovery & export** — BIP-39 12-word seed phrase for recovery. Restore on any device with your words + a new password. Private key export requires double-tap confirmation. Clipboard auto-clears after 30 seconds. v1 wallets auto-migrate to v3 on unlock.
+- **Encryption at rest** — AES-256-GCM (12-byte IV, 32-byte salt). The encrypted blob in localStorage is useless without your password. Vault integrity is verified via HMAC-SHA-256, so tampered vaults are rejected outright.
+- **Key derivation** — Argon2id with 64MB memory-hard parameters (primary). Fallback: PBKDF2 with 600k iterations for devices without WASM. GPU brute-force is impractical against either.
+- **Dual-factor encryption** — On devices that support PRF, the encryption key is the password-derived key XOR the biometric-derived key. You need both to decrypt.
+- **Worker session isolation** — The decrypted private key lives inside a Web Worker, never on the main thread. XSS cannot read Worker memory. 30-minute auto-lock. Sensitive byte arrays are explicitly zeroed after use.
+- **Password rate-limiting** — Exponential backoff on wrong-password attempts, stamped with a vault nonce. This slows brute-force even for someone with physical access to your device.
+- **Recovery & export** — Your BIP-39 12-word phrase is the master backup: restore on any device with your words plus a new password. Private-key export requires a double-tap confirmation, and the clipboard auto-clears after 30 seconds. Older v1 wallets auto-migrate to v3 the next time you unlock.
+
+## If you forget your password
+
+There's no reset button, and that's by design — no one at FOID can decrypt your vault for you. Your 12-word recovery phrase is the only way back in: enter it on any device, set a new password, and you're restored. If you have neither the password nor the phrase, the funds are unrecoverable. This is the trade-off for a wallet that trusts no server with your keys.
 
 For what transactions cost, see parameters.txt.
 `,
@@ -523,7 +651,7 @@ on GitHub: https://github.com/traplordmoses/foiddotfun
     kind: "txt",
     title: "Protocol Parameters — Thresholds, Tiers, Fees",
     category: "onchain",
-    updatedAt: "2026-07-05",
+    updatedAt: "2026-07-06",
     body: `FOID FOUNDATION — PROTOCOL PARAMETERS
 =====================================
 
@@ -555,14 +683,14 @@ DAY   TIER              MULTIPLIER
 Max influence: a 90-day Mommy Milker (5x) holding a MiFOID (+50)
 has 550 voting weight — the maximum possible.
 
-MIFOID MINT
------------
+MIFOID MINT (intended launch parameters — contract not yet deployed)
+--------------------------------------------------------------------
 Total supply           3,333
 Genesis                #1-#1,000        0.01 ETH
 Awakened               #1,001-#2,500    0.015 ETH
 Ascended               #2,501-#3,333    0.02 ETH
 Pricing                auto-ascending — price increases as supply fills
-Sellout total          ~43.5 ETH
+Sellout total          ~49.2 ETH               (10 + 22.5 + 16.66)
 
 WHAT COSTS MONEY
 ----------------
@@ -570,7 +698,7 @@ Proposing a placement  0.001 ETH submission fee (keeps spam out)
 Voting / swiping       onchain transaction — just gas
                        (fractions of a cent on Fluent)
 Praying                gas only (fractions of a cent)
-MiFOID mint            0.01 ETH
+MiFOID mint            from 0.01 ETH (Genesis tier)
 
 PRIVACY (what the chain sees when you pray)
 -------------------------------------------
@@ -585,50 +713,50 @@ leave your device.
     kind: "md",
     title: "Get Started — From Zero to FOID in 5 Minutes",
     category: "community",
-    updatedAt: "2026-07-05",
+    updatedAt: "2026-07-06",
     body: `# GET STARTED
 
 From Zero to FOID in 5 Minutes.
 
-**FOID runs on Fluent.** When you connect, FOID Wallet creates a secure wallet right in your browser — just choose a password and confirm with your passkey. No MetaMask required. No seed phrases.
+**FOID runs on Fluent** — an L2 where transactions cost a fraction of a cent. When you connect, FOID Wallet spins up a secure wallet right in your browser: just choose a password and confirm with your passkey. No MetaMask required. No seed phrases to babysit.
 
-Here's how to get in:
+New to any of the words below? glossary.md has quick definitions. Here's how to get in:
 
 ## 1. Connect your wallet
 
-Click connect and choose FOID Wallet. Pick a password (6+ characters), confirm with your passkey (Face ID / Touch ID / Windows Hello), and you're in. No extensions, no seed phrases. Already have MetaMask? That works too — FOID auto-detects Fluent and prompts you to add it.
+Click connect and choose FOID Wallet. Pick a password (6+ characters), confirm with your passkey (Face ID / Touch ID / Windows Hello), and you're in — no extensions, no seed phrases. Already have MetaMask? That works too; FOID auto-detects Fluent and prompts you to add the network. (Curious how the wallet keeps your keys safe? See wallet.md.)
 
 ## 2. Get some ETH for gas
 
-You need a tiny bit of ETH for gas fees (fractions of a cent per transaction). Gas on Fluent is dirt cheap.
+You need a tiny bit of ETH to pay for transactions (a fraction of a cent each). Gas on Fluent is dirt cheap — a dollar or two goes a very long way. Bridge ETH over from Ethereum, or grab some from the community to get moving.
 
 ## 3. Pray with Foid Mommy
 
-Navigate to [/pray](/pray) and start the terminal. Tell her how you're feeling. She'll ask you a question. You respond. Together you craft a prayer. A hash goes onchain. Your streak starts. This is completely free. Just gas. Like a few cents.
+Head to [/pray](/pray) and start the terminal. Tell her how you're feeling; she'll ask you a question; you respond; together you craft a prayer. A hash of it goes onchain and your streak begins. This part is completely free — just gas, a few cents. Come back tomorrow and the day after: your streak is what earns your voting power.
 
-## 4. Propose to the Loreboard (optional)
+## 4. Vote on proposals (optional)
 
-Go to [/board](/board) and look at the canvas. Drag an image onto the grid. Choose your spot. Submit your proposal. This costs a small amount of ETH. Voting lasts 72 hours. Community decides if your meme makes it into the permanent canon.
+Go to [/vote](/vote) and start swiping on active proposals. Right to approve, left to reject. Every vote is an onchain transaction, weighted by your prayer streak — it takes 51% weighted approval plus 3 unique voters for a placement to pass. This is how the community decides what gets built permanently.
 
-## 5. Vote on proposals (optional)
+## 5. Propose to the Loreboard (optional)
 
-Go to [/swipe](/swipe) and vote on active proposals. Swipe right to approve, left to reject. Every vote is onchain, weighted by your prayer streak. 51% weighted approval + 3 unique voters to pass. This is how the community decides what gets built permanently.
+Open [/board](/board) to see the canvas, then head to [/swipe](/swipe) to submit your own placement. Drag an image onto the grid, choose an open spot, and submit — it costs a flat 0.001 ETH. Voting runs for 72 hours, and the community decides whether your meme joins the permanent canon. Note: the fee is spent whether or not it passes, so propose something worth remembering.
 
 ## 6. Join the community
 
-Follow [@foidfun](https://twitter.com/foidfun) for updates. Star the [GitHub repo](https://github.com/traplordmoses/foiddotfun) if you're into that. Come say hi on Twitter.
+Follow [@foidfun](https://twitter.com/foidfun) for updates. Star the [GitHub repo](https://github.com/traplordmoses/foiddotfun) if you're into that. Come say hi — DMs are open.
 
 ---
 
 ## That's it
 
-You're in. Start praying. Propose memes. Vote on what matters.
+You're in. Start praying. Vote on what matters. Propose memes worth keeping.
 
 Your participation is being recorded. Your consistency will be rewarded. Your MiFOID is forming.
 
 **The internet forgets. FOID remembers.**
 
-Still confused? That's fair. This is weird. DM [@foidfun](https://twitter.com/foidfun) on Twitter. We'll help you out.
+Still confused? That's fair — this is weird. DM [@foidfun](https://twitter.com/foidfun) on Twitter and we'll help you out.
 `,
   },
   {
@@ -637,44 +765,42 @@ Still confused? That's fair. This is weird. DM [@foidfun](https://twitter.com/fo
     kind: "md",
     title: "Roadmap — Building in Public, Shipping in Layers",
     category: "community",
-    updatedAt: "2026-07-05",
+    updatedAt: "2026-07-06",
     body: `# ROADMAP
 
 Building in Public, Shipping in Layers.
 
-Loreboard is not an app. It is not a meme gallery. It is not a feature inside a product.
+Loreboard is not just an app, and it's not a meme gallery bolted onto a product.
 
-**Loreboard is a new primitive for how communities build culture, accumulate identity, and coordinate onchain.** It turns contribution into status, status into access, and access into influence over what gets built next.
+**It's a platform for how communities build culture together onchain** — where showing up turns into recognition, recognition into standing, and standing into a real say over what gets built next.
 
-FOID Foundation is the first community deployed on Loreboard. There will be others.
+FOID Foundation is the first community to call Loreboard home. There will be others.
 
-## Phase 1 — the primitive (now)
+## Phase 1 — the core loop (now)
 
-The core loop is live: Prayer (daily check-in that builds governance credentials), Swipe (streak-weighted voting on proposed placements), and the Loreboard itself (permanent onchain canvas). One unified contract handles proposals, voting, finalization, and placement recording. 2-of-3 multisig secures everything. 1/1 board NFT updates with each placement. The infrastructure is built.
+The core loop is live: Prayer (a daily check-in that builds your governance weight), streak-weighted voting on proposed placements, and the Loreboard itself (the permanent onchain canvas). One unified contract handles proposals, voting, finalization, and placement recording. A 2-of-3 multisig secures everything. The 1/1 board NFT updates with each placement. The foundation is built and running.
 
 ## Phase 2 — identity (mainnet + mifoid)
 
-Fluent mainnet launch makes it real. MiFOID adds the identity layer — 3,333 AI-generated 3D NFTs, each custom-rendered by Foid Mommy. Persistent agent companions on Telegram. Trait evolution from onchain activity. The Nunnery for diamond hands. Your MiFOID reflects your commitment.
+Fluent mainnet launch makes it real. MiFOID adds the identity layer — a planned 3,333 AI-generated 3D NFTs, each custom-rendered by Foid Mommy. Persistent agent companions on Telegram. Traits that evolve from your onchain activity. The Nunnery for diamond hands. Your MiFOID reflects your commitment.
 
 ## Phase 3 — the agent layer
 
-Foid Mommy becomes the autonomous narrator of onchain activity. Weekly reports reacting to prayer streaks, board votes, and community drama. Personalized MiFOID reactions rendered in real-time via Blender. Sub-agent companions with persistent memory that evolve through your conversations. Your onchain behavior becomes shareable content. The marketing engine runs itself.
+Foid Mommy becomes the autonomous narrator of onchain activity. Weekly reports reacting to prayer streaks, board votes, and community drama. Personalized MiFOID reactions rendered in real time via Blender. Sub-agent companions with persistent memory that grow through your conversations. Your onchain behavior becomes shareable content — the marketing engine that runs itself.
 
 ## Phase 4 — the network
 
-Once FOID proves the model, Loreboard becomes available to other communities on Fluent. Each deployment gets: the board, a customizable check-in ritual, the governance framework, and the option to deploy a narrator agent. Reputation signal composable with Fluent Connect and Fluent Prints. The primitive grows. The network effect compounds.
+Once FOID proves the model, Loreboard opens up to other communities on Fluent. Each one gets the same kit: the board, a customizable check-in ritual, the governance framework, and the option to deploy a narrator agent. The plan is for reputation earned here to compose with the wider Fluent ecosystem (Fluent Connect, Fluent Prints), so your standing travels with you. The platform grows and the network effect compounds.
 
 ---
 
 ## The line
 
-Loreboard turns culture into status and status into access. The community decides what gets built here.
-
-FOID is the first city. Loreboard is the zoning law.
+Loreboard turns showing up into standing, and standing into a say. The community decides what gets built here — nobody else.
 
 ## How we got here
 
-Solo founder. Self-taught coder. One and a half years from zero to this.
+Solo founder. Self-taught coder. A year and a half from zero to this.
 
 **Started as:** "What if there was a way to save memes onchain?"
 
@@ -682,8 +808,8 @@ Solo founder. Self-taught coder. One and a half years from zero to this.
 
 ## Get involved
 
-- **For users:** Start praying now. Your streak determines your MiFOID traits at mint.
-- **For builders:** Contracts are open-source. Fork it. Build on it. Make it better.
+- **For users:** Start praying now. Your streak shapes your MiFOID traits at mint.
+- **For builders:** The contracts are open source. Fork them, build on them, make them better.
 - **For agents:** The Agent API is live. Autonomous agents can pray, propose, vote, and build culture alongside humans.
 - **For serious inquiries:** [moses@foid.fun](mailto:moses@foid.fun)
 `,
@@ -694,7 +820,7 @@ Solo founder. Self-taught coder. One and a half years from zero to this.
     kind: "md",
     title: "FAQ — The Real Questions",
     category: "community",
-    updatedAt: "2026-07-05",
+    updatedAt: "2026-07-06",
     body: `# FAQ
 
 The Real Questions.
@@ -705,7 +831,7 @@ The Real Questions.
 
 ## What problem is FOID solving?
 
-**Gen Z is consistently reported as the loneliest generation on record.** Not because we don't have connections — we have thousands of followers. But we don't have shared experiences anymore. We don't have rituals. Everything's optimized for engagement. Your best posts decay after 48 hours. Nothing lasts. **Crypto runs on memes, vibes, and identity. But culture has no permanent home.** We're building the infrastructure to fix this — a place where culture belongs to the people who create it.
+**Gen Z is consistently reported as the loneliest generation on record.** Not because we don't have connections — we have thousands of followers. But we don't have shared experiences anymore. We don't have rituals. Everything's optimized for engagement. Your best posts decay after 48 hours. Nothing lasts. **Crypto runs on memes, vibes, and identity. But culture has no permanent home.** That's what we're building — a place where culture belongs to the people who create it, instead of the platform that hosts it.
 
 ## Why Fluent?
 
@@ -713,7 +839,7 @@ The Real Questions.
 
 ## What's the business model?
 
-**Loreboard placements:** 0.001 ETH flat fee to propose. If your proposal passes the community vote, the placement is recorded permanently — that's it, one payment. If it fails, the fee is gone (keeps proposals serious). **MiFOID minting:** 3,333 supply, tiered pricing (0.01–0.02 ETH). ~43.5 ETH total at sellout. **What I'm NOT doing:** No ads, no data harvesting, no subscription tiers, no VC-backed growth-at-all-costs. Revenue scales with participation, not attention extraction.
+**Loreboard placements:** 0.001 ETH flat fee to propose. If your proposal passes the community vote, the placement is recorded permanently — that's it, one payment. If it fails, the fee is gone (which keeps proposals serious). **MiFOID minting:** a planned 3,333 supply with tiered pricing (0.01–0.02 ETH), roughly 49 ETH total if it fully sells out. **What I'm NOT doing:** no ads, no data harvesting, no subscription tiers, no VC-backed growth-at-all-costs. Revenue scales with participation, not attention extraction.
 
 ## What is a FOID?
 
@@ -721,7 +847,7 @@ Okay so "foid" started as incel slang for "female humanoid" — basically a dehu
 
 ## How much does this cost?
 
-**Prayers:** just gas (fractions of a cent). **Voting/swiping:** just gas (onchain transaction, fractions of a cent on Fluent). **Loreboard proposals:** 0.001 ETH flat fee. If approved, your placement is permanent. If rejected, fee is non-refundable (keeps proposals serious). **MiFOID mint:** 0.01 ETH. No subscriptions. No premium tiers. No hidden costs.
+**Prayers:** just gas (fractions of a cent). **Voting/swiping:** just gas (an onchain transaction, fractions of a cent on Fluent). **Loreboard proposals:** 0.001 ETH flat fee — permanent if approved, non-refundable if rejected (which keeps proposals serious). **MiFOID mint:** from 0.01 ETH at the Genesis tier, rising as supply fills. No subscriptions. No premium tiers. No hidden costs.
 
 ## What chain is this on?
 
@@ -741,7 +867,23 @@ Gas on Fluent is dirt cheap — fractions of a cent per transaction. You just ne
 
 ## How does Loreboard voting work?
 
-**The loop:** Someone proposes a placement on the board (0.001 ETH flat fee, choose your grid position). The contract checks for overlaps onchain. Voting opens for 72 hours. Community swipes right or left — votes are weighted by prayer streak. After 72 hours, anyone can call finalize(). Requires 51% weighted approval AND at least 3 unique voters. If it passes, the placement is recorded onchain permanently and the board NFT updates. If it fails, it's gone forever. One payment. One vote. One board.
+**The loop:** Someone proposes a placement on the board (0.001 ETH flat fee, choose your grid position). The contract checks for overlaps onchain. Voting opens for 72 hours. Community swipes right or left — votes are weighted by prayer streak. After 72 hours, anyone can call finalize(). It requires 51% weighted approval AND at least 3 unique voters. If it passes, the placement is recorded onchain permanently and the board NFT updates. If it fails, it's gone forever. One payment. One vote. One board.
+
+## What's the difference between the Loreboard and the Gallery?
+
+**They're two different surfaces.** The **Loreboard** ([/board](/board)) is one shared collage the whole community builds together, placement by placement — a single evolving canvas. The **Gallery** ([/gallery](/gallery)) is more like a yearbook: individual memes get swipe-voted and, if they pass, canonized as their own standalone entries. Same "let the community decide" spirit, but the Loreboard is a collective mural and the Gallery is a hall of inductees.
+
+## Do I need crypto experience to use this?
+
+**No.** If you can pick a password and use Face ID, you can use FOID. Connecting spins up a wallet in your browser — no MetaMask, no seed phrase to memorize, no browser extension. You'll need a tiny bit of ETH for gas (a fraction of a cent per action), and praying is otherwise free. If a word confuses you, glossary.md is a two-minute read. If you're still stuck, DM [@foidfun](https://twitter.com/foidfun) and we'll walk you through it.
+
+## Is my money safe in FOID Wallet?
+
+**FOID Wallet is a hot wallet built for small amounts — treat it like the cash in your pocket, not your savings account.** Your keys are encrypted with your password (and your biometrics on supported devices) and never leave your device; no server can decrypt them. Every transaction is capped at 1 ETH as a guardrail. For anything you'd be genuinely upset to lose, use MetaMask or a hardware wallet instead. The full security design is in wallet.md — and if you clear your browser without your 12-word recovery phrase, the wallet is gone, so write the phrase down.
+
+## What happens if I miss a day of prayer?
+
+**Your streak resets to zero, and there's no way to buy it back or backfill it.** That's intentional — it's what makes a long streak actually mean something. Your prayer tier (and the voting weight that comes with it) drops accordingly, so a broken streak costs you influence, not just bragging rights. The upside: you can start again any day, and consistency is the only thing standing between you and Mommy Milker.
 
 ## Who built this?
 
@@ -796,7 +938,7 @@ So yeah — start praying. Join us. Let's preserve some culture together.
     kind: "md",
     title: "Links — Ready to Start?",
     category: "community",
-    updatedAt: "2026-07-05",
+    updatedAt: "2026-07-06",
     body: `# LINKS
 
 Ready to start? Everything FOID, one page.
@@ -804,13 +946,19 @@ Ready to start? Everything FOID, one page.
 ## Apps
 
 - [Pray with Foid Mommy](/pray) — Build your first streak
-- [Propose on Loreboard](/swipe) — Add your meme to the canon
 - [Vote on Proposals](/vote) — Shape what gets built permanently
+- [Propose on Loreboard](/swipe) — Add your meme to the canon
 - [View the Loreboard](/board) — See the permanent collection
 - [MiFOID](/mifoid) — Learn how the NFT works
 - [Gallery](/gallery) — Browse the community gallery
 - [Dashboard](/dashboard) — Your streaks, proposals and votes
 - [Files](/files) — The MiFOID media archive
+
+## Start here (docs)
+
+- **getting-started.md** — zero to FOID in five minutes
+- **glossary.md** — every FOID word, defined
+- **faq.md** — the real questions, answered honestly
 
 ## Community
 
