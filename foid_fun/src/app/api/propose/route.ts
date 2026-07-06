@@ -4,14 +4,21 @@ import { rectCells, hasOverlap, type Rect } from "@/lib/grid";
 import { currentEpoch, EPOCH_SECONDS, VOTE_WINDOW_SECONDS } from "@/lib/epoch";
 import { addProposal, listAccepted, type Proposal } from "../_store";
 import { ProposalStore, type StoredProposal } from "@/lib/proposalStore";
-import { keccak256, stringToHex } from "viem";
+import { keccak256, stringToHex, verifyMessage } from "viem";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 import { checkRateLimit, recordAction } from "../agent/_lib/rateLimit";
+import {
+  buildProposeSignMessage,
+  BOARD_SIG_MAX_AGE_MS,
+  BOARD_SIG_MAX_FUTURE_SKEW_MS,
+} from "@/lib/boardAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_CELLS = Number(process.env.NEXT_PUBLIC_MAX_CELLS_PER_RECT ?? 400);
+const ETH_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
+const SIGNATURE_RE = /^0x[a-fA-F0-9]+$/;
 
 type ProposeReq = {
   id?: string;
@@ -24,6 +31,10 @@ type ProposeReq = {
   width?: number;
   height?: number;
   bidPerCellWei: string; // total bid per cell
+  // EIP-191 proof the caller controls `owner`. Covers cid, rect, bid +
+  // timestamp — see buildProposeSignMessage.
+  signature: string;
+  timestamp: number;
 };
 
 function uid() {
@@ -38,9 +49,50 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad json" }, { status: 400 });
   }
 
-  const { owner, cid, rect, bidPerCellWei, name, mime, width, height } = body ?? {};
+  const { owner, cid, rect, bidPerCellWei, name, mime, width, height, signature, timestamp } = body ?? {};
   if (!owner || !cid || !rect || !bidPerCellWei) {
     return NextResponse.json({ error: "missing fields" }, { status: 400 });
+  }
+
+  if (!ETH_ADDRESS_PATTERN.test(owner)) {
+    return NextResponse.json({ error: "invalid owner address" }, { status: 400 });
+  }
+
+  // Require EIP-191 proof of ownership over the exact proposal fields (image,
+  // rect, bid). Without this, `owner` is spoofable — anyone could submit
+  // bid-bearing proposals attributed to any wallet.
+  if (!signature || typeof signature !== "string" || !SIGNATURE_RE.test(signature)) {
+    return NextResponse.json({ error: "missing signature" }, { status: 401 });
+  }
+  const ts = Number(timestamp);
+  if (!Number.isInteger(ts)) {
+    return NextResponse.json({ error: "missing timestamp" }, { status: 400 });
+  }
+  if (Date.now() - ts > BOARD_SIG_MAX_AGE_MS) {
+    return NextResponse.json({ error: "signature expired" }, { status: 401 });
+  }
+  if (ts - Date.now() > BOARD_SIG_MAX_FUTURE_SKEW_MS) {
+    return NextResponse.json({ error: "timestamp in the future" }, { status: 401 });
+  }
+
+  let sigValid = false;
+  try {
+    sigValid = await verifyMessage({
+      address: owner as `0x${string}`,
+      message: buildProposeSignMessage({
+        owner,
+        cid,
+        rect,
+        bidPerCellWei: String(bidPerCellWei),
+        timestamp: ts,
+      }),
+      signature: signature as `0x${string}`,
+    });
+  } catch {
+    sigValid = false;
+  }
+  if (!sigValid) {
+    return NextResponse.json({ error: "signature does not match owner" }, { status: 401 });
   }
 
   // Rate limit by owner wallet

@@ -1,14 +1,21 @@
 // /src/app/api/place/route.ts
 import { NextResponse } from "next/server";
+import { verifyMessage } from "viem";
 import { getDb } from "@/db/db";
 import type { PlacementIntent } from "@/lib/types";
 import { getEpochInfo } from "@/lib/epoch";
+import {
+  buildPlaceSignMessage,
+  BOARD_SIG_MAX_AGE_MS,
+  BOARD_SIG_MAX_FUTURE_SKEW_MS,
+} from "@/lib/boardAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_CELLS = Number(process.env.NEXT_PUBLIC_MAX_CELLS_PER_RECT ?? 400);
 const ETH_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
+const SIGNATURE_RE = /^0x[a-fA-F0-9]+$/;
 const MAX_CID_LENGTH = 100;
 const MAX_NAME_LENGTH = 256;
 const PLACEMENT_COOLDOWN_MS = 10_000; // 10 seconds per owner
@@ -27,6 +34,10 @@ type PlaceReq = {
   name?: string;
   mime?: "image/png" | "image/jpeg";
   fitMode?: "contain" | "cover";
+  // EIP-191 proof the caller controls `owner`. Covers the mutating fields
+  // (cid, rect, cells, fee, tip) + timestamp — see buildPlaceSignMessage.
+  signature: string;
+  timestamp: number;
 };
 
 function uid() { return Math.random().toString(36).slice(2); }
@@ -39,7 +50,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad json" }, { status: 400 });
   }
 
-  const { owner, cid, rect, cells, feePerCellWei, tipPerCellWei, name, mime, fitMode } = body ?? {};
+  const { owner, cid, rect, cells, feePerCellWei, tipPerCellWei, name, mime, fitMode, signature, timestamp } = body ?? {};
   if (!owner || !cid || !rect || typeof cells !== "number" || !feePerCellWei || !tipPerCellWei) {
     return NextResponse.json({ error: "missing fields" }, { status: 400 });
   }
@@ -61,6 +72,44 @@ export async function POST(req: Request) {
       typeof rect.w !== "number" || typeof rect.h !== "number" ||
       rect.w <= 0 || rect.h <= 0) {
     return NextResponse.json({ error: "invalid rect: need x, y, w (>0), h (>0)" }, { status: 400 });
+  }
+
+  // Require EIP-191 proof of ownership over the exact placement fields. Without
+  // this, `owner` is spoofable and anyone can place under any wallet.
+  if (!signature || typeof signature !== "string" || !SIGNATURE_RE.test(signature)) {
+    return NextResponse.json({ error: "missing signature" }, { status: 401 });
+  }
+  const ts = Number(timestamp);
+  if (!Number.isInteger(ts)) {
+    return NextResponse.json({ error: "missing timestamp" }, { status: 400 });
+  }
+  if (Date.now() - ts > BOARD_SIG_MAX_AGE_MS) {
+    return NextResponse.json({ error: "signature expired" }, { status: 401 });
+  }
+  if (ts - Date.now() > BOARD_SIG_MAX_FUTURE_SKEW_MS) {
+    return NextResponse.json({ error: "timestamp in the future" }, { status: 401 });
+  }
+
+  let sigValid = false;
+  try {
+    sigValid = await verifyMessage({
+      address: owner as `0x${string}`,
+      message: buildPlaceSignMessage({
+        owner,
+        cid,
+        rect,
+        cells,
+        feePerCellWei: String(feePerCellWei),
+        tipPerCellWei: String(tipPerCellWei),
+        timestamp: ts,
+      }),
+      signature: signature as `0x${string}`,
+    });
+  } catch {
+    sigValid = false;
+  }
+  if (!sigValid) {
+    return NextResponse.json({ error: "signature does not match owner" }, { status: 401 });
   }
 
   const ownerLower = owner.toLowerCase();

@@ -12,6 +12,7 @@ import { createPublicClient, http } from "viem";
 import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { CONTRACTS, RPC_URL, CHAIN_CONFIG } from "@/lib/contracts/addresses";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
+import { safeErrorMessage } from "@/lib/apiError";
 import { contractToWorldRect } from "@/lib/boardSpace";
 
 export const runtime = "nodejs";
@@ -135,6 +136,9 @@ export async function GET() {
     );
   } catch (error) {
     console.error("[api/proposals/featured] Error:", error);
-    return NextResponse.json({ proposal: null, error: String(error) }, { status: 500 });
+    return NextResponse.json(
+      { proposal: null, error: safeErrorMessage(error, "failed to load featured proposal") },
+      { status: 500 },
+    );
   }
 }

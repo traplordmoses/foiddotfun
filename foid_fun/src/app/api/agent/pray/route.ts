@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { keccak256, stringToBytes } from "viem";
 import { verifyAgentSignature } from "../_lib/auth";
 import { checkRateLimit, recordAction } from "@/lib/rateLimit";
+import { isGloballyRateLimited } from "../_lib/globalCap";
 import { getRelayerWalletClient, getAgentPublicClient, getRelayerAccount } from "../_lib/relayer";
 import { PRAYER_REGISTRY_ABI } from "@/lib/contracts/abis";
 import { CONTRACTS } from "@/lib/contracts/addresses";
@@ -37,12 +38,49 @@ export async function POST(req: Request) {
     });
     if (!auth.ok) return json(false, undefined, auth.error, 401);
 
-    // Rate limit
+    // Rate limit (per-wallet)
     const limit = checkRateLimit(auth.wallet, "pray");
     if (!limit.ok) return json(false, undefined, limit.error, 429);
 
+    // Global drain backstop: wallets are free, so a Sybil swarm can pass the
+    // per-wallet check. This coarse all-callers cap bounds OpenAI + gas spend.
+    // FOUNDER FOLLOW-UP: replace with a real allowlist/quota (audit H1).
+    if (isGloballyRateLimited("pray")) {
+      return json(false, undefined, "Service busy. Please try again shortly.", 429);
+    }
+
     // Resolve feeling label
     const label = FEELING_MAP[feeling.toLowerCase()] ?? 1;
+
+    const publicClient = getAgentPublicClient();
+    const walletClient = getRelayerWalletClient();
+    const account = getRelayerAccount();
+
+    // Cheap on-chain cooldown precheck BEFORE spending an OpenAI completion.
+    // The registry cooldown is keyed on the relayer (all agents share one
+    // relayer wallet), so if it's still cooling down every pray this window
+    // will revert — no reason to pay for a prayer we can't submit. This turns
+    // a spammer's "burn completions then get rejected" into a cheap read-only
+    // rejection. Fail-open on read errors: the submit below still enforces it.
+    try {
+      const nextAllowedAt = (await publicClient.readContract({
+        address: CONTRACTS.PRAYER_REGISTRY as `0x${string}`,
+        abi: PRAYER_REGISTRY_ABI,
+        functionName: "nextAllowedAt",
+        args: [account.address],
+      })) as bigint;
+      const nowSec = BigInt(Math.floor(Date.now() / 1000));
+      if (nextAllowedAt > nowSec) {
+        return json(
+          false,
+          undefined,
+          "Prayer cooldown active. Only 1 prayer per 24h per relayer.",
+          429,
+        );
+      }
+    } catch (err) {
+      console.warn("[api/agent/pray] cooldown precheck read failed (continuing):", err);
+    }
 
     // Call foid-mommy for prayer generation
     const feelingText = message || feeling;
@@ -91,11 +129,8 @@ PRAYER: <2-3 sentence prayer>`,
       prayerText = "may this moment bring you what you need.";
     }
 
-    // Submit prayer onchain via relayer
+    // Submit prayer onchain via relayer (clients resolved above).
     const prayerHash = keccak256(stringToBytes(prayerText));
-    const publicClient = getAgentPublicClient();
-    const walletClient = getRelayerWalletClient();
-    const account = getRelayerAccount();
 
     let txHash: string;
     try {

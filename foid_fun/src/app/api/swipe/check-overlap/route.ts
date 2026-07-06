@@ -7,6 +7,7 @@ import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { overlap, type Rect } from "@/lib/grid";
 import { rpcClient } from "@/lib/rpcClient";
+import { safeErrorMessage } from "@/lib/apiError";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -122,6 +123,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[check-overlap] Error:", error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    return NextResponse.json(
+      { error: safeErrorMessage(error, "overlap check failed") },
+      { status: 500 },
+    );
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { IS_MAINNET } from "@/config/canonical";
+import { safeErrorMessage } from "@/lib/apiError";
 
 // Loreboard unified subgraph — onchain votes via castVote()
 const DEFAULT_LOREBOARD_URL = IS_MAINNET
@@ -151,7 +152,7 @@ export async function GET(request: NextRequest) {
           address,
           proposalId,
           count: 0,
-          errors: [String(error)],
+          errors: [safeErrorMessage(error, "failed to load votes")],
         },
       },
       { headers: { "Cache-Control": "no-store" } }

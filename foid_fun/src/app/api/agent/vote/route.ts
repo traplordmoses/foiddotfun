@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Abi } from "viem";
 import { verifyAgentSignature } from "../_lib/auth";
 import { checkRateLimit, recordAction } from "@/lib/rateLimit";
+import { isGloballyRateLimited } from "../_lib/globalCap";
 import { getRelayerWalletClient, getAgentPublicClient, getRelayerAccount } from "../_lib/relayer";
 import { AGENT_VOTING } from "@/config/agentBoard";
 import VotingAbi from "@/abi/loreboardVoting.json" assert { type: "json" };
@@ -44,9 +45,16 @@ export async function POST(req: Request) {
     });
     if (!auth.ok) return json(false, undefined, auth.error, 401);
 
-    // Rate limit
+    // Rate limit (per-wallet)
     const limit = checkRateLimit(auth.wallet, "vote");
     if (!limit.ok) return json(false, undefined, limit.error, 429);
+
+    // Global drain backstop: wallets are free, so a Sybil swarm can pass the
+    // per-wallet check. This coarse all-callers cap bounds relayer gas spend.
+    // FOUNDER FOLLOW-UP: replace with a real allowlist/quota (audit H1).
+    if (isGloballyRateLimited("vote")) {
+      return json(false, undefined, "Service busy. Please try again shortly.", 429);
+    }
 
     // Submit vote onchain via relayer to the agent voting contract
     const publicClient = getAgentPublicClient();

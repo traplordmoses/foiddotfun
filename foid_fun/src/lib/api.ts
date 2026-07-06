@@ -2,7 +2,10 @@
 import type { PendingItem } from "@/state/board";
 import type { Rect } from "@/lib/grid";
 import { rectCells } from "@/lib/grid";
+import { buildPlaceSignMessage, buildProposeSignMessage } from "@/lib/boardAuth";
 
+/** Signs an EIP-191 personal message — pass wagmi's `signMessageAsync`. */
+export type SignMessageFn = (args: { message: string }) => Promise<string>;
 
 function asJson<T = unknown>(res: Response): Promise<T> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -15,18 +18,40 @@ function asJson<T = unknown>(res: Response): Promise<T> {
 export async function placeIntent(
   item: PendingItem,
   owner: string,
-  baseFeeWei: bigint
+  baseFeeWei: bigint,
+  // The server verifies an EIP-191 signature over the placement fields before
+  // trusting `owner`. Callers pass wagmi's signMessageAsync.
+  signMessage: SignMessageFn
 ) {
   if (!item.cid) throw new Error("missing CID");
+
+  const rect = item.rect;
+  const cells = rectCells(rect);
+  const feePerCellWei = baseFeeWei.toString();
+  const tipPerCellWei = item.tipPerCellWei.toString();
+  const timestamp = Date.now();
+  const signature = await signMessage({
+    message: buildPlaceSignMessage({
+      owner,
+      cid: item.cid,
+      rect,
+      cells,
+      feePerCellWei,
+      tipPerCellWei,
+      timestamp,
+    }),
+  });
 
   const body = {
     id: item.id,
     owner,
     cid: item.cid,
-    rect: item.rect,
-    cells: rectCells(item.rect),
-    feePerCellWei: baseFeeWei.toString(),
-    tipPerCellWei: item.tipPerCellWei.toString(),
+    rect,
+    cells,
+    feePerCellWei,
+    tipPerCellWei,
+    signature,
+    timestamp,
   };
 
   const res = await fetch("/api/place", {
@@ -132,21 +157,37 @@ export type ProposalSummary = {
   height?: number;
 };
 
-export async function proposePlacement(input: {
-  id?: string;
-  owner: string;
-  cid: string;
-  name?: string;
-  mime?: "image/png" | "image/jpeg";
-  rect: Rect;
-  width?: number;
-  height?: number;
-  bidPerCellWei: string; // total bid per cell
-}) {
+export async function proposePlacement(
+  input: {
+    id?: string;
+    owner: string;
+    cid: string;
+    name?: string;
+    mime?: "image/png" | "image/jpeg";
+    rect: Rect;
+    width?: number;
+    height?: number;
+    bidPerCellWei: string; // total bid per cell
+  },
+  // The server verifies an EIP-191 signature over the proposal fields before
+  // trusting `owner`. Callers pass wagmi's signMessageAsync.
+  signMessage: SignMessageFn
+) {
+  const timestamp = Date.now();
+  const signature = await signMessage({
+    message: buildProposeSignMessage({
+      owner: input.owner,
+      cid: input.cid,
+      rect: input.rect,
+      bidPerCellWei: input.bidPerCellWei,
+      timestamp,
+    }),
+  });
+
   const res = await fetch("/api/propose", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, signature, timestamp }),
   });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));

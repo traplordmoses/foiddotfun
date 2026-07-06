@@ -3,6 +3,7 @@ import { createPublicClient, http } from "viem";
 import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { CONTRACTS, RPC_URL, CHAIN_CONFIG } from "@/lib/contracts/addresses";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
+import { safeErrorMessage } from "@/lib/apiError";
 import { goldskyEndpoint, goldskyQuery, GoldskyError } from "@/lib/goldsky";
 
 export const runtime = "nodejs";
@@ -459,6 +460,9 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     console.error("[api/proposals] Error:", error);
-    return NextResponse.json({ proposals: [], error: String(error) }, { status: 500 });
+    return NextResponse.json(
+      { proposals: [], error: safeErrorMessage(error, "failed to load proposals") },
+      { status: 500 },
+    );
   }
 }
