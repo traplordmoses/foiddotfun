@@ -18,6 +18,7 @@ import {
   useTransform,
   type MotionValue,
 } from 'framer-motion';
+import { useWindowStore } from '@/stores/windowStore';
 
 interface NavItem {
   href: string;
@@ -127,6 +128,8 @@ function DockIcon({
 export function Dock() {
   const pathname = usePathname();
   const mouseX = useMotionValue(Infinity);
+  const windowMinimized = useWindowStore((s) => s.minimized);
+  const restoreWindow = useWindowStore((s) => s.restore);
 
   // Magnification only makes sense with a hovering fine pointer, and only
   // when the user hasn't asked for reduced motion.
@@ -151,7 +154,7 @@ export function Dock() {
       aria-label="Primary navigation"
     >
       <div
-        className="pointer-events-auto flex items-center h-16 px-2 rounded-[24px] border border-white/[0.16] backdrop-blur-2xl"
+        className="pointer-events-auto flex items-center h-16 px-3 rounded-[24px] border border-white/[0.16] backdrop-blur-2xl"
         style={{
           background:
             'linear-gradient(180deg, rgba(90, 150, 200, 0.20), rgba(20, 40, 70, 0.55)), rgba(6, 10, 18, 0.55)',
@@ -197,7 +200,7 @@ export function Dock() {
                 href={item.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="relative flex flex-col items-center justify-center h-full min-w-[52px] px-1.5 touch-manipulation"
+                className="relative flex flex-col items-center justify-center h-full min-w-[64px] px-2 touch-manipulation"
               >
                 {inner}
               </a>
@@ -208,8 +211,17 @@ export function Dock() {
             <Link
               key={item.href}
               href={item.href}
-              className="relative flex flex-col items-center justify-center h-full min-w-[52px] px-1.5 touch-manipulation"
+              className="relative flex flex-col items-center justify-center h-full min-w-[64px] px-2 touch-manipulation"
               aria-current={isActive ? "page" : undefined}
+              onClick={(e) => {
+                // The active app's icon doubles as its dock tile: when the
+                // window is minimized, clicking restores it instead of
+                // re-navigating.
+                if (isActive && windowMinimized) {
+                  e.preventDefault();
+                  restoreWindow();
+                }
+              }}
             >
               {/* Glass puck slides between items on a spring — dock, not tab strip */}
               {isActive && (
@@ -219,11 +231,22 @@ export function Dock() {
                   style={{
                     background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05))',
                     boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 16px rgba(120, 200, 255, 0.18)',
+                    opacity: windowMinimized ? 0.45 : 1,
                   }}
                   transition={{ type: 'spring', stiffness: 500, damping: 32 }}
                 />
               )}
               {inner}
+              {/* Minimized indicator — the app is parked in the dock */}
+              {isActive && windowMinimized && (
+                <motion.span
+                  aria-hidden="true"
+                  className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                  style={{ background: 'rgba(150, 220, 255, 0.95)', boxShadow: '0 0 6px rgba(150, 220, 255, 0.8)' }}
+                  animate={{ scale: [1, 1.6, 1] }}
+                  transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                />
+              )}
             </Link>
           );
         })}

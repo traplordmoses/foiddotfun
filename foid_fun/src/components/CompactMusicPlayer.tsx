@@ -48,6 +48,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
   }, [clearHideTimer]);
 
   const scheduleHide = useCallback((delay: number) => {
+    if (pinnedRef.current) return; // dragged free = pinned, never auto-hide
     clearHideTimer();
     hideTimer.current = setTimeout(() => setIsVisible(false), delay);
   }, [clearHideTimer]);
@@ -60,6 +61,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
   }, []);
 
   const armIdleTimer = useCallback(() => {
+    if (pinnedRef.current) return; // pinned bars stay up
     clearIdleTimer();
     idleTimer.current = setTimeout(() => setIsVisible(false), IDLE_AUTO_HIDE_MS);
   }, [clearIdleTimer]);
@@ -120,8 +122,63 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
 
   const handleBarMouseLeave = useCallback(() => {
     if (isMobileRef.current) return;
+    if (pinnedRef.current) return;
     scheduleHide(HIDE_DELAY_HOVER);
   }, [scheduleHide]);
+
+  // ── Native-player mode: drag the bar anywhere; dragging pins it (no
+  // auto-hide). Double-click an empty spot to send it back to its dock
+  // position and resume hover-reveal behavior.
+  const [barOffset, setBarOffset] = useState<{ x: number; y: number } | null>(null);
+  const pinnedRef = useRef(false);
+  pinnedRef.current = barOffset !== null;
+
+  const handleBarPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (isMobileRef.current) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("button, input, a, select")) return;
+    e.preventDefault();
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const base = barOffset ?? { x: 0, y: 0 };
+    let live = base;
+    let raf = 0;
+    const bar = barRef.current;
+
+    const onMove = (ev: PointerEvent) => {
+      const maxX = window.innerWidth / 2 - 80;
+      const minY = -(window.innerHeight - 140);
+      live = {
+        x: Math.max(-maxX, Math.min(maxX, base.x + (ev.clientX - startX))),
+        y: Math.max(minY, Math.min(0, base.y + (ev.clientY - startY))),
+      };
+      if (!raf) {
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          if (bar) bar.style.transform = `translate(${live.x}px, ${live.y}px)`;
+        });
+      }
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      document.body.classList.remove("foid-window-dragging");
+      setBarOffset(live);
+      clearHideTimer();
+      clearIdleTimer();
+    };
+    document.body.classList.add("foid-window-dragging");
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [barOffset, clearHideTimer, clearIdleTimer]);
+
+  const handleBarDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button, input, a, select")) return;
+    setBarOffset(null);
+    if (barRef.current) barRef.current.style.transform = "";
+  }, []);
 
   // Controls — auto-enable music on play
   const handlePrev = () => musicPanelController.prev();
@@ -176,6 +233,13 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           className="cmp-bar"
           onMouseEnter={handleBarMouseEnter}
           onMouseLeave={handleBarMouseLeave}
+          onPointerDown={handleBarPointerDown}
+          onDoubleClick={handleBarDoubleClick}
+          title="drag to move · double-click to send back"
+          style={{
+            transform: barOffset ? `translate(${barOffset.x}px, ${barOffset.y}px)` : undefined,
+            cursor: barOffset ? "grab" : undefined,
+          }}
         >
           {/* Previous */}
           <button className="cmp-ctrl-btn" type="button" onClick={handlePrev} title="Previous" aria-label="Previous">

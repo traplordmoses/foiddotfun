@@ -763,6 +763,7 @@ body {
 
     transition:
       transform var(--foid-motion-base) var(--foid-ease-out),
+      opacity var(--foid-motion-base) var(--foid-ease-out),
       box-shadow var(--foid-motion-base) var(--foid-ease-out),
       border-color var(--foid-motion-base) var(--foid-ease-out);
   }
@@ -869,6 +870,9 @@ body {
     height: 12px;
     border-radius: 50%;
     cursor: pointer;
+    /* The orbs are real <button>s now (WindowControls) — strip UA chrome. */
+    border: none;
+    padding: 0;
 
     animation: controlPulse 3s ease-in-out infinite;
 
@@ -5549,5 +5553,67 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .vista-window {
     animation: none;
+  }
+}
+
+/* ============================================================================
+   FOID OS WINDOW MANAGER — geometry classes driven by WindowFrame.tsx.
+   ============================================================================ */
+/* Maximize: fill the viewport above the dock. Scoped under .app-viewport to
+   outrank the dock-clearance max-height clamp without !important. */
+.app-viewport .vista-window.foid-window--maximized {
+  position: fixed;
+  inset: 10px 10px 88px;
+  width: auto;
+  height: auto !important;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  z-index: var(--foid-z-overlay);
+}
+
+/* Minimize: WindowFrame writes the genie transform inline; this class just
+   slows the ride down and keeps the frame inert while hidden. */
+.vista-window.foid-window--minimized {
+  transition: transform 0.45s var(--foid-ease-out), opacity 0.3s ease;
+}
+
+/* Corner resize handle (desktop only — windows don't float on mobile). */
+.foid-window-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 22px;
+  height: 22px;
+  cursor: nwse-resize;
+  z-index: 5;
+  /* three aero grip lines */
+  background:
+    linear-gradient(135deg, transparent 46%, rgba(255, 255, 255, 0.35) 47%, transparent 53%),
+    linear-gradient(135deg, transparent 60%, rgba(255, 255, 255, 0.28) 61%, transparent 67%),
+    linear-gradient(135deg, transparent 74%, rgba(255, 255, 255, 0.2) 75%, transparent 81%);
+}
+@media (max-width: 1023px) {
+  .foid-window-resize {
+    display: none;
+  }
+}
+
+/* Drag affordance + gesture hygiene. */
+.app-titlebar__row--draggable {
+  cursor: grab;
+}
+body.foid-window-dragging {
+  cursor: grabbing;
+  user-select: none;
+  -webkit-user-select: none;
+}
+body.foid-window-dragging .vista-window {
+  transition: none; /* 1:1 tracking while dragging/resizing */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vista-window.foid-window--minimized {
+    transition: none;
   }
 }
