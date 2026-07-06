@@ -200,6 +200,18 @@ body {
   .app-viewport .vista-window {
     max-height: calc(100dvh - 190px);
   }
+  /* Interim FOID OS layering (src/stores/floatStore.ts): when the main
+     window is focused the floating dock apps (MUSIC.EXE / CHAT.EXE) drop
+     to z 1, and the route window must be able to cover them — but a
+     z-auto window can't beat ANY positive z. Lift every route window to
+     z 5: above behind-main floaters (1), far below unfocused/focused
+     floaters (46/48) and the dock (50). The frame already isolates
+     (isolation: isolate), so this only moves it among viewport siblings;
+     window-internal stacking is unchanged. Desktop-only, matching the
+     floaters themselves. */
+  .app-viewport .vista-window {
+    z-index: 5;
+  }
 }
 
 /* Music player: floats as a fixed overlay (CompactMusicPlayer) and never
@@ -6136,4 +6148,51 @@ body.foid-window-dragging .vista-window * {
 @keyframes reconnect-blink {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 0.9; }
+}
+
+/* ============================================================================
+   FOID OS DESKTOP SHELL — Stage A (flag: NEXT_PUBLIC_FOID_DESKTOP).
+   The multi-window layer <Desktop/> renders at /. Windows are absolutely
+   positioned inside this fixed layer; stacking comes from windowStore v2's
+   zOrder as an inline z-index (WINDOW_Z_BASE 10 + stack position), so a
+   full desktop still sits below the dock (--foid-z-nav) and every
+   overlay/modal tier. DOM order stays stable while z changes.
+   ============================================================================ */
+.os-desktop {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  /* The layer itself is transparent to input — the wallpaper stays ambient
+     under an empty desktop; windows re-enable pointer events themselves. */
+  pointer-events: none;
+}
+.os-desktop .vista-window.os-window {
+  position: absolute;
+  pointer-events: auto;
+  margin: 0;
+}
+
+/* Unfocused windows recede (multi-window plan §1): dimmer titlebar +
+   tighter shadow; the focused window keeps today's full treatment. Cheap,
+   transition-friendly properties only — the base .vista-window already
+   transitions box-shadow/border-color. */
+.os-desktop .vista-window.foid-window--blurred {
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 14px 34px rgba(0, 15, 40, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+.os-desktop .vista-window.foid-window--blurred .app-titlebar {
+  filter: saturate(0.72) brightness(0.86);
+}
+
+/* Empty desktop — a quiet dock-adjacent hint, not a hero. */
+.os-desktop__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 112px;
+  transform: translateX(-50%);
+  letter-spacing: 0.3em;
+  white-space: nowrap;
+  pointer-events: none;
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import "./files.css";
+// files.css now rides with the FilesApp component (src/apps/FilesApp.tsx)
+// so the desktop shell's FILES window loads it too — not just this route.
 
 export const metadata = { title: "FILES" };
 

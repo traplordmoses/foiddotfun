@@ -35,10 +35,12 @@ export const DEFAULT_STEPS: OnboardingStep[] = [
       "Your meme is in voting for 72h — here's where you'll watch it land or get rejected.",
   },
   {
-    anchor: ".board-sidebar",
+    // The right-hand sidebar is gone — actions live in the floating dock
+    // at the bottom of the canvas (VOTING flyout hosts removal votes).
+    anchor: ".board-dock",
     title: "Boost your governance power",
     body:
-      "Vote on other placements in the sidebar. Every vote compounds into your weight on future proposals.",
+      "Vote on placements from the dock below — every vote compounds into your weight on future proposals.",
   },
   {
     anchor: "[data-tour='pray-link'], a[href='/pray']",

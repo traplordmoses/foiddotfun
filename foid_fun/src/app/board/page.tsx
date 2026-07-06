@@ -6,7 +6,6 @@
 import "./board.css";
 
 import React, {
-  Component,
   Suspense,
   useCallback,
   useMemo,
@@ -14,7 +13,6 @@ import React, {
   useState,
   useEffect,
   useSyncExternalStore,
-  type ReactNode,
 } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAccount, useDisconnect } from "wagmi";
@@ -79,8 +77,10 @@ import { PlacementModal } from "@/components/PlacementModal";
 import { celebratePlacement } from "@/effects/celebrate";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
-import { TerminalChat, type StatusMessage } from "@/components/TerminalChat";
-import { StatusDot } from "@/components/ui";
+// Chat moved out of the board window — it lives in CHAT.EXE (dock app),
+// which mounts on every route. Only the StatusMessage type is still used
+// (submit-pipeline log feeding the ?debug=1 tail + SR announcements).
+import type { StatusMessage } from "@/components/TerminalChat";
 import dynamic from "next/dynamic";
 import { useMobile } from "@/hooks/useMobile";
 import type { BoardNode } from "@/types/mobile";
@@ -126,7 +126,10 @@ const OnboardingTour = dynamic(
   { ssr: false }
 );
 import { RemovalVotePanel } from "@/components/RemovalVotePanel";
-import { useSwipeLoreboardGovernance } from "@/hooks/useSwipeLoreboardGovernance";
+import {
+  useSwipeLoreboardGovernance,
+  useActivePlacementVotes,
+} from "@/hooks/useSwipeLoreboardGovernance";
 
 // ============================================================================
 // HELPER FUNCTIONS (extracted to lib/board)
@@ -179,29 +182,7 @@ const PLACEMENT_FRAME_DEFAULT: React.CSSProperties = {
 // TerminalChat, Y2kActionButton, VotingItem
 // ============================================================================
 
-/** Lightweight boundary so a chat/WebSocket crash can't take down the board */
-class ChatErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() { return { failed: true }; }
-  componentDidCatch(err: Error) { console.warn("[ChatErrorBoundary]", err.message); }
-  render() {
-    if (this.state.failed) return (
-      <div className="board-section--chat-wrapper">
-        <div className="board-section board-section--chat" style={{ opacity: 0.6 }}>
-          <div className="board-section__header">
-            <StatusDot status="offline" />
-            <span className="board-section__title">CHAT</span>
-            <span className="board-section__status ml-auto" data-status="offline">offline</span>
-          </div>
-          <p style={{ padding: 12, fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
-            Chat unavailable in this browser. Try opening foid.fun directly.
-          </p>
-        </div>
-      </div>
-    );
-    return this.props.children;
-  }
-}
+// ChatErrorBoundary removed with the sidebar — chat now lives in CHAT.EXE.
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -502,11 +483,6 @@ function BoardPageContent() {
       announceSr(text);
     }
   }, [announceSr]);
-  const handleChatSend = useCallback(async (_text: string) => {
-    // TerminalChat handles insertBoardMessage + optimistic display directly.
-    // Nothing extra needed here.
-  }, []);
-
   // Governance - flagging placements
   const { flagPlacement, flagFeeWei, flagThreshold } = useSwipeLoreboardGovernance();
   const [flaggedIds, setFlaggedIds] = useState<Set<string>>(new Set());
@@ -558,6 +534,27 @@ function BoardPageContent() {
     [proposals]
   );
 
+  // Active removal votes — powers the "VOTING (n)" count on the floating
+  // dock. Uses the same first-20 slice RemovalVotePanel checks internally,
+  // so both useReadContracts calls share one react-query cache entry (no
+  // duplicate multicall burst).
+  const removalIdsToCheck = useMemo(
+    () => placed.map((p) => p.id).slice(0, 20),
+    [placed],
+  );
+  const removalVoteIdByPlacement = useActivePlacementVotes(removalIdsToCheck);
+  const activeRemovalVoteCount = useMemo(() => {
+    let n = 0;
+    for (const id of removalIdsToCheck) {
+      try {
+        if ((removalVoteIdByPlacement.get(String(Number(BigInt(id)))) ?? 0) > 0) n++;
+      } catch {
+        /* unparseable id — skip */
+      }
+    }
+    return n;
+  }, [removalIdsToCheck, removalVoteIdByPlacement]);
+
   // Viewport virtualization — Phase β upgrade.
   // The previous implementation ran `placed.filter()` every viewport update,
   // O(n) in placement count. On mainnet (5k+ placements) that linear scan
@@ -601,7 +598,7 @@ function BoardPageContent() {
   const storedRectFor = useCallback((p: PendingItem) => p.rect, []);
 
   const onPickClick = useCallback(() => {
-    analytics.trackProposeClicked({ source: "desktop_sidebar" });
+    analytics.trackProposeClicked({ source: "desktop_dock" });
     fileInputRef.current?.click();
   }, [analytics]);
 
@@ -1358,11 +1355,12 @@ function BoardPageContent() {
               onSwitchWallet={handleSwitchWallet}
             />
 
-            {/* Main content - align with pray spacing */}
-            <div className="vista-window__body vista-window__body--flush mt-2 pray-panel__body board-body">
-              <div className="board-grid">
-                {/* Canvas */}
-                <div className="board-canvas-wrap flex-1 min-h-0">
+            {/* Main content — full-bleed: the canvas IS the window body.
+                 No right column: actions float on the canvas (BoardActions
+                 dock, bottom-center), chat lives in CHAT.EXE. */}
+            <div className="vista-window__body vista-window__body--flush pray-panel__body board-body">
+              {/* Canvas */}
+              <div className="board-canvas-wrap flex-1 min-h-0">
                   {/* Visually-hidden live region for screen reader narration.
                       Populated by addStatus() via the submit pipeline and by
                       ad-hoc announcements (e.g. "Proposal #42 moved to voting").
@@ -1519,15 +1517,57 @@ function BoardPageContent() {
                       />
                     ))}
                     </div>
-                    <BoardHUD
-                      scale={scale}
-                      pan={pan}
-                      mode={spaceDown ? "PAN" : "PLACE"}
-                      onZoomIn={() => setScale((s) => s * 1.2)}
-                      onZoomOut={() => setScale((s) => s / 1.2)}
-                      onZoomReset={() => setScale(1)}
-                    />
+                    {/* Screen-space chrome, top-right: zoom HUD + the
+                         presence/sound chips that used to sit atop the
+                         sidebar. Stays put while the stage pans/zooms. */}
+                    <div
+                      className="board-topright"
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <BoardHUD
+                        scale={scale}
+                        pan={pan}
+                        mode={spaceDown ? "PAN" : "PLACE"}
+                        onZoomIn={() => setScale((s) => s * 1.2)}
+                        onZoomOut={() => setScale((s) => s / 1.2)}
+                        onZoomReset={() => setScale(1)}
+                      />
+                      <div className="board-topright__toggles">
+                        <PresenceToggle />
+                        <SoundToggle />
+                      </div>
+                    </div>
                     <div className="board-hint-bottom" role="note">scroll to zoom • hold space to pan</div>
+
+                    {/* Floating action dock — bottom-center, screen space.
+                         PROPOSE IMAGE / SUBMIT PROPOSAL (n) / fee line, plus
+                         the collapsed-by-default VOTING flyout hosting the
+                         community removal votes. */}
+                    <BoardActions
+                      submissionFeeWei={SUBMISSION_FEE_WEI}
+                      onPickImage={onPickClick}
+                      onSubmit={openSubmitReview}
+                      pendingCount={items.length}
+                      hasPlaced={placed.length > 0}
+                      submitting={submittingProposals}
+                      proposeDisabledReason={
+                        items.length > 0
+                          ? "Submit or remove pending item first"
+                          : null
+                      }
+                      fileInputRef={fileInputRef}
+                      onFileChange={onFileChange}
+                      votingCount={activeRemovalVoteCount}
+                      votingPanel={
+                        <>
+                          <p className="board-dock__flyout-hint">
+                            Think a placement is inappropriate? Click it on the
+                            board to flag it and open a community removal vote.
+                          </p>
+                          <RemovalVotePanel placementIds={removalIdsToCheck} />
+                        </>
+                      }
+                    />
 
                   {!items.length && !busy && !ghost && !placed.length && (
                     <div className="board-hint">
@@ -1536,77 +1576,13 @@ function BoardPageContent() {
                       <span className="board-hint__sub">the community votes · approved images live here forever</span>
                     </div>
                   )}
-                  {dragOver && <div className="board-dragover" />}
-                </div>
-              </div>
-
-              {/* Sidebar */}
-              <div className="board-sidebar">
-                <div className="board-sidebar__scroller">
-                  {/* Sidebar toggles — SFX + ambient cursor presence.
-                       PresenceToggle controls whether this client broadcasts
-                       + receives cursor ghosts via Supabase Realtime. */}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      gap: 6,
-                      marginBottom: 6,
-                    }}
-                  >
-                    <PresenceToggle />
-                    <SoundToggle />
-                  </div>
-                  {/* Actions */}
-                  <BoardActions
-                    submissionFeeWei={SUBMISSION_FEE_WEI}
-                    onPickImage={onPickClick}
-                    onSubmit={openSubmitReview}
-                    hasPending={items.length > 0}
-                    hasPlaced={placed.length > 0}
-                    submitting={submittingProposals}
-                    proposeDisabledReason={
-                      items.length > 0
-                        ? "Submit or remove pending item first"
-                        : null
-                    }
-                    fileInputRef={fileInputRef}
-                    onFileChange={onFileChange}
-                  />
-
-                  {/* Removal vote cards — only shown when active votes exist */}
-                  <RemovalVotePanel placementIds={placed.map((p) => p.id)} />
-
-                  {/* Chat — wrapped in its own boundary so a WebSocket failure
-                       (common in mobile in-app browsers) can't crash the whole board */}
-                  <ChatErrorBoundary>
-                    <div className="board-section--chat-wrapper">
-                      <div className="board-section board-section--chat">
-                        <div className="board-section__header">
-                          <StatusDot status={isConnected ? "online" : "offline"} />
-                          <span className="board-section__title">CHAT</span>
-                          <span
-                            className="board-section__status ml-auto"
-                            data-status={isConnected ? "online" : "offline"}
-                          >
-                            {isConnected ? "online" : "offline"}
-                          </span>
-                        </div>
-                        <TerminalChat
-                          className="h-full"
-                          statusMessages={statusMessages}
-                          onSend={handleChatSend}
-                          enableSupabase={true}
-                          walletAddress={address}
-                        />
-                      </div>
-                    </div>
-                  </ChatErrorBoundary>
-
-                  {/* Music + Epoch removed — music is now global bar, epoch was clutter */}
-
+                  {/* Debug feed (?debug=1) — floats top-left over the canvas
+                       now that the sidebar is gone. */}
                   {debugMode && proposalDebug && (
-                    <div className="board-section board-section--debug">
+                    <div
+                      className="board-section board-section--debug board-debug-float"
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
                       <div className="board-section__header">
                         <span className="board-section__dot" />
                         <span className="board-section__title">DEBUG</span>
@@ -1687,9 +1663,9 @@ function BoardPageContent() {
                       <pre className="debug-json">{JSON.stringify(proposalDebug.sampleJoined ?? [], null, 2)}</pre>
                     </div>
                   )}
+                  {dragOver && <div className="board-dragover" />}
                 </div>
-              </div> {/* board-sidebar */}
-            </div> {/* board-grid */}
+              </div>
           </div> {/* vista-window__body */}
         </div> {/* board-window */}
       </div> {/* max-w-6xl */}

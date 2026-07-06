@@ -7,12 +7,41 @@ import { useCallback, useEffect, useState } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
+import { FOID_DESKTOP_ENABLED } from "@/config/desktop";
 
 // Import-only optimization: ActivityBubbles pulls the Supabase client via
 // useActivityFeed. Lazy-loading it keeps Supabase out of the landing page's
 // First Load JS — the bubbles only appear once live events arrive anyway.
 // ssr:false is behavior-neutral: the container renders empty until the feed ticks.
 const ActivityBubbles = dynamic(() => import("@/components/ActivityBubbles"), { ssr: false });
+
+// FOID OS desktop shell (multi-window plan, Stage A). Only reachable behind
+// NEXT_PUBLIC_FOID_DESKTOP — with the flag off the chunk is never fetched
+// and this route is byte-identical to production.
+const Desktop = dynamic(() => import("@/components/os/Desktop"), { ssr: false });
+
+export default function HomePage() {
+  // Build-time constant: flag off → the launcher window, exactly as today.
+  if (!FOID_DESKTOP_ENABLED) return <HomeLauncher />;
+  return <DesktopGate />;
+}
+
+/** The shell is a lg:-and-up experience (windows don't float on mobile) —
+ *  narrow viewports keep the launcher window even with the flag on. Renders
+ *  null pre-mount: the root layout's wallpaper stack IS the desktop, so
+ *  there's nothing to flash. */
+function DesktopGate() {
+  const [wide, setWide] = useState<boolean | null>(null);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const update = () => setWide(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  if (wide === null) return null;
+  return wide ? <Desktop /> : <HomeLauncher />;
+}
 
 const tiles = [
   {
@@ -76,7 +105,7 @@ const SPARKLES = [
   { top: "88%", left: "85%", size: 20, delay: "1.5s" },
 ];
 
-export default function LandingPage() {
+function HomeLauncher() {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();

@@ -9,7 +9,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   motion,
@@ -18,9 +18,10 @@ import {
   useTransform,
   type MotionValue,
 } from 'framer-motion';
-import { useWindowStore } from '@/stores/windowStore';
+import { useWindowStore, useWindowStoreV2 } from '@/stores/windowStore';
 import { useAmpStore } from '@/stores/ampStore';
 import { useChatAppStore } from '@/stores/chatAppStore';
+import { desktopAppForHref } from '@/config/desktop';
 
 interface NavItem {
   href: string;
@@ -138,9 +139,13 @@ function DockIcon({
 
 export function Dock() {
   const pathname = usePathname();
+  const router = useRouter();
   const mouseX = useMotionValue(Infinity);
   const windowMinimized = useWindowStore((s) => s.minimized);
   const restoreWindow = useWindowStore((s) => s.restore);
+  // FOID OS shell windows (flag-gated; empty map when the flag is off, so
+  // this subscription never re-renders the dock in production).
+  const osWindows = useWindowStoreV2((s) => s.windows);
   const ampOpen = useAmpStore((s) => s.open);
   const toggleAmp = useAmpStore((s) => s.toggle);
   const chatOpen = useChatAppStore((s) => s.open);
@@ -182,6 +187,11 @@ export function Dock() {
       >
         {navItems.map((item) => {
           const isActive = !item.external && (item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`));
+          // FOID OS shell (flag-gated): migrated apps open as desktop
+          // windows instead of navigating; null when the flag is off or the
+          // app isn't a shell app yet.
+          const osAppId = desktopAppForHref(item.href);
+          const osWin = osAppId ? osWindows[osAppId] : undefined;
 
           const inner = (
             <motion.div
@@ -233,6 +243,16 @@ export function Dock() {
               className="relative flex flex-col items-center justify-center h-full min-w-[64px] px-2 touch-manipulation"
               aria-current={isActive ? "page" : undefined}
               onClick={(e) => {
+                // FOID OS shell: open/focus/restore the app's desktop
+                // window instead of navigating (desktop viewports only —
+                // mobile keeps route navigation). From another route, jump
+                // to the desktop with the window already open.
+                if (osAppId && window.innerWidth >= 1024) {
+                  e.preventDefault();
+                  useWindowStoreV2.getState().open(osAppId);
+                  if (pathname !== '/') router.push('/');
+                  return;
+                }
                 // The active app's icon doubles as its dock tile: when the
                 // window is minimized, clicking restores it instead of
                 // re-navigating.
@@ -256,8 +276,10 @@ export function Dock() {
                 />
               )}
               {inner}
-              {/* Minimized indicator — the app is parked in the dock */}
-              {isActive && windowMinimized && (
+              {/* Minimized indicator — the app is parked in the dock
+                  (route window via the legacy store, or a FOID OS shell
+                  window via windowStore v2) */}
+              {((isActive && windowMinimized) || osWin?.status === 'minimized') && (
                 <motion.span
                   aria-hidden="true"
                   className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
