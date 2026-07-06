@@ -18,12 +18,23 @@ import {
 import { musicPanelController } from "@/components/musicPanelController";
 import { getAudioSettings, setMusicEnabled } from "@/lib/audioSettings";
 import { useAmpStore } from "@/stores/ampStore";
+import { floatZ, useFloatStore } from "@/stores/floatStore";
 
 const MusicPanelLogic = dynamic(() => import("./MusicPanel"), { ssr: false });
 
 // Deck height: LCD strip + seek lane stacked. PaintEditor clears the bar via
-// html.cmp-active with a fixed 64+48px pad, so anything ≤ ~100px is safe.
-const PLAYER_HEIGHT = 54;
+// html.cmp-active with a fixed 64+48px pad, so anything ≤ ~100px is safe
+// (deck total = titlebar 20 + body 46 = 66px).
+const PLAYER_HEIGHT = 46;
+
+// Titlebar strip height — also the reachability unit for the drag clamps:
+// the strip may touch the viewport edges but never leave them vertically.
+const TITLEBAR_HEIGHT = 20;
+
+// Drag reachability: at least this much of the titlebar's WIDTH must stay
+// on-screen when the deck is shoved past a horizontal edge, so there is
+// always a grabbable strip to pull it back with.
+const DRAG_KEEP_X = 100;
 
 // Easter-egg skin persistence. "deck" (default) is the Winamp bar; "pebble"
 // is the Frutiger Aero portable-CD-player shell reached by double-clicking
@@ -52,6 +63,15 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
   const closeAmp = useAmpStore((s) => s.close);
   const barRef = useRef<HTMLDivElement>(null);
   const isMobileRef = useRef(false);
+
+  // Interim click-to-front layering (floatStore): any pointerdown on the
+  // chassis claims focus; opening from the dock claims it too (the dock
+  // itself never shifts focus, so a fresh window must self-raise).
+  const floatFocus = useFloatStore((s) => s.focus);
+  const setFloatFocus = useFloatStore((s) => s.setFocus);
+  useEffect(() => {
+    if (isVisible) setFloatFocus("music");
+  }, [isVisible, setFloatFocus]);
 
   useEffect(() => {
     const unsubscribe = musicPanelController.subscribe(() =>
@@ -161,18 +181,36 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     let live = base;
     let raf = 0;
     const bar = barRef.current;
+    if (!bar) return;
+
+    // Full-screen freedom with reachability. Measure the chassis once at
+    // grab time (the live rect already includes the current offset, so
+    // home = rect − base) and clamp the offset so:
+    //  - vertically, the TITLEBAR strip never leaves the viewport — the
+    //    deck can sit in the top corners, or sink until only the strip
+    //    shows above the bottom edge;
+    //  - horizontally, ≥ DRAG_KEEP_X px of the strip stays visible, so
+    //    the deck can hang off either side but stays grabbable.
+    // (Pebble skin shares the handler: its whole shell is the drag
+    // surface, so "top strip stays reachable" holds there too.)
+    const rect = bar.getBoundingClientRect();
+    const homeLeft = rect.left - base.x;
+    const homeTop = rect.top - base.y;
+    const barWidth = rect.width;
 
     const onMove = (ev: PointerEvent) => {
-      const maxX = window.innerWidth / 2 - 80;
-      const minY = -(window.innerHeight - 140);
+      const minX = DRAG_KEEP_X - barWidth - homeLeft;
+      const maxX = window.innerWidth - DRAG_KEEP_X - homeLeft;
+      const minY = -homeTop;
+      const maxY = window.innerHeight - TITLEBAR_HEIGHT - homeTop;
       live = {
-        x: Math.max(-maxX, Math.min(maxX, base.x + (ev.clientX - startX))),
-        y: Math.max(minY, Math.min(0, base.y + (ev.clientY - startY))),
+        x: Math.max(minX, Math.min(maxX, base.x + (ev.clientX - startX))),
+        y: Math.max(minY, Math.min(maxY, base.y + (ev.clientY - startY))),
       };
       if (!raf) {
         raf = requestAnimationFrame(() => {
           raf = 0;
-          if (bar) bar.style.transform = `translate(${live.x}px, ${live.y}px)`;
+          bar.style.transform = `translate(${live.x}px, ${live.y}px)`;
         });
       }
     };
@@ -187,7 +225,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     window.addEventListener("pointerup", onUp);
   }, [barOffset]);
 
-  // Adjustable deck width — drag the right edge (400–760px). The LCD lane
+  // Adjustable deck width — drag the right edge (360–700px). The LCD lane
   // flexes; transport and the right cluster keep their geometry.
   const [deckWidth, setDeckWidth] = useState<number | null>(null);
   const startDeckResize = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -202,7 +240,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     let raf = 0;
     document.body.style.cursor = "ew-resize";
     const onMove = (ev: PointerEvent) => {
-      live = Math.max(400, Math.min(760, baseW + (ev.clientX - startX)));
+      live = Math.max(360, Math.min(700, baseW + (ev.clientX - startX)));
       if (!raf) {
         raf = requestAnimationFrame(() => {
           raf = 0;
@@ -282,8 +320,15 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         </div>
       )}
 
-      {/* MUSIC.EXE deck — opened from the dock's Music tile */}
-      <div className={`cmp-bar-outer ${isVisible ? "cmp-bar-outer--visible" : "cmp-bar-outer--hidden"}`}>
+      {/* MUSIC.EXE deck — opened from the dock's Music tile. z comes from
+          floatStore (48 focused / 46 unfocused / 1 behind the main window);
+          the wrapper itself is pointer-events:none, so the capture handler
+          only fires for real hits on the deck/pebble chassis. */}
+      <div
+        className={`cmp-bar-outer ${isVisible ? "cmp-bar-outer--visible" : "cmp-bar-outer--hidden"}`}
+        style={{ zIndex: floatZ("music", floatFocus) }}
+        onPointerDownCapture={() => setFloatFocus("music")}
+      >
         {skin === "pebble" ? (
           /* ── Pebble skin: Frutiger Aero portable CD player. Same wrapper
              (open/close animation + drag offset), no titlebar, no width
@@ -358,7 +403,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
               title={isPlaying ? "Pause" : "Play"}
               aria-label={isPlaying ? "Pause" : "Play"}
             >
-              {isPlaying ? <PauseIcon size={20} tone="sea" /> : <PlayIcon size={20} tone="sea" />}
+              {isPlaying ? <PauseIcon size={17} tone="sea" /> : <PlayIcon size={17} tone="sea" />}
             </button>
 
             {/* Lower shell: volume lane + gel transport row */}
@@ -427,7 +472,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
             maxWidth: deckWidth ? "none" : undefined,
           }}
         >
-          {/* Right-edge width grip — drag to size the deck (400–760px) */}
+          {/* Right-edge width grip — drag to size the deck (360–700px) */}
           <div
             className="cmp-resize"
             role="presentation"
@@ -585,13 +630,14 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           clip-path: inset(50%);
         }
 
-        /* --- Outer wrapper: fixed above the dock, centers the deck --- */
+        /* --- Outer wrapper: fixed above the dock, centers the deck ---
+           z-index is inline, driven by floatStore (48/46/1) — see
+           src/stores/floatStore.ts for the ladder. */
         :global(.cmp-bar-outer) {
           position: fixed;
           bottom: 92px; /* clears the dock (64px pill + 10px gap + breath) */
           left: 0;
           right: 0;
-          z-index: 50;
           display: flex;
           justify-content: center;
           pointer-events: none;
@@ -605,8 +651,15 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         :global(.cmp-bar-outer--hidden) {
           transform: translateY(calc(100% + 120px));
           opacity: 0;
-          transition-duration: 0.3s;
-          transition-timing-function: ease-in;
+          /* The deck can now be parked anywhere (drag clamps), so the exit
+             slide may leave it inside the viewport at opacity 0 — and
+             opacity alone doesn't stop hit-testing. visibility (delayed
+             past the exit animation, CHAT.EXE's pattern) does. */
+          visibility: hidden;
+          transition:
+            transform 0.3s ease-in,
+            opacity 0.3s ease-in,
+            visibility 0s linear 0.3s;
         }
         @media (max-width: 1023px) {
           :global(.cmp-bar-outer) { display: none !important; }
@@ -615,7 +668,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         /* ===== MUSIC.EXE deck: Winamp layout in aero glass ===== */
         :global(.cmp-bar) {
           width: calc(100% - 32px);
-          max-width: 560px;
+          max-width: 500px;
           display: flex;
           flex-direction: column;
           align-items: stretch;
@@ -624,7 +677,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         /* --- Width grip: right edge of the deck, below the titlebar --- */
         :global(.cmp-resize) {
           position: absolute;
-          top: 22px;
+          top: ${TITLEBAR_HEIGHT}px;
           right: 0;
           bottom: 0;
           width: 7px;
@@ -642,7 +695,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           display: flex;
           align-items: center;
           gap: 8px;
-          height: 22px;
+          height: ${TITLEBAR_HEIGHT}px;
           padding: 0 8px;
           background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(0, 0, 0, 0.18));
           border-bottom: 1px solid rgba(255, 255, 255, 0.10);
@@ -733,9 +786,9 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         :global(.cmp-body) {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
           height: ${PLAYER_HEIGHT}px;
-          padding: 0 14px;
+          padding: 0 12px;
         }
         :global(.cmp-body[hidden]) {
           display: none;
@@ -810,7 +863,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         :global(.cmp-transport) {
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 5px;
           flex-shrink: 0;
           position: relative;
           z-index: 1;
@@ -819,8 +872,8 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 32px;
-          height: 32px;
+          width: 28px; /* ≥24px hit target holds */
+          height: 28px;
           padding: 0;
           font-size: 11px;
           line-height: 1;
@@ -878,8 +931,8 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           opacity: 0.4;
         }
         :global(.cmp-gel--play) {
-          width: 38px;
-          height: 38px;
+          width: 34px;
+          height: 34px;
           font-size: 14px;
           color: var(--foid-text);
           border-color: var(--foid-border-subtle);
@@ -920,7 +973,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           min-width: 0;
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: 3px;
           justify-content: center;
           position: relative;
           z-index: 1;
@@ -930,7 +983,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         :global(.cmp-lcd) {
           position: relative;
           border-radius: var(--foid-radius-sm);
-          padding: 3px 8px 4px;
+          padding: 2px 7px 3px;
           background: linear-gradient(180deg, rgba(2, 8, 16, 0.92), rgba(4, 16, 30, 0.8));
           border: 1px solid rgba(0, 0, 0, 0.55);
           border-bottom-color: rgba(255, 255, 255, 0.14);
@@ -968,7 +1021,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         }
         :global(.cmp-lcd__title) {
           font-family: var(--font-terminal);
-          font-size: 11px;
+          font-size: 10px;
           text-transform: uppercase;
           letter-spacing: 0.08em;
           line-height: 1.3;
@@ -1000,8 +1053,8 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
            controller has no seek method) --- */
         :global(.cmp-seek) {
           width: 100%;
-          height: 5px;
-          border-radius: 3px;
+          height: 4px;
+          border-radius: 2px;
           background: rgba(2, 8, 18, 0.75);
           box-shadow:
             inset 0 1px 3px rgba(0, 0, 0, 0.6),
@@ -1010,7 +1063,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         }
         :global(.cmp-seek__fill) {
           height: 100%;
-          border-radius: 3px;
+          border-radius: 2px;
           background: linear-gradient(
             90deg,
             color-mix(in srgb, var(--foid-cyan) 70%, var(--foid-cyan-electric)),
@@ -1040,7 +1093,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           line-height: 1;
         }
         :global(.cmp-volume__slider) {
-          width: 76px;
+          width: 68px;
           height: 5px;
           /* globals.css pads all inputs (0.65rem 0.9rem) — a range track must
              stay a slim 5px lane, so flatten the box model here. */
@@ -1110,10 +1163,10 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
            ═══════════════════════════════════════════════════════════════ */
         :global(.cmp-pebble) {
           position: relative;
-          width: 330px;
-          height: 300px;
+          width: 285px;
+          height: 260px;
           flex-shrink: 0;
-          padding: 22px 40px 0;
+          padding: 19px 35px 0;
           pointer-events: auto;
           cursor: grab;
           user-select: none;
@@ -1137,10 +1190,10 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         :global(.cmp-pebble::before) {
           content: "";
           position: absolute;
-          top: 8px;
-          left: 34px;
-          width: 158px;
-          height: 62px;
+          top: 7px;
+          left: 29px;
+          width: 137px;
+          height: 54px;
           border-radius: 50%;
           background: radial-gradient(ellipse at 45% 40%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 72%);
           transform: rotate(-10deg);
@@ -1151,13 +1204,13 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         /* --- Display: inner blue glass blob --- */
         :global(.cmp-pebble__display) {
           position: relative;
-          height: 158px;
-          padding: 12px 34px 14px 28px;
+          height: 137px;
+          padding: 10px 29px 12px 24px;
           display: flex;
           flex-direction: column;
           overflow: hidden;
           z-index: 1;
-          border-radius: 54px 74px 68px 78px / 46px 54px 68px 48px;
+          border-radius: 47px 64px 59px 67px / 40px 47px 59px 42px;
           background: linear-gradient(178deg, #9fd0f5 0%, #4b8ed0 34%, #1d5fa8 62%, #0b3a78 100%);
           box-shadow:
             inset 0 2px 8px rgba(255, 255, 255, 0.5),
@@ -1213,8 +1266,8 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           display: flex;
           align-items: flex-end;
           gap: 3px;
-          height: 18px;
-          margin-top: 4px;
+          height: 16px;
+          margin-top: 3px;
           position: relative;
           z-index: 1;
         }
@@ -1247,7 +1300,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
 
         /* Track meta: TITLE micro-label + name */
         :global(.cmp-pebble__meta) {
-          margin-top: 6px;
+          margin-top: 5px;
           min-width: 0;
           position: relative;
           z-index: 1;
@@ -1262,7 +1315,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         }
         :global(.cmp-pebble__track) {
           font-family: var(--font-terminal);
-          font-size: 11px;
+          font-size: 10px;
           letter-spacing: 0.06em;
           text-transform: uppercase;
           color: var(--foid-text);
@@ -1274,17 +1327,17 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         /* LCD: big segmented elapsed + small total */
         :global(.cmp-pebble__lcd) {
           margin-top: auto;
-          margin-left: 8px;
+          margin-left: 7px;
           display: flex;
           align-items: baseline;
-          gap: 10px;
+          gap: 9px;
           position: relative;
           z-index: 1;
         }
         :global(.cmp-pebble__elapsed) {
           display: inline-block;
           font-family: var(--font-terminal);
-          font-size: 28px;
+          font-size: 24px;
           line-height: 1;
           letter-spacing: 0.04em;
           font-variant-numeric: tabular-nums;
@@ -1306,10 +1359,10 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         /* --- Green ring play button, straddling the display edge --- */
         :global(.cmp-pebble__play) {
           position: absolute;
-          right: 34px;
-          top: 156px;
-          width: 54px;
-          height: 54px;
+          right: 29px;
+          top: 135px;
+          width: 47px; /* still comfortably ≥24px hit target */
+          height: 47px;
           padding: 0;
           z-index: 3;
           display: flex;
@@ -1320,7 +1373,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           line-height: 1;
           color: #17456f;
           cursor: pointer;
-          border: 5px solid #b9c6d2;
+          border: 4px solid #b9c6d2;
           background: radial-gradient(circle at 34% 28%, #ffffff 0%, #eef6fc 42%, #c6d9e9 100%);
           box-shadow:
             inset 0 2px 3px rgba(255, 255, 255, 0.95),
@@ -1371,14 +1424,14 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
 
         /* --- Lower shell: volume lane (clears the play button) + row --- */
         :global(.cmp-pebble__volume-row) {
-          margin: 14px 58px 0 0;
+          margin: 12px 50px 0 0;
         }
         :global(.cmp-pebble__volume) {
           -webkit-appearance: none;
           appearance: none;
           display: block;
           width: 100%;
-          height: 10px;
+          height: 9px;
           padding: 0;
           margin: 0;
           box-sizing: border-box;
@@ -1392,9 +1445,9 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         }
         :global(.cmp-pebble__volume::-webkit-slider-thumb) {
           -webkit-appearance: none;
-          width: 26px;
-          height: 14px;
-          margin-top: -2px;
+          width: 23px;
+          height: 12px;
+          margin-top: -1.5px;
           border-radius: 999px;
           background: linear-gradient(180deg, #ffffff 0%, #dceaf6 55%, #b4cde4 100%);
           border: 1px solid rgba(110, 150, 190, 0.85);
@@ -1404,8 +1457,8 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           cursor: pointer;
         }
         :global(.cmp-pebble__volume::-moz-range-thumb) {
-          width: 26px;
-          height: 14px;
+          width: 23px;
+          height: 12px;
           border-radius: 999px;
           background: linear-gradient(180deg, #ffffff 0%, #dceaf6 55%, #b4cde4 100%);
           border: 1px solid rgba(110, 150, 190, 0.85);
@@ -1415,27 +1468,27 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           cursor: pointer;
         }
         :global(.cmp-pebble__volume::-moz-range-track) {
-          height: 10px;
+          height: 9px;
           border-radius: 6px;
           background: linear-gradient(180deg, #b6cddf 0%, #e4f0f9 70%, #f6fbff 100%);
         }
         :global(.cmp-pebble__volume::-moz-range-progress) {
-          height: 10px;
+          height: 9px;
           border-radius: 6px;
           background: linear-gradient(180deg, #7cc0f2, #3f8fd8);
         }
 
         :global(.cmp-pebble__row) {
-          margin-top: 18px;
+          margin-top: 15px;
           display: flex;
           justify-content: center;
-          gap: 14px;
+          gap: 12px;
         }
         /* Light-shell gel variant — same chassis as .cmp-gel, milk-glass
            palette. Declared after the base rules so the overrides win. */
         :global(.cmp-gel--pebble) {
-          width: 30px;
-          height: 30px;
+          width: 26px; /* ≥24px hit target holds */
+          height: 26px;
           font-size: 10px;
           color: #2b5d8c;
           border-color: rgba(120, 160, 200, 0.75);

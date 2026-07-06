@@ -22,6 +22,10 @@ type AppTitlebarProps = {
   onDisconnect: () => void;
   onSwitchWallet: () => void;
   warnings?: AppTitlebarWarning[];
+  /** Override the traffic-light cluster. Route pages keep the default
+   *  (singleton-store WindowControls); the desktop shell's OSWindow passes
+   *  its own store-v2-driven controls. */
+  controls?: React.ReactNode;
 };
 
 function StatusIndicator({ connected }: { connected: boolean }) {
@@ -46,6 +50,7 @@ export default function AppTitlebar({
   onDisconnect,
   onSwitchWallet,
   warnings,
+  controls,
 }: AppTitlebarProps) {
   void chainId;
   // Derive typed wallet address from the string prop — works across all pages
@@ -70,7 +75,7 @@ export default function AppTitlebar({
         {/* Row 1: controls + title + wallet/status. The controls are live —
             WindowControls also wires titlebar drag + the corner resize. */}
         <div className="app-titlebar__row">
-          <WindowControls />
+          {controls ?? <WindowControls />}
           <span className="vista-window__title text-[9px] sm:text-[11px] truncate">
             <Image src="/foidmommy.gif" alt="" width={24} height={24} className="inline-block h-5 w-5 sm:h-6 sm:w-6 align-middle mr-1 sm:mr-2 flex-shrink-0" />
             <span className="truncate">{title}</span>

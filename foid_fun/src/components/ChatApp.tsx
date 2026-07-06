@@ -13,16 +13,23 @@
 // - Not resizable. Draggable via the titlebar (MUSIC.EXE's pointer-drag
 //   pattern), position remembered in state while it stays open.
 
-import { Component, useCallback, useRef, useState, type ReactNode } from "react";
+import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useAccount } from "wagmi";
 import { TerminalChat, type StatusMessage } from "@/components/TerminalChat";
 import { useChatAppStore } from "@/stores/chatAppStore";
+import { floatZ, useFloatStore } from "@/stores/floatStore";
 
 const WINDOW_WIDTH = 360;
 const WINDOW_HEIGHT = 480;
 // Home anchor — bottom-right, clear of the dock pill (64px + 10px gap).
 const HOME_RIGHT = 24;
 const HOME_BOTTOM = 92;
+// Titlebar height — the reachability unit for the drag clamps: the strip
+// may touch the viewport edges but never leave them vertically.
+const TITLEBAR_HEIGHT = 24;
+// At least this much titlebar WIDTH stays on-screen when the window is
+// shoved past a horizontal edge, so it can always be pulled back.
+const DRAG_KEEP_X = 100;
 
 /** Same job as the board page's ChatErrorBoundary: a WebSocket/chat crash
  *  must never take down the route underneath (this mounts on every route). */
@@ -50,6 +57,15 @@ export default function ChatApp() {
   const open = useChatAppStore((s) => s.open);
   const close = useChatAppStore((s) => s.close);
   const { address } = useAccount();
+
+  // Interim click-to-front layering (floatStore): any pointerdown on the
+  // chassis claims focus; opening from the dock claims it too (the dock
+  // itself never shifts focus, so a fresh window must self-raise).
+  const floatFocus = useFloatStore((s) => s.focus);
+  const setFloatFocus = useFloatStore((s) => s.setFocus);
+  useEffect(() => {
+    if (open) setFloatFocus("chat");
+  }, [open, setFloatFocus]);
 
   // Mount TerminalChat lazily on first open (no idle websocket on routes
   // where chat was never touched), then keep it mounted so history, the
@@ -85,20 +101,32 @@ export default function ChatApp() {
       let live = base;
       let raf = 0;
       const el = windowRef.current;
+      if (!el) return;
+
+      // Full-screen freedom with reachability (same clamp as MUSIC.EXE):
+      // measure the chassis once at grab time (live rect − base offset =
+      // home geometry) and clamp so the TITLEBAR never leaves the viewport
+      // vertically and ≥ DRAG_KEEP_X px of it stays visible horizontally —
+      // the window can reach the top corners or hang off a side, but the
+      // strip that drags it back always stays grabbable.
+      const rect = el.getBoundingClientRect();
+      const homeLeft = rect.left - base.x;
+      const homeTop = rect.top - base.y;
+      const width = rect.width;
 
       const onMove = (ev: PointerEvent) => {
-        // Keep the window fully on-screen: home sits at right/bottom, so
-        // x can go far left but only a nudge further right; y only up.
-        const minX = -(window.innerWidth - WINDOW_WIDTH - HOME_RIGHT - 12);
-        const minY = -(window.innerHeight - WINDOW_HEIGHT - HOME_BOTTOM - 12);
+        const minX = DRAG_KEEP_X - width - homeLeft;
+        const maxX = window.innerWidth - DRAG_KEEP_X - homeLeft;
+        const minY = -homeTop;
+        const maxY = window.innerHeight - TITLEBAR_HEIGHT - homeTop;
         live = {
-          x: Math.max(Math.min(minX, 0), Math.min(12, base.x + (ev.clientX - startX))),
-          y: Math.max(Math.min(minY, 0), Math.min(0, base.y + (ev.clientY - startY))),
+          x: Math.max(minX, Math.min(maxX, base.x + (ev.clientX - startX))),
+          y: Math.max(minY, Math.min(maxY, base.y + (ev.clientY - startY))),
         };
         if (!raf) {
           raf = requestAnimationFrame(() => {
             raf = 0;
-            if (el) el.style.transform = `translate(${live.x}px, ${live.y}px)`;
+            el.style.transform = `translate(${live.x}px, ${live.y}px)`;
           });
         }
       };
@@ -117,13 +145,20 @@ export default function ChatApp() {
 
   return (
     <>
+      {/* z comes from floatStore: 48 focused / 46 unfocused / 1 behind the
+          main window. Pointerdown-capture anywhere on the chassis claims
+          focus (no preventDefault — the chat input keeps working). */}
       <div
         ref={windowRef}
         className={`chat-app foid-modal--slab ${open ? "chat-app--open" : "chat-app--closed"}`}
         role="dialog"
         aria-label="CHAT.EXE"
         aria-hidden={!open}
-        style={{ transform: offset ? `translate(${offset.x}px, ${offset.y}px)` : undefined }}
+        style={{
+          transform: offset ? `translate(${offset.x}px, ${offset.y}px)` : undefined,
+          zIndex: floatZ("chat", floatFocus),
+        }}
+        onPointerDownCapture={() => setFloatFocus("chat")}
       >
         {/* Titlebar — drag surface + close orb + brand (MUSIC.EXE grammar) */}
         <div className="chat-app__titlebar" onPointerDown={handleBarPointerDown} title="drag to move">
@@ -157,7 +192,8 @@ export default function ChatApp() {
           position: fixed;
           right: ${HOME_RIGHT}px;
           bottom: ${HOME_BOTTOM}px; /* clears the dock (64px pill + 10px gap + breath) */
-          z-index: 50;
+          /* z-index is inline, driven by floatStore (48/46/1) — see
+             src/stores/floatStore.ts for the ladder. */
           width: ${WINDOW_WIDTH}px;
           height: ${WINDOW_HEIGHT}px;
           max-height: calc(100vh - 120px);
@@ -182,6 +218,13 @@ export default function ChatApp() {
             opacity 0.3s ease-in,
             visibility 0s linear 0.3s;
         }
+        /* 1:1 cursor tracking while a drag gesture is live — same rule the
+           shell applies to .vista-window. Without it every rAF transform
+           write rides the 0.35s open/close transition and the window
+           trails the pointer like jelly. */
+        :global(body.foid-window-dragging) .chat-app {
+          transition: none;
+        }
         /* Desktop-only — mobile keeps the board sidebar chat */
         @media (max-width: 1023px) {
           .chat-app {
@@ -193,7 +236,7 @@ export default function ChatApp() {
           display: flex;
           align-items: center;
           gap: 8px;
-          height: 24px;
+          height: ${TITLEBAR_HEIGHT}px;
           padding: 0 8px;
           flex-shrink: 0;
           background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.18));

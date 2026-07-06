@@ -5,6 +5,7 @@ import butterchurnModule from "butterchurn";
 import * as butterchurnPresets from "butterchurn-presets";
 import { broadcastMusicState, musicPanelController } from "@/components/musicPanelController";
 import { getAudioSettings, subscribe as subscribeAudioSettings, setMusicVolume } from "@/lib/audioSettings";
+import { NextIcon, PauseIcon, PlayIcon, PrevIcon } from "@/components/icons/AeroIcons";
 
 type PresetMap = Record<string, unknown>;
 type Visualizer = {
@@ -687,21 +688,21 @@ const ensureVisualizer = useCallback(() => {
 
               <button
                 onClick={prev}
-                className="h-14 w-14 rounded-xl bg-white/20 text-white/90 hover:bg-white/30 font-semibold pointer-events-auto z-40"
+                className="h-14 w-14 rounded-xl bg-white/20 text-white/90 hover:bg-white/30 grid place-items-center pointer-events-auto z-40"
                 aria-label="Previous"
-              >‹‹</button>
+              ><PrevIcon size={20} tone="frost" /></button>
 
               <button
                 onClick={toggle}
-                className="h-14 w-14 rounded-xl bg-white/30 text-white hover:bg-white/40 font-bold pointer-events-auto z-40"
+                className="h-14 w-14 rounded-xl bg-white/30 text-white hover:bg-white/40 grid place-items-center pointer-events-auto z-40"
                 aria-label={isPlaying ? 'Pause' : 'Play'}
-              >{isPlaying ? '❚❚' : '►'}</button>
+              >{isPlaying ? <PauseIcon size={26} tone="frost" /> : <PlayIcon size={26} tone="frost" />}</button>
 
               <button
                 onClick={next}
-                className="h-14 w-14 rounded-xl bg-white/20 text-white/90 hover:bg-white/30 font-semibold pointer-events-auto z-40"
+                className="h-14 w-14 rounded-xl bg-white/20 text-white/90 hover:bg-white/30 grid place-items-center pointer-events-auto z-40"
                 aria-label="Next"
-              >››</button>
+              ><NextIcon size={20} tone="frost" /></button>
             </div>
 
             {/* RIGHT-SIDE LANE (centers tiny volume between Next and wall) */}

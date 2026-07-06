@@ -9,6 +9,7 @@ import { useMobile } from '@/hooks/useMobile';
 // barrel drags the full wallet stack (bip39 wordlist, bip32, passkey,
 // crypto) into the every-route layout bundle just for this one call.
 import { clearSession } from '@/lib/wallet/session';
+import { useMainFocusListener } from '@/stores/floatStore';
 
 // These overlays all render null until a user/cookie condition flips
 // (wallet modal opened, first-visit tour, post-connect welcome), and the
@@ -26,6 +27,12 @@ const ChatApp = dynamic(() => import('@/components/ChatApp'), { ssr: false });
 
 export function ClientLayout() {
   const { isMobile } = useMobile();
+
+  // Interim click-to-front layering: a pointerdown on main-window territory
+  // (inside .app-viewport, but not on the dock or a floater) drops the
+  // floating apps behind the route window. Lives here because this layout
+  // owns both floaters. See src/stores/floatStore.ts for the z ladder.
+  useMainFocusListener();
 
   // Clear embedded wallet session on page unload
   useEffect(() => {

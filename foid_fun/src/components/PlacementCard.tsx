@@ -1,4 +1,5 @@
 import { memo, useMemo, useState, useCallback, useEffect, useRef } from "react";
+import BodyPortal from "@/components/BodyPortal";
 import { ipfsImageUrls } from "@/lib/ipfsUrl";
 import {
   reorderGateways,
@@ -379,13 +380,19 @@ function PlacementCardInner({
         )}
       </button>
 
-      {/* Confirmation modal */}
+      {/* Confirmation modal — BodyPortal'd: the card lives inside the
+          transformed .board-stage (and, in the desktop shell, inside a
+          backdrop-filtered .vista-window), both of which turn its
+          position:fixed backdrop/dialog into locally-positioned elements.
+          Body-level keeps it a true viewport takeover everywhere. */}
       {showConfirm && (
-        <FlagConfirmModal
-          flagLabel={flagLabel ?? "0.001 ETH"}
-          onConfirm={() => void handleFlagConfirm()}
-          onCancel={() => setShowConfirm(false)}
-        />
+        <BodyPortal>
+          <FlagConfirmModal
+            flagLabel={flagLabel ?? "0.001 ETH"}
+            onConfirm={() => void handleFlagConfirm()}
+            onCancel={() => setShowConfirm(false)}
+          />
+        </BodyPortal>
       )}
     </div>
   );
