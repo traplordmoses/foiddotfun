@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { useRouter } from "next/navigation";
 import { getAudioSettings } from "@/lib/audioSettings";
+import { BOOT_SESSION_KEY, hasEnteredRecently } from "@/lib/foidOsBoot";
 
 const PARTICLE_COUNT = 20;
 
@@ -12,10 +13,16 @@ const PARTICLE_COUNT = 20;
  * Phases (data-boot on .enter-gate; visuals live in src/app/enter/enter.css):
  *   cover → sigil → sky → ready
  * Modes:
- *   full    first boot this session      (~2.9s to interactive)
- *   fast    returning visitor            (~0.9s, via sessionStorage)
- *   static  prefers-reduced-motion       (composed final frame, instant)
+ *   full    first boot ever / cold visit          (~2.9s to interactive)
+ *   fast    returning visitor                     (~0.9s) — booted this tab
+ *           session (sessionStorage) OR entered within the cookie window
+ *           (foid_entered, e.g. a fresh tab a few hours later)
+ *   static  prefers-reduced-motion                (composed final frame, instant)
  * Override for debugging/QA: /enter?boot=full|fast|static
+ *
+ * Stage C: this boot IS the desktop's front door — the destination is the
+ * shell, and finishing the boot sets BOOT_SESSION_KEY (lib/foidOsBoot) so
+ * the desktop gate at / knows not to bounce back here (no double boot).
  *
  * The boot is skippable instantly (any key / click / tap) and shows no
  * numeric progress — the log lines fire when their stage actually starts,
@@ -23,8 +30,6 @@ const PARTICLE_COUNT = 20;
  */
 type BootPhase = "cover" | "sigil" | "sky" | "ready";
 type BootMode = "full" | "fast" | "static";
-
-const BOOT_SESSION_KEY = "foid_os_booted";
 /* Timings below pair with the CSS durations in enter.css. */
 const BOOT_LOG_LINES = [
   "waking foid mommy",
@@ -307,13 +312,16 @@ export default function EnterGate({
     } catch {
       seenThisSession = false;
     }
+    /* Returning visitor = booted this tab session, or holds the entered
+       cookie (a new tab inside the 24h window still resumes fast). */
+    const returning = seenThisSession || hasEnteredRecently();
 
     const mode: BootMode =
       override === "static" || override === "fast" || override === "full"
         ? override
         : prefersStatic
           ? "static"
-          : seenThisSession
+          : returning
             ? "fast"
             : "full";
     setBootMode(mode);

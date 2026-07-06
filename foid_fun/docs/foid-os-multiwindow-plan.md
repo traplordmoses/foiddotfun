@@ -1,6 +1,6 @@
 # FOID OS Stage 2 — Multi-Window Integration Plan
 
-**Status:** proposal (no code changed) · **Branch:** `design/foid-os-media` · **Date:** 2026-07-06
+**Status:** Stages A–C shipped (see "Stage C — SHIPPED" at the bottom) · **Plan drafted on branch** `design/foid-os-media` · **Date:** 2026-07-06
 **Scope:** several apps (PRAY, BOARD, …) open simultaneously as independent draggable/resizable
 windows on one desktop shell, like a real OS.
 
@@ -444,3 +444,115 @@ The four open questions are answered — these are binding for stage A:
 4. **Desktop + /enter:** the desktop/home IS the /enter boot experience —
    FOID OS boots through the /enter loading animation into the shell.
    (/enter animation upgrade in progress in parallel.)
+
+---
+
+## Stage C — SHIPPED (2026-07-06, branch `design/foid-os-stage-c`)
+
+The desktop is now THE experience. What changed, vs. the Stage C sketch in §4:
+
+### 1. Default flipped — flag inverted to an opt-out
+`FOID_DESKTOP_ENABLED` (src/config/desktop.ts) is now
+`process.env.NEXT_PUBLIC_FOID_DESKTOP !== "0"`: the shell is on by default
+everywhere; setting the env var to `"0"` is the emergency kill switch that
+restores the launcher + standalone routes (build-time constant, so opting
+out dead-codes every shell branch, exactly like the old opt-in did).
+Mobile (<1024px) is untouched by the flip: one app per route, launcher as
+home — permanently (plan §1 mobile story).
+
+### 2. Routes are entry points (deep links open the shell)
+As planned (§4 Stage C item 2), with one deliberate simplification:
+
+- Each app route page (/pray /board /vote /mifoid /files /about) calls
+  `useDesktopHandoff(appId)` (src/components/os/useDesktopHandoff.ts):
+  on desktop-eligible viewports it `router.replace()`s to
+  `/?apps=<id>&focus=<id>` + the route's own query, and the page renders
+  null while the wallpaper carries the transition. `replace` keeps the
+  back button sane — back leaves the desktop, never bounces through the
+  old route.
+- **`?standalone=1` is the escape hatch**: it suppresses the handoff and
+  serves the full standalone page on any viewport (and is what mobile
+  implicitly always gets). The handoff decision is taken once on mount;
+  resizing mid-visit doesn't yank the page.
+- `/vote/[id]` and `/vote/submit` remain full standalone routes (plan §4
+  VOTE row) — no handoff.  `/gallery`, `/dashboard`, `/swipe` untouched.
+- **Deviation — no `<appId>.<param>` namespacing.** The plan sketched
+  namespaced app params (`board.debug=1`); shipped Stage C passes app
+  params through RAW (`/?apps=board&debug=1`) because the extracted apps
+  read `useSearchParams`/`location.search` directly (Stage B shipped that
+  way) and no two apps share a param key today (board: debug/celebrate ·
+  pray: registry/mirror · vote: none). Namespacing gets built the day two
+  apps collide; building it now would mean teaching every app a second
+  param source for zero present benefit.
+
+### 3. URL sync (`/?apps=pray,board&focus=board`)
+`useDesktopUrlSync` in Desktop.tsx serializes zOrder + focus to the query
+via native `history.replaceState` (router-integrated on Next 14.2, so
+`useSearchParams` stays truthful; no history spam, no scroll reset — §1
+URL behavior as designed). On shell mount, `parseDesktopAppsParam`
+(src/config/desktop.ts) seeds the store from `?apps=` — ids validated
+against the registry, duplicates collapsed (one-instance rule, founder
+decision #3), capped at MAX_OPEN_WINDOWS (founder decision #2), focus
+coerced into the list. A bare `/` (no ?apps=) restores the last persisted
+layout instead (§4 Stage C item 4). Covered by test/config/desktop.test.ts.
+
+### 4. /enter is the desktop's front door (founder decision #4)
+- The working mechanism is the **desktop gate** (src/app/page.tsx): on lg+
+  it requires the boot session flag (`foid_os_booted`, shared via
+  src/lib/foidOsBoot.ts) — a tab session that hasn't played the boot is
+  `router.replace`d to `/enter` + the current query (deep links survive).
+  EnterGate sets the flag when the boot lands, which is the
+  no-double-boot handshake (and the flag check fails open, so a
+  sessionStorage-less browser can't redirect-loop).
+- ⚠ **Finding: middleware.ts is currently DEAD site-wide.** This app has a
+  `src/` directory, so Next.js only picks up `src/middleware.ts`; the
+  root-level `middleware.ts` (the `foid_entered` cookie gate for `/` and
+  the POST guard) has never been running — verified live: `POST /pray`
+  returns the SSR page, and cookie-less `curl /` returns 200. Stage C
+  still updated it (the /enter bounce now preserves the query string) so
+  it is correct the day it's activated, but activation itself — moving
+  the file under src/ — is a deliberate site-wide behavior change (mobile
+  `/` would start redirecting to /enter) and is left as its own task.
+  The desktop boot handoff does not depend on it.
+- /enter's destination is now `/` + its own query (minus the `boot` QA
+  override) — the boot outro lands on the desktop with the deep-linked
+  windows open. The sky is shared the whole way.
+- Returning-visitor fast boot **kept and widened**: fast mode (~0.9s) now
+  also triggers off the `foid_entered` cookie, so a new tab within 24h
+  resumes fast instead of replaying the full ~2.9s ceremony; the full
+  boot is reserved for genuinely cold visits.
+
+### 5. SSR/SEO approach (what "client-side takeover" means)
+Server output is unchanged for every route: `/pray` etc. still SSR their
+complete standalone markup with their route `metadata` (crawlers, unfurls
+and curl get real pages), and `/` still SSRs the launcher skeleton. The
+desktop takeover happens strictly client-side after hydration
+(`useDesktopHandoff` / DesktopGate are effects), and the shell chunk is
+`dynamic(..., { ssr: false })`. Known trade-off: JS-executing desktop
+crawlers may observe the redirect to `/`; the SSR HTML they fetched is
+still the canonical app content, and Google indexes mobile-first (375px
+class viewports never redirect). Accepted; revisit only if search
+coverage regresses.
+
+### 6. Retired in Stage C
+- `src/components/RemovalVotePanel.tsx` — deleted (orphan; imported by
+  nothing, superseded by the V1 Loreboard removal flow).
+- Stale "flag is on/off" comments across Dock.tsx, Desktop.tsx,
+  globals.css, page.tsx and the four S/M-tier app headers rewritten to
+  describe the default-on world.
+- Route `loading.tsx` files were NOT retired (plan §4 Stage C item 3
+  suggested it): they still serve mobile + `?standalone=1` navigations,
+  which remain real route loads. Deferred until those presentations die,
+  which is currently "never" (mobile story).
+
+### Deferred / unchanged
+- HOME as a window (§4 app table) — the empty desktop currently shows the
+  dock hint instead; the launcher remains mobile-only. Open positioning
+  question (§6 Q3) still open.
+- Legacy singleton `useWindowStore` stays: it drives the standalone/mobile
+  window chrome (WindowFrame), which Stage C keeps alive by design.
+- MUSIC.EXE / CHAT.EXE floaters coexist with the shell unchanged: windows
+  live at z 10–15 (WINDOW_Z_BASE ladder), floaters at 46/48 (focused) or 1
+  (behind), dock at 50, modals above — the floatStore ladder already
+  treats every `.vista-window` as "main" territory, which now includes
+  shell windows.

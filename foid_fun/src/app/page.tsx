@@ -3,11 +3,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
-import { FOID_DESKTOP_ENABLED } from "@/config/desktop";
+import { DESKTOP_MIN_WIDTH, FOID_DESKTOP_ENABLED } from "@/config/desktop";
+import { hasBootedThisSession } from "@/lib/foidOsBoot";
 
 // Import-only optimization: ActivityBubbles pulls the Supabase client via
 // useActivityFeed. Lazy-loading it keeps Supabase out of the landing page's
@@ -15,32 +17,57 @@ import { FOID_DESKTOP_ENABLED } from "@/config/desktop";
 // ssr:false is behavior-neutral: the container renders empty until the feed ticks.
 const ActivityBubbles = dynamic(() => import("@/components/ActivityBubbles"), { ssr: false });
 
-// FOID OS desktop shell (multi-window plan, Stage A). Only reachable behind
-// NEXT_PUBLIC_FOID_DESKTOP — with the flag off the chunk is never fetched
-// and this route is byte-identical to production.
+// FOID OS desktop shell (multi-window plan, Stage C: the default home for
+// lg+ viewports). ssr:false — the takeover is a client-side decision, so
+// this route's server markup stays crawlable and NEXT_PUBLIC_FOID_DESKTOP=0
+// (emergency opt-out) never even fetches the chunk.
 const Desktop = dynamic(() => import("@/components/os/Desktop"), { ssr: false });
 
 export default function HomePage() {
-  // Build-time constant: flag off → the launcher window, exactly as today.
+  // Build-time constant: opted out (NEXT_PUBLIC_FOID_DESKTOP=0) → the
+  // launcher window everywhere, exactly as pre-desktop production.
   if (!FOID_DESKTOP_ENABLED) return <HomeLauncher />;
   return <DesktopGate />;
 }
 
 /** The shell is a lg:-and-up experience (windows don't float on mobile) —
- *  narrow viewports keep the launcher window even with the flag on. Renders
+ *  narrow viewports keep the launcher window as their home forever. Renders
  *  null pre-mount: the root layout's wallpaper stack IS the desktop, so
- *  there's nothing to flash. */
+ *  there's nothing to flash.
+ *
+ *  Boot handoff (founder decision #4): a tab session that hasn't played the
+ *  /enter boot yet gets bounced through it — with the current query intact,
+ *  so ?apps= deep links restore after the ceremony. EnterGate sets the
+ *  session flag when the boot lands, which is what keeps this from ever
+ *  double-booting (or loop-redirecting: hasBootedThisSession fails open). */
 function DesktopGate() {
+  const router = useRouter();
   const [wide, setWide] = useState<boolean | null>(null);
+  const [booted, setBooted] = useState<boolean | null>(null);
+
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
+    const mq = window.matchMedia(`(min-width: ${DESKTOP_MIN_WIDTH}px)`);
     const update = () => setWide(mq.matches);
     update();
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, []);
+
+  useEffect(() => {
+    if (wide !== true) return;
+    if (hasBootedThisSession()) {
+      setBooted(true);
+      return;
+    }
+    setBooted(false);
+    router.replace(`/enter${window.location.search}`);
+  }, [wide, router]);
+
   if (wide === null) return null;
-  return wide ? <Desktop /> : <HomeLauncher />;
+  if (!wide) return <HomeLauncher />;
+  // Un-booted sessions are on their way to /enter — keep the wallpaper.
+  if (booted !== true) return null;
+  return <Desktop />;
 }
 
 const tiles = [

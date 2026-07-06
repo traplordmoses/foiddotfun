@@ -2,8 +2,8 @@
 // MIFOID.EXE — window content extracted from the /mifoid route so the same
 // component renders in BOTH presentations (multi-window plan §4):
 //   - the /mifoid route page (thin wrapper: main + vista-window + titlebar)
-//   - a desktop shell window (<OSWindow appId="mifoid">) when the
-//     NEXT_PUBLIC_FOID_DESKTOP flag is on
+//   - a desktop shell window (<OSWindow appId="mifoid">) — the default
+//     mifoid surface on lg+ viewports since Stage C (routes hand off)
 //
 // The floating mini-windows are absolutely positioned inside the frame —
 // already window-relative, which is what made this an S-tier port. The

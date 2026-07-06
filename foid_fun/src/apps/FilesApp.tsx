@@ -2,8 +2,8 @@
 // FILES.EXE — the FOID OS file browser, extracted from the /files route so
 // the same component renders in BOTH presentations (multi-window plan §4):
 //   - the /files route page (thin wrapper: main + vista-window + titlebar)
-//   - a desktop shell window (<OSWindow appId="files">) when the
-//     NEXT_PUBLIC_FOID_DESKTOP flag is on
+//   - a desktop shell window (<OSWindow appId="files">) — the default
+//     files surface on lg+ viewports since Stage C (routes hand off)
 //
 // Finder anatomy in aero material: a glass sidebar (Favorites drive the
 // kind filter, Locations link out to the repo + foid.fun), a slim toolbar

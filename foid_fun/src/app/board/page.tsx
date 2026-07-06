@@ -1,11 +1,13 @@
 "use client";
 
 // MIFOID_LOREBOARD.APP route (/board) — thin wrapper around the extracted
-// BoardAppCore (src/apps/BoardApp.tsx). The app content is shared verbatim
-// with the desktop shell's BOARD window (multi-window plan §4): the route
-// presentation renders today's page exactly — mobile tree + desktop main
-// (particles, vista-window, titlebar) — inside the same ErrorBoundary +
-// Suspense this page always had. board.css now loads via BoardApp.
+// BoardAppCore (src/apps/BoardApp.tsx). Stage C: on desktop viewports this
+// route hands off to the shell with BOARD focused (useDesktopHandoff, app
+// params like ?debug=1 ride along); mobile — and ?standalone=1 — keep the
+// standalone presentation: today's page exactly — mobile tree + desktop
+// main (particles, vista-window, titlebar) — inside the same
+// ErrorBoundary + Suspense this page always had. board.css loads via
+// BoardApp.
 //
 // board/layout.tsx keeps `dynamic = "force-dynamic"` for this route; the
 // shell mounts BoardApp with ssr:false so the home route needs no such
@@ -13,9 +15,12 @@
 
 import { Suspense } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useDesktopHandoff } from "@/components/os/useDesktopHandoff";
 import { BoardAppCore } from "@/apps/BoardApp";
 
 export default function BoardPage() {
+  const handedOff = useDesktopHandoff("board");
+  if (handedOff) return null;
   return (
     <ErrorBoundary
       route="board"
