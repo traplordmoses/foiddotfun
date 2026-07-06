@@ -33,8 +33,8 @@ CREATE POLICY "Anyone can read board_messages"
   FOR SELECT
   USING (true);
 
--- 4. Allow inserts with a wallet_address (server-side API route handles validation)
-CREATE POLICY "Authenticated inserts to board_messages"
-  ON public.board_messages
-  FOR INSERT
-  WITH CHECK (true);
+-- 4. NO insert policy for anon — deliberately. Writes go through
+--    /api/chat/send using the service_role key (which bypasses RLS), so the
+--    route's signature check + rate limit can't be skipped by posting to the
+--    REST API directly. See lock_board_messages_rls.sql for the migration
+--    that removes the old permissive INSERT policy from live projects.
