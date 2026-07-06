@@ -235,7 +235,7 @@ export default function PrayerSuccessToast({
         }
 
         .ring-fill {
-          stroke: #00ffd5;
+          stroke: var(--foid-cyan-electric);
           stroke-width: 2.5;
           fill: none;
           stroke-dasharray: 126;
@@ -247,7 +247,7 @@ export default function PrayerSuccessToast({
         }
 
         .checkmark-path {
-          stroke: #00ffd5;
+          stroke: var(--foid-cyan-electric);
           stroke-width: 2.5;
           stroke-linecap: round;
           stroke-linejoin: round;
@@ -268,7 +268,7 @@ export default function PrayerSuccessToast({
           margin: 0;
           font-size: 20px;
           font-weight: 600;
-          color: #00ffd5;
+          color: var(--foid-cyan-electric);
           letter-spacing: 0.03em;
           text-shadow: 0 0 24px rgba(0, 255, 213, 0.4);
         }
@@ -325,7 +325,7 @@ export default function PrayerSuccessToast({
         .prayer-success-link:hover {
           background: rgba(0, 255, 213, 0.12);
           border-color: rgba(0, 255, 213, 0.3);
-          color: #00ffd5;
+          color: var(--foid-cyan-electric);
         }
 
         .prayer-success-shimmer {

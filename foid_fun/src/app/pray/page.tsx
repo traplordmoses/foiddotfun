@@ -890,7 +890,7 @@ function PrayPageContent() {
           font-weight: 600;
         }
         .pray-mobile-titlebar__accent {
-          color: #00ffd5;
+          color: var(--foid-cyan-electric);
           opacity: 0.7;
         }
         .pray-mobile-titlebar__wallet {
@@ -939,7 +939,7 @@ function PrayPageContent() {
         }
         .pray-journey-trigger:hover,
         .pray-journey-trigger:active {
-          color: #00ffd5;
+          color: var(--foid-cyan-electric);
           border-color: rgba(0, 255, 213, 0.45);
           background: rgba(0, 255, 213, 0.06);
         }
@@ -1055,7 +1055,7 @@ function PrayPageContent() {
           left: 8px;
           width: 3px;
           height: 3px;
-          background: conic-gradient(from 0deg, #8b5cf6, #ffcc5c, #6eead8, #8b5cf6);
+          background: conic-gradient(from 0deg, #8b5cf6, #ffcc5c, var(--foid-mint), #8b5cf6);
           z-index: 3;
           pointer-events: none;
         }
@@ -1151,11 +1151,11 @@ function PrayPageContent() {
         .pray-status-indicator { display: flex; align-items: center; gap: 8px; }
         .pray-status-dot { width: 8px; height: 8px; border-radius: 50%; }
         .pray-status-dot--online {
-          background: #00ffd5;
+          background: var(--foid-cyan-electric);
           box-shadow: 0 0 10px rgba(0, 255, 213, 0.8), 0 0 20px rgba(0, 255, 213, 0.4);
           animation: pray-pulse 2s ease-in-out infinite;
         }
-        .pray-status-dot--offline { background: #ff4757; box-shadow: 0 0 8px rgba(255, 71, 87, 0.6); }
+        .pray-status-dot--offline { background: var(--foid-red-vivid); box-shadow: 0 0 8px rgba(255, 71, 87, 0.6); }
         .pray-status-text { font-size: 11px; letter-spacing: 0.08em; color: rgba(255, 255, 255, 0.7); }
         @keyframes pray-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
         
@@ -1261,7 +1261,7 @@ function PrayPageContent() {
           font-size: 16px;
           font-weight: 800;
           letter-spacing: 0.22em;
-          color: #00ffd5;
+          color: var(--foid-cyan-electric);
           text-shadow: 0 0 24px rgba(0, 255, 213, 0.5);
           margin-bottom: 8px;
           line-height: 1.2;
@@ -1296,7 +1296,7 @@ function PrayPageContent() {
           font-size: 10px;
           font-weight: 600;
           letter-spacing: 0.15em;
-          color: #00ffd5;
+          color: var(--foid-cyan-electric);
           margin-bottom: 6px;
           opacity: 0.85;
           text-shadow: 0 0 10px rgba(0, 255, 213, 0.3);
@@ -1357,7 +1357,7 @@ function PrayPageContent() {
         .pray-chain-info__row:last-child { border-bottom: none; }
         .pray-chain-info__label { font-size: 11px; color: rgba(255, 255, 255, 0.4); }
         .pray-chain-info__value { font-size: 12px; font-family: var(--font-terminal, monospace); color: rgba(255, 255, 255, 0.8); font-weight: 600; }
-        .pray-chain-info__value--hash { color: #00ffd5; }
+        .pray-chain-info__value--hash { color: var(--foid-cyan-electric); }
         .pray-chain-info__value--ready { color: #00ff88; text-shadow: 0 0 8px rgba(0, 255, 136, 0.5); }
         /* Urgent variant — used by the streak-loss deadline once the cooldown
            has elapsed and the user has < 24h to pray or break their streak. */

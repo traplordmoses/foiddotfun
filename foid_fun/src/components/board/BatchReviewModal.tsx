@@ -3,9 +3,14 @@
 // the fee breakdown — before this modal existed, fees appeared in four
 // different places (the ETH/CELL chip, the ghost label, the pending badge,
 // and the pricing line) and could drift out of sync.
+//
+// Dialog chrome (backdrop, slab panel, Escape, focus trap, scroll lock)
+// comes from the shared <Modal/> primitive; this file only owns the fee
+// review content.
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Modal } from "@/components/ui";
 import { formatEth } from "@/lib/wei";
 import { rectCells, type Rect } from "@/lib/grid";
 import { estimateBatchGas, type GasEstimateResult } from "@/lib/board/gasEstimate";
@@ -88,216 +93,128 @@ export function BatchReviewModal({
     };
   }, [address, itemsKey, submissionFeeWei]);
 
-  // Escape = cancel. Use a ref so we don't re-bind the listener on every
-  // parent render (the inline `onCancel` closure changes identity each time).
-  const onCancelRef = useRef(onCancel);
-  onCancelRef.current = onCancel;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancelRef.current();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
   const totalWithGasWei = gas ? totalFeeWei + gas.totalGasCostWei : totalFeeWei;
 
-  // Focus trap: keep Tab inside the modal so keyboard users can't land on
-  // hidden background controls. Focus the primary CTA on mount.
-  const panelRef = useRef<HTMLDivElement>(null);
+  // Primary CTA receives focus on open (via Modal's initialFocusRef) so
+  // keyboard users can review fees and confirm without tabbing.
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    confirmBtnRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-      const panel = panelRef.current;
-      if (!panel) return;
-      const focusable = panel.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      previouslyFocused?.focus?.();
-    };
-  }, []);
 
   return (
-    <div
-      className="brm-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="brm-title"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onCancel();
-      }}
+    <Modal
+      open
+      onClose={onCancel}
+      label="Ready to engrave — review fees"
+      variant="slab"
+      maxWidth={460}
+      initialFocusRef={confirmBtnRef}
     >
-      <div className="brm-panel" ref={panelRef}>
-        <header className="brm-header">
-          <h2 id="brm-title" className="brm-title">
-            READY TO ENGRAVE
-          </h2>
-          <p className="brm-sub">
-            {items.length} placement{items.length === 1 ? "" : "s"} · {totalCells}{" "}
-            cell{totalCells === 1 ? "" : "s"}
-          </p>
-        </header>
+      <header className="brm-header">
+        <h2 id="brm-title" className="brm-title">
+          READY TO ENGRAVE
+        </h2>
+        <p className="brm-sub">
+          {items.length} placement{items.length === 1 ? "" : "s"} · {totalCells}{" "}
+          cell{totalCells === 1 ? "" : "s"}
+        </p>
+      </header>
 
-        <ul className="brm-items" role="list">
-          {items.map((it) => {
-            const cells = rectCells(it.rect);
-            return (
-              <li key={it.id} className="brm-item">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={it.previewUrl}
-                  alt={it.name}
-                  className="brm-thumb"
-                  draggable={false}
-                />
-                <div className="brm-item-meta">
-                  <span className="brm-item-name" title={it.name}>
-                    {it.name}
-                  </span>
-                  <span className="brm-item-sub">
-                    {it.rect.w}×{it.rect.h} · {cells} cell{cells === 1 ? "" : "s"}
-                  </span>
-                </div>
-                <span className="brm-item-fee">{formatEth(submissionFeeWei)}</span>
-              </li>
-            );
-          })}
-        </ul>
+      <ul className="brm-items" role="list">
+        {items.map((it) => {
+          const cells = rectCells(it.rect);
+          return (
+            <li key={it.id} className="brm-item">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={it.previewUrl}
+                alt={it.name}
+                className="brm-thumb"
+                draggable={false}
+              />
+              <div className="brm-item-meta">
+                <span className="brm-item-name" title={it.name}>
+                  {it.name}
+                </span>
+                <span className="brm-item-sub">
+                  {it.rect.w}×{it.rect.h} · {cells} cell{cells === 1 ? "" : "s"}
+                </span>
+              </div>
+              <span className="brm-item-fee">{formatEth(submissionFeeWei)}</span>
+            </li>
+          );
+        })}
+      </ul>
 
-        <dl className="brm-summary">
-          <div className="brm-row">
-            <dt>Placement fee</dt>
-            <dd>
-              {formatEth(totalFeeWei)} ETH
-              <span className="brm-row-sub">
-                {formatEth(submissionFeeWei)} × {items.length}
-              </span>
-            </dd>
-          </div>
-          <div className="brm-row">
-            <dt>Estimated gas</dt>
-            <dd>
-              {gas ? (
-                <>
-                  ~{parseFloat(gas.totalGasCostEth).toFixed(5)} ETH
-                  {gas.partial && (
-                    <span className="brm-row-sub brm-warn">partial estimate</span>
-                  )}
-                </>
-              ) : gasError ? (
-                <span className="brm-row-sub brm-warn">unavailable</span>
-              ) : (
-                <span className="brm-row-sub">estimating...</span>
-              )}
-            </dd>
-          </div>
-          <div className="brm-row brm-row--total">
-            <dt>Total</dt>
-            <dd>~{formatEth(totalWithGasWei)} ETH</dd>
-          </div>
-        </dl>
-
-        <div className="brm-rules">
-          <span>Voting window: {formatWindow(votingWindowSeconds)}</span>
-          <span>·</span>
-          <span>Approval threshold: {(approvalThresholdBps / 100).toFixed(0)}%</span>
+      <dl className="brm-summary">
+        <div className="brm-row">
+          <dt>Placement fee</dt>
+          <dd>
+            {formatEth(totalFeeWei)} ETH
+            <span className="brm-row-sub">
+              {formatEth(submissionFeeWei)} × {items.length}
+            </span>
+          </dd>
         </div>
+        <div className="brm-row">
+          <dt>Estimated gas</dt>
+          <dd>
+            {gas ? (
+              <>
+                ~{parseFloat(gas.totalGasCostEth).toFixed(5)} ETH
+                {gas.partial && (
+                  <span className="brm-row-sub brm-warn">partial estimate</span>
+                )}
+              </>
+            ) : gasError ? (
+              <span className="brm-row-sub brm-warn">unavailable</span>
+            ) : (
+              <span className="brm-row-sub">estimating...</span>
+            )}
+          </dd>
+        </div>
+        <div className="brm-row brm-row--total">
+          <dt>Total</dt>
+          <dd>~{formatEth(totalWithGasWei)} ETH</dd>
+        </div>
+      </dl>
 
-        <footer className="brm-actions">
-          <button
-            type="button"
-            className="brm-btn brm-btn--ghost"
-            onClick={onCancel}
-          >
-            CANCEL
-          </button>
-          <button
-            type="button"
-            className="brm-btn brm-btn--primary"
-            onClick={onConfirm}
-            disabled={!address}
-            ref={confirmBtnRef}
-            // Shift+Enter anywhere inside the button (and by extension, while
-            // it has focus — which is the default since mount) confirms. This
-            // lets keyboard users skip the extra click after reviewing fees.
-            // WCAG 2.1.1 (Keyboard).
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && e.shiftKey && !e.currentTarget.disabled) {
-                e.preventDefault();
-                onConfirm();
-              }
-            }}
-            aria-keyshortcuts="Shift+Enter"
-            title="Shift+Enter to confirm"
-          >
-            SIGN &amp; ENGRAVE
-          </button>
-        </footer>
+      <div className="brm-rules">
+        <span>Voting window: {formatWindow(votingWindowSeconds)}</span>
+        <span>·</span>
+        <span>Approval threshold: {(approvalThresholdBps / 100).toFixed(0)}%</span>
       </div>
 
+      <footer className="brm-actions">
+        <button
+          type="button"
+          className="brm-btn brm-btn--ghost"
+          onClick={onCancel}
+        >
+          CANCEL
+        </button>
+        <button
+          type="button"
+          className="brm-btn brm-btn--primary"
+          onClick={onConfirm}
+          disabled={!address}
+          ref={confirmBtnRef}
+          // Shift+Enter anywhere inside the button (and by extension, while
+          // it has focus — which is the default since mount) confirms. This
+          // lets keyboard users skip the extra click after reviewing fees.
+          // WCAG 2.1.1 (Keyboard).
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && e.shiftKey && !e.currentTarget.disabled) {
+              e.preventDefault();
+              onConfirm();
+            }
+          }}
+          aria-keyshortcuts="Shift+Enter"
+          title="Shift+Enter to confirm"
+        >
+          SIGN &amp; ENGRAVE
+        </button>
+      </footer>
+
       <style jsx>{`
-        .brm-backdrop {
-          position: fixed;
-          inset: 0;
-          z-index: 950;
-          display: grid;
-          place-items: center;
-          padding: 24px;
-          background:
-            radial-gradient(circle at 50% 40%, rgba(116, 255, 235, 0.08), transparent 65%),
-            rgba(2, 6, 18, 0.75);
-          backdrop-filter: blur(12px) saturate(140%);
-          -webkit-backdrop-filter: blur(12px) saturate(140%);
-          animation: brm-fade 180ms ease-out;
-        }
-        @keyframes brm-fade {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        .brm-panel {
-          width: 100%;
-          max-width: 460px;
-          max-height: calc(100vh - 48px);
-          overflow-y: auto;
-          border-radius: 20px;
-          padding: 24px 24px 20px;
-          background: rgba(6, 14, 28, 0.94);
-          border: 1px solid rgba(116, 255, 235, 0.25);
-          box-shadow:
-            inset 0 0 60px rgba(116, 255, 235, 0.06),
-            inset 0 1px 0 rgba(255, 255, 255, 0.06),
-            0 40px 120px rgba(0, 0, 0, 0.7),
-            0 0 80px rgba(116, 255, 235, 0.08);
-          color: rgba(255, 255, 255, 0.92);
-          font-family: var(--font-terminal, ui-monospace, "SF Mono", monospace);
-          animation: brm-pop 260ms cubic-bezier(0.16, 0.86, 0.22, 1);
-        }
-        @keyframes brm-pop {
-          from { transform: scale(0.92) translateY(12px); opacity: 0; }
-          to   { transform: scale(1) translateY(0); opacity: 1; }
-        }
-
         .brm-header {
           text-align: center;
           border-bottom: 1px solid rgba(116, 255, 235, 0.12);
@@ -308,7 +225,7 @@ export function BatchReviewModal({
           margin: 0;
           font-size: 18px;
           letter-spacing: 0.24em;
-          color: rgba(116, 255, 235, 0.95);
+          color: var(--foid-accent);
           font-weight: 700;
           text-shadow: 0 0 16px rgba(116, 255, 235, 0.2);
         }
@@ -342,7 +259,7 @@ export function BatchReviewModal({
         .brm-thumb {
           width: 44px;
           height: 44px;
-          border-radius: 8px;
+          border-radius: var(--foid-radius-sm);
           object-fit: cover;
           flex-shrink: 0;
           border: 1px solid rgba(116, 255, 235, 0.2);
@@ -423,7 +340,7 @@ export function BatchReviewModal({
           font-weight: 700;
         }
         .brm-row--total dd {
-          color: rgba(116, 255, 235, 0.95);
+          color: var(--foid-accent);
           font-size: 14px;
           font-weight: 700;
         }
@@ -448,12 +365,12 @@ export function BatchReviewModal({
         .brm-btn {
           flex: 1;
           padding: 12px;
-          border-radius: 12px;
+          border-radius: var(--foid-radius-md);
           font-size: 12px;
           font-weight: 700;
           letter-spacing: 0.18em;
           cursor: pointer;
-          transition: background 150ms, border-color 150ms, transform 80ms;
+          transition: background var(--foid-motion-fast), border-color var(--foid-motion-fast), transform 80ms;
           font-family: inherit;
         }
         .brm-btn:active {
@@ -473,7 +390,7 @@ export function BatchReviewModal({
             linear-gradient(180deg, rgba(116, 255, 235, 0.22), rgba(116, 255, 235, 0.06) 60%),
             rgba(6, 14, 28, 0.9);
           border: 1px solid rgba(116, 255, 235, 0.45);
-          color: rgba(116, 255, 235, 0.98);
+          color: var(--tone-info-text);
           box-shadow: 0 0 24px rgba(116, 255, 235, 0.12);
         }
         .brm-btn--primary:hover:not(:disabled) {
@@ -487,6 +404,6 @@ export function BatchReviewModal({
           cursor: not-allowed;
         }
       `}</style>
-    </div>
+    </Modal>
   );
 }

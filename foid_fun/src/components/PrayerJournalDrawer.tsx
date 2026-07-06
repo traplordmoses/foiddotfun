@@ -458,7 +458,7 @@ export default function PrayerJournalDrawer({
               font-size: 13px;
               letter-spacing: 0.18em;
               text-transform: lowercase;
-              color: #00ffd5;
+              color: var(--foid-cyan-electric);
               text-shadow: 0 0 12px rgba(0, 255, 213, 0.3);
               font-weight: 600;
             }
@@ -597,7 +597,7 @@ export default function PrayerJournalDrawer({
             }
             :global(.journal-list__glyph) {
               font-size: 14px;
-              color: #00ffd5;
+              color: var(--foid-cyan-electric);
               text-align: center;
             }
             :global(.journal-list__datecol) {
@@ -657,7 +657,7 @@ export default function PrayerJournalDrawer({
               font-size: 12px;
               padding: 1px 6px;
               background: rgba(0, 255, 213, 0.08);
-              color: #00ffd5;
+              color: var(--foid-cyan-electric);
               border-radius: 4px;
             }
 
@@ -702,7 +702,7 @@ export default function PrayerJournalDrawer({
             }
             :global(.journal-popover__date) {
               font-size: 11px;
-              color: #00ffd5;
+              color: var(--foid-cyan-electric);
               letter-spacing: 0.08em;
               text-transform: uppercase;
               margin-bottom: 6px;

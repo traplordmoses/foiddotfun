@@ -124,7 +124,7 @@ export default function PostWalletWelcome() {
           <h1
             className="text-2xl font-bold tracking-[0.2em] uppercase"
             style={{
-              background: "linear-gradient(135deg, #f5a0c0, #a882ff, #f5a0c0)",
+              background: "linear-gradient(135deg, var(--foid-pink-bloom), #a882ff, var(--foid-pink-bloom))",
               backgroundSize: "200% 100%",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
@@ -157,7 +157,7 @@ export default function PostWalletWelcome() {
             <h2
               className="text-lg font-bold tracking-[0.15em] uppercase"
               style={{
-                background: "linear-gradient(135deg, #f5a0c0, #ffcce0)",
+                background: "linear-gradient(135deg, var(--foid-pink-bloom), #ffcce0)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
               }}

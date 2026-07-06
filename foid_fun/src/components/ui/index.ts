@@ -24,3 +24,9 @@ export type { PrimaryButtonProps, PrimaryButtonVariant } from "./PrimaryButton";
 
 export { IconButton } from "./IconButton";
 export type { IconButtonProps } from "./IconButton";
+
+export { Card } from "./Card";
+export type { CardProps, CardElevation } from "./Card";
+
+export { Modal } from "./Modal";
+export type { ModalProps, ModalVariant } from "./Modal";

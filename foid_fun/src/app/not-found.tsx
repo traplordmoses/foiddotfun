@@ -30,7 +30,7 @@ export default function NotFound() {
                 className="text-[80px] font-bold leading-none tracking-[0.2em] mb-2"
                 style={{
                   fontFamily: "var(--font-display), sans-serif",
-                  background: "linear-gradient(135deg, #72e1ff 0%, #cdb7ff 50%, #ff6bd5 100%)",
+                  background: "linear-gradient(135deg, #72e1ff 0%, #cdb7ff 50%, var(--foid-pink-hot) 100%)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   filter: "drop-shadow(0 0 30px rgba(114, 225, 255, 0.3))",

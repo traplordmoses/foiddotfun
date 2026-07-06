@@ -97,19 +97,92 @@
   --foid-shadow-slab:
     inset 0 0 60px rgba(116, 255, 235, 0.06),
     0 40px 120px rgba(0, 0, 0, 0.7);
+  --foid-shadow-panel: 0 14px 32px rgba(0, 6, 22, 0.45);
   --foid-shadow-card:
-    0 14px 32px rgba(0, 6, 22, 0.45),
+    var(--foid-shadow-panel),
     0 0 0 1px rgba(116, 255, 235, 0.3);
   --foid-shadow-chip: 0 0 6px rgba(255, 150, 190, 0.3);
   --foid-shadow-glow-cyan: 0 0 18px rgba(0, 255, 213, 0.6), 0 0 42px rgba(0, 255, 213, 0.25);
+  /* Shadow ramp (ascending elevation): chip → card → window → float. */
+  --foid-shadow-window:
+    0 20px 50px rgba(0, 40, 80, 0.35),
+    0 8px 20px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  --foid-shadow-float:
+    0 30px 80px rgba(0, 10, 30, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
 
   /* ══════════════════════════════════════════════════════════════════════
-     RADIUS + SPACING (minimal — Tailwind covers most layout)
+     ELECTRIC ACCENTS — high-chroma variants used by glows and terminal
+     text. Named here so component CSS stops re-inventing the hex.
+     (Not the same hue as --foid-cyan; both are canon.)
      ══════════════════════════════════════════════════════════════════════ */
-  --foid-radius-sm: 6px;
+  --foid-cyan-electric: #00ffd5;
+  --foid-mint: #6eead8;        /* pray accent (default --pray-accent hue) */
+  --foid-red-vivid: #ff4757;   /* error/no-vote hue behind the tone-err quad */
+  --foid-pink-bloom: #f5a0c0;  /* soft pink in gloss/shine recipes */
+  --foid-pink-hot: #ff6bd5;    /* terminal pink accent (Mommy highlights) */
+  --foid-focus-ring: rgba(160, 255, 240, 0.85);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     BUTTON SYSTEM — single source for every CTA on the site.
+     .y2k-btn (via <PrimaryButton/>) and .foid-cta-btn both consume these;
+     do not introduce a third gradient/radius combination.
+     ══════════════════════════════════════════════════════════════════════ */
+  --foid-btn-gradient: linear-gradient(135deg, var(--foid-magenta), var(--foid-pink-soft));
+  --foid-btn-radius: var(--foid-radius-md);
+  --foid-btn-shadow:
+    0 18px 36px rgba(0, 10, 30, 0.28),
+    0 0 32px rgba(255, 150, 190, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.22);
+  --foid-btn-shadow-hover:
+    0 20px 40px rgba(0, 5, 25, 0.4),
+    0 0 38px rgba(255, 190, 220, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -10px 20px rgba(255, 255, 255, 0.35);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     RADIUS SCALE — the only five corner values in the product.
+     sm: chips/inputs · md: buttons/small panels · lg: cards/sections ·
+     xl: window frames · pill: badges/tabs/CTAs.
+     ══════════════════════════════════════════════════════════════════════ */
+  --foid-radius-sm: 8px;
   --foid-radius-md: 12px;
-  --foid-radius-lg: 14px;
+  --foid-radius-lg: 16px;
+  --foid-radius-xl: 20px;
   --foid-radius-pill: 999px;
+
+  /* ══════════════════════════════════════════════════════════════════════
+     GLASS MATERIAL — one recipe, two elevations.
+     window  = the outer .exe frame (heaviest blur, brightest border)
+     panel   = sections/cards inside a window (lighter blur, quieter border)
+     Every translucent surface should be built from one of these two, plus
+     an accent tint via color-mix() — never a bespoke rgba+blur combo.
+     ══════════════════════════════════════════════════════════════════════ */
+  --foid-glass-window-bg: rgba(60, 130, 180, 0.35);
+  --foid-glass-window-border: rgba(255, 255, 255, 0.25);
+  --foid-glass-window-blur: blur(24px) saturate(1.3);
+  --foid-glass-panel-bg: var(--foid-panel);
+  --foid-glass-panel-border: var(--foid-border-mute);
+  --foid-glass-panel-blur: blur(14px) saturate(1.2);
+  --foid-glass-shine: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.04) 50%,
+    transparent 100%
+  );
+
+  /* ══════════════════════════════════════════════════════════════════════
+     Z-INDEX SCALE — the only sanctioned stacking tiers.
+     Local stacking inside a component may use raw 1–3; anything that
+     stacks against *other components* must use a tier.
+     ══════════════════════════════════════════════════════════════════════ */
+  --foid-z-raised: 10;   /* page shells, floating hints */
+  --foid-z-nav: 40;      /* titlebar, tab bars, docks */
+  --foid-z-overlay: 900; /* dropdowns, popovers, tooltips */
+  --foid-z-modal: 9999;  /* modals, sheets, full-screen takeovers */
+  --foid-z-max: 99999;   /* third-party rescue tier (RainbowKit fix) */
 
   /* ══════════════════════════════════════════════════════════════════════
      MOTION — single switch point for reduced-motion overrides.

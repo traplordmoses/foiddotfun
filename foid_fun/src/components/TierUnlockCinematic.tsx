@@ -114,7 +114,7 @@ export default function TierUnlockCinematic({ tierLevel, onComplete }: Props) {
             font-family: var(--font-terminal, "JetBrains Mono", monospace);
             font-size: 14px;
             letter-spacing: 0.22em;
-            color: #6eead8;
+            color: var(--foid-mint);
             text-shadow: 0 0 12px rgba(110, 234, 216, 0.5);
             padding: 10px 18px;
             border: 1px solid rgba(110, 234, 216, 0.4);
@@ -211,7 +211,7 @@ export default function TierUnlockCinematic({ tierLevel, onComplete }: Props) {
           font-family: var(--font-terminal, "JetBrains Mono", monospace);
           font-size: 12px;
           letter-spacing: 0.22em;
-          color: #6eead8;
+          color: var(--foid-mint);
           text-shadow: 0 0 10px rgba(110, 234, 216, 0.6);
           padding: 8px 12px;
           opacity: 0;
@@ -236,7 +236,7 @@ export default function TierUnlockCinematic({ tierLevel, onComplete }: Props) {
         .tier-unlock__flash--t3 {
           position: absolute;
           inset: 0;
-          background: #6eead8;
+          background: var(--foid-mint);
           opacity: 0;
           animation: tu-t3-flash 150ms 40ms ease-out both;
         }
@@ -256,7 +256,7 @@ export default function TierUnlockCinematic({ tierLevel, onComplete }: Props) {
         /* === Tier 4 — rectangular frame drawn inside-out === */
         .tier-unlock__frame {
           position: absolute;
-          border: 2px solid #6eead8;
+          border: 2px solid var(--foid-mint);
           box-shadow:
             0 0 18px rgba(110, 234, 216, 0.5),
             inset 0 0 18px rgba(110, 234, 216, 0.25);
@@ -378,11 +378,11 @@ export default function TierUnlockCinematic({ tierLevel, onComplete }: Props) {
           font-size: clamp(32px, 9vw, 64px);
           font-weight: 800;
           letter-spacing: 0.18em;
-          color: #6eead8;
+          color: var(--foid-mint);
           text-shadow: 0 0 20px rgba(110, 234, 216, 0.7);
           white-space: nowrap;
           overflow: hidden;
-          border-right: 2px solid #6eead8;
+          border-right: 2px solid var(--foid-mint);
           width: 0;
           animation:
             tu-t8-type 700ms 80ms steps(10, end) forwards,
