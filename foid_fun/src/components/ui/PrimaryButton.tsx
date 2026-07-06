@@ -12,7 +12,7 @@
 
 import React, { useState, type MouseEvent as ReactMouseEvent } from "react";
 
-export type PrimaryButtonVariant = "primary" | "secondary";
+export type PrimaryButtonVariant = "primary" | "secondary" | "ghost";
 
 export type PrimaryButtonProps = {
   onClick: () => void;
@@ -50,7 +50,9 @@ export function PrimaryButton({
     });
   };
 
-  const variantClass = variant === "secondary" ? "y2k-btn--secondary" : "";
+  const variantClass =
+    variant === "secondary" ? "y2k-btn--secondary" :
+    variant === "ghost" ? "y2k-btn--ghost" : "";
   const disabledClass = disabled ? "y2k-btn--disabled" : "";
 
   return (

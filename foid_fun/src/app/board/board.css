@@ -9,19 +9,11 @@
   z-index: 0;
   overscroll-behavior: contain;
   touch-action: none;
-  --board-radius-lg: 14px;
-  --board-radius-md: 12px;
-  --foid-bg-deepest: #030b12;
-  --foid-panel: rgba(12, 28, 44, 0.58);
-  --foid-panel-strong: rgba(6, 14, 28, 0.78);
-  --foid-glass-highlight: rgba(255, 255, 255, 0.16);
-  --foid-glass-border: rgba(116, 255, 235, 0.25);
-  --foid-accent: rgba(116, 255, 235, 0.95);
-  --foid-accent-soft: rgba(116, 255, 235, 0.28);
-  --foid-glow: rgba(116, 255, 235, 0.2);
-  --foid-text: rgba(255, 255, 255, 0.92);
-  --foid-text-dim: rgba(255, 255, 255, 0.65);
-  --foid-warm: rgba(255, 165, 82, 0.22);
+  /* Board consumes the shared tokens.css palette directly — do not
+     re-declare --foid-* values here (they shadow the real ones and made
+     board drift from the rest of the site). */
+  --board-radius-lg: var(--foid-radius-lg);
+  --board-radius-md: var(--foid-radius-md);
   --board-border: 1px solid var(--foid-glass-border);
 }
 .board-window {
@@ -579,98 +571,8 @@
   font-size: 10px;
 }
 
-/* Y2K Button - pink glass pill */
-.y2k-btn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 42px;
-  border-radius: 7px;
-  border: none;
-  background: linear-gradient(135deg, #e040fb, #f06292);
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-  box-shadow:
-    0 18px 36px rgba(0, 10, 30, 0.28),
-    0 0 32px rgba(255, 150, 190, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    inset 0 -8px 18px rgba(0, 0, 0, 0.22);
-}
-.y2k-btn::after {
-  content: "";
-  position: absolute;
-  inset: 8px 0 30% 0;
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0));
-  opacity: 0.55;
-  pointer-events: none;
-}
-.y2k-btn:hover {
-  border-color: rgba(255, 255, 255, 0.9);
-  box-shadow:
-    0 20px 40px rgba(0, 5, 25, 0.4),
-    0 0 38px rgba(255, 190, 220, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    inset 0 -10px 20px rgba(255, 255, 255, 0.35);
-}
-.y2k-btn:focus-visible {
-  outline: 2px solid rgba(160, 255, 240, 0.85);
-  outline-offset: 3px;
-}
-.y2k-btn--disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -8px 18px rgba(0, 0, 0, 0.2);
-}
-.y2k-btn--disabled:hover {
-  transform: none;
-  border-color: rgba(255, 255, 255, 0.7);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -8px 18px rgba(0, 0, 0, 0.2);
-}
-.y2k-btn__reflection {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 46%;
-  border-radius: 14px 14px 0 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.45) 35%, transparent 100%);
-  pointer-events: none;
-}
-.y2k-btn__highlight { position: absolute; inset: 0; border-radius: 14px; pointer-events: none; }
-.y2k-btn__label {
-  position: relative;
-  z-index: 2;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: white;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-.y2k-btn--secondary {
-  background:
-    linear-gradient(180deg, rgba(12, 44, 59, 0.95) 0%, rgba(8, 25, 40, 0.95) 70%, rgba(8, 25, 40, 0.9) 100%);
-  border: 2px solid var(--foid-accent-soft);
-  box-shadow:
-    0 8px 16px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 -3px 6px rgba(255, 255, 255, 0.2);
-}
-.y2k-btn--secondary:hover {
-  box-shadow:
-    0 10px 20px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -3px 6px rgba(255, 255, 255, 0.25),
-    0 0 18px rgba(0, 255, 213, 0.35);
-}
+/* Y2K Button — moved to globals.css (single button system, --foid-btn-*
+   tokens). Do not re-add board-local button styles here. */
 
 /* Voting */
 .board-voting { display: flex; flex-direction: column; gap: 6px; max-height: 140px; overflow-y: auto; }

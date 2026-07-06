@@ -209,55 +209,60 @@ export default function AppTitlebar({
           display: none;
         }
 
+        /* Glass tabs — same aero material as the titlebar they sit in.
+           Active = brighter glass with an inner shine, not a color swap. */
         :global(.pray-nav-tab) {
           display: inline-flex;
           align-items: center;
           justify-content: center;
           min-height: 24px;
           min-width: 0;
-          padding: 4px 10px;
-          font-size: 9px;
+          padding: 4px 12px;
+          font-size: 10px;
           font-weight: 600;
-          letter-spacing: 0.1em;
-          color: #1a1a1a;
-          background: linear-gradient(180deg, rgba(233, 221, 80, 0.95), rgba(214, 180, 52, 0.95));
-          border: 1px solid rgba(26, 26, 26, 0.4);
-          border-radius: 6px;
+          letter-spacing: 0.12em;
+          color: rgba(255, 255, 255, 0.82);
+          background: rgba(255, 255, 255, 0.10);
+          border: 1px solid rgba(255, 255, 255, 0.26);
+          border-radius: var(--foid-radius-pill, 999px);
           text-decoration: none;
-          transition: all 0.16s ease;
+          transition: background var(--foid-motion-fast, 150ms) ease,
+                      border-color var(--foid-motion-fast, 150ms) ease,
+                      color var(--foid-motion-fast, 150ms) ease,
+                      transform var(--foid-motion-fast, 150ms) ease;
           position: relative;
           box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.5),
-            0 2px 8px rgba(0, 0, 0, 0.2);
+            inset 0 1px 0 rgba(255, 255, 255, 0.35),
+            0 2px 8px rgba(0, 20, 50, 0.18);
           flex-shrink: 0;
           white-space: nowrap;
+          text-shadow: 0 1px 2px rgba(0, 20, 50, 0.35);
         }
 
         :global(.pray-nav-tab:hover) {
-          color: #0f0f0f;
-          background: linear-gradient(180deg, rgba(253, 232, 120, 0.97), rgba(233, 221, 80, 0.98));
-          border-color: rgba(26, 26, 26, 0.6);
+          color: #ffffff;
+          background: rgba(255, 255, 255, 0.18);
+          border-color: rgba(255, 255, 255, 0.42);
           transform: translateY(-1px);
         }
 
         :global(.pray-nav-tab:focus-visible) {
-          outline: 2px solid rgba(26, 26, 26, 0.6);
+          outline: 2px solid var(--foid-focus-ring, rgba(160, 255, 240, 0.85));
           outline-offset: 2px;
-          box-shadow: 0 0 0 2px rgba(26, 26, 26, 0.25);
         }
 
         :global(.pray-nav-tab--active) {
-          color: #1a1a1a;
-          background: linear-gradient(180deg, rgba(233, 221, 80, 0.95), rgba(214, 180, 52, 0.95));
-          border-color: rgba(26, 26, 26, 0.6);
-          filter: brightness(0.7);
-          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+          color: #ffffff;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.16));
+          border-color: rgba(255, 255, 255, 0.6);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.6),
+            0 0 14px rgba(150, 220, 255, 0.35);
           transform: none;
         }
 
         :global(.pray-nav-tab--active:hover) {
           transform: none;
-          filter: brightness(0.7);
         }
 
         :global(.pray-build-tag) {

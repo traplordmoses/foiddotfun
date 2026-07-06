@@ -14,14 +14,16 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-/* Primary CTA button — used for Propose Meme, etc. */
+/* Primary CTA link — anchor-friendly twin of .y2k-btn (same tokens, same
+   geometry). Used where the CTA is an <a> (gallery, swipe). For <button>s,
+   use <PrimaryButton/> instead. */
 .foid-cta-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #e040fb, #f06292);
+  background: var(--foid-btn-gradient);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--foid-btn-radius);
   padding: 10px 22px;
   font-family: inherit;
   font-size: 13px;
@@ -31,11 +33,132 @@ body {
   cursor: pointer;
   text-decoration: none;
   text-transform: uppercase;
-  transition: opacity 150ms ease, transform 150ms ease;
+  box-shadow: var(--foid-btn-shadow);
+  transition: box-shadow var(--foid-motion-fast) var(--foid-ease-out),
+              transform var(--foid-motion-fast) var(--foid-ease-out);
 }
 .foid-cta-btn:hover {
-  opacity: 0.85;
   transform: translateY(-1px);
+  box-shadow: var(--foid-btn-shadow-hover);
+}
+.foid-cta-btn:focus-visible {
+  outline: 2px solid var(--foid-focus-ring);
+  outline-offset: 3px;
+}
+
+/* ============================================================================
+   BUTTON SYSTEM — .y2k-btn is the single <button> recipe, rendered through
+   <PrimaryButton/> (variants: primary / secondary / ghost). Moved here from
+   board.css so it exists on every route, and rebuilt on --foid-btn-* tokens.
+   ============================================================================ */
+.y2k-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 42px;
+  border-radius: var(--foid-btn-radius);
+  border: none;
+  background: var(--foid-btn-gradient);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform var(--foid-motion-fast) var(--foid-ease-out),
+              box-shadow var(--foid-motion-fast) var(--foid-ease-out),
+              border-color var(--foid-motion-fast) var(--foid-ease-out);
+  box-shadow: var(--foid-btn-shadow);
+}
+.y2k-btn::after {
+  content: "";
+  position: absolute;
+  inset: 8px 0 30% 0;
+  border-radius: var(--foid-btn-radius);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0));
+  opacity: 0.55;
+  pointer-events: none;
+}
+.y2k-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--foid-btn-shadow-hover);
+}
+.y2k-btn:focus-visible {
+  outline: 2px solid var(--foid-focus-ring);
+  outline-offset: 3px;
+}
+.y2k-btn--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.2);
+}
+.y2k-btn--disabled:hover {
+  transform: none;
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.2);
+}
+.y2k-btn__reflection {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 46%;
+  border-radius: var(--foid-btn-radius) var(--foid-btn-radius) 0 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.45) 35%, transparent 100%);
+  pointer-events: none;
+}
+.y2k-btn__highlight {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--foid-btn-radius);
+  pointer-events: none;
+}
+.y2k-btn__label {
+  position: relative;
+  z-index: 2;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.y2k-btn--secondary {
+  background:
+    linear-gradient(180deg, rgba(12, 44, 59, 0.95) 0%, rgba(8, 25, 40, 0.95) 70%, rgba(8, 25, 40, 0.9) 100%);
+  border: 2px solid var(--foid-accent-soft);
+  box-shadow:
+    0 8px 16px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -3px 6px rgba(255, 255, 255, 0.2);
+}
+.y2k-btn--secondary:hover {
+  box-shadow:
+    0 10px 20px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -3px 6px rgba(255, 255, 255, 0.25),
+    0 0 18px rgba(0, 255, 213, 0.35);
+}
+.y2k-btn--ghost {
+  background: transparent;
+  border: 1px solid var(--foid-border-subtle);
+  box-shadow: none;
+}
+.y2k-btn--ghost .y2k-btn__reflection,
+.y2k-btn--ghost::after {
+  display: none;
+}
+.y2k-btn--ghost .y2k-btn__label {
+  color: var(--foid-text);
+  text-shadow: none;
+}
+.y2k-btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--foid-border-strong);
+  box-shadow: none;
 }
 
 .app-viewport {
@@ -193,7 +316,7 @@ html.cmp-active .app-viewport {
 }
 
 .aboutGlassCard {
-  border-radius: 18px;
+  border-radius: var(--foid-radius-lg);
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(20, 35, 60, 0.55);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.26);
@@ -209,42 +332,15 @@ html.cmp-active .app-viewport {
   text-shadow: none;
 }
 
-@font-face {
-  font-family: 'Orbitron';
-  src: url('/fonts/orbitron/Orbitron-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Orbitron';
-  src: url('/fonts/orbitron/Orbitron-Bold.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Inter';
-  src: url('/fonts/inter/Inter-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'VT323';
-  src: url('/fonts/vt323/VT323-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
 :root {
-  /* fonts */
-  --font-body: "IBM Plex Sans", "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Sora", var(--font-body);
+  /* Fonts — four faces, loaded once via next/font in layout.tsx, which sets
+     --font-body (IBM Plex Sans), --font-display (Sora), --font-terminal
+     (JetBrains Mono) and --font-serif (Fraunces, Mommy's voice — the one
+     sanctioned exception). Do not re-declare those variables here and do
+     not add @font-face blocks: literal family names never match next/font's
+     internally renamed fonts, so a duplicate declaration silently races the
+     real one. */
   --font-ui: var(--font-body);
-  --font-terminal: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  --font-serif: "Fraunces", "Cormorant Garamond", Georgia, "Times New Roman", serif;
   --terminal-font-size: 16px;
   --terminal-log-size: 15.5px;
   --terminal-line-height: 1.55;
@@ -462,6 +558,28 @@ html.cmp-active .app-viewport {
     -webkit-font-smoothing: subpixel-antialiased;
   }
 
+  /* Micro-label voice — the ONLY sanctioned all-caps mono treatment.
+     For section kickers, stat labels, status text. Never for sentences. */
+  .foid-label {
+    font-family: var(--font-terminal);
+    font-size: 11px;
+    line-height: 1.5;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--foid-text-dim);
+  }
+
+  /* Data voice — hashes, addresses, counters. Mono, mixed case, digits
+     always tabular so live values don't wiggle. */
+  .foid-data {
+    font-family: var(--font-terminal);
+    font-size: 13px;
+    line-height: 1.5;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--foid-text);
+  }
+
   .foid-muted {
     color: rgba(190, 222, 242, 0.72);
   }
@@ -525,7 +643,7 @@ html.cmp-active .app-viewport {
 .fairy-dust-particle {
   position: fixed;
   pointer-events: none;
-  z-index: 9999;
+  z-index: var(--foid-z-modal);
   font-size: 0.8rem;
   filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.6));
   opacity: 0.9;
@@ -613,37 +731,34 @@ html.cmp-active .app-viewport {
      Replace your vista-window and foid-title styles in globals.css
      ===================================================== */
 
-  /* ===== LIQUID GLASS WINDOW ===== */
+  /* ===== LIQUID GLASS WINDOW — window elevation of the shared material ===== */
   .vista-window {
     position: relative;
     display: flex;
     flex-direction: column;
     gap: 0;
     padding: 0;
-    border-radius: 18px;
+    border-radius: var(--foid-radius-xl);
 
     /* Liquid glass */
-    background: rgba(60, 130, 180, 0.35);
-    backdrop-filter: blur(24px) saturate(1.3);
-    -webkit-backdrop-filter: blur(24px) saturate(1.3);
+    background: var(--foid-glass-window-bg);
+    backdrop-filter: var(--foid-glass-window-blur);
+    -webkit-backdrop-filter: var(--foid-glass-window-blur);
 
     /* Border */
-    border: 1px solid rgba(255, 255, 255, 0.25);
+    border: 1px solid var(--foid-glass-window-border);
 
     /* Shadow */
-    box-shadow:
-      0 20px 50px rgba(0, 40, 80, 0.35),
-      0 8px 20px rgba(0, 0, 0, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    box-shadow: var(--foid-shadow-window);
 
     color: rgba(255, 255, 255, 0.95);
     overflow: hidden;
     isolation: isolate;
 
     transition:
-      transform 0.3s ease,
-      box-shadow 0.3s ease,
-      border-color 0.3s ease;
+      transform var(--foid-motion-base) var(--foid-ease-out),
+      box-shadow var(--foid-motion-base) var(--foid-ease-out),
+      border-color var(--foid-motion-base) var(--foid-ease-out);
   }
 
   .vista-window:hover {
@@ -663,11 +778,8 @@ html.cmp-active .app-viewport {
     left: 0;
     right: 0;
     height: 45%;
-    border-radius: 18px 18px 0 0;
-    background: linear-gradient(180deg,
-      rgba(255, 255, 255, 0.12) 0%,
-      rgba(255, 255, 255, 0.04) 50%,
-      transparent 100%);
+    border-radius: var(--foid-radius-xl) var(--foid-radius-xl) 0 0;
+    background: var(--foid-glass-shine);
     pointer-events: none;
     z-index: 1;
   }
@@ -1544,7 +1656,7 @@ html.cmp-active .app-viewport {
     border: 1px solid rgba(0, 255, 213, 0.25);
     border-radius: 10px;
     padding: 8px;
-    z-index: 9999;
+    z-index: var(--foid-z-modal);
     box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 255, 213, 0.12);
     animation: pray-dropdown-enter 0.12s ease-out;
   }
@@ -2592,7 +2704,7 @@ html.cmp-active .app-viewport {
   .prayer-focal {
     position: fixed;
     inset: 0;
-    z-index: 900;
+    z-index: var(--foid-z-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2747,7 +2859,7 @@ html.cmp-active .app-viewport {
   .prayer-forget-overlay {
     position: fixed;
     inset: 0;
-    z-index: 9999;
+    z-index: var(--foid-z-modal);
     background: #000;
     opacity: 0;
     pointer-events: auto;
@@ -2981,7 +3093,7 @@ html.cmp-active .app-viewport {
     left: 50%;
     transform: translateX(-50%);
     pointer-events: none;
-    z-index: 40;
+    z-index: var(--foid-z-nav);
     max-width: min(86vw, 720px);
     opacity: 0.07;
     transition: opacity 1s ease-out;
@@ -4125,12 +4237,12 @@ html.cmp-active .app-viewport {
 
 /* Fix RainbowKit modal z-index to ensure it's above everything */
 :global([data-rk]) {
-  z-index: 99999 !important;
+  z-index: var(--foid-z-max) !important;
 }
 
 /* Ensure wallet button is visible above mobile nav */
 :global(.mobile-wallet-button) {
-  z-index: 9999 !important;
+  z-index: var(--foid-z-modal) !important;
 }
 
 /* ============================================================================
@@ -5298,4 +5410,73 @@ html.cmp-active .app-viewport {
     padding: 6px 16px;
     font-size: 11px;
   }
+}
+
+/* ============================================================================
+   SURFACE PRIMITIVES — <Card/> and <Modal/> (src/components/ui). The only
+   two glass recipes: panel elevation and window elevation, from tokens.css.
+   ============================================================================ */
+.foid-card {
+  position: relative;
+  border-radius: var(--foid-radius-lg);
+  color: var(--foid-text);
+  overflow: hidden;
+}
+.foid-card--panel {
+  background: var(--foid-glass-panel-bg);
+  border: 1px solid var(--foid-glass-panel-border);
+  backdrop-filter: var(--foid-glass-panel-blur);
+  -webkit-backdrop-filter: var(--foid-glass-panel-blur);
+  box-shadow: var(--foid-shadow-panel);
+}
+.foid-card--window {
+  background: var(--foid-glass-window-bg);
+  border: 1px solid var(--foid-glass-window-border);
+  border-radius: var(--foid-radius-xl);
+  backdrop-filter: var(--foid-glass-window-blur);
+  -webkit-backdrop-filter: var(--foid-glass-window-blur);
+  box-shadow: var(--foid-shadow-window);
+}
+
+.foid-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--foid-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(3, 10, 24, 0.55);
+  backdrop-filter: blur(8px) saturate(1.1);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+}
+.foid-modal {
+  width: 100%;
+  max-height: min(86dvh, 86vh);
+  overflow-y: auto;
+  padding: 20px 22px;
+  border-radius: var(--foid-radius-xl);
+  background: var(--foid-glass-window-bg);
+  border: 1px solid var(--foid-glass-window-border);
+  backdrop-filter: var(--foid-glass-window-blur);
+  -webkit-backdrop-filter: var(--foid-glass-window-blur);
+  box-shadow: var(--foid-shadow-float);
+  color: var(--foid-text);
+  outline: none;
+  animation: foid-fade-in var(--foid-motion-base) var(--foid-ease-out);
+}
+
+/* ============================================================================
+   NUMERIC ALIGNMENT — every live counter, countdown, and stat renders with
+   tabular figures so digits don't wiggle as values tick. (Phase 1 polish.)
+   ============================================================================ */
+.pray-stats-cell__value,
+.pray-chain-info__value,
+.altar-streak__value,
+.altar-countdown,
+.altar-countdown__compact,
+.board-hud,
+.voting-item__counts,
+.board-actions__pricing {
+  font-variant-numeric: tabular-nums;
 }
