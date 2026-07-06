@@ -1,19 +1,28 @@
 "use client";
 
-// FILES.EXE — the FOID OS file explorer (/files).
+// FILES.EXE — the FOID OS file browser (/files).
 //
-// Renders whatever src/config/mediaLibrary.ts registers: MiFOID music
-// videos, audio transmissions, image artifacts. Clicking a tile opens
-// MEDIA_PLAYER.EXE — a slab-material overlay window built on the shared
-// <Modal variant="slab"> primitive (backdrop, Escape, focus trap and
-// focus-restore come from the primitive; the player only adds its own
-// titlebar + stage).
+// Finder anatomy in aero material: a glass sidebar (Favorites drive the
+// kind filter, Locations link out to the repo + foid.fun), a slim toolbar
+// (back/forward history, icon/list view toggle, search), and a canvas with
+// Mac selection behavior — click selects, double-click opens, arrow keys
+// move, Enter/Space opens, Escape clears.
+//
+// The archive is curator-only: everything rendered here comes from
+// src/config/mediaLibrary.ts (founder's videos + MiFOID image artifacts).
+// There is no upload path by design.
+//
+// Opening an item launches MEDIA_PLAYER.EXE — a slab-material overlay on
+// the shared <Modal variant="slab"> primitive (backdrop, Escape, focus
+// trap and focus-restore come from the primitive; the player only adds its
+// own titlebar + stage).
 //
 // Titlebar wiring mirrors /vote (useAccount + useSwitchWallet) with the
 // /mifoid mounted-guard so the server-rendered "disconnected" frame never
 // mismatches a connected client.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useAccount } from "wagmi";
 import { useSwitchWallet } from "@/hooks/useSwitchWallet";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
@@ -23,18 +32,173 @@ import { ipfsToHttp } from "@/lib/ipfsUrl";
 
 type MediaKind = MediaItem["kind"];
 type KindFilter = "all" | MediaKind;
+type ViewMode = "icons" | "list";
 
-const FILTERS: { key: KindFilter; label: string }[] = [
-  { key: "all", label: "All" },
+const GITHUB_URL = "https://github.com/traplordmoses/foiddotfun";
+
+/** Sidebar Favorites — each drives the kind filter (Mac "Music" naming). */
+const FAVORITES: { key: KindFilter; label: string }[] = [
+  { key: "all", label: "All Files" },
   { key: "video", label: "Videos" },
-  { key: "audio", label: "Audio" },
+  { key: "audio", label: "Music" },
   { key: "image", label: "Images" },
 ];
 
-const KIND_GLYPH: Record<MediaKind, string> = {
-  video: "\u{1F3AC}", // 🎬
-  audio: "\u{1F3B5}", // 🎵
-  image: "\u{1F5BC}\u{FE0F}", // 🖼️
+const CRUMB_LABEL: Record<KindFilter, string> = {
+  all: "All",
+  video: "Videos",
+  audio: "Music",
+  image: "Images",
+};
+
+const KIND_LABEL: Record<MediaKind, string> = {
+  video: "Video",
+  audio: "Music",
+  image: "Image",
+};
+
+/* ── Inline icon set ──────────────────────────────────────────────────────
+   16-grid stroke glyphs, currentColor so rows/buttons tint them. Replaces
+   the old emoji glyphs (DOS-vibes) with one drawn family. */
+
+type IconProps = { size?: number; className?: string };
+
+function iconAttrs({ size = 14, className }: IconProps) {
+  return {
+    width: size,
+    height: size,
+    viewBox: "0 0 16 16",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.5,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    className,
+    "aria-hidden": true,
+  };
+}
+
+function IconStack(p: IconProps) {
+  return (
+    <svg {...iconAttrs(p)}>
+      <path d="M8 2.1 14 5.2 8 8.3 2 5.2z" />
+      <path d="m2 8.2 6 3.1 6-3.1" />
+      <path d="m2 11.1 6 3.1 6-3.1" />
+    </svg>
+  );
+}
+function IconVideo(p: IconProps) {
+  return (
+    <svg {...iconAttrs(p)}>
+      <rect x="1.75" y="3.25" width="12.5" height="9.5" rx="2" />
+      <path d="M6.7 5.9v4.2L10.3 8z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+function IconMusic(p: IconProps) {
+  return (
+    <svg {...iconAttrs(p)}>
+      <path d="M6.3 12.4V4l6-1.4v8.5" />
+      <circle cx="4.4" cy="12.4" r="1.85" />
+      <circle cx="10.4" cy="11.1" r="1.85" />
+    </svg>
+  );
+}
+function IconImage(p: IconProps) {
+  return (
+    <svg {...iconAttrs(p)}>
+      <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2" />
+      <circle cx="5.5" cy="6.3" r="1.1" />
+      <path d="m2.6 11.6 3.6-3.4 2.6 2.4 2-1.8 2.6 2.5" />
+    </svg>
+  );
+}
+function IconBranch(p: IconProps) {
+  return (
+    <svg {...iconAttrs(p)}>
+      <circle cx="4.5" cy="3.9" r="1.6" />
+      <circle cx="4.5" cy="12.1" r="1.6" />
+      <circle cx="11.5" cy="6" r="1.6" />
+      <path d="M4.5 5.5v5" />
+      <path d="M11.5 7.6c0 2.3-3 2.6-5.2 3.2" />
+    </svg>
+  );
+}
+function IconGlobe(p: IconProps) {
+  return (
+    <svg {...iconAttrs(p)}>
+      <circle cx="8" cy="8" r="6.25" />
+      <path d="M1.75 8h12.5" />
+      <path d="M8 1.75c1.9 1.9 1.9 10.6 0 12.5" />
+      <path d="M8 1.75c-1.9 1.9-1.9 10.6 0 12.5" />
+    </svg>
+  );
+}
+function IconExternal(p: IconProps) {
+  return (
+    <svg {...iconAttrs(p)}>
+      <path d="M6.5 3.5h-2a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2" />
+      <path d="M9.5 2.5h4v4" />
+      <path d="M13.2 2.8 7.6 8.4" />
+    </svg>
+  );
+}
+function IconChevronLeft(p: IconProps) {
+  return (
+    <svg {...iconAttrs(p)}>
+      <path d="M9.7 3.3 5.4 8l4.3 4.7" />
+    </svg>
+  );
+}
+function IconChevronRight(p: IconProps) {
+  return (
+    <svg {...iconAttrs(p)}>
+      <path d="M6.3 3.3 10.6 8l-4.3 4.7" />
+    </svg>
+  );
+}
+function IconGridView(p: IconProps) {
+  return (
+    <svg {...iconAttrs(p)}>
+      <rect x="2.25" y="2.25" width="4.75" height="4.75" rx="1" />
+      <rect x="9" y="2.25" width="4.75" height="4.75" rx="1" />
+      <rect x="2.25" y="9" width="4.75" height="4.75" rx="1" />
+      <rect x="9" y="9" width="4.75" height="4.75" rx="1" />
+    </svg>
+  );
+}
+function IconListView(p: IconProps) {
+  return (
+    <svg {...iconAttrs(p)}>
+      <path d="M5.6 4.1h8" />
+      <path d="M5.6 8h8" />
+      <path d="M5.6 11.9h8" />
+      <circle cx="2.9" cy="4.1" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="2.9" cy="8" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="2.9" cy="11.9" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+function IconSearch(p: IconProps) {
+  return (
+    <svg {...iconAttrs(p)}>
+      <circle cx="7" cy="7" r="4.4" />
+      <path d="m10.4 10.4 3.3 3.3" />
+    </svg>
+  );
+}
+
+const KIND_ICON: Record<MediaKind, (p: IconProps) => JSX.Element> = {
+  video: IconVideo,
+  audio: IconMusic,
+  image: IconImage,
+};
+
+const FAVORITE_ICON: Record<KindFilter, (p: IconProps) => JSX.Element> = {
+  all: IconStack,
+  video: IconVideo,
+  audio: IconMusic,
+  image: IconImage,
 };
 
 /** Resolve a manifest src to something the browser can load:
@@ -45,6 +209,13 @@ const KIND_GLYPH: Record<MediaKind, string> = {
 function resolveMediaSrc(src: string): string {
   if (src.startsWith("/")) return src;
   return ipfsToHttp(src)[0] ?? src;
+}
+
+/** Thumbnail source: explicit poster wins; images preview themselves. */
+function thumbSrc(item: MediaItem): string | undefined {
+  if (item.poster) return resolveMediaSrc(item.poster);
+  if (item.kind === "image") return resolveMediaSrc(item.src);
+  return undefined;
 }
 
 /* ── MEDIA_PLAYER.EXE ─────────────────────────────────────────────────── */
@@ -92,37 +263,23 @@ function MediaPlayer({ item, onClose }: { item: MediaItem; onClose: () => void }
   );
 }
 
-/* ── Empty archive invitation ─────────────────────────────────────────── */
+/* ── Empty archive (curator-only — visitors browse, the foundation adds) ── */
 
 function EmptyArchive() {
   return (
     <div className="files-empty">
       <div className="files-empty__inner">
         <div className="files-empty__glyphs" aria-hidden="true">
-          <span>{KIND_GLYPH.video}</span>
-          <span>{KIND_GLYPH.audio}</span>
-          <span>{KIND_GLYPH.image}</span>
+          <IconVideo size={26} />
+          <IconMusic size={26} />
+          <IconImage size={26} />
         </div>
-        <span className="foid-label">MEDIA ARCHIVE — 0 ITEMS</span>
+        <span className="foid-label">MIFOID MEDIA ARCHIVE — 0 ITEMS</span>
         <h1 className="files-empty__title">the archive is empty</h1>
         <p className="files-empty__body">
-          MiFOID music videos, audio transmissions and image artifacts will live here.
-          Feeding the archive takes two moves:
-        </p>
-        <div className="files-empty__steps">
-          <div className="files-empty__step">
-            <span className="files-empty__step-num">01</span>
-            <span className="files-empty__step-text">drop an mp4 into</span>
-            <code className="files-empty__path">/public/media</code>
-          </div>
-          <div className="files-empty__step">
-            <span className="files-empty__step-num">02</span>
-            <span className="files-empty__step-text">register it in</span>
-            <code className="files-empty__path">src/config/mediaLibrary.ts</code>
-          </div>
-        </div>
-        <p className="files-empty__sub">
-          or pin to Pinata and set src to ipfs://&lt;cid&gt; — the /api/ipfs proxy serves it
+          This is the official MiFOID media archive — music videos, transmissions and
+          image artifacts curated by the foundation. New drops land here as they are
+          released.
         </p>
       </div>
     </div>
@@ -139,13 +296,152 @@ export default function FilesPage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  const [filter, setFilter] = useState<KindFilter>("all");
+  /* Location history — sidebar clicks push, chevrons walk the stack. */
+  const [hist, setHist] = useState<{ stack: KindFilter[]; index: number }>({
+    stack: ["all"],
+    index: 0,
+  });
+  const filter = hist.stack[hist.index];
+  const canBack = hist.index > 0;
+  const canForward = hist.index < hist.stack.length - 1;
+
+  const navigateTo = (next: KindFilter) =>
+    setHist((h) => {
+      if (h.stack[h.index] === next) return h;
+      const stack = [...h.stack.slice(0, h.index + 1), next];
+      return { stack, index: stack.length - 1 };
+    });
+  const goBack = () => setHist((h) => (h.index > 0 ? { ...h, index: h.index - 1 } : h));
+  const goForward = () =>
+    setHist((h) => (h.index < h.stack.length - 1 ? { ...h, index: h.index + 1 } : h));
+
+  const [view, setView] = useState<ViewMode>("icons");
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeItem, setActiveItem] = useState<MediaItem | null>(null);
 
-  const items = useMemo(
-    () => (filter === "all" ? MEDIA_LIBRARY : MEDIA_LIBRARY.filter((item) => item.kind === filter)),
-    [filter],
-  );
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
+
+  const filtered = useMemo(() => {
+    const byKind =
+      filter === "all" ? MEDIA_LIBRARY : MEDIA_LIBRARY.filter((item) => item.kind === filter);
+    const q = query.trim().toLowerCase();
+    return q ? byKind.filter((item) => item.title.toLowerCase().includes(q)) : byKind;
+  }, [filter, query]);
+
+  /* Selection can dangle when the location/search changes under it. */
+  useEffect(() => {
+    if (selectedId && !filtered.some((item) => item.id === selectedId)) setSelectedId(null);
+  }, [filtered, selectedId]);
+
+  const selectItem = (id: string) => {
+    setSelectedId(id);
+    canvasRef.current?.focus({ preventScroll: true });
+  };
+
+  /* Icon view is a real CSS grid — read the rendered column count so
+     ArrowUp/ArrowDown move by visual rows, like Finder. */
+  const gridColumnCount = () => {
+    const el = gridRef.current;
+    if (!el) return 1;
+    return Math.max(1, getComputedStyle(el).gridTemplateColumns.split(" ").filter(Boolean).length);
+  };
+
+  const moveSelection = (nextIndex: number) => {
+    const item = filtered[nextIndex];
+    if (!item) return;
+    setSelectedId(item.id);
+    document.getElementById(`files-opt-${item.id}`)?.scrollIntoView({ block: "nearest" });
+  };
+
+  const onCanvasKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (filtered.length === 0) return;
+    const idx = selectedId ? filtered.findIndex((item) => item.id === selectedId) : -1;
+
+    if (e.key === "Enter" || e.key === " ") {
+      if (idx >= 0) {
+        e.preventDefault();
+        setActiveItem(filtered[idx]);
+      }
+      return;
+    }
+    if (e.key === "Escape") {
+      setSelectedId(null);
+      return;
+    }
+
+    const cols = view === "icons" ? gridColumnCount() : 1;
+    let next: number;
+    switch (e.key) {
+      case "ArrowRight": next = idx < 0 ? 0 : Math.min(filtered.length - 1, idx + 1); break;
+      case "ArrowLeft":  next = idx < 0 ? 0 : Math.max(0, idx - 1); break;
+      case "ArrowDown":  next = idx < 0 ? 0 : Math.min(filtered.length - 1, idx + cols); break;
+      case "ArrowUp":    next = idx < 0 ? 0 : Math.max(0, idx - cols); break;
+      case "Home":       next = 0; break;
+      case "End":        next = filtered.length - 1; break;
+      default: return;
+    }
+    e.preventDefault();
+    moveSelection(next);
+  };
+
+  /* Finder: clicking bare canvas (grid gaps included) drops the selection. */
+  const onCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!(e.target as HTMLElement).closest('[role="option"]')) setSelectedId(null);
+  };
+
+  const crumb = CRUMB_LABEL[filter];
+  const hasLibrary = MEDIA_LIBRARY.length > 0;
+
+  const renderOption = (item: MediaItem) => {
+    const selected = item.id === selectedId;
+    const thumb = thumbSrc(item);
+    const Glyph = KIND_ICON[item.kind];
+
+    if (view === "icons") {
+      return (
+        <div
+          key={item.id}
+          id={`files-opt-${item.id}`}
+          role="option"
+          aria-selected={selected}
+          className={`files-item${selected ? " files-item--selected" : ""}`}
+          onClick={() => selectItem(item.id)}
+          onDoubleClick={() => setActiveItem(item)}
+        >
+          <span className="files-item__thumb">
+            {thumb ? (
+              // eslint-disable-next-line @next/next/no-img-element -- arbitrary local/IPFS sources, same as gallery/PlacementCard
+              <img src={thumb} alt="" loading="lazy" draggable={false} />
+            ) : (
+              <Glyph size={30} className="files-item__glyph" />
+            )}
+          </span>
+          <span className="files-item__name">{item.title}</span>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={item.id}
+        id={`files-opt-${item.id}`}
+        role="option"
+        aria-selected={selected}
+        className={`files-row${selected ? " files-row--selected" : ""}`}
+        onClick={() => selectItem(item.id)}
+        onDoubleClick={() => setActiveItem(item)}
+      >
+        <span className="files-row__name">
+          <Glyph size={14} className="files-row__kindicon" />
+          <span className="files-row__title foid-data">{item.title}</span>
+        </span>
+        <span className="files-row__cell foid-data">{KIND_LABEL[item.kind]}</span>
+        <span className="files-row__cell foid-data">{item.addedAt}</span>
+      </div>
+    );
+  };
 
   return (
     <main
@@ -165,75 +461,167 @@ export default function FilesPage() {
               onSwitchWallet={switchWallet}
             />
 
-            <div
-              className="vista-window__body"
-              style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}
-            >
-              {/* Explorer toolbar: path + count on the left, kind filters right */}
-              <div className="files-toolbar">
-                <span className="foid-label">C:\FOID\MEDIA</span>
-                <span className="foid-label" aria-live="polite">
-                  {items.length} ITEM{items.length === 1 ? "" : "S"}
-                </span>
-                <div className="files-toolbar__filters" role="group" aria-label="Filter by kind">
-                  {FILTERS.map(({ key, label }) => (
+            <div className="vista-window__body vista-window__body--flush files-shell">
+              {/* ── Sidebar ── */}
+              <aside className="files-sidebar">
+                <div className="files-sidebar__section" role="group" aria-labelledby="files-fav-heading">
+                  <span id="files-fav-heading" className="foid-label files-sidebar__heading">
+                    Favorites
+                  </span>
+                  {FAVORITES.map(({ key, label }) => {
+                    const RowIcon = FAVORITE_ICON[key];
+                    const active = filter === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`files-side-row${active ? " files-side-row--active" : ""}`}
+                        aria-current={active ? "true" : undefined}
+                        onClick={() => navigateTo(key)}
+                      >
+                        <RowIcon className="files-side-row__icon" />
+                        <span className="files-side-row__label">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="files-sidebar__section" role="group" aria-labelledby="files-loc-heading">
+                  <span id="files-loc-heading" className="foid-label files-sidebar__heading">
+                    Locations
+                  </span>
+                  <a
+                    className="files-side-row"
+                    href={GITHUB_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <IconBranch className="files-side-row__icon" />
+                    <span className="files-side-row__label">GitHub</span>
+                    <IconExternal size={11} className="files-side-row__external" />
+                  </a>
+                  <Link className="files-side-row" href="/">
+                    <IconGlobe className="files-side-row__icon" />
+                    <span className="files-side-row__label">foid.fun</span>
+                  </Link>
+                </div>
+              </aside>
+
+              {/* ── Main pane ── */}
+              <div className="files-main">
+                <div className="files-toolbar">
+                  <div className="files-nav" role="group" aria-label="History">
                     <button
-                      key={key}
                       type="button"
-                      className={`files-filter${filter === key ? " files-filter--active" : ""}`}
-                      aria-pressed={filter === key}
-                      onClick={() => setFilter(key)}
+                      className="files-navbtn"
+                      aria-label="Back"
+                      title="Back"
+                      disabled={!canBack}
+                      onClick={goBack}
                     >
-                      {label}
+                      <IconChevronLeft />
                     </button>
-                  ))}
+                    <button
+                      type="button"
+                      className="files-navbtn"
+                      aria-label="Forward"
+                      title="Forward"
+                      disabled={!canForward}
+                      onClick={goForward}
+                    >
+                      <IconChevronRight />
+                    </button>
+                  </div>
+
+                  <div className="files-viewseg" role="group" aria-label="View">
+                    <button
+                      type="button"
+                      className={`files-viewseg__btn${view === "icons" ? " files-viewseg__btn--active" : ""}`}
+                      aria-label="Icon view"
+                      title="Icon view"
+                      aria-pressed={view === "icons"}
+                      onClick={() => setView("icons")}
+                    >
+                      <IconGridView />
+                    </button>
+                    <button
+                      type="button"
+                      className={`files-viewseg__btn${view === "list" ? " files-viewseg__btn--active" : ""}`}
+                      aria-label="List view"
+                      title="List view"
+                      aria-pressed={view === "list"}
+                      onClick={() => setView("list")}
+                    >
+                      <IconListView />
+                    </button>
+                  </div>
+
+                  <div className="files-search">
+                    <IconSearch size={12} className="files-search__icon" />
+                    <input
+                      type="search"
+                      value={query}
+                      placeholder="Search"
+                      aria-label="Search files by title"
+                      onChange={(e) => setQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape" && query) setQuery("");
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {!hasLibrary ? (
+                  <EmptyArchive />
+                ) : (
+                  <>
+                    {view === "list" && filtered.length > 0 && (
+                      <div className="files-listhead" aria-hidden="true">
+                        <span className="foid-label">Name</span>
+                        <span className="foid-label">Kind</span>
+                        <span className="foid-label">Date Added</span>
+                      </div>
+                    )}
+                    <div
+                      ref={canvasRef}
+                      role="listbox"
+                      aria-label="Files"
+                      tabIndex={0}
+                      aria-activedescendant={selectedId ? `files-opt-${selectedId}` : undefined}
+                      className={`files-canvas files-canvas--${view}`}
+                      onKeyDown={onCanvasKeyDown}
+                      onMouseDown={onCanvasMouseDown}
+                    >
+                      {filtered.length === 0 ? (
+                        <p className="foid-label files-noresults">
+                          {query.trim()
+                            ? `No results for “${query.trim()}”`
+                            : `Nothing in ${crumb} yet`}
+                        </p>
+                      ) : view === "icons" ? (
+                        <div ref={gridRef} className="files-grid" role="presentation">
+                          {filtered.map(renderOption)}
+                        </div>
+                      ) : (
+                        filtered.map(renderOption)
+                      )}
+                    </div>
+                  </>
+                )}
+
+                <div className="files-status">
+                  <span className="foid-label files-status__count" aria-live="polite">
+                    {selectedId
+                      ? `1 of ${filtered.length} selected`
+                      : `${filtered.length} item${filtered.length === 1 ? "" : "s"}`}
+                  </span>
+                  <span className="foid-label files-status__path">
+                    FOID OS <span className="files-status__sep" aria-hidden="true">&#9656;</span> Media{" "}
+                    <span className="files-status__sep" aria-hidden="true">&#9656;</span>{" "}
+                    <span className="files-status__here">{crumb}</span>
+                  </span>
                 </div>
               </div>
-
-              {MEDIA_LIBRARY.length === 0 ? (
-                <EmptyArchive />
-              ) : (
-                <div className="files-body">
-                  {items.length === 0 ? (
-                    <p className="foid-label" style={{ padding: "24px 8px", textAlign: "center" }}>
-                      NO {filter.toUpperCase()} FILES IN THE ARCHIVE YET
-                    </p>
-                  ) : (
-                    <div className="files-grid">
-                      {items.map((item) => {
-                        const poster = item.poster ? resolveMediaSrc(item.poster) : undefined;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            className="files-tile"
-                            onClick={() => setActiveItem(item)}
-                            aria-label={`Open ${item.title} in media player`}
-                          >
-                            <span className="files-tile__thumb">
-                              {poster ? (
-                                // eslint-disable-next-line @next/next/no-img-element -- arbitrary local/IPFS sources, same as gallery/PlacementCard
-                                <img src={poster} alt="" loading="lazy" />
-                              ) : (
-                                <span className="files-tile__glyph" aria-hidden="true">
-                                  {KIND_GLYPH[item.kind]}
-                                </span>
-                              )}
-                              <span className="files-tile__kind">{item.kind}</span>
-                            </span>
-                            <span className="files-tile__meta">
-                              <span className="files-tile__name foid-data" title={item.title}>
-                                {item.title}
-                              </span>
-                              <span className="files-tile__date">{item.addedAt}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         </div>

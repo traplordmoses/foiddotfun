@@ -2,14 +2,20 @@
 // ============================================================================
 // MEDIA LIBRARY — the manifest behind FILES.EXE (/files).
 //
-// FILES.EXE renders exactly what is registered here, in array order.
-// No entry, no tile. Two ways to add media:
+// CURATOR-ONLY, BY DESIGN. This is the official MiFOID media archive: the
+// founder's videos + MiFOID image artifacts + pointers to the open-source
+// repo. There is no upload path and there never will be — visitors browse,
+// the foundation curates. FILES.EXE renders exactly what is registered
+// here, in array order. No entry, no file.
+//
+// MAINTAINER NOTES (not user-facing — keep it that way):
 //
 // LOCAL FILE (simplest — good for MiFOID music videos)
 //   1. Drop the file into  foid_fun/public/media/   (e.g. my-video.mp4)
 //   2. Add an entry below with  src: "/media/my-video.mp4"
 //   Next.js serves everything in public/ verbatim, so the path is just the
-//   filename with a /media/ prefix.
+//   filename with a /media/ prefix. Images already in public/ (like the
+//   MiFOID renders below) can be referenced by their root path directly.
 //
 // IPFS (permanent — good for canon artifacts)
 //   1. Pin the file to Pinata (or any pinning service) and copy the CID.
@@ -18,9 +24,10 @@
 //      /api/ipfs/<cid> proxy when NEXT_PUBLIC_IPFS_PROXY_PATH is set, and
 //      falls back to public gateways otherwise.
 //
-// `poster` is an optional 16:9 thumbnail (same path rules as `src`); tiles
-// without one show a kind glyph instead. `addedAt` is an ISO date
-// (YYYY-MM-DD) displayed on the tile.
+// `poster` is an optional 16:9 thumbnail (same path rules as `src`). Items
+// of kind "image" fall back to their own `src` as the thumbnail; video and
+// audio without a poster show a kind glyph. `addedAt` is an ISO date
+// (YYYY-MM-DD) shown in the Date Added column.
 // ============================================================================
 
 export type MediaItem = {
@@ -34,23 +41,65 @@ export type MediaItem = {
 };
 
 export const MEDIA_LIBRARY: MediaItem[] = [
-  // Example — local file dropped into foid_fun/public/media/:
-  // {
-  //   id: "mifoid-anthem",
-  //   title: "MIFOID ANTHEM (OFFICIAL VIDEO)",
-  //   kind: "video",
-  //   src: "/media/mifoid-anthem.mp4",
-  //   poster: "/media/mifoid-anthem-poster.jpg",
-  //   addedAt: "2026-07-05",
-  //   description: "First transmission from the MiFOID sound division.",
-  // },
-  //
-  // Example — pinned to Pinata, resolved via ipfsToHttp → /api/ipfs proxy:
-  // {
-  //   id: "prayer-loop-001",
-  //   title: "PRAYER LOOP 001",
-  //   kind: "audio",
-  //   src: "ipfs://bafybeihq5g5tsundpm3o56xrfp3sy6ry3ny5kv3fkgtklslpcv3ac7wmxa",
-  //   addedAt: "2026-07-05",
-  // },
+  {
+    id: "foid-mommy",
+    title: "FOID MOMMY",
+    kind: "image",
+    src: "/foidmommy.gif",
+    addedAt: "2026-07-05",
+    description: "The original Foid Mommy loop — the face of the prayer terminal.",
+  },
+  {
+    id: "mifoid-01",
+    title: "MIFOID — PRAY DAILY",
+    kind: "image",
+    src: "/mifoid01.png",
+    addedAt: "2026-07-05",
+    description: "MiFOID in the bubble. pray daily. win forever.",
+  },
+  {
+    id: "mifoid-02",
+    title: "MIFOID — GREEN HOODIE",
+    kind: "image",
+    src: "/mifoid02.png",
+    addedAt: "2026-07-05",
+  },
+  {
+    id: "mifoid-03",
+    title: "MIFOID — BLACK HOODIE",
+    kind: "image",
+    src: "/mifoid03.png",
+    addedAt: "2026-07-05",
+  },
+  {
+    id: "mifoid-04",
+    title: "MIFOID — GRAY TEE",
+    kind: "image",
+    src: "/mifoid04.png",
+    addedAt: "2026-07-05",
+  },
+  {
+    id: "mifoid-05",
+    title: "MIFOID — UNTITLED (PAINT)",
+    kind: "image",
+    src: "/mifoid05.png",
+    addedAt: "2026-07-05",
+    description: "MiFOID rendered inside untitled - Paint.",
+  },
+  {
+    id: "mifoid-07",
+    title: "MIFOID — BLENDER VIEWPORT",
+    kind: "image",
+    src: "/mifoid07.png",
+    addedAt: "2026-07-05",
+    description: "Straight from the workshop — the living agent mid-build.",
+  },
+  {
+    id: "mifoid-08",
+    title: "MIFOID — TEXTURE PAINT",
+    kind: "image",
+    src: "/mifoid08.png",
+    addedAt: "2026-07-05",
+    description: "Baggy jeans cloth pass, texture paint mode.",
+  },
 ];

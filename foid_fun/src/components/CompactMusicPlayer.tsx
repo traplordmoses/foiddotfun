@@ -4,15 +4,10 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { musicPanelController } from "@/components/musicPanelController";
 import { getAudioSettings, setMusicEnabled } from "@/lib/audioSettings";
+import { useAmpStore } from "@/stores/ampStore";
 
 const MusicPanelLogic = dynamic(() => import("./MusicPanel"), { ssr: false });
 
-const HIDE_DELAY_HOVER = 2000;
-// Max idle time the bar stays visible regardless of cursor position. Fixes the
-// case where the mouse settles over the bar (or a click moves focus elsewhere)
-// and the bar would otherwise stay up forever — it now always collapses after
-// ~3 s of no pointer/keyboard interaction on the bar itself.
-const IDLE_AUTO_HIDE_MS = 3000;
 // Deck height: LCD strip + seek lane stacked. PaintEditor clears the bar via
 // html.cmp-active with a fixed 64+48px pad, so anything ≤ ~100px is safe.
 const PLAYER_HEIGHT = 54;
@@ -28,9 +23,10 @@ type CompactMusicPlayerProps = { mountLogic?: boolean };
 
 export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPlayerProps) {
   const [state, setState] = useState(musicPanelController.getState());
-  const [isVisible, setIsVisible] = useState(false);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // FOID AMP is a dock app: the dock's AMP tile toggles it, the deck's
+  // close orb closes it. No hover-reveal, no auto-hide.
+  const isVisible = useAmpStore((s) => s.open);
+  const closeAmp = useAmpStore((s) => s.close);
   const barRef = useRef<HTMLDivElement>(null);
   const isMobileRef = useRef(false);
 
@@ -70,37 +66,6 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     return () => ro.disconnect();
   }, [currentTrackName]);
 
-  const clearHideTimer = useCallback(() => {
-    if (hideTimer.current) {
-      clearTimeout(hideTimer.current);
-      hideTimer.current = null;
-    }
-  }, []);
-
-  const show = useCallback(() => {
-    clearHideTimer();
-    setIsVisible(true);
-  }, [clearHideTimer]);
-
-  const scheduleHide = useCallback((delay: number) => {
-    if (pinnedRef.current) return; // dragged free = pinned, never auto-hide
-    clearHideTimer();
-    hideTimer.current = setTimeout(() => setIsVisible(false), delay);
-  }, [clearHideTimer]);
-
-  const clearIdleTimer = useCallback(() => {
-    if (idleTimer.current) {
-      clearTimeout(idleTimer.current);
-      idleTimer.current = null;
-    }
-  }, []);
-
-  const armIdleTimer = useCallback(() => {
-    if (pinnedRef.current) return; // pinned bars stay up
-    clearIdleTimer();
-    idleTimer.current = setTimeout(() => setIsVisible(false), IDLE_AUTO_HIDE_MS);
-  }, [clearIdleTimer]);
-
   // Visibility signal only: PaintEditor observes this class to pad its
   // toolbar clear of the bar. No stylesheet may attach layout to it — the
   // old "content push" rules shrank every vista-window by 38px on
@@ -109,31 +74,6 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     document.documentElement.classList.toggle("cmp-active", isVisible);
     return () => document.documentElement.classList.remove("cmp-active");
   }, [isVisible]);
-
-  // Idle auto-collapse: once the bar is up, start a 3 s timer that hides it
-  // even if the cursor is still inside. Interacting with the bar (move or
-  // click) re-arms it. This is the safety net for the "mouse parked on the
-  // bar" and "user clicked away mid-hover" cases, both of which would
-  // otherwise leave the bar open indefinitely.
-  useEffect(() => {
-    if (!isVisible) {
-      clearIdleTimer();
-      return;
-    }
-    armIdleTimer();
-    const bar = barRef.current;
-    if (!bar) return;
-    const reset = () => armIdleTimer();
-    bar.addEventListener("pointermove", reset);
-    bar.addEventListener("pointerdown", reset);
-    bar.addEventListener("keydown", reset);
-    return () => {
-      bar.removeEventListener("pointermove", reset);
-      bar.removeEventListener("pointerdown", reset);
-      bar.removeEventListener("keydown", reset);
-      clearIdleTimer();
-    };
-  }, [isVisible, armIdleTimer, clearIdleTimer]);
 
   // Track mobile state (player hidden on mobile via CSS, but ref used elsewhere)
   useEffect(() => {
@@ -145,25 +85,9 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Desktop: hover zone
-  const handleHoverEnter = useCallback(() => {
-    if (isMobileRef.current) return;
-    show();
-  }, [show]);
-
-  const handleBarMouseEnter = useCallback(() => {
-    clearHideTimer();
-  }, [clearHideTimer]);
-
-  const handleBarMouseLeave = useCallback(() => {
-    if (isMobileRef.current) return;
-    if (pinnedRef.current) return;
-    scheduleHide(HIDE_DELAY_HOVER);
-  }, [scheduleHide]);
-
-  // ── Native-player mode: drag the bar anywhere; dragging pins it (no
-  // auto-hide). Double-click an empty spot to send it back to its dock
-  // position and resume hover-reveal behavior.
+  // ── Native-player mode: drag the deck anywhere; position is remembered
+  // while it stays open. Double-click an empty spot to snap it back to its
+  // home position above the dock.
   const [barOffset, setBarOffset] = useState<{ x: number; y: number } | null>(null);
   const pinnedRef = useRef(false);
   pinnedRef.current = barOffset !== null;
@@ -200,13 +124,11 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
       window.removeEventListener("pointerup", onUp);
       document.body.classList.remove("foid-window-dragging");
       setBarOffset(live);
-      clearHideTimer();
-      clearIdleTimer();
     };
     document.body.classList.add("foid-window-dragging");
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
-  }, [barOffset, clearHideTimer, clearIdleTimer]);
+  }, [barOffset]);
 
   const handleBarDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
@@ -235,13 +157,6 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
   const volVal = volume ?? 0;
   const volumeIcon = volVal === 0 ? "\u{1F507}" : volVal < 0.5 ? "\u{1F509}" : "\u{1F50A}";
 
-  useEffect(() => {
-    return () => {
-      clearHideTimer();
-      clearIdleTimer();
-    };
-  }, [clearHideTimer, clearIdleTimer]);
-
   return (
     <>
       {mountLogic && (
@@ -256,26 +171,26 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         </div>
       )}
 
-      {/* Desktop hover zone */}
-      {!isVisible && (
-        <div className="cmp-hover-zone" onMouseEnter={handleHoverEnter} />
-      )}
-
-      {/* Music bar */}
+      {/* FOID AMP deck — opened from the dock's AMP tile */}
       <div className={`cmp-bar-outer ${isVisible ? "cmp-bar-outer--visible" : "cmp-bar-outer--hidden"}`}>
         <div
           ref={barRef}
           className="cmp-bar"
-          onMouseEnter={handleBarMouseEnter}
-          onMouseLeave={handleBarMouseLeave}
           onPointerDown={handleBarPointerDown}
           onDoubleClick={handleBarDoubleClick}
-          title="drag to move · double-click to send back"
+          title="drag to move · double-click to snap home"
           style={{
             transform: barOffset ? `translate(${barOffset.x}px, ${barOffset.y}px)` : undefined,
             cursor: barOffset ? "grab" : undefined,
           }}
         >
+          <button
+            type="button"
+            className="cmp-close vista-window__control vista-window__control--close"
+            aria-label="Close FOID AMP"
+            title="Close"
+            onClick={closeAmp}
+          />
           {/* Transport cluster \u2014 gel buttons */}
           <div className="cmp-transport">
             <button className="cmp-gel" type="button" onClick={handlePrev} title="Previous" aria-label="Previous">
@@ -375,37 +290,26 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           clip-path: inset(50%);
         }
 
-        /* --- Hover zone (desktop only) --- */
-        :global(.cmp-hover-zone) {
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          height: 18px;
-          z-index: 49;
-          background: transparent;
-        }
-        @media (max-width: 1023px) {
-          :global(.cmp-hover-zone) { display: none; }
-        }
-
-        /* --- Outer wrapper: fixed, centers the floating bar --- */
+        /* --- Outer wrapper: fixed above the dock, centers the deck --- */
         :global(.cmp-bar-outer) {
           position: fixed;
-          bottom: 12px;
+          bottom: 92px; /* clears the dock (64px pill + 10px gap + breath) */
           left: 0;
           right: 0;
           z-index: 50;
           display: flex;
           justify-content: center;
           pointer-events: none;
-          transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+          transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+                      opacity 0.3s ease;
         }
         :global(.cmp-bar-outer--visible) {
           transform: translateY(0);
+          opacity: 1;
         }
         :global(.cmp-bar-outer--hidden) {
-          transform: translateY(calc(100% + 16px));
+          transform: translateY(calc(100% + 120px));
+          opacity: 0;
           transition-duration: 0.3s;
           transition-timing-function: ease-in;
         }
@@ -422,6 +326,17 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           gap: 12px;
           height: ${PLAYER_HEIGHT}px;
           padding: 0 14px;
+        }
+        /* Close orb — top-right of the chassis, mini window control */
+        :global(.cmp-close) {
+          position: absolute;
+          top: -4px;
+          right: -4px;
+          width: 14px !important;
+          height: 14px !important;
+          z-index: 3;
+        }
+        :global(.cmp-bar) {
 
           /* Liquid glass */
           background: linear-gradient(

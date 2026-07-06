@@ -1,159 +1,434 @@
 /* src/app/files/files.css
-   FILES.EXE — explorer chrome, file tiles, empty-state invitation, and the
-   MEDIA_PLAYER.EXE overlay chassis. Everything derives from tokens.css
-   (glass material, tone-info cyan, terminal/display voices) so the room
-   sits in the same FOID OS material as board/vote/pray. */
+   FILES.EXE — Finder anatomy in FOID aero material.
 
-/* ── Explorer toolbar ──────────────────────────────────────────────────── */
+   Two-pane body: glass sidebar (Favorites/Locations) + main pane (toolbar,
+   icon/list canvas, status strip), plus the MEDIA_PLAYER.EXE overlay
+   chassis. Everything derives from tokens.css — glass panel recipe, the
+   tone-info cyan quad, radius scale, motion tokens — so the room sits in
+   the same material family as board/vote/pray. One-off alphas are built
+   with color-mix() off --foid-cyan per the tokens.css contract.
+
+   Motion: every transition rides var(--foid-motion-fast), which tokens.css
+   flattens to 0ms under prefers-reduced-motion. No transforms in this room. */
+
+/* ── Shell: two panes inside the flush window body ─────────────────────── */
+.files-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
+/* ── Sidebar — panel-elevation glass ───────────────────────────────────── */
+.files-sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 12px 10px;
+  overflow-y: auto;
+  background: var(--foid-glass-panel-bg);
+  backdrop-filter: var(--foid-glass-panel-blur);
+  -webkit-backdrop-filter: var(--foid-glass-panel-blur);
+  border-right: 1px solid var(--foid-glass-panel-border);
+}
+
+.files-sidebar__section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.files-sidebar__heading {
+  display: block;
+  padding: 0 8px 6px;
+  color: var(--foid-text-mute);
+}
+
+/* Sidebar row — Finder source-list item. Selected = cyan-tint pill. */
+.files-side-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: var(--foid-radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--foid-text-dim);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background var(--foid-motion-fast) var(--foid-ease-out),
+    border-color var(--foid-motion-fast) var(--foid-ease-out),
+    color var(--foid-motion-fast) var(--foid-ease-out);
+}
+.files-side-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--foid-text);
+}
+.files-side-row--active {
+  background: color-mix(in srgb, var(--foid-cyan) 14%, transparent);
+  border-color: var(--foid-border-subtle);
+  color: var(--foid-text);
+}
+
+.files-side-row__icon {
+  flex-shrink: 0;
+  color: var(--tone-info-text);
+  opacity: 0.7;
+  transition: opacity var(--foid-motion-fast) var(--foid-ease-out);
+}
+.files-side-row:hover .files-side-row__icon,
+.files-side-row--active .files-side-row__icon {
+  opacity: 1;
+}
+
+.files-side-row__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.files-side-row__external {
+  flex-shrink: 0;
+  color: var(--foid-text-mute);
+}
+
+/* ── Main pane ─────────────────────────────────────────────────────────── */
+.files-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(3, 10, 24, 0.45);
+}
+
+/* Toolbar — history chevrons, view segment, search. */
 .files-toolbar {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 10px 14px;
-  flex-wrap: wrap;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--foid-border-subtle);
-  background: rgba(6, 16, 30, 0.45);
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--foid-glass-panel-border);
+  background: var(--foid-glass-panel-bg);
+  backdrop-filter: var(--foid-glass-panel-blur);
+  -webkit-backdrop-filter: var(--foid-glass-panel-blur);
 }
 
-.files-toolbar__filters {
+.files-nav {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
+  gap: 4px;
 }
 
-/* Filter chips share the ui-chip vocabulary (mono, pill, tone-info when
-   lit) but are real <button>s — the Chip primitive is a static span. */
-.files-filter {
-  font-family: var(--font-terminal);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  padding: 4px 12px;
-  border-radius: var(--foid-radius-pill);
-  border: 1px solid var(--foid-border-subtle);
-  background: var(--foid-panel);
+.files-navbtn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--foid-radius-sm);
+  border: 1px solid var(--foid-border-mute);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--foid-text-dim);
   cursor: pointer;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   transition:
+    background var(--foid-motion-fast) var(--foid-ease-out),
     border-color var(--foid-motion-fast) var(--foid-ease-out),
-    color var(--foid-motion-fast) var(--foid-ease-out),
-    box-shadow var(--foid-motion-fast) var(--foid-ease-out);
+    color var(--foid-motion-fast) var(--foid-ease-out);
 }
-.files-filter:hover {
-  border-color: var(--foid-border-strong);
+.files-navbtn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--foid-border-subtle);
   color: var(--foid-text);
 }
-.files-filter--active {
-  border-color: var(--tone-info-border);
-  background: var(--tone-info-bg);
-  color: var(--tone-info-text);
-  box-shadow: 0 0 10px var(--tone-info-glow);
+.files-navbtn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
-/* ── File grid ─────────────────────────────────────────────────────────── */
-.files-body {
+/* Segmented glass view toggle — outer radius clips flush inner segments. */
+.files-viewseg {
+  display: inline-flex;
+  border: 1px solid var(--foid-border-mute);
+  border-radius: var(--foid-radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+.files-viewseg__btn {
+  width: 32px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--foid-text-dim);
+  cursor: pointer;
+  transition:
+    background var(--foid-motion-fast) var(--foid-ease-out),
+    color var(--foid-motion-fast) var(--foid-ease-out);
+}
+.files-viewseg__btn + .files-viewseg__btn {
+  border-left: 1px solid var(--foid-border-mute);
+}
+.files-viewseg__btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--foid-text);
+}
+.files-viewseg__btn--active {
+  background: var(--tone-info-bg);
+  color: var(--tone-info-text);
+}
+/* Keep the ring visible inside the clipping segment container. */
+.files-viewseg__btn:focus-visible {
+  outline: 2px solid var(--foid-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Search — glass inset, right-aligned. */
+.files-search {
+  position: relative;
+  margin-left: auto;
+  width: 200px;
+  max-width: 42%;
+}
+.files-search__icon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--foid-text-mute);
+  pointer-events: none;
+}
+.files-search input {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--foid-text);
+  padding: 5px 10px 5px 26px;
+  border-radius: var(--foid-radius-sm);
+  border: 1px solid var(--foid-border-mute);
+  background: var(--foid-panel-strong);
+  transition: border-color var(--foid-motion-fast) var(--foid-ease-out);
+}
+.files-search input::placeholder {
+  color: var(--foid-text-mute);
+}
+.files-search input:focus {
+  border-color: var(--foid-border-subtle);
+}
+.files-search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* ── Canvas — the scrollable listbox (both views) ──────────────────────── */
+.files-canvas {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 16px;
+}
+.files-canvas:focus-visible {
+  outline: 2px solid var(--foid-focus-ring);
+  outline-offset: -2px;
+}
+.files-canvas--icons {
+  padding: 14px;
+}
+.files-canvas--list {
+  padding: 4px 8px 10px;
 }
 
+.files-noresults {
+  display: block;
+  padding: 48px 16px;
+  text-align: center;
+}
+
+/* ── Icon view — names under 16:9 thumbs, Mac selection ────────────────── */
 .files-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px 10px;
+  align-content: start;
 }
 
-/* Tile = panel-elevation glass card that opens MEDIA_PLAYER.EXE. */
-.files-tile {
+.files-item {
   display: flex;
   flex-direction: column;
-  text-align: left;
-  padding: 0;
-  border-radius: var(--foid-radius-lg);
-  overflow: hidden;
-  border: 1px solid var(--foid-border-subtle);
-  background: var(--foid-panel);
-  box-shadow: var(--foid-shadow-panel);
+  align-items: center;
+  gap: 7px;
+  padding: 6px;
+  border-radius: var(--foid-radius-md);
   cursor: pointer;
-  transition:
-    transform var(--foid-motion-fast) var(--foid-ease-out),
-    border-color var(--foid-motion-fast) var(--foid-ease-out),
-    box-shadow var(--foid-motion-fast) var(--foid-ease-out);
-}
-.files-tile:hover,
-.files-tile:focus-visible {
-  transform: translateY(-2px);
-  border-color: var(--foid-border-strong);
-  box-shadow:
-    var(--foid-shadow-panel),
-    0 0 18px var(--tone-info-glow);
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.files-tile__thumb {
+.files-item__thumb {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: rgba(0, 0, 0, 0.4);
   display: grid;
   place-items: center;
   overflow: hidden;
+  border-radius: var(--foid-radius-sm);
+  border: 1px solid var(--foid-border-mute);
+  background: rgba(0, 0, 0, 0.4);
+  transition:
+    border-color var(--foid-motion-fast) var(--foid-ease-out),
+    box-shadow var(--foid-motion-fast) var(--foid-ease-out);
 }
-.files-tile__thumb img {
+.files-item__thumb img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.files-tile__glyph {
-  font-size: 34px;
-  line-height: 1;
-  opacity: 0.75;
+.files-item__glyph {
+  color: var(--tone-info-text);
+  opacity: 0.8;
   filter: drop-shadow(0 0 12px rgba(116, 255, 235, 0.35));
 }
-.files-tile__kind {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  font-family: var(--font-terminal);
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: var(--foid-radius-pill);
-  border: 1px solid var(--foid-border-subtle);
-  background: rgba(3, 10, 24, 0.72);
+
+.files-item__name {
+  max-width: 100%;
+  padding: 1px 7px;
+  border-radius: var(--foid-radius-sm);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: center;
   color: var(--foid-text-dim);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  transition:
+    background var(--foid-motion-fast) var(--foid-ease-out),
+    color var(--foid-motion-fast) var(--foid-ease-out);
 }
 
-.files-tile__meta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px 12px;
+.files-item:hover .files-item__thumb {
+  border-color: var(--foid-border-subtle);
 }
-.files-tile__name {
+.files-item:hover .files-item__name {
+  color: var(--foid-text);
+}
+
+/* Selected: cyan name pill + thumb border glow. */
+.files-item--selected .files-item__thumb {
+  border-color: var(--foid-border-strong);
+  box-shadow: 0 0 14px var(--tone-info-glow);
+}
+.files-item--selected .files-item__name {
+  background: color-mix(in srgb, var(--foid-cyan) 14%, transparent);
+  box-shadow: inset 0 0 0 1px var(--foid-border-subtle);
+  color: var(--foid-text);
+}
+
+/* ── List view — Name / Kind / Date Added ──────────────────────────────── */
+.files-listhead {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 118px;
+  gap: 12px;
+  padding: 8px 20px 6px;
+  border-bottom: 1px solid var(--foid-border-mute);
+}
+
+.files-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 118px;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: var(--foid-radius-sm);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background var(--foid-motion-fast) var(--foid-ease-out);
+}
+.files-row:nth-of-type(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+.files-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.files-row--selected,
+.files-row--selected:nth-of-type(even),
+.files-row--selected:hover {
+  background: color-mix(in srgb, var(--foid-cyan) 14%, transparent);
+  box-shadow: inset 0 0 0 1px var(--foid-border-subtle);
+}
+
+.files-row__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.files-row__kindicon {
+  flex-shrink: 0;
+  color: var(--tone-info-text);
+  opacity: 0.7;
+}
+.files-row__title {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.files-tile__date {
-  font-family: var(--font-terminal);
-  font-size: 10px;
-  letter-spacing: 0.08em;
+.files-row__cell {
   color: var(--foid-text-dim);
-  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* ── Empty-state invitation ────────────────────────────────────────────────
-   Same register as the board's fresh-canvas hint (.board-hint): a display
-   headline, then exact instructions in mono path chips. This is the first
-   thing anyone sees at /files until media is registered. */
+/* ── Status strip — count + breadcrumb ─────────────────────────────────── */
+.files-status {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 14px;
+  border-top: 1px solid var(--foid-glass-panel-border);
+  background: var(--foid-glass-panel-bg);
+  backdrop-filter: var(--foid-glass-panel-blur);
+  -webkit-backdrop-filter: var(--foid-glass-panel-blur);
+}
+.files-status__count {
+  flex-shrink: 0;
+}
+.files-status__path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.files-status__sep {
+  color: var(--foid-text-mute);
+}
+.files-status__here {
+  color: var(--foid-text);
+}
+
+/* ── Empty archive (curator-only) ──────────────────────────────────────── */
 .files-empty {
   flex: 1;
   min-height: 0;
@@ -173,9 +448,8 @@
 .files-empty__glyphs {
   display: flex;
   gap: 20px;
-  font-size: 30px;
-  line-height: 1;
-  opacity: 0.35;
+  color: var(--tone-info-text);
+  opacity: 0.45;
   filter: drop-shadow(0 0 14px rgba(116, 255, 235, 0.35));
 }
 .files-empty__title {
@@ -194,58 +468,6 @@
   line-height: 1.6;
   color: var(--foid-text-dim);
   max-width: 46ch;
-}
-.files-empty__steps {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  margin-top: 4px;
-}
-.files-empty__step {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px 10px;
-}
-.files-empty__step-num {
-  font-family: var(--font-terminal);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  color: var(--tone-info-text);
-  opacity: 0.85;
-}
-.files-empty__step-text {
-  font-family: var(--font-terminal);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  color: var(--foid-text);
-}
-/* Mono path chip — the .board-hint__primary pill, sized for file paths. */
-.files-empty__path {
-  font-family: var(--font-terminal);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  padding: 6px 14px;
-  border-radius: var(--foid-radius-pill);
-  border: 1px solid var(--foid-glass-border);
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: var(--foid-text);
-  text-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
-  box-shadow:
-    0 0 24px rgba(116, 255, 235, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  white-space: nowrap;
-}
-.files-empty__sub {
-  font-family: var(--font-terminal);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--foid-text-dim);
-  margin-top: 6px;
 }
 
 /* ── MEDIA_PLAYER.EXE ──────────────────────────────────────────────────────
@@ -316,9 +538,68 @@
   border-top: 1px solid var(--foid-border-subtle);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .files-tile:hover,
-  .files-tile:focus-visible {
-    transform: none;
+/* ── Touch viewports ───────────────────────────────────────────────────────
+   globals.css forces button:not(.touch-target) to min-height 44px +
+   padding 8px 16px under 768px — that padding collapses fixed-width icon
+   buttons to a 0px content box. Re-assert icon-button geometry at the
+   sanctioned 44px touch size (button.* matches the global specificity;
+   this sheet loads after globals). */
+@media (max-width: 768px) {
+  button.files-navbtn {
+    width: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
+  button.files-viewseg__btn {
+    width: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
+  /* Keep icon/label alignment; 44px row height for both <button> favorites
+     and <a> locations so the two sections stay uniform. */
+  button.files-side-row,
+  a.files-side-row {
+    min-height: 44px;
+    padding: 6px 8px;
+  }
+}
+
+/* ── Narrow viewports ──────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .files-sidebar {
+    width: 156px;
+  }
+  /* Search flexes; when the pane is too tight it wraps to its own row. */
+  .files-toolbar {
+    flex-wrap: wrap;
+  }
+  .files-search {
+    flex: 1 1 160px;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+  .files-grid {
+    grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+  }
+  /* Name-only list on phones — Kind/Date live in the player + status bar. */
+  .files-listhead,
+  .files-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .files-listhead > :nth-child(2),
+  .files-listhead > :nth-child(3),
+  .files-row > .files-row__cell {
+    display: none;
+  }
+}
+
+/* ── High contrast — glass goes opaque via tokens; drop the blur too ───── */
+@media (prefers-contrast: more) {
+  .files-sidebar,
+  .files-toolbar,
+  .files-status {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }

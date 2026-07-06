@@ -19,6 +19,7 @@ import {
   type MotionValue,
 } from 'framer-motion';
 import { useWindowStore } from '@/stores/windowStore';
+import { useAmpStore } from '@/stores/ampStore';
 
 interface NavItem {
   href: string;
@@ -139,6 +140,8 @@ export function Dock() {
   const mouseX = useMotionValue(Infinity);
   const windowMinimized = useWindowStore((s) => s.minimized);
   const restoreWindow = useWindowStore((s) => s.restore);
+  const ampOpen = useAmpStore((s) => s.open);
+  const toggleAmp = useAmpStore((s) => s.toggle);
 
   // Magnification only makes sense with a hovering fine pointer, and only
   // when the user hasn't asked for reduced motion.
@@ -259,6 +262,57 @@ export function Dock() {
             </Link>
           );
         })}
+
+        {/* Divider, then FOID AMP — an app tile, not a route. Toggles the
+            deck (CompactMusicPlayer). Desktop only: the deck itself is
+            hidden on mobile. */}
+        <div className="hidden lg:block w-px self-stretch my-3 mx-1" style={{ background: 'rgba(255, 255, 255, 0.14)' }} aria-hidden="true" />
+        <button
+          type="button"
+          onClick={toggleAmp}
+          aria-pressed={ampOpen}
+          aria-label={ampOpen ? 'Close FOID AMP' : 'Open FOID AMP'}
+          className="relative hidden lg:flex flex-col items-center justify-center h-full min-w-[64px] px-2 touch-manipulation"
+        >
+          {ampOpen && (
+            <span
+              aria-hidden="true"
+              className="absolute inset-x-0.5 inset-y-1.5 rounded-2xl border border-white/[0.22]"
+              style={{
+                background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05))',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 16px rgba(120, 200, 255, 0.18)',
+              }}
+            />
+          )}
+          <motion.div
+            className="relative z-10 flex flex-col items-center justify-center"
+            whileTap={{ scale: 0.88 }}
+            transition={{ duration: 0.1 }}
+          >
+            <DockIcon mouseX={mouseX}>
+              <div
+                className={`transition-colors duration-200 ${ampOpen ? 'text-white' : 'text-white/55'}`}
+                style={ampOpen ? { filter: 'drop-shadow(0 0 8px rgba(150, 220, 255, 0.55))' } : undefined}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
+                </svg>
+              </div>
+            </DockIcon>
+            <span className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${ampOpen ? 'text-white' : 'text-white/55'}`}>
+              AMP
+            </span>
+          </motion.div>
+          {ampOpen && (
+            <span
+              aria-hidden="true"
+              className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+              style={{ background: 'rgba(150, 220, 255, 0.95)', boxShadow: '0 0 6px rgba(150, 220, 255, 0.8)' }}
+            />
+          )}
+        </button>
       </div>
     </nav>
   );
