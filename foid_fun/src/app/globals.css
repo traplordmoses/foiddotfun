@@ -887,17 +887,23 @@ body {
       box-shadow 0.2s ease;
   }
 
+  /* macOS traffic-light order — red · amber · green, left to right.
+     Enforced with flex `order` so every render site (13 files carry the
+     decorative spans in legacy order) lines up without markup churn. */
   .vista-window__control--close {
+    order: 0;
     background: linear-gradient(180deg, #ff7a8a 0%, #ff4d5e 50%, #e8354a 100%);
     --control-glow: rgba(255, 77, 94, 0.4);
   }
 
   .vista-window__control--minimize {
-    background: linear-gradient(180deg, #7ab8ff 0%, #4a9eff 50%, #3085e8 100%);
-    --control-glow: rgba(74, 158, 255, 0.4);
+    order: 1;
+    background: linear-gradient(180deg, #ffd970 0%, #f7b32b 50%, #dd9a14 100%);
+    --control-glow: rgba(247, 179, 43, 0.4);
   }
 
   .vista-window__control--restore {
+    order: 2;
     background: linear-gradient(180deg, #8aeba5 0%, #4ade80 50%, #30c060 100%);
     --control-glow: rgba(74, 222, 128, 0.4);
   }
@@ -914,6 +920,29 @@ body {
       rgba(255, 255, 255, 0.75) 0%,
       rgba(255, 255, 255, 0.2) 100%);
     pointer-events: none;
+  }
+
+  /* macOS hover glyphs: ×/−/+ appear when the cluster is hovered. */
+  .vista-window__control::after {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-body);
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    color: rgba(40, 20, 5, 0.6);
+    opacity: 0;
+    transition: opacity var(--foid-motion-fast) ease;
+    pointer-events: none;
+  }
+  .vista-window__control--close::after { content: "×"; }
+  .vista-window__control--minimize::after { content: "−"; }
+  .vista-window__control--restore::after { content: "+"; }
+  .vista-window__controls:hover .vista-window__control::after {
+    opacity: 1;
   }
 
   .vista-window__control:hover {

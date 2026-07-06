@@ -224,7 +224,16 @@ export function WindowControls() {
   }, []);
 
   return (
+    // macOS order: red close · amber minimize · green zoom. DOM order
+    // matches visual order so keyboard Tab walks left → right.
     <div className="vista-window__controls" ref={anchorRef}>
+      <button
+        type="button"
+        className="vista-window__control vista-window__control--close"
+        aria-label="Close window to dock"
+        title="Close (returns to dock)"
+        onClick={minimize}
+      />
       <button
         type="button"
         className="vista-window__control vista-window__control--minimize"
@@ -238,13 +247,6 @@ export function WindowControls() {
         aria-label={maximized ? "Restore window size" : "Maximize window"}
         title={maximized ? "Restore" : "Maximize"}
         onClick={toggleMaximize}
-      />
-      <button
-        type="button"
-        className="vista-window__control vista-window__control--close"
-        aria-label="Close window to dock"
-        title="Close (returns to dock)"
-        onClick={minimize}
       />
       {winEl && !maximized && !minimized
         ? createPortal(
