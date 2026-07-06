@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+
 // AeroIcons — the FOID OS frutiger-aero icon language.
 //
 // Drawn replacements for every emoji/text glyph in MUSIC.EXE and CHAT.EXE:
