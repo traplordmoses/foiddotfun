@@ -100,15 +100,56 @@ export default function FoidOnboardingTour() {
   const audioRef = useRef<AudioContext | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Check if user has seen onboarding
+  // First-run welcome — WELCOME.EXE arrives *after* the desktop, never over
+  // the boot. The FOID OS boot (/enter) owns the screen through POST → login;
+  // ClientLayout already keeps this whole component unmounted there, and the
+  // final safeguard is timing: we don't reveal until the desktop shell has
+  // actually painted (.os-desktop present, opened by the enter click) so the
+  // tour reads as a greeting on the arrived desktop, not a blind timer that
+  // races the login flash. Fallback after ~2.4s covers the launcher path
+  // (mobile / NEXT_PUBLIC_FOID_DESKTOP=0) where there's no shell element.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const cookie = document.cookie.split(';').find(c => c.trim().startsWith(COOKIE_KEY + '='));
-    if (!cookie) {
-      // Delay slightly so enter gate animation finishes
-      const t = setTimeout(() => setVisible(true), 800);
-      return () => clearTimeout(t);
+    const seen = document.cookie
+      .split(';')
+      .some((c) => c.trim().startsWith(COOKIE_KEY + '='));
+    if (seen) return;
+
+    let settleTimer: ReturnType<typeof setTimeout> | undefined;
+    const reveal = () => {
+      // A short settle beat after the desktop appears lets the dock finish
+      // its arrival before the welcome fades in on top of a calm scene.
+      settleTimer = setTimeout(() => setVisible(true), 650);
+    };
+
+    // Desktop already up (returning-in-tab visitor landing on "/") → greet.
+    if (document.querySelector('.os-desktop')) {
+      reveal();
+      return () => clearTimeout(settleTimer);
     }
+
+    // Otherwise wait for the shell to mount (the enter → desktop payoff),
+    // with a hard fallback so non-desktop surfaces still get the welcome.
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      observer.disconnect();
+      clearTimeout(fallback);
+      reveal();
+    };
+    const observer = new MutationObserver(() => {
+      if (document.querySelector('.os-desktop')) finish();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    const fallback = setTimeout(finish, 2400);
+
+    return () => {
+      done = true;
+      observer.disconnect();
+      clearTimeout(fallback);
+      clearTimeout(settleTimer);
+    };
   }, []);
 
   const slide = SLIDES[current];

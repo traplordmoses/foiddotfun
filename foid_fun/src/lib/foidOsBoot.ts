@@ -38,3 +38,24 @@ export function hasEnteredRecently(): boolean {
     return false;
   }
 }
+
+/** sessionStorage flag: the dock has already played its one-shot arrival
+ *  slide-up (the "login → desktop" payoff after the enter click). Set the
+ *  first time the dock mounts on the desktop this session so navigating
+ *  between routes doesn't replay the entrance. */
+export const DOCK_ARRIVED_KEY = "foid_dock_arrived";
+
+/** Claims the dock's arrival animation for this tab session. Returns true
+ *  exactly once (the first call) — the dock plays its slide-up then; every
+ *  later mount returns false and skips straight to the resting state. Fails
+ *  closed (no animation) if sessionStorage is unavailable, so a private-mode
+ *  quirk can never wedge the dock mid-entrance. */
+export function claimDockArrival(): boolean {
+  try {
+    if (window.sessionStorage.getItem(DOCK_ARRIVED_KEY) === "1") return false;
+    window.sessionStorage.setItem(DOCK_ARRIVED_KEY, "1");
+    return true;
+  } catch {
+    return false;
+  }
+}

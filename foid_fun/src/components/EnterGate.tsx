@@ -340,15 +340,27 @@ export default function EnterGate({
       return;
     }
 
-    /* First boot (~2.9s to interactive):
-       dark → sigil draws → log ticks → sky blooms → key crystallizes. */
-    schedule(() => setBootPhase("sigil"), 140);
-    schedule(() => setLogCount(1), 640); //  waking foid mommy
-    schedule(() => setLogCount(2), 980); //  mounting permanent memory
-    schedule(() => setLogCount(3), 1320); // tuning the sky…
-    schedule(() => setBootPhase("sky"), 1560); // …and the sky actually arrives
-    schedule(() => setLogCount(4), 1720); // polishing the glass…
-    schedule(finishBoot, 2260); //          …and the glass key crystallizes
+    /* First boot (~3.4s to the login prompt). Deliberately staged like a
+       machine powering on — each beat gets room to land before the next:
+
+         POWER ON  dark aero-night (the SSR "cover" frame)
+         POST      160ms  the sigil ring self-draws · wordmark · tagline
+         BOOT LOG  the four lowercase lines tick with `ok`s at a steady
+                   ~460ms cadence — a real POST checklist, not a flicker,
+                   and it *finishes* before the sky arrives (log never lies)
+         SKY BLOOM 2660ms the wallpaper floods in — "the desktop is coming"
+         LOGIN     3360ms the gold enter key crystallizes as the sole
+                   affordance; nothing else on screen yet
+
+       All timeouts are scheduled up front (never chained) so a throttled
+       background tab can only delay stages, never stack them. */
+    schedule(() => setBootPhase("sigil"), 160); // POST — firmware wakes
+    schedule(() => setLogCount(1), 780); //  waking foid mommy
+    schedule(() => setLogCount(2), 1240); // mounting permanent memory
+    schedule(() => setLogCount(3), 1700); // tuning the sky
+    schedule(() => setLogCount(4), 2160); // polishing the glass — checklist done
+    schedule(() => setBootPhase("sky"), 2660); // the sky blooms up
+    schedule(finishBoot, 3360); //          the login key crystallizes
   }, [finishBoot, schedule]);
 
   /* Any key or pointer during the theater skips it. Capture phase so the
