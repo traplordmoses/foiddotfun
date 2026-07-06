@@ -13,7 +13,16 @@ const HIDE_DELAY_HOVER = 2000;
 // and the bar would otherwise stay up forever — it now always collapses after
 // ~3 s of no pointer/keyboard interaction on the bar itself.
 const IDLE_AUTO_HIDE_MS = 3000;
-const PLAYER_HEIGHT = 38;
+// Deck height: LCD strip + seek lane stacked. PaintEditor clears the bar via
+// html.cmp-active with a fixed 64+48px pad, so anything ≤ ~100px is safe.
+const PLAYER_HEIGHT = 54;
+
+const formatTime = (seconds: number) => {
+  const safe = Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+  const m = Math.floor(safe / 60);
+  const s = Math.floor(safe % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+};
 
 type CompactMusicPlayerProps = { mountLogic?: boolean };
 
@@ -32,8 +41,34 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
     return unsubscribe;
   }, []);
 
-  const { currentTrackName, isPlaying, progress, volume, shuffle } = state;
+  const { currentTrackName, isPlaying, progress, volume, shuffle, elapsed, duration } = state;
   const progressPercent = Number.isFinite(progress) ? Math.min(1, Math.max(0, progress)) : 0;
+  const timeLabel = duration > 0 || elapsed > 0 ? formatTime(elapsed) : "--:--";
+
+  // LCD marquee: only scroll when the track name actually overflows the LCD.
+  // We measure the first (single) copy of the text against the container, so
+  // toggling the duplicate copy on/off never skews the measurement.
+  const lcdTitleRef = useRef<HTMLDivElement>(null);
+  const lcdTextRef = useRef<HTMLSpanElement>(null);
+  const [titleOverflows, setTitleOverflows] = useState(false);
+
+  useEffect(() => {
+    const container = lcdTitleRef.current;
+    const text = lcdTextRef.current;
+    if (!container || !text) return;
+    const measure = () => {
+      setTitleOverflows(text.scrollWidth > container.clientWidth + 1);
+    };
+    measure();
+    // Re-measure once webfonts land (var(--font-terminal) can change widths).
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      document.fonts.ready.then(measure).catch(() => {});
+    }
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [currentTrackName]);
 
   const clearHideTimer = useCallback(() => {
     if (hideTimer.current) {
@@ -241,42 +276,69 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
             cursor: barOffset ? "grab" : undefined,
           }}
         >
-          {/* Previous */}
-          <button className="cmp-ctrl-btn" type="button" onClick={handlePrev} title="Previous" aria-label="Previous">
-            {"\u23EE"}
-          </button>
+          {/* Transport cluster \u2014 gel buttons */}
+          <div className="cmp-transport">
+            <button className="cmp-gel" type="button" onClick={handlePrev} title="Previous" aria-label="Previous">
+              {"\u23EE"}
+            </button>
+            <button
+              className="cmp-gel cmp-gel--play"
+              type="button"
+              onClick={handleToggle}
+              title={isPlaying ? "Pause" : "Play"}
+              aria-label={isPlaying ? "Pause" : "Play"}
+            >
+              {isPlaying ? "\u23F8" : "\u25B6"}
+            </button>
+            <button className="cmp-gel" type="button" onClick={handleNext} title="Next" aria-label="Next">
+              {"\u23ED"}
+            </button>
+          </div>
 
-          {/* Play / Pause */}
-          <button
-            className="cmp-ctrl-btn cmp-ctrl-btn--play"
-            type="button"
-            onClick={handleToggle}
-            title={isPlaying ? "Pause" : "Play"}
-            aria-label={isPlaying ? "Pause" : "Play"}
-          >
-            {isPlaying ? "\u23F8" : "\u25B6"}
-          </button>
-
-          {/* Next */}
-          <button className="cmp-ctrl-btn" type="button" onClick={handleNext} title="Next" aria-label="Next">
-            {"\u23ED"}
-          </button>
-
-          {/* Track title + progress */}
-          <div className="cmp-track-area">
-            <div className="cmp-track" title={currentTrackName}>
-              {currentTrackName}
-            </div>
-            <div className="cmp-progress">
-              <div className="cmp-progress__fill" style={{ width: `${progressPercent * 100}%` }}>
-                <div className="cmp-progress__shimmer" />
+          {/* Deck center: LCD + seek lane */}
+          <div className="cmp-deck">
+            <div className="cmp-lcd">
+              <div className="cmp-lcd__meta">
+                <span className="cmp-lcd__brand">FOID AMP</span>
+                <span
+                  className="cmp-lcd__time"
+                  title={duration > 0 ? `${formatTime(elapsed)} / ${formatTime(duration)}` : undefined}
+                >
+                  {timeLabel}
+                </span>
               </div>
+              <div className="cmp-lcd__title" ref={lcdTitleRef} title={currentTrackName}>
+                <div className={`cmp-lcd__scroll ${titleOverflows ? "cmp-lcd__scroll--marquee" : ""}`}>
+                  <span className="cmp-lcd__text" ref={lcdTextRef}>
+                    {currentTrackName}
+                  </span>
+                  {titleOverflows && (
+                    <span className="cmp-lcd__text cmp-lcd__text--dupe" aria-hidden="true">
+                      {currentTrackName}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            {/* Read-only: musicPanelController exposes no seek/setProgress \u2014
+                the <audio> element lives inside MusicPanel and only volume /
+                transport are bridged. If a seek(fraction) method is ever
+                added to the controller, this lane is where the thumb goes. */}
+            <div
+              className="cmp-seek"
+              role="progressbar"
+              aria-label="Track progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(progressPercent * 100)}
+            >
+              <div className="cmp-seek__fill" style={{ width: `${progressPercent * 100}%` }} />
             </div>
           </div>
 
-          {/* Shuffle */}
+          {/* Right cluster: shuffle + volume */}
           <button
-            className={`cmp-ctrl-btn ${shuffle ? "cmp-ctrl-btn--active" : ""}`}
+            className={`cmp-gel cmp-gel--sm ${shuffle ? "cmp-gel--lit" : ""}`}
             type="button"
             onClick={handleShuffle}
             title={shuffle ? "Shuffle on" : "Shuffle off"}
@@ -284,8 +346,6 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           >
             {"\u{1F500}"}
           </button>
-
-          {/* Volume */}
           <div className="cmp-volume">
             <span className="cmp-volume__icon">{volumeIcon}</span>
             <input
@@ -353,15 +413,15 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           :global(.cmp-bar-outer) { display: none !important; }
         }
 
-        /* ===== Music bar: liquid glass, consistent width ===== */
+        /* ===== FOID AMP deck: Winamp layout in aero glass ===== */
         :global(.cmp-bar) {
           width: calc(100% - 32px);
-          max-width: 1152px;
+          max-width: 560px;
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
           height: ${PLAYER_HEIGHT}px;
-          padding: 0 16px;
+          padding: 0 14px;
 
           /* Liquid glass */
           background: linear-gradient(
@@ -427,147 +487,332 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           }
         }
 
-        /* --- Controls --- */
-        :global(.cmp-ctrl-btn) {
+        /* --- Transport cluster: beveled glass gel buttons --- */
+        :global(.cmp-transport) {
           display: flex;
           align-items: center;
-          justify-content: center;
-          width: 26px;
-          height: 26px;
-          padding: 0;
-          font-size: 13px;
-          background: none;
-          border: none;
-          color: rgba(255, 255, 255, 0.55);
-          cursor: pointer;
-          transition: color 0.15s, transform 0.15s, text-shadow 0.15s;
-          border-radius: 50%;
+          gap: 6px;
           flex-shrink: 0;
           position: relative;
           z-index: 1;
         }
-        :global(.cmp-ctrl-btn:hover) {
-          color: rgba(255, 255, 255, 0.95);
-          transform: scale(1.12);
-          text-shadow: 0 0 8px rgba(140, 255, 220, 0.4);
-        }
-        :global(.cmp-ctrl-btn--play) {
+        :global(.cmp-gel) {
+          display: flex;
+          align-items: center;
+          justify-content: center;
           width: 30px;
           height: 30px;
-          font-size: 15px;
-          color: rgba(255, 255, 255, 0.8);
-          background: rgba(255, 255, 255, 0.08);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          box-shadow: 0 0 8px rgba(100, 180, 255, 0.1);
+          padding: 0;
+          font-size: 11px;
+          line-height: 1;
+          border-radius: 50%;
+          color: var(--foid-text-dim);
+          cursor: pointer;
+          flex-shrink: 0;
+          position: relative;
+          z-index: 1;
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.3) 0%,
+            rgba(255, 255, 255, 0.08) 45%,
+            rgba(8, 22, 44, 0.4) 100%
+          );
+          border: 1px solid var(--foid-border-mute);
+          border-top-color: rgba(255, 255, 255, 0.35);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.35),
+            inset 0 -2px 4px rgba(4, 12, 28, 0.35),
+            0 2px 5px rgba(0, 10, 30, 0.35);
+          transition:
+            color var(--foid-motion-fast),
+            box-shadow var(--foid-motion-fast),
+            border-color var(--foid-motion-fast);
         }
-        :global(.cmp-ctrl-btn--play:hover) {
-          color: rgba(255, 255, 255, 1);
-          background: rgba(255, 255, 255, 0.12);
-          box-shadow: 0 0 14px rgba(100, 180, 255, 0.2);
+        /* Gel cap highlight — the aqua dome */
+        :global(.cmp-gel::before) {
+          content: "";
+          position: absolute;
+          top: 2px;
+          left: 18%;
+          right: 18%;
+          height: 42%;
+          border-radius: 50%;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent);
+          pointer-events: none;
         }
-        :global(.cmp-ctrl-btn--active) {
-          color: rgba(6, 182, 212, 0.9);
-          text-shadow: 0 0 6px rgba(6, 182, 212, 0.4);
+        :global(.cmp-gel:hover) {
+          color: var(--foid-text);
+          border-color: var(--foid-border-subtle);
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.4),
+            inset 0 -2px 4px rgba(4, 12, 28, 0.35),
+            0 2px 6px rgba(0, 10, 30, 0.4),
+            0 0 12px var(--foid-glow);
         }
-        :global(.cmp-ctrl-btn--active:hover) {
-          color: rgba(6, 182, 212, 1);
-          text-shadow: 0 0 10px rgba(6, 182, 212, 0.6);
+        :global(.cmp-gel:active) {
+          color: var(--foid-text);
+          box-shadow:
+            inset 0 2px 6px rgba(4, 12, 28, 0.6),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+        }
+        :global(.cmp-gel:active::before) {
+          opacity: 0.4;
+        }
+        :global(.cmp-gel--play) {
+          width: 36px;
+          height: 36px;
+          font-size: 14px;
+          color: var(--foid-text);
+          border-color: var(--foid-border-subtle);
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.34) 0%,
+            rgba(116, 255, 235, 0.12) 45%,
+            rgba(8, 26, 48, 0.45) 100%
+          );
+        }
+        :global(.cmp-gel--play:hover) {
+          border-color: var(--foid-border-strong);
+        }
+        :global(.cmp-gel--sm) {
+          width: 26px;
+          height: 26px;
+          font-size: 10px;
+        }
+        /* Lit toggle (shuffle on) — cyan ring glow; works even though the
+           glyph is a color emoji that ignores 'color'. */
+        :global(.cmp-gel--lit) {
+          border-color: var(--foid-border-strong);
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.3) 0%,
+            color-mix(in srgb, var(--foid-cyan-electric) 22%, transparent) 45%,
+            rgba(8, 26, 48, 0.45) 100%
+          );
+          box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.35),
+            inset 0 -2px 4px rgba(4, 12, 28, 0.35),
+            0 0 10px var(--foid-glow),
+            0 0 18px color-mix(in srgb, var(--foid-cyan-electric) 30%, transparent);
         }
 
-        /* --- Track area (title + progress stacked) --- */
-        :global(.cmp-track-area) {
+        /* --- Deck center: LCD + seek lane --- */
+        :global(.cmp-deck) {
           flex: 1;
           min-width: 0;
           display: flex;
           flex-direction: column;
-          gap: 3px;
+          gap: 4px;
           justify-content: center;
           position: relative;
           z-index: 1;
         }
-        :global(.cmp-track) {
-          font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.04em;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          color: rgba(190, 255, 235, 0.85);
-          text-shadow: 0 0 8px rgba(140, 255, 220, 0.25);
-          line-height: 1;
-        }
 
-        /* --- Progress bar --- */
-        :global(.cmp-progress) {
-          width: 100%;
-          height: 3px;
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 1.5px;
-          overflow: hidden;
-        }
-        :global(.cmp-progress__fill) {
-          height: 100%;
-          background: linear-gradient(90deg, #06b6d4, #8b5cf6, #d946ef);
-          border-radius: 1.5px;
-          transition: width 0.3s linear;
+        /* Recessed dark-glass LCD */
+        :global(.cmp-lcd) {
           position: relative;
+          border-radius: var(--foid-radius-sm);
+          padding: 3px 8px 4px;
+          background: linear-gradient(180deg, rgba(2, 8, 16, 0.92), rgba(4, 16, 30, 0.8));
+          border: 1px solid rgba(0, 0, 0, 0.55);
+          border-bottom-color: rgba(255, 255, 255, 0.14);
+          box-shadow:
+            inset 0 2px 6px rgba(0, 0, 0, 0.6),
+            inset 0 -1px 0 rgba(116, 255, 235, 0.06);
           overflow: hidden;
         }
-        :global(.cmp-progress__shimmer) {
+        /* Faint scanlines */
+        :global(.cmp-lcd::after) {
+          content: "";
           position: absolute;
           inset: 0;
-          background-image: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
-          background-size: 200% 100%;
-          animation: foid-shimmer 3s ease-in-out infinite;
+          background: repeating-linear-gradient(
+            0deg,
+            transparent 0 2px,
+            rgba(255, 255, 255, 0.03) 2px 3px
+          );
+          pointer-events: none;
         }
-        @keyframes foid-shimmer {
-          0% { background-position: -200% center; }
-          100% { background-position: 200% center; }
+        :global(.cmp-lcd__meta) {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        :global(.cmp-lcd__brand) {
+          font-family: var(--font-body);
+          font-size: 9px;
+          font-weight: 600;
+          letter-spacing: 0.3em;
+          text-transform: uppercase;
+          color: var(--foid-text-mute);
+          line-height: 1.2;
+        }
+        :global(.cmp-lcd__time) {
+          font-family: var(--font-terminal);
+          font-size: 9px;
+          letter-spacing: 0.08em;
+          color: color-mix(in srgb, var(--foid-cyan) 70%, transparent);
+          line-height: 1.2;
+          font-variant-numeric: tabular-nums;
+        }
+        :global(.cmp-lcd__title) {
+          font-family: var(--font-terminal);
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          line-height: 1.3;
+          color: var(--foid-cyan);
+          text-shadow: 0 0 6px var(--foid-glow);
+          white-space: nowrap;
+          overflow: hidden;
+        }
+        :global(.cmp-lcd__scroll) {
+          display: inline-flex;
+          width: max-content;
+        }
+        :global(.cmp-lcd__text) {
+          padding-right: 2.5em;
+        }
+        :global(.cmp-lcd__scroll--marquee) {
+          animation: cmp-marquee 14s linear infinite;
+        }
+        /* Marquee pauses while reading the LCD */
+        :global(.cmp-lcd:hover .cmp-lcd__scroll--marquee) {
+          animation-play-state: paused;
+        }
+        @keyframes cmp-marquee {
+          from { transform: translateX(0); }
+          to { transform: translateX(-50%); }
+        }
+
+        /* --- Seek lane: recessed track, glowing cyan fill (read-only — the
+           controller has no seek method) --- */
+        :global(.cmp-seek) {
+          width: 100%;
+          height: 5px;
+          border-radius: 3px;
+          background: rgba(2, 8, 18, 0.75);
+          box-shadow:
+            inset 0 1px 3px rgba(0, 0, 0, 0.6),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+          overflow: hidden;
+        }
+        :global(.cmp-seek__fill) {
+          height: 100%;
+          border-radius: 3px;
+          background: linear-gradient(
+            90deg,
+            color-mix(in srgb, var(--foid-cyan) 70%, var(--foid-cyan-electric)),
+            var(--foid-cyan-electric)
+          );
+          box-shadow:
+            0 0 8px color-mix(in srgb, var(--foid-cyan-electric) 60%, transparent),
+            0 0 2px var(--foid-cyan-electric);
+          transition: width 0.3s linear;
         }
 
         /* --- Volume --- */
         :global(.cmp-volume) {
           display: flex;
           align-items: center;
-          gap: 4px;
+          gap: 6px;
           flex-shrink: 0;
           position: relative;
           z-index: 1;
         }
         :global(.cmp-volume__icon) {
-          font-size: 14px;
-          opacity: 0.5;
+          font-size: 13px;
+          opacity: 0.55;
           cursor: default;
           line-height: 1;
         }
         :global(.cmp-volume__slider) {
-          width: 50px;
-          height: 3px;
+          width: 60px;
+          height: 5px;
+          /* globals.css pads all inputs (0.65rem 0.9rem) — a range track must
+             stay a slim 5px lane, so flatten the box model here. */
+          padding: 0;
+          margin: 0;
+          box-sizing: border-box;
           -webkit-appearance: none;
           appearance: none;
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 1.5px;
+          border-radius: 3px;
+          background: rgba(2, 8, 18, 0.75);
+          box-shadow:
+            inset 0 1px 3px rgba(0, 0, 0, 0.6),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.08);
           outline: none;
           cursor: pointer;
         }
         :global(.cmp-volume__slider::-webkit-slider-thumb) {
           -webkit-appearance: none;
-          width: 10px;
-          height: 10px;
+          width: 13px;
+          height: 13px;
           border-radius: 50%;
-          background: rgba(190, 255, 235, 0.85);
-          border: 1px solid rgba(116, 255, 235, 0.5);
-          box-shadow: 0 0 6px rgba(116, 255, 235, 0.3);
+          background: radial-gradient(
+            circle at 35% 28%,
+            rgba(255, 255, 255, 0.95),
+            var(--foid-cyan) 55%,
+            rgba(16, 110, 100, 0.95)
+          );
+          border: 1px solid rgba(255, 255, 255, 0.5);
+          box-shadow:
+            0 1px 3px rgba(0, 10, 30, 0.5),
+            0 0 6px var(--foid-glow);
           cursor: pointer;
         }
         :global(.cmp-volume__slider::-moz-range-thumb) {
-          width: 10px;
-          height: 10px;
+          width: 13px;
+          height: 13px;
           border-radius: 50%;
-          background: rgba(190, 255, 235, 0.85);
-          border: 1px solid rgba(116, 255, 235, 0.5);
-          box-shadow: 0 0 6px rgba(116, 255, 235, 0.3);
+          background: radial-gradient(
+            circle at 35% 28%,
+            rgba(255, 255, 255, 0.95),
+            var(--foid-cyan) 55%,
+            rgba(16, 110, 100, 0.95)
+          );
+          border: 1px solid rgba(255, 255, 255, 0.5);
+          box-shadow:
+            0 1px 3px rgba(0, 10, 30, 0.5),
+            0 0 6px var(--foid-glow);
           cursor: pointer;
+        }
+        :global(.cmp-volume__slider::-moz-range-track) {
+          height: 5px;
+          border-radius: 3px;
+          background: rgba(2, 8, 18, 0.75);
+        }
+        :global(.cmp-volume__slider::-moz-range-progress) {
+          height: 5px;
+          border-radius: 3px;
+          background: var(--foid-cyan-electric);
+        }
+
+        /* --- Reduced motion: no marquee, no entry glow, no seek easing.
+           The overflowing title falls back to a hard-clipped single copy. --- */
+        @media (prefers-reduced-motion: reduce) {
+          :global(.cmp-lcd__scroll--marquee) {
+            animation: none;
+          }
+          :global(.cmp-lcd__scroll) {
+            width: 100%;
+          }
+          :global(.cmp-lcd__text) {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding-right: 0;
+            min-width: 0;
+          }
+          :global(.cmp-lcd__text--dupe) {
+            display: none;
+          }
+          :global(.cmp-bar-outer--visible .cmp-bar) {
+            animation: none;
+          }
+          :global(.cmp-seek__fill) {
+            transition: none;
+          }
         }
       `}</style>
     </>

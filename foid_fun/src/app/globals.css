@@ -5617,3 +5617,30 @@ body.foid-window-dragging .vista-window {
     transition: none;
   }
 }
+
+/* Edge resize strips — right (ew) and bottom (ns); the corner grip owns
+   nwse. Wide enough to grab, invisible until you're there (cursor is the
+   affordance, per OS convention). Desktop only, like the corner. */
+.foid-window-edge {
+  position: absolute;
+  z-index: 4;
+}
+.foid-window-edge--e {
+  top: 48px;
+  right: -3px;
+  bottom: 26px;
+  width: 8px;
+  cursor: ew-resize;
+}
+.foid-window-edge--s {
+  left: 26px;
+  right: 26px;
+  bottom: -3px;
+  height: 8px;
+  cursor: ns-resize;
+}
+@media (max-width: 1023px) {
+  .foid-window-edge {
+    display: none;
+  }
+}

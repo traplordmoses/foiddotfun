@@ -174,8 +174,9 @@ export function WindowControls() {
     };
   }, []);
 
-  // ── Corner resize ──────────────────────────────────────────────────────
-  const onResizeDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  // ── Resize: right edge (ew), bottom edge (ns), corner (nwse) ──────────
+  type ResizeMode = "e" | "s" | "se";
+  const startResize = useCallback((mode: ResizeMode) => (e: React.PointerEvent<HTMLDivElement>) => {
     const el = winRef.current;
     const state = useWindowStore.getState();
     if (!el || state.maximized || state.minimized) return;
@@ -190,10 +191,13 @@ export function WindowControls() {
     let live = { w: baseW, h: baseH };
     let raf = 0;
 
+    const cursor = mode === "e" ? "ew-resize" : mode === "s" ? "ns-resize" : "nwse-resize";
+    document.body.style.cursor = cursor;
+
     const onMove = (ev: PointerEvent) => {
       live = {
-        w: Math.max(MIN_W, baseW + (ev.clientX - startX)),
-        h: Math.max(MIN_H, baseH + (ev.clientY - startY)),
+        w: mode === "s" ? baseW : Math.max(MIN_W, baseW + (ev.clientX - startX)),
+        h: mode === "e" ? baseH : Math.max(MIN_H, baseH + (ev.clientY - startY)),
       };
       if (!raf) {
         raf = requestAnimationFrame(() => {
@@ -208,6 +212,7 @@ export function WindowControls() {
     const onUp = () => {
       // Hand max-height control back to the stylesheet (dock clearance).
       el.style.maxHeight = "";
+      document.body.style.cursor = "";
       useWindowStore.getState().setSize(live);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
@@ -243,12 +248,26 @@ export function WindowControls() {
       />
       {winEl && !maximized && !minimized
         ? createPortal(
-            <div
-              className="foid-window-resize"
-              role="presentation"
-              aria-hidden="true"
-              onPointerDown={onResizeDown}
-            />,
+            <>
+              <div
+                className="foid-window-edge foid-window-edge--e"
+                role="presentation"
+                aria-hidden="true"
+                onPointerDown={startResize("e")}
+              />
+              <div
+                className="foid-window-edge foid-window-edge--s"
+                role="presentation"
+                aria-hidden="true"
+                onPointerDown={startResize("s")}
+              />
+              <div
+                className="foid-window-resize"
+                role="presentation"
+                aria-hidden="true"
+                onPointerDown={startResize("se")}
+              />
+            </>,
             winEl,
           )
         : null}
