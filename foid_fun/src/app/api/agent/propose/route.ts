@@ -3,6 +3,7 @@ import { toHex, decodeEventLog } from "viem";
 import type { Abi } from "viem";
 import { verifyAgentSignature } from "../_lib/auth";
 import { checkRateLimit, recordAction } from "@/lib/rateLimit";
+import { isGloballyRateLimited } from "../_lib/globalCap";
 import { getRelayerWalletClient, getAgentPublicClient, getRelayerAccount } from "../_lib/relayer";
 import { fluentChain } from "@/lib/viem";
 import { AGENT_BOARD } from "@/config/agentBoard";
@@ -43,9 +44,16 @@ export async function POST(req: Request) {
     });
     if (!auth.ok) return json(false, undefined, auth.error, 401);
 
-    // Rate limit
+    // Rate limit (per-wallet)
     const limit = checkRateLimit(auth.wallet, "propose");
     if (!limit.ok) return json(false, undefined, limit.error, 429);
+
+    // Global drain backstop: wallets are free, so a Sybil swarm can pass the
+    // per-wallet check. This coarse all-callers cap bounds relayer gas spend.
+    // FOUNDER FOLLOW-UP: replace with a real allowlist/quota (audit H1).
+    if (isGloballyRateLimited("propose")) {
+      return json(false, undefined, "Service busy. Please try again shortly.", 429);
+    }
 
     // Validate grid coordinates
     const nx = Number(x);

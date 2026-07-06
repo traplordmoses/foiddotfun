@@ -6219,6 +6219,34 @@ body.foid-window-dragging .vista-window * {
   }
 }
 
+/* ── Dock arrival — the login → desktop payoff ───────────────────────────
+   Plays once, on the dock's first mount after the /enter boot lands (the
+   Dock claims it via claimDockArrival, then drops the class ~720ms later so
+   the auto-hide transition owns `transform` again). The dock rises from
+   just below the edge and fades in, like the desktop finishing coming up. */
+.foid-dock--arriving {
+  animation: foid-dock-arrive 0.62s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes foid-dock-arrive {
+  from {
+    transform: translateY(calc(100% + 24px));
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .foid-dock--arriving {
+    animation: foid-dock-arrive-fade 0.4s ease both;
+  }
+  @keyframes foid-dock-arrive-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
 /* Empty desktop — a quiet dock-adjacent hint, not a hero. */
 .os-desktop__hint {
   position: absolute;

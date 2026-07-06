@@ -6,6 +6,22 @@ const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const RATE_LIMIT_MAX = 10; // max requests per IP per window
 const rateLimitMap = new Map<string, number[]>();
 
+// Global backstop: the per-IP limit keys on x-forwarded-for, which the caller
+// controls — rotating that header defeats it and can drain the OpenAI bill.
+// This module-level rolling counter caps total completions across ALL callers
+// per window so header rotation can't run spend unbounded. In-memory is fine:
+// a reset on redeploy just re-opens the window.
+const GLOBAL_RATE_LIMIT_MAX = 120; // max requests across all IPs per window
+let globalHits: number[] = [];
+
+function isGloballyRateLimited(): boolean {
+  const now = Date.now();
+  globalHits = globalHits.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  if (globalHits.length >= GLOBAL_RATE_LIMIT_MAX) return true;
+  globalHits.push(now);
+  return false;
+}
+
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
   const timestamps = rateLimitMap.get(ip) ?? [];
@@ -57,7 +73,14 @@ your personality:
 - the goal is simple: they should feel a little brighter after talking to you than they did before. always.`;
 
 export async function POST(req: Request) {
-  // Rate limiting
+  // Rate limiting. Global backstop first — it counts spoofed IPs too, so
+  // header rotation can't slip past it to drain OpenAI.
+  if (isGloballyRateLimited()) {
+    return new Response(
+      JSON.stringify({ error: "Too many requests. Please wait a moment." }),
+      { status: 429, headers: { "Content-Type": "application/json" } },
+    );
+  }
   const forwarded = req.headers.get("x-forwarded-for");
   const ip = forwarded?.split(",")[0]?.trim() ?? "unknown";
   if (isRateLimited(ip)) {

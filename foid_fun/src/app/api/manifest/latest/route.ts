@@ -10,6 +10,7 @@ import {
   resolveLatestManifestCid,
 } from "@/lib/manifestStore";
 import type { BoardManifest } from "@/types/manifest";
+import { safeErrorMessage } from "@/lib/apiError";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -145,7 +146,8 @@ async function resolveManifestFromChain(): Promise<ManifestPayload> {
 
     return payload;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    console.error("[api/manifest/latest] resolve error:", error);
+    const message = safeErrorMessage(error, "manifest resolution failed");
     return {
       ...fallback,
       error: `manifest resolution failed: ${message}`,
@@ -183,7 +185,8 @@ export async function GET() {
     }
     return respond(payload);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    console.error("[api/manifest/latest] load error:", error);
+    const message = safeErrorMessage(error, "manifest load failed");
     if (manifestCache.entry) {
       return respond({
         ...manifestCache.entry,

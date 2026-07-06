@@ -91,7 +91,12 @@ export async function POST(req: NextRequest) {
 
   const encodeAddressSalt = parseAbiParameters("address,bytes32");
 
-  for (let i = 0n; ; i++) {
+  // Hard ceiling on the grind. Matching a 4-hex suffix is ~1/65,536 per
+  // attempt, so 5M iterations finds one with overwhelming probability while
+  // bounding worst-case CPU — an unbounded loop here is a trivial DoS.
+  const MAX_ITERATIONS = 5_000_000n;
+
+  for (let i = 0n; i < MAX_ITERATIONS; i++) {
     const salt = toHex(i, { size: 32 }) as `0x${string}`;
     const ns = keccak256(
       encodeAbiParameters(encodeAddressSalt, [creator, salt]),
@@ -107,7 +112,14 @@ export async function POST(req: NextRequest) {
   }
 
   if (!userSalt || !predicted) {
-    return new Response(JSON.stringify({ ok: false, error: "Failed to grind vanity salt" }), { status: 500 });
+    // Ran out of the iteration budget without a hit (or the grind failed).
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: "No vanity salt found within the search budget. Please retry.",
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
   }
 
   return new Response(JSON.stringify({ ok: true, userSalt, predicted, namespacedSalt }), {

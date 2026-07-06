@@ -26,6 +26,7 @@ import {
   DESKTOP_MIN_WIDTH,
   FOID_DESKTOP_ENABLED,
 } from '@/config/desktop';
+import { claimDockArrival } from '@/lib/foidOsBoot';
 
 interface NavItem {
   href: string;
@@ -269,11 +270,28 @@ export function Dock() {
     return () => mq.removeEventListener('change', update);
   }, []);
 
+  // ── Arrival (the login → desktop payoff) ──────────────────────────────
+  // The dock is unmounted during the /enter boot (ClientLayout), so its
+  // first mount this session IS the desktop coming up after the enter
+  // click. Play a one-shot slide-up then — but only once per tab session
+  // (claimDockArrival), so route hops don't replay it. The class carries a
+  // brief `animation`; auto-hide (60s) can't fire inside that window, so it
+  // never fights the transform-based hide. Reduced motion no-ops in CSS.
+  const [arriving, setArriving] = useState(false);
+  useEffect(() => {
+    if (!claimDockArrival()) return;
+    setArriving(true);
+    // Drop the class once the entrance is done so the transform property is
+    // handed cleanly back to the auto-hide transition system.
+    const t = window.setTimeout(() => setArriving(false), 720);
+    return () => window.clearTimeout(t);
+  }, []);
+
   return (
     <nav
       className={`foid-dock fixed left-0 right-0 z-50 flex justify-center pointer-events-none${
         dockHidden ? ' foid-dock--hidden' : ''
-      }`}
+      }${arriving ? ' foid-dock--arriving' : ''}`}
       style={{ bottom: 'calc(10px + env(safe-area-inset-bottom, 0px))' }}
       aria-label="Primary navigation"
       // Stays in the DOM while hidden (visibility-based hiding preserves

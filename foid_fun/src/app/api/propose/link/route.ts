@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { linkOnChainId } from "../../_store";
 import { emitBoardEvent } from "@/lib/supabaseServer";
+import { safeErrorMessage } from "@/lib/apiError";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[propose/link] error:", error);
     return NextResponse.json(
-      { error: String(error) },
+      { error: safeErrorMessage(error, "link failed") },
       { status: 500 }
     );
   }
