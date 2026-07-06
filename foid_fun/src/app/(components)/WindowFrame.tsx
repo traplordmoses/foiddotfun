@@ -99,8 +99,10 @@ export function WindowControls() {
     el.style.transform =
       pos.x || pos.y ? `translate(${pos.x}px, ${pos.y}px)` : "";
     if (size) {
-      el.style.width = `${size.w}px`;
-      el.style.height = `${size.h}px`;
+      // Defensive viewport clamp: a size stored at a larger viewport must
+      // not overflow after the browser window shrinks.
+      el.style.width = `${Math.min(size.w, window.innerWidth - 24)}px`;
+      el.style.height = `${Math.min(size.h, window.innerHeight - 120)}px`;
       el.style.maxWidth = "none";
     } else {
       el.style.width = "";
@@ -124,14 +126,29 @@ export function WindowControls() {
     let raf = 0;
     let dragging = false;
 
+    // Natural (untransformed) window origin, captured at drag start so the
+    // clamp math is stable while the transform changes under us.
+    let naturalLeft = 0;
+    let naturalTop = 0;
+    let winW = 480;
+
     const onMove = (e: PointerEvent) => {
       if (!dragging) return;
-      live = { x: baseX + (e.clientX - startX), y: baseY + (e.clientY - startY) };
+      // Keep the window reachable: ≥120px of it stays inside the viewport
+      // horizontally, the titlebar can never cross the top edge, and it
+      // can't sink below the dock line. This is what prevents the
+      // "window cut off past the screen edge" state.
+      const rawX = baseX + (e.clientX - startX);
+      const rawY = baseY + (e.clientY - startY);
+      live = {
+        x: Math.max(-(winW - 120) - naturalLeft, Math.min(window.innerWidth - 120 - naturalLeft, rawX)),
+        y: Math.max(-naturalTop, Math.min(window.innerHeight - 160 - naturalTop, rawY)),
+      };
       if (!raf) {
         raf = requestAnimationFrame(() => {
           raf = 0;
-          const el = winRef.current;
-          if (el) el.style.transform = `translate(${live.x}px, ${live.y}px)`;
+          const node = winRef.current;
+          if (node) node.style.transform = `translate(${live.x}px, ${live.y}px)`;
         });
       }
     };
@@ -157,6 +174,10 @@ export function WindowControls() {
       baseX = state.pos.x;
       baseY = state.pos.y;
       live = { x: baseX, y: baseY };
+      const rect = winRef.current?.getBoundingClientRect();
+      naturalLeft = (rect?.left ?? 0) - baseX;
+      naturalTop = (rect?.top ?? 0) - baseY;
+      winW = rect?.width ?? 480;
       document.body.classList.add("foid-window-dragging");
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
@@ -174,8 +195,9 @@ export function WindowControls() {
     };
   }, []);
 
-  // ── Corner resize ──────────────────────────────────────────────────────
-  const onResizeDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  // ── Resize: right edge (ew), bottom edge (ns), corner (nwse) ──────────
+  type ResizeMode = "e" | "s" | "se";
+  const startResize = useCallback((mode: ResizeMode) => (e: React.PointerEvent<HTMLDivElement>) => {
     const el = winRef.current;
     const state = useWindowStore.getState();
     if (!el || state.maximized || state.minimized) return;
@@ -190,10 +212,20 @@ export function WindowControls() {
     let live = { w: baseW, h: baseH };
     let raf = 0;
 
+    const cursor = mode === "e" ? "ew-resize" : mode === "s" ? "ns-resize" : "nwse-resize";
+    document.body.style.cursor = cursor;
+
+    // Growth caps: the window's left/top edge stays put during an e/s/se
+    // resize, so max size = space between that edge and the viewport edge
+    // (16px margin). Prevents resizing a window wider than the screen —
+    // which then overflowed BOTH sides of its centering wrapper and read
+    // as "the window is cut off".
+    const maxW = window.innerWidth - rect.left - 16;
+    const maxH = window.innerHeight - rect.top - 100; // stay above the dock
     const onMove = (ev: PointerEvent) => {
       live = {
-        w: Math.max(MIN_W, baseW + (ev.clientX - startX)),
-        h: Math.max(MIN_H, baseH + (ev.clientY - startY)),
+        w: mode === "s" ? baseW : Math.min(maxW, Math.max(MIN_W, baseW + (ev.clientX - startX))),
+        h: mode === "e" ? baseH : Math.min(maxH, Math.max(MIN_H, baseH + (ev.clientY - startY))),
       };
       if (!raf) {
         raf = requestAnimationFrame(() => {
@@ -208,6 +240,7 @@ export function WindowControls() {
     const onUp = () => {
       // Hand max-height control back to the stylesheet (dock clearance).
       el.style.maxHeight = "";
+      document.body.style.cursor = "";
       useWindowStore.getState().setSize(live);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
@@ -219,7 +252,16 @@ export function WindowControls() {
   }, []);
 
   return (
+    // macOS order: red close · amber minimize · green zoom. DOM order
+    // matches visual order so keyboard Tab walks left → right.
     <div className="vista-window__controls" ref={anchorRef}>
+      <button
+        type="button"
+        className="vista-window__control vista-window__control--close"
+        aria-label="Close window to dock"
+        title="Close (returns to dock)"
+        onClick={minimize}
+      />
       <button
         type="button"
         className="vista-window__control vista-window__control--minimize"
@@ -234,21 +276,28 @@ export function WindowControls() {
         title={maximized ? "Restore" : "Maximize"}
         onClick={toggleMaximize}
       />
-      <button
-        type="button"
-        className="vista-window__control vista-window__control--close"
-        aria-label="Close window to dock"
-        title="Close (returns to dock)"
-        onClick={minimize}
-      />
       {winEl && !maximized && !minimized
         ? createPortal(
-            <div
-              className="foid-window-resize"
-              role="presentation"
-              aria-hidden="true"
-              onPointerDown={onResizeDown}
-            />,
+            <>
+              <div
+                className="foid-window-edge foid-window-edge--e"
+                role="presentation"
+                aria-hidden="true"
+                onPointerDown={startResize("e")}
+              />
+              <div
+                className="foid-window-edge foid-window-edge--s"
+                role="presentation"
+                aria-hidden="true"
+                onPointerDown={startResize("s")}
+              />
+              <div
+                className="foid-window-resize"
+                role="presentation"
+                aria-hidden="true"
+                onPointerDown={startResize("se")}
+              />
+            </>,
             winEl,
           )
         : null}

@@ -1,23 +1,25 @@
 "use client";
 
-// ABOUT.EXE — the FOID OS about browser (/about).
+// FILES.EXE — the FOID OS file browser (/files).
 //
-// Same Finder anatomy as FILES.EXE (this page reuses files.css classes
-// wholesale — see about/layout.tsx): glass sidebar (Favorites drive the
-// category filter, Locations link to the repo + FILES.EXE), slim toolbar
-// (back/forward history, icon/list view toggle, search across filename +
-// title), and a canvas with Mac selection behavior — click selects,
-// double-click opens, arrows move, Enter/Space opens, Escape clears.
+// Finder anatomy in aero material: a glass sidebar (Favorites drive the
+// kind filter, Locations link out to the repo + foid.fun), a slim toolbar
+// (back/forward history, icon/list view toggle, search), and a canvas with
+// Mac selection behavior — click selects, double-click opens, arrow keys
+// move, Enter/Space opens, Escape clears.
 //
-// Every section of the old about page now lives as a .md/.txt document in
-// src/content/aboutDocs.ts. Opening one launches TEXTEDIT.EXE — a slab
-// <Modal> with a comfortable reading surface (MarkdownLite for .md, a
-// monospace <pre> for .txt) plus prev/next arrows (← → keys too) so you
-// can read the whole shelf without closing.
+// The archive is curator-only: everything rendered here comes from
+// src/config/mediaLibrary.ts (founder's videos + MiFOID image artifacts).
+// There is no upload path by design.
 //
-// Titlebar wiring mirrors /files (useAccount + useSwitchWallet with the
-// mounted-guard so the server-rendered "disconnected" frame never
-// mismatches a connected client).
+// Opening an item launches MEDIA_PLAYER.EXE — a slab-material overlay on
+// the shared <Modal variant="slab"> primitive (backdrop, Escape, focus
+// trap and focus-restore come from the primitive; the player only adds its
+// own titlebar + stage).
+//
+// Titlebar wiring mirrors /vote (useAccount + useSwitchWallet) with the
+// /mifoid mounted-guard so the server-rendered "disconnected" frame never
+// mismatches a connected client.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -25,41 +27,39 @@ import { useAccount } from "wagmi";
 import { useSwitchWallet } from "@/hooks/useSwitchWallet";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { Modal } from "@/components/ui";
-import MarkdownLite from "@/components/MarkdownLite";
-import { ABOUT_DOCS, type AboutDoc, type AboutDocCategory, type AboutDocKind } from "@/content/aboutDocs";
+import { MEDIA_LIBRARY, type MediaItem } from "@/config/mediaLibrary";
+import { ipfsToHttp } from "@/lib/ipfsUrl";
 
-type CategoryFilter = "all" | AboutDocCategory;
+type MediaKind = MediaItem["kind"];
+type KindFilter = "all" | MediaKind;
 type ViewMode = "icons" | "list";
 
 const GITHUB_URL = "https://github.com/traplordmoses/foiddotfun";
 
-/** Sidebar Favorites — each drives the category filter. */
-const FAVORITES: { key: CategoryFilter; label: string }[] = [
-  { key: "all", label: "All Docs" },
-  { key: "docs", label: "Docs" },
-  { key: "onchain", label: "Onchain" },
-  { key: "community", label: "Community" },
+/** Sidebar Favorites — each drives the kind filter (Mac "Music" naming). */
+const FAVORITES: { key: KindFilter; label: string }[] = [
+  { key: "all", label: "All Files" },
+  { key: "video", label: "Videos" },
+  { key: "audio", label: "Music" },
+  { key: "image", label: "Images" },
 ];
 
-const CRUMB_LABEL: Record<CategoryFilter, string> = {
+const CRUMB_LABEL: Record<KindFilter, string> = {
   all: "All",
-  docs: "Docs",
-  onchain: "Onchain",
-  community: "Community",
+  video: "Videos",
+  audio: "Music",
+  image: "Images",
 };
 
-const KIND_LABEL: Record<AboutDocKind, string> = {
-  md: "Markdown",
-  txt: "Plain Text",
-};
-
-const KIND_BADGE: Record<AboutDocKind, string> = {
-  md: "MD",
-  txt: "TXT",
+const KIND_LABEL: Record<MediaKind, string> = {
+  video: "Video",
+  audio: "Music",
+  image: "Image",
 };
 
 /* ── Inline icon set ──────────────────────────────────────────────────────
-   16-grid stroke glyphs, currentColor, same family as FILES.EXE. */
+   16-grid stroke glyphs, currentColor so rows/buttons tint them. Replaces
+   the old emoji glyphs (DOS-vibes) with one drawn family. */
 
 type IconProps = { size?: number; className?: string };
 
@@ -87,42 +87,29 @@ function IconStack(p: IconProps) {
     </svg>
   );
 }
-/** Page with a folded corner — the document glyph (rows + sidebar). */
-function IconDoc(p: IconProps) {
+function IconVideo(p: IconProps) {
   return (
     <svg {...iconAttrs(p)}>
-      <path d="M4 1.75h5.2l3 3V13a1.25 1.25 0 0 1-1.25 1.25h-6.7A1.25 1.25 0 0 1 3 13V2.75a1 1 0 0 1 1-1z" />
-      <path d="M9.2 1.75v3h3" />
-      <path d="M5.6 8h4.8" />
-      <path d="M5.6 10.6h4.8" />
+      <rect x="1.75" y="3.25" width="12.5" height="9.5" rx="2" />
+      <path d="M6.7 5.9v4.2L10.3 8z" fill="currentColor" stroke="none" />
     </svg>
   );
 }
-/** Onchain — a block. */
-function IconCube(p: IconProps) {
+function IconMusic(p: IconProps) {
   return (
     <svg {...iconAttrs(p)}>
-      <path d="M8 1.9 14 5.1v5.8L8 14.1 2 10.9V5.1z" />
-      <path d="M2 5.1 8 8.3l6-3.2" />
-      <path d="M8 8.3v5.8" />
+      <path d="M6.3 12.4V4l6-1.4v8.5" />
+      <circle cx="4.4" cy="12.4" r="1.85" />
+      <circle cx="10.4" cy="11.1" r="1.85" />
     </svg>
   );
 }
-/** Community — two heads. */
-function IconPeople(p: IconProps) {
+function IconImage(p: IconProps) {
   return (
     <svg {...iconAttrs(p)}>
-      <circle cx="5.7" cy="5.4" r="2.3" />
-      <path d="M1.9 13.4c.4-2.6 1.9-4 3.8-4s3.4 1.4 3.8 4" />
-      <circle cx="11.3" cy="6" r="1.85" />
-      <path d="M10.8 9.6c1.8.2 3 1.5 3.4 3.3" />
-    </svg>
-  );
-}
-function IconFolder(p: IconProps) {
-  return (
-    <svg {...iconAttrs(p)}>
-      <path d="M1.75 4.4a1.6 1.6 0 0 1 1.6-1.6h2.9l1.6 1.8h4.8a1.6 1.6 0 0 1 1.6 1.6v5.9a1.6 1.6 0 0 1-1.6 1.6H3.35a1.6 1.6 0 0 1-1.6-1.6z" />
+      <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2" />
+      <circle cx="5.5" cy="6.3" r="1.1" />
+      <path d="m2.6 11.6 3.6-3.4 2.6 2.4 2-1.8 2.6 2.5" />
     </svg>
   );
 }
@@ -134,6 +121,16 @@ function IconBranch(p: IconProps) {
       <circle cx="11.5" cy="6" r="1.6" />
       <path d="M4.5 5.5v5" />
       <path d="M11.5 7.6c0 2.3-3 2.6-5.2 3.2" />
+    </svg>
+  );
+}
+function IconGlobe(p: IconProps) {
+  return (
+    <svg {...iconAttrs(p)}>
+      <circle cx="8" cy="8" r="6.25" />
+      <path d="M1.75 8h12.5" />
+      <path d="M8 1.75c1.9 1.9 1.9 10.6 0 12.5" />
+      <path d="M8 1.75c-1.9 1.9-1.9 10.6 0 12.5" />
     </svg>
   );
 }
@@ -191,173 +188,107 @@ function IconSearch(p: IconProps) {
   );
 }
 
-const FAVORITE_ICON: Record<CategoryFilter, (p: IconProps) => JSX.Element> = {
-  all: IconStack,
-  docs: IconDoc,
-  onchain: IconCube,
-  community: IconPeople,
+const KIND_ICON: Record<MediaKind, (p: IconProps) => JSX.Element> = {
+  video: IconVideo,
+  audio: IconMusic,
+  image: IconImage,
 };
 
-/** Icon-view tile glyph: page with folded corner + MD/TXT badge (drawn, no
- *  emoji). currentColor throughout so .about-doc-glyph tints it cyan. */
-function DocTileIcon({ kind, size = 48 }: { kind: AboutDocKind; size?: number }) {
-  const badge = KIND_BADGE[kind];
-  const badgeWidth = kind === "md" ? 17 : 22;
-  return (
-    <svg
-      width={(size * 40) / 50}
-      height={size}
-      viewBox="0 0 40 50"
-      fill="none"
-      className="about-doc-glyph"
-      aria-hidden
-    >
-      <path
-        d="M8 1.5h17.5L35 11v33a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V5.5a4 4 0 0 1 4-4z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <path d="M25.5 1.5V11H35" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-      <path d="M10.5 19h19" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity="0.55" />
-      <path d="M10.5 24.5h19" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity="0.55" />
-      <path d="M10.5 30h12.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" opacity="0.55" />
-      <rect
-        x="7"
-        y="35"
-        width={badgeWidth}
-        height="10.5"
-        rx="2.5"
-        fill="currentColor"
-        opacity="0.16"
-      />
-      <rect
-        x="7"
-        y="35"
-        width={badgeWidth}
-        height="10.5"
-        rx="2.5"
-        stroke="currentColor"
-        strokeWidth="1.1"
-      />
-      <text
-        x={7 + badgeWidth / 2}
-        y="43"
-        textAnchor="middle"
-        fill="currentColor"
-        stroke="none"
-        fontFamily="var(--font-terminal, monospace)"
-        fontSize="6.5"
-        fontWeight="700"
-        letterSpacing="0.5"
-      >
-        {badge}
-      </text>
-    </svg>
-  );
+const FAVORITE_ICON: Record<KindFilter, (p: IconProps) => JSX.Element> = {
+  all: IconStack,
+  video: IconVideo,
+  audio: IconMusic,
+  image: IconImage,
+};
+
+/** Resolve a manifest src to something the browser can load:
+ *  - "/media/foo.mp4"  → served verbatim from public/
+ *  - "ipfs://<cid>" / bare CID → first ipfsToHttp candidate (the /api/ipfs
+ *    proxy when configured, public gateway otherwise)
+ *  - full http(s) URL → passed through */
+function resolveMediaSrc(src: string): string {
+  if (src.startsWith("/")) return src;
+  return ipfsToHttp(src)[0] ?? src;
 }
 
-/* ── TEXTEDIT.EXE — the reader ────────────────────────────────────────── */
+/** Thumbnail source: explicit poster wins; images preview themselves. */
+function thumbSrc(item: MediaItem): string | undefined {
+  if (item.poster) return resolveMediaSrc(item.poster);
+  if (item.kind === "image") return resolveMediaSrc(item.src);
+  return undefined;
+}
 
-function DocReader({
-  docs,
-  index,
-  onClose,
-  onNavigate,
-}: {
-  docs: AboutDoc[];
-  index: number;
-  onClose: () => void;
-  onNavigate: (nextIndex: number) => void;
-}) {
-  const doc = docs[index];
+/* ── MEDIA_PLAYER.EXE ─────────────────────────────────────────────────── */
+
+function MediaPlayer({ item, onClose }: { item: MediaItem; onClose: () => void }) {
   const closeRef = useRef<HTMLButtonElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  const prev = index > 0 ? docs[index - 1] : null;
-  const next = index < docs.length - 1 ? docs[index + 1] : null;
-
-  /* New doc → back to the top of the page surface. */
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0 });
-  }, [doc.id]);
-
-  /* ← → walk the shelf while the reader is open (Escape closes via Modal). */
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft" && index > 0) onNavigate(index - 1);
-      else if (e.key === "ArrowRight" && index < docs.length - 1) onNavigate(index + 1);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [index, docs.length, onNavigate]);
+  const src = resolveMediaSrc(item.src);
+  const poster = item.poster ? resolveMediaSrc(item.poster) : undefined;
 
   return (
     <Modal
       open
       onClose={onClose}
-      label={`TEXTEDIT.EXE — ${doc.name}`}
+      label={`MEDIA_PLAYER.EXE — ${item.title}`}
       variant="slab"
-      className="about-reader"
+      className="files-player"
       initialFocusRef={closeRef}
-      maxWidth={880}
+      maxWidth={item.kind === "audio" ? 560 : 940}
     >
-      {/* Slim titlebar: live close orb · filename · kind badge */}
-      <div className="about-reader__bar">
+      {/* Mini titlebar: live close orb (window-control material) + label */}
+      <div className="files-player__bar">
         <button
           ref={closeRef}
           type="button"
-          className="vista-window__control vista-window__control--close about-reader__close"
-          aria-label="Close reader"
+          className="vista-window__control vista-window__control--close"
+          aria-label="Close media player"
           onClick={onClose}
         />
-        <span className="about-reader__name">TEXTEDIT.EXE — {doc.name}</span>
-        <span className="about-reader__badge">{KIND_BADGE[doc.kind]}</span>
+        <span className="files-player__label">MEDIA_PLAYER.EXE — {item.title}</span>
       </div>
 
-      <div ref={scrollRef} className="about-reader__scroll" tabIndex={0}>
-        {doc.kind === "md" ? (
-          <div className="about-reader__doc">
-            <MarkdownLite body={doc.body} />
-          </div>
-        ) : (
-          <pre className="about-reader__pre">{doc.body}</pre>
+      <div className={`files-player__stage${item.kind === "audio" ? " files-player__stage--audio" : ""}`}>
+        {item.kind === "video" && (
+          <video controls autoPlay playsInline src={src} poster={poster} style={{ maxHeight: "70vh" }} />
+        )}
+        {item.kind === "audio" && <audio controls src={src} />}
+        {item.kind === "image" && (
+          // eslint-disable-next-line @next/next/no-img-element -- arbitrary local/IPFS sources, same as gallery/PlacementCard
+          <img src={src} alt={item.title} style={{ maxHeight: "70vh" }} />
         )}
       </div>
 
-      {/* Footer: read through the shelf without closing */}
-      <div className="about-reader__footer">
-        <button
-          type="button"
-          className="about-reader__nav"
-          disabled={!prev}
-          aria-label={prev ? `Previous document: ${prev.name}` : "No previous document"}
-          onClick={() => prev && onNavigate(index - 1)}
-        >
-          <IconChevronLeft size={12} />
-          <span>{prev ? prev.name : "start"}</span>
-        </button>
-        <span className="foid-label about-reader__pos">
-          {index + 1} / {docs.length}
-        </span>
-        <button
-          type="button"
-          className="about-reader__nav"
-          disabled={!next}
-          aria-label={next ? `Next document: ${next.name}` : "No next document"}
-          onClick={() => next && onNavigate(index + 1)}
-        >
-          <span>{next ? next.name : "end"}</span>
-          <IconChevronRight size={12} />
-        </button>
-      </div>
+      {item.description ? <p className="files-player__desc">{item.description}</p> : null}
     </Modal>
+  );
+}
+
+/* ── Empty archive (curator-only — visitors browse, the foundation adds) ── */
+
+function EmptyArchive() {
+  return (
+    <div className="files-empty">
+      <div className="files-empty__inner">
+        <div className="files-empty__glyphs" aria-hidden="true">
+          <IconVideo size={26} />
+          <IconMusic size={26} />
+          <IconImage size={26} />
+        </div>
+        <span className="foid-label">MIFOID MEDIA ARCHIVE — 0 ITEMS</span>
+        <h1 className="files-empty__title">the archive is empty</h1>
+        <p className="files-empty__body">
+          This is the official MiFOID media archive — music videos, transmissions and
+          image artifacts curated by the foundation. New drops land here as they are
+          released.
+        </p>
+      </div>
+    </div>
   );
 }
 
 /* ── Page ─────────────────────────────────────────────────────────────── */
 
-export default function AboutPage() {
+export default function FilesPage() {
   const { address, isConnected } = useAccount();
   const { disconnect, switchWallet } = useSwitchWallet();
 
@@ -366,7 +297,7 @@ export default function AboutPage() {
   useEffect(() => { setMounted(true); }, []);
 
   /* Location history — sidebar clicks push, chevrons walk the stack. */
-  const [hist, setHist] = useState<{ stack: CategoryFilter[]; index: number }>({
+  const [hist, setHist] = useState<{ stack: KindFilter[]; index: number }>({
     stack: ["all"],
     index: 0,
   });
@@ -374,10 +305,10 @@ export default function AboutPage() {
   const canBack = hist.index > 0;
   const canForward = hist.index < hist.stack.length - 1;
 
-  const navigateTo = (nextFilter: CategoryFilter) =>
+  const navigateTo = (next: KindFilter) =>
     setHist((h) => {
-      if (h.stack[h.index] === nextFilter) return h;
-      const stack = [...h.stack.slice(0, h.index + 1), nextFilter];
+      if (h.stack[h.index] === next) return h;
+      const stack = [...h.stack.slice(0, h.index + 1), next];
       return { stack, index: stack.length - 1 };
     });
   const goBack = () => setHist((h) => (h.index > 0 ? { ...h, index: h.index - 1 } : h));
@@ -387,47 +318,26 @@ export default function AboutPage() {
   const [view, setView] = useState<ViewMode>("icons");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  /** Index into `filtered` of the doc open in TEXTEDIT.EXE (null = closed). */
-  const [readerIndex, setReaderIndex] = useState<number | null>(null);
+  const [activeItem, setActiveItem] = useState<MediaItem | null>(null);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
 
   const filtered = useMemo(() => {
-    const byCategory =
-      filter === "all" ? ABOUT_DOCS : ABOUT_DOCS.filter((doc) => doc.category === filter);
+    const byKind =
+      filter === "all" ? MEDIA_LIBRARY : MEDIA_LIBRARY.filter((item) => item.kind === filter);
     const q = query.trim().toLowerCase();
-    return q
-      ? byCategory.filter(
-          (doc) => doc.name.toLowerCase().includes(q) || doc.title.toLowerCase().includes(q),
-        )
-      : byCategory;
+    return q ? byKind.filter((item) => item.title.toLowerCase().includes(q)) : byKind;
   }, [filter, query]);
 
   /* Selection can dangle when the location/search changes under it. */
   useEffect(() => {
-    if (selectedId && !filtered.some((doc) => doc.id === selectedId)) setSelectedId(null);
+    if (selectedId && !filtered.some((item) => item.id === selectedId)) setSelectedId(null);
   }, [filtered, selectedId]);
 
-  const selectDoc = (id: string) => {
+  const selectItem = (id: string) => {
     setSelectedId(id);
     canvasRef.current?.focus({ preventScroll: true });
-  };
-
-  const openDoc = (id: string) => {
-    const index = filtered.findIndex((doc) => doc.id === id);
-    if (index < 0) return;
-    setSelectedId(id);
-    setReaderIndex(index);
-  };
-
-  /* Reader prev/next keeps canvas selection in sync so closing lands where
-     you left off reading. */
-  const readerNavigate = (nextIndex: number) => {
-    const doc = filtered[nextIndex];
-    if (!doc) return;
-    setReaderIndex(nextIndex);
-    setSelectedId(doc.id);
   };
 
   /* Icon view is a real CSS grid — read the rendered column count so
@@ -439,20 +349,20 @@ export default function AboutPage() {
   };
 
   const moveSelection = (nextIndex: number) => {
-    const doc = filtered[nextIndex];
-    if (!doc) return;
-    setSelectedId(doc.id);
-    document.getElementById(`about-opt-${doc.id}`)?.scrollIntoView({ block: "nearest" });
+    const item = filtered[nextIndex];
+    if (!item) return;
+    setSelectedId(item.id);
+    document.getElementById(`files-opt-${item.id}`)?.scrollIntoView({ block: "nearest" });
   };
 
   const onCanvasKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (filtered.length === 0) return;
-    const idx = selectedId ? filtered.findIndex((doc) => doc.id === selectedId) : -1;
+    const idx = selectedId ? filtered.findIndex((item) => item.id === selectedId) : -1;
 
     if (e.key === "Enter" || e.key === " ") {
       if (idx >= 0) {
         e.preventDefault();
-        setReaderIndex(idx);
+        setActiveItem(filtered[idx]);
       }
       return;
     }
@@ -482,46 +392,53 @@ export default function AboutPage() {
   };
 
   const crumb = CRUMB_LABEL[filter];
-  const activeDoc = readerIndex !== null ? filtered[readerIndex] : null;
+  const hasLibrary = MEDIA_LIBRARY.length > 0;
 
-  const renderOption = (doc: AboutDoc) => {
-    const selected = doc.id === selectedId;
+  const renderOption = (item: MediaItem) => {
+    const selected = item.id === selectedId;
+    const thumb = thumbSrc(item);
+    const Glyph = KIND_ICON[item.kind];
 
     if (view === "icons") {
       return (
         <div
-          key={doc.id}
-          id={`about-opt-${doc.id}`}
+          key={item.id}
+          id={`files-opt-${item.id}`}
           role="option"
           aria-selected={selected}
           className={`files-item${selected ? " files-item--selected" : ""}`}
-          onClick={() => selectDoc(doc.id)}
-          onDoubleClick={() => openDoc(doc.id)}
+          onClick={() => selectItem(item.id)}
+          onDoubleClick={() => setActiveItem(item)}
         >
           <span className="files-item__thumb">
-            <DocTileIcon kind={doc.kind} />
+            {thumb ? (
+              // eslint-disable-next-line @next/next/no-img-element -- arbitrary local/IPFS sources, same as gallery/PlacementCard
+              <img src={thumb} alt="" loading="lazy" draggable={false} />
+            ) : (
+              <Glyph size={30} className="files-item__glyph" />
+            )}
           </span>
-          <span className="files-item__name">{doc.name}</span>
+          <span className="files-item__name">{item.title}</span>
         </div>
       );
     }
 
     return (
       <div
-        key={doc.id}
-        id={`about-opt-${doc.id}`}
+        key={item.id}
+        id={`files-opt-${item.id}`}
         role="option"
         aria-selected={selected}
         className={`files-row${selected ? " files-row--selected" : ""}`}
-        onClick={() => selectDoc(doc.id)}
-        onDoubleClick={() => openDoc(doc.id)}
+        onClick={() => selectItem(item.id)}
+        onDoubleClick={() => setActiveItem(item)}
       >
         <span className="files-row__name">
-          <IconDoc size={14} className="files-row__kindicon" />
-          <span className="files-row__title foid-data">{doc.name}</span>
+          <Glyph size={14} className="files-row__kindicon" />
+          <span className="files-row__title foid-data">{item.title}</span>
         </span>
-        <span className="files-row__cell foid-data">{KIND_LABEL[doc.kind]}</span>
-        <span className="files-row__cell foid-data">{doc.updatedAt}</span>
+        <span className="files-row__cell foid-data">{KIND_LABEL[item.kind]}</span>
+        <span className="files-row__cell foid-data">{item.addedAt}</span>
       </div>
     );
   };
@@ -537,7 +454,7 @@ export default function AboutPage() {
         <div className="mx-auto w-full max-w-6xl">
           <div className="vista-window vista-window--terminal vista-window--enhanced h-[94vh] max-h-[94vh] w-full flex flex-col">
             <AppTitlebar
-              title="ABOUT.EXE"
+              title="FILES.EXE"
               connected={mounted && isConnected}
               address={mounted ? address : undefined}
               onDisconnect={() => disconnect()}
@@ -547,8 +464,8 @@ export default function AboutPage() {
             <div className="vista-window__body vista-window__body--flush files-shell">
               {/* ── Sidebar ── */}
               <aside className="files-sidebar">
-                <div className="files-sidebar__section" role="group" aria-labelledby="about-fav-heading">
-                  <span id="about-fav-heading" className="foid-label files-sidebar__heading">
+                <div className="files-sidebar__section" role="group" aria-labelledby="files-fav-heading">
+                  <span id="files-fav-heading" className="foid-label files-sidebar__heading">
                     Favorites
                   </span>
                   {FAVORITES.map(({ key, label }) => {
@@ -569,8 +486,8 @@ export default function AboutPage() {
                   })}
                 </div>
 
-                <div className="files-sidebar__section" role="group" aria-labelledby="about-loc-heading">
-                  <span id="about-loc-heading" className="foid-label files-sidebar__heading">
+                <div className="files-sidebar__section" role="group" aria-labelledby="files-loc-heading">
+                  <span id="files-loc-heading" className="foid-label files-sidebar__heading">
                     Locations
                   </span>
                   <a
@@ -583,9 +500,9 @@ export default function AboutPage() {
                     <span className="files-side-row__label">GitHub</span>
                     <IconExternal size={11} className="files-side-row__external" />
                   </a>
-                  <Link className="files-side-row" href="/files">
-                    <IconFolder className="files-side-row__icon" />
-                    <span className="files-side-row__label">FILES.EXE</span>
+                  <Link className="files-side-row" href="/">
+                    <IconGlobe className="files-side-row__icon" />
+                    <span className="files-side-row__label">foid.fun</span>
                   </Link>
                 </div>
               </aside>
@@ -645,7 +562,7 @@ export default function AboutPage() {
                       type="search"
                       value={query}
                       placeholder="Search"
-                      aria-label="Search documents by name or title"
+                      aria-label="Search files by title"
                       onChange={(e) => setQuery(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Escape" && query) setQuery("");
@@ -654,46 +571,52 @@ export default function AboutPage() {
                   </div>
                 </div>
 
-                {view === "list" && filtered.length > 0 && (
-                  <div className="files-listhead" aria-hidden="true">
-                    <span className="foid-label">Name</span>
-                    <span className="foid-label">Kind</span>
-                    <span className="foid-label">Updated</span>
-                  </div>
-                )}
-                <div
-                  ref={canvasRef}
-                  role="listbox"
-                  aria-label="Documents"
-                  tabIndex={0}
-                  aria-activedescendant={selectedId ? `about-opt-${selectedId}` : undefined}
-                  className={`files-canvas files-canvas--${view}`}
-                  onKeyDown={onCanvasKeyDown}
-                  onMouseDown={onCanvasMouseDown}
-                >
-                  {filtered.length === 0 ? (
-                    <p className="foid-label files-noresults">
-                      {query.trim()
-                        ? `No results for “${query.trim()}”`
-                        : `Nothing in ${crumb} yet`}
-                    </p>
-                  ) : view === "icons" ? (
-                    <div ref={gridRef} className="files-grid" role="presentation">
-                      {filtered.map(renderOption)}
+                {!hasLibrary ? (
+                  <EmptyArchive />
+                ) : (
+                  <>
+                    {view === "list" && filtered.length > 0 && (
+                      <div className="files-listhead" aria-hidden="true">
+                        <span className="foid-label">Name</span>
+                        <span className="foid-label">Kind</span>
+                        <span className="foid-label">Date Added</span>
+                      </div>
+                    )}
+                    <div
+                      ref={canvasRef}
+                      role="listbox"
+                      aria-label="Files"
+                      tabIndex={0}
+                      aria-activedescendant={selectedId ? `files-opt-${selectedId}` : undefined}
+                      className={`files-canvas files-canvas--${view}`}
+                      onKeyDown={onCanvasKeyDown}
+                      onMouseDown={onCanvasMouseDown}
+                    >
+                      {filtered.length === 0 ? (
+                        <p className="foid-label files-noresults">
+                          {query.trim()
+                            ? `No results for “${query.trim()}”`
+                            : `Nothing in ${crumb} yet`}
+                        </p>
+                      ) : view === "icons" ? (
+                        <div ref={gridRef} className="files-grid" role="presentation">
+                          {filtered.map(renderOption)}
+                        </div>
+                      ) : (
+                        filtered.map(renderOption)
+                      )}
                     </div>
-                  ) : (
-                    filtered.map(renderOption)
-                  )}
-                </div>
+                  </>
+                )}
 
                 <div className="files-status">
                   <span className="foid-label files-status__count" aria-live="polite">
                     {selectedId
                       ? `1 of ${filtered.length} selected`
-                      : `${filtered.length} document${filtered.length === 1 ? "" : "s"}`}
+                      : `${filtered.length} item${filtered.length === 1 ? "" : "s"}`}
                   </span>
                   <span className="foid-label files-status__path">
-                    FOID OS <span className="files-status__sep" aria-hidden="true">&#9656;</span> About{" "}
+                    FOID OS <span className="files-status__sep" aria-hidden="true">&#9656;</span> Media{" "}
                     <span className="files-status__sep" aria-hidden="true">&#9656;</span>{" "}
                     <span className="files-status__here">{crumb}</span>
                   </span>
@@ -704,14 +627,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {activeDoc && readerIndex !== null ? (
-        <DocReader
-          docs={filtered}
-          index={readerIndex}
-          onClose={() => setReaderIndex(null)}
-          onNavigate={readerNavigate}
-        />
-      ) : null}
+      {activeItem ? <MediaPlayer item={activeItem} onClose={() => setActiveItem(null)} /> : null}
     </main>
   );
 }

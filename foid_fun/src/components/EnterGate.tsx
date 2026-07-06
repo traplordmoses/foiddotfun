@@ -5,7 +5,36 @@ import { useRouter } from "next/navigation";
 import { getAudioSettings } from "@/lib/audioSettings";
 
 const PARTICLE_COUNT = 20;
-const BOOT_STEPS = [15, 35, 50, 72, 88, 100];
+
+/*
+ * FOID OS boot — /enter is the front door; every arrival boots the machine.
+ *
+ * Phases (data-boot on .enter-gate; visuals live in src/app/enter/enter.css):
+ *   cover → sigil → sky → ready
+ * Modes:
+ *   full    first boot this session      (~2.9s to interactive)
+ *   fast    returning visitor            (~0.9s, via sessionStorage)
+ *   static  prefers-reduced-motion       (composed final frame, instant)
+ * Override for debugging/QA: /enter?boot=full|fast|static
+ *
+ * The boot is skippable instantly (any key / click / tap) and shows no
+ * numeric progress — the log lines fire when their stage actually starts,
+ * so the story on screen is the real state of the reveal.
+ */
+type BootPhase = "cover" | "sigil" | "sky" | "ready";
+type BootMode = "full" | "fast" | "static";
+
+const BOOT_SESSION_KEY = "foid_os_booted";
+/* Timings below pair with the CSS durations in enter.css. */
+const BOOT_LOG_LINES = [
+  "waking foid mommy",
+  "mounting permanent memory",
+  "tuning the sky",
+  "polishing the glass",
+] as const;
+const FAST_LOG_LINES = ["resuming session"] as const;
+/* r=34 ring circumference for the draw-on animation. */
+const BOOT_RING_CIRCUMFERENCE = 213.6;
 
 // Browser timers return numbers; avoid Node timer types leaking in via @types/node.
 type TimeoutId = number;
@@ -84,11 +113,20 @@ export default function EnterGate({
     };
   }, [handlePointerMove, handlePointerLeave]);
 
-  const [bootActive, setBootActive] = useState(false);
-  const [bootText1, setBootText1] = useState(false);
-  const [bootText2, setBootText2] = useState(false);
-  const [bootProgressVisible, setBootProgressVisible] = useState(false);
-  const [bootProgress, setBootProgress] = useState(0);
+  /* ── FOID OS boot state ─────────────────────────────────────────────
+     SSR renders the "cover" frame (dark screen) so the first paint is a
+     machine that hasn't booted yet — never a flash of the finished page. */
+  const [bootPhase, setBootPhase] = useState<BootPhase>("cover");
+  const [bootMode, setBootMode] = useState<BootMode>("full");
+  const [bootSkipped, setBootSkipped] = useState(false);
+  const [logCount, setLogCount] = useState(0);
+  const [outroActive, setOutroActive] = useState(false);
+  const bootStartedRef = useRef(false);
+  const bootReadyRef = useRef(false);
+  /* When a key/click skips the boot, the same event would immediately
+     activate the gate (both listeners see it). A short cooldown makes
+     skip and enter two distinct gestures. */
+  const bootSkipAtRef = useRef(0);
 
   const clearTimeouts = useCallback(() => {
     timeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
@@ -226,43 +264,132 @@ export default function EnterGate({
     }
   }, [destination, navigationMode, router]);
 
-  const runBootSequence = useCallback(() => {
-    if (bootActive) return;
-    setBootActive(true);
+  /* Land the boot: final phase, remember this session, flush the log. */
+  const finishBoot = useCallback(() => {
+    if (bootReadyRef.current) return;
+    bootReadyRef.current = true;
+    setBootPhase("ready");
+    setLogCount(BOOT_LOG_LINES.length);
+    try {
+      window.sessionStorage.setItem(BOOT_SESSION_KEY, "1");
+    } catch {
+      /* private mode — boot simply replays next visit */
+    }
+  }, []);
 
-    if (reducedMotion) {
-      setBootText1(true);
-      setBootText2(true);
-      schedule(() => navigate(), 260);
+  /* Skip = jump cut to the composed end state. Never a different state,
+     never slower than a frame. The skipped flag (which zeroes every boot
+     transition) lifts shortly after, so the later login outro still
+     animates normally. */
+  const skipBoot = useCallback(() => {
+    if (bootReadyRef.current) return;
+    clearTimeouts();
+    bootSkipAtRef.current = Date.now();
+    setBootSkipped(true);
+    finishBoot();
+    schedule(() => setBootSkipped(false), 400);
+  }, [clearTimeouts, finishBoot, schedule]);
+
+  /* Boot timeline. All timeouts are scheduled up front (never chained) so
+     background-tab timer throttling can only delay stages, not stack them.
+     The log lines fire exactly when their stage begins — narrative
+     progress, no invented percentages. */
+  useEffect(() => {
+    if (bootStartedRef.current) return;
+    bootStartedRef.current = true;
+
+    const params = new URLSearchParams(window.location.search);
+    const override = params.get("boot");
+    const prefersStatic = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let seenThisSession = false;
+    try {
+      seenThisSession = window.sessionStorage.getItem(BOOT_SESSION_KEY) === "1";
+    } catch {
+      seenThisSession = false;
+    }
+
+    const mode: BootMode =
+      override === "static" || override === "fast" || override === "full"
+        ? override
+        : prefersStatic
+          ? "static"
+          : seenThisSession
+            ? "fast"
+            : "full";
+    setBootMode(mode);
+
+    if (mode === "static") {
+      finishBoot();
       return;
     }
 
-    schedule(() => setBootText1(true), 120);
-    schedule(() => {
-      playBootChime();
-      setBootText2(true);
-    }, 320);
-    schedule(() => setBootProgressVisible(true), 420);
+    if (mode === "fast") {
+      /* Returning visitor: one breath — resume, bloom, key. (~0.9s) */
+      schedule(() => setBootPhase("sigil"), 90);
+      schedule(() => setLogCount(1), 210);
+      schedule(() => setBootPhase("sky"), 500);
+      schedule(finishBoot, 880);
+      return;
+    }
 
-    let elapsed = 450;
-    BOOT_STEPS.forEach((step, index) => {
-      elapsed += 55 + index * 6;
-      schedule(() => setBootProgress(step), elapsed);
-    });
+    /* First boot (~2.9s to interactive):
+       dark → sigil draws → log ticks → sky blooms → key crystallizes. */
+    schedule(() => setBootPhase("sigil"), 140);
+    schedule(() => setLogCount(1), 640); //  waking foid mommy
+    schedule(() => setLogCount(2), 980); //  mounting permanent memory
+    schedule(() => setLogCount(3), 1320); // tuning the sky…
+    schedule(() => setBootPhase("sky"), 1560); // …and the sky actually arrives
+    schedule(() => setLogCount(4), 1720); // polishing the glass…
+    schedule(finishBoot, 2260); //          …and the glass key crystallizes
+  }, [finishBoot, schedule]);
 
-    schedule(() => navigate(), elapsed + 180);
-  }, [bootActive, navigate, playBootChime, reducedMotion, schedule]);
+  /* Any key or pointer during the theater skips it. Capture phase so the
+     skip wins over every other handler; modifier combos stay untouched. */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (bootReadyRef.current) return;
+      if (event.metaKey || event.ctrlKey || event.altKey || event.key === "Tab") return;
+      skipBoot();
+    };
+    const onPointerDown = () => {
+      if (!bootReadyRef.current) skipBoot();
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [skipBoot]);
+
+  /* Login moment — the sky opens. The route is already prefetched, so no
+     progress theater: chime, light bloom, "welcome home", go. */
+  const runLoginOutro = useCallback(() => {
+    if (reducedMotion) {
+      schedule(() => navigate(), 230);
+      return;
+    }
+    playBootChime();
+    schedule(() => navigate(), 900);
+  }, [navigate, playBootChime, reducedMotion, schedule]);
 
   const activateGate = useCallback(
     (event?: MouseEvent<HTMLButtonElement>) => {
-      if (bootActive || activationLocked.current) return;
+      /* First gesture lands the boot; the next one enters. */
+      if (!bootReadyRef.current) {
+        skipBoot();
+        return;
+      }
+      if (Date.now() - bootSkipAtRef.current < 450) return;
+      if (outroActive || activationLocked.current) return;
       activationLocked.current = true;
+      setOutroActive(true);
       if (onEnter) onEnter();
       if (event) createRipple(event);
       playClickSound();
-      schedule(runBootSequence, 150);
+      schedule(runLoginOutro, 120);
     },
-    [bootActive, createRipple, onEnter, playClickSound, runBootSequence, schedule]
+    [createRipple, onEnter, outroActive, playClickSound, runLoginOutro, schedule, skipBoot]
   );
 
   const handleEnter = useCallback(
@@ -314,7 +441,14 @@ export default function EnterGate({
   }, [activateGate, enableGlobalEnter]);
 
   return (
-    <div className="enter-gate" data-reduced-motion={reducedMotion ? "true" : "false"}>
+    <div
+      className="enter-gate"
+      data-reduced-motion={reducedMotion ? "true" : "false"}
+      data-boot={bootPhase}
+      data-boot-mode={bootMode}
+      data-boot-skipped={bootSkipped ? "true" : undefined}
+      data-outro={outroActive ? "true" : undefined}
+    >
       <div className="caustics" aria-hidden="true" />
       <div className="particles" ref={particlesRef} aria-hidden="true" />
 
@@ -349,7 +483,7 @@ export default function EnterGate({
             className="enter-key"
             aria-label="Enter FOID Foundation"
             onClick={handleEnter}
-            disabled={bootActive}
+            disabled={outroActive}
           >
             <span className="key-glow" aria-hidden="true" />
           <svg viewBox="0 0 488 202" xmlns="http://www.w3.org/2000/svg" role="img">
@@ -553,31 +687,76 @@ export default function EnterGate({
         <span className="enter-label">FOID Foundation</span>
       </div>
 
-      <div className={`boot-overlay ${bootActive ? "active" : ""}`}>
-        <div className="scanlines" aria-hidden="true" />
-        <div className="boot-logo" aria-hidden="true">
-          <svg viewBox="0 0 120 120" className="boot-logo-svg">
+      {/* ── FOID OS boot theater (visuals: src/app/enter/enter.css) ──
+          The dark cover sits over the live wallpaper while it loads, so
+          the ceremony costs zero time. Decorative throughout: the real
+          button is in the page and enabled the whole way. */}
+      <div className="boot-tint" aria-hidden="true" />
+      <div className="boot-cover" aria-hidden="true" />
+      <div className="boot-bloom" aria-hidden="true" />
+      <div className="boot-core" aria-hidden="true">
+        <div className="boot-sigil">
+          <svg className="boot-sigil-svg" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <radialGradient id="bootGlow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#00ffd5" stopOpacity="0.6" />
-                <stop offset="70%" stopColor="#00bfff" stopOpacity="0.2" />
-                <stop offset="100%" stopColor="#0066ff" stopOpacity="0" />
+              <radialGradient id="bootOrb" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="var(--foid-cyan)" stopOpacity="0.5" />
+                <stop offset="55%" stopColor="var(--foid-cyan)" stopOpacity="0.16" />
+                <stop offset="100%" stopColor="var(--foid-purple)" stopOpacity="0" />
               </radialGradient>
+              <linearGradient id="bootRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="var(--foid-cyan)" />
+                <stop offset="60%" stopColor="var(--foid-purple)" />
+                <stop offset="100%" stopColor="var(--foid-pink)" />
+              </linearGradient>
             </defs>
-            <circle cx="60" cy="60" r="50" fill="url(#bootGlow)" className="boot-glow-circle" />
-            <circle cx="60" cy="60" r="35" fill="none" stroke="#00ffd5" strokeWidth="2" strokeOpacity="0.6" className="boot-ring" />
+            <circle className="boot-orb" cx="48" cy="48" r="30" fill="url(#bootOrb)" />
+            <circle
+              className="boot-ring-orbit"
+              cx="48"
+              cy="48"
+              r="43"
+              fill="none"
+              stroke="var(--foid-cyan)"
+              strokeOpacity="0.22"
+              strokeWidth="1"
+              strokeDasharray="2 9"
+              strokeLinecap="round"
+            />
+            <circle
+              className="boot-ring-draw"
+              cx="48"
+              cy="48"
+              r="34"
+              fill="none"
+              stroke="url(#bootRingGrad)"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeDasharray={BOOT_RING_CIRCUMFERENCE}
+              strokeDashoffset={BOOT_RING_CIRCUMFERENCE}
+              transform="rotate(-90 48 48)"
+            />
           </svg>
+          <div className="boot-wordmark">FOID OS</div>
+          <div className="boot-tagline">the internet&apos;s permanent memory</div>
         </div>
-        <div className={`boot-text boot-text--title ${bootText1 ? "show" : ""}`}>FOID FOUNDATION</div>
-        <div className={`boot-text ${bootText2 ? "show" : ""}`} style={{ marginTop: 8 }}>
-          establishing connection...
+        <div className="boot-log">
+          {(bootMode === "fast" ? FAST_LOG_LINES : BOOT_LOG_LINES).map((line, index) => (
+            <div key={line} className={`boot-line ${index < logCount ? "on" : ""}`}>
+              <span className="boot-line-text">{line}</span>
+              <span className="boot-line-dots" />
+              <span className="boot-line-ok">ok</span>
+            </div>
+          ))}
         </div>
-        <div className={`boot-progress ${bootProgressVisible ? "show" : ""}`}>
-          <div className="boot-progress-bar" style={{ width: `${bootProgress}%` }} />
-        </div>
-        <div className={`boot-text boot-text--welcome ${bootProgress >= 100 ? "show" : ""}`}>
-          welcome home
-        </div>
+      </div>
+      <div className="boot-skip-hint" aria-hidden="true">
+        press any key to skip
+      </div>
+
+      {/* ── login flash — pressing enter opens the sky ── */}
+      <div className="login-flash" aria-hidden="true">
+        <span className="login-disc" />
+        <div className="login-note">welcome home</div>
       </div>
 
       <style jsx global>{`
@@ -651,8 +830,9 @@ export default function EnterGate({
           flex-direction: column;
           align-items: center;
           gap: 28px;
+          /* Reveal is owned by the boot sequence (enter.css): the key
+             crystallizes when data-boot flips to "ready". */
           opacity: 0;
-          animation: fadeInContainer 1.5s ease-out 0.5s forwards;
         }
 
         .enter-key {
@@ -797,115 +977,8 @@ export default function EnterGate({
           color: #ffe462;
           text-transform: uppercase;
           text-shadow: 0 0 12px rgba(255, 228, 98, 0.8);
+          /* Revealed by the boot sequence (enter.css) on data-boot="ready". */
           opacity: 0;
-          animation: labelFadeIn 1s ease-out 1.5s forwards;
-        }
-
-        .boot-overlay {
-          position: fixed;
-          inset: 0;
-          background: #000;
-          z-index: 1000;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity 0.5s ease;
-        }
-
-        .boot-overlay.active {
-          opacity: 1;
-          pointer-events: all;
-        }
-
-        .boot-logo {
-          position: relative;
-          width: 120px;
-          height: 120px;
-          margin-bottom: 32px;
-        }
-
-        .boot-logo-svg {
-          width: 100%;
-          height: 100%;
-        }
-
-        .boot-glow-circle {
-          animation: bootGlowPulse 2s ease-in-out infinite;
-        }
-
-        .boot-ring {
-          animation: bootRingSpin 3s linear infinite;
-          transform-origin: center;
-        }
-
-        .boot-text {
-          font-family: var(--font-display, "Orbitron", sans-serif);
-          font-size: 12px;
-          color: rgba(0, 255, 213, 0.7);
-          text-transform: lowercase;
-          letter-spacing: 4px;
-          opacity: 0;
-        }
-
-        .boot-text--title {
-          font-size: 18px;
-          font-weight: 600;
-          letter-spacing: 8px;
-          color: var(--foid-cyan-electric);
-          text-transform: uppercase;
-          text-shadow: 0 0 30px rgba(0, 255, 213, 0.5);
-        }
-
-        .boot-text--welcome {
-          margin-top: 24px;
-          font-size: 14px;
-          color: rgba(255, 255, 255, 0.9);
-          letter-spacing: 6px;
-          text-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
-        }
-
-        .boot-text.show {
-          animation: bootTextReveal 0.5s ease forwards;
-        }
-
-        .boot-progress {
-          width: 200px;
-          height: 2px;
-          background: rgba(100, 200, 255, 0.2);
-          margin-top: 30px;
-          border-radius: 1px;
-          overflow: hidden;
-          opacity: 0;
-        }
-
-        .boot-progress.show {
-          opacity: 1;
-        }
-
-        .boot-progress-bar {
-          width: 0%;
-          height: 100%;
-          background: linear-gradient(90deg, #4ae, #8df);
-          box-shadow: 0 0 10px #4ae;
-          transition: width 0.1s ease;
-        }
-
-        .scanlines {
-          position: absolute;
-          width: 100%;
-          height: 100%;
-          background: repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 2px,
-            rgba(0, 0, 0, 0.1) 2px,
-            rgba(0, 0, 0, 0.1) 4px
-          );
-          pointer-events: none;
-          opacity: 0.3;
         }
 
         .ripple {
@@ -952,65 +1025,12 @@ export default function EnterGate({
           }
         }
 
-        @keyframes fadeInContainer {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
         @keyframes gentleFloat {
           0%, 100% {
             transform: translateY(0) rotate(1deg);
           }
           50% {
             transform: translateY(-10px) rotate(0.5deg);
-          }
-        }
-
-        @keyframes labelFadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes bootTextReveal {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes bootGlowPulse {
-          0%, 100% {
-            opacity: 0.6;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 1;
-            transform: scale(1.1);
-          }
-        }
-
-        @keyframes bootRingSpin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
           }
         }
 
@@ -1033,12 +1053,6 @@ export default function EnterGate({
         .enter-gate[data-reduced-motion="true"] .caustics::before,
         .enter-gate[data-reduced-motion="true"] .caustics::after {
           animation: none;
-        }
-
-        .enter-gate[data-reduced-motion="true"] .boot-text.show {
-          animation: none;
-          opacity: 1;
-          transform: none;
         }
 
         .enter-gate[data-reduced-motion="true"] .orbital,

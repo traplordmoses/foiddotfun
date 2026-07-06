@@ -345,6 +345,14 @@ body {
   --terminal-font-size: 16px;
   --terminal-log-size: 15.5px;
   --terminal-line-height: 1.55;
+  /* Shared prompt column: every speaker label (mommy@foid / anon@foid, log
+     and composer alike) pads to this width so all message text starts on
+     one vertical line — the terminal's left gutter rhythm. Slightly wider
+     than the widest label so min-width, not natural width, sets the column. */
+  --terminal-prompt-col: 122px;
+  /* Log lines share this inline inset with the composer's inner offset
+     (6px outer + 1px border + 11px padding) so prompt columns align. */
+  --terminal-gutter: 18px;
   --bg-deepest: #05070b;
   --bg-deep: #0a1118;
   --bg-panel: #0c1721;
@@ -708,6 +716,8 @@ body {
       --terminal-font-size: 14.5px;
       --terminal-log-size: 14px;
       --terminal-line-height: 1.5;
+      --terminal-prompt-col: 108px;
+      --terminal-gutter: 12px;
     }
   }
 
@@ -740,6 +750,13 @@ body {
     gap: 0;
     padding: 0;
     border-radius: var(--foid-radius-xl);
+    /* FOID OS: the frame is a size-query container so window CONTENT reflows
+       with the WINDOW (WindowFrame writes inline width/height), not the
+       viewport. Every room's responsive rules should prefer
+       `@container foid-window (…)` over viewport @media. inline-size only —
+       widths are always definite (w-full/grid tracks), heights sometimes
+       aren't (decorative windows), so size containment would be unsafe. */
+    container: foid-window / inline-size;
     /* Window physics: every route's window opens with one scale-and-settle
        spring (slight overshoot). Runs on mount only — navigating remounts
        the window, so switching rooms feels like opening an app, not
@@ -887,17 +904,23 @@ body {
       box-shadow 0.2s ease;
   }
 
+  /* macOS traffic-light order — red · amber · green, left to right.
+     Enforced with flex `order` so every render site (13 files carry the
+     decorative spans in legacy order) lines up without markup churn. */
   .vista-window__control--close {
+    order: 0;
     background: linear-gradient(180deg, #ff7a8a 0%, #ff4d5e 50%, #e8354a 100%);
     --control-glow: rgba(255, 77, 94, 0.4);
   }
 
   .vista-window__control--minimize {
-    background: linear-gradient(180deg, #7ab8ff 0%, #4a9eff 50%, #3085e8 100%);
-    --control-glow: rgba(74, 158, 255, 0.4);
+    order: 1;
+    background: linear-gradient(180deg, #ffd970 0%, #f7b32b 50%, #dd9a14 100%);
+    --control-glow: rgba(247, 179, 43, 0.4);
   }
 
   .vista-window__control--restore {
+    order: 2;
     background: linear-gradient(180deg, #8aeba5 0%, #4ade80 50%, #30c060 100%);
     --control-glow: rgba(74, 222, 128, 0.4);
   }
@@ -914,6 +937,29 @@ body {
       rgba(255, 255, 255, 0.75) 0%,
       rgba(255, 255, 255, 0.2) 100%);
     pointer-events: none;
+  }
+
+  /* macOS hover glyphs: ×/−/+ appear when the cluster is hovered. */
+  .vista-window__control::after {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-body);
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    color: rgba(40, 20, 5, 0.6);
+    opacity: 0;
+    transition: opacity var(--foid-motion-fast) ease;
+    pointer-events: none;
+  }
+  .vista-window__control--close::after { content: "×"; }
+  .vista-window__control--minimize::after { content: "−"; }
+  .vista-window__control--restore::after { content: "+"; }
+  .vista-window__controls:hover .vista-window__control::after {
+    opacity: 1;
   }
 
   .vista-window__control:hover {
@@ -2407,7 +2453,9 @@ body {
     flex: 1;
     min-height: 0;
     overflow: auto;
-    padding: 10px 6px 8px;
+    /* Inline inset matches the composer's inner offset so the log's prompt
+       column and the composer's prompt column sit on the same vertical. */
+    padding: 10px var(--terminal-gutter, 18px) 8px;
     /* Scroll polish: momentum on iOS, smooth programmatic scroll,
        and contain so overscroll doesn't drag the page behind. */
     scroll-behavior: smooth;
@@ -2436,10 +2484,15 @@ body {
   .foid-terminal__line--turn-start:first-child {
     margin-top: 0;
   }
-  /* Continuation lines (same speaker, no prompt) sit flush — no fake
-     prompt-column indent. Reads like Discord / iMessage. */
+  /* Continuation lines (same speaker, no prompt) indent to the shared text
+     column, so each speaker's turn reads as one clean left-aligned block
+     instead of sawtoothing back to column 0. System runs stay flush-left —
+     they're kernel chatter, not speech. */
   .foid-terminal__line--continuation .foid-terminal__line-text {
     display: block;
+  }
+  .foid-terminal__line--continuation:not(.foid-terminal__line--system) {
+    padding-left: calc(var(--terminal-prompt-col, 122px) + 10px);
   }
 
   .foid-cli__composer {
@@ -2460,7 +2513,7 @@ body {
   .foid-terminal__line {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 10px;
     white-space: pre-wrap;
   }
 
@@ -2498,7 +2551,9 @@ body {
     white-space: nowrap;
     font-family: var(--font-terminal);
     letter-spacing: 0.02em;
-    margin-right: 12px;
+    /* Fixed prompt column (flex gap owns the spacing): both speakers' labels
+       pad to the same width so all message text shares one left edge. */
+    min-width: var(--terminal-prompt-col, 122px);
     flex-shrink: 0;
   }
   /* Mommy's prompt is the pink-accent voice — visually distinct from the
@@ -2520,6 +2575,10 @@ body {
   .foid-terminal__line-text {
     flex: 1;
     min-width: 0;
+    /* Measure clamp: in a maximized / grip-widened window, lines would run
+       wall-to-wall. ~72ch (of each line's own face) keeps prose readable;
+       at the default window width this changes nothing. */
+    max-width: 72ch;
   }
 
   .foid-terminal__input-wrap {
@@ -2529,10 +2588,13 @@ body {
   }
 
   .foid-terminal__input {
+    position: relative; /* anchors the absolute block caret */
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    padding: 8px 12px;
+    /* 6px composer inset + 1px border + 11px = 18px — the shared terminal
+       gutter, so the composer prompt sits exactly under the log prompts. */
+    padding: 8px 11px;
     border-radius: 6px;
     border: 1px solid var(--border-glow);
     background: var(--bg-deepest);
@@ -2557,12 +2619,24 @@ body {
     background: transparent;
     border: none;
     outline: none;
-    padding: 0 0 0 8px;
+    padding: 0;
     color: var(--text-bright);
     font-family: var(--font-terminal);
     font-size: var(--terminal-log-size);
     line-height: 1.45;
     caret-color: var(--pray-accent, #6eead8);
+    /* Neutralize the global aero input skin (rounded pill + inset ring) —
+       inside the terminal the OUTER .foid-terminal__input is the control;
+       a second rounded box around the text reads as a UI-inside-UI glitch. */
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* While the field is empty the block caret at the prompt is THE caret —
+     hide the native thin caret so they don't double up. The moment there's
+     text, :placeholder-shown stops matching and the native caret returns. */
+  .foid-terminal__field:placeholder-shown {
+    caret-color: transparent;
   }
 
   .foid-terminal__field--multiline {
@@ -2581,9 +2655,52 @@ body {
     color: var(--text-dim);
   }
 
+  /* While the block caret is parked at the type-point (field empty+enabled),
+     nudge the hint right so the block doesn't sit on its first letter.
+     Typed text still starts exactly at the caret position. */
+  .foid-terminal__field:enabled::placeholder {
+    text-indent: 16px;
+  }
+
   .foid-terminal__field:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+
+  /* ── Block caret ────────────────────────────────────────────────────────
+     Old-school block cursor that blinks at the exact spot typed text will
+     appear, while the terminal is ready for input. Absolutely positioned
+     (no layout shift when it comes and goes). Shown only when the field is
+     empty (placeholder visible) and enabled; hidden while Mommy is busy
+     (field disabled) or once the user starts typing (native caret returns
+     via the :placeholder-shown rule above). */
+  .foid-terminal__caret {
+    display: none;
+    position: absolute;
+    /* input padding (11px) + prompt column + flex gap (10px) = field left */
+    left: calc(11px + var(--terminal-prompt-col, 122px) + 10px);
+    top: calc(8px + 0.18em);
+    width: 0.6em;
+    height: 1.25em;
+    font-size: var(--terminal-log-size);
+    background: var(--pray-accent, #6eead8);
+    box-shadow: 0 0 6px rgba(110, 234, 216, 0.55);
+    pointer-events: none;
+    animation: foid-caret-blink 1.06s steps(2, start) infinite;
+  }
+  .foid-terminal__input:has(.foid-terminal__field:placeholder-shown:not(:disabled))
+    .foid-terminal__caret {
+    display: block;
+  }
+  @keyframes foid-caret-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .foid-terminal__caret {
+      animation: none;
+      opacity: 0.85;
+    }
   }
 
   .foid-terminal__send-btn {
@@ -2686,10 +2803,12 @@ body {
   }
 
   .foid-terminal__status {
-    font-size: 9px;
+    font-size: 10px;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--text-dim);
+    /* 6px composer inset + 12px = 18px: sits on the shared gutter line. */
+    padding-inline: 12px;
   }
 
   .foid-terminal__status--error {
@@ -3021,20 +3140,14 @@ body {
       justify-content: flex-start;
     }
 
-    .pray-main-grid {
-      grid-template-columns: 1fr;
-      grid-template-rows: minmax(0, 1fr);
-      grid-template-areas: "panel";
-    }
-
+    /* NOTE: the legacy "stack panes into one panel area + tab switcher"
+       rules that lived here are gone. No component renders .pray-mobile-tabs
+       or toggles .pray-pane--mobile-hidden anymore, and re-pointing the
+       panes at a nonexistent "panel" grid area made the terminal and stats
+       panes overlap at exactly-1024px viewports (where the desktop tree is
+       still visible but this media query already matches). */
     .pray-mobile-tabs {
       display: flex;
-    }
-
-    .pray-pane--terminal,
-    .pray-pane--manual,
-    .pray-pane--stats {
-      grid-area: panel;
     }
 
     .pray-pane--mobile-hidden {
@@ -4779,7 +4892,8 @@ body {
   gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 2px 2px 8px;
+  /* 6px composer inset + 12px = 18px: first chip sits on the gutter line. */
+  padding: 2px 12px 8px;
   margin-bottom: 4px;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -4791,8 +4905,8 @@ body {
 
 .foid-mood-chip {
   flex-shrink: 0;
-  min-height: 36px;
-  padding: 6px 14px;
+  min-height: 40px;
+  padding: 8px 16px;
   border: 1px solid rgba(110, 234, 216, 0.3);
   border-radius: 999px;
   background: transparent;
@@ -4825,6 +4939,39 @@ body {
 
 .foid-mood-chip--active:hover {
   background: rgba(110, 234, 216, 1);
+}
+
+/* Touch devices: chips are primary input on wordless days — give them the
+   full 44px guideline hit target. */
+@media (pointer: coarse) {
+  .foid-mood-chip {
+    min-height: 44px;
+    padding: 10px 18px;
+  }
+}
+
+/* ── Pray window container queries ──────────────────────────────────────
+   The pray .vista-window is a named inline-size container (container-type
+   set in pray/page.tsx styled-jsx) because the window is resizable via the
+   corner grip independently of the viewport. Below ~900px of WINDOW width,
+   two squeezed columns are worse than one good one: the sidebar bows out
+   and the terminal takes the full frame. Lives here (plain CSS, unlayered)
+   because styled-jsx's compiler mangles named @container rules, and the
+   doubled class outguns the styled-jsx base rule's jsx-hash specificity. */
+@container pray-window (max-width: 899px) {
+  .pray-window-frame .pray-main-grid.pray-main-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "terminal";
+  }
+  .pray-window-frame .pray-pane--stats.pray-pane--stats {
+    display: none;
+  }
+}
+@container pray-window (max-width: 659px) {
+  .pray-window-frame .pray-main-grid.pray-main-grid {
+    padding: 10px;
+    gap: 10px;
+  }
 }
 
 /* Extra small mobile devices */
@@ -5611,9 +5758,382 @@ body.foid-window-dragging {
 body.foid-window-dragging .vista-window {
   transition: none; /* 1:1 tracking while dragging/resizing */
 }
+/* While a drag/resize gesture is live, inner content must track the frame
+   1:1 too — any transition on width-affected properties (cards, grids,
+   buttons with `transition: all`) reads as jelly-lag against the cursor.
+   Transitions only; ambient animations (sparkles, shimmer) keep playing. */
+body.foid-window-dragging .vista-window * {
+  transition-duration: 0s !important;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .vista-window.foid-window--minimized {
     transition: none;
   }
+}
+
+/* Edge resize strips — right (ew) and bottom (ns); the corner grip owns
+   nwse. Wide enough to grab, invisible until you're there (cursor is the
+   affordance, per OS convention). Desktop only, like the corner. */
+.foid-window-edge {
+  position: absolute;
+  z-index: 4;
+}
+.foid-window-edge--e {
+  top: 48px;
+  right: -3px;
+  bottom: 26px;
+  width: 8px;
+  cursor: ew-resize;
+}
+.foid-window-edge--s {
+  left: 26px;
+  right: 26px;
+  bottom: -3px;
+  height: 8px;
+  cursor: ns-resize;
+}
+@media (max-width: 1023px) {
+  .foid-window-edge {
+    display: none;
+  }
+}
+
+/* ============================================================================
+   HOME (/) — WINDOW-WIDTH REFLOW
+   The launcher's base styles live in page.tsx styled-jsx; the @container
+   blocks live here because styled-jsx's stylis (3.x) predates @container.
+   .home-page-prefixed so these outrank the styled-jsx base rules.
+   Breakpoints are WINDOW widths (the .vista-window container), so the tile
+   grid wraps 4 → 2 → 1 as the OS window is resized, not with the viewport.
+   ============================================================================ */
+@container foid-window (max-width: 1020px) {
+  .home-page .home-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .home-page .home-card {
+    padding: 22px 16px;
+  }
+  .home-page .home-card--hero {
+    padding: 28px 20px;
+  }
+  .home-page .home-card__label {
+    font-size: 16px;
+    letter-spacing: 0.16em;
+  }
+  .home-page .home-card__desc {
+    font-size: 11px;
+  }
+}
+@media (min-width: 769px) {
+  @container foid-window (max-width: 700px) {
+    /* Reclaim the desktop title-zone air when the window gets narrow
+       (mobile already runs padding 0 + auto-margin distribution). */
+    .home-page .home-title-zone {
+      padding-top: 12px;
+    }
+  }
+}
+@container foid-window (max-width: 520px) {
+  .home-page .home-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .home-page .home-card {
+    padding: 16px 14px;
+  }
+  .home-page .home-card--hero {
+    padding: 22px 16px;
+  }
+  .home-page .home-card__label {
+    font-size: 15px;
+    letter-spacing: 0.14em;
+  }
+}
+@container foid-window (max-width: 430px) {
+  /* Phone-width windows: label-only tiles keep the launcher on one screen. */
+  .home-page .home-card__desc {
+    display: none;
+  }
+  .home-page .home-card__cta {
+    font-size: 11px;
+    padding: 8px 20px;
+  }
+}
+
+/* ============================================================================
+   MIFOID.EXE — WINDOW-WIDTH REFLOW
+   The page's split layout keys off Tailwind lg:* (viewport), so a narrow
+   WINDOW on a wide screen kept two squished columns with the floating
+   paint-windows smeared over the feature text. These rules re-key the
+   layout to the window container. Structural selectors (no page classes to
+   hang off): the split row is the only `.relative.z-10.flex` child of the
+   body, its two children are the feature column and the GameBoy stage.
+   ============================================================================ */
+.mifoid-page .mifoid-feature-title {
+  /* Window-scaled type (was lg:text-[clamp(…,1.5vw,…)] — viewport-keyed). */
+  font-size: clamp(14px, 1.7cqw, 22px);
+}
+.mifoid-page .mifoid-diamond + div > p {
+  font-size: clamp(12px, 1.25cqw, 15px);
+}
+@media (min-width: 1024px) {
+  @container foid-window (max-width: 1000px) {
+    .mifoid-page .mifoid-iridescent > .relative.z-10.flex {
+      flex-direction: column; /* overrides lg:flex-row */
+      overflow-y: auto; /* overrides lg:overflow-visible */
+      padding-top: 2.5rem;
+    }
+    .mifoid-page .mifoid-iridescent > .relative.z-10.flex > div {
+      height: auto; /* overrides lg:h-full on both columns */
+      margin-right: 0; /* overrides lg:mr-[40px] xl:mr-[70px] */
+    }
+    .mifoid-page .mifoid-iridescent > .relative.z-10.flex > div:first-child {
+      /* Stacked feature list: centered measure instead of hugging the
+         left edge of a full-width column. */
+      max-width: 560px;
+    }
+    .mifoid-page .mifoid-iridescent > .relative.z-10.flex > div:last-child {
+      padding-bottom: 24px; /* stacked stage needs its own exit air */
+    }
+    .mifoid-page .mifoid-paint-window {
+      /* The floats hang ±100px outside the GameBoy — in a narrow window
+         they cover the features and clip on the frame. */
+      display: none;
+    }
+    .mifoid-page .mifoid-gameboy-wrap {
+      width: 240px; /* overrides lg:w-[280px] xl:w-[320px] */
+    }
+  }
+}
+
+/* ============================================================================
+   TERMINAL CHAT — shared by the /board sidebar and the CHAT.EXE dock app.
+   Moved here from board.css so the component renders identically on every
+   route. Board-scoped sizing overrides stay in board.css
+   (.board-section--chat …). Uses global tokens only.
+   ============================================================================ */
+.terminal-chat {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background:
+    linear-gradient(180deg, rgba(16, 36, 55, 0.92), rgba(6, 14, 24, 0.9)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 40%),
+    var(--foid-panel-strong);
+  border-radius: var(--foid-radius-md);
+  border: 1px solid var(--foid-glass-border);
+  overflow: hidden;
+  font-family: var(--font-terminal);
+  box-shadow:
+    inset 0 2px 6px rgba(255, 255, 255, 0.08),
+    0 0 20px rgba(116, 255, 235, 0.12);
+}
+.terminal-chat::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 35%);
+  pointer-events: none;
+  opacity: 0.18;
+  mix-blend-mode: screen;
+  z-index: -1;
+}
+.terminal-chat::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 100% 3px, 3px 100%;
+  opacity: 0.08;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  z-index: -1;
+}
+.terminal-chat__messages { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; font-size: 11px; line-height: 1.5; position: relative; z-index: 1; }
+.terminal-chat__line { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; animation: terminal-chat-pop 150ms ease-out both; transform-origin: 0 100%; }
+@keyframes terminal-chat-pop {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .terminal-chat__line { animation: none; }
+}
+.terminal-chat__time { color: rgba(255,255,255,0.35); font-size: 9px; flex-shrink: 0; }
+.terminal-chat__user { color: var(--foid-accent); font-weight: 600; background: var(--foid-accent-soft); padding: 1px 5px; border-radius: 2px; font-size: 9px; }
+.terminal-chat__system { display: inline-flex; align-items: center; gap: 4px; color: #ffcc00; font-weight: 600; font-style: italic; font-size: 9px; }
+.terminal-chat__text { color: rgba(255,255,255,0.85); font-size: 11px; }
+/* Chat rows are soft glass bubbles — AIM-era warmth in FOID aero glass.
+   Tint alternates cyan/pink by sender hash (classes set in TerminalChat). */
+.terminal-chat__line--bubble {
+  width: fit-content;
+  max-width: 100%;
+  align-items: baseline;
+  padding: 4px 9px 5px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02) 60%),
+    rgba(10, 26, 42, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 1px 4px rgba(0, 10, 26, 0.25);
+}
+.terminal-chat__line--tint-a {
+  border-color: color-mix(in srgb, var(--foid-cyan) 22%, transparent);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--foid-cyan) 11%, transparent), color-mix(in srgb, var(--foid-cyan) 4%, transparent)),
+    rgba(10, 26, 42, 0.45);
+}
+.terminal-chat__line--tint-b {
+  border-color: color-mix(in srgb, var(--foid-pink) 26%, transparent);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--foid-pink) 12%, transparent), color-mix(in srgb, var(--foid-pink) 4%, transparent)),
+    rgba(10, 26, 42, 0.45);
+}
+/* Wallet chip: deterministic pastel gel per address (--chip-h set inline)
+   so regulars are recognizable at a glance. */
+.terminal-chat__line--bubble .terminal-chat__user {
+  --chip-h: 170;
+  color: hsl(var(--chip-h) 92% 80%);
+  background: linear-gradient(180deg, hsl(var(--chip-h) 90% 88% / 0.32), hsl(var(--chip-h) 85% 62% / 0.16));
+  border: 1px solid hsl(var(--chip-h) 88% 74% / 0.4);
+  border-radius: 999px;
+  padding: 1px 7px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  text-shadow: 0 1px 2px rgba(0, 10, 26, 0.4);
+}
+/* Cute empty room — shown until the first human message lands. */
+.terminal-chat__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 26px 10px;
+  color: var(--foid-text-mute);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  text-shadow: 0 0 10px var(--foid-glow);
+}
+.terminal-chat__line--success .terminal-chat__text { color: var(--foid-accent); }
+.terminal-chat__line--error .terminal-chat__text { color: var(--foid-red-vivid); }
+.terminal-chat__input-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  gap: 8px;
+  border-top: 1px solid var(--foid-accent-soft);
+  background: rgba(5, 15, 26, 0.85);
+  position: sticky;
+  bottom: 0;
+  backdrop-filter: blur(12px);
+  z-index: 2;
+  overflow: hidden;
+}
+.terminal-chat__prompt { color: var(--foid-accent); margin-right: 6px; font-weight: 600; font-size: 12px; text-shadow: 0 0 8px var(--foid-glow); flex-shrink: 0; }
+.terminal-chat__input {
+  flex: 1;
+  min-width: 0;
+  background: linear-gradient(180deg, rgba(6, 16, 28, 0.75), rgba(13, 30, 48, 0.5));
+  border: 1px solid var(--foid-accent-soft);
+  border-radius: 999px;
+  outline: none;
+  color: white;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 6px 12px;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.4),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.terminal-chat__input:focus {
+  border-color: var(--foid-accent);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.4),
+    0 0 10px var(--foid-glow);
+}
+.terminal-chat__input:focus-visible {
+  outline: 2px solid var(--foid-accent);
+  outline-offset: 3px;
+}
+.terminal-chat__input::placeholder { color: rgba(255,255,255,0.35); }
+.terminal-chat__line--chat .terminal-chat__text { color: #ccffd8; }
+.terminal-chat__send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--foid-accent-soft);
+  border-top-color: rgba(255, 255, 255, 0.4);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(116, 255, 235, 0.14) 46%,
+    rgba(8, 26, 48, 0.5) 100%
+  );
+  color: var(--foid-accent);
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 4px rgba(4, 12, 28, 0.35),
+    0 2px 5px rgba(0, 10, 30, 0.3);
+  transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.terminal-chat__send svg { display: block; }
+.terminal-chat__send:hover:not(:disabled) {
+  border-color: var(--foid-accent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -2px 4px rgba(4, 12, 28, 0.35),
+    0 0 10px var(--foid-accent-soft),
+    0 0 18px var(--foid-glow);
+  transform: translateY(-1px);
+}
+.terminal-chat__send:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+.terminal-chat__send:focus-visible {
+  outline: 2px solid var(--foid-accent);
+  outline-offset: 3px;
+}
+.terminal-chat__char-counter {
+  text-align: right;
+  font-size: 9px;
+  color: rgba(255,255,255,0.35);
+  padding: 2px 12px 4px;
+  font-family: var(--font-terminal);
+}
+.terminal-chat__char-counter[data-warn] {
+  color: var(--foid-red-vivid);
+  font-weight: 600;
+}
+.terminal-chat__reconnecting {
+  text-align: center;
+  font-size: 9px;
+  color: #ffcc00;
+  padding: 4px;
+  opacity: 0.7;
+  animation: reconnect-blink 1.2s ease-in-out infinite;
+}
+@keyframes reconnect-blink {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.9; }
 }

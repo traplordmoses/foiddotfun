@@ -1,0 +1,269 @@
+/* src/app/about/about.css
+   ABOUT.EXE — reader-specific styles only.
+
+   The Finder chrome (sidebar, toolbar, canvas, list, status strip) reuses
+   files.css classes wholesale; this sheet dresses the TEXTEDIT.EXE reader
+   plus the document-tile glyphs. Same tokens.css material contract as
+   files.css: one-off alphas via color-mix() off --foid-cyan, motion on
+   var(--foid-motion-fast). */
+
+/* ── Document glyphs (icon tiles) ─────────────────────────────────────── */
+.about-doc-glyph {
+  color: var(--tone-info-text);
+  opacity: 0.85;
+  filter: drop-shadow(0 0 12px rgba(116, 255, 235, 0.35));
+}
+
+/* ── TEXTEDIT.EXE — reader chassis ─────────────────────────────────────────
+   Rendered through <Modal variant="slab"> so backdrop, Escape, focus trap
+   and focus-restore are the shared contract. Overrides turn the padded
+   dialog slab into a flush reader with titlebar / page / footer rows. */
+.foid-modal.about-reader {
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--foid-radius-lg);
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+}
+
+/* Titlebar row: close orb · filename · kind badge */
+.about-reader__bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--foid-border-subtle);
+  background: rgba(10, 22, 40, 0.85);
+}
+.about-reader__bar .vista-window__control {
+  flex-shrink: 0;
+}
+/* The orb is a 12px visual — extend its hit area to ≥24px invisibly. */
+.about-reader__close::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+.about-reader__close:focus-visible {
+  outline: 2px solid var(--foid-focus-ring);
+  outline-offset: 3px;
+}
+.about-reader__name {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-family: var(--font-terminal);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--foid-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.about-reader__badge {
+  flex-shrink: 0;
+  font-family: var(--font-terminal);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  padding: 2px 7px;
+  border-radius: var(--foid-radius-sm);
+  border: 1px solid var(--foid-border-subtle);
+  color: var(--tone-info-text);
+  background: color-mix(in srgb, var(--foid-cyan) 10%, transparent);
+}
+
+/* Page surface — the scrollable document */
+.about-reader__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: rgba(3, 10, 24, 0.55);
+}
+.about-reader__scroll:focus-visible {
+  outline: 2px solid var(--foid-focus-ring);
+  outline-offset: -2px;
+}
+
+/* .md — comfortable reading column */
+.about-reader__doc {
+  max-width: 68ch;
+  margin: 0 auto;
+  padding: 30px 26px 44px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--foid-text-dim);
+  user-select: text;
+  -webkit-user-select: text;
+}
+.about-reader__doc h1 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  color: var(--foid-text);
+  margin: 0 0 14px;
+  text-shadow: 0 0 24px rgba(116, 255, 235, 0.2);
+}
+.about-reader__doc h2 {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--foid-text);
+  margin: 30px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--foid-border-mute);
+}
+.about-reader__doc h3 {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--foid-text);
+  margin: 22px 0 8px;
+}
+.about-reader__doc p {
+  margin: 0 0 14px;
+}
+.about-reader__doc ul {
+  margin: 0 0 14px;
+  padding-left: 22px;
+  list-style: disc;
+  display: grid;
+  gap: 6px;
+}
+.about-reader__doc hr {
+  border: 0;
+  border-top: 1px solid var(--foid-border-mute);
+  margin: 26px 0;
+}
+.about-reader__doc strong {
+  color: var(--foid-text);
+  font-weight: 650;
+}
+.about-reader__doc code {
+  font-family: var(--font-terminal);
+  font-size: 0.88em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--foid-border-mute);
+  background: color-mix(in srgb, var(--foid-cyan) 10%, transparent);
+  color: var(--tone-info-text);
+}
+.about-reader__doc a {
+  color: var(--tone-info-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  border-radius: 2px;
+}
+.about-reader__doc a:hover {
+  color: var(--foid-text);
+}
+.about-reader__doc a:focus-visible {
+  outline: 2px solid var(--foid-focus-ring);
+  outline-offset: 2px;
+}
+
+/* .txt — terminal sheet; wide tables scroll inside the pre, not the page */
+.about-reader__pre {
+  margin: 0;
+  padding: 24px 26px 36px;
+  font-family: var(--font-terminal);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--foid-text-dim);
+  overflow-x: auto;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Footer — walk prev/next without closing (← → also work) */
+.about-reader__footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--foid-border-subtle);
+  background: rgba(10, 22, 40, 0.85);
+}
+.about-reader__nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  max-width: 42%;
+  padding: 4px 10px;
+  border-radius: var(--foid-radius-sm);
+  border: 1px solid var(--foid-border-mute);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--foid-text-dim);
+  font-family: var(--font-terminal);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition:
+    background var(--foid-motion-fast) var(--foid-ease-out),
+    border-color var(--foid-motion-fast) var(--foid-ease-out),
+    color var(--foid-motion-fast) var(--foid-ease-out);
+}
+.about-reader__nav span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.about-reader__nav svg {
+  flex-shrink: 0;
+}
+.about-reader__nav:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--foid-border-subtle);
+  color: var(--foid-text);
+}
+.about-reader__nav:focus-visible {
+  outline: 2px solid var(--foid-focus-ring);
+  outline-offset: 2px;
+}
+.about-reader__nav:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.about-reader__pos {
+  flex-shrink: 0;
+}
+
+/* ── Touch / narrow viewports ──────────────────────────────────────────────
+   globals.css inflates buttons under 768px; re-assert reader geometry the
+   same way files.css does for its icon buttons. */
+@media (max-width: 768px) {
+  button.about-reader__nav {
+    min-height: 44px;
+    padding: 4px 12px;
+  }
+}
+@media (max-width: 640px) {
+  .about-reader__doc {
+    padding: 22px 16px 34px;
+    font-size: 14px;
+  }
+  .about-reader__pre {
+    padding: 18px 14px 26px;
+    font-size: 12px;
+  }
+}
+
+/* High contrast — match files.css: drop blur-adjacent translucency */
+@media (prefers-contrast: more) {
+  .about-reader__bar,
+  .about-reader__footer {
+    background: rgb(10, 22, 40);
+  }
+}

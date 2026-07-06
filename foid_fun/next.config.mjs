@@ -2,6 +2,11 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Allow `NEXT_DIST_DIR=.next-prod pnpm build` so a production build can run
+  // WITHOUT clobbering the dev server's `.next` (running both against the
+  // same dir corrupts whichever finishes second). Defaults to `.next`, so
+  // dev and the deploy pipeline are unaffected.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   eslint: {
     // Warnings should not fail the production build
     ignoreDuringBuilds: true,

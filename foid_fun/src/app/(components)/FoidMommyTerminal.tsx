@@ -497,6 +497,8 @@ export default function FoidMommyTerminal({
   const sendBtnRef = useRef<HTMLButtonElement | null>(null);
   const attachedTypingTargets = useRef(new WeakSet<HTMLElement>());
   const lastStageRef = useRef<Stage>("idle");
+  // Reentry latch for the composer form — see handleCommandSubmit.
+  const submitBusyRef = useRef(false);
 
   // Stable refs for prayer-memory callbacks so the loading effect
   // doesn't re-trigger when entries change mid-sequence.
@@ -572,9 +574,11 @@ export default function FoidMommyTerminal({
     timeoutsRef.current.push(timer);
   }, []);
 
-  // rAF handles for in-flight typing animations. Each entry is a mutable
-  // token whose .id is refreshed every frame; resetTimers cancels them all.
-  const rafsRef = useRef<Set<{ id: number }>>(new Set());
+  // Scheduling tokens for in-flight typing animations. Each entry holds the
+  // current rAF id and its starvation-fallback timeout; resetTimers cancels
+  // both. The fallback exists because rAF does not fire in hidden tabs —
+  // without it, a user tabbing away mid-boot froze the whole ritual chain.
+  const rafsRef = useRef<Set<{ raf: number; to: number }>>(new Set());
 
   const typeMessage = useCallback(
     (input: TypeMessageInput) =>
@@ -615,12 +619,15 @@ export default function FoidMommyTerminal({
         // the elapsed time owes us. Under a busy main thread this catches up
         // instead of stretching the line out, and it commits one state write
         // per frame instead of one per character (the old setInterval did
-        // both worse).
+        // both worse). A parallel timeout backstops each frame: rAF never
+        // fires in hidden tabs, and the elapsed-based catch-up means even
+        // 1s-throttled background timers reveal text in correct chunks.
         sfx.typing.start();
-        const handle = { id: 0 };
+        const handle = { raf: 0, to: 0 };
         rafsRef.current.add(handle);
         const start = performance.now();
         const tick = (now: number) => {
+          window.clearTimeout(handle.to);
           const target = Math.min(sourceText.length, Math.floor((now - start) / speed));
           if (target > index) {
             index = target;
@@ -635,9 +642,16 @@ export default function FoidMommyTerminal({
             resolve(id);
             return;
           }
-          handle.id = window.requestAnimationFrame(tick);
+          schedule();
         };
-        handle.id = window.requestAnimationFrame(tick);
+        const schedule = () => {
+          handle.raf = window.requestAnimationFrame(tick);
+          handle.to = window.setTimeout(() => {
+            window.cancelAnimationFrame(handle.raf);
+            tick(performance.now());
+          }, 150);
+        };
+        schedule();
       }),
     [addMessage],
   );
@@ -645,7 +659,10 @@ export default function FoidMommyTerminal({
   const resetTimers = useCallback(() => {
     timeoutsRef.current.forEach((id) => window.clearTimeout(id));
     intervalsRef.current.forEach((id) => window.clearInterval(id));
-    rafsRef.current.forEach((handle) => window.cancelAnimationFrame(handle.id));
+    rafsRef.current.forEach((handle) => {
+      window.cancelAnimationFrame(handle.raf);
+      window.clearTimeout(handle.to);
+    });
     timeoutsRef.current = [];
     intervalsRef.current = [];
     rafsRef.current.clear();
@@ -864,7 +881,11 @@ export default function FoidMommyTerminal({
 
   const handleStart = useCallback(async () => {
     try {
-      await sfx.unlock();
+      // Don't let a suspended AudioContext block the boot: without a user
+      // gesture (direct URL visit), unlock()'s resume() can stay pending
+      // forever in strict-autoplay browsers. Cap the wait — audio unlocks
+      // on the first real keystroke anyway.
+      await Promise.race([sfx.unlock(), sleep(400)]);
     } catch {
       /* ignore unlock failures */
     }
@@ -875,10 +896,13 @@ export default function FoidMommyTerminal({
   // NEW: Auto-start effect
   useEffect(() => {
     if (autoStart && stage === "idle" && !hasAutoStarted) {
-      setHasAutoStarted(true);
       // One boot beat before Mommy comes online. 600ms reads as "waking
       // up"; the old 1.5s read as a hang.
+      // NOTE: hasAutoStarted must flip inside the timer callback — setting
+      // it here would change this effect's deps, re-running the effect and
+      // clearing the very timer it just scheduled (auto-boot never fired).
       const timer = setTimeout(() => {
+        setHasAutoStarted(true);
         handleStart();
       }, 600);
       return () => clearTimeout(timer);
@@ -1536,6 +1560,19 @@ export default function FoidMommyTerminal({
     async (event: React.FormEvent) => {
       event.preventDefault();
       if (inputLocked) return;
+      // Synchronous reentry guard: React state (isProcessing) hasn't
+      // committed yet when a double-Enter lands in the same tick — and the
+      // prayer path runs multi-second beats without locking the input.
+      // Without this, each extra Enter forked a duplicate submit chain
+      // (duplicate user lines + doubled ritual beats).
+      if (submitBusyRef.current) return;
+      submitBusyRef.current = true;
+      try {
+        await handleCommandSubmitInner();
+      } finally {
+        submitBusyRef.current = false;
+      }
+      async function handleCommandSubmitInner() {
       const raw = currentInputValue;
       const trimmed = raw.trim();
 
@@ -1657,6 +1694,7 @@ export default function FoidMommyTerminal({
       }
 
       // afterglow is handled above (any keypress exits)
+      }
     },
     [
       addMessage,
@@ -1778,6 +1816,19 @@ export default function FoidMommyTerminal({
   useEffect(() => {
     resizeComposerField();
   }, [currentInputValue, stage, resizeComposerField]);
+
+  // Focus retention: disabling the textarea (processing/tx stages) makes the
+  // browser drop focus, so without this the user has to click the input again
+  // after every one of Mommy's turns. Desktop only — refocusing on touch
+  // devices would pop the keyboard over her reply.
+  const prevLockedRef = useRef(inputLocked);
+  useEffect(() => {
+    const wasLocked = prevLockedRef.current;
+    prevLockedRef.current = inputLocked;
+    if (wasLocked && !inputLocked && !isTouchDevice) {
+      inputRef.current?.focus({ preventScroll: true });
+    }
+  }, [inputLocked, isTouchDevice]);
 
   return (
     <div
@@ -1970,6 +2021,12 @@ export default function FoidMommyTerminal({
             <form onSubmit={handleCommandSubmit} className="foid-terminal__input-wrap">
               <div className="foid-terminal__input">
                 <span className="foid-terminal__prompt">{promptLabel}</span>
+                {/* Block caret: blinks exactly where typed text will appear
+                    while the field is empty (true idle-terminal style).
+                    Absolutely positioned so it never shifts layout; CSS
+                    hides it the moment there's text (native caret takes
+                    over) or while the field is disabled. */}
+                <span className="foid-terminal__caret" aria-hidden="true" />
                 <textarea
                   ref={inputRef}
                   rows={1}
