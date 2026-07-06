@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { celebrateTransaction } from "@/effects/celebrate";
 import sfx from "@/lib/sfx";
 import { attachTypingClicks, initTypingClicks } from "@/lib/typingClicks";
@@ -42,6 +42,53 @@ type SubmitPrayerResult = {
   txHash: string;
   waitForReceipt?: () => Promise<void>;
 };
+
+// One rendered line of the log. Memoized so the per-frame state writes of
+// the typing animation only re-render the line being typed — with 50+
+// messages in a session, re-walking every line per frame was the largest
+// render cost in the terminal.
+const TerminalLine = memo(function TerminalLine({
+  msg,
+  isPrayerLine,
+  isChromatic,
+  isFirstInRun,
+  sameSpeakerAsPrev,
+  promptLabel,
+}: {
+  msg: Message;
+  isPrayerLine: boolean;
+  isChromatic: boolean;
+  isFirstInRun: boolean;
+  sameSpeakerAsPrev: boolean;
+  promptLabel: string;
+}) {
+  const showPrompt = isFirstInRun && (msg.role === "user" || msg.role === "foid");
+  return (
+    <div
+      data-role={msg.role}
+      className={`foid-terminal__line ${
+        msg.role === "user"
+          ? "foid-terminal__line--user"
+          : msg.role === "foid"
+            ? `foid-terminal__line--foid${isPrayerLine ? " foid-terminal__line--prayer" : ""}`
+            : `foid-terminal__line--system${
+                msg.text.toLowerCase().startsWith("booting") ? " foid-terminal__line--boot" : ""
+              }`
+      }${isChromatic ? " foid-terminal__line--chromatic" : ""}${
+        isFirstInRun && (msg.role === "user" || msg.role === "foid")
+          ? " foid-terminal__line--turn-start"
+          : ""
+      }${sameSpeakerAsPrev ? " foid-terminal__line--continuation" : ""}`}
+    >
+      {showPrompt && (
+        <span className={`foid-terminal__prompt foid-terminal__prompt--${msg.role}`}>
+          {msg.role === "user" ? promptLabel : "mommy@foid:~$"}
+        </span>
+      )}
+      <span className="foid-terminal__line-text">{msg.text}</span>
+    </div>
+  );
+});
 
 export const FEELING_LABELS: Record<FeelingKey, number> = {
   happy: 1,
@@ -1848,9 +1895,6 @@ export default function FoidMommyTerminal({
                   );
                 }
 
-                const isPrayerLine = msg.id === prayerMessageId;
-                const isChromatic = chromaticIds.has(msg.id);
-
                 // Group consecutive lines from the same speaker so only the
                 // first in a run gets the prompt label. Cleaner chat feel,
                 // and the speaker boundary becomes visually obvious.
@@ -1858,37 +1902,17 @@ export default function FoidMommyTerminal({
                 const prevWasSentinel = prev?.text === "___BREATHE___";
                 const sameSpeakerAsPrev =
                   prev !== null && !prevWasSentinel && prev.role === msg.role;
-                const isFirstInRun = !sameSpeakerAsPrev;
-                const showPrompt =
-                  isFirstInRun && (msg.role === "user" || msg.role === "foid");
 
                 return (
-                  <div
+                  <TerminalLine
                     key={msg.id}
-                    data-role={msg.role}
-                    className={`foid-terminal__line ${
-                      msg.role === "user"
-                        ? "foid-terminal__line--user"
-                        : msg.role === "foid"
-                          ? `foid-terminal__line--foid${isPrayerLine ? " foid-terminal__line--prayer" : ""}`
-                          : `foid-terminal__line--system${
-                              msg.text.toLowerCase().startsWith("booting") ? " foid-terminal__line--boot" : ""
-                            }`
-                    }${isChromatic ? " foid-terminal__line--chromatic" : ""}${
-                      isFirstInRun && (msg.role === "user" || msg.role === "foid")
-                        ? " foid-terminal__line--turn-start"
-                        : ""
-                    }${sameSpeakerAsPrev ? " foid-terminal__line--continuation" : ""}`}
-                  >
-                    {showPrompt && (
-                      <span
-                        className={`foid-terminal__prompt foid-terminal__prompt--${msg.role}`}
-                      >
-                        {msg.role === "user" ? promptLabel : "mommy@foid:~$"}
-                      </span>
-                    )}
-                    <span className="foid-terminal__line-text">{msg.text}</span>
-                  </div>
+                    msg={msg}
+                    isPrayerLine={msg.id === prayerMessageId}
+                    isChromatic={chromaticIds.has(msg.id)}
+                    isFirstInRun={!sameSpeakerAsPrev}
+                    sameSpeakerAsPrev={sameSpeakerAsPrev}
+                    promptLabel={promptLabel}
+                  />
                 );
               })}
               {mommyTyping && (

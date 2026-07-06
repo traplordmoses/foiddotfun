@@ -5,6 +5,7 @@ import { Fraunces, IBM_Plex_Sans, JetBrains_Mono, Sora } from "next/font/google"
 import { Providers } from "@/providers";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import FloatingElements from "@/components/FloatingElements";
+import { SkyTint } from "@/components/SkyTint";
 import SfxInitializer from "@/components/SfxInitializer";
 import { ClientLayout } from "@/components/ClientLayout";
 import { WebVitalsReporter } from "@/app/_vitals";
@@ -106,6 +107,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <AnimatedBackground />
     <FloatingElements />
     <div className="scene-tint" />
+    <SkyTint />
     <Providers>
       <div className="app-viewport">
         <SfxInitializer />

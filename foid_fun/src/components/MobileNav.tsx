@@ -3,7 +3,6 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { useMobile } from '@/hooks/useMobile';
 
 interface NavItem {
   href: string;
@@ -81,36 +80,44 @@ const navItems: NavItem[] = [
 
 export function MobileNav() {
   const pathname = usePathname();
-  const { isIOS } = useMobile();
 
   return (
+    // FOID OS dock: a floating glass pill, not an edge-docked bar. The nav
+    // is the brand's chrome — same material as the windows above it.
     <nav
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-50 backdrop-blur-2xl border-t border-white/10"
-      style={{
-        background: "rgba(6, 10, 18, 0.72)",
-        boxShadow: "0 -4px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06)",
-        paddingBottom: isIOS ? 'env(safe-area-inset-bottom)' : '0',
-      }}
+      className="lg:hidden fixed left-0 right-0 z-50 flex justify-center pointer-events-none"
+      style={{ bottom: 'calc(10px + env(safe-area-inset-bottom, 0px))' }}
     >
-      <div className="flex items-center justify-around h-16 px-2">
+      <div
+        className="pointer-events-auto flex items-center h-16 px-2 rounded-[24px] border border-white/[0.16] backdrop-blur-2xl"
+        style={{
+          background:
+            'linear-gradient(180deg, rgba(90, 150, 200, 0.20), rgba(20, 40, 70, 0.55)), rgba(6, 10, 18, 0.55)',
+          boxShadow:
+            '0 12px 32px rgba(0, 10, 30, 0.5), 0 0 40px rgba(100, 180, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.18)',
+          maxWidth: 'calc(100vw - 20px)',
+        }}
+      >
         {navItems.map((item) => {
           const isActive = !item.external && (item.href === '/' ? pathname === '/' : pathname === item.href || pathname.startsWith(`${item.href}/`));
 
           const inner = (
             <motion.div
-              className="flex flex-col items-center justify-center"
-              whileTap={{ scale: 0.9 }}
+              className="relative z-10 flex flex-col items-center justify-center"
+              whileTap={{ scale: 0.88 }}
               transition={{ duration: 0.1 }}
             >
-              <div className={`
-                transition-colors duration-200
-                ${isActive ? 'text-white' : 'text-white/50'}
-              `}>
+              <motion.div
+                className={`transition-colors duration-200 ${isActive ? 'text-white' : 'text-white/55'}`}
+                animate={{ y: isActive ? -1 : 0, scale: isActive ? 1.08 : 1 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 26 }}
+                style={isActive ? { filter: 'drop-shadow(0 0 8px rgba(150, 220, 255, 0.55))' } : undefined}
+              >
                 {item.icon}
-              </div>
+              </motion.div>
               <span className={`
                 text-[10px] mt-1 font-medium transition-colors duration-200
-                ${isActive ? 'text-white' : 'text-white/50'}
+                ${isActive ? 'text-white' : 'text-white/55'}
               `}>
                 {item.label}
               </span>
@@ -124,7 +131,7 @@ export function MobileNav() {
                 href={item.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="relative flex flex-col items-center justify-center flex-1 h-full min-w-[48px] touch-manipulation"
+                className="relative flex flex-col items-center justify-center h-full min-w-[52px] px-1.5 touch-manipulation"
               >
                 {inner}
               </a>
@@ -135,17 +142,22 @@ export function MobileNav() {
             <Link
               key={item.href}
               href={item.href}
-              className="relative flex flex-col items-center justify-center flex-1 h-full min-w-[48px] touch-manipulation"
+              className="relative flex flex-col items-center justify-center h-full min-w-[52px] px-1.5 touch-manipulation"
               aria-current={isActive ? "page" : undefined}
             >
-              {inner}
+              {/* Glass puck slides between items on a spring — dock, not tab strip */}
               {isActive && (
                 <motion.div
-                  layoutId="activeTab"
-                  className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-white rounded-full"
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  layoutId="dockPuck"
+                  className="absolute inset-x-0.5 inset-y-1.5 rounded-2xl border border-white/[0.22]"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05))',
+                    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 16px rgba(120, 200, 255, 0.18)',
+                  }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 32 }}
                 />
               )}
+              {inner}
             </Link>
           );
         })}
