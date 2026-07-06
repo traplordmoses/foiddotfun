@@ -95,10 +95,12 @@ describe("TerminalChat handleSend", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(input.value).toBe("precious draft");
 
-    // No cooldown after a decline — the send button is usable again
+    // No cooldown after a decline — the send button is usable again.
+    // (The label is an AeroIcons glyph now, so assert the accessible name
+    // rather than text content.)
     await waitFor(() => {
       const send = container.querySelector(".terminal-chat__send") as HTMLButtonElement;
-      expect(send.textContent).toBe("SEND");
+      expect(send.getAttribute("aria-label")).toBe("Send message");
       expect(send.disabled).toBe(false);
     });
   });
