@@ -1,10 +1,25 @@
 // src/components/PlacementModal.tsx
 // Metadata overlay — Frutiger Aero glass treatment
-import { useMemo, useRef, useState } from "react";
+//
+// This lightbox is also the home of placement REMOVAL voting (founder
+// direction 2026-07): expand a placement, judge it in full size, and if a
+// community removal vote is live for it, the yes/no row is right below the
+// metadata. (Starting a vote = flagging, which stays on the card hover.)
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useAccount } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 import type { Placement } from "./PlacementCard";
 import { IconButton, NeonBadge, StatusDot, type NeonBadgeTone } from "@/components/ui";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import {
+  useSwipeLoreboardGovernance,
+  useActivePlacementVote,
+  usePlacementRemovalVote,
+  useHasVotedOnPlacementRemoval,
+  type RemovalVote,
+} from "@/hooks/useSwipeLoreboardGovernance";
+import { parseWeb3Error, isUserRejection } from "@/lib/errors";
 
 type Props = {
   placement: Placement;
@@ -24,6 +39,159 @@ function formatTimeLeft(seconds?: number): string {
   const m = Math.floor((seconds % 3600) / 60);
   if (h > 0) return `${h}h ${m}m left`;
   return `${m}m left`;
+}
+
+/* ── Removal vote row ─────────────────────────────────────────────────
+   Minimal yes/no on the ACTIVE removal vote for this one placement,
+   reusing the governance hooks. Renders nothing when no vote is live
+   (the overwhelmingly common case), so the lightbox stays clean. */
+
+function RemovalVoteRow({ placementId }: { placementId: number }) {
+  const { isConnected } = useAccount();
+  const { openConnectModal } = useConnectModal();
+  const voteId = useActivePlacementVote(placementId);
+  const { vote } = usePlacementRemovalVote(voteId);
+  const hasVoted = useHasVotedOnPlacementRemoval(voteId);
+  const { voteOnRemoval, resolveRemovalVote } = useSwipeLoreboardGovernance();
+  const [busy, setBusy] = useState(false);
+  const [votedLocal, setVotedLocal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleVote = useCallback(
+    async (support: boolean) => {
+      if (!isConnected) {
+        openConnectModal?.();
+        return;
+      }
+      setBusy(true);
+      setError(null);
+      try {
+        await voteOnRemoval(voteId, support);
+        setVotedLocal(true);
+      } catch (err) {
+        if (!isUserRejection(err)) setError(parseWeb3Error(err).message);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [isConnected, openConnectModal, voteOnRemoval, voteId],
+  );
+
+  const handleResolve = useCallback(async () => {
+    if (!isConnected) {
+      openConnectModal?.();
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await resolveRemovalVote(voteId);
+    } catch (err) {
+      if (!isUserRejection(err)) setError(parseWeb3Error(err).message);
+    } finally {
+      setBusy(false);
+    }
+  }, [isConnected, openConnectModal, resolveRemovalVote, voteId]);
+
+  if (voteId === 0 || !vote) return null;
+
+  const v = vote as RemovalVote;
+  if (v.resolved) return null; // outcome already applied on-chain
+
+  const votesFor = Number(v.votesFor);
+  const votesAgainst = Number(v.votesAgainst);
+  const endsAt = Number(v.endsAt);
+  const now = Math.floor(Date.now() / 1000);
+  const isEnded = now >= endsAt;
+  const left = Math.max(0, endsAt - now);
+  const timeLabel = isEnded
+    ? "vote ended"
+    : left < 3600
+      ? `${Math.floor(left / 60)}m left`
+      : left < 86400
+        ? `${Math.floor(left / 3600)}h left`
+        : `${Math.floor(left / 86400)}d left`;
+  const alreadyVoted = hasVoted || votedLocal;
+
+  const btnBase: React.CSSProperties = {
+    flex: 1,
+    padding: "7px 0",
+    borderRadius: 8,
+    fontFamily: "var(--font-terminal)",
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: "0.12em",
+    textTransform: "uppercase",
+    cursor: busy ? "wait" : "pointer",
+    opacity: busy ? 0.6 : 1,
+  };
+
+  return (
+    <div
+      role="group"
+      aria-label="Community removal vote for this placement"
+      style={{
+        marginTop: 12,
+        padding: "10px 12px",
+        borderRadius: 10,
+        background: "rgba(239,68,68,0.05)",
+        border: "1px solid rgba(239,68,68,0.2)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontFamily: "var(--font-terminal)", fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,160,160,0.85)" }}>
+          Removal vote live
+        </span>
+        <span style={{ fontFamily: "var(--font-terminal)", fontSize: 9, letterSpacing: "0.1em", color: "rgba(255,210,130,0.8)" }}>
+          {timeLabel} · {votesFor} remove / {votesAgainst} keep
+        </span>
+      </div>
+
+      {!isEnded && !alreadyVoted && (
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void handleVote(true)}
+            style={{ ...btnBase, background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)", color: "rgba(255,140,140,0.95)" }}
+          >
+            {busy ? "..." : "Vote remove"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void handleVote(false)}
+            style={{ ...btnBase, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.35)", color: "rgba(134,239,172,0.95)" }}
+          >
+            {busy ? "..." : "Vote keep"}
+          </button>
+        </div>
+      )}
+
+      {!isEnded && alreadyVoted && (
+        <div style={{ fontFamily: "var(--font-terminal)", fontSize: 10, letterSpacing: "0.1em", color: "rgba(255,255,255,0.4)", textAlign: "center" }}>
+          You voted — result applies when the window closes.
+        </div>
+      )}
+
+      {isEnded && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void handleResolve()}
+          style={{ ...btnBase, width: "100%", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.35)", color: "rgba(253,211,141,0.95)" }}
+        >
+          {busy ? "Resolving..." : "Resolve vote"}
+        </button>
+      )}
+
+      {error && (
+        <div style={{ marginTop: 6, fontFamily: "var(--font-terminal)", fontSize: 10, color: "rgba(255,120,120,0.85)" }}>
+          {error}
+        </div>
+      )}
+    </div>
+  );
 }
 
 type StatusKey = NonNullable<Placement["status"]>;
@@ -59,6 +227,17 @@ export function PlacementModal({ placement, onClose }: Props) {
     const next = gatewayIdx + 1;
     if (next < urls.length) setGatewayIdx(next);
   };
+
+  // Removal voting exists only for CANONIZED placements (contract-side ids
+  // are numeric). Non-numeric ids (defensive) simply skip the row.
+  const removalPlacementId = useMemo(() => {
+    if (status !== "canonized") return null;
+    try {
+      return Number(BigInt(placement.id));
+    } catch {
+      return null;
+    }
+  }, [status, placement.id]);
 
   const sCfg = status ? STATUS_TONE[status] : null;
   const hasVotes = yesVotes != null && noVotes != null;
@@ -245,6 +424,12 @@ export function PlacementModal({ placement, onClose }: Props) {
                   </span>
                 )}
               </div>
+
+              {/* Row 4: active community removal vote (if any) — the
+                  flag→expand→vote path lands here. */}
+              {removalPlacementId != null && (
+                <RemovalVoteRow placementId={removalPlacementId} />
+              )}
             </div>
           </div>
         </div>

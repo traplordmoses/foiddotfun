@@ -22,6 +22,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { useSwitchWallet } from "@/hooks/useSwitchWallet";
+import { OSWindowAppIdContext } from "@/components/os/windowContext";
 import {
   focusedAppId,
   useWindowStoreV2,
@@ -37,6 +38,9 @@ export type OSWindowProps = {
   title: string;
   /** Registry default when the user hasn't resized (the h-[94vh] role). */
   defaultSize: { w: number; h: number };
+  /** Per-app resize floor; the global MIN_W/MIN_H guard applies when unset
+   *  (e.g. VOTE's card column needs more height than the Finder apps). */
+  minSize?: { w: number; h: number };
   /** Extra class(es) on the frame — e.g. "mifoid-page" so the app's
    *  window-width reflow rules (globals.css @container blocks keyed off the
    *  route's page class) apply inside the shell too. */
@@ -88,6 +92,7 @@ export default function OSWindow({
   appId,
   title,
   defaultSize,
+  minSize,
   frameClassName,
   children,
 }: OSWindowProps) {
@@ -299,16 +304,18 @@ export default function OSWindow({
 
       const maxW = window.innerWidth - rect.left - 16;
       const maxH = window.innerHeight - rect.top - 100; // stay above the dock
+      const minW = minSize?.w ?? MIN_W;
+      const minH = minSize?.h ?? MIN_H;
       const onMove = (ev: PointerEvent) => {
         live = {
           w:
             mode === "s"
               ? baseW
-              : Math.min(maxW, Math.max(MIN_W, baseW + (ev.clientX - startX))),
+              : Math.min(maxW, Math.max(minW, baseW + (ev.clientX - startX))),
           h:
             mode === "e"
               ? baseH
-              : Math.min(maxH, Math.max(MIN_H, baseH + (ev.clientY - startY))),
+              : Math.min(maxH, Math.max(minH, baseH + (ev.clientY - startY))),
         };
         if (!raf) {
           raf = requestAnimationFrame(() => {
@@ -337,7 +344,8 @@ export default function OSWindow({
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
     },
-    [appId],
+    // minSize comes from the module-const app registry — stable identity.
+    [appId, minSize],
   );
 
   if (!win) return null;
@@ -361,7 +369,11 @@ export default function OSWindow({
         onSwitchWallet={switchWallet}
         controls={<OSWindowControls appId={appId} />}
       />
-      {children}
+      {/* Apps read their host window's id to gate global keyboard listeners
+          on focus (windowContext.ts) — route presentations get null. */}
+      <OSWindowAppIdContext.Provider value={appId}>
+        {children}
+      </OSWindowAppIdContext.Provider>
       {interactive ? (
         <>
           <div

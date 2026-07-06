@@ -127,11 +127,37 @@ export type UseBoardDataReturn = BoardDataSnapshot & {
   refetch: () => Promise<void>;
 };
 
-export function useBoardData(intervalMs: number = DEFAULT_INTERVAL_MS): UseBoardDataReturn {
+export type UseBoardDataOptions = {
+  /**
+   * Suspend scheduled refetch ticks (desktop shell: window minimized to the
+   * dock). While paused, the block watcher's cheap eth_blockNumber poll and
+   * the safety interval keep running but their ticks no-op before touching
+   * the heavy /api/proposals + /api/swipe/proposals endpoints — mirroring
+   * the existing document.hidden gate. Un-pausing fires one catch-up tick
+   * immediately (same as the visibilitychange handler), so a restored
+   * window is fresh within a frame. Explicit `refetch()` calls are NOT
+   * gated — a submit confirmation always lands.
+   */
+  paused?: boolean;
+};
+
+export function useBoardData(
+  intervalMs: number = DEFAULT_INTERVAL_MS,
+  opts: UseBoardDataOptions = {},
+): UseBoardDataReturn {
+  const paused = opts.paused ?? false;
   const [proposals, setProposals] = useState<ProposalSummary[]>([]);
   const [voting, setVoting] = useState<SwipeVotingProposal[]>([]);
   const [debug, setDebug] = useState<ListProposalsResponse["debug"] | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Ref mirror so the long-lived tick closure reads the CURRENT pause state
+  // without re-subscribing the block watcher on every minimize/restore.
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  // Set inside the main effect; lets the resume effect below trigger a
+  // catch-up tick without owning the tick closure.
+  const catchUpRef = useRef<(() => void) | null>(null);
 
   const runTick = useCallback(
     async (signal: AbortSignal, opts: { forceFresh?: boolean } = {}) => {
@@ -213,6 +239,10 @@ export function useBoardData(intervalMs: number = DEFAULT_INTERVAL_MS): UseBoard
       // anyway, and a visibility-change handler below will catch up when they
       // return.
       if (typeof document !== "undefined" && document.hidden) return;
+      // Same idea for a minimized shell window (opts.paused): the canvas is
+      // parked in the dock, so scheduled refreshes are wasted work. The
+      // resume effect below catches up the moment the window is restored.
+      if (pausedRef.current) return;
 
       abortAll();
       const controller = new AbortController();
@@ -282,8 +312,15 @@ export function useBoardData(intervalMs: number = DEFAULT_INTERVAL_MS): UseBoard
       document.addEventListener("visibilitychange", onVisibilityChange);
     }
 
+    // Expose a catch-up trigger for the pause/resume effect. Passing the
+    // last-seen block keeps the block-gate semantics (a tick for a block we
+    // already covered still refreshes the API layer, matching the
+    // visibilitychange path).
+    catchUpRef.current = () => void tick(lastBlockRef.current);
+
     return () => {
       cancelled = true;
+      catchUpRef.current = null;
       unwatch();
       window.clearInterval(safetyId);
       if (typeof document !== "undefined") {
@@ -292,6 +329,15 @@ export function useBoardData(intervalMs: number = DEFAULT_INTERVAL_MS): UseBoard
       abortAll();
     };
   }, [intervalMs, runTick, abortAll]);
+
+  // Pause → resume: one immediate catch-up fetch, so a restored window
+  // shows current data instead of waiting for the next block/interval.
+  const prevPausedRef = useRef(paused);
+  useEffect(() => {
+    const wasPaused = prevPausedRef.current;
+    prevPausedRef.current = paused;
+    if (wasPaused && !paused) catchUpRef.current?.();
+  }, [paused]);
 
   return { proposals, voting, debug, loading, refetch };
 }

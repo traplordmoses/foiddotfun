@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
-// ABOUT.EXE shares the FILES.EXE Finder chrome wholesale — same sidebar,
-// toolbar, canvas and status-strip classes. about.css only adds the
-// TEXTEDIT.EXE reader styles.
-import "../files/files.css";
-import "./about.css";
+// files.css + about.css now ride with the AboutApp component
+// (src/apps/AboutApp.tsx) so the desktop shell's ABOUT window loads them
+// too — not just this route. ABOUT.EXE shares the FILES.EXE Finder chrome
+// wholesale; about.css only adds the TEXTEDIT.EXE reader styles.
 
 export const metadata = { title: "ABOUT" };
 

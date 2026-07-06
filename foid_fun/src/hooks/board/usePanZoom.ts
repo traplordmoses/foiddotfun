@@ -76,7 +76,25 @@ const MOMENTUM_DECAY = 0.92;
 const MOMENTUM_STOP = 0.1; // px/frame
 const VELOCITY_WINDOW_MS = 80;
 
-export function usePanZoom(containerRef: RefObject<HTMLElement | null>): UsePanZoomReturn {
+export type UsePanZoomOptions = {
+  /**
+   * Gate for the WINDOW-level keyboard shortcuts this hook owns (space-to-
+   * pan, +/=/−/0 zoom). In the desktop shell two apps share one window
+   * object, so the board must detach these listeners while another shell
+   * window is foreground — otherwise typing "0" into a prayer resets the
+   * board camera. Pass `useOSWindowFocused()` from the shell; the default
+   * (true) preserves the standalone-route behavior where the board is the
+   * only app on the page. Pointer/wheel gestures are element-scoped already
+   * and are NOT affected by this flag.
+   */
+  keyboardEnabled?: boolean;
+};
+
+export function usePanZoom(
+  containerRef: RefObject<HTMLElement | null>,
+  opts: UsePanZoomOptions = {},
+): UsePanZoomReturn {
+  const { keyboardEnabled = true } = opts;
   // --- React state (throttled view of the refs, for consumers) ---
   const [scale, setScaleState] = useState(1);
   const [pan, setPanState] = useState({ x: 0, y: 0 });
@@ -275,6 +293,9 @@ export function usePanZoom(containerRef: RefObject<HTMLElement | null>): UsePanZ
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
+    // Shell: fully detach while another window is foreground — space in a
+    // prayer composer must never flip the board into pan mode.
+    if (!keyboardEnabled) return;
     const down = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
@@ -292,13 +313,20 @@ export function usePanZoom(containerRef: RefObject<HTMLElement | null>): UsePanZ
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, []);
+  }, [keyboardEnabled]);
+
+  // Losing keyboard ownership mid-hold: the keyup that would clear
+  // space-pan mode fires at the OTHER window, so drop the mode ourselves.
+  useEffect(() => {
+    if (!keyboardEnabled) setSpaceDown(false);
+  }, [keyboardEnabled]);
 
   // ---------------------------------------------------------------------------
   // Keyboard zoom (+/=/-/0)
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
+    if (!keyboardEnabled) return;
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
@@ -324,7 +352,7 @@ export function usePanZoom(containerRef: RefObject<HTMLElement | null>): UsePanZ
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [containerRef, setScale, setPan]);
+  }, [containerRef, setScale, setPan, keyboardEnabled]);
 
   // ---------------------------------------------------------------------------
   // Space-drag pan (ref-driven)

@@ -236,42 +236,77 @@
   white-space: nowrap;
   padding: 0 2px;
 }
-.board-dock__divider {
-  width: 1px;
-  height: 20px;
-  background: rgba(255, 255, 255, 0.14);
-}
-.board-dock__voting-toggle {
+/* Idle propose chip — the quiet state. Drag-and-drop is the primary
+   invitation; the chip is the discoverable fallback, resting at 0.65
+   opacity and lifting to 1 on hover/focus. Fee text is tooltip-only. */
+.board-dock__quiet {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 12px;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px 0 7px;
   border-radius: 999px;
-  border: 1px solid rgba(168, 85, 247, 0.4);
-  background: rgba(168, 85, 247, 0.1);
-  color: rgba(216, 180, 254, 0.95);
+  border: 1px solid var(--foid-glass-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0) 45%),
+    linear-gradient(180deg, rgba(10, 30, 48, 0.82), rgba(4, 12, 22, 0.88));
+  backdrop-filter: blur(14px) saturate(140%);
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.82);
   font-family: var(--font-terminal);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
   cursor: pointer;
-  white-space: nowrap;
-  transition: background var(--foid-motion-fast) ease,
-              border-color var(--foid-motion-fast) ease;
+  opacity: 0.65;
+  transition:
+    opacity var(--foid-motion-fast) ease,
+    box-shadow var(--foid-motion-fast) ease,
+    border-color var(--foid-motion-fast) ease;
 }
-.board-dock__voting-toggle:hover {
-  background: rgba(168, 85, 247, 0.2);
-  border-color: rgba(200, 120, 255, 0.7);
+.board-dock__quiet:hover,
+.board-dock__quiet:focus-visible {
+  opacity: 1;
+  border-color: rgba(116, 255, 235, 0.4);
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.45),
+    0 0 14px rgba(116, 255, 235, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
-.board-dock__voting-toggle:focus-visible {
+.board-dock__quiet:focus-visible {
   outline: 2px solid var(--foid-focus-ring);
   outline-offset: 2px;
 }
-.board-dock__voting-toggle[aria-expanded="true"] {
-  background: rgba(168, 85, 247, 0.28);
-  border-color: rgba(200, 120, 255, 0.8);
+.board-dock__quiet:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+/* The "+" gel — a small Aero orb, same material family as the dock icons. */
+.board-dock__quiet-gel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, rgba(116, 255, 235, 0.85), rgba(56, 189, 248, 0.75));
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow:
+    inset 0 -2px 4px rgba(0, 40, 60, 0.4),
+    0 0 8px rgba(116, 255, 235, 0.35);
+  color: rgba(4, 22, 34, 0.9);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  padding-bottom: 1px;
+}
+.board-dock__quiet-label {
+  line-height: 1;
+  padding-top: 1px;
 }
 .board-dock__note {
   font-family: var(--font-terminal);
@@ -284,67 +319,8 @@
   border-radius: 999px;
   padding: 3px 12px;
 }
-/* VOTING flyout — collapsed by default; opens as a glass panel stacked
-   above the pill (dock is bottom-anchored, so it grows upward). */
-.board-dock__flyout {
-  width: min(360px, 100%);
-  max-height: min(320px, 40vh);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 14px;
-  border: 1px solid var(--foid-glass-border);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 40%),
-    linear-gradient(180deg, rgba(10, 30, 48, 0.92), rgba(4, 12, 22, 0.95));
-  backdrop-filter: blur(18px) saturate(140%);
-  box-shadow:
-    0 14px 34px rgba(0, 0, 0, 0.5),
-    0 0 16px rgba(168, 85, 247, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-.board-dock__flyout-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.board-dock__flyout-title {
-  font-family: var(--font-terminal);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(216, 180, 254, 0.95);
-  text-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
-}
-.board-dock__flyout-close {
-  width: 22px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 13px;
-  line-height: 1;
-  cursor: pointer;
-}
-.board-dock__flyout-close:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-.board-dock__flyout-hint {
-  margin: 0;
-  font-family: var(--font-terminal);
-  font-size: 10px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.5);
-}
+/* (VOTING flyout retired 2026-07 — removal voting moved into the
+   placement lightbox, PlacementModal. See BoardActions.tsx header.) */
 
 /* Debug feed (?debug=1) — floats top-left, scrolls inside itself. */
 .board-debug-float {
@@ -389,12 +365,6 @@
       flex-direction: column;
       align-items: stretch;
       width: min(220px, 100%);
-    }
-    .board-dock__divider {
-      display: none;
-    }
-    .board-dock__voting-toggle {
-      justify-content: center;
     }
     .board-topright__toggles {
       flex-direction: column;

@@ -17,6 +17,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import OSWindow from "@/components/os/OSWindow";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   hydrateWindowStore,
   useWindowStoreV2,
@@ -37,7 +38,8 @@ function AppLoading({ label }: { label: string }) {
   );
 }
 
-// Stage A apps (the S-tier ports). Each entry lazy-loads the same extracted
+// Extracted apps (Stage A: FILES + MIFOID · Stage B pt 1: VOTE + ABOUT ·
+// Stage B pt 2: PRAY + BOARD). Each entry lazy-loads the same extracted
 // component its route page renders — one implementation, two presentations.
 const FilesApp = dynamic(() => import("@/apps/FilesApp"), {
   ssr: false,
@@ -47,11 +49,46 @@ const MifoidApp = dynamic(() => import("@/apps/MifoidApp"), {
   ssr: false,
   loading: () => <AppLoading label="mifoid" />,
 });
+const AboutApp = dynamic(() => import("@/apps/AboutApp"), {
+  ssr: false,
+  loading: () => <AppLoading label="about" />,
+});
+const VoteAppInner = dynamic(() => import("@/apps/VoteApp"), {
+  ssr: false,
+  loading: () => <AppLoading label="vote" />,
+});
+// PRAY + BOARD (the L-tier ports): their default exports already carry the
+// same crash boundaries their routes use (PrayerErrorBoundary; board's
+// ErrorBoundary + useSearchParams Suspense), so no shell-side wrapper.
+const PrayApp = dynamic(() => import("@/apps/PrayApp"), {
+  ssr: false,
+  loading: () => <AppLoading label="foid mommy" />,
+});
+const BoardApp = dynamic(() => import("@/apps/BoardApp"), {
+  ssr: false,
+  loading: () => <AppLoading label="loreboard" />,
+});
+// Behavior parity with the /vote route, whose layout wraps the page in this
+// boundary: a crash in the network-dependent vote deck downs one window,
+// not the whole desktop.
+function VoteApp() {
+  return (
+    <ErrorBoundary
+      route="vote"
+      title="Vote crashed"
+      description="Something went wrong loading proposals. Try refreshing the page."
+    >
+      <VoteAppInner />
+    </ErrorBoundary>
+  );
+}
 
 type DesktopApp = {
   title: string;
   Component: React.ComponentType;
   defaultSize: { w: number; h: number };
+  /** Per-app resize floor (OSWindow falls back to its global 480×360). */
+  minSize?: { w: number; h: number };
   /** Frame class carrying the app's window-width reflow rules (the class
    *  the route page puts on its <main>). */
   frameClassName?: string;
@@ -68,6 +105,40 @@ const DESKTOP_APPS: Partial<Record<AppId, DesktopApp>> = {
     Component: MifoidApp,
     defaultSize: { w: 1060, h: 700 },
     frameClassName: "mifoid-page",
+  },
+  // Card deck — a narrower, taller frame: the SwipeCard column is max-w-md,
+  // so a Finder-wide window would just be empty gutters. The taller floor
+  // keeps the card + tabs + footer usable at minimum size.
+  vote: {
+    title: "VOTE.EXE",
+    Component: VoteApp,
+    defaultSize: { w: 680, h: 820 },
+    minSize: { w: 480, h: 560 },
+  },
+  // Finder chrome (shares files.css wholesale) — same wide default as FILES;
+  // its @container foid-window rules reflow the shell below 760/620px.
+  about: {
+    title: "ABOUT.EXE",
+    Component: AboutApp,
+    defaultSize: { w: 1060, h: 700 },
+  },
+  // Terminal + sidebar two-pane. The @container pray-window rules
+  // (globals.css) hide the sidebar under ~900px of window width, so the
+  // 720px floor is a clean single-pane terminal, not a crushed grid.
+  pray: {
+    title: "FOID_MOMMY_TERMINAL.EXE",
+    Component: PrayApp,
+    defaultSize: { w: 1180, h: 760 },
+    minSize: { w: 720, h: 560 },
+  },
+  // Full-bleed canvas — wants all the glass it can get. Its @container
+  // foid-window rules compact the floating dock/HUD below 760/560px, and
+  // the 820×600 floor keeps the propose affordance + HUD from colliding.
+  board: {
+    title: "MIFOID_LOREBOARD.APP",
+    Component: BoardApp,
+    defaultSize: { w: 1280, h: 800 },
+    minSize: { w: 820, h: 600 },
   },
 };
 
@@ -104,6 +175,7 @@ export default function Desktop() {
             appId={w.id}
             title={app.title}
             defaultSize={app.defaultSize}
+            minSize={app.minSize}
             frameClassName={app.frameClassName}
           >
             <app.Component />
