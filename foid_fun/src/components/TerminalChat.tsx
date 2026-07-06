@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useSignMessage } from "wagmi";
 import { CloseIcon, HourglassIcon, SendIcon, SparkleIcon } from "@/components/icons/AeroIcons";
 import { supabase, SUPABASE_ENABLED, type BoardMessage } from "@/lib/supabase";
+import { buildChatSignMessage } from "@/lib/chatAuth";
 import toast from "react-hot-toast";
 
 // ============================================================================
@@ -94,6 +96,7 @@ export function TerminalChat({
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isCoolingDown, setIsCoolingDown] = useState(false);
+  const { signMessageAsync } = useSignMessage();
   const [supabaseMessages, setSupabaseMessages] = useState<BoardMessage[]>([]);
   const [realtimeStatus, setRealtimeStatus] = useState<"connected" | "disconnected" | "reconnecting">("disconnected");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -216,6 +219,30 @@ export function TerminalChat({
     if (!trimmed || trimmed.length > MAX_MESSAGE_LENGTH || isSending || isCoolingDown || !walletAddress) return;
 
     setIsSending(true);
+
+    // Prove wallet ownership BEFORE anything optimistic: the server rejects
+    // unsigned sends, so a declined signature means nothing was sent — keep
+    // the typed text in the input and skip the cooldown. The FOID embedded
+    // wallet signs silently; external wallets (MetaMask) pop a prompt.
+    const timestamp = Date.now();
+    let signature: string;
+    try {
+      signature = await signMessageAsync({
+        message: buildChatSignMessage(walletAddress, trimmed, timestamp),
+      });
+    } catch {
+      setIsSending(false);
+      toast("signature declined — message not sent", {
+        icon: "✍️",
+        style: {
+          background: "rgba(255, 79, 110, 0.16)",
+          color: "#ffeef0",
+          border: "1px solid rgba(255, 129, 150, 0.42)",
+        },
+      });
+      return;
+    }
+
     setInput("");
     // Your own message always scrolls into view, even if you were reading history.
     pinnedRef.current = true;
@@ -234,11 +261,11 @@ export function TerminalChat({
     ]);
 
     try {
-      // Send via API route (server-side validation + rate limiting)
+      // Send via API route (server-side signature check + rate limiting)
       const res = await fetch("/api/chat/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wallet: walletAddress, message: trimmed }),
+        body: JSON.stringify({ wallet: walletAddress, message: trimmed, timestamp, signature }),
       });
 
       if (!res.ok) {
@@ -290,7 +317,7 @@ export function TerminalChat({
       setIsCoolingDown(true);
       setTimeout(() => setIsCoolingDown(false), COOLDOWN_MS);
     }
-  }, [input, isSending, isCoolingDown, onSend, walletAddress]);
+  }, [input, isSending, isCoolingDown, onSend, walletAddress, signMessageAsync]);
 
   const handleKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
