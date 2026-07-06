@@ -30,3 +30,6 @@ export type { CardProps, CardElevation } from "./Card";
 
 export { Modal } from "./Modal";
 export type { ModalProps, ModalVariant } from "./Modal";
+
+export { Sheet } from "./Sheet";
+export type { SheetProps } from "./Sheet";

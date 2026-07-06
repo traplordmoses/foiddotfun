@@ -5434,6 +5434,12 @@ body {
   backdrop-filter: blur(8px) saturate(1.1);
   -webkit-backdrop-filter: blur(8px) saturate(1.1);
 }
+/* Bottom-sheet variant (<Sheet/>): same dimmer, but the panel is a fixed
+   bottom-anchored sibling, so drop the centering padding. */
+.foid-modal-backdrop--sheet {
+  align-items: flex-end;
+  padding: 0;
+}
 .foid-modal {
   width: 100%;
   max-height: min(86dvh, 86vh);
