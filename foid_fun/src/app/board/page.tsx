@@ -278,6 +278,7 @@ function BoardPageContent() {
     onContainerPointerDown,
     zoomToRect,
     screenToWorld,
+    setScale,
     bindStage,
     subscribeViewport,
   } = usePanZoom(containerRef);
@@ -1518,7 +1519,14 @@ function BoardPageContent() {
                       />
                     ))}
                     </div>
-                    <BoardHUD scale={scale} pan={pan} mode={spaceDown ? "PAN" : "PLACE"} />
+                    <BoardHUD
+                      scale={scale}
+                      pan={pan}
+                      mode={spaceDown ? "PAN" : "PLACE"}
+                      onZoomIn={() => setScale((s) => s * 1.2)}
+                      onZoomOut={() => setScale((s) => s / 1.2)}
+                      onZoomReset={() => setScale(1)}
+                    />
                     <div className="board-hint-bottom" role="note">scroll to zoom • hold space to pan</div>
 
                   {!items.length && !busy && !ghost && !placed.length && (

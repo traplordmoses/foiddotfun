@@ -64,7 +64,7 @@ export function MyProposals() {
   if (!address) return null;
   if (proposals.length === 0) {
     return (
-      <div style={{ padding: "16px", color: "rgba(255,255,255,0.3)", fontSize: "12px", textAlign: "center" }}>
+      <div style={{ padding: "16px", color: "var(--foid-text-mute)", fontSize: "13px", textAlign: "center" }}>
         No proposals yet. Submit one above.
       </div>
     );
@@ -77,7 +77,7 @@ export function MyProposals() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
       {error && (
-        <div style={{ padding: "8px", background: "rgba(255,50,50,0.1)", borderRadius: "4px", fontSize: "11px", color: "rgba(255,150,150,0.9)" }}>
+        <div style={{ padding: "8px", background: "rgba(255,50,50,0.1)", borderRadius: "4px", fontSize: "13px", color: "rgba(255,150,150,0.9)" }}>
           {error}
         </div>
       )}
@@ -139,16 +139,16 @@ function ProposalRow({
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: "11px", fontWeight: 600, color: c.text }}>
+          <span className="foid-label" style={{ fontWeight: 600, color: c.text }}>
             #{p.id} — {status === "voting" ? "In Voting" : status === "approved" ? "Approved" : "Rejected"}
           </span>
-          <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)" }}>
+          <span className="foid-data" style={{ color: "var(--foid-text-dim)" }}>
             {pct}% ({p.forCount}/{total})
           </span>
         </div>
 
         {p.status && (
-          <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", marginTop: "2px" }}>
+          <div className="foid-label" style={{ marginTop: "2px" }}>
             {p.status}
           </div>
         )}
@@ -158,8 +158,8 @@ function ProposalRow({
         <button
           onClick={onClaim}
           disabled={isClaiming}
+          className="foid-label"
           style={{
-            fontSize: "10px",
             padding: "4px 12px",
             background: "rgba(62,238,196,0.2)",
             border: "1px solid rgba(62,238,196,0.4)",

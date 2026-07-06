@@ -11,15 +11,15 @@ export default function LinkXAccount() {
   if (isPaired) {
     return (
       <div className="flex items-center gap-2">
-        <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>
+        <span className="foid-data" style={{ color: "var(--foid-text-dim)" }}>
           Linked: <strong style={{ color: "rgba(72,255,171,0.9)" }}>@{handle}</strong>
         </span>
         <button
           type="button"
           onClick={() => { unpair().catch(() => {}); }}
           disabled={loading}
+          className="foid-label"
           style={{
-            fontSize: "10px",
             padding: "2px 8px",
             background: "rgba(255,100,100,0.15)",
             border: "1px solid rgba(255,100,100,0.3)",
@@ -43,14 +43,13 @@ export default function LinkXAccount() {
           value={inputHandle}
           onChange={(e) => setInputHandle(e.target.value.replace(/[^A-Za-z0-9_@]/g, ""))}
           maxLength={16}
+          className="foid-data"
           style={{
             width: "110px",
             padding: "3px 6px",
-            fontSize: "11px",
             background: "rgba(255,255,255,0.08)",
             border: "1px solid rgba(255,255,255,0.2)",
             borderRadius: "4px",
-            color: "rgba(255,255,255,0.9)",
             outline: "none",
           }}
           onKeyDown={(e) => {
@@ -73,8 +72,8 @@ export default function LinkXAccount() {
               setInputHandle("");
             }).catch(() => {});
           }}
+          className="foid-label"
           style={{
-            fontSize: "10px",
             padding: "3px 8px",
             background: "rgba(72,255,171,0.15)",
             border: "1px solid rgba(72,255,171,0.3)",
@@ -88,19 +87,18 @@ export default function LinkXAccount() {
         <button
           type="button"
           onClick={() => { setShowInput(false); setInputHandle(""); }}
+          className="foid-label"
           style={{
-            fontSize: "10px",
             padding: "3px 6px",
             background: "transparent",
             border: "none",
-            color: "rgba(255,255,255,0.4)",
             cursor: "pointer",
           }}
         >
           Cancel
         </button>
         {error && (
-          <span style={{ fontSize: "9px", color: "rgba(255,100,100,0.8)" }}>{error}</span>
+          <span className="foid-label" style={{ color: "rgba(255,100,100,0.8)" }}>{error}</span>
         )}
       </div>
     );
@@ -110,13 +108,12 @@ export default function LinkXAccount() {
     <button
       type="button"
       onClick={() => setShowInput(true)}
+      className="foid-label"
       style={{
-        fontSize: "10px",
         padding: "3px 8px",
         background: "rgba(255,255,255,0.06)",
         border: "1px solid rgba(255,255,255,0.15)",
         borderRadius: "4px",
-        color: "rgba(255,255,255,0.7)",
         cursor: "pointer",
         display: "flex",
         alignItems: "center",

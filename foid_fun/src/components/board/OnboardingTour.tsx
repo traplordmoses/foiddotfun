@@ -306,11 +306,9 @@ export function OnboardingTour({ open, onClose, steps = DEFAULT_STEPS }: Props) 
           }}
         >
           <div
+            className="foid-label"
             style={{
-              fontSize: 11,
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
               color: "#a78bfa",
-              letterSpacing: 0.5,
             }}
           >
             STEP {index + 1} / {steps.length}
@@ -319,9 +317,8 @@ export function OnboardingTour({ open, onClose, steps = DEFAULT_STEPS }: Props) 
             ref={skipBtnRef}
             type="button"
             onClick={() => finish("skipped")}
+            className="foid-label"
             style={{
-              fontSize: 11,
-              color: "rgba(255,255,255,0.55)",
               background: "transparent",
               border: "none",
               cursor: "pointer",
