@@ -37,7 +37,7 @@ const BOOT_LOG_LINES = [
   "tuning the sky",
   "polishing the glass",
 ] as const;
-const FAST_LOG_LINES = ["resuming session"] as const;
+const FAST_LOG_LINES = ["resuming session", "restoring your desktop"] as const;
 /* r=34 ring circumference for the draw-on animation. */
 const BOOT_RING_CIRCUMFERENCE = 213.6;
 
@@ -330,11 +330,14 @@ export default function EnterGate({
     }
 
     if (mode === "fast") {
-      /* Returning visitor: one breath — resume, bloom, key. (~0.9s) */
-      schedule(() => setBootPhase("sigil"), 90);
-      schedule(() => setLogCount(1), 210);
-      schedule(() => setBootPhase("sky"), 500);
-      schedule(finishBoot, 880);
+      /* Returning visitor: a brief but deliberate resume, not a flash —
+         sigil, two checklist ticks at a steady ~480ms cadence, the sky, then
+         the key (~2s). Still well short of the full first boot. */
+      schedule(() => setBootPhase("sigil"), 150);
+      schedule(() => setLogCount(1), 480);
+      schedule(() => setLogCount(2), 960);
+      schedule(() => setBootPhase("sky"), 1360);
+      schedule(finishBoot, 2000);
       return;
     }
 
