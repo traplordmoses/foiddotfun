@@ -17,6 +17,7 @@ import {
   useWindowStoreV2,
   type AppId,
 } from "@/stores/windowStore";
+import { useFloatStore } from "@/stores/floatStore";
 
 const ALL_APPS: AppId[] = [
   "home",
@@ -33,6 +34,7 @@ const store = () => useWindowStoreV2.getState();
 
 beforeEach(() => {
   useWindowStoreV2.setState({ windows: {}, zOrder: [], showDesktopStash: null });
+  useFloatStore.setState({ focus: "main" });
 });
 
 describe("windowStore v2 — open", () => {
@@ -117,6 +119,44 @@ describe("windowStore v2 — focus & z-order", () => {
     store().focus("files");
     expect(store().windows.files?.status).toBe("open");
     expect(store().zOrder).toEqual(["mifoid", "files"]);
+  });
+});
+
+describe("windowStore v2 — floater layering coordination", () => {
+  // Regression (the "music/chat stays in front of the last-clicked window"
+  // bug): the MUSIC.EXE / CHAT.EXE floaters must drop BEHIND a window whenever
+  // that window is raised. The document-level useMainFocusListener deliberately
+  // ignores dock clicks, so a window opened/focused from a dock tile would
+  // otherwise leave a focused floater (z 48) on top of it. windowStore is the
+  // shared chokepoint every raise path funnels through, so it resets
+  // floatStore to "main" (floaters → z 1, behind the window).
+  it("opening a new window sends a focused floater behind it", () => {
+    useFloatStore.setState({ focus: "music" }); // a floater is in front
+    store().open("files");
+    expect(useFloatStore.getState().focus).toBe("main");
+  });
+
+  it("focusing a window (e.g. via a dock tile) sends a focused floater behind it", () => {
+    store().open("files");
+    store().open("mifoid");
+    useFloatStore.setState({ focus: "chat" }); // user raised chat afterwards
+    store().focus("files");
+    expect(useFloatStore.getState().focus).toBe("main");
+  });
+
+  it("re-focusing the already-foreground window still drops a floater in front of it", () => {
+    store().open("files");
+    useFloatStore.setState({ focus: "music" }); // floater raised over the top window
+    store().focus("files"); // a windowStore no-op, but floaters must still drop
+    expect(useFloatStore.getState().focus).toBe("main");
+  });
+
+  it("reopening an existing app (restore + focus) also drops a floater behind", () => {
+    store().open("files");
+    store().minimize("files");
+    useFloatStore.setState({ focus: "music" });
+    store().open("files"); // reopen → focus path
+    expect(useFloatStore.getState().focus).toBe("main");
   });
 });
 

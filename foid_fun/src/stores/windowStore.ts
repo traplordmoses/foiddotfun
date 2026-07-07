@@ -14,6 +14,7 @@
 //      generous safety cap on concurrent windows (founder decision #2).
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { useFloatStore } from "./floatStore";
 
 export type WindowPos = { x: number; y: number };
 export type WindowSize = { w: number; h: number };
@@ -169,6 +170,10 @@ export const useWindowStoreV2 = create<WindowStoreV2>()(
           openedAt: now,
           lastFocusedAt: now,
         };
+        // Raising an OS window sends the floating apps (MUSIC/CHAT) behind it.
+        // The dock is excluded from useMainFocusListener, so opening a window
+        // from a dock tile would otherwise leave a focused floater on top.
+        useFloatStore.getState().setFocus("main");
         set({ windows: { ...s.windows, [id]: win }, zOrder: [...s.zOrder, id] });
       },
 
@@ -180,7 +185,12 @@ export const useWindowStoreV2 = create<WindowStoreV2>()(
           return { windows, zOrder: s.zOrder.filter((x) => x !== id) };
         }),
 
-      focus: (id) =>
+      focus: (id) => {
+        if (!get().windows[id]) return;
+        // Any window focus (dock tile, titlebar, deep-link, restore) sends the
+        // floating apps behind it — even re-focusing the already-top window, so
+        // clicking a window under a floater still drops that floater back.
+        useFloatStore.getState().setFocus("main");
         set((s) => {
           const win = s.windows[id];
           if (!win) return s;
@@ -193,7 +203,8 @@ export const useWindowStoreV2 = create<WindowStoreV2>()(
             },
             zOrder: atTop ? s.zOrder : [...s.zOrder.filter((x) => x !== id), id],
           };
-        }),
+        });
+      },
 
       minimize: (id) =>
         set((s) => {
