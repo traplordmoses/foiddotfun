@@ -131,7 +131,6 @@ export default function EnterGate({
   /* When a key/click skips the boot, the same event would immediately
      activate the gate (both listeners see it). A short cooldown makes
      skip and enter two distinct gestures. */
-  const bootSkipAtRef = useRef(0);
 
   const clearTimeouts = useCallback(() => {
     timeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
@@ -289,7 +288,6 @@ export default function EnterGate({
   const skipBoot = useCallback(() => {
     if (bootReadyRef.current) return;
     clearTimeouts();
-    bootSkipAtRef.current = Date.now();
     setBootSkipped(true);
     finishBoot();
     schedule(() => setBootSkipped(false), 400);
@@ -395,19 +393,24 @@ export default function EnterGate({
 
   const activateGate = useCallback(
     (event?: MouseEvent<HTMLButtonElement>) => {
-      /* First gesture lands the boot; the next one enters. */
-      if (!bootReadyRef.current) {
-        skipBoot();
-        return;
-      }
-      if (Date.now() - bootSkipAtRef.current < 450) return;
       if (outroActive || activationLocked.current) return;
+      /* A deliberate ENTER press always enters in one gesture. If the boot is
+         still playing, land it first (skipBoot no-ops once ready) and continue
+         straight into the login outro — no mandatory second click. The window
+         pointerdown/keydown listeners fire on this same click and pre-skip the
+         boot, so the old "skip, then debounce the entry" path swallowed the
+         first press and stranded the user on /enter. Ambient clicks/keys
+         elsewhere still only skip: they never reach this handler. */
+      const wasReady = bootReadyRef.current;
+      if (!wasReady) skipBoot();
       activationLocked.current = true;
       setOutroActive(true);
       if (onEnter) onEnter();
       if (event) createRipple(event);
       playClickSound();
-      schedule(runLoginOutro, 120);
+      /* Brief beat when we just skipped so the composed end-state reads before
+         the sky opens; near-immediate when the boot was already at rest. */
+      schedule(runLoginOutro, wasReady ? 120 : 450);
     },
     [createRipple, onEnter, outroActive, playClickSound, runLoginOutro, schedule, skipBoot]
   );
