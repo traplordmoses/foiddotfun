@@ -6256,4 +6256,12 @@ body.foid-window-dragging .vista-window * {
   letter-spacing: 0.3em;
   white-space: nowrap;
   pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+/* Idle: when the dock auto-hides (Dock.tsx toggles body.foid-dock-hidden),
+   the empty-desktop hint fades away with it — the label points at the dock,
+   so it has nothing to say once the dock is gone. Leaves bare wallpaper. */
+body.foid-dock-hidden .os-desktop__hint {
+  opacity: 0;
 }
