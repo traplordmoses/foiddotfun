@@ -200,6 +200,10 @@ export function Dock() {
       if (dockHiddenRef.current === next) return;
       dockHiddenRef.current = next;
       setDockHidden(next);
+      // Publish to a body class so the empty-desktop hint (which points at the
+      // dock) can fade out with it — CSS in globals.css keys off this. Body
+      // class mirrors the codebase's foid-window-dragging cross-cutting flag.
+      document.body.classList.toggle('foid-dock-hidden', next);
     };
     const schedule = () => {
       clearTimeout(timer);
@@ -254,6 +258,8 @@ export function Dock() {
       window.removeEventListener('keydown', wake, true);
       window.removeEventListener('wheel', wake, true);
       fine.removeEventListener('change', onFineChange);
+      // Never leave the hint faded if the dock unmounts while auto-hidden.
+      document.body.classList.remove('foid-dock-hidden');
     };
   }, []);
 
