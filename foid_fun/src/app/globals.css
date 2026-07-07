@@ -889,7 +889,11 @@ body {
   .vista-window__controls {
     display: flex;
     align-items: center;
-    gap: 6px;
+    /* WCAG 2.2 AA target-size (2.5.8): the 12px orbs are undersized, so they
+       pass via the spacing exception — a 24px-diameter circle on each must not
+       overlap a neighbour's. 12px orb + 13px gap = 25px centre-to-centre > 24,
+       clearing it without enlarging the Frutiger-Aero traffic light. */
+    gap: 13px;
     z-index: 3;
   }
 
