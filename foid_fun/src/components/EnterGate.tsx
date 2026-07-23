@@ -13,8 +13,8 @@ const PARTICLE_COUNT = 20;
  * Phases (data-boot on .enter-gate; visuals live in src/app/enter/enter.css):
  *   cover → sigil → sky → ready
  * Modes:
- *   full    first boot ever / cold visit          (~2.9s to interactive)
- *   fast    returning visitor                     (~0.9s) — booted this tab
+ *   full    first boot ever / cold visit          (~4.6s to interactive)
+ *   fast    returning visitor                     (~2.4s) — booted this tab
  *           session (sessionStorage) OR entered within the cookie window
  *           (foid_entered, e.g. a fresh tab a few hours later)
  *   static  prefers-reduced-motion                (composed final frame, instant)
@@ -36,6 +36,7 @@ const BOOT_LOG_LINES = [
   "mounting permanent memory",
   "tuning the sky",
   "polishing the glass",
+  "open well",
 ] as const;
 const FAST_LOG_LINES = ["resuming session", "restoring your desktop"] as const;
 /* r=34 ring circumference for the draw-on animation. */
@@ -126,7 +127,6 @@ export default function EnterGate({
   const [bootSkipped, setBootSkipped] = useState(false);
   const [logCount, setLogCount] = useState(0);
   const [outroActive, setOutroActive] = useState(false);
-  const bootStartedRef = useRef(false);
   const bootReadyRef = useRef(false);
   /* When a key/click skips the boot, the same event would immediately
      activate the gate (both listeners see it). A short cooldown makes
@@ -296,10 +296,16 @@ export default function EnterGate({
   /* Boot timeline. All timeouts are scheduled up front (never chained) so
      background-tab timer throttling can only delay stages, not stack them.
      The log lines fire exactly when their stage begins — narrative
-     progress, no invented percentages. */
+     progress, no invented percentages.
+
+     The effect returns clearTimeouts as its cleanup and is safe to re-run:
+     React 18 StrictMode mounts → unmounts → remounts in dev, and the old
+     ref-guard skipped the second run AFTER the cleanup had already cleared
+     every timeout — the boot froze on the dark cover forever. Guarding on
+     bootReadyRef (set by finishBoot/skip) keeps a completed boot from
+     replaying while letting the StrictMode remount reschedule cleanly. */
   useEffect(() => {
-    if (bootStartedRef.current) return;
-    bootStartedRef.current = true;
+    if (bootReadyRef.current) return;
 
     const params = new URLSearchParams(window.location.search);
     const override = params.get("boot");
@@ -331,38 +337,41 @@ export default function EnterGate({
 
     if (mode === "fast") {
       /* Returning visitor: a brief but deliberate resume, not a flash —
-         sigil, two checklist ticks at a steady ~480ms cadence, the sky, then
-         the key (~2s). Still well short of the full first boot. */
-      schedule(() => setBootPhase("sigil"), 150);
-      schedule(() => setLogCount(1), 480);
-      schedule(() => setLogCount(2), 960);
-      schedule(() => setBootPhase("sky"), 1360);
-      schedule(finishBoot, 2000);
-      return;
+         sigil, two checklist ticks at a steady ~560ms cadence, the sky, then
+         the key (~2.4s). Still well short of the full first boot. */
+      schedule(() => setBootPhase("sigil"), 200);
+      schedule(() => setLogCount(1), 620);
+      schedule(() => setLogCount(2), 1180);
+      schedule(() => setBootPhase("sky"), 1620);
+      schedule(finishBoot, 2350);
+      return clearTimeouts;
     }
 
-    /* First boot (~3.4s to the login prompt). Deliberately staged like a
+    /* First boot (~4.6s to the login prompt). Deliberately staged like a
        machine powering on — each beat gets room to land before the next:
 
-         POWER ON  dark aero-night (the SSR "cover" frame)
-         POST      160ms  the sigil ring self-draws · wordmark · tagline
-         BOOT LOG  the four lowercase lines tick with `ok`s at a steady
-                   ~460ms cadence — a real POST checklist, not a flicker,
-                   and it *finishes* before the sky arrives (log never lies)
-         SKY BLOOM 2660ms the wallpaper floods in — "the desktop is coming"
-         LOGIN     3360ms the gold enter key crystallizes as the sole
+         POWER ON  dark aero-night (the SSR "cover" frame) breathes for a
+                   moment before anything stirs
+         POST      320ms  the sigil ring self-draws · wordmark · tagline
+         BOOT LOG  five lowercase lines tick with `ok`s at a steady ~560ms
+                   cadence — a real POST checklist, readable line by line,
+                   closing on "open well" before the sky arrives
+         SKY BLOOM 3560ms the wallpaper floods in — "the desktop is coming"
+         LOGIN     4600ms the gold enter key crystallizes as the sole
                    affordance; nothing else on screen yet
 
        All timeouts are scheduled up front (never chained) so a throttled
        background tab can only delay stages, never stack them. */
-    schedule(() => setBootPhase("sigil"), 160); // POST — firmware wakes
-    schedule(() => setLogCount(1), 780); //  waking foid mommy
-    schedule(() => setLogCount(2), 1240); // mounting permanent memory
-    schedule(() => setLogCount(3), 1700); // tuning the sky
-    schedule(() => setLogCount(4), 2160); // polishing the glass — checklist done
-    schedule(() => setBootPhase("sky"), 2660); // the sky blooms up
-    schedule(finishBoot, 3360); //          the login key crystallizes
-  }, [finishBoot, schedule]);
+    schedule(() => setBootPhase("sigil"), 320); // POST — firmware wakes
+    schedule(() => setLogCount(1), 1000); // waking foid mommy
+    schedule(() => setLogCount(2), 1560); // mounting permanent memory
+    schedule(() => setLogCount(3), 2120); // tuning the sky
+    schedule(() => setLogCount(4), 2680); // polishing the glass
+    schedule(() => setLogCount(5), 3160); // open well — checklist done
+    schedule(() => setBootPhase("sky"), 3560); // the sky blooms up
+    schedule(finishBoot, 4600); //          the login key crystallizes
+    return clearTimeouts;
+  }, [clearTimeouts, finishBoot, schedule]);
 
   /* Any key or pointer during the theater skips it. Capture phase so the
      skip wins over every other handler; modifier combos stay untouched. */
@@ -384,14 +393,16 @@ export default function EnterGate({
   }, [skipBoot]);
 
   /* Login moment — the sky opens. The route is already prefetched, so no
-     progress theater: chime, light bloom, "welcome home", go. */
+     progress theater: chime, light bloom, "welcome home", go. The note
+     finishes fading in around 1.1s (enter.css login-note) — navigating at
+     1.5s lets it actually read as a greeting instead of a subliminal. */
   const runLoginOutro = useCallback(() => {
     if (reducedMotion) {
       schedule(() => navigate(), 230);
       return;
     }
     playBootChime();
-    schedule(() => navigate(), 900);
+    schedule(() => navigate(), 1500);
   }, [navigate, playBootChime, reducedMotion, schedule]);
 
   const activateGate = useCallback(

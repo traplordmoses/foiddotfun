@@ -18,7 +18,7 @@
 // never fight the gesture writes.
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { useSwitchWallet } from "@/hooks/useSwitchWallet";
@@ -105,6 +105,18 @@ export default function OSWindow({
   // its pre-drag spot. Gestures always end in a setPos/setSize commit, so
   // the skipped effect re-runs with final values on release.
   const draggingRef = useRef(false);
+  // Minimize/restore choreography state: whether the previous render was
+  // minimized (restore should animate) and whether this frame has ever
+  // painted (a persisted-minimized window must land hidden, not replay
+  // the genie on mount).
+  const prevStatusRef = useRef<"open" | "minimized" | null>(null);
+  const hasAnimatedRef = useRef(false);
+  // Restore-in-flight flag. Rendered into className (NOT classList) because
+  // React reassigns className whenever the focused/blurred computation
+  // changes, wiping any manually-added class mid-animation. It stays true
+  // until the next minimize — reverting the `animation` shorthand to the
+  // base foid-window-open would replay the open pop.
+  const [restoring, setRestoring] = useState(false);
 
   const win = useWindowStoreV2((s) => s.windows[appId]);
   const stackIndex = useWindowStoreV2((s) => s.zOrder.indexOf(appId));
@@ -128,20 +140,58 @@ export default function OSWindow({
     // A live gesture owns geometry — never fight it (see draggingRef).
     if (draggingRef.current) return;
     const minimized = win.status === "minimized";
-
-    el.classList.toggle("foid-window--maximized", win.maximized && !minimized);
-    el.classList.toggle("foid-window--minimized", minimized);
+    const wasMinimized = prevStatusRef.current === "minimized";
+    prevStatusRef.current = win.status;
 
     if (minimized) {
-      // Genie to the dock: measured from the frame's current on-screen spot.
-      const rect = el.getBoundingClientRect();
-      const drop = window.innerHeight - rect.top;
-      el.style.transformOrigin = "bottom center";
-      el.style.transform = `translate(0px, ${drop}px) scale(0.06)`;
-      el.style.opacity = "0";
-      el.style.pointerEvents = "none";
+      if (!wasMinimized) {
+        // Genie to this app's own dock tile: measure both rects live and
+        // hand the vector to CSS as custom properties — the keyframes
+        // (globals.css foid-genie-out/-in) do the pouring. Runs pre-paint
+        // (layout effect), so the values land before the animation's first
+        // rendered frame.
+        const rect = el.getBoundingClientRect();
+        const tile = document.querySelector<HTMLElement>(
+          `[data-dock-app="${appId}"]`,
+        );
+        const t = tile?.getBoundingClientRect();
+        const targetX = t ? t.left + t.width / 2 : window.innerWidth / 2;
+        const targetY = t ? t.top + t.height / 2 : window.innerHeight - 44;
+        const s = Math.max(
+          0.03,
+          Math.min(56 / rect.width, 44 / rect.height),
+        );
+        el.style.setProperty(
+          "--genie-x",
+          `${targetX - rect.left - (rect.width * s) / 2}px`,
+        );
+        el.style.setProperty(
+          "--genie-y",
+          `${targetY - rect.top - (rect.height * s) / 2}px`,
+        );
+        el.style.setProperty("--genie-s", `${s}`);
+        setRestoring(false);
+      }
+      // First mount already minimized (persisted layout): skip the theater,
+      // land on the final frame.
+      if (!wasMinimized && !hasAnimatedRef.current) {
+        el.style.animationDuration = "0.001s";
+      } else if (!wasMinimized) {
+        el.style.animationDuration = "";
+      }
+      hasAnimatedRef.current = true;
       return;
     }
+
+    if (wasMinimized) {
+      // Restore: reverse the genie from the same dock vector. The flag
+      // stays set after the animation finishes — swapping the `animation`
+      // shorthand back to the base foid-window-open would replay the
+      // window-open pop. The next minimize clears it.
+      el.style.animationDuration = "";
+      setRestoring(true);
+    }
+    hasAnimatedRef.current = true;
 
     el.style.pointerEvents = "";
     el.style.opacity = "";
@@ -161,12 +211,16 @@ export default function OSWindow({
     el.style.left = `${win.pos.x}px`;
     el.style.top = `${win.pos.y}px`;
     // Defensive viewport clamp: geometry stored at a larger viewport must
-    // not overflow after the browser window shrinks. (The stylesheet's
+    // not overflow after the browser window shrinks — and the clamp must
+    // account for the window's own origin, or a cascade-offset window
+    // still sticks out past the right/bottom edge. (The stylesheet's
     // dock-clearance max-height still applies on top of this.)
     const w = win.size?.w ?? defaultSize.w;
     const h = win.size?.h ?? defaultSize.h;
-    el.style.width = `${Math.min(w, window.innerWidth - 24)}px`;
-    el.style.height = `${Math.min(h, window.innerHeight - 120)}px`;
+    const maxW = Math.max(MIN_W, window.innerWidth - Math.max(0, win.pos.x) - 16);
+    const maxH = Math.max(MIN_H, window.innerHeight - Math.max(0, win.pos.y) - 104);
+    el.style.width = `${Math.min(w, maxW)}px`;
+    el.style.height = `${Math.min(h, maxH)}px`;
     el.style.maxWidth = "none";
   }, [win, defaultSize.w, defaultSize.h]);
 
@@ -382,7 +436,11 @@ export default function OSWindow({
       ref={frameRef}
       className={`vista-window vista-window--terminal vista-window--enhanced os-window${
         focused ? "" : " foid-window--blurred"
-      }${frameClassName ? ` ${frameClassName}` : ""}`}
+      }${win.maximized && win.status === "open" ? " foid-window--maximized" : ""}${
+        win.status === "minimized" ? " foid-window--minimized" : ""
+      }${restoring && win.status === "open" ? " foid-window--restoring" : ""}${
+        frameClassName ? ` ${frameClassName}` : ""
+      }`}
       style={{ zIndex: WINDOW_Z_BASE + Math.max(0, stackIndex) }}
       aria-label={title}
       onPointerDownCapture={handleFocusDown}

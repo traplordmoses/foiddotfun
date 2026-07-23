@@ -17,8 +17,11 @@ import {
 } from "@/components/icons/AeroIcons";
 import { musicPanelController } from "@/components/musicPanelController";
 import { getAudioSettings, setMusicEnabled } from "@/lib/audioSettings";
+import { usePathname } from "next/navigation";
+import { FOID_DESKTOP_ENABLED } from "@/config/desktop";
 import { useAmpStore } from "@/stores/ampStore";
 import { floatZ, useFloatStore } from "@/stores/floatStore";
+import { surfaceZ, useWindowStoreV2 } from "@/stores/windowStore";
 
 const MusicPanelLogic = dynamic(() => import("./MusicPanel"), { ssr: false });
 
@@ -64,14 +67,21 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
   const barRef = useRef<HTMLDivElement>(null);
   const isMobileRef = useRef(false);
 
-  // Interim click-to-front layering (floatStore): any pointerdown on the
-  // chassis claims focus; opening from the dock claims it too (the dock
-  // itself never shifts focus, so a fresh window must self-raise).
+  // Layering. On the desktop shell ("/") the deck is a surface in
+  // windowStore v2's single z-order (same stack as the OS windows and
+  // CHAT.EXE); on standalone routes the legacy floatStore ladder applies.
+  const pathname = usePathname();
+  const onDesktop = FOID_DESKTOP_ENABLED && pathname === "/";
   const floatFocus = useFloatStore((s) => s.focus);
-  const setFloatFocus = useFloatStore((s) => s.setFocus);
+  const zOrder = useWindowStoreV2((s) => s.zOrder);
+  const raise = useCallback(() => {
+    useFloatStore.getState().setFocus("music");
+    useWindowStoreV2.getState().raiseSurface("music");
+  }, []);
   useEffect(() => {
-    if (isVisible) setFloatFocus("music");
-  }, [isVisible, setFloatFocus]);
+    if (isVisible) raise();
+    else useWindowStoreV2.getState().removeSurface("music");
+  }, [isVisible, raise]);
 
   useEffect(() => {
     const unsubscribe = musicPanelController.subscribe(() =>
@@ -326,8 +336,8 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
           only fires for real hits on the deck/pebble chassis. */}
       <div
         className={`cmp-bar-outer ${isVisible ? "cmp-bar-outer--visible" : "cmp-bar-outer--hidden"}`}
-        style={{ zIndex: floatZ("music", floatFocus) }}
-        onPointerDownCapture={() => setFloatFocus("music")}
+        style={{ zIndex: onDesktop ? surfaceZ(zOrder, "music") : floatZ("music", floatFocus) }}
+        onPointerDownCapture={raise}
       >
         {skin === "pebble" ? (
           /* ── Pebble skin: Frutiger Aero portable CD player. Same wrapper

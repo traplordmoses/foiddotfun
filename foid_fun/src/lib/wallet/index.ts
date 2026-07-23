@@ -106,6 +106,7 @@ export async function create(
   userId: string,
   userName: string,
   pin: string,
+  signal?: AbortSignal,
 ): Promise<{ wallet: FoidWalletV3; prfActive: boolean; mnemonic: string }> {
   if (pin.length < MIN_PIN_LENGTH) {
     throw new Error(`PIN must be at least ${MIN_PIN_LENGTH} characters.`);
@@ -119,7 +120,7 @@ export async function create(
   const payload = encodeVaultPayload({ privateKey, mnemonic });
 
   try {
-    const { credentialId, prfOutput } = await createPasskey(userId, userName);
+    const { credentialId, prfOutput } = await createPasskey(userId, userName, signal);
 
     const salt = newSalt();
     const kdf = await bestAvailableKdf();
@@ -174,6 +175,7 @@ export async function create(
 export async function unlock(
   wallet: FoidWallet,
   pin: string,
+  signal?: AbortSignal,
 ): Promise<UnlockedWallet> {
   // Check throttle nonce (v3 only)
   if (isV3(wallet) && !verifyThrottleNonce(wallet.throttleNonce)) {
@@ -200,6 +202,7 @@ export async function unlock(
   const { prfOutput } = await authenticatePasskey(
     wallet.credentialId,
     wallet.prfActive,
+    signal,
   );
 
   if (wallet.prfActive && !prfOutput) {
@@ -293,6 +296,7 @@ export async function restoreFromMnemonic(
   userId: string,
   userName: string,
   pin: string,
+  signal?: AbortSignal,
 ): Promise<{ wallet: FoidWalletV3; prfActive: boolean }> {
   if (pin.length < MIN_PIN_LENGTH) {
     throw new Error(`PIN must be at least ${MIN_PIN_LENGTH} characters.`);
@@ -305,7 +309,7 @@ export async function restoreFromMnemonic(
   const payload = encodeVaultPayload({ privateKey, mnemonic: mnemonic.trim().toLowerCase() });
 
   try {
-    const { credentialId, prfOutput } = await createPasskey(userId, userName);
+    const { credentialId, prfOutput } = await createPasskey(userId, userName, signal);
 
     const salt = newSalt();
     const kdf = await bestAvailableKdf();
