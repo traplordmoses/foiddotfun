@@ -14,7 +14,6 @@
 //      generous safety cap on concurrent windows (founder decision #2).
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { useFloatStore } from "./floatStore";
 
 export type WindowPos = { x: number; y: number };
 export type WindowSize = { w: number; h: number };
@@ -66,6 +65,17 @@ export type AppId =
   | "about"
   | "gallery";
 
+/** The floating dock apps (MUSIC.EXE / CHAT.EXE). Not OS windows — they
+ *  keep their own open-state stores and chrome — but they ARE surfaces in
+ *  the desktop's single z-order, so clicking any window or floater brings
+ *  it in front of everything else (no more always-on-top floaters). */
+export type FloaterId = "music" | "chat";
+export type SurfaceId = AppId | FloaterId;
+
+export function isFloaterId(id: SurfaceId): id is FloaterId {
+  return id === "music" || id === "chat";
+}
+
 export type OSWindowState = {
   id: AppId;
   status: "open" | "minimized";
@@ -82,8 +92,9 @@ export type OSWindowState = {
 
 type WindowStoreV2 = {
   windows: Partial<Record<AppId, OSWindowState>>;
-  /** Back → front. Focused app = zOrder[zOrder.length - 1]. */
-  zOrder: AppId[];
+  /** Back → front across ALL desktop surfaces (windows + floaters).
+   *  Focused surface = zOrder[zOrder.length - 1]. */
+  zOrder: SurfaceId[];
   /** "Show desktop" memory: the ids that were open when minimizeAll ran,
    *  so the next Home click restores exactly that set (zOrder is left
    *  untouched, so the previous front window comes back focused).
@@ -100,6 +111,11 @@ type WindowStoreV2 = {
   minimize: (id: AppId) => void;
   /** Un-minimize + focus (dock tile click). Alias of focus. */
   restore: (id: AppId) => void;
+  /** Bring a floater (MUSIC/CHAT) to the front of the shared z-order,
+   *  registering it if it isn't stacked yet. Windows use focus(). */
+  raiseSurface: (id: FloaterId) => void;
+  /** Drop a closed floater out of the z-order. */
+  removeSurface: (id: FloaterId) => void;
   /** HOME dock tile, "show desktop": genie every open window to the dock,
    *  remembering the set for the return trip. No-op when nothing is open. */
   minimizeAll: () => void;
@@ -170,10 +186,6 @@ export const useWindowStoreV2 = create<WindowStoreV2>()(
           openedAt: now,
           lastFocusedAt: now,
         };
-        // Raising an OS window sends the floating apps (MUSIC/CHAT) behind it.
-        // The dock is excluded from useMainFocusListener, so opening a window
-        // from a dock tile would otherwise leave a focused floater on top.
-        useFloatStore.getState().setFocus("main");
         set({ windows: { ...s.windows, [id]: win }, zOrder: [...s.zOrder, id] });
       },
 
@@ -187,10 +199,6 @@ export const useWindowStoreV2 = create<WindowStoreV2>()(
 
       focus: (id) => {
         if (!get().windows[id]) return;
-        // Any window focus (dock tile, titlebar, deep-link, restore) sends the
-        // floating apps behind it — even re-focusing the already-top window, so
-        // clicking a window under a floater still drops that floater back.
-        useFloatStore.getState().setFocus("main");
         set((s) => {
           const win = s.windows[id];
           if (!win) return s;
@@ -217,10 +225,23 @@ export const useWindowStoreV2 = create<WindowStoreV2>()(
 
       restore: (id) => get().focus(id),
 
+      raiseSurface: (id) =>
+        set((s) => {
+          if (s.zOrder[s.zOrder.length - 1] === id) return s;
+          return { zOrder: [...s.zOrder.filter((x) => x !== id), id] };
+        }),
+
+      removeSurface: (id) =>
+        set((s) =>
+          s.zOrder.includes(id)
+            ? { zOrder: s.zOrder.filter((x) => x !== id) }
+            : s,
+        ),
+
       minimizeAll: () =>
         set((s) => {
           const openIds = s.zOrder.filter(
-            (id) => s.windows[id]?.status === "open",
+            (id): id is AppId => !isFloaterId(id) && s.windows[id]?.status === "open",
           );
           if (!openIds.length) return s;
           const windows = { ...s.windows };
@@ -238,7 +259,10 @@ export const useWindowStoreV2 = create<WindowStoreV2>()(
           );
           const ids = stashed.length
             ? stashed
-            : s.zOrder.filter((id) => s.windows[id]?.status === "minimized");
+            : s.zOrder.filter(
+                (id): id is AppId =>
+                  !isFloaterId(id) && s.windows[id]?.status === "minimized",
+              );
           if (!ids.length) {
             return s.showDesktopStash ? { showDesktopStash: null } : s;
           }
@@ -292,7 +316,9 @@ export const useWindowStoreV2 = create<WindowStoreV2>()(
       // rehydrates on mount via hydrateWindowStore().
       skipHydration: true,
       partialize: (s) => ({
-        zOrder: s.zOrder,
+        // Floaters re-register from their own open-state stores on mount;
+        // persisting them would resurrect ghost entries.
+        zOrder: s.zOrder.filter((id) => !isFloaterId(id)),
         windows: Object.fromEntries(
           Object.entries(s.windows).map(([id, win]) => [
             id,
@@ -319,7 +345,14 @@ export function focusedAppId(
 ): AppId | undefined {
   for (let i = s.zOrder.length - 1; i >= 0; i--) {
     const id = s.zOrder[i];
+    if (isFloaterId(id)) continue;
     if (s.windows[id]?.status === "open") return id;
   }
   return undefined;
+}
+
+/** z-index for any surface in the shared stack. Unstacked surfaces sit at
+ *  the base so they never accidentally jump the queue. */
+export function surfaceZ(zOrder: readonly SurfaceId[], id: SurfaceId): number {
+  return WINDOW_Z_BASE + Math.max(0, zOrder.indexOf(id));
 }

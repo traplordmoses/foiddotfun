@@ -34,6 +34,10 @@ export default function FoidWalletOnboarding() {
   const [restoreMnemonic, setRestoreMnemonic] = useState('');
   const pinRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Aborts an in-flight passkey prompt (create/unlock/restore) so the
+  // "working" step is always escapable — without this, a hung OS prompt
+  // pinned the modal open with no way out.
+  const abortRef = useRef<AbortController | null>(null);
 
   // Listen for bridge events
   useEffect(() => {
@@ -84,44 +88,49 @@ export default function FoidWalletOnboarding() {
     setRestoreMnemonic('');
   }
 
+  // Close RainbowKit's connect dialog so our onboarding modal stands alone.
+  // NEVER hide `[data-rk]` wholesale: RainbowKitProvider wraps the entire
+  // app in a single `<div data-rk>`, so display:none on it blanks the whole
+  // site (the old "wallet crash"). Only the dialog's close button is safe.
   function dismissRainbowKit() {
     const hideRk = () => {
-      document.querySelectorAll<HTMLElement>('[data-rk]').forEach((el) => {
-        const dialog = el.querySelector<HTMLElement>('[role="dialog"]');
-        if (dialog) {
-          const container = dialog.closest<HTMLElement>('[data-rk]');
-          if (container) container.style.display = 'none';
-        }
-      });
+      // RainbowKit titles its dialogs with rk_* ids — scoping to that
+      // avoids clicking the close button of unrelated dialogs (CHAT.EXE
+      // renders a role="dialog" of its own inside the same [data-rk]
+      // app wrapper).
       const closeBtn = document.querySelector<HTMLElement>(
-        '[data-rk] [aria-label="Close"]',
+        '[data-rk] [role="dialog"][aria-labelledby^="rk_"] [aria-label="Close"]',
       );
-      if (closeBtn) {
-        closeBtn.click();
-        return;
-      }
-      const backdrop = document.querySelector<HTMLElement>(
-        '[data-rk] [role="dialog"]',
-      );
-      const parent = backdrop?.parentElement;
-      if (parent && parent !== document.body) parent.click();
+      closeBtn?.click();
     };
     hideRk();
     requestAnimationFrame(hideRk);
-    setTimeout(hideRk, 100);
+    setTimeout(hideRk, 120);
   }
 
+  // Heal any wrapper a previous session may have hidden (pre-fix state
+  // persisted only in the DOM, but stay defensive — it's free).
   function restoreRainbowKit() {
     document.querySelectorAll<HTMLElement>('[data-rk]').forEach((el) => {
-      el.style.display = '';
+      if (el.style.display === 'none') el.style.display = '';
     });
   }
 
   const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     setOpen(false);
     restoreRainbowKit();
     resolveWalletRequest(null);
   }, []);
+
+  /** Back out of a stuck/slow passkey prompt to the password step. */
+  const handleWorkingCancel = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setError(null);
+    setStep(mode === 'restore-mnemonic' ? 'restore-mnemonic-input' : 'pin');
+  }, [mode]);
 
   // ─── Download backup as file ───
 
@@ -227,18 +236,20 @@ export default function FoidWalletOnboarding() {
     }
 
     setStep('working');
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       if (mode === 'create') {
         const userId = crypto.randomUUID();
-        const result = await create(userId, 'FOID Wallet', pin);
+        const result = await create(userId, 'FOID Wallet', pin, controller.signal);
         save(result.wallet);
         setAddress(result.wallet.address);
         setPrfActive(result.prfActive);
         setMnemonic(result.mnemonic);
 
         // Unlock immediately to get private key for session
-        const unlocked = await unlock(result.wallet, pin);
+        const unlocked = await unlock(result.wallet, pin, controller.signal);
         setPrivateKey(unlocked.privateKey);
         setStep('mnemonic');
       } else {
@@ -248,7 +259,7 @@ export default function FoidWalletOnboarding() {
           setStep('pin');
           return;
         }
-        const unlocked = await unlock(wallet, pin);
+        const unlocked = await unlock(wallet, pin, controller.signal);
         setAddress(unlocked.address);
         setPrivateKey(unlocked.privateKey);
         setOpen(false);
@@ -259,9 +270,14 @@ export default function FoidWalletOnboarding() {
         });
       }
     } catch (err) {
+      // A deliberate cancel already put the UI back — don't surface it
+      // as an error.
+      if (controller.signal.aborted) return;
       const msg = err instanceof Error ? err.message : 'Operation failed';
       setError(msg);
       setStep('pin');
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
     }
   }, [mode, pin, pinConfirm]);
 
@@ -488,6 +504,12 @@ export default function FoidWalletOnboarding() {
                 This binds your wallet to this device as a second layer of protection alongside your secret key.
               </p>
             </div>
+            <button
+              onClick={handleWorkingCancel}
+              className="mt-1 rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-xs font-medium text-white/50 transition hover:bg-white/10 hover:text-white/75"
+            >
+              Cancel
+            </button>
           </div>
         )}
 
@@ -783,11 +805,13 @@ export default function FoidWalletOnboarding() {
                     return;
                   }
                   setStep('working');
+                  const controller = new AbortController();
+                  abortRef.current = controller;
                   try {
                     const userId = crypto.randomUUID();
-                    const result = await restoreFromMnemonic(words, userId, 'FOID Wallet', pin);
+                    const result = await restoreFromMnemonic(words, userId, 'FOID Wallet', pin, controller.signal);
                     save(result.wallet);
-                    const unlocked = await unlock(result.wallet, pin);
+                    const unlocked = await unlock(result.wallet, pin, controller.signal);
                     setAddress(unlocked.address);
                     setPrivateKey(unlocked.privateKey);
                     setOpen(false);
@@ -797,9 +821,12 @@ export default function FoidWalletOnboarding() {
                       privateKey: unlocked.privateKey,
                     });
                   } catch (err) {
+                    if (controller.signal.aborted) return;
                     const msg = err instanceof Error ? err.message : 'Restore failed';
                     setError(msg);
                     setStep('restore-mnemonic-input');
+                  } finally {
+                    if (abortRef.current === controller) abortRef.current = null;
                   }
                 }}
                 disabled={!restoreMnemonic.trim() || pin.length < 6}

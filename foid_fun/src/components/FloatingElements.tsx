@@ -18,6 +18,7 @@ interface Particle {
   y: number;
   size: number;
   duration: number;
+  sparkleDuration: number;
   delay: number;
 }
 
@@ -62,6 +63,7 @@ export default function FloatingElements() {
         y: Math.random() * 100,
         size: 2 + Math.random() * 4,
         duration: 8 + Math.random() * 12,
+        sparkleDuration: 2 + Math.random() * 2,
         delay: Math.random() * -10,
       })),
     []
@@ -106,7 +108,10 @@ export default function FloatingElements() {
               transparent 70%)`,
             filter: "blur(40px)",
             transform: `rotate(${wisp.rotation}deg)`,
-            animation: `floatWisp ${wisp.duration}s ease-in-out infinite`,
+            animationName: "floatWisp",
+            animationDuration: `${wisp.duration}s`,
+            animationTimingFunction: "ease-in-out",
+            animationIterationCount: "infinite",
             animationDelay: `${wisp.delay}s`,
           }}
         />
@@ -141,7 +146,10 @@ export default function FloatingElements() {
               0 0 ${orb.size * 0.4}px rgba(100, 200, 255, 0.2)
             `,
             border: "1px solid rgba(255, 255, 255, 0.2)",
-            animation: `floatOrb ${orb.duration}s ease-in-out infinite`,
+            animationName: "floatOrb",
+            animationDuration: `${orb.duration}s`,
+            animationTimingFunction: "ease-in-out",
+            animationIterationCount: "infinite",
             animationDelay: `${orb.delay}s`,
           }}
         />
@@ -161,9 +169,11 @@ export default function FloatingElements() {
               rgba(200, 240, 255, 0.6) 40%,
               transparent 70%)`,
             boxShadow: `0 0 ${particle.size * 2}px rgba(200, 240, 255, 0.5)`,
-            animation: `floatParticle ${particle.duration}s ease-in-out infinite, 
-                        sparkle ${2 + Math.random() * 2}s ease-in-out infinite`,
-            animationDelay: `${particle.delay}s`,
+            animationName: "floatParticle, sparkle",
+            animationDuration: `${particle.duration}s, ${particle.sparkleDuration}s`,
+            animationTimingFunction: "ease-in-out, ease-in-out",
+            animationIterationCount: "infinite, infinite",
+            animationDelay: `${particle.delay}s, 0s`,
           }}
         />
       ))}

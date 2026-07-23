@@ -18,7 +18,7 @@ import {
   useTransform,
   type MotionValue,
 } from 'framer-motion';
-import { focusedAppId, useWindowStore, useWindowStoreV2 } from '@/stores/windowStore';
+import { focusedAppId, isFloaterId, useWindowStore, useWindowStoreV2 } from '@/stores/windowStore';
 import { useAmpStore } from '@/stores/ampStore';
 import { useChatAppStore } from '@/stores/chatAppStore';
 import {
@@ -160,9 +160,27 @@ export function Dock() {
   const osWindows = useWindowStoreV2((s) => s.windows);
   const osZOrder = useWindowStoreV2((s) => s.zOrder);
   const ampOpen = useAmpStore((s) => s.open);
-  const toggleAmp = useAmpStore((s) => s.toggle);
   const chatOpen = useChatAppStore((s) => s.open);
-  const toggleChat = useChatAppStore((s) => s.toggle);
+  // MUSIC/CHAT tiles: open when closed; raise when open-but-buried
+  // (macOS dock semantics — a click should surface the window, not
+  // vanish it); close only when already the front surface.
+  const surfaceOnTop = useWindowStoreV2(
+    (s) => s.zOrder[s.zOrder.length - 1],
+  );
+  const toggleAmp = () => {
+    if (ampOpen && surfaceOnTop !== 'music') {
+      useWindowStoreV2.getState().raiseSurface('music');
+      return;
+    }
+    useAmpStore.getState().toggle();
+  };
+  const toggleChat = () => {
+    if (chatOpen && surfaceOnTop !== 'chat') {
+      useWindowStoreV2.getState().raiseSurface('chat');
+      return;
+    }
+    useChatAppStore.getState().toggle();
+  };
 
   // Magnification only makes sense with a hovering fine pointer, and only
   // when the user hasn't asked for reduced motion.
@@ -382,6 +400,9 @@ export function Dock() {
               // (production only — dev never prefetches).
               prefetch={true}
               className="relative flex flex-col items-center justify-center h-full min-w-[64px] px-2 touch-manipulation"
+              // Genie target: OSWindow reads this tile's rect to aim the
+              // minimize animation at the app's own dock icon.
+              data-dock-app={osAppId ?? undefined}
               aria-current={isActive ? "page" : undefined}
               aria-label={isHome && desktopShell ? 'Show desktop' : undefined}
               onClick={(e) => {
@@ -399,7 +420,7 @@ export function Dock() {
                   e.preventDefault();
                   const os = useWindowStoreV2.getState();
                   const anyOpen = os.zOrder.some(
-                    (id) => os.windows[id]?.status === 'open',
+                    (id) => !isFloaterId(id) && os.windows[id]?.status === 'open',
                   );
                   if (anyOpen) os.minimizeAll();
                   else os.restoreAll();

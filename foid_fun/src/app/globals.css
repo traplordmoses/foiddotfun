@@ -5735,10 +5735,60 @@ body {
   z-index: var(--foid-z-overlay);
 }
 
-/* Minimize: WindowFrame writes the genie transform inline; this class just
-   slows the ride down and keeps the frame inert while hidden. */
+/* ── Genie minimize / restore ─────────────────────────────────────────────
+   OSWindow measures the window and its dock tile, hands the vector over as
+   --genie-x/-y/-s custom properties, and these keyframes pour the window
+   into (and back out of) its own dock icon: a quick squash first, then the
+   slide-and-shrink toward the tile. Transform + opacity only — fully
+   compositor-friendly. (WindowFrame's legacy route window still uses its
+   inline transform + the transition fallback below.) */
+@keyframes foid-genie-out {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1, 1);
+  }
+  28% {
+    opacity: 0.98;
+    transform: translate(calc(var(--genie-x) * 0.14), calc(var(--genie-y) * 0.05))
+      scale(0.84, 0.95);
+  }
+  62% {
+    opacity: 0.85;
+    transform: translate(calc(var(--genie-x) * 0.68), calc(var(--genie-y) * 0.42))
+      scale(0.4, 0.55);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--genie-x), var(--genie-y))
+      scale(var(--genie-s), var(--genie-s));
+  }
+}
+@keyframes foid-genie-in {
+  0% {
+    opacity: 0;
+    transform: translate(var(--genie-x), var(--genie-y))
+      scale(var(--genie-s), var(--genie-s));
+  }
+  45% {
+    opacity: 0.92;
+    transform: translate(calc(var(--genie-x) * 0.55), calc(var(--genie-y) * 0.3))
+      scale(0.5, 0.62);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1, 1);
+  }
+}
 .vista-window.foid-window--minimized {
+  animation: foid-genie-out 0.52s cubic-bezier(0.5, 0.08, 0.3, 1) forwards;
+  transform-origin: top left;
+  pointer-events: none;
+  /* Legacy route-window path (WindowFrame writes the transform inline). */
   transition: transform 0.45s var(--foid-ease-out), opacity 0.3s ease;
+}
+.vista-window.foid-window--restoring {
+  animation: foid-genie-in 0.46s cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: top left;
 }
 
 /* Corner resize handle (desktop only — windows don't float on mobile). */
@@ -5785,6 +5835,12 @@ body.foid-window-dragging .vista-window * {
 @media (prefers-reduced-motion: reduce) {
   .vista-window.foid-window--minimized {
     transition: none;
+    animation: none;
+    opacity: 0;
+    visibility: hidden;
+  }
+  .vista-window.foid-window--restoring {
+    animation: none;
   }
 }
 
@@ -6164,7 +6220,14 @@ body.foid-window-dragging .vista-window * {
    stable while z changes.
    ============================================================================ */
 .os-desktop {
-  position: fixed;
+  /* absolute, NOT fixed: position:fixed forces a stacking context, which
+     trapped every window's z-index inside a z:auto layer — the fixed
+     MUSIC/CHAT floaters (siblings in .app-viewport's context) then beat
+     the entire window layer no matter what z each window carried. As an
+     absolute box inside the full-viewport .app-viewport it spans the same
+     rect WITHOUT forming a context, so windows and floaters interleave in
+     one honest z-order (windowStore v2 zOrder). */
+  position: absolute;
   inset: 0;
   overflow: hidden;
   /* The layer itself is transparent to input — the wallpaper stays ambient

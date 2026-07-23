@@ -14,6 +14,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   focusedAppId,
   MAX_OPEN_WINDOWS,
+  surfaceZ,
   useWindowStoreV2,
   type AppId,
 } from "@/stores/windowStore";
@@ -122,41 +123,58 @@ describe("windowStore v2 — focus & z-order", () => {
   });
 });
 
-describe("windowStore v2 — floater layering coordination", () => {
+describe("windowStore v2 — floater surfaces (MUSIC/CHAT in the shared z-order)", () => {
   // Regression (the "music/chat stays in front of the last-clicked window"
-  // bug): the MUSIC.EXE / CHAT.EXE floaters must drop BEHIND a window whenever
-  // that window is raised. The document-level useMainFocusListener deliberately
-  // ignores dock clicks, so a window opened/focused from a dock tile would
-  // otherwise leave a focused floater (z 48) on top of it. windowStore is the
-  // shared chokepoint every raise path funnels through, so it resets
-  // floatStore to "main" (floaters → z 1, behind the window).
-  it("opening a new window sends a focused floater behind it", () => {
-    useFloatStore.setState({ focus: "music" }); // a floater is in front
+  // bug): floaters are now surfaces in the SAME zOrder as the windows —
+  // raising anything moves it to the tail, so the front-most surface is
+  // always the last thing the user clicked. surfaceZ() turns stack position
+  // into a z-index (base 10 + index).
+  it("opening a new window stacks it above a raised floater", () => {
+    store().raiseSurface("music"); // the deck is in front
     store().open("files");
-    expect(useFloatStore.getState().focus).toBe("main");
+    expect(store().zOrder).toEqual(["music", "files"]);
+    expect(surfaceZ(store().zOrder, "files")).toBeGreaterThan(
+      surfaceZ(store().zOrder, "music"),
+    );
   });
 
-  it("focusing a window (e.g. via a dock tile) sends a focused floater behind it", () => {
+  it("focusing a window (e.g. via a dock tile) stacks it above a raised floater", () => {
     store().open("files");
     store().open("mifoid");
-    useFloatStore.setState({ focus: "chat" }); // user raised chat afterwards
+    store().raiseSurface("chat"); // user raised chat afterwards
     store().focus("files");
-    expect(useFloatStore.getState().focus).toBe("main");
+    expect(store().zOrder).toEqual(["mifoid", "chat", "files"]);
   });
 
-  it("re-focusing the already-foreground window still drops a floater in front of it", () => {
+  it("raising a floater puts it above every window", () => {
     store().open("files");
-    useFloatStore.setState({ focus: "music" }); // floater raised over the top window
-    store().focus("files"); // a windowStore no-op, but floaters must still drop
-    expect(useFloatStore.getState().focus).toBe("main");
+    store().open("mifoid");
+    store().raiseSurface("music");
+    expect(store().zOrder[store().zOrder.length - 1]).toBe("music");
+    expect(surfaceZ(store().zOrder, "music")).toBeGreaterThan(
+      surfaceZ(store().zOrder, "mifoid"),
+    );
   });
 
-  it("reopening an existing app (restore + focus) also drops a floater behind", () => {
+  it("re-raising the same floater is a no-op state reference", () => {
     store().open("files");
-    store().minimize("files");
-    useFloatStore.setState({ focus: "music" });
-    store().open("files"); // reopen → focus path
-    expect(useFloatStore.getState().focus).toBe("main");
+    store().raiseSurface("music");
+    const before = useWindowStoreV2.getState();
+    store().raiseSurface("music");
+    expect(useWindowStoreV2.getState()).toBe(before);
+  });
+
+  it("removeSurface drops a closed floater out of the stack", () => {
+    store().open("files");
+    store().raiseSurface("chat");
+    store().removeSurface("chat");
+    expect(store().zOrder).toEqual(["files"]);
+  });
+
+  it("floaters never count as the focused app (URL/dock focus)", () => {
+    store().open("files");
+    store().raiseSurface("music");
+    expect(focusedAppId(useWindowStoreV2.getState())).toBe("files");
   });
 });
 

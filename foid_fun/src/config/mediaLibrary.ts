@@ -49,6 +49,33 @@ export type MediaItem = {
 export const MEDIA_LIBRARY: MediaItem[] = [
   // ── VIDEOS ────────────────────────────────────────────────────────────
   {
+    id: "backrooms-vhs",
+    title: "MIFOID // BACKROOMS VHS",
+    kind: "video",
+    src: "/media/backrooms-vhs.mp4",
+    poster: "/media/backrooms-vhs-poster.jpg",
+    addedAt: "2026-07-22",
+    description: "tape recovered from the backrooms. she was there the whole time.",
+  },
+  {
+    id: "bliss-dream",
+    title: "BLISS.DREAM",
+    kind: "video",
+    src: "/media/bliss-dream.mp4",
+    poster: "/media/bliss-dream-poster.jpg",
+    addedAt: "2026-07-22",
+    description: "rolling green hills, xp sky. the wallpaper you can live inside.",
+  },
+  {
+    id: "kush-haze",
+    title: "KUSH HAZE",
+    kind: "video",
+    src: "/media/kush-haze.mp4",
+    poster: "/media/kush-haze-poster.jpg",
+    addedAt: "2026-07-22",
+    description: "slow smoke, heavy air. mifoid in the haze.",
+  },
+  {
     id: "golden-hour-cabin",
     title: "GOLDEN HOUR // CABIN",
     kind: "video",

@@ -10,8 +10,8 @@
  *   data-boot="sky"     cover dissolves, light blooms, wallpaper arrives
  *   data-boot="ready"   the enter key crystallizes — fully interactive
  *
- *   data-boot-mode="full"    first boot this session   (~2.9s)
- *   data-boot-mode="fast"    returning visitor          (~0.9s)
+ *   data-boot-mode="full"    first boot this session   (~4.6s)
+ *   data-boot-mode="fast"    returning visitor          (~2.4s)
  *   data-boot-mode="static"  reduced motion — composed final frame, no theater
  *
  *   data-boot-skipped="true"  user skipped — jump-cut every boot surface
@@ -52,7 +52,7 @@
   );
 }
 [data-boot="sky"] .boot-tint {
-  animation: boot-tint-breathe 1600ms ease forwards;
+  animation: boot-tint-breathe 2200ms ease forwards;
 }
 @keyframes boot-tint-breathe {
   0%   { opacity: 0; }
@@ -72,7 +72,7 @@
     #010409 100%
   );
   opacity: 1;
-  transition: opacity 980ms cubic-bezier(0.33, 0, 0.2, 1);
+  transition: opacity 1400ms cubic-bezier(0.33, 0, 0.2, 1);
 }
 [data-boot="sky"] .boot-cover {
   opacity: 0;
@@ -81,11 +81,11 @@
   opacity: 0;
   visibility: hidden;
   transition:
-    opacity 980ms cubic-bezier(0.33, 0, 0.2, 1),
-    visibility 0s 980ms;
+    opacity 1400ms cubic-bezier(0.33, 0, 0.2, 1),
+    visibility 0s 1400ms;
 }
 [data-boot-mode="fast"] .boot-cover {
-  transition-duration: 560ms;
+  transition-duration: 700ms;
 }
 
 /* ── sigil + boot log column ─────────────────────────────────────────── */
@@ -107,9 +107,9 @@
   transform: translateY(-16px);
   filter: blur(7px);
   transition:
-    opacity 640ms ease 520ms,
-    transform 760ms ease 520ms,
-    filter 640ms ease 520ms;
+    opacity 820ms ease 520ms,
+    transform 940ms ease 520ms,
+    filter 820ms ease 520ms;
 }
 [data-boot-mode="fast"][data-boot="sky"] .boot-core {
   transition-delay: 60ms;
@@ -155,7 +155,7 @@
 }
 [data-boot="sigil"] .boot-ring-draw,
 [data-boot="sky"] .boot-ring-draw {
-  animation: boot-ring-draw 1050ms cubic-bezier(0.4, 0, 0.2, 1) 60ms forwards;
+  animation: boot-ring-draw 1350ms cubic-bezier(0.4, 0, 0.2, 1) 80ms forwards;
 }
 [data-boot-mode="fast"] .boot-ring-draw {
   animation-duration: 460ms;
@@ -187,7 +187,7 @@
 }
 [data-boot="sigil"] .boot-wordmark,
 [data-boot="sky"] .boot-wordmark {
-  animation: boot-wordmark-in 860ms cubic-bezier(0.22, 1, 0.36, 1) 240ms forwards;
+  animation: boot-wordmark-in 1000ms cubic-bezier(0.22, 1, 0.36, 1) 300ms forwards;
 }
 [data-boot-mode="fast"] .boot-wordmark {
   animation-duration: 400ms;
@@ -208,7 +208,7 @@
 }
 [data-boot="sigil"] .boot-tagline,
 [data-boot="sky"] .boot-tagline {
-  animation: boot-fade-up 700ms ease 480ms forwards;
+  animation: boot-fade-up 820ms ease 620ms forwards;
 }
 [data-boot-mode="fast"] .boot-tagline {
   animation-delay: 120ms;
@@ -233,8 +233,8 @@
   align-items: baseline;
   gap: 10px;
   opacity: 0;
-  transform: translateY(5px);
-  transition: opacity 240ms ease, transform 300ms ease;
+  transform: translateY(6px);
+  transition: opacity 380ms ease, transform 440ms ease;
 }
 .boot-line.on {
   opacity: 1;
@@ -248,7 +248,7 @@
 .boot-line-ok {
   color: var(--tone-ok-text);
   opacity: 0;
-  transition: opacity 180ms ease 230ms;
+  transition: opacity 240ms ease 300ms;
 }
 .boot-line.on .boot-line-ok {
   opacity: 1;
@@ -270,7 +270,7 @@
   pointer-events: none;
 }
 [data-boot="sigil"] .boot-skip-hint {
-  animation: boot-fade-up 600ms ease 1150ms forwards;
+  animation: boot-fade-up 600ms ease 1350ms forwards;
 }
 [data-boot="sky"] .boot-skip-hint,
 [data-boot="ready"] .boot-skip-hint,
@@ -315,7 +315,7 @@
   pointer-events: none;
 }
 [data-boot="sky"] .boot-bloom {
-  animation: boot-bloom 1150ms cubic-bezier(0.3, 0.7, 0.3, 1) forwards;
+  animation: boot-bloom 1600ms cubic-bezier(0.3, 0.7, 0.3, 1) forwards;
 }
 @keyframes boot-bloom {
   0%   { opacity: 0; transform: scale(0.06); }
@@ -329,7 +329,7 @@
   opacity: 0;
 }
 .enter-gate[data-boot="ready"] .enter-container {
-  animation: key-crystallize 780ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: key-crystallize 1000ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 [data-boot-mode="fast"][data-boot="ready"] .enter-container {
   animation-duration: 540ms;
@@ -417,7 +417,7 @@
   transform: scale(0.04);
 }
 [data-outro="true"] .login-disc {
-  animation: login-disc 840ms cubic-bezier(0.3, 0.6, 0.2, 1) forwards;
+  animation: login-disc 1100ms cubic-bezier(0.3, 0.6, 0.2, 1) forwards;
 }
 @keyframes login-disc {
   0%   { opacity: 0; transform: scale(0.04); }
@@ -435,7 +435,7 @@
   opacity: 0;
 }
 [data-outro="true"] .login-note {
-  animation: login-note 620ms ease 240ms forwards;
+  animation: login-note 750ms ease 350ms forwards;
 }
 @keyframes login-note {
   from { opacity: 0; transform: translateY(8px); filter: blur(4px); }

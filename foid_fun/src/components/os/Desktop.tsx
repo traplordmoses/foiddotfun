@@ -27,6 +27,7 @@ import { parseDesktopAppsParam } from "@/config/desktop";
 import {
   focusedAppId,
   hydrateWindowStore,
+  isFloaterId,
   useWindowStoreV2,
   type AppId,
   type OSWindowState,
@@ -165,7 +166,9 @@ function useDesktopUrlSync(mounted: boolean) {
     // (e.g. a store tick racing a client navigation away).
     if (window.location.pathname !== "/") return;
 
-    const ids = zOrder.filter((id) => DESKTOP_APPS[id]);
+    const ids = zOrder.filter(
+      (id): id is AppId => !isFloaterId(id) && Boolean(DESKTOP_APPS[id]),
+    );
     const url = new URL(window.location.href);
     if (ids.length) {
       url.searchParams.set("apps", ids.join(","));

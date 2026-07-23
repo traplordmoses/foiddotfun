@@ -14,10 +14,13 @@
 //   pattern), position remembered in state while it stays open.
 
 import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { useAccount } from "wagmi";
 import { TerminalChat, type StatusMessage } from "@/components/TerminalChat";
+import { FOID_DESKTOP_ENABLED } from "@/config/desktop";
 import { useChatAppStore } from "@/stores/chatAppStore";
 import { floatZ, useFloatStore } from "@/stores/floatStore";
+import { surfaceZ, useWindowStoreV2 } from "@/stores/windowStore";
 
 const WINDOW_WIDTH = 360;
 const WINDOW_HEIGHT = 480;
@@ -58,14 +61,22 @@ export default function ChatApp() {
   const close = useChatAppStore((s) => s.close);
   const { address } = useAccount();
 
-  // Interim click-to-front layering (floatStore): any pointerdown on the
-  // chassis claims focus; opening from the dock claims it too (the dock
-  // itself never shifts focus, so a fresh window must self-raise).
+  // Layering. On the desktop shell ("/") the floater is a surface in
+  // windowStore v2's single z-order — clicking any window or floater
+  // re-stacks honestly, exactly like an OS. On standalone routes the
+  // legacy floatStore ladder still applies (one main window + floaters).
+  const pathname = usePathname();
+  const onDesktop = FOID_DESKTOP_ENABLED && pathname === "/";
   const floatFocus = useFloatStore((s) => s.focus);
-  const setFloatFocus = useFloatStore((s) => s.setFocus);
+  const zOrder = useWindowStoreV2((s) => s.zOrder);
+  const raise = useCallback(() => {
+    useFloatStore.getState().setFocus("chat");
+    useWindowStoreV2.getState().raiseSurface("chat");
+  }, []);
   useEffect(() => {
-    if (open) setFloatFocus("chat");
-  }, [open, setFloatFocus]);
+    if (open) raise();
+    else useWindowStoreV2.getState().removeSurface("chat");
+  }, [open, raise]);
 
   // Mount TerminalChat lazily on first open (no idle websocket on routes
   // where chat was never touched), then keep it mounted so history, the
@@ -156,9 +167,9 @@ export default function ChatApp() {
         aria-hidden={!open}
         style={{
           transform: offset ? `translate(${offset.x}px, ${offset.y}px)` : undefined,
-          zIndex: floatZ("chat", floatFocus),
+          zIndex: onDesktop ? surfaceZ(zOrder, "chat") : floatZ("chat", floatFocus),
         }}
-        onPointerDownCapture={() => setFloatFocus("chat")}
+        onPointerDownCapture={raise}
       >
         {/* Titlebar — drag surface + close orb + brand (MUSIC.EXE grammar) */}
         <div className="chat-app__titlebar" onPointerDown={handleBarPointerDown} title="drag to move">

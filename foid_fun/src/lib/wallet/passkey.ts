@@ -45,6 +45,8 @@ function mapPasskeyError(err: unknown, operation: 'create' | 'authenticate'): Er
   }
 
   switch (err.name) {
+    case 'AbortError':
+      return new Error('Passkey prompt cancelled.');
     case 'NotAllowedError':
       return new Error(
         operation === 'create'
@@ -88,12 +90,18 @@ function mapPasskeyError(err: unknown, operation: 'create' | 'authenticate'): Er
 export async function createPasskey(
   userId: string,
   userName: string,
+  signal?: AbortSignal,
 ): Promise<PasskeyResult> {
   const challenge = rand(32);
 
   const createOptions: Record<string, unknown> = {
+    signal,
     publicKey: {
       challenge,
+      // Without an explicit timeout browsers wait ~5 minutes; if the OS
+      // prompt never appears the modal spins forever. 60s keeps a stuck
+      // prompt recoverable.
+      timeout: 60_000,
       rp: { name: 'FOID', id: window.location.hostname },
       user: {
         id: new TextEncoder().encode(userId),
@@ -160,12 +168,15 @@ export async function createPasskey(
 export async function authenticatePasskey(
   credentialId: string,
   withPrf: boolean,
+  signal?: AbortSignal,
 ): Promise<AuthResult> {
   const challenge = rand(32);
 
   const getOptions: Record<string, unknown> = {
+    signal,
     publicKey: {
       challenge,
+      timeout: 60_000,
       allowCredentials: [
         { id: fromB64Url(credentialId), type: 'public-key' },
       ],
