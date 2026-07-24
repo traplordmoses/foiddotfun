@@ -468,7 +468,7 @@ export default function GalleryPage() {
                       the internet&apos;s hottest pop-up gallery
                     </p>
                   </div>
-                  <Link href="/swipe" className="foid-cta-btn text-xs px-3 py-1.5" style={{ background: "linear-gradient(135deg, #e040fb, #f06292)" }}>
+                  <Link href="/vote" className="foid-cta-btn text-xs px-3 py-1.5">
                     PROPOSE A MEME
                   </Link>
                 </div>
@@ -505,7 +505,7 @@ export default function GalleryPage() {
                     <p className="mt-1 max-w-sm text-xs text-white/40">
                       No entries yet. Win a swipe to earn your place in the Gallery.
                     </p>
-                    <Link href="/swipe/submit" className="foid-cta-btn mt-4" style={{ background: "linear-gradient(135deg, #e040fb, #f06292)" }}>
+                    <Link href="/vote/submit" className="foid-cta-btn mt-4">
                       Propose a Meme
                     </Link>
                   </div>

@@ -56,6 +56,7 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      { source: '/home', destination: '/', permanent: true },
       { source: '/trest', destination: '/board', permanent: true },
       { source: '/trest/:path*', destination: '/board/:path*', permanent: true },
       { source: '/gallery', destination: '/board', permanent: true },

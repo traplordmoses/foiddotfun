@@ -382,7 +382,7 @@ It's Tinder for culture. Swipe right to approve, swipe left to reject. If 51% of
 ## Two places, one system
 
 - **[/vote](/vote)** — where you vote on other people's active proposals. This is the swipe deck.
-- **[/swipe](/swipe)** — where you submit your own placement to the Loreboard for the community to vote on.
+- **[/vote/submit](/vote/submit)** — where you submit your own placement for the community to vote on.
 
 Same underlying contract, two entry points: one for deciding, one for proposing.
 
@@ -407,7 +407,7 @@ After the window closes, \`finalize()\` reads \`voteWeightFor\` and \`voteWeight
 
 Both actions are transparent — every removal emits an onchain event recording who did it. Community-driven flagging and vote-to-remove is planned for a later version, once the community is large enough to resist sybil attacks (one person spinning up many wallets to fake a crowd). Until then, the multisig is the backstop for anything genuinely harmful.
 
-Vote on active proposals at [/vote](/vote). Submit your own at [/swipe](/swipe).
+Vote on active proposals at [/vote](/vote). Submit your own at [/vote/submit](/vote/submit).
 `,
   },
   {
@@ -740,7 +740,7 @@ Go to [/vote](/vote) and start swiping on active proposals. Right to approve, le
 
 ## 5. Propose to the Loreboard (optional)
 
-Open [/board](/board) to see the canvas, then head to [/swipe](/swipe) to submit your own placement. Drag an image onto the grid, choose an open spot, and submit — it costs a flat 0.001 ETH. Voting runs for 72 hours, and the community decides whether your meme joins the permanent canon. Note: the fee is spent whether or not it passes, so propose something worth remembering.
+Open [/board](/board) to see the canvas, then head to [/vote/submit](/vote/submit) to submit your own placement. Drag an image onto the grid, choose an open spot, and submit — it costs a flat 0.001 ETH. Voting runs for 72 hours, and the community decides whether your meme joins the permanent canon. Note: the fee is spent whether or not it passes, so propose something worth remembering.
 
 ## 6. Join the community
 
@@ -911,7 +911,7 @@ Me. Moses ([@foidfun](https://twitter.com/foidfun)). Solo dev. Zero coding exper
 
 ## How do I actually start?
 
-**Three steps:** 1. Click connect → choose FOID Wallet → pick a password → passkey prompt → done. (Or use MetaMask if that's your thing.) 2. Get some ETH for gas (bridge ETH to Fluent). 3. Start praying → go to [/pray](/pray) and talk to Foid Mommy. That's it. You're in. Then explore [/swipe](/swipe) to vote on memes and [/board](/board) to propose to the Loreboard. Your streak starts today. Your MiFOID traits are being determined now. Every day you skip is a day she doesn't grow.
+**Three steps:** 1. Click connect → choose FOID Wallet → pick a password → passkey prompt → done. (Or use MetaMask if that's your thing.) 2. Get some ETH for gas (bridge ETH to Fluent). 3. Start praying → go to [/pray](/pray) and talk to Foid Mommy. That's it. You're in. Then explore [/vote](/vote) to vote on memes and [/board](/board) to propose to the Loreboard. Your streak starts today. Your MiFOID traits are being determined now. Every day you skip is a day she doesn't grow.
 
 ## I have more questions
 
@@ -947,7 +947,7 @@ Ready to start? Everything FOID, one page.
 
 - [Pray with Foid Mommy](/pray) — Build your first streak
 - [Vote on Proposals](/vote) — Shape what gets built permanently
-- [Propose on Loreboard](/swipe) — Add your meme to the canon
+- [Propose on Loreboard](/vote/submit) — Add your meme to the canon
 - [View the Loreboard](/board) — See the permanent collection
 - [MiFOID](/mifoid) — Learn how the NFT works
 - [Gallery](/gallery) — Browse the community gallery

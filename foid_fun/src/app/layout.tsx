@@ -97,7 +97,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="dns-prefetch" href="https://dweb.link" />
         <link rel="dns-prefetch" href="https://w3s.link" />
         <link rel="dns-prefetch" href="https://4everland.io" />
-        <meta name="theme-color" content="#0e0f2b" />
+        <meta name="theme-color" content="#030b12" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

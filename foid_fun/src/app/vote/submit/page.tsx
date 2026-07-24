@@ -15,7 +15,7 @@ import toast from "react-hot-toast";
 
 type SubmitStatus = "idle" | "converting" | "uploading" | "confirming" | "done";
 
-export default function SwipeSubmitPage() {
+export default function VoteSubmitPage() {
   const { address, isConnected } = useAccount();
   const { disconnect, switchWallet } = useSwitchWallet();
   const router = useRouter();
@@ -106,7 +106,7 @@ export default function SwipeSubmitPage() {
       setTxHash(hash);
       setStatus("done");
       toast.success("Meme proposed!");
-      setTimeout(() => router.push("/swipe"), 1500);
+      setTimeout(() => router.push("/vote"), 1500);
     } catch (err) {
       setStatus("idle");
       toast.error(err instanceof Error ? err.message : "Submission failed");
@@ -114,9 +114,9 @@ export default function SwipeSubmitPage() {
   }, [file, isConnected, address, router]);
 
   return (
-    <main className="relative bg-foid-bg text-white/90 min-h-screen overflow-x-hidden overflow-y-auto">
+    <main className="relative bg-foid-bg text-white/90 min-h-[100dvh] overflow-x-hidden overflow-y-auto">
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
-      <div className="relative z-10 flex items-start justify-center min-h-screen px-3 py-4 pb-24">
+      <div className="relative z-10 flex min-h-[100dvh] items-start justify-center px-3 py-4 pb-[calc(6rem+env(safe-area-inset-bottom,0px))]">
         <div className="w-full max-w-lg">
           <section className="vista-window w-full flex flex-col">
             <AppTitlebar
@@ -129,8 +129,8 @@ export default function SwipeSubmitPage() {
             <div className="vista-window__body">
               <div className="p-3 md:p-5">
                 <Link
-                  href="/swipe"
-                  className="mb-4 inline-flex items-center text-xs text-neutral-400 transition hover:text-purple-400"
+                  href="/vote"
+                  className="mb-4 inline-flex min-h-11 items-center text-xs text-neutral-400 transition hover:text-purple-400"
                 >
                   &larr; Back to Vote
                 </Link>

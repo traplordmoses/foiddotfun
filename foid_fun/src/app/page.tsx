@@ -148,13 +148,13 @@ function HomeLauncher() {
   return (
     <main
       className="home-page relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center"
-      style={{ height: "100vh", touchAction: "none", overscrollBehavior: "none" }}
+      style={{ height: "100dvh", overscrollBehavior: "contain" }}
     >
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
 
       <section className="relative z-10 w-full max-w-full px-2 sm:px-4">
         <div className="mx-auto w-full max-w-6xl">
-          <div className="vista-window vista-window--terminal vista-window--enhanced h-[94vh] max-h-[94vh] w-full flex flex-col">
+          <div className="vista-window vista-window--terminal vista-window--enhanced h-[94dvh] max-h-[94dvh] w-full flex flex-col">
             <AppTitlebar
               title="FOID_FOUNDATION.EXE"
               connected={mounted && isConnected}
@@ -165,7 +165,7 @@ function HomeLauncher() {
 
             {/* Window body — full iridescent gradient like MiFOID */}
             <div
-              className="vista-window__body home-iridescent"
+              className="vista-window__body foid-iridescent"
               style={{ overflow: "hidden", flex: 1, minHeight: 0, position: "relative" }}
             >
               {/* Live activity bubbles floating upward */}
@@ -224,7 +224,7 @@ function HomeLauncher() {
                 {/* Title zone */}
                 <div className="home-title-zone flex flex-col items-center justify-center min-h-0">
                   <div className="home-float">
-                    <h1 className="home-title font-mono font-bold tracking-[0.22em] uppercase text-center">
+                    <h1 className="home-title font-display font-bold tracking-[0.16em] uppercase text-center">
                       FOID FOUNDATION
                     </h1>
                   </div>
@@ -272,26 +272,6 @@ function HomeLauncher() {
       </section>
 
       <style jsx>{`
-        /* Iridescent body — same treatment as MiFOID */
-        :global(.home-iridescent) {
-          background:
-            linear-gradient(
-              135deg,
-              rgba(200, 120, 255, 0.42) 0%,
-              rgba(120, 160, 255, 0.35) 25%,
-              rgba(255, 160, 220, 0.32) 50%,
-              rgba(140, 180, 255, 0.38) 75%,
-              rgba(180, 120, 255, 0.42) 100%
-            ) !important;
-          background-size: 300% 300% !important;
-          animation: home-iridescent 10s ease infinite !important;
-        }
-        @keyframes home-iridescent {
-          0%   { background-position: 0% 50%; }
-          50%  { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-
         /* Title — bigger, glowing. cqw sizes it against the WINDOW (the
            .vista-window is a foid-window query container), so it scales
            when the OS window is resized; the vw line is the fallback for
@@ -390,11 +370,12 @@ function HomeLauncher() {
           align-items: center;
           justify-content: center;
           padding: 30px 28px;
-          border-radius: 14px;
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          background: rgba(255, 255, 255, 0.06);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          min-height: 44px;
+          border-radius: var(--foid-radius-lg);
+          border: 1px solid var(--foid-glass-panel-border);
+          background: var(--foid-glass-panel-bg);
+          backdrop-filter: var(--foid-glass-panel-blur);
+          -webkit-backdrop-filter: var(--foid-glass-panel-blur);
           text-decoration: none;
           text-align: center;
           /* Hover props only — "all" would animate padding/size while the
@@ -452,7 +433,7 @@ function HomeLauncher() {
 
         /* Card label — pink gradient text like MiFOID */
         :global(.home-card__label) {
-          font-family: var(--font-terminal, ui-monospace, monospace);
+          font-family: var(--font-display);
           font-size: 20px;
           font-weight: 700;
           letter-spacing: 0.2em;
@@ -496,13 +477,14 @@ function HomeLauncher() {
           align-items: center;
           gap: 6px;
           padding: 8px 22px;
-          border-radius: 24px;
+          min-height: 44px;
+          border-radius: var(--foid-radius-pill);
           font-size: 12px;
           font-weight: 600;
           letter-spacing: 0.12em;
           text-transform: uppercase;
           color: rgba(255, 255, 255, 0.9);
-          background: linear-gradient(135deg, rgba(255, 107, 213, 0.3) 0%, rgba(168, 85, 247, 0.3) 100%);
+          background: var(--foid-btn-gradient);
           border: 1px solid rgba(255, 107, 213, 0.25);
           backdrop-filter: blur(8px);
           transition:
@@ -523,6 +505,12 @@ function HomeLauncher() {
            short — content then top-aligns and scrolls instead of clipping
            at both ends. */
         @media (max-width: 768px) {
+          :global(.home-page .vista-window),
+          :global(.home-card),
+          :global(.home-card__cta) {
+            backdrop-filter: blur(10px) saturate(1.1);
+            -webkit-backdrop-filter: blur(10px) saturate(1.1);
+          }
           :global(.home-title-zone) {
             flex: 0 0 auto;
             padding: 0;
@@ -533,6 +521,20 @@ function HomeLauncher() {
             flex: 0 0 auto;
             margin-top: auto;
             margin-bottom: auto;
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          :global(.home-float),
+          :global(.home-sparkle),
+          :global(.home-bubble),
+          :global(.home-bubble-sm),
+          :global(.home-collage-bg),
+          :global(.home-card--hero),
+          :global(.home-card__sparkle) {
+            animation: none !important;
+          }
+          :global(.home-card) {
+            transition-duration: 0.01ms;
           }
         }
         /* Desktop: title zone takes measured space; the grid wrapper grows

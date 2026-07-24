@@ -10,6 +10,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.E2E_PORT ?? 3000);
 const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
+const CHROME_EXECUTABLE = process.env.PLAYWRIGHT_CHROME_EXECUTABLE;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -31,6 +32,9 @@ export default defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
     viewport: { width: 1440, height: 900 },
+    launchOptions: CHROME_EXECUTABLE
+      ? { executablePath: CHROME_EXECUTABLE }
+      : undefined,
   },
   projects: [
     {

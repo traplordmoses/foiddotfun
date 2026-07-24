@@ -595,6 +595,7 @@ export function BoardAppCore({
     voting: swipeVotingProposals,
     debug: proposalDebug,
     loading: boardLoading,
+    error: boardError,
     refetch: refetchBoardData,
   } = useBoardData(undefined, { paused: shellMinimized });
 
@@ -1316,12 +1317,13 @@ export function BoardAppCore({
   }, [placed, proposals, swipeVotingProposals]);
 
   const mobileView = (
-    <div className="h-screen w-screen bg-transparent relative">
+    <div className="h-[100dvh] w-full bg-transparent relative overflow-hidden">
       {/* Propose button — floating top-left, fixed so it stays during zoom/pan */}
       <button
         onClick={() => setShowMobilePropose(true)}
-        className="fixed top-3 left-3 z-50 px-4 py-2 text-xs font-bold tracking-widest uppercase rounded-xl shadow-lg touch-manipulation"
+        className="fixed left-3 z-50 min-h-11 px-4 py-2 text-xs font-bold tracking-widest uppercase rounded-xl shadow-lg touch-manipulation"
         style={{
+          top: "calc(12px + env(safe-area-inset-top, 0px))",
           background: "linear-gradient(135deg, var(--foid-magenta), var(--foid-pink-soft))",
           color: "var(--foid-text)",
           border: "1px solid rgba(255,255,255,0.2)",
@@ -1336,6 +1338,7 @@ export function BoardAppCore({
         <MobileProposeModal
           isConnected={isConnected}
           address={address}
+          onConnect={() => openConnectModal?.()}
           placedRects={[...placed.map(p => ({ ...p.rect, cid: p.cid })), ...swipeVotingProposals.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h, cid: p.cid }))]}
           onClose={() => setShowMobilePropose(false)}
           onSuccess={(msg) => {
@@ -1350,20 +1353,41 @@ export function BoardAppCore({
         hints={[
           "Pinch to zoom in and out",
           "Drag with one finger to pan around",
-          "Hold any meme to view details"
+          "Tap a meme to select it; hold to open details"
         ]}
       />
-      <MobileBoard
-        nodes={boardNodes}
-        onNodeClick={(node) => {
-          // Check if it's a finalized placement
-          const placementId = node.id.replace('placed-', '');
-          const placement = placed.find(p => p.id === placementId);
-          if (placement) {
-            setActivePlacement(proposalToPlacement(placement));
-          }
-        }}
-      />
+      {boardLoading ? (
+        <div className="absolute inset-0 z-20 flex items-center justify-center" role="status" aria-live="polite">
+          <div className="foid-glass rounded-2xl px-5 py-4 font-terminal text-xs uppercase tracking-[0.16em] text-white/75">
+            Loading Loreboard...
+          </div>
+        </div>
+      ) : boardError ? (
+        <div className="absolute inset-0 z-20 flex items-center justify-center px-6" role="alert">
+          <div className="foid-glass max-w-sm rounded-2xl p-5 text-center">
+            <h2 className="foid-h3 text-white/90">Board unavailable</h2>
+            <p className="mt-2 text-sm text-white/60">{boardError}</p>
+            <button
+              type="button"
+              onClick={() => void refetchBoardData()}
+              className="foid-cta-btn mt-4 min-h-11 px-5"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      ) : (
+        <MobileBoard
+          nodes={boardNodes}
+          onNodeClick={(node) => {
+            const placementId = node.id.replace('placed-', '');
+            const placement = placed.find(p => p.id === placementId);
+            if (placement) {
+              setActivePlacement(proposalToPlacement(placement));
+            }
+          }}
+        />
+      )}
 
       {/* Show placement modal if active */}
       {activePlacement && (

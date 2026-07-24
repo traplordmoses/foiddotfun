@@ -111,6 +111,8 @@ type WindowStoreV2 = {
   minimize: (id: AppId) => void;
   /** Un-minimize + focus (dock tile click). Alias of focus. */
   restore: (id: AppId) => void;
+  /** Dock click: open/restore/focus, or minimize when already foreground. */
+  activateFromDock: (id: AppId) => void;
   /** Bring a floater (MUSIC/CHAT) to the front of the shared z-order,
    *  registering it if it isn't stacked yet. Windows use focus(). */
   raiseSurface: (id: FloaterId) => void;
@@ -224,6 +226,16 @@ export const useWindowStoreV2 = create<WindowStoreV2>()(
         }),
 
       restore: (id) => get().focus(id),
+
+      activateFromDock: (id) => {
+        const s = get();
+        const win = s.windows[id];
+        if (win?.status === "open" && focusedAppId(s) === id) {
+          get().minimize(id);
+          return;
+        }
+        get().open(id);
+      },
 
       raiseSurface: (id) =>
         set((s) => {

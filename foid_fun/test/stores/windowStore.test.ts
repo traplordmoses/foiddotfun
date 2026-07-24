@@ -194,6 +194,37 @@ describe("windowStore v2 — minimize (amber orb)", () => {
   });
 });
 
+describe("windowStore v2 — dock activation", () => {
+  it("opens a closed app and focuses it", () => {
+    store().activateFromDock("pray");
+    expect(store().windows.pray?.status).toBe("open");
+    expect(focusedAppId(store())).toBe("pray");
+  });
+
+  it("focuses an open background app instead of minimizing it", () => {
+    store().open("pray");
+    store().open("board");
+    store().activateFromDock("pray");
+    expect(store().windows.pray?.status).toBe("open");
+    expect(focusedAppId(store())).toBe("pray");
+  });
+
+  it("minimizes the focused app when its dock icon is clicked again", () => {
+    store().open("pray");
+    store().activateFromDock("pray");
+    expect(store().windows.pray?.status).toBe("minimized");
+    expect(focusedAppId(store())).toBeUndefined();
+  });
+
+  it("restores and focuses a minimized app", () => {
+    store().open("pray");
+    store().minimize("pray");
+    store().activateFromDock("pray");
+    expect(store().windows.pray?.status).toBe("open");
+    expect(focusedAppId(store())).toBe("pray");
+  });
+});
+
 describe("windowStore v2 — show desktop (HOME dock tile)", () => {
   it("minimizeAll parks every open window and stashes the set", () => {
     store().open("files");

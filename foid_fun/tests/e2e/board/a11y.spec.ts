@@ -11,7 +11,7 @@ import AxeBuilder from "@axe-core/playwright";
 
 test.describe("/board accessibility", () => {
   test("zero axe-core WCAG 2.2 AA violations on initial render", async ({ page }) => {
-    await page.goto("/board");
+    await page.goto("/board?standalone=1");
     // Wait for the vista-window frame to paint — the canvas + sidebar hydrate after this.
     await page.waitForSelector(".vista-window", { state: "visible" });
     // Stabilize any animations so snapshot/axe doesn't catch mid-transition state.
@@ -46,7 +46,7 @@ test.describe("/board accessibility", () => {
   });
 
   test("canvas exposes role=application + keyboard shortcut aria-label", async ({ page }) => {
-    await page.goto("/board");
+    await page.goto("/board?standalone=1");
     await page.waitForSelector(".board-canvas", { state: "visible" });
     const canvas = page.locator(".board-canvas").first();
     await expect(canvas).toHaveAttribute("role", "application");
@@ -57,7 +57,7 @@ test.describe("/board accessibility", () => {
   });
 
   test("board-sr-status live region is present and polite", async ({ page }) => {
-    await page.goto("/board");
+    await page.goto("/board?standalone=1");
     await page.waitForSelector("#board-sr-status");
     const region = page.locator("#board-sr-status");
     await expect(region).toHaveAttribute("role", "status");

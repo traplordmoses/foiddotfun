@@ -18,18 +18,24 @@ import type { OnChainProposal } from "@/types/vote";
 export default function ProposalDetailPage() {
   const params = useParams();
   const proposalId = Number(params.id);
+  const validProposalId = Number.isSafeInteger(proposalId) && proposalId >= 0;
   const { address, isConnected } = useAccount();
   const [timeLeft, setTimeLeft] = useState("");
 
   const contractAddr = (CONTRACTS.SWIPE ?? "") as `0x${string}`;
 
   // Read proposal data from chain
-  const { data: proposalRaw } = useReadContract({
+  const {
+    data: proposalRaw,
+    isLoading: proposalLoading,
+    isError: proposalError,
+    refetch: refetchProposal,
+  } = useReadContract({
     address: contractAddr,
     abi: LOREBOARD_ABI,
     functionName: "getProposal",
-    args: [BigInt(proposalId)],
-    query: { enabled: !!contractAddr },
+    args: validProposalId ? [BigInt(proposalId)] : undefined,
+    query: { enabled: !!contractAddr && validProposalId },
   });
 
   const proposal = proposalRaw as OnChainProposal | undefined;
@@ -120,12 +126,34 @@ export default function ProposalDetailPage() {
         <div className="relative z-10 mx-auto max-w-4xl">
           <FoidOSWindow title={`proposal_${proposalId}.exe`}>
             <div className="p-6">
-              <Link href="/swipe" className="mb-4 inline-flex items-center text-sm text-white/40 transition hover:text-purple-400">
-                &larr; Back to Swipe
+              <Link href="/vote" className="mb-4 inline-flex min-h-11 items-center text-sm text-white/50 transition hover:text-purple-300">
+                &larr; Back to Vote
               </Link>
-              <div className="flex items-center justify-center py-20">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
-              </div>
+              {proposalLoading ? (
+                <div className="flex items-center justify-center gap-3 py-20 text-sm text-white/60" role="status">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" aria-hidden="true" />
+                  Loading proposal...
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-center" role="alert">
+                  <div className="mb-3 text-4xl text-white/25" aria-hidden="true">?</div>
+                  <h1 className="foid-h3 text-white/85">Proposal not found</h1>
+                  <p className="mt-2 max-w-sm text-sm text-white/50">
+                    {proposalError
+                      ? "The proposal could not be loaded. Check your connection and try again."
+                      : "This proposal ID does not exist or is no longer available."}
+                  </p>
+                  {proposalError && validProposalId ? (
+                    <button
+                      type="button"
+                      onClick={() => void refetchProposal()}
+                      className="foid-cta-btn mt-5 min-h-11 px-5"
+                    >
+                      Try again
+                    </button>
+                  ) : null}
+                </div>
+              )}
             </div>
           </FoidOSWindow>
         </div>
@@ -139,8 +167,8 @@ export default function ProposalDetailPage() {
       <div className="relative z-10 mx-auto max-w-4xl">
         <FoidOSWindow title={`proposal_${proposalId}.exe`}>
           <div className="p-4 md:p-6 flex flex-col gap-6">
-            <Link href="/swipe" className="inline-flex items-center text-sm text-white/40 transition hover:text-purple-400">
-              &larr; Back to Swipe
+            <Link href="/vote" className="inline-flex min-h-11 items-center text-sm text-white/50 transition hover:text-purple-300">
+              &larr; Back to Vote
             </Link>
 
             {/* Header */}
