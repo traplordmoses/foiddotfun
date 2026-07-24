@@ -32,11 +32,17 @@ export function EmptyState({ proposals, sessionVoteCount }: { proposals: SwipePr
           {sessionVoteCount >= 5 && " \u{1F525}"}
         </div>
       )}
-      <Link href="/board"
-        className="mt-5 inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-semibold tracking-wide transition hover:scale-[1.03]"
-        style={{ background: "linear-gradient(135deg,rgba(168,130,255,.2),rgba(255,107,213,.2))", border: "1px solid rgba(168,130,255,.3)", color: "rgba(200,170,255,.95)", boxShadow: "0 0 20px rgba(168,130,255,.15)" }}>
-        Go to Loreboard <span aria-hidden="true">&rarr;</span>
-      </Link>
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+        <Link href="/vote/submit" className="foid-cta-btn inline-flex min-h-11 items-center gap-2 px-6 text-sm font-semibold tracking-wide">
+          Propose a meme <span aria-hidden="true">&rarr;</span>
+        </Link>
+        <Link
+          href="/board"
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-5 text-sm font-semibold text-white/70 transition hover:bg-white/10 hover:text-white"
+        >
+          View Loreboard
+        </Link>
+      </div>
     </div>
   );
 }

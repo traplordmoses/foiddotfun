@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useEffect, useMemo } from "react";
-import { Modal } from "@/components/ui";
+import { Modal, PrimaryButton } from "@/components/ui";
 import { TILE, snapRect, hasOverlap, isTouching, type Rect } from "@/lib/grid";
 import { sniffImageType, mimeFromType } from "@/lib/image";
 import { convertToJpeg } from "@/lib/imageConvert";
@@ -49,12 +49,14 @@ async function getImageSizeFromFile(file: File): Promise<{ w: number; h: number 
 export function MobileProposeModal({
   isConnected,
   address,
+  onConnect,
   placedRects,
   onClose,
   onSuccess,
 }: {
   isConnected: boolean;
   address?: string;
+  onConnect: () => void;
   placedRects: PlacedItem[];
   onClose: () => void;
   onSuccess: (msg: string) => void;
@@ -227,8 +229,10 @@ export function MobileProposeModal({
       <>
         {step !== "uploading" && step !== "submitting" && (
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full"
+            aria-label="Close proposal dialog"
+            className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-full"
             style={{ background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
           >
             x
@@ -242,7 +246,14 @@ export function MobileProposeModal({
         {step === "pick" && (
           <>
             {!isConnected ? (
-              <p className="text-xs text-white/60 mb-4">Connect your wallet first to propose a meme.</p>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center">
+                <p className="text-sm text-white/65 mb-4">Connect your wallet to propose a meme.</p>
+                <PrimaryButton
+                  onClick={onConnect}
+                  label="Connect wallet"
+                  className="w-full min-h-11"
+                />
+              </div>
             ) : (
               <>
                 <input

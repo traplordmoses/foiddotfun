@@ -477,6 +477,14 @@ export default function EnterGate({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activateGate, enableGlobalEnter]);
 
+  const visibleBootLines = bootMode === "fast" ? FAST_LOG_LINES : BOOT_LOG_LINES;
+  const bootAnnouncement =
+    bootPhase === "ready"
+      ? "FOID OS ready. Press Enter to continue."
+      : logCount > 0
+        ? `${visibleBootLines[Math.min(logCount - 1, visibleBootLines.length - 1)]} complete`
+        : "Starting FOID OS. Press any key to skip.";
+
   return (
     <div
       className="enter-gate"
@@ -486,6 +494,9 @@ export default function EnterGate({
       data-boot-skipped={bootSkipped ? "true" : undefined}
       data-outro={outroActive ? "true" : undefined}
     >
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {bootAnnouncement}
+      </p>
       <div className="caustics" aria-hidden="true" />
       <div className="particles" ref={particlesRef} aria-hidden="true" />
 
@@ -777,7 +788,7 @@ export default function EnterGate({
           <div className="boot-tagline">the internet&apos;s permanent memory</div>
         </div>
         <div className="boot-log">
-          {(bootMode === "fast" ? FAST_LOG_LINES : BOOT_LOG_LINES).map((line, index) => (
+          {visibleBootLines.map((line, index) => (
             <div key={line} className={`boot-line ${index < logCount ? "on" : ""}`}>
               <span className="boot-line-text">{line}</span>
               <span className="boot-line-dots" />

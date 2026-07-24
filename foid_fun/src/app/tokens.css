@@ -43,6 +43,7 @@
   --foid-bg-deepest: #030b12;
   --foid-panel: rgba(12, 28, 44, 0.58);
   --foid-panel-strong: rgba(6, 14, 28, 0.78);
+  --foid-page-bg: var(--foid-bg-deepest);
 
   /* ══════════════════════════════════════════════════════════════════════
      TEXT + BORDER
@@ -171,6 +172,22 @@
     rgba(255, 255, 255, 0.12) 0%,
     rgba(255, 255, 255, 0.04) 50%,
     transparent 100%
+  );
+  --foid-titlebar-bg: linear-gradient(
+    180deg,
+    rgba(95, 175, 235, 0.95) 0%,
+    rgba(65, 145, 215, 0.92) 50%,
+    rgba(45, 125, 195, 0.95) 100%
+  );
+  --foid-titlebar-border: rgba(0, 50, 100, 0.25);
+  --foid-titlebar-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 2px 3px rgba(255, 255, 255, 0.15),
+    0 1px 4px rgba(0, 40, 80, 0.2);
+  --foid-titlebar-shine: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(255, 255, 255, 0.1) 100%
   );
 
   /* ══════════════════════════════════════════════════════════════════════

@@ -29,7 +29,7 @@ export default function VotePage() {
 
       <section className="relative z-10 w-full max-w-full px-2 sm:px-4">
         <div className="mx-auto w-full max-w-6xl">
-          <div className="vista-window vista-window--terminal vista-window--enhanced h-[94vh] max-h-[94vh] w-full flex flex-col">
+          <div className="vista-window vista-window--terminal vista-window--enhanced h-[94dvh] max-h-[94dvh] w-full flex flex-col">
             <AppTitlebar title="VOTE.EXE" connected={isConnected} address={address} onDisconnect={() => disconnect()} onSwitchWallet={switchWallet} />
             <VoteApp />
           </div>

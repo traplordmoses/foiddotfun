@@ -931,7 +931,7 @@ export function PrayAppCore({
       <section className="hidden lg:block relative z-10 w-full max-w-full px-2 sm:px-4">
         <div className="mx-auto w-full max-w-6xl">
           <div className="pray-window-frame">
-            <div className="vista-window vista-window--terminal vista-window--enhanced h-[94vh] max-h-[94vh] w-full flex flex-col pray-panel pray-panel--main">
+            <div className="vista-window vista-window--terminal vista-window--enhanced h-[94dvh] max-h-[94dvh] w-full flex flex-col pray-panel pray-panel--main">
           {/* Titlebar */}
           <AppTitlebar
             title="FOID_MOMMY_TERMINAL.EXE"

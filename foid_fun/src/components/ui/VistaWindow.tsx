@@ -20,7 +20,7 @@ export type VistaWindowProps = {
   children: ReactNode;
   /** Additional className on the outer window element (e.g. a page-specific layout modifier). */
   className?: string;
-  /** Additional className on the body. Defaults to the standard spacing used on /board + /pray. */
+  /** Additional className on the body. The default body is flush and route-neutral. */
   bodyClassName?: string;
   /**
    * When true (default), adds `vista-window--enhanced` for the accented-glow
@@ -62,7 +62,7 @@ export function VistaWindow({
     .join(" ");
 
   const bodyClass =
-    "vista-window__body vista-window__body--flush mt-2 pray-panel__body" +
+    "vista-window__body vista-window__body--flush" +
     (bodyClassName ? ` ${bodyClassName}` : "");
 
   return (

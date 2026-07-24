@@ -162,7 +162,7 @@ export default function VoteApp() {
 
   useEffect(() => {
     // Initial mount: bust the server cache. Users typically land on
-    // /vote right after submitting a proposal elsewhere (/swipe, /board)
+    // /vote right after submitting a proposal elsewhere (/vote/submit, /board)
     // — a 15s-stale cache would hide their submission. One extra
     // proposalCount probe per visit is cheap; subsequent polls reuse
     // the cache as normal.
@@ -420,9 +420,8 @@ export default function VoteApp() {
 
           {/* Header with tabs */}
           <div className="flex-shrink-0 flex items-center justify-between gap-2 mb-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <h1 className="text-base sm:text-lg font-black uppercase tracking-[.15em] text-transparent bg-clip-text flex-shrink-0"
-                style={{ backgroundImage: "linear-gradient(135deg,rgba(168,130,255,1) 0%,rgba(255,255,255,.95) 50%,rgba(200,160,255,.9) 100%)" }}>
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
+              <h1 className="foid-h3 foid-gradient-text flex-shrink-0">
                 Vote
               </h1>
               <div className="flex gap-1" role="tablist" aria-label="Vote tabs">
@@ -431,8 +430,8 @@ export default function VoteApp() {
                     role="tab"
                     aria-selected={tab === t}
                     aria-controls={`vote-panel-${t}`}
-                    className={`rounded-full px-2 sm:px-3 py-0.5 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider transition ${
-                      tab === t ? "bg-purple-600/30 text-purple-300 ring-1 ring-purple-500/40" : "text-white/35 hover:text-white/60"
+                    className={`min-h-11 rounded-full px-3 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider transition ${
+                      tab === t ? "bg-white/10 text-white ring-1 ring-[var(--foid-border-subtle)] shadow-[var(--foid-shadow-chip)]" : "text-white/45 hover:bg-white/[0.06] hover:text-white/75"
                     }`}>
                     {t === "active" ? `Live (${activeProposals.length})` : t === "completed" ? `Closed (${closedProposals.length})` : `My Votes (${votedIds.size})`}
                   </button>
@@ -440,6 +439,12 @@ export default function VoteApp() {
               </div>
               {totalOnChain > 0 && <span className="hidden sm:inline text-[10px] text-white/25">{totalOnChain} onchain</span>}
             </div>
+            <Link
+              href="/vote/submit"
+              className="hidden min-h-11 shrink-0 items-center rounded-xl border border-white/15 bg-white/[0.07] px-3 text-[10px] font-semibold uppercase tracking-wider text-white/70 transition hover:bg-white/10 hover:text-white sm:inline-flex"
+            >
+              + Propose
+            </Link>
           </div>
 
           {/* Main content */}
@@ -455,7 +460,7 @@ export default function VoteApp() {
               <div className="mb-3 text-4xl opacity-30" aria-hidden="true">&#x26A0;</div>
               <h2 className="text-base font-medium text-white/70">Failed to load proposals</h2>
               <p className="mt-2 text-sm text-white/40">Check your connection and try again.</p>
-              <button onClick={() => refetchProposals({ forceFresh: true })} className="mt-4 rounded-lg bg-purple-600/30 px-4 py-2 text-xs font-semibold text-purple-300 hover:bg-purple-600/50 transition">
+              <button onClick={() => refetchProposals({ forceFresh: true })} className="foid-cta-btn mt-4 min-h-11 px-5 text-xs font-semibold">
                 Retry
               </button>
             </div>
@@ -523,7 +528,7 @@ export default function VoteApp() {
                   const myChoice = voteChoices.get(proposal.id);
                   return (
                     <Link key={proposal.id} href={`/vote/${proposal.id}`}
-                      className="group block rounded-xl border border-neutral-800 bg-neutral-900/40 p-2 transition hover:border-purple-500/30">
+                      className="group block rounded-xl border border-[var(--foid-glass-panel-border)] bg-[var(--foid-glass-panel-bg)] p-2 shadow-[var(--foid-shadow-panel)] backdrop-blur-md transition hover:border-[var(--foid-border-subtle)]">
                       <div className="mb-1.5 flex items-center justify-between">
                         <span className="text-[10px] text-white/40">Prop #{proposal.id}</span>
                         <div className="flex items-center gap-1.5">
@@ -537,7 +542,7 @@ export default function VoteApp() {
                           }`}>{proposal.approved ? "Canonized" : "Rejected"}</span>
                         </div>
                       </div>
-                      <div className="overflow-hidden rounded-lg bg-neutral-800/50">
+                      <div className="overflow-hidden rounded-lg bg-white/[0.05]">
                         <div className="aspect-square max-h-[160px]">
                           {proposal.ipfsCid ? (
                             <img src={cidToHttpUrl(proposal.ipfsCid)} alt={`Proposal #${proposal.id}`} className="h-full w-full object-cover" loading="lazy" onError={(e) => tryNextGateway(e.currentTarget, proposal.ipfsCid)} />
@@ -548,7 +553,7 @@ export default function VoteApp() {
                           )}
                         </div>
                       </div>
-                      <div className="mt-2 rounded-lg bg-neutral-800/60 px-2.5 py-1.5">
+                      <div className="mt-2 rounded-lg border border-white/[0.06] bg-white/[0.05] px-2.5 py-1.5">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <span className="text-green-400 text-[10px] font-bold">{forC}Y</span>
@@ -557,7 +562,7 @@ export default function VoteApp() {
                           </div>
                           {total > 0 && <span className={`text-[9px] font-semibold ${passing ? "text-green-400" : "text-red-400"}`}>{pct}%</span>}
                         </div>
-                        <div className="relative flex h-1.5 overflow-hidden rounded-full bg-neutral-700/50" role="progressbar" aria-valuenow={pct} aria-valuemax={100} aria-label={`${pct}% approval`}>
+                        <div className="relative flex h-1.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={pct} aria-valuemax={100} aria-label={`${pct}% approval`}>
                           {total > 0 ? (
                             <>
                               <div className="bg-green-500 transition-all duration-300" style={{ width: `${(forC / total) * 100}%` }} />

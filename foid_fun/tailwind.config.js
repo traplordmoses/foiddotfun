@@ -1,4 +1,6 @@
 const foid = {
+  bg: "var(--foid-page-bg)",
+  ink: "var(--foid-bg-ink)",
   aqua: "#72e1ff",
   cyan: "#00d0ff",
   periw: "#8faaf2",

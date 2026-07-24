@@ -3,7 +3,7 @@
 import { useRef, useState, useCallback } from 'react';
 import { useTouchGestures } from '@/hooks/useTouchGestures';
 import { useMobile } from '@/hooks/useMobile';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { IpfsImage } from '@/components/IpfsImage';
 
 interface BoardNode {
@@ -32,7 +32,7 @@ export function MobileBoard({
   onNodeMove,
   onAddNode,
 }: MobileBoardProps) {
-  const { isMobile, screenWidth, screenHeight } = useMobile();
+  const { screenWidth, screenHeight } = useMobile();
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // Canvas state - start at 30% zoom for better overview, centered on world origin.
@@ -149,6 +149,11 @@ export function MobileBoard({
             box-shadow: 0 0 18px rgba(168,85,247,0.55), 0 0 40px rgba(168,85,247,0.25), inset 0 0 12px rgba(168,85,247,0.15);
           }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .mobile-board-voting {
+            animation: none !important;
+          }
+        }
       `}</style>
       {/* Canvas */}
       <div
@@ -160,7 +165,7 @@ export function MobileBoard({
           style={{
             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
             transformOrigin: '0 0',
-            transition: 'transform 0.1s ease-out',
+            willChange: 'transform',
           }}
         >
           {/* Grid background - very subtle */}
@@ -184,6 +189,7 @@ export function MobileBoard({
                 key={node.id}
                 className={`
                   absolute
+                  ${isVoting ? 'mobile-board-voting' : ''}
                   ${selectedNode === node.id ? 'ring-2 ring-white ring-offset-2 ring-offset-transparent' : ''}
                 `}
                 style={{

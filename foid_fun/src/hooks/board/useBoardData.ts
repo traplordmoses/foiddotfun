@@ -42,6 +42,7 @@ export type BoardDataSnapshot = {
   voting: SwipeVotingProposal[];
   debug: ListProposalsResponse["debug"] | null;
   loading: boolean;
+  error: string | null;
 };
 
 /**
@@ -150,6 +151,7 @@ export function useBoardData(
   const [voting, setVoting] = useState<SwipeVotingProposal[]>([]);
   const [debug, setDebug] = useState<ListProposalsResponse["debug"] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Ref mirror so the long-lived tick closure reads the CURRENT pause state
   // without re-subscribing the block watcher on every minimize/restore.
@@ -175,6 +177,10 @@ export function useBoardData(
           : { proposals: [], debug: undefined };
       const swipeData: { proposals: RawSwipeProposal[] } =
         swipeRes.status === "fulfilled" ? swipeRes.value : { proposals: [] };
+      const nextError =
+        boardRes.status === "rejected" && swipeRes.status === "rejected"
+          ? "The Loreboard could not be loaded."
+          : null;
 
       const normalized = normalizeProposals(boardData.proposals);
       const activeSwipe = mapActiveSwipe(swipeData.proposals ?? []);
@@ -183,6 +189,7 @@ export function useBoardData(
         setProposals(normalized);
         setDebug(boardData.debug ?? null);
         setVoting(activeSwipe);
+        setError(nextError);
         setLoading(false);
       });
     },
@@ -217,7 +224,10 @@ export function useBoardData(
       await runTick(controller.signal, { forceFresh: true });
     } catch (err) {
       if ((err as { name?: string })?.name === "AbortError") return;
-      startTransition(() => setLoading(false));
+      startTransition(() => {
+        setError("The Loreboard could not be loaded.");
+        setLoading(false);
+      });
     } finally {
       const idx = controllersRef.current.indexOf(controller);
       if (idx >= 0) controllersRef.current.splice(idx, 1);
@@ -253,7 +263,10 @@ export function useBoardData(
       } catch (err) {
         if ((err as { name?: string })?.name === "AbortError") return;
         if (!cancelled) {
-          startTransition(() => setLoading(false));
+          startTransition(() => {
+            setError("The Loreboard could not be loaded.");
+            setLoading(false);
+          });
         }
       } finally {
         const idx = controllersRef.current.indexOf(controller);
@@ -339,5 +352,5 @@ export function useBoardData(
     if (wasPaused && !paused) catchUpRef.current?.();
   }, [paused]);
 
-  return { proposals, voting, debug, loading, refetch };
+  return { proposals, voting, debug, loading, error, refetch };
 }

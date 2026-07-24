@@ -14,7 +14,7 @@ export default function DirectPlacePage() {
           Direct placement is no longer available. Propose your meme through Swipe instead — the community votes, and winners are canonized in the Gallery.
         </p>
         <Link
-          href="/swipe/submit"
+          href="/vote/submit"
           className="inline-block rounded-xl px-6 py-3 text-sm font-semibold text-white transition hover:opacity-85"
           style={{ background: "linear-gradient(135deg, #e040fb, #f06292)" }}
         >

@@ -18,7 +18,7 @@ import {
   useTransform,
   type MotionValue,
 } from 'framer-motion';
-import { focusedAppId, isFloaterId, useWindowStore, useWindowStoreV2 } from '@/stores/windowStore';
+import { focusedAppId, useWindowStore, useWindowStoreV2 } from '@/stores/windowStore';
 import { useAmpStore } from '@/stores/ampStore';
 import { useChatAppStore } from '@/stores/chatAppStore';
 import {
@@ -159,6 +159,7 @@ export function Dock() {
   // so on lg+ viewports the dock is a real OS dock: open/focus/restore.
   const osWindows = useWindowStoreV2((s) => s.windows);
   const osZOrder = useWindowStoreV2((s) => s.zOrder);
+  const focusedOsApp = focusedAppId({ windows: osWindows, zOrder: osZOrder });
   const ampOpen = useAmpStore((s) => s.open);
   const chatOpen = useChatAppStore((s) => s.open);
   // MUSIC/CHAT tiles: open when closed; raise when open-but-buried
@@ -281,9 +282,8 @@ export function Dock() {
     };
   }, []);
 
-  // Shell viewport flag for the HOME tile (client-only: false on the server
-  // and the first paint, so hydration stays consistent). While true and on
-  // "/", HOME is "show desktop" — a window toggle, not a navigation.
+  // Shell viewport flag: desktop app icons manage windows, while mobile
+  // remains ordinary route navigation. Home is hidden on the desktop shell.
   const [desktopShell, setDesktopShell] = useState(false);
   useEffect(() => {
     if (!FOID_DESKTOP_ENABLED) return;
@@ -338,19 +338,25 @@ export function Dock() {
       >
         {navItems.map((item) => {
           const isHome = item.href === '/';
-          // HOME in the shell is "show desktop": its puck only lights when
-          // the desktop itself is the foreground — on "/" with no window
-          // focused (all closed or all parked in the dock).
-          const nothingFocused =
-            focusedAppId({ windows: osWindows, zOrder: osZOrder }) === undefined;
-          const isActive = !item.external && (isHome
-            ? pathname === '/' && (!desktopShell || nothingFocused)
-            : pathname === item.href || pathname.startsWith(`${item.href}/`));
           // FOID OS shell: app tiles open desktop windows instead of
           // navigating (lg+ only); null when the desktop is opted out
           // (NEXT_PUBLIC_FOID_DESKTOP=0) or the item isn't a shell app.
           const osAppId = desktopAppForHref(item.href);
           const osWin = osAppId ? osWindows[osAppId] : undefined;
+          const isActive = !item.external && (
+            desktopShell && osAppId
+              ? focusedOsApp === osAppId && osWin?.status === 'open'
+              : pathname === item.href || pathname.startsWith(`${item.href}/`)
+          );
+          const desktopActionLabel = osAppId && desktopShell
+            ? osWin?.status === 'minimized'
+              ? `Restore ${item.label}`
+              : focusedOsApp === osAppId && osWin?.status === 'open'
+                ? `Minimize ${item.label}`
+                : osWin
+                  ? `Focus ${item.label}`
+                  : `Open ${item.label}`
+            : undefined;
 
           const inner = (
             <motion.div
@@ -399,40 +405,18 @@ export function Dock() {
               // route's chunks + RSC payload are fetched ahead of the click
               // (production only — dev never prefetches).
               prefetch={true}
-              className="relative flex flex-col items-center justify-center h-full min-w-[64px] px-2 touch-manipulation"
+              className={`relative flex-col items-center justify-center h-full min-h-11 min-w-[64px] px-2 touch-manipulation ${
+                isHome && FOID_DESKTOP_ENABLED ? 'flex lg:hidden' : 'flex'
+              }`}
               // Genie target: OSWindow reads this tile's rect to aim the
               // minimize animation at the app's own dock icon.
               data-dock-app={osAppId ?? undefined}
               aria-current={isActive ? "page" : undefined}
-              aria-label={isHome && desktopShell ? 'Show desktop' : undefined}
+              aria-label={desktopActionLabel}
               onClick={(e) => {
-                // FOID OS shell HOME = "show desktop" (macOS F11 feel):
-                // on the desktop, genie every open window to the dock;
-                // click again with everything parked to bring the same
-                // set back. On mobile and from other routes (incl.
-                // ?standalone=1 pages) it stays a plain navigation to /.
-                if (
-                  isHome &&
-                  FOID_DESKTOP_ENABLED &&
-                  window.innerWidth >= DESKTOP_MIN_WIDTH &&
-                  pathname === '/'
-                ) {
+                if (osAppId && window.innerWidth >= DESKTOP_MIN_WIDTH) {
                   e.preventDefault();
-                  const os = useWindowStoreV2.getState();
-                  const anyOpen = os.zOrder.some(
-                    (id) => !isFloaterId(id) && os.windows[id]?.status === 'open',
-                  );
-                  if (anyOpen) os.minimizeAll();
-                  else os.restoreAll();
-                  return;
-                }
-                // FOID OS shell: open/focus/restore the app's desktop
-                // window instead of navigating (desktop viewports only —
-                // mobile keeps route navigation). From another route, jump
-                // to the desktop with the window already open.
-                if (osAppId && window.innerWidth >= 1024) {
-                  e.preventDefault();
-                  useWindowStoreV2.getState().open(osAppId);
+                  useWindowStoreV2.getState().activateFromDock(osAppId);
                   if (pathname !== '/') router.push('/');
                   return;
                 }
