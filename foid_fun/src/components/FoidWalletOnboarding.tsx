@@ -295,15 +295,61 @@ export default function FoidWalletOnboarding() {
     }
   }, [address, privateKey, mode]);
 
+  const panelRef = useRef<HTMLDivElement>(null);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && step === 'pin') {
         e.preventDefault();
         handlePinSubmit();
+        return;
+      }
+      // Focus trap: Tab cycles inside the panel while the modal is open.
+      if (e.key === 'Tab' && panelRef.current) {
+        const focusables = Array.from(
+          panelRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((el) => el.offsetParent !== null);
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement;
+        if (e.shiftKey && (active === first || active === panelRef.current)) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     },
     [step, handlePinSubmit],
   );
+
+  // Escape closes the modal (a passkey prompt in flight keeps its own
+  // Cancel button, so "working" ignores Escape). Focus lands inside the
+  // dialog on open so screen readers and keyboard users start in it.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (step === 'working') return;
+      e.preventDefault();
+      setOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    const t = window.setTimeout(() => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      const first = panel.querySelector<HTMLElement>('input:not([disabled]), button:not([disabled])');
+      (first ?? panel).focus();
+    }, 50);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      window.clearTimeout(t);
+    };
+  }, [open, step]);
 
   if (!open) return null;
 
@@ -317,13 +363,18 @@ export default function FoidWalletOnboarding() {
       }}
     >
       <div
-        className="relative w-[90vw] max-w-md rounded-2xl border border-white/15 p-6 text-white shadow-[0_20px_60px_rgba(0,0,0,.5)]"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="foid-wallet-dialog-title"
+        tabIndex={-1}
+        className="relative w-[90vw] max-w-md rounded-2xl border border-white/15 p-6 text-white shadow-[0_20px_60px_rgba(0,0,0,.5)] outline-none"
         style={{ background: 'rgba(20,20,30,0.92)', maxHeight: '90vh', overflowY: 'auto' }}
         onKeyDown={handleKeyDown}
       >
         {/* Header */}
         <div className="mb-4 text-center">
-          <div className="text-lg font-bold tracking-wide">FOID WALLET</div>
+          <div id="foid-wallet-dialog-title" className="text-lg font-bold tracking-wide">FOID WALLET</div>
           <div className="mt-1 text-xs text-white/50 tracking-widest uppercase">
             {step === 'explain' && 'Forge Your Identity'}
             {step === 'pin' && (mode === 'create' ? 'Choose Your Secret Key' : mode === 'unlock' ? 'Enter Password' : 'Restore')}

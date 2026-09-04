@@ -10,22 +10,26 @@
 // file owns the imperative surface — track/identify/reset — plus helpers
 // used by the boot component.
 //
+// The posthog-js SDK (~180 KB raw) is imported lazily after the window
+// `load` event and an idle slot, so it never sits in the first-load path.
+// Calls made before it lands are queued and flushed in order.
+//
 // Wallet addresses MUST NOT be sent to PostHog in raw form. Use
 // hashedDistinctId() before passing an address to identify().
 
-import posthog from "posthog-js";
+type PostHogClient = typeof import("posthog-js").default;
 
 const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY ?? "";
 const POSTHOG_HOST =
   process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
 
+let client: PostHogClient | null = null;
 let booted = false;
 let optedOut = false;
 let initialized = false;
-// Queue for capture() calls that fire between posthog.init() and its async
-// `loaded` callback. Without this buffer, early track() calls hit posthog-js
-// before it has a working transport and can be silently dropped.
-const pendingCaptures: Array<[string, Record<string, unknown> | undefined]> = [];
+// Ops that fire between bootAnalytics() and the SDK's async `loaded`
+// callback. Without this buffer early track/identify calls would be dropped.
+const pendingOps: Array<(ph: PostHogClient) => void> = [];
 
 function hasDntEnabled(): boolean {
   if (typeof window === "undefined") return false;
@@ -49,9 +53,51 @@ export function analyticsEnabled(): boolean {
   return booted;
 }
 
+function enqueueOrRun(op: (ph: PostHogClient) => void): void {
+  if (!POSTHOG_KEY) return;
+  if (typeof window === "undefined") return;
+  if (hasDntEnabled()) return;
+  if (optedOut) return;
+  if (booted && client) {
+    op(client);
+    return;
+  }
+  // Queue only when init has actually been kicked off — otherwise the call
+  // is a pre-boot orphan (SSR path or called before bootAnalytics).
+  if (initialized) pendingOps.push(op);
+}
+
+function startSdk(): void {
+  import("posthog-js")
+    .then(({ default: posthog }) => {
+      posthog.init(POSTHOG_KEY, {
+        api_host: POSTHOG_HOST,
+        capture_pageview: true,
+        capture_pageleave: true,
+        persistence: "localStorage+cookie",
+        autocapture: false,
+        disable_session_recording: true,
+        loaded: () => {
+          client = posthog;
+          booted = true;
+          while (pendingOps.length > 0) {
+            const next = pendingOps.shift();
+            if (next) next(posthog);
+          }
+        },
+      });
+    })
+    .catch(() => {
+      // Blocked or offline: allow a later boot attempt.
+      initialized = false;
+      pendingOps.length = 0;
+    });
+}
+
 /**
  * Boot PostHog. Idempotent — safe to call from StrictMode double-mount.
- * No-ops silently when the key is missing or DNT is on.
+ * No-ops silently when the key is missing or DNT is on. The SDK itself is
+ * fetched after `load` + an idle callback so first paint never waits on it.
  */
 export function bootAnalytics(): void {
   if (initialized) return;
@@ -62,21 +108,19 @@ export function bootAnalytics(): void {
     return;
   }
   initialized = true;
-  posthog.init(POSTHOG_KEY, {
-    api_host: POSTHOG_HOST,
-    capture_pageview: true,
-    capture_pageleave: true,
-    persistence: "localStorage+cookie",
-    autocapture: false,
-    disable_session_recording: true,
-    loaded: () => {
-      booted = true;
-      while (pendingCaptures.length > 0) {
-        const next = pendingCaptures.shift();
-        if (next) posthog.capture(next[0], next[1]);
-      }
-    },
-  });
+
+  const win = window as Window & {
+    requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+  };
+  const whenIdle = () => {
+    if (typeof win.requestIdleCallback === "function") {
+      win.requestIdleCallback(startSdk, { timeout: 4000 });
+    } else {
+      window.setTimeout(startSdk, 1500);
+    }
+  };
+  if (document.readyState === "complete") whenIdle();
+  else window.addEventListener("load", whenIdle, { once: true });
 }
 
 /**
@@ -87,17 +131,7 @@ export function track(
   event: string,
   properties?: Record<string, unknown>,
 ): void {
-  if (!POSTHOG_KEY) return;
-  if (typeof window === "undefined") return;
-  if (hasDntEnabled()) return;
-  if (optedOut) return;
-  if (!booted) {
-    // Queue only when init has actually been kicked off — otherwise the
-    // call is a pre-boot orphan (SSR path or called before bootAnalytics).
-    if (initialized) pendingCaptures.push([event, properties]);
-    return;
-  }
-  posthog.capture(event, properties);
+  enqueueOrRun((ph) => ph.capture(event, properties));
 }
 
 /**
@@ -108,8 +142,7 @@ export function identify(
   distinctId: string,
   traits?: Record<string, unknown>,
 ): void {
-  if (!analyticsEnabled()) return;
-  posthog.identify(distinctId, traits);
+  enqueueOrRun((ph) => ph.identify(distinctId, traits));
 }
 
 /**
@@ -117,8 +150,7 @@ export function identify(
  * next session starts with a fresh anonymous id.
  */
 export function reset(): void {
-  if (!analyticsEnabled()) return;
-  posthog.reset();
+  enqueueOrRun((ph) => ph.reset());
 }
 
 /**

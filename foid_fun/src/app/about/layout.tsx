@@ -4,7 +4,11 @@ import type { ReactNode } from "react";
 // too — not just this route. ABOUT.EXE shares the FILES.EXE Finder chrome
 // wholesale; about.css only adds the TEXTEDIT.EXE reader styles.
 
-export const metadata = { title: "ABOUT" };
+export const metadata = {
+  title: "About",
+  description:
+    "How FOID works: the prayer ritual, the Loreboard, streak-weighted voting, the contracts on Fluent, and the roadmap.",
+};
 
 export default function AboutLayout({ children }: { children: ReactNode }) {
   return children;

@@ -381,7 +381,7 @@ export default function WalletMenuPill({
       <button
         ref={buttonRef}
         type="button"
-        className={`aero-wallet-pill ${className}`}
+        className={`aero-wallet-pill${isConnected ? " aero-wallet-pill--connected" : ""} ${className}`}
         onClick={handleToggle}
         aria-expanded={isOpen}
         aria-haspopup="menu"
@@ -392,9 +392,9 @@ export default function WalletMenuPill({
         <span className="aero-wallet-pill__label">
           {isConnected ? "WALLET" : "CONNECT"}
         </span>
-        <span className="aero-wallet-pill__address">
-          {address ? shortHash(address) : "—"}
-        </span>
+        {address ? (
+          <span className="aero-wallet-pill__address">{shortHash(address)}</span>
+        ) : null}
         <svg
           className={`aero-wallet-pill__chevron ${isOpen ? "aero-wallet-pill__chevron--open" : ""}`}
           width="10"

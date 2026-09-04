@@ -25,8 +25,9 @@ if (
 }
 
 import "@rainbow-me/rainbowkit/styles.css";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { WagmiProvider, http, fallback, createConfig } from "wagmi";
+import { reconnect } from "@wagmi/core";
 import {
   RainbowKitProvider,
   darkTheme,
@@ -95,9 +96,38 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Targeted session restore. wagmi's default reconnect-on-mount probes EVERY
+ *  connector (isAuthorized -> getProvider), which makes the WalletConnect
+ *  connector import @walletconnect/ethereum-provider plus the Reown modal
+ *  (~1 MB raw) on every page load for every visitor, wallet or not. We only
+ *  probe the connector the user actually used last, so first-time visitors
+ *  and injected/embedded wallet users never download WalletConnect. */
+function LazyReconnect() {
+  useEffect(() => {
+    let recentId: unknown = null;
+    try {
+      const raw = window.localStorage.getItem("wagmi.recentConnectorId");
+      if (raw) {
+        try {
+          recentId = JSON.parse(raw);
+        } catch {
+          recentId = raw;
+        }
+      }
+    } catch {
+      recentId = null;
+    }
+    if (typeof recentId !== "string" || !recentId) return;
+    const connector = config.connectors.find((c) => c.id === recentId);
+    if (!connector) return;
+    void reconnect(config, { connectors: [connector] }).catch(() => {});
+  }, []);
+  return null;
+}
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <WagmiProvider config={config}>
+    <WagmiProvider config={config} reconnectOnMount={false}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
           theme={darkTheme()}
@@ -105,6 +135,7 @@ export function Providers({ children }: { children: ReactNode }) {
           initialChain={TARGET_CHAIN}
           showRecentTransactions={true}
         >
+          <LazyReconnect />
           <NetworkSwitcher />
           <AnalyticsBoot />
           {children}

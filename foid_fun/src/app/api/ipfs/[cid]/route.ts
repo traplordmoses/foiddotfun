@@ -65,7 +65,12 @@ export const runtime = "nodejs";
 
 type CachedImage = { bytes: Uint8Array; contentType: string };
 const CACHE_MAX_ENTRIES = 128;
+// Byte budget. Entries can be up to MAX_RESPONSE_BYTES each, so an
+// entry-count cap alone allowed 128 x 10 MB = 1.28 GB on an instance whose
+// Node heap is limited to 1 GB. 64 MB holds a few hundred board tiles.
+const CACHE_MAX_BYTES = 64 * 1024 * 1024;
 const imageCache = new Map<string, CachedImage>();
+let imageCacheBytes = 0;
 
 function cacheGet(cid: string): CachedImage | null {
   const hit = imageCache.get(cid);
@@ -75,13 +80,26 @@ function cacheGet(cid: string): CachedImage | null {
   return hit;
 }
 
+function cacheDelete(key: string): void {
+  const existing = imageCache.get(key);
+  if (!existing) return;
+  imageCacheBytes -= existing.bytes.byteLength;
+  imageCache.delete(key);
+}
+
 function cachePut(cid: string, entry: CachedImage): void {
-  if (imageCache.has(cid)) imageCache.delete(cid);
+  // Never let a single oversized payload evict the whole hot set.
+  if (entry.bytes.byteLength > CACHE_MAX_BYTES / 4) return;
+  cacheDelete(cid);
   imageCache.set(cid, entry);
-  while (imageCache.size > CACHE_MAX_ENTRIES) {
+  imageCacheBytes += entry.bytes.byteLength;
+  while (
+    imageCache.size > CACHE_MAX_ENTRIES ||
+    imageCacheBytes > CACHE_MAX_BYTES
+  ) {
     const first = imageCache.keys().next().value;
     if (first === undefined) break;
-    imageCache.delete(first);
+    cacheDelete(first);
   }
 }
 

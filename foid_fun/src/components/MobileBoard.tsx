@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { buildIndex, queryIndex } from '@/hooks/board/useVisiblePlacements';
 import { useTouchGestures } from '@/hooks/useTouchGestures';
 import { useMobile } from '@/hooks/useMobile';
 import { motion } from 'framer-motion';
@@ -35,7 +36,8 @@ export function MobileBoard({
   const { screenWidth, screenHeight } = useMobile();
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  // Canvas state - start at 30% zoom for better overview, centered on world origin.
+  // Canvas state. The view fits itself to the content bounds the first time
+  // nodes arrive (below); until then it sits at 30% over world origin.
   const [scale, setScale] = useState(0.3);
   const [position, setPosition] = useState(() => ({
     x: (typeof window !== 'undefined' ? window.innerWidth : 375) / 2,
@@ -43,24 +45,101 @@ export function MobileBoard({
   }));
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
 
-  // Pan bounds - allow panning up to 2x screen dimensions from center
-  const MAX_PAN_X = screenWidth * 2;
-  const MAX_PAN_Y = screenHeight * 2;
-  const MIN_PAN_X = -MAX_PAN_X;
-  const MIN_PAN_Y = -MAX_PAN_Y;
+  // Content bounds in world units. Pan limits and the initial fit derive
+  // from these, so the board can never be panned into empty space and never
+  // opens on empty space either (placements sit thousands of units from the
+  // origin, so the old origin-centred start showed nothing on first paint).
+  const bounds = useMemo(() => {
+    if (nodes.length === 0) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of nodes) {
+      if (n.x < minX) minX = n.x;
+      if (n.y < minY) minY = n.y;
+      if (n.x + n.width > maxX) maxX = n.x + n.width;
+      if (n.y + n.height > maxY) maxY = n.y + n.height;
+    }
+    return { minX, minY, maxX, maxY };
+  }, [nodes]);
+  const boundsRef = useRef(bounds);
+  boundsRef.current = bounds;
+  const scaleRef = useRef(scale);
+  scaleRef.current = scale;
+
+  const clampPosition = useCallback((x: number, y: number) => {
+    const b = boundsRef.current;
+    if (!b) return { x, y };
+    const s = scaleRef.current;
+    const sw = typeof window !== 'undefined' ? window.innerWidth : screenWidth;
+    const sh = typeof window !== 'undefined' ? window.innerHeight : screenHeight;
+    // Keep at least half a screen of content reachable in every direction.
+    const padX = sw * 0.5;
+    const padY = sh * 0.5;
+    const minPosX = sw - b.maxX * s - padX;
+    const maxPosX = padX - b.minX * s;
+    const minPosY = sh - b.maxY * s - padY;
+    const maxPosY = padY - b.minY * s;
+    const lowX = Math.min(minPosX, maxPosX);
+    const highX = Math.max(minPosX, maxPosX);
+    const lowY = Math.min(minPosY, maxPosY);
+    const highY = Math.max(minPosY, maxPosY);
+    return {
+      x: Math.max(lowX, Math.min(highX, x)),
+      y: Math.max(lowY, Math.min(highY, y)),
+    };
+  }, [screenWidth, screenHeight]);
 
   // Handle pan with bounds checking
   const handlePan = useCallback((delta: { x: number; y: number }) => {
-    setPosition((prev) => {
-      const newX = prev.x + delta.x;
-      const newY = prev.y + delta.y;
+    setPosition((prev) => clampPosition(prev.x + delta.x, prev.y + delta.y));
+  }, [clampPosition]);
 
-      return {
-        x: Math.max(MIN_PAN_X, Math.min(MAX_PAN_X, newX)),
-        y: Math.max(MIN_PAN_Y, Math.min(MAX_PAN_Y, newY)),
-      };
+  // First fit: once placements arrive, zoom out far enough to show the whole
+  // board and centre it. Runs once; gestures own the view after that.
+  const fittedRef = useRef(false);
+  useEffect(() => {
+    if (fittedRef.current || !bounds) return;
+    fittedRef.current = true;
+    const sw = window.innerWidth;
+    const sh = window.innerHeight;
+    const bw = Math.max(1, bounds.maxX - bounds.minX);
+    const bh = Math.max(1, bounds.maxY - bounds.minY);
+    const fit = Math.min(1, Math.max(0.05, Math.min(sw / bw, sh / bh) * 0.9));
+    setScale(fit);
+    setPosition({
+      x: sw / 2 - (bounds.minX + bw / 2) * fit,
+      y: sh / 2 - (bounds.minY + bh / 2) * fit,
     });
-  }, [MAX_PAN_X, MAX_PAN_Y, MIN_PAN_X, MIN_PAN_Y]);
+  }, [bounds]);
+
+  // Viewport virtualization: only nodes intersecting the screen (plus half a
+  // screen of margin) render. The desktop board already does this; the
+  // mobile tree used to mount every placement at once (99 images, 6 MB).
+  const nodeRect = useCallback((n: BoardNode) => ({ x: n.x, y: n.y, w: n.width, h: n.height }), []);
+  const index = useMemo(() => buildIndex(nodes, nodeRect), [nodes, nodeRect]);
+  const visibleNodes = useMemo(() => {
+    const vw = screenWidth / scale;
+    const vh = screenHeight / scale;
+    return queryIndex(
+      index,
+      { x: -position.x / scale, y: -position.y / scale, w: vw, h: vh },
+      Math.max(vw, vh) * 0.5,
+    );
+  }, [index, position.x, position.y, scale, screenWidth, screenHeight]);
+
+  // Image request widths come from the ON-SCREEN size (the proxy adds DPR 2
+  // itself), bucketed to 64 px so the edge cache stays hot, and never shrink
+  // for a node during a session: zooming out must not re-download smaller.
+  // The old code asked for the world width (a 608-unit placement shown at
+  // 180 px fetched a 1216 px image).
+  const requestedWidthRef = useRef<Map<string, number>>(new Map());
+  const requestWidthFor = (node: BoardNode) => {
+    const cssWidth = node.width * scale;
+    const bucket = Math.min(640, Math.max(64, Math.ceil(cssWidth / 64) * 64));
+    const prev = requestedWidthRef.current.get(node.id) ?? 0;
+    const next = Math.max(prev, bucket);
+    requestedWidthRef.current.set(node.id, next);
+    return next;
+  };
 
   // Handle zoom — focal-point preserving: the world point under `center`
   // stays under `center` after the scale change. Works for both pinch
@@ -182,7 +261,7 @@ export function MobileBoard({
           />
 
           {/* Nodes */}
-          {nodes.map((node) => {
+          {visibleNodes.map((node) => {
             const isVoting = node.status === 'voting' || node.id.startsWith('proposal-') || node.id.startsWith('pending-');
             return (
               <motion.div
@@ -221,11 +300,7 @@ export function MobileBoard({
                     className="w-full h-full object-cover pointer-events-none"
                     style={isVoting ? { opacity: 0.6 } : undefined}
                     draggable={false}
-                    // Mobile cards render at `node.width` world units. Asking
-                    // the proxy to transform to that CSS width (proxy bakes
-                    // in DPR 2) means we ship a ~4× smaller WebP instead of
-                    // the full-resolution original — big win on cellular.
-                    displayWidth={Math.max(64, Math.min(800, Math.round(node.width)))}
+                    displayWidth={requestWidthFor(node)}
                   />
                 ) : (
                   <div className="text-white text-sm break-words bg-black/40 backdrop-blur-sm p-3 rounded-lg">

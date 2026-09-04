@@ -294,6 +294,48 @@ export function Dock() {
     return () => mq.removeEventListener('change', update);
   }, []);
 
+  // ── Compact dock (phones) ─────────────────────────────────────────────
+  // Seven 64px tiles need 460px; an iPhone-width pill has ~353px, and the
+  // old dock simply overflowed with `overflow: visible`, so Files and About
+  // were unreachable from the dock on phones. Under 480px the dock shows the
+  // five primary apps plus a More tile that opens a small sheet.
+  const [compactDock, setCompactDock] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 479px)');
+    const update = () => {
+      setCompactDock(mq.matches);
+      if (!mq.matches) setMoreOpen(false);
+    };
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMoreOpen(false);
+    };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [moreOpen]);
+  const primaryItems = compactDock ? navItems.slice(0, 5) : navItems;
+  const overflowItems = compactDock ? navItems.slice(5) : [];
+  const overflowActive = overflowItems.some(
+    (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+  );
+
   // ── Arrival (the login → desktop payoff) ──────────────────────────────
   // The dock is unmounted during the /enter boot (ClientLayout), so its
   // first mount this session IS the desktop coming up after the enter
@@ -336,7 +378,7 @@ export function Dock() {
         onMouseMove={magnify ? (e) => mouseX.set(e.clientX) : undefined}
         onMouseLeave={magnify ? () => mouseX.set(Infinity) : undefined}
       >
-        {navItems.map((item) => {
+        {primaryItems.map((item) => {
           const isHome = item.href === '/';
           // FOID OS shell: app tiles open desktop windows instead of
           // navigating (lg+ only); null when the desktop is opted out
@@ -390,7 +432,7 @@ export function Dock() {
                 href={item.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="relative flex flex-col items-center justify-center h-full min-w-[64px] px-2 touch-manipulation"
+                className="relative flex flex-col items-center justify-center h-full min-w-[56px] px-1 sm:min-w-[64px] sm:px-2 touch-manipulation"
               >
                 {inner}
               </a>
@@ -405,7 +447,7 @@ export function Dock() {
               // route's chunks + RSC payload are fetched ahead of the click
               // (production only — dev never prefetches).
               prefetch={true}
-              className={`relative flex-col items-center justify-center h-full min-h-11 min-w-[64px] px-2 touch-manipulation ${
+              className={`relative flex-col items-center justify-center h-full min-h-11 min-w-[56px] px-1 sm:min-w-[64px] sm:px-2 touch-manipulation ${
                 isHome && FOID_DESKTOP_ENABLED ? 'flex lg:hidden' : 'flex'
               }`}
               // Genie target: OSWindow reads this tile's rect to aim the
@@ -458,6 +500,86 @@ export function Dock() {
             </Link>
           );
         })}
+
+        {/* More — phones only: Files + About live in a small sheet so the
+            dock never overflows the viewport. */}
+        {compactDock && overflowItems.length > 0 && (
+          <div ref={moreRef} className="relative flex h-full items-stretch">
+            <button
+              type="button"
+              onClick={() => setMoreOpen((v) => !v)}
+              aria-expanded={moreOpen}
+              aria-haspopup="menu"
+              aria-label={moreOpen ? 'Close more apps' : 'More apps'}
+              className="relative flex flex-col items-center justify-center h-full min-h-11 min-w-[56px] px-1 touch-manipulation"
+            >
+              {(moreOpen || overflowActive) && (
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-x-0.5 inset-y-1.5 rounded-2xl border border-white/[0.22]"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05))',
+                    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 16px rgba(120, 200, 255, 0.18)',
+                  }}
+                />
+              )}
+              <span className="relative z-10 flex flex-col items-center justify-center">
+                <span className={`transition-colors duration-200 ${moreOpen || overflowActive ? 'text-white' : 'text-white/55'}`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                    <circle cx="5" cy="12" r="1.6" />
+                    <circle cx="12" cy="12" r="1.6" />
+                    <circle cx="19" cy="12" r="1.6" />
+                  </svg>
+                </span>
+                <span className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${moreOpen || overflowActive ? 'text-white' : 'text-white/55'}`}>
+                  More
+                </span>
+              </span>
+            </button>
+            {moreOpen && (
+              <div
+                role="menu"
+                aria-label="More apps"
+                className="foid-dock-sheet"
+                style={{
+                  position: 'fixed',
+                  left: 12,
+                  right: 12,
+                  bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))',
+                  zIndex: 60,
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${overflowItems.length}, minmax(0, 1fr))`,
+                  gap: 8,
+                  padding: 10,
+                  borderRadius: 20,
+                  border: '1px solid rgba(255,255,255,0.16)',
+                  background: 'linear-gradient(180deg, rgba(90, 150, 200, 0.20), rgba(20, 40, 70, 0.55)), rgba(6, 10, 18, 0.78)',
+                  boxShadow: '0 12px 32px rgba(0, 10, 30, 0.5)',
+                }}
+              >
+                {overflowItems.map((item) => {
+                  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      role="menuitem"
+                      prefetch={true}
+                      onClick={() => setMoreOpen(false)}
+                      aria-current={active ? 'page' : undefined}
+                      className={`flex flex-col items-center justify-center gap-1 rounded-2xl py-3 touch-manipulation ${
+                        active ? 'text-white bg-white/10' : 'text-white/70'
+                      }`}
+                    >
+                      {item.icon}
+                      <span className="text-[10px] font-medium">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Divider, then MUSIC.EXE — an app tile, not a route. Toggles the
             deck (CompactMusicPlayer). Desktop only: the deck itself is

@@ -5,7 +5,11 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 // not just this route. (It is all @keyframes; /vote/[id] and /vote/submit
 // don't reference them.)
 
-export const metadata = { title: "VOTE" };
+export const metadata = {
+  title: "Vote",
+  description:
+    "Swipe on what goes on the Loreboard. Prayer streaks weigh your vote up to 5x.",
+};
 
 export default function VoteLayout({ children }: { children: ReactNode }) {
   return (

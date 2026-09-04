@@ -1,6 +1,7 @@
 import "./tokens.css";
 import "./globals.css";
 import type { ReactNode } from "react";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, IBM_Plex_Sans, JetBrains_Mono, Sora } from "next/font/google";
 import { Providers } from "@/providers";
 import AnimatedBackground from "@/components/AnimatedBackground";
@@ -10,14 +11,27 @@ import SfxInitializer from "@/components/SfxInitializer";
 import { ClientLayout } from "@/components/ClientLayout";
 import { WebVitalsReporter } from "@/app/_vitals";
 
-// app/layout.tsx (or wherever your metadata lives)
-export const metadata = {
+// Site-wide metadata. Per-route titles/descriptions live in each route's
+// layout; per-route share cards are the opengraph-image.tsx files next to
+// them (Next attaches og:image/twitter:image from those automatically once
+// metadataBase is set).
+export const metadata: Metadata = {
+  metadataBase: new URL("https://foid.fun"),
   title: {
     default: "FOID.FUN",
     template: "%s | FOID.FUN",
   },
   description:
-    "Loreboard — a shared, permanent, onchain cultural canvas. Propose, vote, and build with the community on Foid.Fun",
+    "Pray daily with Foid Mommy, vote on culture, and build the permanent internet collage. FOID OS runs on Fluent.",
+  applicationName: "FOID.FUN",
+  appleWebApp: {
+    capable: true,
+    title: "FOID",
+    statusBarStyle: "black-translucent",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
   icons: {
     icon: [
       { url: "/favicon.ico" },
@@ -29,19 +43,29 @@ export const metadata = {
   },
   manifest: "/manifest.json",
   openGraph: {
-    title: "FOID.FUN — Loreboard",
+    title: "FOID.FUN",
     description:
-      "A shared, permanent, onchain cultural canvas governed by the community. Propose images, vote via swipe, and build culture together.",
-    url: "https://www.foid.fun",
+      "Pray daily, vote on culture, build the permanent internet collage. An onchain cultural canvas governed by the people who show up.",
+    url: "https://foid.fun",
     siteName: "FOID Foundation",
     type: "website",
+    locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "FOID.FUN — Loreboard",
+    site: "@foidfun",
+    title: "FOID.FUN",
     description:
-      "Onchain cultural canvas. Propose, vote, build — governed by the community.",
+      "Pray daily, vote on culture, build the permanent internet collage.",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: "#030b12",
 };
 
 const jetbrainsMono = JetBrains_Mono({
@@ -81,7 +105,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={`h-full overflow-hidden ${displayFont.variable} ${bodyFont.variable} ${jetbrainsMono.variable} ${serifFont.variable}`}
     >
       <head>
-        <link rel="manifest" href="/manifest.json" />
         {/* Preconnect hints for IPFS gateways — the /board route loads
             placement images directly from whichever gateway is currently
             fastest (see src/lib/ipfsGatewayCache.ts). Preconnect opens
@@ -97,11 +120,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="dns-prefetch" href="https://dweb.link" />
         <link rel="dns-prefetch" href="https://w3s.link" />
         <link rel="dns-prefetch" href="https://4everland.io" />
-        <meta name="theme-color" content="#030b12" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
   <body className="relative h-full min-h-screen overflow-hidden font-secondary" suppressHydrationWarning>
     <AnimatedBackground />
