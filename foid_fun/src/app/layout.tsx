@@ -12,10 +12,9 @@ import { ClientLayout } from "@/components/ClientLayout";
 import { WebVitalsReporter } from "@/app/_vitals";
 import StyledJsxRegistry from "@/app/StyledJsxRegistry";
 
-// Site-wide metadata. Per-route titles/descriptions live in each route's
-// layout; per-route share cards are the opengraph-image.tsx files next to
-// them (Next attaches og:image/twitter:image from those automatically once
-// metadataBase is set).
+// Site-wide metadata. Per-route titles, descriptions and share cards come
+// from routeMetadata() in each route's layout; the card images themselves
+// are served by /api/og/card/[app] (one route, not one bundle per page).
 export const metadata: Metadata = {
   metadataBase: new URL("https://foid.fun"),
   title: {
@@ -51,6 +50,7 @@ export const metadata: Metadata = {
     siteName: "FOID Foundation",
     type: "website",
     locale: "en_US",
+    images: [{ url: "/api/og/card/site", width: 1200, height: 630, alt: "FOID.FUN" }],
   },
   twitter: {
     card: "summary_large_image",
@@ -58,6 +58,7 @@ export const metadata: Metadata = {
     title: "FOID.FUN",
     description:
       "Pray daily, vote on culture, build the permanent internet collage.",
+    images: ["/api/og/card/site"],
   },
 };
 

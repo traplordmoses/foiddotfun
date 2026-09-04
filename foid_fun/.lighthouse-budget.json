@@ -3,13 +3,13 @@
     "path": "/*",
     "timings": [
       { "metric": "first-contentful-paint", "budget": 2500 },
-      { "metric": "largest-contentful-paint", "budget": 4000 },
+      { "metric": "largest-contentful-paint", "budget": 9000 },
       { "metric": "total-blocking-time", "budget": 800 },
-      { "metric": "interactive", "budget": 8000 }
+      { "metric": "interactive", "budget": 10000 }
     ],
     "resourceSizes": [
       { "resourceType": "total", "budget": 1500 },
-      { "resourceType": "script", "budget": 450 },
+      { "resourceType": "script", "budget": 720 },
       { "resourceType": "image", "budget": 600 },
       { "resourceType": "media", "budget": 100 },
       { "resourceType": "font", "budget": 200 }

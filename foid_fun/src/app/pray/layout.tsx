@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
+import { routeMetadata } from "@/lib/routeMetadata";
 
 const MINIAPP_EMBED = JSON.stringify({
   version: "1",
-  imageUrl: "https://foid.fun/pray/opengraph-image",
+  imageUrl: "https://foid.fun/api/og/card/pray",
   button: {
     title: "pray with foid mommy",
     action: {
@@ -15,14 +16,16 @@ const MINIAPP_EMBED = JSON.stringify({
   },
 });
 
-export const metadata = {
+export const metadata = routeMetadata({
   title: "Pray with Foid Mommy",
   description:
     "A daily onchain ritual. Tell Foid Mommy how you feel, keep your streak, and earn up to 5x voting power on the Loreboard.",
+  path: "/pray",
+  card: "pray",
   // Farcaster / Base App rich embed (audit G3): a cast linking /pray renders
   // a launch button instead of a plain link.
   other: { "fc:miniapp": MINIAPP_EMBED },
-};
+});
 
 export default function PrayLayout({ children }: { children: ReactNode }) {
   return children;

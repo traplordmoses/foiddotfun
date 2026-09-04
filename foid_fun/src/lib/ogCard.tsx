@@ -170,3 +170,50 @@ export async function ogCard({
     },
   );
 }
+
+// Card copy per app; served by /api/og/card/[app].
+export const OG_CARDS: Record<string, OgCardInput> = {
+  site: {
+    kicker: "FOID OS",
+    title: "the internet's permanent memory",
+    subtitle: "pray daily. vote on culture. build the permanent internet collage.",
+    accent: "#74ffeb",
+  },
+  pray: {
+    kicker: "FOID_MOMMY_TERMINAL.EXE",
+    title: "pray with foid mommy",
+    subtitle: "a daily onchain ritual. tell her how you feel, keep the streak, earn your vote.",
+    accent: "#6eead8",
+  },
+  board: {
+    kicker: "MIFOID_LOREBOARD.APP",
+    title: "the loreboard",
+    subtitle: "a permanent canvas the community votes onto, one placement at a time.",
+    accent: "#f472b6",
+  },
+  vote: {
+    kicker: "VOTE.EXE",
+    title: "swipe on culture",
+    subtitle: "approve or reject what goes on the board. streaks weigh your vote up to 5x.",
+    accent: "#a78bfa",
+  },
+  mifoid: {
+    kicker: "MIFOID.EXE",
+    title: "3,333 mifoids",
+    subtitle: "born, not generated. your key to the ecosystem.",
+    accent: "#818cf8",
+  },
+  about: {
+    kicker: "ABOUT.EXE",
+    title: "how foid works",
+    subtitle: "prayer, loreboard, vote. the docs, the contracts, the roadmap.",
+    accent: "#34d399",
+  },
+  files: {
+    kicker: "FILES.EXE",
+    title: "the mifoid archive",
+    subtitle: "videos, renders and stills the foundation is preserving.",
+    accent: "#fbbf24",
+  },
+};
+

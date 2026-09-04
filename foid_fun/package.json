@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "prebuild": "node scripts/prebuild.js",
-    "build": "NODE_OPTIONS='--max-old-space-size=2048' next build",
+    "build": "NODE_OPTIONS='--max-old-space-size=4096' next build",
     "start": "NODE_OPTIONS='--max-old-space-size=1024' next start -p $PORT",
     "lint": "next lint",
     "test": "vitest run",
@@ -35,7 +35,7 @@
     "size": "size-limit",
     "size:why": "size-limit --why"
   },
-  "//size-limit": "Measures the SYNC entry chunk per route only (app/<route>/**). Async chunks from dynamic imports (BatchReviewModal, PaintEditor, etc.) land in shared hashed chunks under .next/static/chunks/<hash>.js and are NOT covered here. The INP side of async-import regressions is caught by Lighthouse CI in foid-fun-ci.yml. Budgets are ~2x current measured brotli size, sized to fail cleanly on a real regression (e.g. a fat new sync import) without tripping on routine growth. TODO: swap this for @size-limit/webpack or a Puppeteer transferred-JS gate for honest per-route async coverage — ~2-day lift, tracked in follow-up.",
+  "//size-limit": "Measures the SYNC entry chunk per route only (app/<route>/**). Async chunks from dynamic imports (BatchReviewModal, PaintEditor, etc.) land in shared hashed chunks under .next/static/chunks/<hash>.js and are NOT covered here. The INP side of async-import regressions is caught by Lighthouse CI in foid-fun-ci.yml. Budgets are ~2x current measured brotli size, sized to fail cleanly on a real regression (e.g. a fat new sync import) without tripping on routine growth. TODO: swap this for @size-limit/webpack or a Puppeteer transferred-JS gate for honest per-route async coverage \u2014 ~2-day lift, tracked in follow-up.",
   "size-limit": [
     {
       "name": "/board",

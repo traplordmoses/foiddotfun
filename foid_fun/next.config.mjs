@@ -101,6 +101,13 @@ const nextConfig = {
     ];
   },
   experimental: {
+    // Lower peak heap during `next build` (Next 14.2+). The bundle-size CI
+    // job hit V8's heap limit at the 2 GB cap the build script sets, and
+    // Render builds with that same cap.
+    webpackMemoryOptimizations: true,
+    // Compile in a worker process with its own heap; the main process only
+    // collects page data. Documented Next fix for build OOMs.
+    webpackBuildWorker: true,
     outputFileTracingExcludes: {
       "*": [
         "node_modules/@swc/core-linux-x64-gnu",
@@ -169,6 +176,9 @@ const sentryOptions = {
   // Only upload source maps when we actually have credentials. Prevents
   // `next build` from blocking waiting on a missing token.
   disableSourceMapUpload: !process.env.SENTRY_AUTH_TOKEN,
+  // Without a token there is nowhere to send maps, so don't generate them
+  // either: client source maps roughly double webpack's build memory.
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
   widenClientFileUpload: true,
   hideSourceMaps: true,
   webpack: { treeshake: { removeDebugLogging: true } },
