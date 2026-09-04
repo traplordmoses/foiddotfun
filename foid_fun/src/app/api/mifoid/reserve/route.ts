@@ -63,7 +63,13 @@ export async function GET() {
     method: "HEAD",
     prefer: "count=exact",
   });
-  const total = res?.headers.get("content-range")?.split("/")[1];
+  // Table not created yet (sql/mifoid_reservations.sql) or storage down:
+  // tell the page reservations are closed rather than offering a button
+  // that cannot save.
+  if (!res || !res.ok) {
+    return NextResponse.json({ open: false, count: 0 }, { headers: { "Cache-Control": "public, max-age=60" } });
+  }
+  const total = res.headers.get("content-range")?.split("/")[1];
   const count = total ? Number(total) : 0;
   return NextResponse.json(
     { open: true, count: Number.isFinite(count) ? count : 0 },
