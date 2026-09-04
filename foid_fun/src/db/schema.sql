@@ -125,15 +125,7 @@ CREATE TABLE IF NOT EXISTS placement_intents (
 
 CREATE INDEX IF NOT EXISTS idx_intents_epoch ON placement_intents(epoch);
 
--- ─── Rate limiting ───
--- Replaces: rateLimit.ts in-memory Map
-CREATE TABLE IF NOT EXISTS rate_limits (
-  wallet_action TEXT NOT NULL,  -- "0xabc:propose"
-  timestamp     INTEGER NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_rate_limits_key ON rate_limits(wallet_action);
-
+-- rate limits: moved to Supabase (sql/server_tables.sql); local dev fallback lives in src/lib/db.ts
 -- ─── Key-value config ───
 -- For storing latest_epoch_finalized and other scalar state
 CREATE TABLE IF NOT EXISTS kv (

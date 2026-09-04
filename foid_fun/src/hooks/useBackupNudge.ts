@@ -6,7 +6,7 @@
 import { useCallback } from "react";
 import React from "react";
 import toast from "react-hot-toast";
-import { isBackupPending } from "@/components/FoidWalletOnboarding";
+import { isBackupPending } from "@/lib/walletBackupFlag";
 
 const TOAST_ID = "foid-backup-nudge";
 const SNOOZE_MS = 3 * 24 * 60 * 60 * 1000;

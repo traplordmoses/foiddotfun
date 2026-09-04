@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { resolveWalletRequest } from '@/lib/connectors/onboardingBridge';
+import { setBackupPending } from '@/lib/walletBackupFlag';
 import {
   create,
   unlock,
@@ -14,27 +15,6 @@ import {
 
 type Mode = 'create' | 'unlock' | 'restore' | 'restore-mnemonic' | 'backup';
 type Step = 'explain' | 'pin' | 'working' | 'done' | 'mnemonic' | 'backup' | 'restore-input' | 'restore-mnemonic-input';
-
-// localStorage flag: the wallet was created with the seed phrase + backup
-// deferred (audit G5). The wallet menu and the day-two nudge in PrayApp
-// read it; the backup flow clears it.
-export const BACKUP_PENDING_KEY = 'foid_wallet_backup_pending';
-export function isBackupPending(address?: string | null): boolean {
-  if (!address) return false;
-  try {
-    return localStorage.getItem(BACKUP_PENDING_KEY) === address.toLowerCase();
-  } catch {
-    return false;
-  }
-}
-function setBackupPending(address: string | null) {
-  try {
-    if (address) localStorage.setItem(BACKUP_PENDING_KEY, address.toLowerCase());
-    else localStorage.removeItem(BACKUP_PENDING_KEY);
-  } catch {
-    /* private mode */
-  }
-}
 
 export default function FoidWalletOnboarding() {
   const [open, setOpen] = useState(false);
