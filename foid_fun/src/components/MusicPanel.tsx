@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { broadcastMusicState, musicPanelController } from "@/components/musicPanelController";
 import { getAudioSettings, subscribe as subscribeAudioSettings, setMusicVolume } from "@/lib/audioSettings";
 import { NextIcon, PauseIcon, PlayIcon, PrevIcon } from "@/components/icons/AeroIcons";
+import { mediaUrl } from "@/lib/mediaBase";
 
 type PresetMap = Record<string, unknown>;
 type Visualizer = {
@@ -47,8 +48,8 @@ const TRACKS: Track[] = Array.from({ length: 23 }, (_, i) => {
   return {
     name: `foidbackground${n}`,
     sources: [
-      { src: `/sfx/music/foidbackground${n}.opus`, type: "audio/ogg; codecs=opus" },
-      { src: `/sfx/music/foidbackground${n}.m4a`, type: "audio/mp4; codecs=aac" },
+      { src: mediaUrl(`/sfx/music/foidbackground${n}.opus`), type: "audio/ogg; codecs=opus" },
+      { src: mediaUrl(`/sfx/music/foidbackground${n}.m4a`), type: "audio/mp4; codecs=aac" },
     ],
   };
 });

@@ -1,5 +1,6 @@
 // src/app/api/foid-mommy/route.ts
 import OpenAI from "openai";
+import { consumeSessionToken } from "@/lib/mommySession";
 
 // ─── Rate Limiting ───────────────────────────────────────────────────────────
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
@@ -12,6 +13,8 @@ const rateLimitMap = new Map<string, number[]>();
 // per window so header rotation can't run spend unbounded. In-memory is fine:
 // a reset on redeploy just re-opens the window.
 const GLOBAL_RATE_LIMIT_MAX = 120; // max requests across all IPs per window
+// Model is env-tunable so a cheaper/newer model is a config change.
+const MOMMY_MODEL = process.env.FOID_MOMMY_MODEL || "gpt-4o-mini";
 let globalHits: number[] = [];
 
 function isGloballyRateLimited(): boolean {
@@ -73,6 +76,17 @@ your personality:
 - the goal is simple: they should feel a little brighter after talking to you than they did before. always.`;
 
 export async function POST(req: Request) {
+  // Session gate (audit S5): a page must fetch /api/foid-mommy/session
+  // first; each token carries its own call budget, so a scraper rotating
+  // X-Forwarded-For can no longer exhaust the shared window for real users.
+  const gate = consumeSessionToken(req.headers.get("x-foid-session"));
+  if (!gate.ok) {
+    return new Response(
+      JSON.stringify({ error: `session ${gate.reason}` }),
+      { status: gate.reason === "exhausted" ? 429 : 401, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   // Rate limiting. Global backstop first — it counts spoofed IPs too, so
   // header rotation can't slip past it to drain OpenAI.
   if (isGloballyRateLimited()) {
@@ -121,7 +135,7 @@ export async function POST(req: Request) {
 
       // Generate warm response to their answer + transition to prayer
       const secondResponse = await client.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: MOMMY_MODEL,
         messages: [
           {
             role: "system",
@@ -160,7 +174,7 @@ you: "your mom called and you laughed. that's the whole world right there. let m
 
       // Generate prayer based on both initial feeling and their response
       const prayerMsg = await client.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: MOMMY_MODEL,
         messages: [
           {
             role: "system",
@@ -211,7 +225,7 @@ good (write like this):
 
     // First, get Foid Mommy's acknowledgment response with follow-up question
     const responseMsg = await client.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: MOMMY_MODEL,
       messages: [
         {
           role: "system",

@@ -31,12 +31,20 @@ export function middleware(request: NextRequest) {
 
   if (request.nextUrl.pathname !== "/") return NextResponse.next();
 
-  // Redirect to /enter only if user hasn't entered before (no cookie).
-  // The query string rides along so desktop deep links (/?apps=pray,board
-  // — multi-window plan, Stage C) survive the boot: /enter hands the same
-  // params back to the shell as its destination.
+  // Redirect to /enter only if this device hasn't booted before (no
+  // cookie). The query string rides along so desktop deep links
+  // (/?apps=pray,board — multi-window plan, Stage C) survive the boot:
+  // /enter hands the same params back to the shell as its destination.
+  //
+  // Phones skip the boot entirely (audit P7): the payoff of the ceremony is
+  // the desktop with windows, which does not exist under 1024px, so on a
+  // phone it only delayed the launcher. The client gate agrees (DesktopGate
+  // never bounces narrow viewports), this just saves the round trip.
+  const ua = request.headers.get("user-agent") ?? "";
+  const chMobile = request.headers.get("sec-ch-ua-mobile");
+  const isPhone = chMobile === "?1" || /Mobi|Android|iPhone|iPod/i.test(ua);
   const enteredCookie = request.cookies.get("foid_entered");
-  if (!enteredCookie) {
+  if (!enteredCookie && !isPhone) {
     const enterUrl = new URL("/enter", request.url);
     enterUrl.search = request.nextUrl.search;
     return NextResponse.redirect(enterUrl);

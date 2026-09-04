@@ -14,6 +14,7 @@
 "use client";
 
 import Image from "next/image";
+import MifoidReserve from "@/components/MifoidReserve";
 
 const FEATURES = [
   {
@@ -102,6 +103,7 @@ export default function MifoidApp() {
         <div className="relative z-10 flex flex-col lg:flex-row items-center h-full pt-10 lg:pt-8 overflow-y-auto lg:overflow-visible">
           {/* Left — features */}
           <div className="flex flex-col justify-center flex-1 w-full lg:h-full pl-4 pr-4 lg:pl-8 lg:pr-6 gap-4 lg:gap-7 min-w-0 pb-4 lg:pb-0">
+            <MifoidReserve />
             {FEATURES.map((feat, i) => (
               <div key={i} className="flex gap-3 items-start">
                 <div className="mifoid-diamond flex-shrink-0 mt-0.5">

@@ -1,6 +1,7 @@
 "use client";
 
 import { getAudioSettings } from "@/lib/audioSettings";
+import { mediaUrl } from "@/lib/mediaBase";
 
 type AudioContextConstructor =
   | typeof AudioContext
@@ -30,12 +31,12 @@ const PATHS = {
   error: sfxUrl("error"),
 
   // background track (adjust the first one to a file you actually have)
-  background_primary: "/sfx/music/foidbackground1.opus",
+  background_primary: mediaUrl("/sfx/music/foidbackground1.opus"),
 
   // --- legacy aliases: older callers ask for enter/spacebar sounds ---
   enter: sfxUrl("typing"),
   spacebar: sfxUrl("typing"),
-  backgroundfoid: "/sfx/music/foidbackground1.opus",
+  backgroundfoid: mediaUrl("/sfx/music/foidbackground1.opus"),
 } as const;
 
 type SfxKey = keyof typeof PATHS;
@@ -43,9 +44,9 @@ type SfxKey = keyof typeof PATHS;
 // optional background fallbacks if the primary is missing on disk
 const BG_FALLBACKS = [
   PATHS.backgroundfoid,
-  "/sfx/music/foidbackground15.opus",
-  "/sfx/music/foidbackground1.m4a",
-  "/sfx/music/foidbackground15.m4a",
+  mediaUrl("/sfx/music/foidbackground15.opus"),
+  mediaUrl("/sfx/music/foidbackground1.m4a"),
+  mediaUrl("/sfx/music/foidbackground15.m4a"),
 ];
 
 const TYPING_VOLUME = 0.08;

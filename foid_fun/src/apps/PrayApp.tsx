@@ -62,6 +62,8 @@ import BodyPortal from "@/components/BodyPortal";
 import { getTierFromStreak } from "@/hooks/usePrayerTiers";
 import { usePrayerMemory, type JournalEntry } from "@/hooks/usePrayerMemory";
 import { usePWAInstallPrompt } from "@/hooks/usePWAInstallPrompt";
+import { useBackupNudge } from "@/hooks/useBackupNudge";
+import PrayerReminderLink from "@/components/PrayerReminderLink";
 import PrayerAltarStrip from "@/components/PrayerAltarStrip";
 import PrayerJournalDrawer from "@/components/PrayerJournalDrawer";
 import PrayerBoot from "@/components/PrayerBoot";
@@ -167,6 +169,7 @@ export function PrayAppCore({
   const { trigger: triggerHaptic } = useHaptic();
   const { entries: journalEntries, hasConsent: hasJournalConsent } = usePrayerMemory(address);
   const { recordSuccess: recordPWASuccess } = usePWAInstallPrompt(address);
+  const { recordSuccess: recordBackupNudge } = useBackupNudge(address);
   const [nowSeconds, setNowSeconds] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
@@ -477,7 +480,9 @@ export function PrayAppCore({
 
     // PWA install prompt — after 3 confirmed prayers, Mommy asks to live on the home screen.
     recordPWASuccess();
-  }, [publicClient, triggerHaptic, recordPWASuccess]);
+    // Backup nudge — after the 2nd prayer on a wallet that deferred its seed phrase.
+    recordBackupNudge();
+  }, [publicClient, triggerHaptic, recordPWASuccess, recordBackupNudge]);
 
   const handleSwitchWallet = useCallback(() => {
     triggerHaptic('medium');
@@ -900,6 +905,12 @@ export function PrayAppCore({
           <span className="pray-journey-trigger__label">view history</span>
           <span className="pray-journey-trigger__chevron" aria-hidden="true">⌄</span>
         </button>
+        <div className="pray-mobile-tools">
+          <PrayerReminderLink />
+          <span className="pray-mobile-tools__rule">
+            one prayer a day. tiers at 3, 7, 14, 21, 30, 45, 60, 75, 90 days multiply your loreboard vote up to 5x.
+          </span>
+        </div>
 
         {/* Terminal — fills remaining height */}
         <section className="pray-mobile-terminal">

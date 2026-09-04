@@ -55,6 +55,8 @@ function DesktopGate() {
 
   useEffect(() => {
     if (wide !== true) return;
+    // hasBootedThisSession also honours the per-device flag: the ceremony
+    // plays once per machine, not once per tab (audit P7).
     if (hasBootedThisSession()) {
       setBooted(true);
       return;

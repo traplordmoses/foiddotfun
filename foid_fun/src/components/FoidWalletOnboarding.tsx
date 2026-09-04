@@ -12,8 +12,29 @@ import {
   validateMnemonic,
 } from '@/lib/wallet';
 
-type Mode = 'create' | 'unlock' | 'restore' | 'restore-mnemonic';
-type Step = 'explain' | 'pin' | 'working' | 'mnemonic' | 'backup' | 'restore-input' | 'restore-mnemonic-input';
+type Mode = 'create' | 'unlock' | 'restore' | 'restore-mnemonic' | 'backup';
+type Step = 'explain' | 'pin' | 'working' | 'done' | 'mnemonic' | 'backup' | 'restore-input' | 'restore-mnemonic-input';
+
+// localStorage flag: the wallet was created with the seed phrase + backup
+// deferred (audit G5). The wallet menu and the day-two nudge in PrayApp
+// read it; the backup flow clears it.
+export const BACKUP_PENDING_KEY = 'foid_wallet_backup_pending';
+export function isBackupPending(address?: string | null): boolean {
+  if (!address) return false;
+  try {
+    return localStorage.getItem(BACKUP_PENDING_KEY) === address.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+function setBackupPending(address: string | null) {
+  try {
+    if (address) localStorage.setItem(BACKUP_PENDING_KEY, address.toLowerCase());
+    else localStorage.removeItem(BACKUP_PENDING_KEY);
+  } catch {
+    /* private mode */
+  }
+}
 
 export default function FoidWalletOnboarding() {
   const [open, setOpen] = useState(false);
@@ -57,11 +78,23 @@ export default function FoidWalletOnboarding() {
       dismissRainbowKit();
     };
 
+    // Re-open the seed phrase + backup screens for a wallet that skipped
+    // them at creation (wallet menu "Back up wallet", day-two nudge).
+    const handleBackup = () => {
+      resetState();
+      setMode('backup');
+      setStep('pin');
+      setOpen(true);
+      dismissRainbowKit();
+    };
+
     window.addEventListener('foid-wallet:request-create', handleCreate);
     window.addEventListener('foid-wallet:request-unlock', handleUnlock);
+    window.addEventListener('foid-wallet:request-backup', handleBackup);
     return () => {
       window.removeEventListener('foid-wallet:request-create', handleCreate);
       window.removeEventListener('foid-wallet:request-unlock', handleUnlock);
+      window.removeEventListener('foid-wallet:request-backup', handleBackup);
     };
   }, []);
 
@@ -251,7 +284,23 @@ export default function FoidWalletOnboarding() {
         // Unlock immediately to get private key for session
         const unlocked = await unlock(result.wallet, pin, controller.signal);
         setPrivateKey(unlocked.privateKey);
-        setStep('mnemonic');
+        // Progressive onboarding (audit G5): the wallet is usable now. The
+        // seed phrase + backup file are offered, not forced, and can be
+        // done later from the wallet menu; a nudge lands after the second
+        // prayer, when the streak is worth protecting.
+        setStep('done');
+      } else if (mode === 'backup') {
+        const wallet = load();
+        if (!wallet) {
+          setError('No wallet found. Please create one first.');
+          setStep('pin');
+          return;
+        }
+        const unlocked = await unlock(wallet, pin, controller.signal);
+        setAddress(unlocked.address);
+        setPrivateKey(unlocked.privateKey);
+        setMnemonic(unlocked.mnemonic ?? null);
+        setStep(unlocked.mnemonic ? 'mnemonic' : 'backup');
       } else {
         const wallet = load();
         if (!wallet) {
@@ -284,6 +333,13 @@ export default function FoidWalletOnboarding() {
   const handleContinue = useCallback(() => {
     setOpen(false);
     restoreRainbowKit();
+    if (mode === 'backup') {
+      // Backup completed later from the menu: nothing to hand to the
+      // bridge, just clear the pending flag.
+      setBackupPending(null);
+      return;
+    }
+    if (mode === 'create') setBackupPending(null);
     if (address && privateKey) {
       resolveWalletRequest({ address, privateKey });
       // Emit creation event for post-wallet welcome flow
@@ -377,8 +433,9 @@ export default function FoidWalletOnboarding() {
           <div id="foid-wallet-dialog-title" className="text-lg font-bold tracking-wide">FOID WALLET</div>
           <div className="mt-1 text-xs text-white/50 tracking-widest uppercase">
             {step === 'explain' && 'Forge Your Identity'}
-            {step === 'pin' && (mode === 'create' ? 'Choose Your Secret Key' : mode === 'unlock' ? 'Enter Password' : 'Restore')}
+            {step === 'pin' && (mode === 'create' ? 'Choose Your Secret Key' : mode === 'unlock' ? 'Enter Password' : mode === 'backup' ? 'Unlock to Back Up' : 'Restore')}
             {step === 'working' && (mode === 'create' ? 'Forging...' : 'Unlocking...')}
+            {step === 'done' && "You're In"}
             {step === 'mnemonic' && 'Your Sacred Words'}
             {step === 'backup' && 'Seal Your Identity'}
             {step === 'restore-input' && 'Restore from Backup'}
@@ -560,6 +617,53 @@ export default function FoidWalletOnboarding() {
               className="mt-1 rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-xs font-medium text-white/50 transition hover:bg-white/10 hover:text-white/75"
             >
               Cancel
+            </button>
+          </div>
+        )}
+
+        {/* Step: Done (after create) — the wallet works now; securing it is
+            offered, and reachable later from the wallet menu. */}
+        {step === 'done' && (
+          <div className="space-y-4">
+            <div
+              className="rounded-lg px-3 py-2.5 text-xs"
+              style={{
+                background: 'rgba(72,255,171,0.06)',
+                border: '1px solid rgba(72,255,171,0.2)',
+              }}
+            >
+              <div className="flex items-center gap-2 mb-1.5" style={{ color: 'rgba(72,255,171,0.9)' }}>
+                <span style={{ fontSize: 14 }}>{'\u2713'}</span>
+                <span className="font-medium">Your FOID identity is forged</span>
+              </div>
+              <p style={{ color: 'rgba(72,255,171,0.55)', fontSize: 11, lineHeight: 1.5, paddingLeft: 22 }}>
+                {prfActive
+                  ? 'Encrypted with your password and your device biometrics. You can pray right now.'
+                  : 'Encrypted with your password and unlocked by your passkey. You can pray right now.'}
+              </p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-2">
+              <div className="text-[10px] text-white/40 tracking-widest uppercase mb-1">Address</div>
+              <div className="font-mono text-xs text-white/90 break-all">{address}</div>
+            </div>
+            <p className="text-xs text-white/60 leading-relaxed">
+              Your 12 sacred words and a backup file are how you recover this wallet on another
+              device. Two minutes now, or later from the wallet menu once your streak is worth it.
+            </p>
+            <button
+              onClick={() => setStep('mnemonic')}
+              className="w-full rounded-lg bg-white px-4 py-3 text-sm font-bold text-black transition hover:bg-white/90"
+            >
+              Back up now
+            </button>
+            <button
+              onClick={() => {
+                setBackupPending(address);
+                handleContinue();
+              }}
+              className="w-full rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/70 transition hover:bg-white/10 hover:text-white"
+            >
+              Start praying, back up later
             </button>
           </div>
         )}
