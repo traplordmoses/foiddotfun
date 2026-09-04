@@ -1,8 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import butterchurnModule from "butterchurn";
-import * as butterchurnPresets from "butterchurn-presets";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { broadcastMusicState, musicPanelController } from "@/components/musicPanelController";
 import { getAudioSettings, subscribe as subscribeAudioSettings, setMusicVolume } from "@/lib/audioSettings";
 import { NextIcon, PauseIcon, PlayIcon, PrevIcon } from "@/components/icons/AeroIcons";
@@ -22,10 +20,24 @@ type ButterchurnModule = {
   ) => Visualizer;
 };
 
-const butterchurn =
-  ((butterchurnModule as { default?: ButterchurnModule }).default ??
-    butterchurnModule) as ButterchurnModule;
-const getAllPresets = () => butterchurnPresets.getPresets() as PresetMap;
+// butterchurn and its preset pack weigh ~640 KB raw. They used to ship with
+// this component on every route (the deck mounts globally in ClientLayout).
+// Now they load only when a visible visualizer canvas actually needs them,
+// which the deck's logic-only instance never does.
+let butterchurnLoad: Promise<{ lib: ButterchurnModule; presets: PresetMap }> | null = null;
+function loadButterchurn() {
+  if (!butterchurnLoad) {
+    butterchurnLoad = Promise.all([import("butterchurn"), import("butterchurn-presets")]).then(
+      ([mod, presets]) => {
+        const m = mod as unknown as { default?: ButterchurnModule } & ButterchurnModule;
+        const lib = (m.default ?? m) as ButterchurnModule;
+        const p = presets as unknown as { getPresets: () => PresetMap };
+        return { lib, presets: p.getPresets() };
+      },
+    );
+  }
+  return butterchurnLoad;
+}
 
 declare global { interface Window { webkitAudioContext?: typeof AudioContext } }
 
@@ -45,6 +57,9 @@ const CROSSFADE_SECONDS = 2;
 
 export type MusicPanelProps = React.HTMLAttributes<HTMLDivElement> & {
   compact?: boolean;
+  /** false = logic-only instance (no canvas is ever visible): skips the
+   *  visualizer library entirely. */
+  visualizer?: boolean;
 };
 
 /* tiny speaker icon (emoji can shift layout) */
@@ -59,6 +74,7 @@ function SpeakerIcon({ className = "" }: { className?: string }) {
 
 export default function MusicPanel({
   compact = false,
+  visualizer = true,
   className = "",
   ...rest
 }: MusicPanelProps) {
@@ -118,12 +134,11 @@ export default function MusicPanel({
   const currentPresetIdxRef = useRef<number>(0);
 
   const vizReadyRef = useRef(false);
+  const vizLoadingRef = useRef(false);
   const activeSlotRef = useRef<Slot>(0);
   const isCrossfadingRef = useRef(false);
   const volumeRef = useRef(volume);
   const initializedRef = useRef(false);
-
-  const presetMap = useMemo(() => getAllPresets(), []);
 
   const loadPresetByIndex = useCallback((i: number) => {
     if (!vizRef.current || !presetsRef.current) return;
@@ -205,6 +220,9 @@ export default function MusicPanel({
     const track = TRACKS[trackIndex];
     const candidate = selectSource(audio, track);
     if (audio.src !== candidate.src) audio.src = candidate.src;
+    // The elements mount with preload="none" so nothing downloads until a
+    // real play/skip; flip to auto here so `canplay` can fire.
+    audio.preload = "auto";
     audio.currentTime = 0;
     audio.load();
 
@@ -230,43 +248,54 @@ export default function MusicPanel({
   }, [ensureAudioGraph, ensureSlotWired]);
 
 const ensureVisualizer = useCallback(() => {
-    if (vizReadyRef.current || !canvasRef.current || !acRef.current) return;
-    vizRef.current = butterchurn.createVisualizer(acRef.current, canvasRef.current, {
-      width: canvasRef.current.width,
-      height: canvasRef.current.height,
-      pixelRatio: window.devicePixelRatio || 1,
-    });
+    if (!visualizer) return;
+    if (vizReadyRef.current || vizLoadingRef.current) return;
+    if (!canvasRef.current || !acRef.current) return;
+    vizLoadingRef.current = true;
+    void loadButterchurn()
+      .then(({ lib, presets }) => {
+        vizLoadingRef.current = false;
+        if (vizReadyRef.current || !canvasRef.current || !acRef.current) return;
+        vizRef.current = lib.createVisualizer(acRef.current, canvasRef.current, {
+          width: canvasRef.current.width,
+          height: canvasRef.current.height,
+          pixelRatio: window.devicePixelRatio || 1,
+        });
 
-    // stash presets for randomization
-    const keys = Object.keys(presetMap);
-    presetsRef.current = { keys, map: presetMap };
+        // stash presets for randomization
+        const keys = Object.keys(presets);
+        presetsRef.current = { keys, map: presets };
 
-    // hook audio into butterchurn so visuals follow the music
-    if (analyserRef.current) {
-      // butterchurn accepts any AudioNode (AnalyserNode is perfect)
-      vizRef.current.connectAudio(analyserRef.current);
-    }
+        // hook audio into butterchurn so visuals follow the music
+        if (analyserRef.current) {
+          // butterchurn accepts any AudioNode (AnalyserNode is perfect)
+          vizRef.current.connectAudio(analyserRef.current);
+        }
 
-    // start with a random preset immediately
-    loadRandomPreset();
+        // start with a random preset immediately
+        loadRandomPreset();
 
-    const render = () => { vizRef.current?.render(); rafRef.current = requestAnimationFrame(render); };
-    rafRef.current = requestAnimationFrame(render);
+        const render = () => { vizRef.current?.render(); rafRef.current = requestAnimationFrame(render); };
+        rafRef.current = requestAnimationFrame(render);
 
-    const resize = () => {
-      if (!canvasRef.current || !vizRef.current || !vizBoxRef.current) return;
-      const rect = vizBoxRef.current.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      canvasRef.current.width  = Math.max(1, Math.floor(rect.width  * dpr));
-      canvasRef.current.height = Math.max(1, Math.floor(rect.height * dpr));
-      vizRef.current.setRendererSize(canvasRef.current.width, canvasRef.current.height);
-    };
-    resize();
-    window.addEventListener("resize", resize);
-    resizeHandlerRef.current = resize;
+        const resize = () => {
+          if (!canvasRef.current || !vizRef.current || !vizBoxRef.current) return;
+          const rect = vizBoxRef.current.getBoundingClientRect();
+          const dpr = window.devicePixelRatio || 1;
+          canvasRef.current.width  = Math.max(1, Math.floor(rect.width  * dpr));
+          canvasRef.current.height = Math.max(1, Math.floor(rect.height * dpr));
+          vizRef.current.setRendererSize(canvasRef.current.width, canvasRef.current.height);
+        };
+        resize();
+        window.addEventListener("resize", resize);
+        resizeHandlerRef.current = resize;
 
-    vizReadyRef.current = true;
-  }, [presetMap, loadRandomPreset]);
+        vizReadyRef.current = true;
+      })
+      .catch(() => {
+        vizLoadingRef.current = false;
+      });
+  }, [visualizer, loadRandomPreset]);
 
   useEffect(() => {
     return () => {
@@ -471,33 +500,23 @@ const ensureVisualizer = useCallback(() => {
     void crossfadeTo(nextIndex);
   }, [crossfadeTo]);
 
+  // Mount does NOT touch the network anymore: no AudioContext, no track
+  // fetch, no visualizer. play() builds the graph and loads the track on
+  // the first real request, so a page where nobody presses play costs
+  // nothing (it used to download the 650 KB opening track every load).
   const initializePlayback = useCallback(async () => {
     if (initializedRef.current) return;
     if (!audioRefs.current[0] || !audioRefs.current[1]) return;
-
     initializedRef.current = true;
-
-    ensureAudioGraph();
-    ensureSlotWired(0);
-    ensureSlotWired(1);
-    ensureVisualizer();
-
-    await loadTrackIntoSlot(activeSlotRef.current, currentTrackRef.current);
     setCurrentTrackIndex(currentTrackRef.current);
-  }, [
-    ensureAudioGraph,
-    ensureSlotWired,
-    ensureVisualizer,
-    loadTrackIntoSlot,
-    setCurrentTrackIndex,
-  ]);
+  }, [setCurrentTrackIndex]);
 
   const registerAudio = useCallback(
     (slot: Slot) => (node: HTMLAudioElement | null) => {
       audioRefs.current[slot] = node;
       if (!node) return;
       node.crossOrigin = "anonymous";
-      node.preload = "auto";
+      node.preload = "none";
       node.loop = false;
       node.volume = slot === activeSlotRef.current ? volumeRef.current : 0;
       if (!initializedRef.current && audioRefs.current[0] && audioRefs.current[1]) {
@@ -603,7 +622,7 @@ const ensureVisualizer = useCallback(() => {
         <audio
           key={slot}
           ref={registerAudio(slot as Slot)}
-          preload="auto"
+          preload="none"
           crossOrigin="anonymous"
           onEnded={() => handleEnded(slot as Slot)}
           onPlay={() => setIsPlaying(true)}

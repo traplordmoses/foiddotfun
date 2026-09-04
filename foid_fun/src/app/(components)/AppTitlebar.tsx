@@ -74,7 +74,7 @@ export default function AppTitlebar({
       <div className="app-titlebar__row">
         {controls ?? <WindowControls />}
         <span className="vista-window__title text-[9px] sm:text-[11px] truncate">
-          <Image src="/foidmommy.gif" alt="" width={24} height={24} className="inline-block h-5 w-5 sm:h-6 sm:w-6 align-middle mr-1 sm:mr-2 flex-shrink-0" />
+          <Image src="/foidmommy-48.webp" alt="" width={24} height={24} className="inline-block h-5 w-5 sm:h-6 sm:w-6 align-middle mr-1 sm:mr-2 flex-shrink-0" />
           <span className="truncate">{title}</span>
         </span>
         <div className="app-titlebar__right">

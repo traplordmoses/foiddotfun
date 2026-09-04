@@ -103,7 +103,7 @@ export default function PrayerBoot() {
         aria-hidden="true"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="prayer-boot__mommy" src="/foidmommy.gif" alt="" />
+        <img className="prayer-boot__mommy" src="/foidmommy-192.webp" alt="" />
         <div className="prayer-boot__title">{TITLE}</div>
         <style jsx>{`
           .prayer-boot {
@@ -150,7 +150,7 @@ export default function PrayerBoot() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         className="prayer-boot__mommy"
-        src="/foidmommy.gif"
+        src="/foidmommy-192.webp"
         alt=""
         style={{
           opacity: mommyOpacity,

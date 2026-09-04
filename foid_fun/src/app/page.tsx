@@ -176,7 +176,7 @@ function HomeLauncher() {
                 {SPARKLES.map((s, i) => (
                   <Image
                     key={i}
-                    src="/star-sparkle.png"
+                    src="/star-sparkle.webp"
                     alt=""
                     width={s.size}
                     height={s.size}
@@ -186,24 +186,24 @@ function HomeLauncher() {
                   />
                 ))}
                 {/* Bubbles — scattered throughout for depth */}
-                <Image src="/bubble.png" alt="" width={70} height={70}
+                <Image src="/bubble.webp" alt="" width={70} height={70}
                   className="home-bubble absolute" style={{ top: "25%", left: "6%", opacity: 0.14 }} unoptimized />
-                <Image src="/bubble.png" alt="" width={45} height={45}
+                <Image src="/bubble.webp" alt="" width={45} height={45}
                   className="home-bubble-sm absolute" style={{ top: "15%", left: "75%", opacity: 0.10 }} unoptimized />
-                <Image src="/bubble.png" alt="" width={55} height={55}
+                <Image src="/bubble.webp" alt="" width={55} height={55}
                   className="home-bubble absolute" style={{ top: "55%", left: "85%", opacity: 0.11 }} unoptimized />
-                <Image src="/bubble.png" alt="" width={35} height={35}
+                <Image src="/bubble.webp" alt="" width={35} height={35}
                   className="home-bubble-sm absolute" style={{ top: "70%", left: "12%", opacity: 0.09 }} unoptimized />
-                <Image src="/bubble.png" alt="" width={50} height={50}
+                <Image src="/bubble.webp" alt="" width={50} height={50}
                   className="home-bubble absolute" style={{ top: "80%", left: "50%", opacity: 0.08 }} unoptimized />
-                <Image src="/bubble.png" alt="" width={30} height={30}
+                <Image src="/bubble.webp" alt="" width={30} height={30}
                   className="home-bubble-sm absolute" style={{ top: "40%", left: "45%", opacity: 0.07 }} unoptimized />
               </div>
 
               {/* Collage background — single designed image covering the window */}
               <div className="absolute inset-0 z-[1] pointer-events-none overflow-hidden hidden sm:block">
                 <Image
-                  src="/homepager.png"
+                  src="/homepager.webp"
                   alt=""
                   fill
                   className="home-collage-bg"
@@ -248,7 +248,7 @@ function HomeLauncher() {
                     >
                       {/* Sparkle decoration inside card */}
                       <Image
-                        src="/star-sparkle.png" alt="" width={14} height={14}
+                        src="/star-sparkle.webp" alt="" width={14} height={14}
                         className="home-card__sparkle"
                         unoptimized
                       />

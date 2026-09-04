@@ -7,10 +7,21 @@ let unlocked = false;
 const buffers: Record<string, AudioBuffer | undefined> = {};
 type AudioContextWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
+// One tiny click sample serves all three keys (the dedicated spacebar and
+// enter files were empty placeholders that 404-decoded on every page).
+function pickExtension(): "opus" | "m4a" {
+  if (typeof document === "undefined") return "m4a";
+  try {
+    return document.createElement("audio").canPlayType('audio/ogg; codecs="opus"') ? "opus" : "m4a";
+  } catch {
+    return "m4a";
+  }
+}
+const TYPING_URL = `/sfx/typing.${pickExtension()}`;
 const FILES = {
-  typing: "/sfx/typing.wav",
-  space: "/sfx/spacebar.wav",
-  enter: "/sfx/enter.wav",
+  typing: TYPING_URL,
+  space: TYPING_URL,
+  enter: TYPING_URL,
 } as const;
 
 const TYPING_VOLUME = 0.08;
