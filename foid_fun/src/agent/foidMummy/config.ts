@@ -1,4 +1,4 @@
-import { createPublicClient, http, defineChain, type Address, type PublicClient } from "viem";
+import { createPublicClient, http, defineChain, type PublicClient } from "viem";
 import dotenv from "dotenv";
 import path from "path";
 import {

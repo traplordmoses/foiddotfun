@@ -47,7 +47,7 @@ import FoidMommyTerminal, {
   FEELING_LABELS,
   type FeelingKey,
 } from "@/app/(components)/FoidMommyTerminal";
-import { getWalletClient, publicClient as staticPublicClient, isEmbeddedWalletActive } from "@/lib/viem";
+import { getWalletClient, publicClient as staticPublicClient } from "@/lib/viem";
 import { formatViemError } from "@/lib/prayerErrors";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
 import { MobileWalletButton } from "@/components/MobileWalletButton";
@@ -139,11 +139,6 @@ function formatDurationShort(seconds: number) {
   return parts.join(" ");
 }
 
-function shortHash(hash?: string) {
-  if (!hash) return "–";
-  if (hash.length <= 10) return hash;
-  return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
-}
 
 // Type-safe address helper
 function safeAddress(addr: string | undefined): Hex {

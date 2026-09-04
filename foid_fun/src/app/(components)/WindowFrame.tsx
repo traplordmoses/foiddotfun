@@ -35,8 +35,6 @@ export function WindowControls() {
   const size = useWindowStore((s) => s.size);
   const minimize = useWindowStore((s) => s.minimize);
   const toggleMaximize = useWindowStore((s) => s.toggleMaximize);
-  const setPos = useWindowStore((s) => s.setPos);
-  const setSize = useWindowStore((s) => s.setSize);
   const resetForRoute = useWindowStore((s) => s.resetForRoute);
 
   // Locate the owning window frame once mounted.

@@ -43,9 +43,9 @@ export const debug = {
  */
 export function createLogger(namespace: string) {
   return {
-    info: (...args: any[]) => debug.log(namespace, ...args),
-    warn: (...args: any[]) => debug.warn(namespace, ...args),
-    error: (...args: any[]) => debug.error(namespace, ...args),
+    info: (...args: unknown[]) => debug.log(namespace, ...args),
+    warn: (...args: unknown[]) => debug.warn(namespace, ...args),
+    error: (...args: unknown[]) => debug.error(namespace, ...args),
     group: (label: string) => debug.group(`${namespace} ${label}`),
     groupEnd: () => debug.groupEnd(),
   };

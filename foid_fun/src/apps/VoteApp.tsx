@@ -89,7 +89,7 @@ function BodyPortal({ children }: { children: React.ReactNode }) {
 /* ═══════════════════════════ THE APP (window body) ═══════════════════════ */
 export default function VoteApp() {
   const { address, isConnected } = useAccount();
-  const { votingPower, multiplier, tierName, isLoading: powerLoading } = useSwipeVotingPower();
+  const { multiplier, tierName, isLoading: powerLoading } = useSwipeVotingPower();
   const { addShadowVote, getReplayableVotes, clearShadowVotes } = useShadowVotes();
   const { openConnectModal } = useConnectModal();
   const effects = useVoteEffects();

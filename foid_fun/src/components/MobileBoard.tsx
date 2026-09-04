@@ -30,8 +30,6 @@ interface MobileBoardProps {
 export function MobileBoard({
   nodes,
   onNodeClick,
-  onNodeMove,
-  onAddNode,
 }: MobileBoardProps) {
   const { screenWidth, screenHeight } = useMobile();
   const canvasRef = useRef<HTMLDivElement>(null);

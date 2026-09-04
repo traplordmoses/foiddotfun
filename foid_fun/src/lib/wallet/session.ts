@@ -17,7 +17,7 @@ type WorkerResolve = { resolve: (v: unknown) => void; reject: (e: Error) => void
 
 let _worker: Worker | null = null;
 let _workerReady = false;
-let _pendingCalls = new Map<string, WorkerResolve>();
+const _pendingCalls = new Map<string, WorkerResolve>();
 let _callId = 0;
 let _sessionExpiredCallback: (() => void) | null = null;
 

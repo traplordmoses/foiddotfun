@@ -270,6 +270,7 @@ const feelingOrder: FeelingKey[] = [
   "guilty",
   "pain",
 ];
+void feelingOrder; // order documents the mood chip sequence; consumers key by name
 
 // Quick-send mood chips for the awaitFeeling stage. Kept short and
 // one-syllable — they're meant for the days you don't have words.
@@ -451,7 +452,6 @@ export default function FoidMommyTerminal({
     entries: memoryEntries,
     hasConsent: hasMemoryConsent,
     needsConsentPrompt,
-    hydrated: memoryHydrated,
     grantConsent,
     revokeConsent,
     addEntry: addMemoryEntry,

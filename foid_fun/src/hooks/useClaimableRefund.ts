@@ -52,9 +52,9 @@ export function useClaimableRefund() {
         abi: LOREBOARD_TREASURY_ABI,
         functionName: "withdraw",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[useClaimableRefund] Withdraw error:", error);
-      setWithdrawError(error.message || "Failed to withdraw");
+      setWithdrawError(error instanceof Error && error.message ? error.message : "Failed to withdraw");
       setIsWithdrawing(false);
     }
   }, [address, hasClaimable, writeContract, reset]);

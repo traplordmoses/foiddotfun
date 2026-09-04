@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { getAudioSettings } from "@/lib/audioSettings";
 import { BOOT_SESSION_KEY, hasEnteredRecently, markBootedOnDevice } from "@/lib/foidOsBoot";

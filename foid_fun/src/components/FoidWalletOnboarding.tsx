@@ -196,17 +196,6 @@ export default function FoidWalletOnboarding() {
     }
   }, []);
 
-  const emailBackup = useCallback(() => {
-    const wallet = load();
-    if (!wallet) return;
-    const body = encodeURIComponent(
-      `FOID Wallet Backup\n\nAddress: ${wallet.address}\nCreated: ${wallet.createdAt}\n\n--- ENCRYPTED WALLET DATA (keep this safe) ---\n\n${JSON.stringify(wallet)}\n\n--- END ---\n\nYou will need your password to restore this wallet.`,
-    );
-    const subject = encodeURIComponent(
-      `FOID Wallet Backup — ${wallet.address.slice(0, 8)}...${wallet.address.slice(-4)}`,
-    );
-    window.open(`mailto:?subject=${subject}&body=${body}`, '_self');
-  }, []);
 
   // ─── Restore from backup ───
 
