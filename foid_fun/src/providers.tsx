@@ -33,11 +33,8 @@ import {
   darkTheme,
   connectorsForWallets,
 } from "@rainbow-me/rainbowkit";
-import {
-  injectedWallet,
-  walletConnectWallet,
-  metaMaskWallet,
-} from "@rainbow-me/rainbowkit/wallets";
+import { injectedWallet } from "@rainbow-me/rainbowkit/wallets";
+import { lazyWalletConnectWallet } from "@/lib/connectors/lazyWalletConnect";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 import { TARGET_CHAIN, TARGET_CHAIN_ID } from "@/lib/chain";
@@ -57,8 +54,12 @@ const connectors = connectorsForWallets(
       wallets: [foidEmbeddedWallet],
     },
     {
+      // injectedWallet covers MetaMask/Rabby/Coinbase extensions (RainbowKit
+      // labels it by the detected wallet). WalletConnect is the lazy wrapper:
+      // the stock metaMaskWallet + walletConnectWallet both import their SDKs
+      // at config time, which is what put ~250 KB gz on every page load.
       groupName: "External",
-      wallets: [injectedWallet, metaMaskWallet, walletConnectWallet],
+      wallets: [injectedWallet, lazyWalletConnectWallet],
     },
   ],
   {

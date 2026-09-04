@@ -299,19 +299,12 @@ export function Dock() {
   // old dock simply overflowed with `overflow: visible`, so Files and About
   // were unreachable from the dock on phones. Under 480px the dock shows the
   // five primary apps plus a More tile that opens a small sheet.
-  const [compactDock, setCompactDock] = useState(false);
+  // Compaction is pure CSS (.foid-dock-tile--overflow / .foid-dock-more in
+  // globals.css) so the server markup and the first client paint agree:
+  // toggling it from a mount effect re-laid the whole dock out after
+  // hydration and scored 0.29 CLS on every mobile route.
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 479px)');
-    const update = () => {
-      setCompactDock(mq.matches);
-      if (!mq.matches) setMoreOpen(false);
-    };
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
   useEffect(() => {
     setMoreOpen(false);
   }, [pathname]);
@@ -330,8 +323,7 @@ export function Dock() {
       document.removeEventListener('keydown', onKey);
     };
   }, [moreOpen]);
-  const primaryItems = compactDock ? navItems.slice(0, 5) : navItems;
-  const overflowItems = compactDock ? navItems.slice(5) : [];
+  const overflowItems = navItems.slice(5);
   const overflowActive = overflowItems.some(
     (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
   );
@@ -378,8 +370,9 @@ export function Dock() {
         onMouseMove={magnify ? (e) => mouseX.set(e.clientX) : undefined}
         onMouseLeave={magnify ? () => mouseX.set(Infinity) : undefined}
       >
-        {primaryItems.map((item) => {
+        {navItems.map((item, index) => {
           const isHome = item.href === '/';
+          const overflowClass = index >= 5 ? ' foid-dock-tile--overflow' : '';
           // FOID OS shell: app tiles open desktop windows instead of
           // navigating (lg+ only); null when the desktop is opted out
           // (NEXT_PUBLIC_FOID_DESKTOP=0) or the item isn't a shell app.
@@ -449,7 +442,7 @@ export function Dock() {
               prefetch={true}
               className={`relative flex-col items-center justify-center h-full min-h-11 min-w-[56px] px-1 sm:min-w-[64px] sm:px-2 touch-manipulation ${
                 isHome && FOID_DESKTOP_ENABLED ? 'flex lg:hidden' : 'flex'
-              }`}
+              }${overflowClass}`}
               // Genie target: OSWindow reads this tile's rect to aim the
               // minimize animation at the app's own dock icon.
               data-dock-app={osAppId ?? undefined}
@@ -503,8 +496,8 @@ export function Dock() {
 
         {/* More — phones only: Files + About live in a small sheet so the
             dock never overflows the viewport. */}
-        {compactDock && overflowItems.length > 0 && (
-          <div ref={moreRef} className="relative flex h-full items-stretch">
+        {overflowItems.length > 0 && (
+          <div ref={moreRef} className="foid-dock-more relative h-full items-stretch">
             <button
               type="button"
               onClick={() => setMoreOpen((v) => !v)}

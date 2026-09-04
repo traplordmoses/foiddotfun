@@ -6569,3 +6569,35 @@ body.foid-dock-hidden .os-desktop__hint {
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.55);
 }
+
+/* Dock compaction under 480px: hide the overflow tiles, show More. Pure CSS
+   so the first paint is already correct (no post-mount re-layout). */
+.foid-dock-more {
+  display: none;
+}
+@media (max-width: 479px) {
+  .foid-dock-tile--overflow {
+    display: none !important;
+  }
+  .foid-dock-more {
+    display: flex;
+  }
+}
+
+/* Music deck + logic host: base positioning in the global sheet so the
+   server-rendered markup never takes flow space even if a component-level
+   style arrives late (the styled-jsx registry now streams them, this is the
+   belt to its braces). */
+.cmp-logic {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.cmp-bar-outer {
+  position: fixed;
+  left: 0;
+  right: 0;
+}

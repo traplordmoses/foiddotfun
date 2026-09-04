@@ -43,8 +43,13 @@ export function middleware(request: NextRequest) {
   const ua = request.headers.get("user-agent") ?? "";
   const chMobile = request.headers.get("sec-ch-ua-mobile");
   const isPhone = chMobile === "?1" || /Mobi|Android|iPhone|iPod/i.test(ua);
+  // Crawlers and link-preview fetchers (Google, X, Discord, Telegram,
+  // Farcaster clients, Slack, iMessage) never carry the cookie; bouncing
+  // them to the boot screen would hide the homepage and its share card.
+  const isBot =
+    /bot|crawl|spider|slurp|facebookexternalhit|twitterbot|discordbot|telegrambot|whatsapp|linkedinbot|slackbot|embedly|pinterest|warpcast|farcaster|applebot|duckduckbot|baiduspider|yandex/i.test(ua);
   const enteredCookie = request.cookies.get("foid_entered");
-  if (!enteredCookie && !isPhone) {
+  if (!enteredCookie && !isPhone && !isBot) {
     const enterUrl = new URL("/enter", request.url);
     enterUrl.search = request.nextUrl.search;
     return NextResponse.redirect(enterUrl);

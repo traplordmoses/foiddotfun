@@ -10,6 +10,7 @@ import { SkyTint } from "@/components/SkyTint";
 import SfxInitializer from "@/components/SfxInitializer";
 import { ClientLayout } from "@/components/ClientLayout";
 import { WebVitalsReporter } from "@/app/_vitals";
+import StyledJsxRegistry from "@/app/StyledJsxRegistry";
 
 // Site-wide metadata. Per-route titles/descriptions live in each route's
 // layout; per-route share cards are the opengraph-image.tsx files next to
@@ -122,18 +123,20 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="dns-prefetch" href="https://4everland.io" />
       </head>
   <body className="relative h-full min-h-screen overflow-hidden font-secondary" suppressHydrationWarning>
-    <AnimatedBackground />
-    <FloatingElements />
-    <div className="scene-tint" />
-    <SkyTint />
-    <Providers>
-      <div className="app-viewport">
-        <SfxInitializer />
-        <ClientLayout />
-        <WebVitalsReporter />
-        {children}
-      </div>
-    </Providers>
+    <StyledJsxRegistry>
+      <AnimatedBackground />
+      <FloatingElements />
+      <div className="scene-tint" />
+      <SkyTint />
+      <Providers>
+        <div className="app-viewport">
+          <SfxInitializer />
+          <ClientLayout />
+          <WebVitalsReporter />
+          {children}
+        </div>
+      </Providers>
+    </StyledJsxRegistry>
   </body>
 </html>
   );
