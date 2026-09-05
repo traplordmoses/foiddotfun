@@ -251,8 +251,54 @@ export function ipfsProxyUrl(uri?: string | null, opts?: IpfsImageOpts): string 
  * against Pinata/ipfs.io. Fallback list preserved so the circuit breaker
  * still has somewhere to land if the proxy is down.
  */
+const PINATA_DEDICATED_HOST = /\.mypinata\.cloud$/i;
+
+/**
+ * Mirror the proxy's transform mapping onto a dedicated Pinata gateway URL
+ * so the fallback path is bounded to the same right-sized WebP the proxy
+ * would have served, not the full original. A stalled proxy on a slow phone
+ * used to fall back to a 250 KB JPEG for a 48 px tile; now it falls back to
+ * the ~8 KB variant. Public gateways ignore the params (harmless).
+ */
+function withGatewayTransforms(url: string, opts?: IpfsImageOpts): string {
+  if (!opts || !(opts.width || opts.height)) return url;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+  if (!PINATA_DEDICATED_HOST.test(parsed.hostname)) return url;
+  if (opts.width && opts.width > 0) {
+    parsed.searchParams.set("img-width", String(Math.round(opts.width)));
+    parsed.searchParams.set("img-dpr", "2");
+  }
+  if (opts.height && opts.height > 0) {
+    parsed.searchParams.set("img-height", String(Math.round(opts.height)));
+  }
+  parsed.searchParams.set("img-format", opts.format ?? "webp");
+  if (opts.quality && opts.quality > 0) {
+    parsed.searchParams.set(
+      "img-quality",
+      String(Math.max(1, Math.min(100, Math.round(opts.quality)))),
+    );
+  }
+  parsed.searchParams.set("img-fit", "cover");
+  return parsed.toString();
+}
+
+/**
+ * True for the same-origin `/api/ipfs/...` candidate (a relative path). The
+ * public-gateway circuit breaker must not track it: its "host" would be a
+ * per-image string, and a slow proxy is a network condition, not a broken
+ * gateway.
+ */
+export function isProxyCandidate(url: string): boolean {
+  return url.startsWith("/");
+}
+
 export function ipfsImageUrls(uri: string, opts?: IpfsImageOpts): string[] {
-  const gatewayUrls = ipfsToHttp(uri);
+  const gatewayUrls = ipfsToHttp(uri).map((u) => withGatewayTransforms(u, opts));
   const proxy = ipfsProxyUrl(uri, opts);
   if (!proxy) return gatewayUrls;
   return [proxy, ...gatewayUrls];
