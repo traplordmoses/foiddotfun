@@ -166,7 +166,7 @@ export default function FoidOnboardingTour() {
     if (!getAudioSettings().sfxEnabled) return;
     try {
       if (!audioRef.current) {
-        const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+        const Ctx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
         audioRef.current = new Ctx();
       }
       const ctx = audioRef.current;

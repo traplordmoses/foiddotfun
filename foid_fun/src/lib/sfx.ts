@@ -1,27 +1,42 @@
 "use client";
 
 import { getAudioSettings } from "@/lib/audioSettings";
+import { mediaUrl } from "@/lib/mediaBase";
 
 type AudioContextConstructor =
   | typeof AudioContext
   | (typeof globalThis extends { webkitAudioContext: infer T } ? T : never);
 type AudioContextWindow = Window & { webkitAudioContext?: typeof AudioContext };
 
-// IMPORTANT: make sure these files exist under /public
-// e.g. public/sfx/typing.wav, public/sfx/reward.wav, etc.
+// Effects ship as Opus (Chrome, Firefox, modern Safari) with an AAC
+// fallback for engines that can't decode Ogg/Opus through decodeAudioData.
+// The container is picked once so every effect is a single small request:
+// the old WAVs cost 388 KB for the loading sting alone, on every page.
+function pickSfxExtension(): "opus" | "m4a" {
+  if (typeof document === "undefined") return "m4a";
+  try {
+    const probe = document.createElement("audio");
+    return probe.canPlayType('audio/ogg; codecs="opus"') ? "opus" : "m4a";
+  } catch {
+    return "m4a";
+  }
+}
+const SFX_EXT = pickSfxExtension();
+const sfxUrl = (name: string) => `/sfx/${name}.${SFX_EXT}`;
+
 const PATHS = {
-  loading: "/sfx/loadingfoid.wav",
-  reward: "/sfx/reward.wav",
-  typing: "/sfx/typing.wav",
-  error: "/sfx/error.wav",
+  loading: sfxUrl("loadingfoid"),
+  reward: sfxUrl("reward"),
+  typing: sfxUrl("typing"),
+  error: sfxUrl("error"),
 
   // background track (adjust the first one to a file you actually have)
-  background_primary: "/sfx/music/foidbackground1.opus",
+  background_primary: mediaUrl("/sfx/music/foidbackground1.opus"),
 
-  // --- legacy aliases to kill 404s from older code ---
-  enter: "/sfx/typing.wav",            // old code requested /sfx/enter.wav
-  spacebar: "/sfx/typing.wav",         // old code requested /sfx/spacebar.wav
-  backgroundfoid: "/sfx/music/foidbackground1.opus",
+  // --- legacy aliases: older callers ask for enter/spacebar sounds ---
+  enter: sfxUrl("typing"),
+  spacebar: sfxUrl("typing"),
+  backgroundfoid: mediaUrl("/sfx/music/foidbackground1.opus"),
 } as const;
 
 type SfxKey = keyof typeof PATHS;
@@ -29,9 +44,9 @@ type SfxKey = keyof typeof PATHS;
 // optional background fallbacks if the primary is missing on disk
 const BG_FALLBACKS = [
   PATHS.backgroundfoid,
-  "/sfx/music/foidbackground15.opus",
-  "/sfx/music/foidbackground1.m4a",
-  "/sfx/music/foidbackground15.m4a",
+  mediaUrl("/sfx/music/foidbackground15.opus"),
+  mediaUrl("/sfx/music/foidbackground1.m4a"),
+  mediaUrl("/sfx/music/foidbackground15.m4a"),
 ];
 
 const TYPING_VOLUME = 0.08;
@@ -168,8 +183,10 @@ export async function init(): Promise<void> {
     fallbackMode = true;
     return;
   }
-  // preload common effects; background lazily loads on first play
-  const keys: SfxKey[] = ["loading", "reward", "typing", "error", "enter", "spacebar"];
+  // Warm the small effect buffers. SfxInitializer calls this on the first
+  // user gesture (nothing can play before one), never on page load.
+  // enter/spacebar alias the typing click, so "typing" covers them.
+  const keys: SfxKey[] = ["loading", "reward", "typing", "error"];
   await Promise.all(keys.map((k) => loadOne(k).catch(() => {})));
 }
 

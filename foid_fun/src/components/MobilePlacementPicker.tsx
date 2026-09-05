@@ -119,8 +119,6 @@ const VALID_RGB = "72,255,171";
 const WARNING_RGB = "255,180,0";
 const INVALID_RGB = "255,71,87";
 const VALID_COLOR = `rgba(${VALID_RGB},0.9)`;
-const WARNING_COLOR = `rgba(${WARNING_RGB},0.9)`;
-const INVALID_COLOR = `rgba(${INVALID_RGB},0.9)`;
 /** Return the same hue as one of the halo colors at a different alpha. */
 function haloTone(rgb: string, alpha: number): string {
   return `rgba(${rgb},${alpha})`;
@@ -295,10 +293,6 @@ export function MobilePlacementPicker({
   const distance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
     Math.hypot(a.x - b.x, a.y - b.y);
 
-  const center = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
-    x: (a.x + b.x) / 2,
-    y: (a.y + b.y) / 2,
-  });
 
   /** Does a client-space (minimap-local) point land on the candidate? */
   const pointOnCandidate = useCallback(

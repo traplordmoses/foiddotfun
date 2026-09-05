@@ -25,18 +25,16 @@ if (
 }
 
 import "@rainbow-me/rainbowkit/styles.css";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { WagmiProvider, http, fallback, createConfig } from "wagmi";
+import { reconnect } from "@wagmi/core";
 import {
   RainbowKitProvider,
   darkTheme,
   connectorsForWallets,
 } from "@rainbow-me/rainbowkit";
-import {
-  injectedWallet,
-  walletConnectWallet,
-  metaMaskWallet,
-} from "@rainbow-me/rainbowkit/wallets";
+import { injectedWallet } from "@rainbow-me/rainbowkit/wallets";
+import { lazyWalletConnectWallet } from "@/lib/connectors/lazyWalletConnect";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 import { TARGET_CHAIN, TARGET_CHAIN_ID } from "@/lib/chain";
@@ -56,8 +54,12 @@ const connectors = connectorsForWallets(
       wallets: [foidEmbeddedWallet],
     },
     {
+      // injectedWallet covers MetaMask/Rabby/Coinbase extensions (RainbowKit
+      // labels it by the detected wallet). WalletConnect is the lazy wrapper:
+      // the stock metaMaskWallet + walletConnectWallet both import their SDKs
+      // at config time, which is what put ~250 KB gz on every page load.
       groupName: "External",
-      wallets: [injectedWallet, metaMaskWallet, walletConnectWallet],
+      wallets: [injectedWallet, lazyWalletConnectWallet],
     },
   ],
   {
@@ -95,9 +97,38 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Targeted session restore. wagmi's default reconnect-on-mount probes EVERY
+ *  connector (isAuthorized -> getProvider), which makes the WalletConnect
+ *  connector import @walletconnect/ethereum-provider plus the Reown modal
+ *  (~1 MB raw) on every page load for every visitor, wallet or not. We only
+ *  probe the connector the user actually used last, so first-time visitors
+ *  and injected/embedded wallet users never download WalletConnect. */
+function LazyReconnect() {
+  useEffect(() => {
+    let recentId: unknown = null;
+    try {
+      const raw = window.localStorage.getItem("wagmi.recentConnectorId");
+      if (raw) {
+        try {
+          recentId = JSON.parse(raw);
+        } catch {
+          recentId = raw;
+        }
+      }
+    } catch {
+      recentId = null;
+    }
+    if (typeof recentId !== "string" || !recentId) return;
+    const connector = config.connectors.find((c) => c.id === recentId);
+    if (!connector) return;
+    void reconnect(config, { connectors: [connector] }).catch(() => {});
+  }, []);
+  return null;
+}
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <WagmiProvider config={config}>
+    <WagmiProvider config={config} reconnectOnMount={false}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider
           theme={darkTheme()}
@@ -105,6 +136,7 @@ export function Providers({ children }: { children: ReactNode }) {
           initialChain={TARGET_CHAIN}
           showRecentTransactions={true}
         >
+          <LazyReconnect />
           <NetworkSwitcher />
           <AnalyticsBoot />
           {children}

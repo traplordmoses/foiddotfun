@@ -2,9 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useAccount } from "wagmi";
-import { useSwipePropose } from "@/hooks/useSwipePropose";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
-import { parseWeb3Error, isUserRejection } from "@/lib/errors";
 
 type Proposal = {
   id: number;
@@ -20,25 +18,12 @@ type Proposal = {
   againstCount: number;
 };
 
-type VoucherInfo = {
-  issuedAt: number;
-  expiresAt: number;
-  claimed: boolean;
-};
 
-function timeUntil(ts: number): string {
-  const diff = ts - Math.floor(Date.now() / 1000);
-  if (diff <= 0) return "expired";
-  const days = Math.floor(diff / 86400);
-  const hours = Math.floor((diff % 86400) / 3600);
-  if (days > 0) return `${days}d ${hours}h`;
-  return `${hours}h ${Math.floor((diff % 3600) / 60)}m`;
-}
 
 export function MyProposals() {
   const { address } = useAccount();
   const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!address) return;

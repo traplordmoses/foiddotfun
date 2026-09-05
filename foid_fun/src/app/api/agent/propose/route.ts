@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     if (!auth.ok) return json(false, undefined, auth.error, 401);
 
     // Rate limit (per-wallet)
-    const limit = checkRateLimit(auth.wallet, "propose");
+    const limit = await checkRateLimit(auth.wallet, "propose");
     if (!limit.ok) return json(false, undefined, limit.error, 429);
 
     // Global drain backstop: wallets are free, so a Sybil swarm can pass the
@@ -151,7 +151,7 @@ export async function POST(req: Request) {
       return json(false, undefined, `Onchain submission failed: ${msg.slice(0, 200)}`, 500);
     }
 
-    recordAction(auth.wallet, "propose");
+    await recordAction(auth.wallet, "propose");
 
     return json(true, {
       wallet: auth.wallet,

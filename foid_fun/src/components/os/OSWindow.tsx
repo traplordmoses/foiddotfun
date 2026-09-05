@@ -222,7 +222,7 @@ export default function OSWindow({
     el.style.width = `${Math.min(w, maxW)}px`;
     el.style.height = `${Math.min(h, maxH)}px`;
     el.style.maxWidth = "none";
-  }, [win, defaultSize.w, defaultSize.h]);
+  }, [win, defaultSize.w, defaultSize.h, appId]);
 
   // ── Focus: pointerdown anywhere in the frame brings it to front ───────
   // Capture phase so children that stopPropagation (resize handles, app

@@ -12,6 +12,9 @@ import { ProposalStore, type StoredProposal } from "@/lib/proposalStore";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Same multicall3 deployment lib/viem.ts and canonical.ts use on Fluent.
+const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11" as const;
+
 const chain = {
   id: CHAIN_CONFIG.id,
   name: CHAIN_CONFIG.name,
@@ -82,35 +85,65 @@ export async function POST(request: NextRequest) {
     const now = Math.floor(Date.now() / 1000);
     const results: FinalizeResult[] = [];
 
-    for (let i = 0; i < proposalCount; i++) {
-      try {
-        const raw = (await publicClient.readContract({
+    // Audit S7: this used to issue one RPC read per proposal every hour,
+    // O(n) forever. Read every proposal through multicall3 in chunks of
+    // 100 first, then touch only the ones whose window has closed.
+    type ProposalRead = { finalized: boolean; votingEndsAt: bigint };
+    const parseProposal = (raw: unknown): ProposalRead | null => {
+      if (Array.isArray(raw)) {
+        return { finalized: Boolean(raw[5]), votingEndsAt: BigInt(raw[4] ?? 0) };
+      }
+      const rec = raw as Partial<ProposalRead> | null;
+      if (!rec || typeof rec.finalized !== "boolean") return null;
+      return { finalized: rec.finalized, votingEndsAt: BigInt(rec.votingEndsAt ?? 0) };
+    };
+    const due: number[] = [];
+    const CHUNK = 100;
+    for (let start = 0; start < proposalCount; start += CHUNK) {
+      const ids = Array.from({ length: Math.min(CHUNK, proposalCount - start) }, (_, k) => start + k);
+      const reads = await publicClient.multicall({
+        allowFailure: true,
+        multicallAddress: MULTICALL3,
+        contracts: ids.map((id) => ({
           address: contractAddress,
           abi: LOREBOARD_ABI,
-          functionName: "getProposal",
-          args: [BigInt(i)],
-        })) as {
-          finalized: boolean;
-          votingEndsAt: bigint;
-        };
+          functionName: "getProposal" as const,
+          args: [BigInt(id)] as const,
+        })),
+      });
+      reads.forEach((r, k) => {
+        if (r.status !== "success") return;
+        const p = parseProposal(r.result);
+        if (!p || p.finalized) return;
+        if (Number(p.votingEndsAt) > now) return;
+        due.push(ids[k]);
+      });
+    }
 
-        if (raw.finalized) continue;
-        if (Number(raw.votingEndsAt) > now) continue;
-
-        const [rawFor, rawAgainst] = await Promise.all([
-          publicClient.readContract({
-            address: contractAddress,
-            abi: LOREBOARD_ABI,
-            functionName: "voteWeightFor",
-            args: [BigInt(i)],
-          }) as Promise<bigint>,
-          publicClient.readContract({
-            address: contractAddress,
-            abi: LOREBOARD_ABI,
-            functionName: "voteWeightAgainst",
-            args: [BigInt(i)],
-          }) as Promise<bigint>,
+    const weights = new Map<number, [bigint, bigint]>();
+    for (let start = 0; start < due.length; start += CHUNK / 2) {
+      const ids = due.slice(start, start + CHUNK / 2);
+      const reads = await publicClient.multicall({
+        allowFailure: true,
+        multicallAddress: MULTICALL3,
+        contracts: ids.flatMap((id) => [
+          { address: contractAddress, abi: LOREBOARD_ABI, functionName: "voteWeightFor" as const, args: [BigInt(id)] as const },
+          { address: contractAddress, abi: LOREBOARD_ABI, functionName: "voteWeightAgainst" as const, args: [BigInt(id)] as const },
+        ]),
+      });
+      ids.forEach((id, k) => {
+        const f = reads[k * 2];
+        const a = reads[k * 2 + 1];
+        weights.set(id, [
+          f.status === "success" ? (f.result as bigint) : 0n,
+          a.status === "success" ? (a.result as bigint) : 0n,
         ]);
+      });
+    }
+
+    for (const i of due) {
+      try {
+        const [rawFor, rawAgainst] = weights.get(i) ?? [0n, 0n];
 
         console.log(
           `[finalize] Proposal #${i}: ${rawFor} weightFor, ${rawAgainst} weightAgainst`

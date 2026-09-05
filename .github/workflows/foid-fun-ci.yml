@@ -118,9 +118,11 @@ jobs:
           urls: |
             http://localhost:3000/board
             http://localhost:3000/pray
-          # Perf budget: mobile P ≥ 90 per acceptance criteria. Accessibility
-          # and best-practices are also enforced since this PR includes the
-          # WCAG 2.2 AA work. Tighten SEO/PWA in a follow-up.
+          # Real gates (audit 2026-09): the old budget allowed 180 s TTI and
+          # 4 MB, so it could never fail. lighthouserc.json asserts the
+          # category scores (perf >= 0.70 now, raise to 0.90 once the
+          # CDN is in place); the budget file caps bytes and timings.
           budgetPath: ./foid_fun/.lighthouse-budget.json
+          configPath: ./foid_fun/lighthouserc.json
           uploadArtifacts: true
           temporaryPublicStorage: true

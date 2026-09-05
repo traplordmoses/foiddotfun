@@ -228,16 +228,6 @@ const PLACEMENT_FRAME_DEFAULT: React.CSSProperties = {
 
 // isValidCid, normalizeCidString — imported from @/lib/board
 
-async function getPendingBytes(p: PendingItem): Promise<ArrayBuffer> {
-  // Prefer using the File object directly if available
-  if (p.file) {
-    return await p.file.arrayBuffer();
-  }
-  // Fallback to fetching the blob URL (may fail if revoked)
-  const res = await fetch(p.previewUrl);
-  if (!res.ok) throw new Error("Failed to read pending asset");
-  return res.arrayBuffer();
-}
 
 // asWorldRect, normalizeProposals — imported from @/lib/board
 
@@ -1487,7 +1477,6 @@ export function BoardAppCore({
                     >
                       {/* Finalized (canonized proposals) — virtualized */}
                     {visiblePlaced.map((p) => {
-                      const sr = toStageRect(p.rect);
                       const isActive = activePlacement?.id === p.id;
                       return (
                         <PlacementCard

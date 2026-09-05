@@ -1,126 +1,99 @@
 /* eslint-disable no-restricted-globals */
+// FOID service worker (audit C5 / G4). The previous file precached whole
+// HTML pages and served HTML stale-while-revalidate, which would have
+// handed users pages pointing at chunk hashes from an old deploy. It was
+// also never registered. This one:
+//   - never caches HTML or API responses (network only)
+//   - caches hashed /_next/static and immutable /media, /sfx, /fonts
+//     cache-first (they carry a hash or are never overwritten in place)
+//   - caches small same-origin images stale-while-revalidate
+//   - drops old caches on activate
+const VERSION = 'foid-sw-v3';
+const STATIC_CACHE = `${VERSION}-static`;
+const IMAGE_CACHE = `${VERSION}-images`;
+const IMAGE_LIMIT = 120;
 
-const CACHE_NAME = 'foid-v2';
-const RUNTIME_CACHE = 'foid-runtime-v2';
-
-// Assets to cache on install
-const STATIC_ASSETS = [
-  '/',
-  '/board',
-  '/pray',
-  '/about',
-];
-
-// Install event
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => {
-        console.log('[SW] Caching static assets');
-        return cache.addAll(STATIC_ASSETS);
-      })
-      .then(() => self.skipWaiting())
-  );
+self.addEventListener('install', () => {
+  self.skipWaiting();
 });
 
-// Activate event
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames
-            .filter((name) => name !== CACHE_NAME && name !== RUNTIME_CACHE)
-            .map((name) => caches.delete(name))
-        );
-      })
-      .then(() => self.clients.claim())
+      .then((names) =>
+        Promise.all(
+          names
+            .filter((n) => n !== STATIC_CACHE && n !== IMAGE_CACHE)
+            .map((n) => caches.delete(n)),
+        ),
+      )
+      .then(() => self.clients.claim()),
   );
 });
 
-// Fetch event
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
-
-  // Skip non-GET requests
-  if (request.method !== 'GET') {
-    return;
-  }
-
-  // Network-first for API calls
-  if (url.pathname.includes('/api/') || url.pathname.endsWith('.json')) {
-    event.respondWith(networkFirst(request));
-    return;
-  }
-
-  // Cache-first for static assets
-  if (
-    url.pathname.includes('/_next/static/') ||
-    url.pathname.endsWith('.png') ||
-    url.pathname.endsWith('.jpg') ||
-    url.pathname.endsWith('.svg')
-  ) {
-    event.respondWith(cacheFirst(request));
-    return;
-  }
-
-  // Stale-while-revalidate for everything else
-  event.respondWith(staleWhileRevalidate(request));
-});
-
-async function networkFirst(request) {
-  const cache = await caches.open(RUNTIME_CACHE);
-
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch (error) {
-    const cached = await cache.match(request);
-    if (cached) {
-      return cached;
-    }
-    throw error;
-  }
+function isImmutable(url) {
+  return (
+    url.pathname.startsWith('/_next/static/') ||
+    url.pathname.startsWith('/media/') ||
+    url.pathname.startsWith('/sfx/') ||
+    url.pathname.startsWith('/fonts/')
+  );
 }
 
-async function cacheFirst(request) {
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
+function isImage(url) {
+  return /\.(png|webp|jpg|jpeg|gif|svg|ico)$/i.test(url.pathname) || url.pathname.startsWith('/icons/');
+}
 
-  if (cached) {
-    return cached;
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+  // Navigations, RSC payloads and API calls always hit the network.
+  if (request.mode === 'navigate' || url.pathname.startsWith('/api/') || url.searchParams.has('_rsc')) return;
+
+  if (isImmutable(url)) {
+    event.respondWith(cacheFirst(request, STATIC_CACHE));
+    return;
   }
+  if (isImage(url)) {
+    event.respondWith(staleWhileRevalidate(request, IMAGE_CACHE));
+  }
+});
 
+async function cacheFirst(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  if (cached) return cached;
   const response = await fetch(request);
-  if (response.ok) {
+  if (response.ok && (response.type === 'basic' || response.type === 'default')) {
     cache.put(request, response.clone());
   }
-
   return response;
 }
 
-async function staleWhileRevalidate(request) {
-  const cache = await caches.open(RUNTIME_CACHE);
+async function staleWhileRevalidate(request, cacheName) {
+  const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
+  const network = fetch(request)
+    .then(async (response) => {
+      if (response.ok) {
+        await cache.put(request, response.clone());
+        trim(cache, IMAGE_LIMIT);
+      }
+      return response;
+    })
+    .catch(() => cached);
+  return cached || network;
+}
 
-  const fetchPromise = fetch(request).then((response) => {
-    if (response.ok) {
-      cache.put(request, response.clone());
-    }
-    return response;
-  });
-
-  return cached || fetchPromise;
+async function trim(cache, limit) {
+  const keys = await cache.keys();
+  if (keys.length <= limit) return;
+  await Promise.all(keys.slice(0, keys.length - limit).map((k) => cache.delete(k)));
 }
 
 self.addEventListener('message', (event) => {
-  if (event.data === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });

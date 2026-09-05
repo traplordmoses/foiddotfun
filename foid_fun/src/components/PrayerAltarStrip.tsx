@@ -211,7 +211,7 @@ export default function PrayerAltarStrip({
         </svg>
         <div className="altar-portal__gif">
           <Image
-            src="/foidmommy.gif"
+            src="/foidmommy-96.webp"
             alt="Foid Mommy"
             width={56}
             height={56}

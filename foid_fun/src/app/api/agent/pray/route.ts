@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     if (!auth.ok) return json(false, undefined, auth.error, 401);
 
     // Rate limit (per-wallet)
-    const limit = checkRateLimit(auth.wallet, "pray");
+    const limit = await checkRateLimit(auth.wallet, "pray");
     if (!limit.ok) return json(false, undefined, limit.error, 429);
 
     // Global drain backstop: wallets are free, so a Sybil swarm can pass the
@@ -157,7 +157,7 @@ PRAYER: <2-3 sentence prayer>`,
       return json(false, undefined, `Onchain submission failed: ${msg.slice(0, 200)}`, 500);
     }
 
-    recordAction(auth.wallet, "pray");
+    await recordAction(auth.wallet, "pray");
 
     return json(true, {
       wallet: auth.wallet,

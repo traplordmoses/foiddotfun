@@ -313,6 +313,21 @@ export default function WalletMenuPill({
             type="button"
             role="menuitem"
             className="aero-wallet-menu__item"
+            onClick={() => {
+              setIsOpen(false);
+              window.dispatchEvent(new CustomEvent("foid-wallet:request-backup"));
+            }}
+          >
+            <svg className="aero-wallet-menu__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M8 2L13 4.5V8C13 11 10.5 13.2 8 14C5.5 13.2 3 11 3 8V4.5L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+              <path d="M6 8L7.5 9.5L10 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Back up wallet (seed words)
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="aero-wallet-menu__item"
             onClick={handleExportKey}
           >
             <svg className="aero-wallet-menu__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -381,7 +396,7 @@ export default function WalletMenuPill({
       <button
         ref={buttonRef}
         type="button"
-        className={`aero-wallet-pill ${className}`}
+        className={`aero-wallet-pill${isConnected ? " aero-wallet-pill--connected" : ""} ${className}`}
         onClick={handleToggle}
         aria-expanded={isOpen}
         aria-haspopup="menu"
@@ -392,9 +407,9 @@ export default function WalletMenuPill({
         <span className="aero-wallet-pill__label">
           {isConnected ? "WALLET" : "CONNECT"}
         </span>
-        <span className="aero-wallet-pill__address">
-          {address ? shortHash(address) : "—"}
-        </span>
+        {address ? (
+          <span className="aero-wallet-pill__address">{shortHash(address)}</span>
+        ) : null}
         <svg
           className={`aero-wallet-pill__chevron ${isOpen ? "aero-wallet-pill__chevron--open" : ""}`}
           width="10"

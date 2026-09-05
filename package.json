@@ -1,19 +1,7 @@
 {
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start -p $PORT"
-  },
-  "engines": {
-    "node": "22.x"
-  },
-  "dependencies": {
-    "bs58": "^6.0.0",
-    "encoding": "^0.1.13",
-    "next": "^16.0.1",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
-  },
+  "name": "foid-monorepo",
+  "private": true,
+  "//": "The web app is foid_fun/ (see README). This root file only carries the pitch-deck tooling; run `cd foid_fun && pnpm install` for the site.",
   "devDependencies": {
     "@marp-team/marp-cli": "^4.2.3"
   },

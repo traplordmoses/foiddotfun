@@ -42,6 +42,24 @@ export async function generateMetadata({
       description,
       images: [ogPath],
     },
+    // Farcaster / Base App embed (audit G3): a cast with this link shows the
+    // placement card and a launch button into the board.
+    other: {
+      "fc:miniapp": JSON.stringify({
+        version: "1",
+        imageUrl: `https://foid.fun${ogPath}`,
+        button: {
+          title: "see it on the loreboard",
+          action: {
+            type: "launch_miniapp",
+            name: "FOID",
+            url: `https://foid.fun/board?celebrate=${encodeURIComponent(id)}&miniapp=1`,
+            splashImageUrl: "https://foid.fun/icons/192.png",
+            splashBackgroundColor: "#0e0f2b",
+          },
+        },
+      }),
+    },
   };
 }
 

@@ -1,5 +1,27 @@
 import { withSentryConfig } from "@sentry/nextjs";
 
+// Optional off-origin media host (Cloudflare R2 / any CDN). When set, the
+// FILES.EXE archive and the music library load from there and the CSP
+// admits it; unset means everything still serves from /public as before.
+// See docs/CDN_SETUP.md.
+const MEDIA_ORIGIN = (() => {
+  try {
+    const base = process.env.NEXT_PUBLIC_MEDIA_BASE;
+    return base ? new URL(base).origin : "";
+  } catch {
+    return "";
+  }
+})();
+const withMedia = (list) => (MEDIA_ORIGIN ? `${list} ${MEDIA_ORIGIN}` : list);
+
+// Long-lived caching for the static media under /public. Next already
+// marks /_next/static as immutable; everything else was shipping with
+// max-age=0, so every visit re-fetched the same PNGs, videos and sounds
+// from the origin. Media and sounds are added, never overwritten in place,
+// so they can be immutable; root-level images get a week + revalidate.
+const IMMUTABLE = "public, max-age=31536000, immutable";
+const WEEK = "public, max-age=604800, stale-while-revalidate=86400";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Allow `NEXT_DIST_DIR=.next-prod pnpm build` so a production build can run
@@ -23,7 +45,10 @@ const nextConfig = {
               "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://us-assets.i.posthog.com https://us.i.posthog.com",
               "script-src-elem 'self' 'unsafe-inline' https://us-assets.i.posthog.com https://us.i.posthog.com",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://ipfs.io https://gateway.pinata.cloud https://dweb.link https://w3s.link https://4everland.io https://*.ipfs.dweb.link https://*.ipfs.w3s.link https://*.ipfs.4everland.io https://*.mypinata.cloud",
+              withMedia("img-src 'self' data: blob: https://ipfs.io https://gateway.pinata.cloud https://dweb.link https://w3s.link https://4everland.io https://*.ipfs.dweb.link https://*.ipfs.w3s.link https://*.ipfs.4everland.io https://*.mypinata.cloud"),
+              // Videos + audio. Without an explicit media-src the fallback is
+              // default-src 'self', which blocks any off-origin media host.
+              withMedia("media-src 'self' blob: data:"),
               "font-src 'self'",
               // Supabase Realtime opens a wss:// connection to `*.supabase.co`
               // (+ https:// for REST). Without these entries, iOS Safari
@@ -31,7 +56,7 @@ const nextConfig = {
               // WebSocket constructor — which used to escape `usePresence`
               // and crash the entire board. The hook is now try/caught too,
               // but CSP must still whitelist the host for realtime to work.
-              "connect-src 'self' https://rpc.testnet.fluent.xyz https://rpc.fluent.xyz https://*.quiknode.pro wss://*.quiknode.pro https://ipfs.io https://gateway.pinata.cloud https://dweb.link https://w3s.link https://4everland.io https://*.supabase.co wss://*.supabase.co https://us.i.posthog.com https://us-assets.i.posthog.com https://*.sentry.io https://*.rainbow.me https://*.walletconnect.org https://*.walletconnect.com https://*.web3modal.org https://*.reown.com",
+              withMedia("connect-src 'self' https://rpc.testnet.fluent.xyz https://rpc.fluent.xyz https://*.quiknode.pro wss://*.quiknode.pro https://ipfs.io https://gateway.pinata.cloud https://dweb.link https://w3s.link https://4everland.io https://*.supabase.co wss://*.supabase.co https://us.i.posthog.com https://us-assets.i.posthog.com https://*.sentry.io https://*.rainbow.me https://*.walletconnect.org https://*.walletconnect.com https://*.web3modal.org https://*.reown.com"),
               "worker-src 'self' blob:",
               "object-src 'none'",
               "base-uri 'self'",
@@ -52,6 +77,14 @@ const nextConfig = {
           },
         ],
       },
+      { source: '/media/:path*', headers: [{ key: 'Cache-Control', value: IMMUTABLE }] },
+      { source: '/sfx/:path*', headers: [{ key: 'Cache-Control', value: IMMUTABLE }] },
+      { source: '/fonts/:path*', headers: [{ key: 'Cache-Control', value: IMMUTABLE }] },
+      { source: '/icons/:path*', headers: [{ key: 'Cache-Control', value: WEEK }] },
+      {
+        source: '/:file((?:[^/]+)\\.(?:png|webp|jpg|jpeg|gif|svg|ico))',
+        headers: [{ key: 'Cache-Control', value: WEEK }],
+      },
     ];
   },
   async redirects() {
@@ -68,6 +101,13 @@ const nextConfig = {
     ];
   },
   experimental: {
+    // Lower peak heap during `next build` (Next 14.2+). The bundle-size CI
+    // job hit V8's heap limit at the 2 GB cap the build script sets, and
+    // Render builds with that same cap.
+    webpackMemoryOptimizations: true,
+    // Compile in a worker process with its own heap; the main process only
+    // collects page data. Documented Next fix for build OOMs.
+    webpackBuildWorker: true,
     outputFileTracingExcludes: {
       "*": [
         "node_modules/@swc/core-linux-x64-gnu",
@@ -93,7 +133,20 @@ const nextConfig = {
       { protocol: "https", hostname: "dweb.link" },
     ],
   },
-  webpack(config, { isServer }) {
+  webpack(config, { isServer, webpack }) {
+    if (!isServer) {
+      // Sentry tree-shaking flags: strip debug logging, tracing and the
+      // replay recorder from the browser bundle (none are used client-side).
+      config.plugins.push(
+        new webpack.DefinePlugin({
+          __SENTRY_DEBUG__: false,
+          __SENTRY_TRACING__: false,
+          __RRWEB_EXCLUDE_IFRAME__: true,
+          __RRWEB_EXCLUDE_SHADOW_DOM__: true,
+          __SENTRY_EXCLUDE_REPLAY_WORKER__: true,
+        }),
+      );
+    }
     const aliases = {
       ...config.resolve.alias,
       "@react-native-async-storage/async-storage": false, // RN-only dep
@@ -123,9 +176,12 @@ const sentryOptions = {
   // Only upload source maps when we actually have credentials. Prevents
   // `next build` from blocking waiting on a missing token.
   disableSourceMapUpload: !process.env.SENTRY_AUTH_TOKEN,
+  // Without a token there is nowhere to send maps, so don't generate them
+  // either: client source maps roughly double webpack's build memory.
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
   widenClientFileUpload: true,
   hideSourceMaps: true,
-  disableLogger: true,
+  webpack: { treeshake: { removeDebugLogging: true } },
 };
 
 export default withSentryConfig(nextConfig, sentryOptions);

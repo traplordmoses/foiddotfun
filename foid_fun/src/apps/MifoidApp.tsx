@@ -14,6 +14,7 @@
 "use client";
 
 import Image from "next/image";
+import MifoidReserve from "@/components/MifoidReserve";
 
 const FEATURES = [
   {
@@ -40,11 +41,11 @@ const FEATURES = [
 
 /* 5 floating mini-windows — spread around the GameBoy, larger + glowing */
 const FLOAT_WINDOWS = [
-  { src: "/mifoid04.png", alt: "MiFOID - gray tee",       top: -35,  left: -100, rotate: -6,  delay: "0s" },
-  { src: "/mifoid07.png", alt: "MiFOID in Blender",        top: "18%", left: -115, rotate: -8,  delay: "0.9s" },
-  { src: "/mifoid08.png", alt: "MiFOID texture paint",     top: "10%", right: -100, rotate: 5,  delay: "1.5s" },
-  { src: "/mifoid02.png", alt: "MiFOID - green hoodie",    bottom: 20, left: -110, rotate: 5,  delay: "1.2s" },
-  { src: "/mifoid03.png", alt: "MiFOID - black hoodie",    bottom: -20, right: -95, rotate: -6, delay: "0.3s" },
+  { src: "/mifoid04.webp", alt: "MiFOID - gray tee",       top: -35,  left: -100, rotate: -6,  delay: "0s" },
+  { src: "/mifoid07.webp", alt: "MiFOID in Blender",        top: "18%", left: -115, rotate: -8,  delay: "0.9s" },
+  { src: "/mifoid08.webp", alt: "MiFOID texture paint",     top: "10%", right: -100, rotate: 5,  delay: "1.5s" },
+  { src: "/mifoid02.webp", alt: "MiFOID - green hoodie",    bottom: 20, left: -110, rotate: 5,  delay: "1.2s" },
+  { src: "/mifoid03.webp", alt: "MiFOID - black hoodie",    bottom: -20, right: -95, rotate: -6, delay: "0.3s" },
 ];
 
 const SPARKLES = [
@@ -66,20 +67,20 @@ export default function MifoidApp() {
         {/* Decorative sparkles + bubbles */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
           <Image
-            src="/bubble.png" alt="" width={70} height={70}
+            src="/bubble.webp" alt="" width={70} height={70}
             className="mifoid-bubble absolute"
             style={{ top: "55%", left: "36%", opacity: 0.18 }}
             unoptimized
           />
           <Image
-            src="/bubble.png" alt="" width={35} height={35}
+            src="/bubble.webp" alt="" width={35} height={35}
             className="mifoid-bubble-sm absolute"
             style={{ top: "12%", left: "50%", opacity: 0.14 }}
             unoptimized
           />
           {SPARKLES.map((s, i) => (
             <Image
-              key={i} src="/star-sparkle.png" alt=""
+              key={i} src="/star-sparkle.webp" alt=""
               width={s.size} height={s.size}
               className="mifoid-sparkle absolute"
               style={{ top: s.top, left: s.left, animationDelay: s.delay }}
@@ -102,10 +103,11 @@ export default function MifoidApp() {
         <div className="relative z-10 flex flex-col lg:flex-row items-center h-full pt-10 lg:pt-8 overflow-y-auto lg:overflow-visible">
           {/* Left — features */}
           <div className="flex flex-col justify-center flex-1 w-full lg:h-full pl-4 pr-4 lg:pl-8 lg:pr-6 gap-4 lg:gap-7 min-w-0 pb-4 lg:pb-0">
+            <MifoidReserve />
             {FEATURES.map((feat, i) => (
               <div key={i} className="flex gap-3 items-start">
                 <div className="mifoid-diamond flex-shrink-0 mt-0.5">
-                  <Image src="/star-sparkle.png" alt="" width={18} height={18} unoptimized />
+                  <Image src="/star-sparkle.webp" alt="" width={18} height={18} unoptimized />
                 </div>
                 <div>
                   <h3 className="mifoid-feature-title font-mono font-bold tracking-[0.12em] uppercase text-sm lg:text-[clamp(14px,1.5vw,22px)] leading-tight">
@@ -128,7 +130,7 @@ export default function MifoidApp() {
               {/* Radial glow behind gameboy for focal effect */}
               <div className="mifoid-focal-glow" />
               <Image
-                src="/gameboy_mifoid.png"
+                src="/gameboy_mifoid.webp"
                 alt="MiFOID Game Boy"
                 width={600}
                 height={1000}

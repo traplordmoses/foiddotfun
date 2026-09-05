@@ -43,7 +43,6 @@ const MEME_FONT_FAMILY = "'Impact', 'Arial Black', 'Haettenschweiler', sans-seri
 // Default natural size for a freshly-placed stamp (largest side, px)
 const DEFAULT_STAMP_MAX = 240;
 // Foid palette for text overlays
-const TEXT_COLORS = ["#f06292", "#ffffff", "#000000", "#00cccc", "#a855f7", "#ffdd00"] as const;
 const DEFAULT_TEXT_COLOR = "#f06292";
 
 // Sticker drawer presets — emoji for now (Step 15 will upgrade visuals)
@@ -710,7 +709,7 @@ export function PaintEditor({ imageFile, onDone, onCancel }: PaintEditorProps) {
     setEditingOverlayId(id);
     pushHistory(updated);
     haptic("light");
-  }, [canvasDisplaySize, color, paintOverlays, pushHistory]);
+  }, [canvasDisplaySize, paintOverlays, pushHistory]);
 
   // Meme text: two classic Impact-styled overlays — one pinned top-centre and
   // one bottom-centre of the image. Users can still drag them after placement,

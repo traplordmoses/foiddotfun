@@ -10,6 +10,7 @@ import { useMobile } from "@/hooks/useMobile";
 import { useHaptic } from "@/hooks/useHaptic";
 import { getTierFromStreak } from "@/hooks/usePrayerTiers";
 import PrayerEcho from "@/components/PrayerEcho";
+import { askFoidMommy } from "@/lib/mommyClient";
 
 export type FeelingKey =
   | "happy"
@@ -269,6 +270,7 @@ const feelingOrder: FeelingKey[] = [
   "guilty",
   "pain",
 ];
+void feelingOrder; // order documents the mood chip sequence; consumers key by name
 
 // Quick-send mood chips for the awaitFeeling stage. Kept short and
 // one-syllable — they're meant for the days you don't have words.
@@ -450,7 +452,6 @@ export default function FoidMommyTerminal({
     entries: memoryEntries,
     hasConsent: hasMemoryConsent,
     needsConsentPrompt,
-    hydrated: memoryHydrated,
     grantConsent,
     revokeConsent,
     addEntry: addMemoryEntry,
@@ -926,14 +927,10 @@ export default function FoidMommyTerminal({
       try {
         // No artificial delay — the AI round-trip is the wait, and the
         // typing indicator (350ms min display) covers the fast case.
-        const res = await fetch("/api/foid-mommy", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            feelingKey: feeling,
-            feelingText: inputText.trim(),
-            recentFeelings: hasMemoryConsent ? getRecentFeelings(7) : undefined,
-          }),
+        const res = await askFoidMommy({
+          feelingKey: feeling,
+          feelingText: inputText.trim(),
+          recentFeelings: hasMemoryConsent ? getRecentFeelings(7) : undefined,
         });
 
         let customResponse = config.response;
@@ -981,15 +978,11 @@ export default function FoidMommyTerminal({
 
       try {
         // No artificial delay — the AI round-trip is the wait.
-        const res = await fetch("/api/foid-mommy", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            feelingKey,
-            feelingText: initialFeelingText,
-            userResponse: userResponse.trim(),
-            recentFeelings: hasMemoryConsent ? getRecentFeelings(7) : undefined,
-          }),
+        const res = await askFoidMommy({
+          feelingKey,
+          feelingText: initialFeelingText,
+          userResponse: userResponse.trim(),
+          recentFeelings: hasMemoryConsent ? getRecentFeelings(7) : undefined,
         });
 
         let warmResponse = "that's beautiful, sweet one. let me craft a prayer for this moment...";

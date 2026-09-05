@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/db/db";
+import { getPairings } from "@/lib/pairings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,16 +30,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const db = getDb();
-  const placeholders = wallets.map(() => "?").join(",");
-  const rows = db
-    .prepare(`SELECT wallet, handle FROM x_pairings WHERE wallet IN (${placeholders}) AND active = 1`)
-    .all(...wallets) as Array<{ wallet: string; handle: string }>;
-
-  const result: Record<string, string> = {};
-  for (const row of rows) {
-    result[row.wallet] = row.handle;
-  }
-
-  return NextResponse.json(result);
+  const result = await getPairings(wallets);
+  return NextResponse.json(result, { headers: { "Cache-Control": "public, max-age=60" } });
 }

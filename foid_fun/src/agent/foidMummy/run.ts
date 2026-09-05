@@ -7,6 +7,7 @@
  *   npx tsx src/agent/foidMummy/run.ts --dry-run
  *   npx tsx src/agent/foidMummy/run.ts --dry-run --no-api  (skip API even if key exists)
  *   npx tsx src/agent/foidMummy/run.ts --from 2026-03-12 --to 2026-03-19
+ *   npx tsx src/agent/foidMummy/run.ts --publish   (POST to $FOID_APP_URL/api/report)
  */
 
 import fs from "fs";
@@ -22,17 +23,19 @@ function parseArgs() {
   const args = process.argv.slice(2);
   let dryRun = false;
   let noApi = false;
+  let publish = false;
   let fromDate: string | null = null;
   let toDate: string | null = null;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--dry-run") dryRun = true;
     if (args[i] === "--no-api") noApi = true;
+    if (args[i] === "--publish") publish = true;
     if (args[i] === "--from" && args[i + 1]) fromDate = args[++i];
     if (args[i] === "--to" && args[i + 1]) toDate = args[++i];
   }
 
-  return { dryRun, noApi, fromDate, toDate };
+  return { dryRun, noApi, publish, fromDate, toDate };
 }
 
 function buildPeriod(fromDate: string | null, toDate: string | null): ReportPeriod {
@@ -140,7 +143,7 @@ function mockData(period: ReportPeriod): WeeklyData {
 // ── Main ──
 
 async function main() {
-  const { dryRun, noApi, fromDate, toDate } = parseArgs();
+  const { dryRun, noApi, publish, fromDate, toDate } = parseArgs();
   const period = buildPeriod(fromDate, toDate);
   const hasApiKey = !!ANTHROPIC_API_KEY;
   const useApi = hasApiKey && !noApi;
@@ -214,6 +217,26 @@ async function main() {
   console.log(`\nReport saved:`);
   console.log(`  HTML: ${filepath}`);
   console.log(`  Markdown: ${mdPath}`);
+
+  // Step 5 (optional): publish to the site so /report serves it.
+  if (publish) {
+    const appUrl = (process.env.FOID_APP_URL || "").replace(/\/+$/, "");
+    const secret = process.env.CRON_SECRET;
+    if (!appUrl || !secret) {
+      console.error("[run] --publish needs FOID_APP_URL and CRON_SECRET");
+      process.exit(1);
+    }
+    const res = await fetch(`${appUrl}/api/report`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${secret}` },
+      body: JSON.stringify({ html, narrative, from: period.from, to: period.to }),
+    });
+    if (!res.ok) {
+      console.error(`[run] publish failed: ${res.status} ${await res.text()}`);
+      process.exit(1);
+    }
+    console.log(`[run] published to ${appUrl}/report`);
+  }
   console.log("\n=== DONE ===");
 }
 

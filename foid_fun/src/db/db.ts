@@ -114,13 +114,6 @@ CREATE TABLE IF NOT EXISTS placement_intents (
   fit_mode      TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_intents_epoch ON placement_intents(epoch);
-
-CREATE TABLE IF NOT EXISTS rate_limits (
-  wallet_action TEXT NOT NULL,
-  timestamp     INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_rate_limits_key ON rate_limits(wallet_action);
-
 CREATE TABLE IF NOT EXISTS kv (
   key           TEXT PRIMARY KEY,
   value         TEXT NOT NULL

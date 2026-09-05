@@ -326,7 +326,7 @@ export default function CompactMusicPlayer({ mountLogic = true }: CompactMusicPl
         // Tab into invisible buttons and get stuck — an axe-core
         // "aria-hidden-focus" violation.
         <div className="cmp-logic" aria-hidden="true" {...({ inert: "" } as Record<string, string>)}>
-          <MusicPanelLogic />
+          <MusicPanelLogic visualizer={false} />
         </div>
       )}
 

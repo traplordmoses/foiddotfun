@@ -1,11 +1,18 @@
 import type { ReactNode } from "react";
+import { routeMetadata } from "@/lib/routeMetadata";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 // vote-animations.css now rides with the VoteApp component
 // (src/apps/VoteApp.tsx) so the desktop shell's VOTE window loads it too —
 // not just this route. (It is all @keyframes; /vote/[id] and /vote/submit
 // don't reference them.)
 
-export const metadata = { title: "VOTE" };
+export const metadata = routeMetadata({
+  title: "Vote",
+  description:
+    "Swipe on what goes on the Loreboard. Prayer streaks weigh your vote up to 5x.",
+  path: "/vote",
+  card: "vote",
+});
 
 export default function VoteLayout({ children }: { children: ReactNode }) {
   return (

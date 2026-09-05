@@ -17,14 +17,31 @@ export const BOOT_SESSION_KEY = "foid_os_booted";
  *  (new tab within the window ⇒ fast ~0.9s boot instead of the full one). */
 export const ENTERED_COOKIE = "foid_entered";
 
-/** True once the boot theater has played in this tab session. Fails open
- *  (pretends booted) when sessionStorage is unavailable — a private-mode
- *  quirk must never trap the desktop in a redirect loop with /enter. */
+/** localStorage flag: this device has already sat through the boot once.
+ *  The desktop only bounces through /enter while BOTH this and the session
+ *  flag are absent, so the ceremony plays once per device, not once per
+ *  tab (audit P7). /enter itself is always reachable directly. */
+export const BOOT_DEVICE_KEY = "foid_os_booted_device";
+
+/** True once the boot theater has played in this tab session OR on this
+ *  device. Fails open (pretends booted) when storage is unavailable — a
+ *  private-mode quirk must never trap the desktop in a redirect loop
+ *  with /enter. */
 export function hasBootedThisSession(): boolean {
   try {
-    return window.sessionStorage.getItem(BOOT_SESSION_KEY) === "1";
+    if (window.sessionStorage.getItem(BOOT_SESSION_KEY) === "1") return true;
+    return window.localStorage.getItem(BOOT_DEVICE_KEY) === "1";
   } catch {
     return true;
+  }
+}
+
+/** Remember that this device has booted. Called when a boot lands. */
+export function markBootedOnDevice(): void {
+  try {
+    window.localStorage.setItem(BOOT_DEVICE_KEY, "1");
+  } catch {
+    /* private mode: the cookie still covers the server-side gate */
   }
 }
 

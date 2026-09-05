@@ -51,6 +51,8 @@ jobs:
           # Build-only placeholder. The bundle just needs to exist —
           # size-limit reads static chunks from .next/static/chunks/app/**.
           NEXT_PUBLIC_POSTHOG_KEY: ""
+          # Same heap headroom the CI and Lighthouse jobs give the build.
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Size check
         run: pnpm size

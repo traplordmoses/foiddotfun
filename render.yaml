@@ -28,5 +28,27 @@ services:
       - key: CRON_SECRET
         sync: false
 
+  # Weekly Foid Mommy report (audit G6). The narrator existed but was never
+  # scheduled. Runs Monday 14:00 UTC, generates the narrative with the
+  # Anthropic API, and publishes it through POST /api/report (CRON_SECRET).
+  # Env needed on this cron: ANTHROPIC_API_KEY, CRON_SECRET, FOID_APP_URL,
+  # plus the RPC/subgraph vars the data collector reads.
+  - type: cron
+    name: foid-weekly-report
+    runtime: node
+    rootDir: foid_fun
+    schedule: "0 14 * * 1"
+    buildCommand: "corepack enable && pnpm install --frozen-lockfile"
+    startCommand: "pnpm tsx src/agent/foidMummy/run.ts --publish"
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: FOID_APP_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
   # foid-x-bot cron archived — see foid_fun/foid_bot/ARCHIVED.md for revival steps.
   # The bot source still lives at foid_fun/foid_bot/ but is no longer scheduled.

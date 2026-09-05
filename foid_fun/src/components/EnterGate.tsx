@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { getAudioSettings } from "@/lib/audioSettings";
-import { BOOT_SESSION_KEY, hasEnteredRecently } from "@/lib/foidOsBoot";
+import { BOOT_SESSION_KEY, hasEnteredRecently, markBootedOnDevice } from "@/lib/foidOsBoot";
 
 const PARTICLE_COUNT = 20;
 
@@ -279,6 +279,7 @@ export default function EnterGate({
     } catch {
       /* private mode — boot simply replays next visit */
     }
+    markBootedOnDevice();
   }, []);
 
   /* Skip = jump cut to the composed end state. Never a different state,
@@ -347,8 +348,10 @@ export default function EnterGate({
       return clearTimeouts;
     }
 
-    /* First boot (~4.6s to the login prompt). Deliberately staged like a
-       machine powering on — each beat gets room to land before the next:
+    /* First boot (~3.0s to the login prompt; it was 4.6s before the
+       2026-09 audit, and it now plays once per device, so the shorter
+       cadence keeps the story without taxing the first visit). Staged like
+       a machine powering on — each beat gets room to land before the next:
 
          POWER ON  dark aero-night (the SSR "cover" frame) breathes for a
                    moment before anything stirs
@@ -362,14 +365,14 @@ export default function EnterGate({
 
        All timeouts are scheduled up front (never chained) so a throttled
        background tab can only delay stages, never stack them. */
-    schedule(() => setBootPhase("sigil"), 320); // POST — firmware wakes
-    schedule(() => setLogCount(1), 1000); // waking foid mommy
-    schedule(() => setLogCount(2), 1560); // mounting permanent memory
-    schedule(() => setLogCount(3), 2120); // tuning the sky
-    schedule(() => setLogCount(4), 2680); // polishing the glass
-    schedule(() => setLogCount(5), 3160); // open well — checklist done
-    schedule(() => setBootPhase("sky"), 3560); // the sky blooms up
-    schedule(finishBoot, 4600); //          the login key crystallizes
+    schedule(() => setBootPhase("sigil"), 240); // POST — firmware wakes
+    schedule(() => setLogCount(1), 700); // waking foid mommy
+    schedule(() => setLogCount(2), 1040); // mounting permanent memory
+    schedule(() => setLogCount(3), 1380); // tuning the sky
+    schedule(() => setLogCount(4), 1720); // polishing the glass
+    schedule(() => setLogCount(5), 2000); // open well — checklist done
+    schedule(() => setBootPhase("sky"), 2300); // the sky blooms up
+    schedule(finishBoot, 3000); //          the login key crystallizes
     return clearTimeouts;
   }, [clearTimeouts, finishBoot, schedule]);
 
@@ -499,6 +502,13 @@ export default function EnterGate({
       </p>
       <div className="caustics" aria-hidden="true" />
       <div className="particles" ref={particlesRef} aria-hidden="true" />
+      {/* Visible skip affordance (audit P7). The boot was always
+          skippable, but nothing on screen said so. Hidden once ready. */}
+      {bootPhase !== "ready" && bootMode !== "static" ? (
+        <p className="boot-skip-hint" aria-hidden="true">
+          press any key to skip
+        </p>
+      ) : null}
 
       <div
         className="enter-container"

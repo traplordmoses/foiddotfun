@@ -17,12 +17,21 @@ export function WebVitalsReporter() {
   const pathname = usePathname();
 
   useReportWebVitals((metric) => {
+    // Chrome-only, but it is where the memory story lives: the audit
+    // measured 215 to 298 MB heaps, inside the range iOS evicts pages.
+    const mem = (performance as Performance & {
+      memory?: { usedJSHeapSize?: number };
+    }).memory;
+    const heapMB = mem?.usedJSHeapSize
+      ? Math.round(mem.usedJSHeapSize / 1048576)
+      : undefined;
     track("web_vital", {
       name: metric.name,
       value: metric.value,
       rating: (metric as unknown as { rating?: string }).rating,
       route: pathname ?? "unknown",
       id: metric.id,
+      heapMB,
     });
   });
 

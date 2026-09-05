@@ -288,6 +288,23 @@ export default function AnimatedBackground() {
       );
     };
 
+    // Static wallpaper for phones, data-saver, very-low-memory devices and
+    // reduced-motion: three animated canvases under glass was the largest
+    // steady-state cost on mobile (audit P4). The CSS gradient in
+    // globals.css (.foid-background--static) stands in for the shader.
+    const shouldUseStaticWallpaper = () => {
+      if (typeof window === "undefined") return false;
+      if (detectMobile()) return true;
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+      const nav = navigator as Navigator & {
+        connection?: { saveData?: boolean };
+        deviceMemory?: number;
+      };
+      if (nav.connection?.saveData) return true;
+      if (typeof nav.deviceMemory === "number" && nav.deviceMemory <= 2) return true;
+      return false;
+    };
+
     let disposed = false;
     let glCleanup: Cleanup | undefined;
     let fxCleanup: Cleanup | undefined;
@@ -303,6 +320,11 @@ export default function AnimatedBackground() {
       if (!container || disposed) return;
       try {
         container.classList.remove("foid-background--fallback");
+
+        if (shouldUseStaticWallpaper()) {
+          container.classList.add("foid-background--static");
+          return;
+        }
 
         // Ensure the background stack is fixed full-screen and never eats clicks.
         container.style.position = "fixed";

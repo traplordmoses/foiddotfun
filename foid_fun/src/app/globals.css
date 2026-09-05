@@ -6430,3 +6430,174 @@ body.foid-window-dragging .vista-window * {
 body.foid-dock-hidden .os-desktop__hint {
   opacity: 0;
 }
+
+/* ============================================================================
+   AUDIT 2026-09 — static wallpaper, window containment, mobile fit
+   ============================================================================ */
+
+/* Phones, data-saver and reduced-motion get a still sea instead of three
+   animated canvases (AnimatedBackground.shouldUseStaticWallpaper). Same
+   palette family as the shader so the glass reads the same. */
+.foid-background--static,
+.foid-background--fallback {
+  background:
+    radial-gradient(120% 80% at 18% 8%, rgba(96, 196, 255, 0.55) 0%, rgba(30, 90, 170, 0) 60%),
+    radial-gradient(90% 70% at 82% 28%, rgba(130, 225, 255, 0.35) 0%, rgba(20, 60, 140, 0) 65%),
+    radial-gradient(110% 90% at 50% 100%, rgba(40, 120, 220, 0.5) 0%, rgba(10, 30, 80, 0) 70%),
+    linear-gradient(180deg, #0c3d70 0%, #0a2a56 55%, #061a3a 100%);
+}
+
+/* Each shell window lays out independently of its siblings; a drag or a
+   re-render in one never triggers layout in the others. Paint containment
+   is deliberately left off: wallet menus and tooltips overhang the frame. */
+.os-desktop .vista-window {
+  contain: layout style;
+}
+
+@media (max-width: 639px) {
+  /* Legibility floor. The OS vernacular is tiny uppercase mono; on a phone
+     anything meant to be read sits at 12px or above (Lighthouse counted
+     half of the boot screen's text at 10.5px). */
+  .foid-label,
+  .text-\[9px\],
+  .text-\[10px\],
+  .text-\[10\.5px\],
+  .text-\[11px\] {
+    font-size: 12px !important;
+  }
+  p.home-subtitle,
+  p.home-tagline {
+    font-size: 12px !important;
+  }
+
+  /* Title bar: the title shrinks first, the status word hides, and the
+     wallet pill can never run past the window edge (it ended at 382px on
+     a 375px viewport). Connected pills show the address, not the label. */
+  .app-titlebar__row {
+    gap: 6px;
+    padding: 6px 8px;
+  }
+  .vista-window__title {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .app-titlebar__right {
+    min-width: 0;
+    gap: 4px;
+    flex-shrink: 1;
+  }
+  .pray-status-text {
+    display: none;
+  }
+  .aero-wallet-pill {
+    min-width: 0;
+    max-width: 150px;
+    padding: 6px 10px;
+  }
+  .aero-wallet-pill--connected .aero-wallet-pill__label {
+    display: none;
+  }
+}
+
+/* MIFOID.EXE reservation strip */
+.mifoid-reserve {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--foid-radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(6, 12, 30, 0.42);
+}
+.mifoid-reserve__label {
+  font-family: var(--font-terminal);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--foid-gold);
+}
+.mifoid-reserve__copy {
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.82);
+}
+.mifoid-reserve__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.mifoid-reserve__count,
+.mifoid-reserve__err {
+  font-family: var(--font-terminal);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.65);
+}
+.mifoid-reserve__err {
+  color: var(--foid-red-vivid);
+}
+
+/* Pray: reminder link + one-line ladder explainer (mobile) */
+.pray-mobile-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 2px 14px 8px;
+}
+.pray-reminder-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: var(--foid-radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+  font-family: var(--font-terminal);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+}
+.pray-reminder-link:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.pray-mobile-tools__rule {
+  flex: 1 1 100%;
+  font-family: var(--font-terminal);
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Dock compaction under 480px: hide the overflow tiles, show More. Pure CSS
+   so the first paint is already correct (no post-mount re-layout). */
+.foid-dock-more {
+  display: none;
+}
+@media (max-width: 479px) {
+  .foid-dock-tile--overflow {
+    display: none !important;
+  }
+  .foid-dock-more {
+    display: flex;
+  }
+}
+
+/* Music deck + logic host: base positioning in the global sheet so the
+   server-rendered markup never takes flow space even if a component-level
+   style arrives late (the styled-jsx registry now streams them, this is the
+   belt to its braces). */
+.cmp-logic {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.cmp-bar-outer {
+  position: fixed;
+  left: 0;
+  right: 0;
+}

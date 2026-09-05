@@ -21,8 +21,6 @@
  *   - NOT designed for: state-level adversaries, >$1000 in value.
  */
 
-import { toBytes, toHex } from 'viem';
-
 import { MIN_PIN_LENGTH, WALLET_VERSION } from './constants';
 import {
   newSalt,
@@ -56,8 +54,6 @@ import {
 import type { FoidWallet, FoidWalletV3, UnlockedWallet } from './storage';
 import {
   save as saveToStorage,
-  load,
-  isV1,
   isV3,
   needsMigration,
   savePendingMigration,

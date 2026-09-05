@@ -55,15 +55,21 @@ Legacy Solidity files (do not touch): `Swipe.sol`, `SwipeLoreboard.sol`, `Lorebo
 
 | Route | Purpose |
 |-------|---------|
+| `/` | FOID OS desktop shell on 1024px+ (windows, dock); launcher window below that |
+| `/enter` | Boot screen. Plays once per device (1y cookie + localStorage), skipped on phones |
 | `/pray` | Prayer terminal (daily check-in with Foid Mommy) |
 | `/board` | Loreboard canvas (view + propose placements) |
-| `/swipe` | Submit proposals to Loreboard |
-| `/vote` | Vote on active proposals (swipe UX) |
-| `/gallery` | Browse gallery |
-| `/mifoid` | MiFOID NFT page |
-| `/about` | About page (10 sections) |
+| `/vote` | Vote on active proposals (swipe UX). `/swipe` and `/duel` redirect here |
+| `/mifoid` | MiFOID page + mint reservations |
+| `/files` | Curated media archive (FILES.EXE) |
+| `/about` | About docs (ABOUT.EXE) |
 | `/dashboard` | User dashboard |
-| `/enter` | Entry/auth |
+| `/report` | Latest weekly Foid Mommy report (published by the cron) |
+| `/board/proposal/[id]` | Share page with og:image + fc:miniapp embed |
+
+Removed in the 2026-09 audit (legacy SQLite referendum, unauthenticated):
+`/api/finalize`, `/api/place`, `/api/propose`, `/api/mempool`,
+`/api/vanity-deploy`, `/api/voting/bootstrap`. Do not bring them back.
 
 ### Key Files
 
@@ -119,6 +125,27 @@ forge test
 - `solidity_contracts/script/DeployV1.s.sol` — primary V1 deployment (testnet)
 - `solidity_contracts/script/DeployMainnetCore.s.sol` — mainnet deployment
 - `solidity_contracts/script/DeployMultisig.s.sol` — multisig setup
+
+## Server-side data
+
+- Supabase is the durable store: chat/events (existing), `x_pairings`,
+  `rate_limits`, `mifoid_reservations`, `weekly_reports`
+  (`foid_fun/sql/*.sql`, run in the Supabase SQL editor). API routes use the
+  service-role key via `src/lib/supabaseRest.ts`; SQLite (`data/foid.db`) is
+  the local-dev fallback only, Render's disk is ephemeral.
+- `/api/foid-mommy` needs an `x-foid-session` token from
+  `/api/foid-mommy/session` (`src/lib/mommySession.ts`, `MOMMY_SESSION_SECRET`).
+- Media can live off-origin: `NEXT_PUBLIC_MEDIA_BASE` + `docs/CDN_SETUP.md`.
+
+## Performance rules (from the 2026-09 audit)
+
+- Nothing heavy loads before a gesture: sfx warm on first pointer/key,
+  music track + butterchurn on first play, WalletConnect only for the
+  connector last used, Sentry + PostHog after `load`.
+- Phones get the static wallpaper (`.foid-background--static`), the
+  virtualized `MobileBoard`, a 12px text floor, and a 5-tile dock + More.
+- Lighthouse CI asserts perf >= 0.70 (`lighthouserc.json`); raise it to
+  0.90 once the CDN from `docs/CDN_SETUP.md` is in front.
 
 ## Common Pitfalls
 

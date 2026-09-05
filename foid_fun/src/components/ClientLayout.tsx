@@ -25,6 +25,8 @@ const PostWalletWelcome = dynamic(() => import('@/components/PostWalletWelcome')
 // CHAT.EXE — floating chat window opened from the dock's Chat tile.
 // Desktop-only chrome; the Supabase socket only connects on first open.
 const ChatApp = dynamic(() => import('@/components/ChatApp'), { ssr: false });
+const ServiceWorkerRegistrar = dynamic(() => import('@/components/ServiceWorkerRegistrar'), { ssr: false });
+const MiniAppReady = dynamic(() => import('@/components/MiniAppReady'), { ssr: false });
 
 export function ClientLayout() {
   const { isMobile } = useMobile();
@@ -63,10 +65,17 @@ export function ClientLayout() {
 
   // The boot screen stands alone — power on → POST → login → desktop.
   // Nothing but the wallpaper (root layout) sits behind EnterGate.
-  if (booting) return null;
+  if (booting) return (
+    <>
+      <ServiceWorkerRegistrar />
+      <MiniAppReady />
+    </>
+  );
 
   return (
     <>
+      <ServiceWorkerRegistrar />
+      <MiniAppReady />
       {!isMobile && <FairyDustCursor />}
       <Dock />
       <FoidWalletOnboarding />
