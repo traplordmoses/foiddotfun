@@ -574,7 +574,7 @@ export function BoardAppCore({
   const celebrateParam = searchParams?.get("celebrate") ?? null;
 
   // Mobile detection
-  const { isMobile } = useMobile();
+  const { isMobile, isDesktop } = useMobile();
 
   // Unified board data — polling with AbortController, one source of truth.
   // Shell blocker (c), polling half: scheduled refetch ticks no-op while
@@ -1795,19 +1795,17 @@ export function BoardAppCore({
     </main>
   );
 
-  // Render both views, CSS handles which one displays (no flash!)
-  return (
-    <>
-      {/* Mobile view - hidden on desktop */}
-      <div className="lg:hidden">
-        {mobileView}
-      </div>
-
-      {/* Desktop view - hidden on mobile */}
-      <div className="hidden lg:block">
-        {mainView}
-      </div>
-    </>
+  // One tree at a time. Both used to render with CSS hiding the other,
+  // which on phones still mounted the whole desktop canvas: every placement
+  // card and its full-size image request lived in a display:none subtree
+  // (production /board on a phone: 1,470 DOM nodes, 175 images, 7 MB). The
+  // JS gate uses the same 1024px breakpoint as the lg: classes, so tablets
+  // keep the mobile tree; the server snapshot is "not desktop", so SSR emits
+  // the mobile tree and desktop clients switch right after hydration.
+  return isDesktop ? (
+    <div className="hidden lg:block">{mainView}</div>
+  ) : (
+    <div className="lg:hidden">{mobileView}</div>
   );
 }
 
