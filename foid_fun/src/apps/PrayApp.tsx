@@ -52,6 +52,7 @@ import { formatViemError } from "@/lib/prayerErrors";
 import { TARGET_CHAIN_ID } from "@/lib/chain";
 import { MobileWalletButton } from "@/components/MobileWalletButton";
 import { useHaptic } from "@/hooks/useHaptic";
+import { useMobile } from "@/hooks/useMobile";
 import { tierAccent } from "@/lib/tierAccent";
 import { PRAYER_REGISTRY_ABI } from "@/lib/contracts/abis/prayerRegistry";
 import { PRAYER_MIRROR_ABI } from "@/lib/contracts/abis/prayerMirror";
@@ -156,6 +157,9 @@ export function PrayAppCore({
   presentation?: PrayPresentation;
 }) {
   const isWindow = presentation === "window";
+  // One layout tree at a time (see BoardApp): the hidden tree used to mount a
+  // second FoidMommyTerminal and the whole desktop panel on phones.
+  const { isDesktop } = useMobile();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { disconnect } = useDisconnect();
@@ -838,6 +842,8 @@ export function PrayAppCore({
       {/* Pilot light — bottom-right amber pixel */}
       <div className="pray-pilot-light" aria-hidden="true" />
 
+      {!isDesktop && (
+      <>
       {/* Mobile-only boot sequence (plays once per session) */}
       <div className="lg:hidden">
         <PrayerBoot />
@@ -932,8 +938,11 @@ export function PrayAppCore({
           </div>
         </section>
       </div>
+      </>
+      )}
 
       {/* Desktop Layout */}
+      {isDesktop && (
       <section className="hidden lg:block relative z-10 w-full max-w-full px-2 sm:px-4">
         <div className="mx-auto w-full max-w-6xl">
           <div className="pray-window-frame">
@@ -953,6 +962,7 @@ export function PrayAppCore({
         </div>
         </div>
       </section>
+      )}
       <MobileWalletButton suppress />
 
       {/* Prayer journey drawer — mobile swipe-up / tap trigger above */}

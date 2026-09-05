@@ -91,9 +91,14 @@ export function MobileBoard({
     setPosition((prev) => clampPosition(prev.x + delta.x, prev.y + delta.y));
   }, [clampPosition]);
 
-  // First fit: once placements arrive, zoom out far enough to show the whole
-  // board and centre it. Runs once; gestures own the view after that.
+  // First fit: once placements arrive, zoom out to show the board and centre
+  // it. Runs once; gestures own the view after that. The scale floor keeps
+  // tiles legible on a big board (0.12 = a 600-unit placement at ~72 px);
+  // the viewport then covers a slice of the board and virtualization does
+  // the rest. Nodes are not rendered until the fit has run, so no image is
+  // requested at the pre-fit scale.
   const fittedRef = useRef(false);
+  const [fitted, setFitted] = useState(false);
   useEffect(() => {
     if (fittedRef.current || !bounds) return;
     fittedRef.current = true;
@@ -101,12 +106,13 @@ export function MobileBoard({
     const sh = window.innerHeight;
     const bw = Math.max(1, bounds.maxX - bounds.minX);
     const bh = Math.max(1, bounds.maxY - bounds.minY);
-    const fit = Math.min(1, Math.max(0.05, Math.min(sw / bw, sh / bh) * 0.9));
+    const fit = Math.min(1, Math.max(0.12, Math.min(sw / bw, sh / bh) * 0.9));
     setScale(fit);
     setPosition({
       x: sw / 2 - (bounds.minX + bw / 2) * fit,
       y: sh / 2 - (bounds.minY + bh / 2) * fit,
     });
+    setFitted(true);
   }, [bounds]);
 
   // Viewport virtualization: only nodes intersecting the screen (plus half a
@@ -115,6 +121,7 @@ export function MobileBoard({
   const nodeRect = useCallback((n: BoardNode) => ({ x: n.x, y: n.y, w: n.width, h: n.height }), []);
   const index = useMemo(() => buildIndex(nodes, nodeRect), [nodes, nodeRect]);
   const visibleNodes = useMemo(() => {
+    if (!fitted) return [] as BoardNode[];
     const vw = screenWidth / scale;
     const vh = screenHeight / scale;
     return queryIndex(
@@ -122,7 +129,7 @@ export function MobileBoard({
       { x: -position.x / scale, y: -position.y / scale, w: vw, h: vh },
       Math.max(vw, vh) * 0.5,
     );
-  }, [index, position.x, position.y, scale, screenWidth, screenHeight]);
+  }, [fitted, index, position.x, position.y, scale, screenWidth, screenHeight]);
 
   // Image request widths come from the ON-SCREEN size (the proxy adds DPR 2
   // itself), bucketed to 64 px so the edge cache stays hot, and never shrink
