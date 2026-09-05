@@ -1,6 +1,6 @@
 import { memo, useMemo, useState, useCallback, useEffect, useRef } from "react";
 import BodyPortal from "@/components/BodyPortal";
-import { ipfsImageUrls } from "@/lib/ipfsUrl";
+import { ipfsImageUrls, isProxyCandidate } from "@/lib/ipfsUrl";
 import {
   reorderGateways,
   markGatewaySuccess,
@@ -215,7 +215,7 @@ function PlacementCardInner({
     // Circuit-break: remember this gateway failed so other cards in this
     // session skip it.
     const failed = urls[gatewayIdx];
-    if (failed) markGatewayFailure(failed);
+    if (failed && !isProxyCandidate(failed)) markGatewayFailure(failed);
     const next = gatewayIdx + 1;
     if (next < urls.length) setGatewayIdx(next);
   };
@@ -225,24 +225,24 @@ function PlacementCardInner({
     if (timerRef.current) clearTimeout(timerRef.current);
     // Memoize the winning gateway for the rest of this session.
     const winner = urls[gatewayIdx];
-    if (winner) markGatewaySuccess(winner);
+    if (winner && !isProxyCandidate(winner)) markGatewaySuccess(winner);
   };
 
-  // Timeout fallback — if image doesn't load within 4s, try next gateway.
-  // Timing out is treated as a failure for circuit-breaker purposes.
-  // (4s matches IpfsImage: long enough for a slow gateway's first byte,
-  // half the wait of the old 6s when a gateway is dead.)
+  // Timeout fallback — if the image doesn't load within 10s, try the next
+  // gateway (matches IpfsImage; 4s misread queueing on slow links as a
+  // dead proxy). Timing out on a public gateway counts as a failure for
+  // the circuit breaker; the same-origin proxy is exempt.
   useEffect(() => {
     setLoaded(false);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       if (!loaded) {
         const stalled = urls[gatewayIdx];
-        if (stalled) markGatewayFailure(stalled);
+        if (stalled && !isProxyCandidate(stalled)) markGatewayFailure(stalled);
         const next = gatewayIdx + 1;
         if (next < urls.length) setGatewayIdx(next);
       }
-    }, 4000);
+    }, 10000);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gatewayIdx, urls.length]);

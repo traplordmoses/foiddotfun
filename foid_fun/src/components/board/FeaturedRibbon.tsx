@@ -5,6 +5,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { IpfsImage } from "@/components/IpfsImage";
 
 export type FeaturedProposal = {
   id: number;
@@ -110,16 +111,17 @@ export function FeaturedRibbon({ proposal, onView, onVote, onDismiss }: Props) {
       }}
     >
       {proposal.imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={proposal.imageUrl}
+        // 32px thumb through the same-origin proxy (right-sized WebP)
+        // instead of the raw gateway original, which cost up to 250 KB on
+        // every /board load.
+        <IpfsImage
+          cid={proposal.imageUrl}
           alt=""
-          width={32}
-          height={32}
-          referrerPolicy="no-referrer"
+          displayWidth={32}
           style={{
             width: 32,
             height: 32,
+            flexShrink: 0,
             borderRadius: 6,
             objectFit: "cover",
             border: "1px solid rgba(251, 191, 36, 0.5)",

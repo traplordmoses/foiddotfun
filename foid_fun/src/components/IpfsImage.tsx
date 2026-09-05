@@ -2,7 +2,7 @@
 // Shared <img> wrapper for IPFS CIDs with:
 //   - persistent gateway preference (localStorage via reorderGateways) so
 //     returning visitors skip the discovery phase entirely
-//   - sequential per-image fallback with a 6s stall timeout (gateway that
+//   - sequential per-image fallback with a 10s stall timeout (gateway that
 //     worked earlier suddenly becomes unreachable → advance to next)
 //   - failure/success memoization (circuit breaker) shared across the app
 //
@@ -17,7 +17,7 @@
 "use client";
 
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
-import { ipfsImageUrls, type IpfsImageOpts } from "@/lib/ipfsUrl";
+import { ipfsImageUrls, isProxyCandidate, type IpfsImageOpts } from "@/lib/ipfsUrl";
 import {
   reorderGateways,
   markGatewayFailure,
@@ -64,10 +64,13 @@ function IpfsImageInner({
   referrerPolicy = "no-referrer",
   onLoad,
   onError,
-  // 4s: long enough for a slow-but-working gateway to first-byte, short
-  // enough that a dead one costs less than half the old 6s wait. Repeat
-  // visitors skip discovery entirely via the persisted gateway ordering.
-  stallTimeoutMs = 4000,
+  // 10s: on a throttled phone a board of ~90 tiles queues behind one
+  // connection, so the last tiles legitimately take 5-8s to arrive. The
+  // old 4s timer misread that queueing as a dead proxy and swapped a dozen
+  // tiles to full-size originals (1.1 MB on production /board). A dead
+  // gateway still costs one stall per image, and public-gateway ordering
+  // is persisted so repeat visitors skip discovery.
+  stallTimeoutMs = 10000,
   displayWidth,
   displayHeight,
 }: Props) {
@@ -103,7 +106,7 @@ function IpfsImageInner({
   const handleError = () => {
     setLoaded(false);
     const failed = urls[gatewayIdx];
-    if (failed) markGatewayFailure(failed);
+    if (failed && !isProxyCandidate(failed)) markGatewayFailure(failed);
     const next = gatewayIdx + 1;
     if (next < urls.length) setGatewayIdx(next);
     onError?.();
@@ -113,7 +116,7 @@ function IpfsImageInner({
     setLoaded(true);
     if (timerRef.current) clearTimeout(timerRef.current);
     const winner = urls[gatewayIdx];
-    if (winner) markGatewaySuccess(winner);
+    if (winner && !isProxyCandidate(winner)) markGatewaySuccess(winner);
     onLoad?.();
   };
 
@@ -123,7 +126,7 @@ function IpfsImageInner({
     timerRef.current = setTimeout(() => {
       if (!loaded) {
         const stalled = urls[gatewayIdx];
-        if (stalled) markGatewayFailure(stalled);
+        if (stalled && !isProxyCandidate(stalled)) markGatewayFailure(stalled);
         const next = gatewayIdx + 1;
         if (next < urls.length) setGatewayIdx(next);
       }

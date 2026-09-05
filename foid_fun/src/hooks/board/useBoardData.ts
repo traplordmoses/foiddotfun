@@ -53,8 +53,19 @@ export type BoardDataSnapshot = {
  */
 const DEFAULT_INTERVAL_MS = 60_000;
 
-/** How often the block watcher polls the RPC for new blocks. */
-const BLOCK_POLL_INTERVAL_MS = 4_000;
+/**
+ * How often the block watcher polls the RPC for new blocks. Fluent produces
+ * a block every couple of seconds, so "a new block arrived" is true on every
+ * poll; what actually bounds freshness is the 15s in-process cache on
+ * /api/proposals and /api/swipe/proposals. Polling faster than that only
+ * re-downloads the identical cached payload (measured: 3 fetches of each
+ * endpoint inside a 20s mobile trace).
+ */
+const BLOCK_POLL_INTERVAL_MS = 15_000;
+
+function bigintReplacer(_key: string, value: unknown): unknown {
+  return typeof value === "bigint" ? value.toString() : value;
+}
 
 type RawSwipeProposal = {
   id: number;
@@ -160,6 +171,8 @@ export function useBoardData(
   // Set inside the main effect; lets the resume effect below trigger a
   // catch-up tick without owning the tick closure.
   const catchUpRef = useRef<(() => void) | null>(null);
+  // Fingerprint of the last published snapshot (see runTick).
+  const lastFingerprintRef = useRef<string | null>(null);
 
   const runTick = useCallback(
     async (signal: AbortSignal, opts: { forceFresh?: boolean } = {}) => {
@@ -184,6 +197,16 @@ export function useBoardData(
 
       const normalized = normalizeProposals(boardData.proposals);
       const activeSwipe = mapActiveSwipe(swipeData.proposals ?? []);
+
+      // Publish only when the derived snapshot actually changed. Most ticks
+      // return the server's cached payload verbatim; pushing fresh arrays
+      // for identical data re-rendered every visible tile on both boards
+      // each poll (visible jank while panning on a phone). Derived values
+      // are compared, not raw payloads, so time-dependent fields such as
+      // votability still flip on schedule.
+      const fingerprint = JSON.stringify([normalized, activeSwipe, nextError], bigintReplacer);
+      if (fingerprint === lastFingerprintRef.current) return;
+      lastFingerprintRef.current = fingerprint;
 
       startTransition(() => {
         setProposals(normalized);
