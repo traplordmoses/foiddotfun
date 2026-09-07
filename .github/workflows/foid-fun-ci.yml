@@ -118,11 +118,15 @@ jobs:
           urls: |
             http://localhost:3000/board
             http://localhost:3000/pray
-          # Real gates (audit 2026-09): the old budget allowed 180 s TTI and
-          # 4 MB, so it could never fail. lighthouserc.json asserts the
-          # category scores (perf >= 0.70 now, raise to 0.90 once the
-          # CDN is in place); the budget file caps bytes and timings.
-          budgetPath: ./foid_fun/.lighthouse-budget.json
+          # Assertions live in lighthouserc.json. Do NOT reintroduce
+          # budgetPath: the action picks one or the other
+          # (`if (budgetPath) --budgetsFile else --config`), so setting it
+          # silently discarded every category assertion. Budgets were also
+          # only passed at assert time, never at collect, so the LHRs had no
+          # performance-budget audit for them to check — the job was green by
+          # construction from 2026-09-04 until this commit. The old budget
+          # thresholds now live in lighthouserc.json as warn-level assertions,
+          # which do run.
           configPath: ./foid_fun/lighthouserc.json
           uploadArtifacts: true
           temporaryPublicStorage: true
