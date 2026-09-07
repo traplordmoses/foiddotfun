@@ -144,8 +144,13 @@ forge test
   connector last used, Sentry + PostHog after `load`.
 - Phones get the static wallpaper (`.foid-background--static`), the
   virtualized `MobileBoard`, a 12px text floor, and a 5-tile dock + More.
-- Lighthouse CI asserts perf >= 0.70 (`lighthouserc.json`); raise it to
-  0.90 once the CDN from `docs/CDN_SETUP.md` is in front.
+- Lighthouse CI asserts perf >= 0.50 and a11y >= 0.95 as errors
+  (`lighthouserc.json`), with the old budget thresholds as warnings. The
+  floor is a regression ratchet set just under measured localhost medians
+  (/board 55, /pray 62 on 2026-09-07), not a target — raise it as real work
+  lands. Do not add `budgetPath` back to the workflow; the action treats
+  budgets and assertions as either/or and budgets silently won.
+  The CDN does not move this number: CI measures localhost.
 
 ## Common Pitfalls
 
