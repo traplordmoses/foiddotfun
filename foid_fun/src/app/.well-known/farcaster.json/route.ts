@@ -37,7 +37,7 @@ export async function GET() {
       primaryCategory: "social",
       tags: ["daily", "ritual", "culture", "fluent", "memes"],
       heroImageUrl: `${SITE}/api/og/card/pray`,
-      tagline: "the internet's permanent memory",
+      tagline: "internet's permanent memory",
       ogTitle: "FOID.FUN",
       ogDescription: "Pray daily, vote on culture, build the permanent internet collage.",
       ogImageUrl: `${SITE}/api/og/card/site`,
