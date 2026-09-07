@@ -14,6 +14,25 @@ const MEDIA_ORIGIN = (() => {
 })();
 const withMedia = (list) => (MEDIA_ORIGIN ? `${list} ${MEDIA_ORIGIN}` : list);
 
+// Farcaster mini app clients embed the app in an iframe. A blanket
+// `frame-ancestors 'none'` plus `X-Frame-Options: DENY` lets the mini app
+// render inside the native Warpcast and Base apps (a webview has no frame
+// ancestor) while every web client shows an empty box. X-Frame-Options has
+// no allowlist form — ALLOW-FROM was never implemented outside IE — so the
+// framing policy lives in CSP and the legacy header is dropped. Anything
+// not listed here is still refused, which keeps clickjacking away from the
+// embedded wallet's PIN entry.
+const FRAME_ANCESTORS = [
+  "'self'",
+  "https://farcaster.xyz",
+  "https://*.farcaster.xyz",
+  "https://warpcast.com", // 301s to farcaster.xyz; kept for older clients
+  "https://*.warpcast.com",
+  "https://base.org",
+  "https://*.base.org", // www.base.org, dashboard.base.org
+  "https://wallet.coinbase.com",
+].join(" ");
+
 // Long-lived caching for the static media under /public. Next already
 // marks /_next/static as immutable; everything else was shipping with
 // max-age=0, so every visit re-fetched the same PNGs, videos and sounds
@@ -60,16 +79,12 @@ const nextConfig = {
               "worker-src 'self' blob:",
               "object-src 'none'",
               "base-uri 'self'",
-              "frame-ancestors 'none'",
+              `frame-ancestors ${FRAME_ANCESTORS}`,
             ].join('; '),
           },
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
           },
           {
             key: 'Referrer-Policy',
