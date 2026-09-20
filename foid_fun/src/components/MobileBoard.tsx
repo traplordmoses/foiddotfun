@@ -131,6 +131,20 @@ export function MobileBoard({
     );
   }, [fitted, index, position.x, position.y, scale, screenWidth, screenHeight]);
 
+  // Promote the largest on-screen image, not a tile in the prefetch margin.
+  const primaryImageId = useMemo(() => {
+    let largest = 0;
+    let id: string | undefined;
+    for (const node of visibleNodes) {
+      const left = position.x + node.x * scale;
+      const top = position.y + node.y * scale;
+      const area = Math.max(0, Math.min(screenWidth, left + node.width * scale) - Math.max(0, left))
+        * Math.max(0, Math.min(screenHeight, top + node.height * scale) - Math.max(0, top));
+      if (area > largest && node.type !== 'text') { largest = area; id = node.id; }
+    }
+    return id;
+  }, [visibleNodes, position, scale, screenWidth, screenHeight]);
+
   // Image request widths come from the ON-SCREEN size (the proxy adds DPR 2
   // itself), bucketed to 64 px so the edge cache stays hot, and never shrink
   // for a node during a session: zooming out must not re-download smaller.
@@ -214,6 +228,7 @@ export function MobileBoard({
 
       if (tappedNode) {
         setSelectedNode(tappedNode.id);
+        onNodeClick?.(tappedNode);
       } else {
         setSelectedNode(null);
       }
@@ -271,6 +286,10 @@ export function MobileBoard({
             return (
               <motion.div
                 key={node.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Inspect board item ${node.id}`}
+                onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onNodeClick?.(node); } }}
                 className={`
                   absolute
                   ${isVoting ? 'mobile-board-voting' : ''}
@@ -301,11 +320,12 @@ export function MobileBoard({
                   // flakiness the same way desktop already is.
                   <IpfsImage
                     cid={node.content}
-                    alt="Board item"
+                    alt={`Board item ${node.id}`}
                     className="w-full h-full object-cover pointer-events-none"
                     style={isVoting ? { opacity: 0.6 } : undefined}
                     draggable={false}
                     displayWidth={requestWidthFor(node)}
+                    fetchPriority={node.id === primaryImageId ? "high" : "auto"}
                   />
                 ) : (
                   <div className="text-white text-sm break-words bg-black/40 backdrop-blur-sm p-3 rounded-lg">
@@ -331,7 +351,10 @@ export function MobileBoard({
         </div>
       </div>
 
-      {/* Instructions overlay removed — GestureHint in board/page.tsx handles first-load tutorial */}
+      <details className="absolute left-3 bottom-24 z-20 max-h-[50%] overflow-auto rounded-xl border border-slate-500 bg-slate-950/95 p-3 text-sm text-white">
+        <summary className="cursor-pointer min-h-6">Browse board items · tap an image to inspect</summary>
+        <ul>{nodes.map((node) => <li key={node.id}><button className="min-h-11 p-2 text-left" onClick={() => onNodeClick?.(node)}>Inspect item {node.id} · {node.status ?? "canonized"}</button></li>)}</ul>
+      </details>
     </div>
   );
 }

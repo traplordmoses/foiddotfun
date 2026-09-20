@@ -600,14 +600,13 @@ export function PrayAppCore({
                         <p className="pray-manual__intro">
                           <span className="block">
                             foid_mommy_terminal.exe is a daily onchain ritual. tell foid mommy how you&apos;re feeling.
-                            she listens and helps you craft a prayer. submit it onchain. your words never leave your
-                            device. hashed locally, only the hash is anchored onchain — proof you showed up, not what
+                            she listens and helps you craft a prayer. submit it onchain. your messages are sent to FOID and OpenAI to generate replies. your prayer is hashed locally; only the hash is anchored onchain — proof you showed up, not what
                             you said. show up every day. build your streak. the more you pray, the bigger your
                             mifoid&apos;s boobs will be.
                           </span>
                           <span className="block mt-2" style={{ opacity: 0.55, fontSize: "0.85em" }}>
                             mommy remembers how you&apos;re feeling day to day — so she can meet you where you are.
-                            only the feeling label and date are kept on your device. your prayers stay yours.
+                            memory is optional. when enabled, recent feeling labels and dates are included in AI requests.
                             type /forget in the terminal to erase everything.
                           </span>
                         </p>
@@ -854,8 +853,8 @@ export function PrayAppCore({
 
       {/* Mobile Layout — ritual-first, chrome-minimal */}
       <div
-        className="lg:hidden relative z-10 flex flex-col w-full px-3 pb-safe"
-        style={{ height: "100dvh", paddingTop: "max(env(safe-area-inset-top), 8px)" }}
+        className="pray-mobile-layout lg:hidden relative z-10 flex flex-col w-full px-3"
+        style={{ height: "calc(var(--foid-visible-height, 100dvh) - var(--foid-dock-space) - 24px)", alignSelf: "flex-start", overflowY: "auto", paddingTop: "max(env(safe-area-inset-top), 8px)", paddingBottom: "8px" }}
       >
         {/* Clean titlebar: wordmark + inline wallet (no fake Windows chrome) */}
         <header className="pray-mobile-titlebar">

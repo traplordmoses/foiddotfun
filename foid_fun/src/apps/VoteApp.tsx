@@ -37,9 +37,10 @@ import { createPortal } from "react-dom";
 import { useAccount, useReadContract } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import Link from "next/link";
-import { CONTRACTS } from "@/lib/contracts/addresses";
+import { CONTRACTS, CHAIN_CONFIG } from "@/lib/contracts/addresses";
 import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
-import { getWalletClient } from "@/lib/viem";
+import { submitVoteBatch } from "@/lib/voteBatch";
+import { getWalletClient, publicClient } from "@/lib/viem";
 
 import toast from "react-hot-toast";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
@@ -74,7 +75,7 @@ function getVotedIds(wallet?: string): Set<number> {
 }
 
 function saveVotedIds(wallet: string, ids: Set<number>) {
-  localStorage.setItem(votedIdsKey(wallet), JSON.stringify([...ids]));
+  try { localStorage.setItem(votedIdsKey(wallet), JSON.stringify([...ids])); } catch { /* storage can be disabled */ }
 }
 
 /** Mounts children at <body> level — null on the server and the first
@@ -89,6 +90,8 @@ function BodyPortal({ children }: { children: React.ReactNode }) {
 /* ═══════════════════════════ THE APP (window body) ═══════════════════════ */
 export default function VoteApp() {
   const { address, isConnected } = useAccount();
+  const accountRef = useRef(address);
+  accountRef.current = address;
   const { multiplier, tierName, isLoading: powerLoading } = useSwipeVotingPower();
   const { addShadowVote, getReplayableVotes, clearShadowVotes } = useShadowVotes();
   const { openConnectModal } = useConnectModal();
@@ -100,6 +103,23 @@ export default function VoteApp() {
   const [fetchError, setFetchError] = useState(false);
   const [tab, setTab] = useState<"active" | "completed" | "history">("active");
   const [proposals, setProposals] = useState<SwipeProposal[]>([]);
+  const [nextCursor, setNextCursor] = useState<number | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [dataStale, setDataStale] = useState(false);
+  const historyCursorRef = useRef<number | null>(null);
+  const loadOlder = async () => {
+    if (nextCursor === null || historyLoading) return;
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/swipe/proposals?scope=history&cursor=${nextCursor}`, { signal: AbortSignal.timeout(20_000) });
+      if (!res.ok) throw new Error("History unavailable");
+      const data = await res.json();
+      setProposals((current) => [...new Map([...current, ...data.proposals].map((p) => [p.id, p])).values()]);
+      historyCursorRef.current = nextCursor;
+      setNextCursor(data.nextCursor ?? null);
+    } catch { toast.error("Could not load older proposals. Please retry."); }
+    finally { setHistoryLoading(false); }
+  };
   const [votedIds, setVotedIds] = useState<Set<number>>(new Set());
   const [voteChoices, setVoteChoices] = useState<Map<number, boolean>>(new Map());
   const [skippedIds, setSkippedIds] = useState<Set<number>>(new Set());
@@ -109,6 +129,8 @@ export default function VoteApp() {
   // Batch mode
   const [pendingDecisions, setPendingDecisions] = useState<Map<number, boolean>>(new Map());
   const [batchSigning, setBatchSigning] = useState(false);
+  const [transactionError, setTransactionError] = useState<string | null>(null);
+  const [uncertainVotes, setUncertainVotes] = useState<{ id: number; hash: `0x${string}` }[]>([]);
   const [batchProgress, setBatchProgress] = useState({ signed: 0, total: 0 });
   const [txStage, setTxStage] = useState<"preparing" | "confirm" | "broadcasting" | "done">("preparing");
   const [txHashes, setTxHashes] = useState<string[]>([]);
@@ -120,8 +142,28 @@ export default function VoteApp() {
   const [lastVotedId, setLastVotedId] = useState<number | null>(null);
   const [showUndo, setShowUndo] = useState(false);
 
-  // Load voted IDs from localStorage
-  useEffect(() => { setVotedIds(getVotedIds(address)); }, [address]);
+  const pendingRef = useRef(pendingDecisions);
+  pendingRef.current = pendingDecisions;
+  const uncertainRef = useRef(uncertainVotes);
+  uncertainRef.current = uncertainVotes;
+  const fetchVersion = useRef(0);
+  const rememberUncertain = useCallback((votes: typeof uncertainVotes) => {
+    if (accountRef.current === address) setUncertainVotes(votes);
+    if (address) try { localStorage.setItem(`${votedIdsKey(address)}-pending`, JSON.stringify(votes)); } catch { /* display remains available */ }
+  }, [address]);
+  // Never carry unsigned choices across accounts. Restore public transaction
+  // hashes so a reload cannot turn a pending receipt into a duplicate vote.
+  useEffect(() => {
+    setVotedIds(getVotedIds(address));
+    setPendingDecisions(new Map());
+    setTransactionError(null);
+    let pending: typeof uncertainVotes = [];
+    if (address) try {
+      const value = JSON.parse(localStorage.getItem(`${votedIdsKey(address)}-pending`) ?? "[]");
+      if (Array.isArray(value)) pending = value.filter((v) => Number.isSafeInteger(v.id) && /^0x[\da-f]{64}$/i.test(v.hash));
+    } catch { /* invalid local state */ }
+    setUncertainVotes(pending);
+  }, [address]);
 
   const contractAddr = (CONTRACTS.SWIPE ?? "") as `0x${string}`;
   const hasContract = !!CONTRACTS.SWIPE;
@@ -143,20 +185,27 @@ export default function VoteApp() {
   //   2. After the user votes — they expect the next active proposal
   //      to reflect the vote they just cast.
   const refetchProposals = useCallback(async (opts: { forceFresh?: boolean } = {}) => {
+    const version = ++fetchVersion.current;
     const url = opts.forceFresh
       ? "/api/swipe/proposals?bust=1"
       : "/api/swipe/proposals";
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
       if (!res.ok) throw new Error("fetch failed");
       const data = await res.json();
-      setProposals(data.proposals ?? []);
+      if (version !== fetchVersion.current) return;
+      setProposals((current) => {
+        const older = historyCursorRef.current === null ? [] : current.filter((p) => p.finalized);
+        return [...new Map([...older, ...(data.proposals ?? [])].map((p: SwipeProposal) => [p.id, p])).values()] as SwipeProposal[];
+      });
+      if (historyCursorRef.current === null) setNextCursor(data.nextCursor ?? null);
+      setDataStale(Boolean(data.stale));
       setFetchError(false);
     } catch (err) {
       console.warn("[vote] loadProposals:", err);
-      setFetchError(true);
+      if (version === fetchVersion.current) setFetchError(true);
     } finally {
-      setLoading(false);
+      if (version === fetchVersion.current) setLoading(false);
     }
   }, []);
 
@@ -167,7 +216,7 @@ export default function VoteApp() {
     // proposalCount probe per visit is cheap; subsequent polls reuse
     // the cache as normal.
     refetchProposals({ forceFresh: true });
-    const interval = setInterval(() => refetchProposals(), 15_000);
+    const interval = setInterval(() => { if (!document.hidden) void refetchProposals(); }, 15_000);
     let debounceTimer: ReturnType<typeof setTimeout>;
     const onVis = () => {
       if (document.visibilityState === "visible") {
@@ -202,10 +251,13 @@ export default function VoteApp() {
         if (!alive) return;
         const local = getVotedIds(address);
         results.forEach((r, i) => {
-          if (r.status === "success" && r.result) local.add(proposals[i].id);
+          if (r.status === "success") {
+            if (r.result) local.add(proposals[i].id);
+            else local.delete(proposals[i].id);
+          }
         });
         saveVotedIds(address, local);
-        setVotedIds(new Set(local));
+        setVotedIds(new Set([...local, ...pendingRef.current.keys(), ...uncertainRef.current.map((v) => v.id)]));
       } catch { /* multicall failed — localStorage fallback is still valid */ }
     };
     check();
@@ -316,73 +368,48 @@ export default function VoteApp() {
 
   // ── Batch sign (Phase 7: fix chain reference) ──
   const handleBatchSign = useCallback(async () => {
-    if (!address || !isConnected || pendingDecisions.size === 0) return;
+    if (!address || !isConnected || pendingDecisions.size === 0 || uncertainVotes.length > 0) return;
     setBatchSigning(true);
     const entries = Array.from(pendingDecisions.entries());
     setBatchProgress({ signed: 0, total: entries.length });
     setTxStage("preparing");
     setTxHashes([]);
 
-    let submitted = 0;
-    const hashes: string[] = [];
-
+    setTransactionError(null);
     try {
       const walletClient = await getWalletClient();
       const { TARGET_CHAIN } = await import("@/lib/chain");
-      setTxStage("confirm");
-
-      for (const [proposalId, approve] of entries) {
-        try {
-          setTxStage(submitted > 0 ? "broadcasting" : "confirm");
-          const hash = await walletClient.writeContract({
-            account: (walletClient.account ?? address) as `0x${string}`,
-            address: contractAddr,
-            abi: LOREBOARD_ABI,
-            functionName: "castVote",
-            args: [BigInt(proposalId), approve],
-            chain: TARGET_CHAIN,
-          });
-          hashes.push(hash);
-          submitted++;
-          setBatchProgress((prev) => ({ ...prev, signed: prev.signed + 1 }));
-          setTxStage("broadcasting");
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          if (msg.includes("rejected") || msg.includes("denied") || msg.includes("cancelled")) {
-            toast.error("Transaction cancelled");
-            break;
-          }
-          toast.error(`Vote on #${proposalId} failed`);
-        }
-      }
-
-      if (submitted > 0) {
+      const outcome = await submitVoteBatch(entries, async (proposalId, approve) => {
+        if (accountRef.current !== address) throw new Error("Wallet changed");
+        setTxStage("confirm");
+        return walletClient.writeContract({ account: (walletClient.account ?? address) as `0x${string}`, address: contractAddr, abi: LOREBOARD_ABI, functionName: "castVote", args: [BigInt(proposalId), approve], chain: TARGET_CHAIN });
+      }, (hash) => publicClient.waitForTransactionReceipt({ hash, timeout: 30_000 }), (item) => {
+        rememberUncertain([{ id: item.id, hash: item.hash }]);
+        setTxStage("broadcasting");
+        setBatchProgress((prev) => ({ ...prev, signed: prev.signed + 1 }));
+      });
+      const confirmed = outcome.submissions.filter((r) => r.status === "confirmed");
+      const pending = outcome.submissions.filter((r) => r.status === "pending");
+      const sent = new Set([...confirmed, ...pending].map((r) => r.id));
+      rememberUncertain(pending);
+      if (accountRef.current === address) setPendingDecisions((current) => new Map([...current].filter(([id]) => !sent.has(id))));
+      const saved = getVotedIds(address);
+      confirmed.forEach((r) => saved.add(r.id));
+      saveVotedIds(address, saved);
+      if (accountRef.current !== address) return;
+      setTransactionError(outcome.errors.join(" ") || null);
+      if (confirmed.length) {
         setTxStage("done");
-        setTxHashes(hashes);
-        saveVotedIds(address, votedIds);
-        setPendingDecisions(new Map());
-        // Bypass the 15s server cache — the vote tallies on active
-        // proposals changed, and we want the next card to reflect
-        // reality (including any new proposals that landed while we
-        // were signing).
-        refetchProposals({ forceFresh: true });
-        setTimeout(() => {
-          setBatchSigning(false);
-          setVictoryCount(submitted);
-          setShowVictory(true);
-        }, 600);
-      } else {
-        for (const [pid] of entries) {
-          setVotedIds((prev) => { const n = new Set(prev); n.delete(pid); return n; });
-        }
-        setPendingDecisions(new Map());
-        setBatchSigning(false);
+        setTxHashes(confirmed.map((r) => r.hash));
+        setVictoryCount(confirmed.length);
+        setShowVictory(true);
       }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Transaction failed");
-      setBatchSigning(false);
-    }
-  }, [address, isConnected, pendingDecisions, contractAddr, votedIds, refetchProposals]);
+      void refetchProposals({ forceFresh: true });
+    } catch {
+      setTransactionError("Votes could not be submitted. Your choices are kept; check your wallet and retry.");
+    } finally { setBatchSigning(false); }
+
+  }, [address, isConnected, pendingDecisions, contractAddr, uncertainVotes, rememberUncertain, refetchProposals]);
 
   const totalOnChain = proposalCount !== undefined ? Number(proposalCount) : 0;
 
@@ -414,10 +441,30 @@ export default function VoteApp() {
         )}
       </BodyPortal>
 
-      <div className="vista-window__body foid-iridescent" style={{ overflow: "hidden", flex: 1, minHeight: 0, position: "relative" }}>
+      <div className="vista-window__body vote-readable-surface" style={{ overflow: "hidden", flex: 1, minHeight: 0, position: "relative" }}>
         <div className="p-3 md:p-4 flex flex-col h-full" style={{ minHeight: 0 }}>
           <div className="foid-focal-glow" aria-hidden="true" />
 
+          {(dataStale || fetchError) && <p role="status" className="text-sm text-amber-200 mb-2">Showing the last available snapshot. Live updates will resume automatically.</p>}
+          {transactionError && <p role="alert" className="rounded-lg bg-red-950 p-3 text-sm text-red-100 mb-2">{transactionError}</p>}
+          {uncertainVotes.length > 0 && <div role="status" className="rounded-lg bg-slate-900 p-3 text-sm text-white mb-2">
+            {uncertainVotes.map((vote) => <a className="underline mr-3" key={vote.id} href={`${CHAIN_CONFIG.blockExplorer}/tx/${vote.hash}`} target="_blank" rel="noreferrer">Check pending vote #{vote.id}</a>)}
+            <button type="button" className="underline min-h-11" onClick={async () => {
+              const unresolved: typeof uncertainVotes = [];
+              const saved = getVotedIds(address);
+              for (const vote of uncertainVotes) {
+                try {
+                  const receipt = await publicClient.getTransactionReceipt({ hash: vote.hash });
+                  if (receipt.status === "success") saved.add(vote.id);
+                  else setVotedIds((ids) => { const next = new Set(ids); next.delete(vote.id); return next; });
+                } catch { unresolved.push(vote); }
+              }
+              if (address) saveVotedIds(address, saved);
+              rememberUncertain(unresolved);
+              if (!unresolved.length) setTransactionError(null);
+              void refetchProposals();
+            }}>Refresh transaction status</button>
+          </div>}
           {/* Header with tabs */}
           <div className="flex-shrink-0 flex items-center justify-between gap-2 mb-2">
             <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -455,7 +502,7 @@ export default function VoteApp() {
                 <span className="sr-only">Loading proposals...</span>
               </div>
             </div>
-          ) : fetchError ? (
+          ) : fetchError && proposals.length === 0 ? (
             <div className="flex flex-col flex-1 min-h-0 items-center justify-center text-center px-4" style={{ minHeight: "50vh" }}>
               <div className="mb-3 text-4xl opacity-30" aria-hidden="true">&#x26A0;</div>
               <h2 className="text-base font-medium text-white/70">Failed to load proposals</h2>
@@ -539,7 +586,7 @@ export default function VoteApp() {
                           )}
                           <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase ${
                             proposal.approved ? "bg-green-600/20 text-green-400" : "bg-red-600/20 text-red-400"
-                          }`}>{proposal.approved ? "Canonized" : "Rejected"}</span>
+                          }`}>{!proposal.finalized ? "Awaiting finalization" : proposal.approved ? "Canonized" : "Rejected"}</span>
                         </div>
                       </div>
                       <div className="overflow-hidden rounded-lg bg-white/[0.05]">
@@ -572,6 +619,8 @@ export default function VoteApp() {
                           <div className="absolute top-0 bottom-0 w-px bg-white/30" style={{ left: "51%" }} />
                         </div>
                       </div>
+                      <p className="mt-2 text-xs text-slate-200">{!proposal.finalized ? "Voting has ended; the result is not finalized yet." : proposal.approved ? "Approved and placed on the board." : proposal.overlapRejected ? "Placement overlaps existing content." : proposal.voteCount !== undefined && proposal.voteCount < 3 ? `Quorum not reached: ${proposal.voteCount} of 3 required voters.` : pct < 51 ? "Weighted approval was below 51%." : "Not approved under the finalization rules; open for details."}</p>
+                      <p className="text-xs text-slate-300">{proposal.voteCount === undefined ? "Voter count unavailable" : `${proposal.voteCount} unique voters`} · {forC} yes / {againstC} no weighted support</p>
                       <div className="mt-1.5 flex items-center justify-between text-[10px] text-neutral-400">
                         <span className="font-mono">{truncateAddress(proposal.proposer)}</span>
                         {proposal.approved && <span className="text-green-400">On Board <span aria-hidden="true">&rarr;</span></span>}
@@ -579,6 +628,7 @@ export default function VoteApp() {
                     </Link>
                   );
                 })}
+                {nextCursor !== null && <button type="button" onClick={loadOlder} disabled={historyLoading} className="min-h-11 rounded-lg border border-slate-400 p-3 text-sm sm:col-span-2">{historyLoading ? "Loading history…" : "Load older proposals"}</button>}
               </div>
             ) : (
               <div className="flex flex-col flex-1 min-h-0 items-center justify-center text-center" style={{ minHeight: "50vh" }}>
@@ -651,6 +701,8 @@ export default function VoteApp() {
                           <div className="absolute top-0 bottom-0 w-px bg-white/40" style={{ left: "51%" }} />
                         </div>
                       </div>
+                      <p className="mt-2 text-xs text-slate-200">{!proposal.finalized ? "Voting has ended; the result is not finalized yet." : proposal.approved ? "Approved and placed on the board." : proposal.overlapRejected ? "Placement overlaps existing content." : proposal.voteCount !== undefined && proposal.voteCount < 3 ? `Quorum not reached: ${proposal.voteCount} of 3 required voters.` : pct < 51 ? "Weighted approval was below 51%." : "Not approved under the finalization rules; open for details."}</p>
+                      <p className="text-xs text-slate-300">{proposal.voteCount === undefined ? "Voter count unavailable" : `${proposal.voteCount} unique voters`} · {forC} yes / {againstC} no weighted support</p>
                       <div className="mt-1.5 flex items-center justify-between text-[10px] text-neutral-400">
                         <span className="font-mono">{truncateAddress(proposal.proposer)}</span>
                         {proposal.approved && <span className="text-green-400">On Board</span>}

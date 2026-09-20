@@ -30,6 +30,8 @@ export function WebVitalsReporter() {
       value: metric.value,
       rating: (metric as unknown as { rating?: string }).rating,
       route: pathname ?? "unknown",
+      activeApp: new URLSearchParams(window.location.search).get("focus") ?? undefined,
+      viewport: window.innerWidth < 1024 ? "mobile" : "desktop",
       id: metric.id,
       heapMB,
     });

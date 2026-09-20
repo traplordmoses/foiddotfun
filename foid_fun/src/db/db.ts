@@ -84,6 +84,8 @@ CREATE TABLE IF NOT EXISTS proposal_metadata (
   bid_per_cell_wei TEXT
 );
 
+CREATE INDEX IF NOT EXISTS idx_proposal_metadata_cid ON proposal_metadata(cid);
+
 CREATE TABLE IF NOT EXISTS swipe_votes (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   proposal_id   INTEGER NOT NULL,

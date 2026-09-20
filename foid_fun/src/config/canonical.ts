@@ -98,7 +98,7 @@ export const CANONICAL_ADDRESSES = IS_MAINNET ? MAINNET_ADDRESSES : TESTNET_ADDR
 const warnOnce = (() => {
   const seen = new Set<string>();
   return (key: string, message: string) => {
-    if (seen.has(key)) return;
+    if (typeof window !== "undefined" || seen.has(key)) return;
     seen.add(key);
     console.warn(message);
   };

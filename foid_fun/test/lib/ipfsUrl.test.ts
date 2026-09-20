@@ -87,12 +87,14 @@ describe("ipfsImageUrls", () => {
     expect(urls.some((u) => u.includes("?"))).toBe(false);
   });
 
-  it("falls back to gateways alone when no proxy is configured", async () => {
+  it("uses the bundled thumbnail proxy without deployment configuration", async () => {
     const { ipfsImageUrls, isProxyCandidate } = await load({
       NEXT_PUBLIC_IPFS_GATEWAY_BASE: "https://ipfs.io",
     });
     const urls = ipfsImageUrls(CID, { width: 64 });
-    expect(urls[0]).toBe(`https://ipfs.io/ipfs/${CID}`);
-    expect(urls.some(isProxyCandidate)).toBe(false);
+    expect(urls[0]).toBe(`/api/ipfs/${CID}?w=64`);
+    expect(urls[1]).toBe(`https://ipfs.io/ipfs/${CID}`);
+    expect(urls.some(isProxyCandidate)).toBe(true);
+    expect(ipfsImageUrls(CID)[0]).toBe(`https://ipfs.io/ipfs/${CID}`);
   });
 });

@@ -3,13 +3,10 @@ import "./globals.css";
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import { Fraunces, IBM_Plex_Sans, JetBrains_Mono, Sora } from "next/font/google";
-import { Providers } from "@/providers";
+import AppRuntime from "@/components/AppRuntime";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import FloatingElements from "@/components/FloatingElements";
 import { SkyTint } from "@/components/SkyTint";
-import SfxInitializer from "@/components/SfxInitializer";
-import { ClientLayout } from "@/components/ClientLayout";
-import { WebVitalsReporter } from "@/app/_vitals";
 import StyledJsxRegistry from "@/app/StyledJsxRegistry";
 
 // Site-wide metadata. Per-route titles, descriptions and share cards come
@@ -78,6 +75,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 const displayFont = Sora({
+  preload: false,
   subsets: ["latin"],
   display: "swap",
   variable: "--font-display",
@@ -92,6 +90,7 @@ const bodyFont = IBM_Plex_Sans({
 });
 
 const serifFont = Fraunces({
+  preload: false,
   subsets: ["latin"],
   display: "swap",
   variable: "--font-serif",
@@ -113,10 +112,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             TLS + DNS ahead of the first request so the hero image on
             the initial board render doesn't wait on handshake. */}
         <link rel="preconnect" href="https://gateway.pinata.cloud" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://ipfs.io" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://dweb.link" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://w3s.link" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://4everland.io" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://gateway.pinata.cloud" />
         <link rel="dns-prefetch" href="https://ipfs.io" />
         <link rel="dns-prefetch" href="https://dweb.link" />
@@ -129,14 +124,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <FloatingElements />
       <div className="scene-tint" />
       <SkyTint />
-      <Providers>
-        <div className="app-viewport">
-          <SfxInitializer />
-          <ClientLayout />
-          <WebVitalsReporter />
-          {children}
-        </div>
-      </Providers>
+      <div className="app-viewport"><AppRuntime>{children}</AppRuntime></div>
     </StyledJsxRegistry>
   </body>
 </html>

@@ -4,7 +4,7 @@ export function TxOverlay({ stage, progress, total }: { stage: "preparing" | "co
   const steps = [
     { key: "preparing", label: "Preparing transaction...", icon: "..." },
     { key: "confirm", label: "Confirm in your wallet", icon: "\u{1F4B3}" },
-    { key: "broadcasting", label: `Submitting vote ${progress} of ${total}...`, icon: "\u{1F4E1}" },
+    { key: "broadcasting", label: `Waiting for receipt: vote ${progress} of ${total}...`, icon: "\u{1F4E1}" },
     { key: "done", label: "Confirmed!", icon: "\u2713" },
   ];
   const activeIdx = steps.findIndex((s) => s.key === stage);

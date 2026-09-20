@@ -21,7 +21,7 @@ export type ConsentState = 'granted' | 'denied' | null;
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const JOURNAL_KEY_PREFIX = 'foid-prayer-journal';
-const CONSENT_KEY_PREFIX = 'foid-prayer-memory-consent';
+const CONSENT_KEY_PREFIX = 'foid-prayer-memory-consent-v2';
 const MAX_ENTRIES = 365;
 
 // Wallet-scoped storage keys — each wallet gets its own journey

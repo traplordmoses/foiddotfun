@@ -578,6 +578,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  const metadata = new Map((await ProposalStore.all()).map((p) => [p.id, p]));
   const winners: Proposal[] = [];
   const rejectedDueToOverlap: string[] = [];
 
@@ -597,7 +598,7 @@ export async function POST(req: NextRequest) {
       }));
 
       const candidateInputs = sorted.map((proposal) => {
-        const stored = ProposalStore.get(proposal.id);
+        const stored = metadata.get(proposal.id);
         const chainId = (stored?.id ?? proposal.id) as Hex32;
         return {
           id: chainId,
@@ -627,7 +628,7 @@ export async function POST(req: NextRequest) {
 
       const byChainId = new Map<string, Proposal>();
       for (const proposal of sorted) {
-        const stored = ProposalStore.get(proposal.id);
+        const stored = metadata.get(proposal.id);
         const chainId = (stored?.id ?? proposal.id) as Hex32;
         byChainId.set(chainId.toLowerCase(), proposal);
       }
@@ -654,7 +655,7 @@ export async function POST(req: NextRequest) {
       }
 
       for (const proposal of sorted) {
-        const stored = ProposalStore.get(proposal.id);
+        const stored = metadata.get(proposal.id);
         const chainId = (stored?.id ?? proposal.id) as Hex32;
         const key = chainId.toLowerCase();
         if (decided.has(key)) continue;
@@ -700,7 +701,7 @@ export async function POST(req: NextRequest) {
   }
 
   const enriched = winners.map((w) => {
-    const stored = ProposalStore.get(w.id);
+    const stored = metadata.get(w.id);
     const placement: Placement = {
       id: w.id,
       owner: w.owner || stored?.owner || "",
@@ -769,7 +770,7 @@ export async function POST(req: NextRequest) {
   const rejectedIds = candidates
     .filter((c) => c.status === "rejected")
     .map((c) => {
-      const stored = ProposalStore.get(c.id);
+      const stored = metadata.get(c.id);
       return (stored?.id ?? c.id) as Hex32;
     });
 

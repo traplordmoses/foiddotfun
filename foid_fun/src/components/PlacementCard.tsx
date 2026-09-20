@@ -249,7 +249,7 @@ function PlacementCardInner({
 
   return (
     <div
-      className="absolute"
+      className="group absolute"
       style={{
         left: x,
         top: y,
@@ -262,7 +262,7 @@ function PlacementCardInner({
         aria-label={name ? `View ${name}` : "View placement"}
         onClick={() => onOpen(placement)}
         className="
-          group relative h-full w-full overflow-hidden rounded-xl
+          relative h-full w-full overflow-hidden rounded-xl
           transition-transform duration-150 ease-out
           will-change-transform
           hover:scale-[1.03] hover:-translate-y-0.5 hover:-rotate-0.5
@@ -344,12 +344,14 @@ function PlacementCardInner({
           </div>
         )}
 
-        {/* Flag button - appears on hover */}
+      </button>
+
+        {/* Separate sibling control: nesting buttons breaks focus and accessibility. */}
         {onFlag && (
           <div
             className="
               absolute top-1 right-1 z-10
-              opacity-0 group-hover:opacity-100
+              opacity-0 group-hover:opacity-100 group-focus-within:opacity-100
               transition-opacity duration-200
               pointer-events-auto
             "
@@ -378,7 +380,6 @@ function PlacementCardInner({
             </button>
           </div>
         )}
-      </button>
 
       {/* Confirmation modal — BodyPortal'd: the card lives inside the
           transformed .board-stage (and, in the desktop shell, inside a

@@ -1,5 +1,5 @@
-// Persistent proposal metadata store — SQLite-backed.
-// Same export signatures as the original in-memory version.
+// Durable shared proposal metadata. SQLite is a development-only fallback.
+import { supabaseRest, supabaseServerConfigured } from "@/lib/supabaseRest";
 import { getDb } from "@/db/db";
 
 export type StoredProposal = {
@@ -17,7 +17,7 @@ export type StoredProposal = {
   bidPerCellWei?: string | number | bigint;
 };
 
-function rowToStored(row: Record<string, unknown>): StoredProposal {
+export function rowToStored(row: Record<string, unknown>): StoredProposal {
   const result: StoredProposal = { id: row.id as string };
   if (row.owner != null) result.owner = row.owner as string;
   if (row.cid != null) result.cid = row.cid as string;
@@ -40,62 +40,73 @@ function rowToStored(row: Record<string, unknown>): StoredProposal {
   return result;
 }
 
+async function remote(path: string, init: RequestInit = {}) {
+  const res = await supabaseRest(`proposal_metadata_v2${path}`, init);
+  if (!res?.ok) throw new Error("Proposal metadata storage unavailable");
+  return res;
+}
+function localDb() {
+  if (process.env.NODE_ENV === "production") throw new Error("Durable proposal metadata requires Supabase");
+  return getDb();
+}
 class _ProposalStore {
-  get(id: string): StoredProposal | undefined {
-    const db = getDb();
-    const row = db.prepare("SELECT * FROM proposal_metadata WHERE id = ?").get(id) as Record<string, unknown> | undefined;
-    if (!row) return undefined;
-    return rowToStored(row);
+  async get(id: string): Promise<StoredProposal | undefined> {
+    if (supabaseServerConfigured()) {
+      const rows = await (await remote(`?id=eq.${encodeURIComponent(id)}&select=data&limit=1`)).json();
+      return rows[0]?.data;
+    }
+    const row = localDb().prepare("SELECT * FROM proposal_metadata WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+    return row ? rowToStored(row) : undefined;
   }
-
-  set(id: string, value: StoredProposal) {
-    const db = getDb();
-    db.prepare(`
-      INSERT OR REPLACE INTO proposal_metadata
-        (id, owner, cid, cid_hash, name, filename, mime, width, height, epoch, rect_x, rect_y, rect_w, rect_h, bid_per_cell_wei)
-      VALUES
-        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      id,
-      value.owner ?? null,
-      value.cid ?? null,
-      value.cidHash ?? null,
-      value.name ?? null,
-      value.filename ?? null,
-      value.mime ?? null,
-      value.width ?? null,
-      value.height ?? null,
-      value.epoch ?? null,
-      value.rect?.x ?? null,
-      value.rect?.y ?? null,
-      value.rect?.w ?? null,
-      value.rect?.h ?? null,
-      value.bidPerCellWei != null ? String(value.bidPerCellWei) : null,
-    );
+  async byCid(cid: string): Promise<StoredProposal | undefined> {
+    if (supabaseServerConfigured()) {
+      const rows = await (await remote(`?cid=eq.${encodeURIComponent(cid)}&select=data&limit=1`)).json();
+      return rows[0]?.data;
+    }
+    const row = localDb().prepare("SELECT * FROM proposal_metadata WHERE cid = ? LIMIT 1").get(cid) as Record<string, unknown> | undefined;
+    return row ? rowToStored(row) : undefined;
   }
-
-  upsert(value: StoredProposal) {
-    if (!value?.id) return;
-    const prev = this.get(value.id);
-    this.set(value.id, { ...prev, ...value, id: value.id });
+  async forPage(ids: string[], cids: string[]): Promise<StoredProposal[]> {
+    const values: StoredProposal[] = [];
+    const keys = [...new Set([...ids, ...cids])];
+    const quote = (value: string) => JSON.stringify(value);
+    for (let start = 0; start < keys.length; start += 200) {
+      const batch = keys.slice(start, start + 200);
+      if (supabaseServerConfigured()) {
+        const list = batch.map(quote).join(",");
+        const params = new URLSearchParams({ or: `(id.in.(${list}),cid.in.(${list}))`, select: "data" });
+        const rows = await (await remote(`?${params}`)).json() as { data: StoredProposal }[];
+        values.push(...rows.map((r) => r.data));
+      } else {
+        const placeholders = batch.map(() => "?").join(",");
+        values.push(...(localDb().prepare(`SELECT * FROM proposal_metadata WHERE id IN (${placeholders}) OR cid IN (${placeholders})`).all(...batch, ...batch) as Record<string, unknown>[]).map(rowToStored));
+      }
+    }
+    return values;
   }
-
-  has(id: string): boolean {
-    const db = getDb();
-    const row = db.prepare("SELECT 1 FROM proposal_metadata WHERE id = ?").get(id);
-    return !!row;
+  async all(): Promise<StoredProposal[]> {
+    if (supabaseServerConfigured()) {
+      const values: StoredProposal[] = [];
+      for (let offset = 0; ; offset += 1000) {
+        const rows = await (await remote(`?select=data&order=id&limit=1000&offset=${offset}`)).json() as { data: StoredProposal }[];
+        values.push(...rows.map((r) => r.data));
+        if (rows.length < 1000) return values;
+      }
+    }
+    return (localDb().prepare("SELECT * FROM proposal_metadata").all() as Record<string, unknown>[]).map(rowToStored);
   }
-
-  delete(id: string) {
-    const db = getDb();
-    db.prepare("DELETE FROM proposal_metadata WHERE id = ?").run(id);
+  async set(id: string, value: StoredProposal) {
+    if (supabaseServerConfigured()) {
+      await remote("?on_conflict=id", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id, data: JSON.parse(JSON.stringify({ ...value, id }, (_, v) => typeof v === "bigint" ? v.toString() : v)) }) });
+      return;
+    }
+    localDb().prepare(`INSERT OR REPLACE INTO proposal_metadata (id, owner, cid, cid_hash, name, filename, mime, width, height, epoch, rect_x, rect_y, rect_w, rect_h, bid_per_cell_wei) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(id, value.owner ?? null, value.cid ?? null, value.cidHash ?? null, value.name ?? null, value.filename ?? null, value.mime ?? null, value.width ?? null, value.height ?? null, value.epoch ?? null, value.rect?.x ?? null, value.rect?.y ?? null, value.rect?.w ?? null, value.rect?.h ?? null, value.bidPerCellWei == null ? null : String(value.bidPerCellWei));
   }
-
-  all(): StoredProposal[] {
-    const db = getDb();
-    const rows = db.prepare("SELECT * FROM proposal_metadata").all() as Record<string, unknown>[];
-    return rows.map(rowToStored);
+  async upsert(value: StoredProposal) { if (value.id) await this.set(value.id, { ...await this.get(value.id), ...value }); }
+  async has(id: string) { return Boolean(await this.get(id)); }
+  async delete(id: string) {
+    if (supabaseServerConfigured()) { await remote(`?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" }); return; }
+    localDb().prepare("DELETE FROM proposal_metadata WHERE id = ?").run(id);
   }
 }
-
 export const ProposalStore = new _ProposalStore();

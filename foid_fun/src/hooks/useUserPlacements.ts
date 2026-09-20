@@ -1,5 +1,6 @@
 "use client";
 
+import { fetchUserProposals } from "@/lib/userProposals";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toIpfsHttpUrl } from "@/lib/ipfsUrl";
 import { shouldFetchOnce } from "@/lib/requestGuard";
@@ -159,13 +160,12 @@ export function useUserPlacements(address: `0x${string}` | undefined) {
           cache: "no-store",
           signal: controller.signal,
         }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`proposals ${r.status}`)))),
-        fetch("/api/swipe/proposals", {
-          cache: "no-store",
-          signal: controller.signal,
-        }).then((r) => (r.ok ? r.json() : Promise.reject(new Error(`swipe ${r.status}`)))),
+        fetchUserProposals(address, controller.signal),
       ]);
 
       if (controller.signal.aborted) return;
+
+      if (canonizedResult.status === "rejected" || swipeResult.status === "rejected") throw new Error("Placement refresh incomplete");
 
       // Parse canonized placements (the source of truth for finalized+approved)
       const canonized =
@@ -192,7 +192,6 @@ export function useUserPlacements(address: `0x${string}` | undefined) {
     } catch (error) {
       if (controller.signal.aborted) return;
       console.error("useUserPlacements fetch failed:", error);
-      setPlacements([]);
     } finally {
       if (controller.signal.aborted) return;
       setIsLoading(false);

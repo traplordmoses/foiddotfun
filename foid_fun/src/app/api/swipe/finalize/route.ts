@@ -112,9 +112,10 @@ export async function POST(request: NextRequest) {
         })),
       });
       reads.forEach((r, k) => {
-        if (r.status !== "success") return;
+        if (r.status !== "success") throw new Error(`Could not read proposal #${ids[k]}; finalization scan is incomplete`);
         const p = parseProposal(r.result);
-        if (!p || p.finalized) return;
+        if (!p) throw new Error(`Invalid proposal #${ids[k]} response`);
+        if (p.finalized) return;
         if (Number(p.votingEndsAt) > now) return;
         due.push(ids[k]);
       });
@@ -134,6 +135,7 @@ export async function POST(request: NextRequest) {
       ids.forEach((id, k) => {
         const f = reads[k * 2];
         const a = reads[k * 2 + 1];
+        if (f.status !== "success" || a.status !== "success") throw new Error(`Could not read proposal #${id} vote weights`);
         weights.set(id, [
           f.status === "success" ? (f.result as bigint) : 0n,
           a.status === "success" ? (a.result as bigint) : 0n,
@@ -294,7 +296,7 @@ export async function POST(request: NextRequest) {
         // Load all stored proposal metadata for enrichment
         let storedProposals: StoredProposal[] = [];
         try {
-          storedProposals = ProposalStore.all();
+          storedProposals = await ProposalStore.all();
         } catch {
           console.warn("[finalize] ProposalStore unavailable, using defaults");
         }

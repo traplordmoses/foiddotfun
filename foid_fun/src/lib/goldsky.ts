@@ -6,6 +6,8 @@
 // a single place to enforce the server-timeout + error-swallowing policy
 // that the callers actually want.
 
+import { fetchBounded } from "@/lib/boundedHttp";
+
 export type GoldskyEndpoint = "loreboard" | "prayerTiers";
 
 const ENDPOINT_ENV: Record<GoldskyEndpoint, string[]> = {
@@ -55,37 +57,12 @@ export async function goldskyQuery<T>(
     throw new GoldskyError(`Subgraph endpoint not configured for "${which}"`);
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    opts.timeoutMs ?? 5_000,
-  );
-
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, variables: variables ?? {} }),
-      signal: controller.signal,
-    });
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") {
-      throw new GoldskyError(`Subgraph query timed out after ${opts.timeoutMs ?? 5_000}ms`);
-    }
-    throw new GoldskyError(`Subgraph fetch failed: ${String(err)}`);
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  if (!res.ok) {
-    throw new GoldskyError(`Subgraph HTTP ${res.status}`, res.status);
-  }
-
-  const body = (await res.json()) as {
-    data?: T;
-    errors?: Array<{ message: string }>;
-  };
+  const { response: res, bytes } = await fetchBounded(url, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables: variables ?? {} }), cache: "no-store",
+  }, 4 * 1024 * 1024, opts.timeoutMs ?? 5000);
+  if (!res.ok) throw new GoldskyError(`Subgraph HTTP ${res.status}`, res.status);
+  const body = JSON.parse(new TextDecoder().decode(bytes)) as { data?: T; errors?: Array<{ message: string }> };
 
   if (body.errors && body.errors.length > 0) {
     throw new GoldskyError(
@@ -112,13 +89,13 @@ export async function goldskyLatestBlock(
   which: GoldskyEndpoint,
 ): Promise<number | null> {
   try {
-    const data = await goldskyQuery<{ _meta: { block: { number: number } } }>(
+    const data = await goldskyQuery<{ _meta: { block: { number: number }; hasIndexingErrors: boolean } }>(
       which,
-      `{ _meta { block { number } } }`,
+      `{ _meta { block { number } hasIndexingErrors } }`,
       undefined,
       { timeoutMs: 2_000 },
     );
-    return data._meta?.block?.number ?? null;
+    return data._meta?.hasIndexingErrors ? null : data._meta?.block?.number ?? null;
   } catch {
     return null;
   }

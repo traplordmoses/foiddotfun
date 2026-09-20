@@ -1,9 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchBounded, BodyTooLargeError, isTimeout } from "@/lib/boundedHttp";
 import { cleanIpfsPath } from "@/lib/ipfsUrl";
+import { imageThumbnail } from "@/lib/imageThumbnail";
 
 const CID_PATTERN = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{58,})$/;
 const FETCH_TIMEOUT_MS = 30_000;
 const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB
+class UnsupportedImageError extends Error {}
+// Do not serve arbitrary HTML/SVG as a same-origin document. Gateway MIME
+// metadata can be absent or wrong; recognize the supported raster signatures.
+function rasterType(bytes: Uint8Array): string | null {
+  const prefix = new TextDecoder("latin1").decode(bytes.subarray(0, 16));
+  if (bytes.length >= 8 && [137, 80, 78, 71, 13, 10, 26, 10].every((v, i) => bytes[i] === v)) return "image/png";
+  if (bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) return "image/jpeg";
+  if (prefix.startsWith("GIF87a") || prefix.startsWith("GIF89a")) return "image/gif";
+  if (prefix.startsWith("RIFF") && prefix.slice(8, 12) === "WEBP") return "image/webp";
+  if (prefix.slice(4, 8) === "ftyp" && ["avif", "avis"].includes(prefix.slice(8, 12))) return "image/avif";
+  return null;
+}
 
 function normalizeGateway(value?: string | null) {
   if (!value) return null;
@@ -71,6 +85,7 @@ const CACHE_MAX_ENTRIES = 128;
 const CACHE_MAX_BYTES = 64 * 1024 * 1024;
 const imageCache = new Map<string, CachedImage>();
 let imageCacheBytes = 0;
+const inflight = new Map<string, Promise<CachedImage>>();
 
 function cacheGet(cid: string): CachedImage | null {
   const hit = imageCache.get(cid);
@@ -106,6 +121,8 @@ function cachePut(cid: string, entry: CachedImage): void {
 function cacheHeaders(contentType: string, hit: boolean): Headers {
   const h = new Headers();
   h.set("Content-Type", contentType);
+  h.set("X-Content-Type-Options", "nosniff");
+  h.set("Content-Security-Policy", "default-src 'none'; sandbox");
   h.set(
     "Cache-Control",
     "public, max-age=31536000, s-maxage=31536000, immutable",
@@ -133,11 +150,16 @@ const FORMAT_WHITELIST = new Set(["webp", "jpeg", "png", "auto"]);
 function parseTransformParams(search: URLSearchParams): {
   search: string;
   cacheSuffix: string;
+  localWidth?: number;
+  localHeight?: number;
 } {
-  // No-op when the configured gateway is the public one (it doesn't know
-  // `img-*`). Avoids poisoning the in-process cache with per-variant
-  // entries that all return the same original bytes.
-  if (!PINATA_HAS_TRANSFORMS) return { search: "", cacheSuffix: "" };
+  if (!PINATA_HAS_TRANSFORMS) {
+    const dimension = (value: string | null) => value && /^\d+$/.test(value) && Number(value) > 0
+      ? Math.min(1280, Math.max(128, Math.ceil(Number(value) / 64) * 128)) : undefined;
+    const localWidth = dimension(search.get("w"));
+    const localHeight = dimension(search.get("h"));
+    return { search: "", cacheSuffix: localWidth || localHeight ? `|thumb-v1:${localWidth ?? 1280}x${localHeight ?? 1280}` : "", localWidth, localHeight };
+  }
 
   const w = search.get("w");
   const h = search.get("h");
@@ -149,10 +171,10 @@ function parseTransformParams(search: URLSearchParams): {
   // for the CSS pixel size the card asked for, without the client having
   // to know the user's actual DPR.
   if (w && /^\d+$/.test(w)) {
-    upstream.set("img-width", w);
+    upstream.set("img-width", String(Math.min(1280, Math.max(64, Math.ceil(Number(w) / 64) * 64))));
     upstream.set("img-dpr", "2");
   }
-  if (h && /^\d+$/.test(h)) upstream.set("img-height", h);
+  if (h && /^\d+$/.test(h)) upstream.set("img-height", String(Math.min(1280, Math.max(64, Math.ceil(Number(h) / 64) * 64))));
   if (f && FORMAT_WHITELIST.has(f)) upstream.set("img-format", f);
   if (q && /^\d+$/.test(q)) {
     const qn = Math.max(1, Math.min(100, parseInt(q, 10)));
@@ -206,55 +228,31 @@ export async function GET(
   }
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: fetchHeaders,
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      const text = await response.text().catch(() => "");
-      const message = text ? `${response.statusText}: ${text}` : response.statusText;
-      return NextResponse.json(
-        { error: `Gateway responded ${response.status}: ${message}` },
-        { status: response.status },
-      );
+    let pending = inflight.get(cacheKey);
+    if (!pending) {
+      if (inflight.size >= 8) return bad("Image service busy; retry shortly", 503);
+      pending = (async () => {
+        const { response, bytes } = await fetchBounded(url, { headers: fetchHeaders, cache: "no-store" }, MAX_RESPONSE_BYTES, FETCH_TIMEOUT_MS);
+        if (!response.ok) throw new Error("Gateway unavailable");
+        const contentType = rasterType(bytes);
+        if (!contentType) throw new UnsupportedImageError();
+        // Dedicated gateways handle their own transforms. Public gateways
+        // return originals, so generate a bounded, cached preview locally.
+        const entry = transform.localWidth || transform.localHeight
+          ? await imageThumbnail(bytes, transform.localWidth, transform.localHeight)
+          : { bytes, contentType };
+        cachePut(cacheKey, entry);
+        return entry;
+      })().finally(() => { inflight.delete(cacheKey); });
+      inflight.set(cacheKey, pending);
     }
-
-    const contentLength = response.headers.get("content-length");
-    if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_BYTES) {
-      return bad("Response too large (max 10MB)", 413);
-    }
-
-    // Buffer the full body so we can both cache it in-process AND return
-    // it to this caller. Previously this streamed response.body straight
-    // through — which was fine for a single caller but left nothing for
-    // the next visitor to reuse. Images on /board are typically 50KB–1MB
-    // so the buffer cost is negligible.
-    const arrayBuf = await response.arrayBuffer();
-    if (arrayBuf.byteLength > MAX_RESPONSE_BYTES) {
-      return bad("Response too large (max 10MB)", 413);
-    }
-
-    const bytes = new Uint8Array(arrayBuf);
-    const contentType =
-      response.headers.get("content-type") ?? "application/octet-stream";
-
-    cachePut(cacheKey, { bytes, contentType });
-
-    return new NextResponse(bytes, {
-      status: 200,
-      headers: cacheHeaders(contentType, false),
-    });
+    const { bytes, contentType } = await pending;
+    return new NextResponse(bytes, { headers: cacheHeaders(contentType, false) });
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      return NextResponse.json({ error: "IPFS gateway request timed out" }, { status: 504 });
-    }
-    console.error("[api/ipfs] fetch failed:", error);
-    return NextResponse.json({ error: "Failed to fetch from IPFS gateway" }, { status: 502 });
+    if (error instanceof UnsupportedImageError) return bad("Only PNG, JPEG, GIF, WebP and AVIF images can be proxied", 415);
+    if (isTimeout(error)) return bad("IPFS gateway request timed out", 504);
+    if (error instanceof BodyTooLargeError) return bad("Image exceeds 10 MB", 413);
+    console.error("[api/ipfs] fetch failed", error instanceof Error ? error.name : "unknown");
+    return bad("Failed to fetch from IPFS gateway", 502);
   }
 }

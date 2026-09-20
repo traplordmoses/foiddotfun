@@ -8,8 +8,9 @@
 // a per-session counter that is not spoofable through X-Forwarded-For.
 //
 // Server-only. The secret comes from MOMMY_SESSION_SECRET, then CRON_SECRET,
-// then a per-process random key (tokens then survive until the next deploy,
-// which is fine: the client refetches on 401).
+// with a per-process random key only in local development. Production tokens
+// use a stable secret and shared, atomic counters.
+import { consumeBudget } from "@/lib/requestBudget";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 const TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -18,6 +19,7 @@ const MAX_CALLS_PER_TOKEN = 40; // ~13 full prayers per hour per session
 function secret(): string {
   const fromEnv = process.env.MOMMY_SESSION_SECRET || process.env.CRON_SECRET;
   if (fromEnv) return fromEnv;
+  if (process.env.NODE_ENV === "production") throw new Error("MOMMY_SESSION_SECRET is required in production");
   const g = globalThis as { __mommySecret?: string };
   if (!g.__mommySecret) g.__mommySecret = randomBytes(32).toString("hex");
   return g.__mommySecret;
@@ -34,12 +36,11 @@ export function issueSessionToken(): { token: string; expiresAt: number } {
   return { token: `${payload}.${sign(payload)}`, expiresAt };
 }
 
-const counters = new Map<string, { count: number; expiresAt: number }>();
 
 /** Validates a token and consumes one call from its budget. */
-export function consumeSessionToken(
+export async function consumeSessionToken(
   token: string | null,
-): { ok: true } | { ok: false; reason: "missing" | "invalid" | "expired" | "exhausted" } {
+): Promise<{ ok: true } | { ok: false; reason: "missing" | "invalid" | "expired" | "exhausted" }> {
   if (!token) return { ok: false, reason: "missing" };
   const parts = token.split(".");
   if (parts.length !== 3) return { ok: false, reason: "invalid" };
@@ -51,17 +52,6 @@ export function consumeSessionToken(
   const expiresAt = Number(expStr);
   if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) return { ok: false, reason: "expired" };
 
-  const entry = counters.get(id) ?? { count: 0, expiresAt };
-  if (entry.count >= MAX_CALLS_PER_TOKEN) return { ok: false, reason: "exhausted" };
-  entry.count += 1;
-  counters.set(id, entry);
+  if (!await consumeBudget(`mommy-session:${id}`, MAX_CALLS_PER_TOKEN, Math.max(1, expiresAt - Date.now()))) return { ok: false, reason: "exhausted" };
   return { ok: true };
 }
-
-// Drop expired counters so the map cannot grow without bound.
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, entry] of counters) {
-    if (entry.expiresAt < now) counters.delete(id);
-  }
-}, 10 * 60_000).unref?.();

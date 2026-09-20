@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAccount } from "wagmi";
+import { fetchUserProposals } from "@/lib/userProposals";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
 
 type Proposal = {
@@ -23,34 +24,39 @@ type Proposal = {
 export function MyProposals() {
   const { address } = useAccount();
   const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [error] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const requestId = useRef(0);
 
   const fetchData = useCallback(async () => {
     if (!address) return;
+    const id = ++requestId.current;
     try {
-      const res = await fetch("/api/swipe/proposals");
-      const data = await res.json();
+      const data = await fetchUserProposals<Proposal>(address);
+      if (id !== requestId.current) return;
       const mine = (data.proposals ?? []).filter(
         (p: Proposal) => p.proposer.toLowerCase() === address.toLowerCase()
       );
       setProposals(mine);
+      setError(data.stale ? "Showing the last available proposal history." : null);
 
     } catch {
-      // silent
+      if (id === requestId.current) setError("Your proposal history is temporarily unavailable. Please retry shortly.");
     }
   }, [address]);
 
+  const cancelPending = useCallback(() => { requestId.current += 1; }, []);
   useEffect(() => {
-    fetchData();
+    setProposals([]);
+    void fetchData();
     const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+    return () => { cancelPending(); clearInterval(interval); };
+  }, [fetchData, cancelPending]);
 
   if (!address) return null;
   if (proposals.length === 0) {
     return (
       <div style={{ padding: "16px", color: "var(--foid-text-mute)", fontSize: "13px", textAlign: "center" }}>
-        No proposals yet. Submit one above.
+        {error ?? "No proposals yet. Submit one above."}
       </div>
     );
   }

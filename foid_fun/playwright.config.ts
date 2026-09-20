@@ -1,6 +1,6 @@
 // playwright.config.ts
 // E2E test config for the board flow. Intentionally minimal — we boot the
-// existing `next dev` server and hit a few critical paths.
+// development server locally and the prebuilt production server in CI.
 //
 // Chain dependency: propose-*.spec.ts require an Anvil fork of Fluent to
 // simulate wallet signatures without hitting mainnet. Those specs are
@@ -45,7 +45,7 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: "pnpm dev",
+        command: process.env.CI ? `pnpm exec next start -p ${PORT}` : `pnpm dev -p ${PORT}`,
         url: BASE_URL,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
