@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
-import { useRouter } from "next/navigation";
 import { getAudioSettings } from "@/lib/audioSettings";
 import { BOOT_SESSION_KEY, hasEnteredRecently, markBootedOnDevice } from "@/lib/foidOsBoot";
 
@@ -80,7 +79,6 @@ export default function EnterGate({
   onEnter,
   enableGlobalEnter = false,
 }: EnterGateProps) {
-  const router = useRouter();
   const reducedMotion = usePrefersReducedMotion();
   const particlesRef = useRef<HTMLDivElement | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
@@ -154,9 +152,7 @@ export default function EnterGate({
     return audioRef.current;
   }, []);
 
-  useEffect(() => {
-    router.prefetch(destination);
-  }, [destination, router]);
+  // Do not prefetch a cookie-gated destination before onEnter writes its cookie.
 
   const playClickSound = useCallback(() => {
     if (!getAudioSettings().sfxEnabled) return;
@@ -262,11 +258,11 @@ export default function EnterGate({
 
   const navigate = useCallback(() => {
     if (navigationMode === "replace") {
-      router.replace(destination);
+      window.location.replace(destination);
     } else {
-      router.push(destination);
+      window.location.assign(destination);
     }
-  }, [destination, navigationMode, router]);
+  }, [destination, navigationMode]);
 
   /* Land the boot: final phase, remember this session, flush the log. */
   const finishBoot = useCallback(() => {
@@ -395,7 +391,7 @@ export default function EnterGate({
     };
   }, [skipBoot]);
 
-  /* Login moment — the sky opens. The route is already prefetched, so no
+  /* Login moment — the sky opens. Navigation writes the entry cookie first, so no
      progress theater: chime, light bloom, "welcome home", go. The note
      finishes fading in around 1.1s (enter.css login-note) — navigating at
      1.5s lets it actually read as a greeting instead of a subliminal. */
@@ -404,7 +400,7 @@ export default function EnterGate({
       schedule(() => navigate(), 230);
       return;
     }
-    playBootChime();
+    try { playBootChime(); } catch { /* audio must never prevent navigation */ }
     schedule(() => navigate(), 1500);
   }, [navigate, playBootChime, reducedMotion, schedule]);
 
@@ -424,7 +420,7 @@ export default function EnterGate({
       setOutroActive(true);
       if (onEnter) onEnter();
       if (event) createRipple(event);
-      playClickSound();
+      try { playClickSound(); } catch { /* audio is optional */ }
       /* Brief beat when we just skipped so the composed end-state reads before
          the sky opens; near-immediate when the boot was already at rest. */
       schedule(runLoginOutro, wasReady ? 120 : 450);
@@ -497,6 +493,7 @@ export default function EnterGate({
       data-boot-skipped={bootSkipped ? "true" : undefined}
       data-outro={outroActive ? "true" : undefined}
     >
+      {outroActive && <a href={destination} style={{ position: "fixed", bottom: 32, left: "50%", transform: "translateX(-50%)", zIndex: 100, color: "white", padding: 12, background: "#102b40", borderRadius: 12 }}>Continue to FOID →</a>}
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {bootAnnouncement}
       </p>

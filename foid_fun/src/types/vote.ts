@@ -14,6 +14,8 @@ export type SwipeProposal = {
   forCount: number;
   againstCount: number;
   name?: string;
+  voteCount?: number;
+  overlapRejected?: boolean;
 };
 
 export type OnChainProposal = {

@@ -9,6 +9,6 @@ export async function GET(req: NextRequest) {
   if (!id) {
     return NextResponse.json({ error: "missing id" }, { status: 400 });
   }
-  const rec = ProposalStore.get(id);
+  const rec = await ProposalStore.get(id);
   return NextResponse.json({ cid: rec?.cid ?? null });
 }

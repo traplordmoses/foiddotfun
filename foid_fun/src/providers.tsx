@@ -166,7 +166,7 @@ export function Providers({ children }: { children: ReactNode }) {
                         "0 16px 42px rgba(255,79,110,0.18), 0 0 0 1px rgba(255,255,255,0.06)",
                     },
                   }
-                : { duration: 1, style: { display: "none" } },
+                : { duration: 6000, iconTheme: { primary: "#f97373", secondary: "#0f0f13" } },
             }}
           />
         </RainbowKitProvider>

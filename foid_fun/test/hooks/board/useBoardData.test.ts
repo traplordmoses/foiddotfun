@@ -33,7 +33,7 @@ import { useBoardData } from "@/hooks/board/useBoardData";
 
 // Track every fetch call + the AbortSignal it received so we can assert on
 // cancellation behaviour.
-type FetchCall = { url: string; signal: AbortSignal; resolve: (body: unknown) => void };
+type FetchCall = { url: string; signal: AbortSignal; resolve: (body: unknown, status?: number) => void };
 let pendingFetches: FetchCall[] = [];
 
 function installFetchMock() {
@@ -54,10 +54,10 @@ function installFetchMock() {
       pendingFetches.push({
         url,
         signal,
-        resolve: (body: unknown) =>
+        resolve: (body: unknown, status = 200) =>
           resolve(
             new Response(JSON.stringify(body), {
-              status: 200,
+              status,
               headers: { "Content-Type": "application/json" },
             }),
           ),
@@ -165,4 +165,29 @@ describe("useBoardData", () => {
       expect(pendingFetches.length).toBeGreaterThanOrEqual(2);
     });
   });
+  it("keeps successful data during a partial outage and exposes a retry state", async () => {
+    const { result } = renderHook(() => useBoardData());
+    await waitFor(() => expect(pendingFetches).toHaveLength(2));
+    const original = [{ id: "kept", cid: "test" }];
+    pendingFetches[0].resolve({ proposals: original });
+    pendingFetches[1].resolve({ proposals: [] });
+    await waitFor(() => expect(result.current.proposals).toEqual(original));
+    let pending!: Promise<void>;
+    act(() => { pending = result.current.refetch(); });
+    await waitFor(() => expect(pendingFetches).toHaveLength(4));
+    pendingFetches[2].resolve({ error: "unavailable" }, 503);
+    pendingFetches[3].resolve({ proposals: [] });
+    await act(async () => { await pending; });
+    expect(result.current.proposals).toEqual(original);
+    expect(result.current.error).toContain("last available data");
+  });
+
+  it("surfaces a server stale flag even when HTTP succeeds", async () => {
+    const { result } = renderHook(() => useBoardData());
+    await waitFor(() => expect(pendingFetches).toHaveLength(2));
+    pendingFetches[0].resolve({ proposals: [] });
+    pendingFetches[1].resolve({ proposals: [], stale: true });
+    await waitFor(() => expect(result.current.error).toContain("last available data"));
+  });
+
 });

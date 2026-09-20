@@ -229,9 +229,14 @@ export default function Desktop() {
   return (
     <main className="os-desktop" aria-label="FOID OS desktop">
       {mounted && openWindows.length === 0 ? (
-        <p className="os-desktop__hint foid-label">
-          FOID OS — open an app from the dock
-        </p>
+        <section className="os-welcome" aria-label="Welcome to FOID">
+          <span>FOID FOUNDATION</span>
+          <h1>The internet’s permanent memory</h1>
+          <p>A community canvas for memes and culture. Explore the board, check in with Foid Mommy, and vote on what stays.</p>
+          <button onClick={() => useWindowStoreV2.getState().open("board")}>Explore the board →</button>
+          <button onClick={() => useWindowStoreV2.getState().open("pray")}>Start a daily prayer</button>
+          <a href="/about?doc=getting-started">How it works</a>
+        </section>
       ) : null}
       {openWindows.map((w) => {
         const app = DESKTOP_APPS[w.id]!;

@@ -95,13 +95,13 @@ async function fetchBoardProposals(
 async function fetchSwipeProposals(
   signal: AbortSignal,
   forceFresh = false,
-): Promise<{ proposals: RawSwipeProposal[] }> {
+): Promise<{ proposals: RawSwipeProposal[]; stale?: boolean }> {
   // `bust=1` tells the API to skip its in-memory cache — necessary after
   // a successful submit so the user doesn't see a pre-submit cached
   // response for up to 15s. See /api/swipe/proposals/route.ts.
   const url = forceFresh ? "/api/swipe/proposals?bust=1" : "/api/swipe/proposals";
   const res = await fetch(url, { cache: "no-store", signal });
-  if (!res.ok) return { proposals: [] };
+  if (!res.ok) throw new Error(`/api/swipe/proposals ${res.status}`);
   return res.json();
 }
 
@@ -173,6 +173,8 @@ export function useBoardData(
   const catchUpRef = useRef<(() => void) | null>(null);
   // Fingerprint of the last published snapshot (see runTick).
   const lastFingerprintRef = useRef<string | null>(null);
+  const lastBoard = useRef<ListProposalsResponse>({ proposals: [] });
+  const lastSwipe = useRef<{ proposals: RawSwipeProposal[]; stale?: boolean }>({ proposals: [] });
 
   const runTick = useCallback(
     async (signal: AbortSignal, opts: { forceFresh?: boolean } = {}) => {
@@ -184,16 +186,14 @@ export function useBoardData(
 
       if (signal.aborted) return;
 
-      const boardData: ListProposalsResponse =
-        boardRes.status === "fulfilled"
-          ? boardRes.value
-          : { proposals: [], debug: undefined };
-      const swipeData: { proposals: RawSwipeProposal[] } =
-        swipeRes.status === "fulfilled" ? swipeRes.value : { proposals: [] };
-      const nextError =
-        boardRes.status === "rejected" && swipeRes.status === "rejected"
-          ? "The Loreboard could not be loaded."
-          : null;
+      // A failed source must never erase an already displayed snapshot.
+      if (boardRes.status === "fulfilled") lastBoard.current = boardRes.value;
+      if (swipeRes.status === "fulfilled") lastSwipe.current = swipeRes.value;
+      const boardData = lastBoard.current;
+      const swipeData = lastSwipe.current;
+      const degraded = boardRes.status === "rejected" || swipeRes.status === "rejected" ||
+        Boolean((boardData.debug as { stale?: boolean } | undefined)?.stale) || swipeData.stale;
+      const nextError = degraded ? "Some updates are unavailable. Showing the last available data; retry to refresh." : null;
 
       const normalized = normalizeProposals(boardData.proposals);
       const activeSwipe = mapActiveSwipe(swipeData.proposals ?? []);

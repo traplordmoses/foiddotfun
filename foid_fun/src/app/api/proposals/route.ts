@@ -4,7 +4,7 @@ import { LOREBOARD_ABI } from "@/lib/contracts/abis/loreboard";
 import { CONTRACTS, RPC_URL, CHAIN_CONFIG } from "@/lib/contracts/addresses";
 import { cidToHttpUrl } from "@/lib/ipfsUrl";
 import { safeErrorMessage } from "@/lib/apiError";
-import { goldskyEndpoint, goldskyQuery, GoldskyError } from "@/lib/goldsky";
+import { goldskyEndpoint, goldskyQuery, goldskyLatestBlock, GoldskyError } from "@/lib/goldsky";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +43,7 @@ type ProposalsPayload = {
     activeCount?: number;
     count?: number;
     note?: string;
+    stale?: boolean;
   };
 };
 
@@ -179,9 +180,9 @@ async function fetchFromGoldsky(): Promise<ProposalsPayload | null> {
   // Placement entity doesn't carry them. Filter matches "canonized":
   // finalized + approved + not overlap-rejected. Non-null, non-removed
   // placement is enforced client-side below.
-  const query = `{
+  const queryFor = (after: string) => `{
     proposals(
-      where: { finalized: true, approved: true, overlapRejected: false },
+      where: { finalized: true, approved: true, overlapRejected: false, proposalId_gt: "${after}" },
       first: 1000,
       orderBy: proposalId,
       orderDirection: asc
@@ -204,12 +205,17 @@ async function fetchFromGoldsky(): Promise<ProposalsPayload | null> {
   }`;
 
   try {
-    const data = await goldskyQuery<GoldskyCanonizedProposalsResponse>(
-      "loreboard",
-      query,
-      undefined,
-      { timeoutMs: 4_000 },
-    );
+    const data: GoldskyCanonizedProposalsResponse = { proposals: [] };
+    const deadline = Date.now() + 12_000;
+    let after = "-1";
+    for (;;) {
+      if (Date.now() >= deadline) throw new Error("Board indexer deadline exceeded");
+      const batch = await goldskyQuery<GoldskyCanonizedProposalsResponse>("loreboard", queryFor(after), undefined, { timeoutMs: Math.min(4000, deadline - Date.now()) });
+      data.proposals.push(...batch.proposals);
+      if (batch.proposals.length < 1000) break;
+      after = batch.proposals[batch.proposals.length - 1].proposalId;
+      if (data.proposals.length >= 20_000) throw new Error("Board snapshot budget exceeded");
+    }
 
     const proposals = data.proposals
       .filter((p): p is GoldskyCanonizedProposal & { placement: GoldskyCanonizedPlacement } =>
@@ -272,7 +278,7 @@ async function fetchFromRpc(): Promise<ProposalsPayload> {
         },
       },
     },
-    transport: http(RPC_URL),
+    transport: http(RPC_URL, { timeout: 4000, retryCount: 0, fetchOptions: { signal: AbortSignal.timeout(15_000) } }),
   });
 
   const count = (await client.readContract({
@@ -282,6 +288,7 @@ async function fetchFromRpc(): Promise<ProposalsPayload> {
   })) as bigint;
 
   const placementCount = Number(count);
+  if (placementCount > 2000) throw new Error("Indexer unavailable; board fallback exceeds budget");
   if (placementCount === 0) {
     return { proposals: [], debug: { source: "loreboard", count: 0 } };
   }
@@ -303,8 +310,7 @@ async function fetchFromRpc(): Promise<ProposalsPayload> {
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
     if (result.status !== "success") {
-      console.error(`[api/proposals] Failed to read placement ${i}:`, result.error);
-      continue;
+      throw new Error(`Incomplete placement response at ${i}`);
     }
 
     const p = parsePlacement(result.result);
@@ -337,58 +343,12 @@ async function fetchFromRpc(): Promise<ProposalsPayload> {
   };
 }
 
-// If the subgraph is behind the chain head by more than this many placements,
-// fall back to RPC so a freshly-finalized proposal shows up right away instead
-// of waiting for Goldsky to catch up (can be several minutes on busy days).
-const SUBGRAPH_LAG_TOLERANCE = 0;
-
-async function rpcPlacementCount(): Promise<number | null> {
-  const contractAddress = CONTRACTS.SWIPE as `0x${string}`;
-  if (!contractAddress || contractAddress.length < 42) return null;
-  try {
-    const client = createPublicClient({
-      chain: {
-        id: CHAIN_CONFIG.id,
-        name: CHAIN_CONFIG.name,
-        nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-        rpcUrls: { default: { http: [RPC_URL] } },
-      },
-      transport: http(RPC_URL),
-    });
-    const count = (await client.readContract({
-      address: contractAddress,
-      abi: LOREBOARD_ABI,
-      functionName: "placementCount",
-    })) as bigint;
-    return Number(count);
-  } catch {
-    return null;
-  }
-}
-
 async function fetchAllPlacements(): Promise<ProposalsPayload> {
-  const [fromSubgraph, chainPlacementCount] = await Promise.all([
-    fetchFromGoldsky(),
-    rpcPlacementCount(),
+  const [fromSubgraph, indexedBlock, head] = await Promise.all([
+    fetchFromGoldsky(), goldskyLatestBlock("loreboard"),
+    createPublicClient({ transport: http(RPC_URL, { retryCount: 0, timeout: 4000 }) }).getBlockNumber().catch(() => null),
   ]);
-
-  // Subgraph lag detection: if the chain reports more placements than the
-  // subgraph returned, the subgraph hasn't indexed the latest PlacementCreated
-  // events yet. Fall back to RPC so the board doesn't hide just-finalized
-  // placements for minutes.
-  if (fromSubgraph && chainPlacementCount !== null) {
-    const lag = chainPlacementCount - fromSubgraph.proposals.length;
-    if (lag > SUBGRAPH_LAG_TOLERANCE) {
-      console.warn(
-        `[api/proposals] subgraph behind by ${lag} placements (${fromSubgraph.proposals.length} vs ${chainPlacementCount}); falling back to RPC`,
-      );
-      const rpcData = await fetchFromRpc();
-      return {
-        ...rpcData,
-        debug: { ...rpcData.debug, note: `subgraph lag ${lag}, used rpc` },
-      };
-    }
-  }
+  if (fromSubgraph && (indexedBlock === null || head === null || Number(head) - indexedBlock > 64)) return fetchFromRpc();
 
   if (fromSubgraph) return fromSubgraph;
   return fetchFromRpc();
@@ -397,7 +357,7 @@ async function fetchAllPlacements(): Promise<ProposalsPayload> {
 async function getPlacements(
   opts: { forceFresh?: boolean } = {},
 ): Promise<{ data: ProposalsPayload; fromCache: boolean }> {
-  if (!opts.forceFresh) {
+  if (!opts.forceFresh || (cachedPayload && Date.now() - cachedPayload.at < 2000)) {
     const cached = getCached();
     if (cached) return { data: cached, fromCache: true };
   }
@@ -409,6 +369,9 @@ async function getPlacements(
       const data = await fetchAllPlacements();
       cachedPayload = { data, at: Date.now() };
       return data;
+    } catch (error) {
+      if (cachedPayload && Date.now() - cachedPayload.at < 300_000) return { ...cachedPayload.data, debug: { ...cachedPayload.data.debug, stale: true } };
+      throw error;
     } finally {
       inflightFetch = null;
     }
@@ -450,10 +413,8 @@ export async function GET(request: NextRequest) {
       {
         headers: {
           "Content-Type": "application/json",
-          // Server-side cache (above) is authoritative. Tell the browser
-          // to trust a fresh response for ~5s and allow stale-while-
-          // revalidate for another 20s — matches the 15s TTL roughly.
-          "Cache-Control": "public, max-age=5, s-maxage=5, stale-while-revalidate=20",
+          // The bounded server-side cache is authoritative.
+          "Cache-Control": "no-store",
           "X-Proposals-Cache": fromCache ? "HIT" : "MISS",
         },
       },

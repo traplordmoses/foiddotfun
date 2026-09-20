@@ -767,10 +767,6 @@ export default function FoidMommyTerminal({
       await typeMessage({ role: "system", text: "foid mommy online.", speed: 24 });
       await sleep(isReturningUser ? 200 : 250);
 
-      // Auto-grant memory consent (privacy disclosed in sidebar text)
-      if (needsConsentPromptRef.current) {
-        grantConsentRef.current();
-      }
 
       // Memory-aware greeting for returning users
       if (isReturningUser) {
@@ -1979,6 +1975,11 @@ export default function FoidMommyTerminal({
           </div>
 
           <div className="foid-cli__composer">
+            {stage === "awaitFeeling" && <>
+              <p className="foid-privacy-note">Messages are sent to FOID and OpenAI to generate replies. Only your prayer hash and associated metadata go onchain.</p>
+              <label className="foid-memory-choice"><input type="checkbox" checked={hasMemoryConsent} onChange={(event) => event.target.checked ? grantConsent() : revokeConsent()} />Remember feeling labels on this device and include recent labels in AI replies (optional).</label>
+            </>}
+
             {stage === "awaitFeeling" && !inputLocked && (
               <div
                 className="foid-mood-chips"
@@ -2027,6 +2028,7 @@ export default function FoidMommyTerminal({
                   onChange={(event) => handleCommandChange(event.target.value)}
                   onKeyDown={handleComposerKeyDown}
                   className="foid-terminal__field foid-terminal__field--multiline w-full resize-none overflow-y-auto whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+                  aria-label="Message to Foid Mommy"
                   placeholder={inputPlaceholder}
                   autoComplete="off"
                   spellCheck={false}

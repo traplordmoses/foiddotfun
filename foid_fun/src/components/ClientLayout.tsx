@@ -1,5 +1,6 @@
 'use client';
 
+import { useVisualViewport } from '@/hooks/useVisualViewport';
 import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
@@ -20,7 +21,6 @@ import { useMainFocusListener } from '@/stores/floatStore';
 // each one returns null during SSR anyway.
 const FairyDustCursor = dynamic(() => import('@/components/FairyDustCursor'), { ssr: false });
 const FoidWalletOnboarding = dynamic(() => import('@/components/FoidWalletOnboarding'), { ssr: false });
-const FoidOnboardingTour = dynamic(() => import('@/components/FoidOnboardingTour'), { ssr: false });
 const PostWalletWelcome = dynamic(() => import('@/components/PostWalletWelcome'), { ssr: false });
 // CHAT.EXE — floating chat window opened from the dock's Chat tile.
 // Desktop-only chrome; the Supabase socket only connects on first open.
@@ -29,21 +29,11 @@ const ServiceWorkerRegistrar = dynamic(() => import('@/components/ServiceWorkerR
 const MiniAppReady = dynamic(() => import('@/components/MiniAppReady'), { ssr: false });
 
 export function ClientLayout() {
+  useVisualViewport();
   const { isMobile } = useMobile();
   const pathname = usePathname();
 
-  // ── Boot isolation (FOID OS: /enter is the machine powering on) ────────
-  // /enter shares this root layout, so without a gate the dock and the
-  // first-run onboarding tour mount *underneath / on top of* the boot
-  // sequence — the dock's glass pill shows through the login frame, and
-  // FoidOnboardingTour's 800ms timer pops WELCOME.EXE straight over the
-  // POST animation. While the boot owns the screen NO desktop chrome
-  // exists: the dock, both wallet overlays, the tour, chat, and the deck
-  // all arrive with the desktop *after* the enter click, as the payoff.
-  // (The tour additionally waits for the desktop to settle — see
-  // FoidOnboardingTour.) This only suppresses mounting on /enter; the
-  // dock's normal behaviour, auto-hide, and launch feedback are untouched
-  // everywhere else.
+  // Entry is isolated by AppRuntime; keep this guard for standalone reuse.
   const booting = pathname === '/enter';
 
   // Interim click-to-front layering: a pointerdown on main-window territory
@@ -79,7 +69,7 @@ export function ClientLayout() {
       {!isMobile && <FairyDustCursor />}
       <Dock />
       <FoidWalletOnboarding />
-      <FoidOnboardingTour />
+      {/* The desktop welcome provides direct actions without a blocking first-run overlay. */}
       <PostWalletWelcome />
       <CompactMusicPlayer mountLogic={true} />
       <ChatApp />

@@ -1343,7 +1343,7 @@ export function BoardAppCore({
         hints={[
           "Pinch to zoom in and out",
           "Drag with one finger to pan around",
-          "Tap a meme to select it; hold to open details"
+          "Tap a meme to open its details"
         ]}
       />
       {boardLoading ? (
@@ -1352,7 +1352,7 @@ export function BoardAppCore({
             Loading Loreboard...
           </div>
         </div>
-      ) : boardError ? (
+      ) : boardError && boardNodes.length === 0 ? (
         <div className="absolute inset-0 z-20 flex items-center justify-center px-6" role="alert">
           <div className="foid-glass max-w-sm rounded-2xl p-5 text-center">
             <h2 className="foid-h3 text-white/90">Board unavailable</h2>
@@ -1379,6 +1379,8 @@ export function BoardAppCore({
         />
       )}
 
+      {boardError && boardNodes.length > 0 && <div role="status" className="absolute top-16 left-4 right-4 z-30 rounded-lg bg-slate-900 p-3 text-sm text-white">{boardError} <button type="button" className="underline" onClick={() => void refetchBoardData()}>Retry</button></div>}
+
       {/* Show placement modal if active */}
       {activePlacement && (
         <PlacementModal
@@ -1403,6 +1405,7 @@ export function BoardAppCore({
   // bottom-center), chat lives in CHAT.EXE.
   const boardBody = (
             <div className="vista-window__body vista-window__body--flush pray-panel__body board-body">
+              {boardError && <div role="status" className="bg-slate-900 p-3 text-sm text-white">{boardError} <button type="button" className="underline" onClick={() => void refetchBoardData()}>Retry</button></div>}
               {/* Canvas */}
               <div className="board-canvas-wrap flex-1 min-h-0">
                   {/* Visually-hidden live region for screen reader narration.

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
-import { DESKTOP_MIN_WIDTH, FOID_DESKTOP_ENABLED } from "@/config/desktop";
+import { parseDesktopAppsParam, DESKTOP_MIN_WIDTH, FOID_DESKTOP_ENABLED } from "@/config/desktop";
 import { hasBootedThisSession } from "@/lib/foidOsBoot";
 
 // Import-only optimization: ActivityBubbles pulls the Supabase client via
@@ -47,11 +47,21 @@ function DesktopGate() {
 
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${DESKTOP_MIN_WIDTH}px)`);
-    const update = () => setWide(mq.matches);
+    const update = () => {
+      setWide(mq.matches);
+      if (!mq.matches) {
+        const { focus } = parseDesktopAppsParam(window.location.search);
+        if (focus) {
+          const params = new URLSearchParams(window.location.search);
+          params.delete("apps"); params.delete("focus");
+          router.replace(`/${focus}${params.size ? `?${params}` : ""}`);
+        }
+      }
+    };
     update();
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (wide !== true) return;

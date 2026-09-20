@@ -2,7 +2,7 @@
 
 import { useReadContract, usePublicClient } from "wagmi";
 import { useEffect, useState } from "react";
-import { parseAbiItem, type Address } from "viem";
+import { fetchUserProposals } from "@/lib/userProposals";
 import { CONTRACTS } from "@/lib/contracts/addresses";
 import { PRAYER_MIRROR_ABI, PRAYER_REGISTRY_ABI } from "@/lib/contracts/abis";
 
@@ -50,21 +50,12 @@ export function useUserStats(address: `0x${string}` | undefined) {
   useEffect(() => {
     if (!address || !client) return;
 
-    const swipeAddress = CONTRACTS.SWIPE as Address;
+    let alive = true;
 
     async function fetchCounts() {
       try {
-        // Count Proposed events where user is the proposer (indexed param)
-        const proposedLogs = await client!.getLogs({
-          address: swipeAddress,
-          event: parseAbiItem(
-            "event Proposed(uint256 indexed proposalId, address indexed proposer, string ipfsCid, uint256 votingEndsAt)"
-          ),
-          args: { proposer: address as Address },
-          fromBlock: 21984763n,
-          toBlock: "latest",
-        });
-        setProposalsCount(proposedLogs.length);
+        const result = await fetchUserProposals(address!);
+        if (alive) setProposalsCount(result.proposals.length);
       } catch {
         // Swipe contract may not support this event shape — fallback to 0
         setProposalsCount(0);
@@ -83,6 +74,7 @@ export function useUserStats(address: `0x${string}` | undefined) {
     }
 
     void fetchCounts();
+    return () => { alive = false; };
   }, [address, client]);
 
   const stats: UserStats | null = prayerData

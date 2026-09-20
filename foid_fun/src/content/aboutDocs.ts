@@ -39,7 +39,7 @@ The Internet's Permanent Memory.
 
 ## TL;DR — FOID is three things
 
-**1. Prayer** — A daily onchain check-in with your AI companion, Foid Mommy. Build a streak, earn governance weight. Only a hash goes onchain — your words stay on your device. Start at [/pray](/pray).
+**1. Prayer** — A daily onchain check-in with your AI companion, Foid Mommy. Build a streak, earn governance weight. Your messages are sent to FOID and OpenAI for replies; only a prayer hash and associated metadata go onchain. Start at [/pray](/pray).
 
 **2. Loreboard** — A permanent, community-governed canvas. Propose a placement for a flat 0.001 ETH, the community votes for 72 hours, and approved content lives onchain forever. Votes are weighted by your prayer streak. See it at [/board](/board).
 
@@ -316,11 +316,11 @@ Miss a day and the streak resets — that's what makes a long one mean something
 
 ## Privacy first, always
 
-**Your raw words never leave your device.**
+**Your conversation is processed by FOID and OpenAI.** Your messages are sent to our server and AI provider to generate replies.
 
 Only a keccak256 hash goes onchain — cryptographic proof you prayed, not a record of what you said. A hash is a one-way fingerprint: it can confirm a specific prayer existed, but it can't be reversed back into the text. All the chain ever stores is your wallet address, a timestamp, a feeling category (a 1-10 scale), and that hash.
 
-**That's it.** No AI company reading your journal. No platform selling your vulnerability. Your prayers are yours.
+Your prayer text is not published onchain. Optional memory stores feeling labels and dates on your device and includes recent labels in AI requests. You can turn memory off and erase local entries with /forget.
 
 ## Why this matters
 
@@ -703,8 +703,7 @@ MiFOID mint            from 0.01 ETH (Genesis tier)
 PRIVACY (what the chain sees when you pray)
 -------------------------------------------
 Wallet address, timestamp, feeling category (1-10 scale), and a
-keccak256 prayer hash. Never your words. Your raw words never
-leave your device.
+keccak256 prayer hash, not the prayer text. Conversation text is processed by FOID and OpenAI before hashing.
 `,
   },
   {
@@ -863,7 +862,7 @@ Gas on Fluent is dirt cheap — fractions of a cent per transaction. You just ne
 
 ## Is my prayer data private?
 
-**Yes. Your actual words never leave your device.** Only a keccak256 hash goes onchain. That's cryptographic proof you prayed, not what you actually said. The blockchain sees: your wallet address, timestamp, feeling category (1-10 scale), prayer hash. **What it doesn't see:** your actual words, the conversation with Foid Mommy, any personal details. Your prayers are yours. No AI company reading them. No platform selling them.
+**Your prayer text is not published onchain.** Your conversation is sent to FOID's server and OpenAI to generate replies. The blockchain records your wallet address, timestamp, feeling category, and prayer hash. Optional memory stores feeling labels and dates locally and includes recent labels in AI requests. /forget clears local entries; it does not remove onchain records or retract previously processed requests.
 
 ## How does Loreboard voting work?
 

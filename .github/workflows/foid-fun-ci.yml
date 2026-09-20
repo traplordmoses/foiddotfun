@@ -83,7 +83,7 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
       - name: Run a11y + visual specs
-        run: pnpm test:e2e -- --project=chromium tests/e2e/board/a11y.spec.ts tests/e2e/board/visual.spec.ts
+        run: pnpm exec playwright test --project=chromium tests/e2e/board/a11y.spec.ts tests/e2e/board/visual.spec.ts tests/e2e/core-navigation.spec.ts tests/e2e/audit-regressions.spec.ts
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4

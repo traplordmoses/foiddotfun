@@ -10,7 +10,7 @@ let inflight: Promise<string | null> | null = null;
 
 async function fetchToken(): Promise<string | null> {
   try {
-    const res = await fetch("/api/foid-mommy/session", { cache: "no-store" });
+    const res = await fetch("/api/foid-mommy/session", { cache: "no-store", signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
     const data = (await res.json()) as { token?: string; expiresAt?: number };
     if (!data.token) return null;
@@ -37,6 +37,7 @@ export async function askFoidMommy(body: Record<string, unknown>): Promise<Respo
         ...(token ? { "x-foid-session": token } : {}),
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(25_000),
     });
   };
   let res = await send();

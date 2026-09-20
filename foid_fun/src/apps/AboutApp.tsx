@@ -393,6 +393,12 @@ export default function AboutApp() {
   /** Index into `filtered` of the doc open in TEXTEDIT.EXE (null = closed). */
   const [readerIndex, setReaderIndex] = useState<number | null>(null);
 
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("doc");
+    const index = ABOUT_DOCS.findIndex((doc) => doc.id === id);
+    if (index >= 0) { setSelectedId(ABOUT_DOCS[index].id); setReaderIndex(index); }
+  }, []);
+
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
 

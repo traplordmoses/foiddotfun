@@ -116,10 +116,6 @@ const nextConfig = {
     ];
   },
   experimental: {
-    // Lower peak heap during `next build` (Next 14.2+). The bundle-size CI
-    // job hit V8's heap limit at the 2 GB cap the build script sets, and
-    // Render builds with that same cap.
-    webpackMemoryOptimizations: true,
     // Compile in a worker process with its own heap; the main process only
     // collects page data. Documented Next fix for build OOMs.
     webpackBuildWorker: true,

@@ -214,6 +214,7 @@ export function MobileBoard({
 
       if (tappedNode) {
         setSelectedNode(tappedNode.id);
+        onNodeClick?.(tappedNode);
       } else {
         setSelectedNode(null);
       }
@@ -271,6 +272,10 @@ export function MobileBoard({
             return (
               <motion.div
                 key={node.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Inspect board item ${node.id}`}
+                onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onNodeClick?.(node); } }}
                 className={`
                   absolute
                   ${isVoting ? 'mobile-board-voting' : ''}
@@ -301,7 +306,7 @@ export function MobileBoard({
                   // flakiness the same way desktop already is.
                   <IpfsImage
                     cid={node.content}
-                    alt="Board item"
+                    alt={`Board item ${node.id}`}
                     className="w-full h-full object-cover pointer-events-none"
                     style={isVoting ? { opacity: 0.6 } : undefined}
                     draggable={false}
@@ -331,7 +336,10 @@ export function MobileBoard({
         </div>
       </div>
 
-      {/* Instructions overlay removed — GestureHint in board/page.tsx handles first-load tutorial */}
+      <details className="absolute left-3 bottom-24 z-20 max-h-[50%] overflow-auto rounded-xl border border-slate-500 bg-slate-950/95 p-3 text-sm text-white">
+        <summary className="cursor-pointer min-h-6">Browse board items · tap an image to inspect</summary>
+        <ul>{nodes.map((node) => <li key={node.id}><button className="min-h-11 p-2 text-left" onClick={() => onNodeClick?.(node)}>Inspect item {node.id} · {node.status ?? "canonized"}</button></li>)}</ul>
+      </details>
     </div>
   );
 }

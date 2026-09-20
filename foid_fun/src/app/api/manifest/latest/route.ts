@@ -1,3 +1,4 @@
+import { fetchBounded } from "@/lib/boundedHttp";
 import { NextResponse } from "next/server";
 import { CANONICAL_ADDRESSES, getServerRpcUrl } from "@/config/canonical";
 
@@ -58,14 +59,17 @@ function buildPlacementsIndex(manifest: BoardManifest | null) {
 }
 
 async function fetchManifestJson(cid: string) {
+  const deadline = Date.now() + 12_000;
   for (const url of ipfsToHttp(cid)) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
     try {
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) continue;
-      return (await res.json()) as BoardManifest;
-    } catch {
-      // try next gateway
-    }
+      const { response, bytes } = await fetchBounded(url, { cache: "no-store" }, 4 * 1024 * 1024, Math.min(4000, remaining));
+      if (!response.ok) continue;
+      const parsed = JSON.parse(new TextDecoder().decode(bytes));
+      if (!parsed || !Array.isArray(parsed.placements)) continue;
+      return parsed as BoardManifest;
+    } catch { /* try next gateway within the overall budget */ }
   }
   return null;
 }
