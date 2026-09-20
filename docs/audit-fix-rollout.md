@@ -23,6 +23,7 @@ These changes address the frontend and backend audit against `cbae20829b7be6e052
 - Liveness uses V8's actual heap limit, RSS and external memory. `/api/ready` checks RPC, required storage tables, the request-budget function and its permissions through a zero-cost probe, and prayer configuration; it is a dependency check, not a full wallet/AI end-to-end test.
 - Finalization cron now fails on HTTP errors, failed proposal results, and manifest errors. Incomplete proposal/weight reads fail before submitting transactions instead of silently skipping records or inventing zero weights.
 - Builds verify installed dependencies without performing a second package-manager download. CI and Render still run the explicit frozen-lockfile install before building.
+- Sized board previews use the bundled image proxy by default. When a dedicated gateway cannot transform images, Sharp creates cached WebP thumbnails locally with a 16-megapixel input cap, 1,280px output bounds, one active decoder, an eight-request queue cap, and a five-second processing timeout. Animated originals use a still preview; opening the source retains the original asset.
 
 ## Required before deployment
 

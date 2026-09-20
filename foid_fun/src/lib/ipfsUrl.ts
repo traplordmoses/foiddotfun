@@ -299,7 +299,11 @@ export function isProxyCandidate(url: string): boolean {
 
 export function ipfsImageUrls(uri: string, opts?: IpfsImageOpts): string[] {
   const gatewayUrls = ipfsToHttp(uri).map((u) => withGatewayTransforms(u, opts));
-  const proxy = ipfsProxyUrl(uri, opts);
+  // Sized image previews use the bundled proxy even without deployment env.
+  // Generic CID/document URL helpers retain their existing gateway behavior.
+  const cid = extractIpfsCid(uri);
+  const proxy = ipfsProxyUrl(uri, opts) ?? (cid && (opts?.width || opts?.height)
+    ? `/api/ipfs/${cid}${buildTransformQuery(opts)}` : null);
   if (!proxy) return gatewayUrls;
   return [proxy, ...gatewayUrls];
 }

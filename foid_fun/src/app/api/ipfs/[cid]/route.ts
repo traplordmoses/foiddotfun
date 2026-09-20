@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchBounded, BodyTooLargeError, isTimeout } from "@/lib/boundedHttp";
 import { cleanIpfsPath } from "@/lib/ipfsUrl";
+import { imageThumbnail } from "@/lib/imageThumbnail";
 
 const CID_PATTERN = /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{58,})$/;
 const FETCH_TIMEOUT_MS = 30_000;
@@ -149,11 +150,16 @@ const FORMAT_WHITELIST = new Set(["webp", "jpeg", "png", "auto"]);
 function parseTransformParams(search: URLSearchParams): {
   search: string;
   cacheSuffix: string;
+  localWidth?: number;
+  localHeight?: number;
 } {
-  // No-op when the configured gateway is the public one (it doesn't know
-  // `img-*`). Avoids poisoning the in-process cache with per-variant
-  // entries that all return the same original bytes.
-  if (!PINATA_HAS_TRANSFORMS) return { search: "", cacheSuffix: "" };
+  if (!PINATA_HAS_TRANSFORMS) {
+    const dimension = (value: string | null) => value && /^\d+$/.test(value) && Number(value) > 0
+      ? Math.min(1280, Math.max(128, Math.ceil(Number(value) / 64) * 128)) : undefined;
+    const localWidth = dimension(search.get("w"));
+    const localHeight = dimension(search.get("h"));
+    return { search: "", cacheSuffix: localWidth || localHeight ? `|thumb-v1:${localWidth ?? 1280}x${localHeight ?? 1280}` : "", localWidth, localHeight };
+  }
 
   const w = search.get("w");
   const h = search.get("h");
@@ -230,7 +236,11 @@ export async function GET(
         if (!response.ok) throw new Error("Gateway unavailable");
         const contentType = rasterType(bytes);
         if (!contentType) throw new UnsupportedImageError();
-        const entry = { bytes, contentType };
+        // Dedicated gateways handle their own transforms. Public gateways
+        // return originals, so generate a bounded, cached preview locally.
+        const entry = transform.localWidth || transform.localHeight
+          ? await imageThumbnail(bytes, transform.localWidth, transform.localHeight)
+          : { bytes, contentType };
         cachePut(cacheKey, entry);
         return entry;
       })().finally(() => { inflight.delete(cacheKey); });
