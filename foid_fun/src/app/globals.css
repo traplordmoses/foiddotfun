@@ -6044,6 +6044,12 @@ body.foid-window-dragging .vista-window * {
   .home-page .home-bubble-sm { display: none; }
   .home-page .home-card:hover { transform: none; }
 }
+@media (max-width: 768px) and (max-height: 740px) {
+  .home-page .home-content-col { padding: 16px 14px; gap: 16px; }
+  .home-page p.home-tagline { display: none; }
+  .home-page .home-card { padding: 12px; }
+  .home-page .home-card--hero { min-height: 138px; padding: 16px; }
+}
 
 /* ============================================================================
    MIFOID.EXE — WINDOW-WIDTH REFLOW
