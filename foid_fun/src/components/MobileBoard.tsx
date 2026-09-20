@@ -131,6 +131,20 @@ export function MobileBoard({
     );
   }, [fitted, index, position.x, position.y, scale, screenWidth, screenHeight]);
 
+  // Promote the largest on-screen image, not a tile in the prefetch margin.
+  const primaryImageId = useMemo(() => {
+    let largest = 0;
+    let id: string | undefined;
+    for (const node of visibleNodes) {
+      const left = position.x + node.x * scale;
+      const top = position.y + node.y * scale;
+      const area = Math.max(0, Math.min(screenWidth, left + node.width * scale) - Math.max(0, left))
+        * Math.max(0, Math.min(screenHeight, top + node.height * scale) - Math.max(0, top));
+      if (area > largest && node.type !== 'text') { largest = area; id = node.id; }
+    }
+    return id;
+  }, [visibleNodes, position, scale, screenWidth, screenHeight]);
+
   // Image request widths come from the ON-SCREEN size (the proxy adds DPR 2
   // itself), bucketed to 64 px so the edge cache stays hot, and never shrink
   // for a node during a session: zooming out must not re-download smaller.
@@ -311,6 +325,7 @@ export function MobileBoard({
                     style={isVoting ? { opacity: 0.6 } : undefined}
                     draggable={false}
                     displayWidth={requestWidthFor(node)}
+                    fetchPriority={node.id === primaryImageId ? "high" : "auto"}
                   />
                 ) : (
                   <div className="text-white text-sm break-words bg-black/40 backdrop-blur-sm p-3 rounded-lg">

@@ -898,7 +898,6 @@ export default function EnterGate({
           border: none;
           padding: 0;
           background: transparent;
-          animation: gentleFloat 4s ease-in-out infinite;
           transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
           filter: drop-shadow(0 15px 35px rgba(0, 0, 0, 0.4));
         }
@@ -923,7 +922,11 @@ export default function EnterGate({
         .enter-key svg {
           width: 100%;
           height: 100%;
+          animation: gentleFloat 4s ease-in-out infinite;
         }
+
+        .enter-key:hover svg,
+        .enter-key:focus-visible svg { animation-play-state: paused; }
 
         .key-glow {
           position: absolute;
@@ -1104,6 +1107,7 @@ export default function EnterGate({
         }
 
         .enter-gate[data-reduced-motion="true"] .enter-key,
+        .enter-gate[data-reduced-motion="true"] .enter-key svg,
         .enter-gate[data-reduced-motion="true"] .particle,
         .enter-gate[data-reduced-motion="true"] .caustics::before,
         .enter-gate[data-reduced-motion="true"] .caustics::after {

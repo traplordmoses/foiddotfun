@@ -151,6 +151,14 @@ function HomeLauncher() {
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+  const [showActivity, setShowActivity] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 769px) and (prefers-reduced-motion: no-preference)");
+    const update = () => setShowActivity(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   const handleSwitchWallet = useCallback(() => {
     disconnect();
@@ -181,7 +189,7 @@ function HomeLauncher() {
               style={{ overflow: "hidden", flex: 1, minHeight: 0, position: "relative" }}
             >
               {/* Live activity bubbles floating upward */}
-              <ActivityBubbles />
+              {showActivity && <ActivityBubbles />}
 
               {/* Floating sparkles + bubbles inside the window */}
               <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">

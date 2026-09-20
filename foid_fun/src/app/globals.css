@@ -4375,7 +4375,7 @@ body {
 
 /* Ensure all buttons are touch-friendly on mobile */
 @media (max-width: 768px) {
-  button:not(.touch-target),
+  button:not(.touch-target):not(.vista-window__control),
   a[role="button"] {
     min-height: 44px;
     padding: 8px 16px;
@@ -4790,7 +4790,7 @@ body {
   }
 
   .vista-window__controls {
-    gap: 4px !important;
+    gap: 13px;
   }
 }
 
@@ -5998,6 +5998,51 @@ body.foid-window-dragging .vista-window * {
     font-size: 11px;
     padding: 8px 20px;
   }
+}
+
+/* Phone chrome retains the desktop's 12px traffic lights. Their 25px
+   centre spacing keeps adjacent targets separate without stretching them. */
+@media (max-width: 768px) {
+  .vista-window__controls { flex: 0 0 auto; }
+  .vista-window__control {
+    flex: 0 0 12px;
+    width: 12px;
+    height: 12px;
+    min-width: 12px;
+    min-height: 12px;
+    padding: 0;
+    aspect-ratio: 1;
+  }
+  .app-titlebar .app-titlebar__row { min-height: 44px; padding: 6px 10px; gap: 8px; }
+  .app-titlebar .vista-window__title { font-size: 10px !important; letter-spacing: 0.035em; }
+  .app-titlebar .vista-window__title > img,
+  .app-titlebar .vista-window__badge,
+  .app-titlebar .pray-status-indicator { display: none; }
+  .app-titlebar .aero-wallet-pill { min-height: 30px; padding: 5px 10px; font-size: 10px; }
+
+  .home-page .home-content-col { padding: 20px 16px 18px; gap: 22px; }
+  .home-page .home-title-zone { margin: 0; padding: 4px 0 0; }
+  .home-page .home-grid-wrapper { margin: 0; justify-content: flex-start; }
+  .home-page .home-title { font-size: clamp(24px, 6.8vw, 38px); line-height: 1.2; letter-spacing: 0.07em; text-wrap: balance; }
+  .home-page p.home-subtitle { margin-top: 10px; letter-spacing: 0.10em; line-height: 1.5; }
+  .home-page p.home-tagline { margin-top: 8px; max-width: 290px; color: rgba(255,255,255,0.72); line-height: 1.65; }
+  .home-page .home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .home-page .home-card { padding: 16px 12px; min-height: 98px; border-radius: 16px; align-items: flex-start; text-align: left; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .home-page .home-card--hero { min-height: 148px; padding: 20px; align-items: center; text-align: center; animation: none; background: rgba(144, 158, 235, 0.18); }
+  .home-page .home-card__label { font-size: 14px; letter-spacing: 0.12em; margin-bottom: 5px; }
+  .home-page .home-card--hero .home-card__label { font-size: 22px; letter-spacing: 0.18em; }
+  .home-page .home-card__desc { display: block; font-size: 12px; line-height: 1.5; color: rgba(255,255,255,0.78); }
+  .home-page .home-card--hero .home-card__desc { font-size: 12px; margin-bottom: 12px; }
+  .home-page .home-card__cta { min-height: 34px; padding: 7px 16px; font-size: 10px; }
+  .home-page .home-float,
+  .home-page .home-sparkle,
+  .home-page .home-bubble,
+  .home-page .home-bubble-sm,
+  .home-page .home-card__sparkle { animation: none; }
+  .home-page .home-sparkle { opacity: 0.24; }
+  .home-page .home-sparkle:nth-child(n+7),
+  .home-page .home-bubble-sm { display: none; }
+  .home-page .home-card:hover { transform: none; }
 }
 
 /* ============================================================================

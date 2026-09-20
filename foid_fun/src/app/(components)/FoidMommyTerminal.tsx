@@ -463,6 +463,8 @@ export default function FoidMommyTerminal({
   } = usePrayerMemory(walletAddress);
 
   const [stage, setStage] = useState<Stage>("idle");
+  const [interactive, setInteractive] = useState(false);
+  useEffect(() => { setInteractive(true); }, []);
   const [prayerRevealing, setPrayerRevealing] = useState(false);
   const [prayerMessageId, setPrayerMessageId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -877,17 +879,17 @@ export default function FoidMommyTerminal({
   }, [stage, typeMessage, addMessage, resetTimers, clearDraft]);
 
   const handleStart = useCallback(async () => {
+    setStage("loading");
     try {
       // Don't let a suspended AudioContext block the boot: without a user
       // gesture (direct URL visit), unlock()'s resume() can stay pending
       // forever in strict-autoplay browsers. Cap the wait — audio unlocks
       // on the first real keystroke anyway.
       await Promise.race([sfx.unlock(), sleep(400)]);
+      sfx.playLoading();
     } catch {
       /* ignore unlock failures */
     }
-    sfx.playLoading();
-    setStage("loading");
   }, []);
 
   // NEW: Auto-start effect
@@ -1909,6 +1911,7 @@ export default function FoidMommyTerminal({
 
               <button
                 onClick={handleStart}
+                disabled={!interactive}
                 className="foid-idle-start min-h-[56px] px-12 py-4 bg-gradient-to-br from-green-400 to-green-600 text-black font-bold text-lg rounded-xl shadow-lg shadow-green-500/25 hover:shadow-green-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 touch-manipulation"
               >
                 START PRAYING
