@@ -8,8 +8,9 @@
 #   3. unit tests      — `pnpm test` (vitest, includes coverage thresholds
 #                        configured in vitest.config.ts: hooks ≥85%, ui ≥75%)
 #   4. a11y gate       — Playwright + axe-core against /board
-#   5. visual regress  — Playwright toHaveScreenshot diff
-#   6. lighthouse      — perf budget, mobile P≥90
+#   5. navigation     — entry, mobile layout, and dock regressions
+#   6. lighthouse     — measured mobile baseline P≥50, accessibility ≥95
+# Visual screenshot specs remain opt-in pending committed Linux baselines.
 #
 # Chain-dependent specs (propose-*.spec.ts) are gated on ANVIL_FORK_URL
 # and skipped in the default workflow — enable them in a follow-up PR

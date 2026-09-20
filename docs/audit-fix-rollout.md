@@ -6,6 +6,7 @@ These changes address the frontend and backend audit against `cbae20829b7be6e052
 
 - Entry loads independently of the wallet/application provider tree, navigates after the entry cookie is written, tolerates unavailable audio, and offers a direct recovery link. The desktop opens with useful Board, Prayer, and About actions instead of an empty welcome surface.
 - The mobile prayer composer occupies a scrollable area above the dock. It follows the visual viewport when a keyboard opens; short screens scroll the supporting material so the input remains reachable.
+- Mobile window controls remain 12px circles with separate targets. The launcher uses a compact header, two columns of readable cards, less decorative motion, and a shorter layout on compact phones. Floating activity messages stay out of the mobile launcher.
 - AI processing is disclosed before sending a message. Local feeling memory requires an explicit opt-in. Earlier automatically granted consent is not inherited. Opting out clears that device's journal.
 - Production error messages are visible. Voting waits for a successful receipt before showing confirmation. A rejected or partially successful batch keeps remaining choices. Pending transaction hashes survive a reload and have a read-only status check; they are not automatically resubmitted.
 - Board and Vote retain recent valid data during refresh failures, with a visible stale state. Vote history has a cursor and older-page control. Owner views follow owner-specific history rather than silently missing older proposals after global pagination.
@@ -21,6 +22,7 @@ These changes address the frontend and backend audit against `cbae20829b7be6e052
 - Proposal metadata uses shared Supabase storage in production; SQLite is a development fallback. Other existing Supabase migrations are preserved. This does not mean every legacy SQLite table has been migrated.
 - Liveness uses V8's actual heap limit, RSS and external memory. `/api/ready` checks RPC, required storage tables, the request-budget function and its permissions through a zero-cost probe, and prayer configuration; it is a dependency check, not a full wallet/AI end-to-end test.
 - Finalization cron now fails on HTTP errors, failed proposal results, and manifest errors. Incomplete proposal/weight reads fail before submitting transactions instead of silently skipping records or inventing zero weights.
+- Builds verify installed dependencies without performing a second package-manager download. CI and Render still run the explicit frozen-lockfile install before building.
 
 ## Required before deployment
 
