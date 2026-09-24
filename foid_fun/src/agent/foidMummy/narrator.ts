@@ -1,4 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
+
+/** The weekly report's model. It was claude-sonnet-4-20250514, which is
+ *  retired (the Models API answers 404), so every Monday run failed at the
+ *  API call and /report never received a report. */
+export const NARRATOR_MODEL = "claude-opus-5";
 import { ANTHROPIC_API_KEY } from "./config";
 import type { WeeklyData } from "./dataCollector";
 
@@ -118,9 +123,16 @@ export async function generateNarrative(data: WeeklyData): Promise<string> {
   const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
   const dataSummary = buildDataSummary(data);
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 2000,
+  // Server-side fallbacks re-run a declined request on the model Anthropic
+  // recommends for that refusal category, so a spicy roast doesn't cost the
+  // week's report. The installed SDK predates the field, hence the cast.
+  const params = {
+    model: NARRATOR_MODEL,
+    // Thinking is on by default for this model and counts toward max_tokens;
+    // the old 2000 could cut the report off mid-section.
+    max_tokens: 16000,
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
     system: SYSTEM_PROMPT,
     messages: [
       {
@@ -128,8 +140,17 @@ export async function generateNarrative(data: WeeklyData): Promise<string> {
         content: `Here is the onchain data for this week's FOID Foundation report. Generate the weekly narrative.\n\n${dataSummary}`,
       },
     ],
-  });
+  };
+  const response = (await client.beta.messages.create(
+    params as unknown as Anthropic.Beta.Messages.MessageCreateParamsNonStreaming,
+  )) as Anthropic.Beta.Messages.BetaMessage;
 
+  if (response.stop_reason === "refusal") {
+    throw new Error("The narrative request was declined by the model's safety classifiers");
+  }
+  if (response.stop_reason === "max_tokens") {
+    throw new Error("The narrative hit max_tokens before it finished");
+  }
   const textBlock = response.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {
     throw new Error("No text in Anthropic response");
