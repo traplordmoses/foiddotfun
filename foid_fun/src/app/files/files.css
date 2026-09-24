@@ -611,3 +611,24 @@
     -webkit-backdrop-filter: none;
   }
 }
+
+/* "page ↗" link in the MEDIA_PLAYER.EXE bar: the video's /watch page. */
+.files-player__permalink {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-family: var(--font-terminal);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  padding: 2px 8px;
+  border-radius: var(--foid-radius-sm);
+  border: 1px solid var(--foid-border-subtle);
+  color: var(--tone-info-text);
+  text-decoration: none;
+}
+.files-player__permalink:hover {
+  border-color: var(--tone-info-text);
+}
+.files-player__permalink:focus-visible {
+  outline: 2px solid var(--foid-focus-ring);
+  outline-offset: 2px;
+}

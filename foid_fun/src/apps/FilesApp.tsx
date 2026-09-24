@@ -31,7 +31,8 @@ import "@/app/files/files.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Modal } from "@/components/ui";
-import { MEDIA_LIBRARY, type MediaItem } from "@/config/mediaLibrary";
+import { originFallback } from "@/lib/mediaBase";
+import { MEDIA_LIBRARY, publishedMediaLibrary, type MediaItem } from "@/config/mediaLibrary";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
 
 type MediaKind = MediaItem["kind"];
@@ -249,11 +250,22 @@ function MediaPlayer({ item, onClose }: { item: MediaItem; onClose: () => void }
           onClick={onClose}
         />
         <span className="files-player__label">MEDIA_PLAYER.EXE — {item.title}</span>
+        {item.kind === "video" && (
+          // Every video has its own watch page (src/app/watch/[id]).
+          <Link href={`/watch/${item.id}`} className="files-player__permalink" aria-label={`Open ${item.title} on its own page`}>
+            page ↗
+          </Link>
+        )}
       </div>
 
       <div className={`files-player__stage${item.kind === "audio" ? " files-player__stage--audio" : ""}`}>
         {item.kind === "video" && (
-          <video controls autoPlay playsInline src={src} poster={poster} style={{ maxHeight: "70vh" }} />
+          // Keyed so a new item reloads; the second source covers a file
+          // that has not reached the media host yet.
+          <video key={src} controls autoPlay playsInline poster={poster} style={{ maxHeight: "70vh" }}>
+            <source src={src} />
+            {originFallback(src) ? <source src={originFallback(src) as string} /> : null}
+          </video>
         )}
         {item.kind === "audio" && <audio controls src={src} />}
         {item.kind === "image" && (
@@ -320,12 +332,23 @@ export default function FilesApp() {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
 
+  // Scheduled episodes (src/content/episodes.ts) join the list after
+  // mount, by the visitor's clock. The first render (the /files HTML is
+  // prerendered at build, then hydrated) only has the unscheduled archive,
+  // so server and client always agree.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => setNow(Date.now()), []);
+  const library = useMemo(
+    () => (now === null ? MEDIA_LIBRARY.filter((item) => !item.publishAt) : publishedMediaLibrary(now)),
+    [now],
+  );
+
   const filtered = useMemo(() => {
     const byKind =
-      filter === "all" ? MEDIA_LIBRARY : MEDIA_LIBRARY.filter((item) => item.kind === filter);
+      filter === "all" ? library : library.filter((item) => item.kind === filter);
     const q = query.trim().toLowerCase();
     return q ? byKind.filter((item) => item.title.toLowerCase().includes(q)) : byKind;
-  }, [filter, query]);
+  }, [filter, query, library]);
 
   /* Selection can dangle when the location/search changes under it. */
   useEffect(() => {
@@ -389,7 +412,7 @@ export default function FilesApp() {
   };
 
   const crumb = CRUMB_LABEL[filter];
-  const hasLibrary = MEDIA_LIBRARY.length > 0;
+  const hasLibrary = library.length > 0;
 
   const renderOption = (item: MediaItem) => {
     const selected = item.id === selectedId;

@@ -155,3 +155,23 @@ test.describe("loreboard placement pages", () => {
     expect(robots).toContain("Sitemap: https://foid.fun/sitemap-placements.xml");
   });
 });
+
+test.describe("mifoid episodes and films", () => {
+  test("the watch hub, a film page and the video sitemap render", async ({ request }) => {
+    const hub = await request.get("/watch");
+    expect(hub.status()).toBe(200);
+    expect(await hub.text()).toMatch(/<h1[^>]*>MiFOID episodes<\/h1>/);
+    const film = await request.get("/watch/backrooms-vhs");
+    expect(film.status()).toBe(200);
+    const html = await film.text();
+    expect(html).toContain('"@type":"VideoObject"');
+    expect(html).toContain('<meta property="og:type" content="video.other"');
+    const sitemap = await (await request.get("/sitemap-videos.xml")).text();
+    expect(sitemap).toContain('xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"');
+    expect(sitemap).toContain("<loc>https://foid.fun/watch/backrooms-vhs</loc>");
+  });
+
+  test("an unknown video is a 404", async ({ request }) => {
+    expect((await request.get("/watch/not-a-real-episode")).status()).toBe(404);
+  });
+});

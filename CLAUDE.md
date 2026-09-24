@@ -66,6 +66,9 @@ Legacy Solidity files (do not touch): `Swipe.sol`, `SwipeLoreboard.sol`, `Lorebo
 | `/dashboard` | User dashboard |
 | `/report` | Latest weekly Foid Mommy report (published by the cron) |
 | `/board/proposal/[id]` | Share page with og:image + fc:miniapp embed |
+| `/board/placements` | Gallery of every placement (captions in `src/content/placementCaptions.json`) |
+| `/watch` | MiFOID episodes hub (MIFOID.TV) + archive films |
+| `/watch/[id]` | One episode or film: player, transcript, VideoObject. Episodes go live at `publishAt` in `src/content/episodes.ts` |
 
 Removed in the 2026-09 audit (legacy SQLite referendum, unauthenticated):
 `/api/finalize`, `/api/place`, `/api/propose`, `/api/mempool`,
@@ -158,3 +161,5 @@ forge test
 - The Swipe.sol contract has `approvalThresholdBps = 6000` (60%), but the V1 Loreboard.sol uses 5100 (51%). The about page and all user-facing docs reference 51% (the Loreboard value).
 - MiFOID contract exists but has no supply cap or tiered pricing on-chain yet. The 3,333 supply and Genesis/Awakened/Ascended tiers are design intentions.
 - Prayer tier names in Solidity (Whisper, Ember, Devotee...) differ from frontend names (Lurker, NPC, Tapped In...). The frontend names are canonical for users.
+- `notFound()` inside a page cannot set a 404 status: the root `src/app/loading.tsx` wraps every route in a Suspense boundary, so the 200 is committed before the page runs (a soft 404). Get real 404s at routing instead: `dynamicParams = false` with `generateStaticParams`, or a middleware gate like the one for `/watch/<id>`.
+- New MiFOID episode: add it to `src/content/episodes.ts` + `episodeDetails.ts`, commit the web encode, poster and thumb under `public/media/episodes/`, then run `scripts/sync-media-r2.sh`. Players fall back to the app origin until the R2 copy exists. The CDN caches `/media` for a year, so a re-encode needs a new file name.

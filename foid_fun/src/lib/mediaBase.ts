@@ -11,6 +11,14 @@ const OFFLOADED_PREFIXES = ["/media/", "/sfx/music/"];
 export function mediaUrl(path: string): string {
   if (!MEDIA_BASE) return path;
   if (!path.startsWith("/")) return path;
-  if (path.endsWith("-poster.jpg")) return path; // posters stay local: first paint
+  // Posters and thumbnails stay local: first paint, and small enough for git.
+  if (path.endsWith("-poster.jpg") || path.endsWith("-thumb.jpg")) return path;
   return OFFLOADED_PREFIXES.some((p) => path.startsWith(p)) ? `${MEDIA_BASE}${path}` : path;
+}
+
+/** The app-origin copy of a URL on the media host, or null for anything
+ *  else. Players list it as a second <source>, so a file that has not been
+ *  synced to R2 yet still plays from the deploy. */
+export function originFallback(url: string): string | null {
+  return MEDIA_BASE && url.startsWith(`${MEDIA_BASE}/`) ? url.slice(MEDIA_BASE.length) : null;
 }

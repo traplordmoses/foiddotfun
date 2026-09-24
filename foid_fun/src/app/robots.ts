@@ -14,7 +14,11 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/api/", "/enter", "/dashboard"],
       },
     ],
-    sitemap: ["https://foid.fun/sitemap.xml", "https://foid.fun/sitemap-placements.xml"],
+    sitemap: [
+      "https://foid.fun/sitemap.xml",
+      "https://foid.fun/sitemap-placements.xml",
+      "https://foid.fun/sitemap-videos.xml",
+    ],
     host: "https://foid.fun",
   };
 }

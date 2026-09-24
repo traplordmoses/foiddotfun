@@ -37,6 +37,7 @@
 // ============================================================================
 
 import { mediaUrl } from "@/lib/mediaBase";
+import { EPISODES, episodePosterPath, episodeVideoPath, isEpisodePublished } from "@/content/episodes";
 
 export type MediaItem = {
   id: string;
@@ -46,9 +47,37 @@ export type MediaItem = {
   poster?: string;
   addedAt: string;
   description?: string;
+  /** Hidden until this ISO time (scheduled episodes). */
+  publishAt?: string;
+  /** Series label for episodes ("london", "slushie saga"). */
+  series?: string;
+  /** Video facts for the /watch pages and the video sitemap. */
+  durationSec?: number;
+  width?: number;
+  height?: number;
 };
 
+// MiFOID episodes (src/content/episodes.ts), newest first, ahead of the
+// archive. Each stays hidden until its publishAt.
+const EPISODE_ITEMS: MediaItem[] = [...EPISODES]
+  .sort((a, b) => Date.parse(b.publishAt) - Date.parse(a.publishAt))
+  .map((episode) => ({
+    id: episode.id,
+    title: episode.title.toUpperCase(),
+    kind: "video" as const,
+    src: mediaUrl(episodeVideoPath(episode.id)),
+    poster: episodePosterPath(episode.id),
+    addedAt: episode.publishAt.slice(0, 10),
+    description: episode.logline,
+    publishAt: episode.publishAt,
+    series: episode.series?.name,
+    durationSec: episode.durationSec,
+    width: episode.width,
+    height: episode.height,
+  }));
+
 export const MEDIA_LIBRARY: MediaItem[] = [
+  ...EPISODE_ITEMS,
   // ── VIDEOS ────────────────────────────────────────────────────────────
   {
     id: "backrooms-vhs",
@@ -57,6 +86,9 @@ export const MEDIA_LIBRARY: MediaItem[] = [
     src: mediaUrl("/media/backrooms-vhs.mp4"),
     poster: "/media/backrooms-vhs-poster.jpg",
     addedAt: "2026-07-22",
+    durationSec: 212.4,
+    width: 1280,
+    height: 720,
     description: "tape recovered from the backrooms. she was there the whole time.",
   },
   {
@@ -66,6 +98,9 @@ export const MEDIA_LIBRARY: MediaItem[] = [
     src: mediaUrl("/media/bliss-dream.mp4"),
     poster: "/media/bliss-dream-poster.jpg",
     addedAt: "2026-07-22",
+    durationSec: 149.1,
+    width: 1280,
+    height: 720,
     description: "rolling green hills, xp sky. the wallpaper you can live inside.",
   },
   {
@@ -75,6 +110,9 @@ export const MEDIA_LIBRARY: MediaItem[] = [
     src: mediaUrl("/media/kush-haze.mp4"),
     poster: "/media/kush-haze-poster.jpg",
     addedAt: "2026-07-22",
+    durationSec: 265.0,
+    width: 1280,
+    height: 720,
     description: "slow smoke, heavy air. mifoid in the haze.",
   },
   {
@@ -84,6 +122,9 @@ export const MEDIA_LIBRARY: MediaItem[] = [
     src: mediaUrl("/media/golden-hour-cabin.mp4"),
     poster: "/media/golden-hour-cabin-poster.jpg",
     addedAt: "2026-07-06",
+    durationSec: 608.8,
+    width: 1280,
+    height: 720,
     description: "next week fr this time. sun going down over the cabin, ten minutes of it.",
   },
   {
@@ -93,6 +134,9 @@ export const MEDIA_LIBRARY: MediaItem[] = [
     src: mediaUrl("/media/mifoid-succubus-mode.mp4"),
     poster: "/media/mifoid-succubus-mode-poster.jpg",
     addedAt: "2026-07-06",
+    durationSec: 242.5,
+    width: 1280,
+    height: 720,
     description: "devil skin unlocked. 666.exe running in the background.",
   },
   {
@@ -102,6 +146,9 @@ export const MEDIA_LIBRARY: MediaItem[] = [
     src: mediaUrl("/media/summer-torii-aero.mp4"),
     poster: "/media/summer-torii-aero-poster.jpg",
     addedAt: "2026-07-06",
+    durationSec: 200.0,
+    width: 1280,
+    height: 720,
     description: "torii gate, aero water, endless summer. the frutiger dream, rendered.",
   },
   {
@@ -111,6 +158,9 @@ export const MEDIA_LIBRARY: MediaItem[] = [
     src: mediaUrl("/media/travis-cabin-underwater.mp4"),
     poster: "/media/travis-cabin-underwater-poster.jpg",
     addedAt: "2026-07-06",
+    durationSec: 131.0,
+    width: 1280,
+    height: 720,
     description: "aquarium summer. the cabin, but submerged.",
   },
   {
@@ -120,6 +170,9 @@ export const MEDIA_LIBRARY: MediaItem[] = [
     src: mediaUrl("/media/olympics-tv.mp4"),
     poster: "/media/olympics-tv-poster.jpg",
     addedAt: "2026-07-06",
+    durationSec: 151.4,
+    width: 1280,
+    height: 720,
     description: "brazil mode on a CRT. mifoid goes to the beer olympics.",
   },
   {
@@ -129,6 +182,9 @@ export const MEDIA_LIBRARY: MediaItem[] = [
     src: mediaUrl("/media/brazil-beer-olympics.mp4"),
     poster: "/media/brazil-beer-olympics-poster.jpg",
     addedAt: "2026-07-06",
+    durationSec: 8.3,
+    width: 810,
+    height: 1080,
     description: "we're going as brazil for the beer olympics this coming saturday.",
   },
   {
@@ -138,6 +194,9 @@ export const MEDIA_LIBRARY: MediaItem[] = [
     src: mediaUrl("/media/travis-cabin-soon.mp4"),
     poster: "/media/travis-cabin-soon-poster.jpg",
     addedAt: "2026-07-06",
+    durationSec: 10.4,
+    width: 810,
+    height: 1080,
     description: "let's go to travis cabin.",
   },
   {
@@ -147,6 +206,9 @@ export const MEDIA_LIBRARY: MediaItem[] = [
     src: mediaUrl("/media/shes-back.mp4"),
     poster: "/media/shes-back-poster.jpg",
     addedAt: "2026-07-06",
+    durationSec: 10.4,
+    width: 810,
+    height: 1080,
     description: "red succubus // eternal.",
   },
   {
@@ -156,6 +218,9 @@ export const MEDIA_LIBRARY: MediaItem[] = [
     src: mediaUrl("/media/were-actually-going.mp4"),
     poster: "/media/were-actually-going-poster.jpg",
     addedAt: "2026-07-06",
+    durationSec: 14.6,
+    width: 810,
+    height: 1080,
     description: "we're actually planning to go to travis cabin next week this time.",
   },
   {
@@ -165,6 +230,9 @@ export const MEDIA_LIBRARY: MediaItem[] = [
     src: mediaUrl("/media/life-is-beautiful.mp4"),
     poster: "/media/life-is-beautiful-poster.jpg",
     addedAt: "2026-07-06",
+    durationSec: 10.4,
+    width: 810,
+    height: 1080,
     description: "torii at golden hour. life is beautiful, actually.",
   },
 
@@ -329,3 +397,23 @@ export const MEDIA_LIBRARY: MediaItem[] = [
     description: "Baggy jeans cloth pass, texture paint mode.",
   },
 ];
+
+/** The library as a visitor should see it right now: scheduled episodes
+ *  appear at their publishAt. */
+export function publishedMediaLibrary(now: number = Date.now()): MediaItem[] {
+  return MEDIA_LIBRARY.filter((item) => !item.publishAt || isEpisodePublished({ publishAt: item.publishAt }, now));
+}
+
+/** Archive films with their own /watch page: posters, not scheduled. */
+export function isWatchFilm(item: MediaItem): boolean {
+  return item.kind === "video" && !item.publishAt && Boolean(item.poster);
+}
+
+/** Whether /watch/<id> has a page right now: a published episode or an
+ *  archive film. Edge-safe, so the middleware can answer everything else
+ *  with a real 404 before the page renders. */
+export function isWatchableId(id: string, now: number = Date.now()): boolean {
+  const episode = EPISODES.find((e) => e.id === id);
+  if (episode) return isEpisodePublished(episode, now);
+  return MEDIA_LIBRARY.some((item) => item.id === id && isWatchFilm(item));
+}

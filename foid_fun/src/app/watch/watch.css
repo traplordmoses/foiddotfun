@@ -1,0 +1,137 @@
+/* src/app/watch/watch.css
+   /watch and /watch/<id>. The window, titlebar, body, crumbs, facts, tags,
+   buttons and cards come from src/app/board/placements.css (same page
+   family); this sheet adds the player layout, transcript and series nav. */
+
+.watch-layout {
+  display: grid;
+  gap: 24px;
+  align-items: start;
+}
+@media (min-width: 860px) {
+  .watch-layout {
+    grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  }
+  /* Landscape films take the full width above their details. */
+  .watch-layout--wide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.watch-player {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  max-height: 74vh;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--foid-border-subtle);
+  background: #000;
+}
+.watch-layout:not(.watch-layout--wide) .watch-player {
+  /* A 9:16 player sized by height on short screens: 74vh tall at most. */
+  width: min(100%, calc(74vh * 9 / 16));
+}
+.watch-player video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.watch-meta {
+  min-width: 0;
+}
+.watch-series {
+  margin: 0 0 6px;
+  font-family: var(--font-terminal);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tone-info-text);
+}
+.watch-title {
+  margin-bottom: 10px;
+}
+.watch-logline {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--foid-text);
+}
+
+.watch-series-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 18px;
+  font-size: 14px;
+}
+.watch-series-nav a {
+  color: var(--tone-info-text);
+}
+.watch-series-nav span[aria-current] {
+  color: var(--foid-text);
+}
+
+.watch-section {
+  margin-top: 30px;
+}
+.watch-section h2 {
+  font-family: var(--font-terminal);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--foid-text-dim);
+  margin: 0 0 12px;
+}
+.watch-facts {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  max-width: 68ch;
+}
+.watch-transcript {
+  max-width: 68ch;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--foid-border-subtle);
+  background: rgba(0, 0, 0, 0.25);
+  font-family: var(--font-serif, var(--font-body));
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--foid-text);
+}
+.watch-transcript p {
+  margin: 0 0 10px;
+}
+.watch-transcript p:last-child {
+  margin-bottom: 0;
+}
+.watch-note {
+  margin-top: 22px;
+  font-family: var(--font-terminal);
+  font-size: 12px;
+  color: var(--foid-text-dim);
+}
+.watch-empty {
+  margin: 0;
+  max-width: 60ch;
+}
+.watch-empty a,
+.watch-page .placement-lede a {
+  color: var(--tone-info-text);
+}
+
+/* Portrait cards for episodes: 9:16 thumbnails instead of squares. */
+.watch-grid--portrait {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+.watch-grid--portrait .placement-card img {
+  aspect-ratio: 9 / 16;
+}
+.watch-grid:not(.watch-grid--portrait) .placement-card img {
+  aspect-ratio: 16 / 9;
+}
