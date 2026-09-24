@@ -11,8 +11,9 @@ const OFFLOADED_PREFIXES = ["/media/", "/sfx/music/"];
 export function mediaUrl(path: string): string {
   if (!MEDIA_BASE) return path;
   if (!path.startsWith("/")) return path;
-  // Posters and thumbnails stay local: first paint, and small enough for git.
-  if (path.endsWith("-poster.jpg") || path.endsWith("-thumb.jpg")) return path;
+  // Posters, thumbnails and share cards stay local: first paint, and small
+  // enough for git.
+  if (/-(poster|thumb|card)\.jpg$/.test(path)) return path;
   return OFFLOADED_PREFIXES.some((p) => path.startsWith(p)) ? `${MEDIA_BASE}${path}` : path;
 }
 

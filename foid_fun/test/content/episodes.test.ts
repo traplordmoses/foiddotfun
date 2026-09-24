@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { EPISODES, episodePosterPath, episodeThumbPath, isEpisodePublished, publishedEpisodes } from "@/content/episodes";
+import { EPISODES, episodeCardPath, episodePosterPath, episodeThumbPath, isEpisodePublished, publishedEpisodes } from "@/content/episodes";
 import { EPISODE_DETAILS } from "@/content/episodeDetails";
 import { isWatchableId, publishedMediaLibrary } from "@/config/mediaLibrary";
 import { getWatchVideo, isoDuration, listWatchVideos } from "@/lib/server/videos";
@@ -22,13 +22,13 @@ describe("episode data", () => {
     }
   });
 
-  it("gives every episode a description, a transcript, a poster and a thumbnail", () => {
+  it("gives every episode a description, a transcript, a poster, a thumbnail and a share card", () => {
     for (const e of EPISODES) {
       const details = EPISODE_DETAILS[e.id];
       expect(details, e.id).toBeDefined();
       expect(details.description.length, e.id).toBeGreaterThan(40);
       expect(details.transcript.length, e.id).toBeGreaterThan(3);
-      for (const asset of [episodePosterPath(e.id), episodeThumbPath(e.id)]) {
+      for (const asset of [episodePosterPath(e.id), episodeThumbPath(e.id), episodeCardPath(e.id)]) {
         expect(fs.existsSync(path.join(process.cwd(), "public", asset)), asset).toBe(true);
       }
     }

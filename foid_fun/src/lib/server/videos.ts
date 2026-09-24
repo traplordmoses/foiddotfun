@@ -7,6 +7,7 @@
 import { isWatchFilm, MEDIA_LIBRARY } from "@/config/mediaLibrary";
 import {
   EPISODES,
+  episodeCardPath,
   episodePosterPath,
   episodeThumbPath,
   episodeVideoPath,
@@ -41,6 +42,9 @@ export type WatchVideo = {
   videoPath: string;
   posterPath: string;
   thumbPath: string;
+  /** The link-preview image: a 1200x630 card for 9:16 episodes, the 16:9
+   *  poster for films. */
+  share: { path: string; width: number; height: number };
   tags: string[];
   details?: EpisodeDetails;
 };
@@ -68,6 +72,7 @@ function episodeVideos(now: number): WatchVideo[] {
         videoPath: episodeVideoPath(episode.id),
         posterPath: episodePosterPath(episode.id),
         thumbPath: episodeThumbPath(episode.id),
+        share: { path: episodeCardPath(episode.id), width: 1200, height: 630 },
         tags: episode.tags,
         details,
       };
@@ -89,6 +94,7 @@ function filmVideos(): WatchVideo[] {
     videoPath: originFallback(item.src) ?? item.src,
     posterPath: item.poster as string,
     thumbPath: item.poster as string,
+    share: { path: item.poster as string, width: item.width ?? 1280, height: item.height ?? 720 },
     tags: ["mifoid", "lowpoly", "ai animation"],
   }));
 }

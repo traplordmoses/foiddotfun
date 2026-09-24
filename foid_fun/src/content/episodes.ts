@@ -11,8 +11,9 @@
 // Media: web encodes live in public/media/episodes/ (720x1280 H.264,
 // +faststart), committed like the rest of public/media. Players load them
 // from R2 (NEXT_PUBLIC_MEDIA_BASE) and fall back to the app origin until
-// scripts/sync-media-r2.sh has copied a new file up. Posters (-poster.jpg)
-// and thumbnails (-thumb.jpg) always serve from the app origin. The CDN
+// scripts/sync-media-r2.sh has copied a new file up. Posters (-poster.jpg),
+// thumbnails (-thumb.jpg) and share cards (-card.jpg) always serve from the
+// app origin. The CDN
 // caches /media for a year, so a re-encode needs a new file name.
 
 export type EpisodeSeries = {
@@ -146,6 +147,12 @@ export function episodePosterPath(id: string): string {
 
 export function episodeThumbPath(id: string): string {
   return `/media/episodes/${id}-thumb.jpg`;
+}
+
+/** 1200x630 share card: the 9:16 poster centered on a blurred copy of
+ *  itself, so X's landscape crop never cuts the frame. */
+export function episodeCardPath(id: string): string {
+  return `/media/episodes/${id}-card.jpg`;
 }
 
 /** "london, part 1" / "slushie saga, ep 2" / "the devil, ep 1". */
