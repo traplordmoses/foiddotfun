@@ -15,7 +15,11 @@ export function routeMetadata(input: {
   imageAlt?: string;
   /** Use the title as-is instead of the "%s | FOID.FUN" template. */
   absoluteTitle?: boolean;
-  type?: "website" | "article";
+  type?: "website" | "article" | "video.other";
+  /** Playable file for og:video (with og:type video.other). */
+  video?: { url: string; width: number; height: number };
+  /** Share image size when it isn't the 1200x630 card (e.g. a 9:16 poster). */
+  imageSize?: { width: number; height: number };
   /** Keep the page out of search results (still crawlable for links). */
   noindex?: boolean;
   other?: Record<string, string>;
@@ -34,7 +38,17 @@ export function routeMetadata(input: {
       siteName: "FOID Foundation",
       type: input.type ?? "website",
       locale: "en_US",
-      images: [{ url: image, width: 1200, height: 630, alt: input.imageAlt ?? input.title }],
+      images: [
+        {
+          url: image,
+          width: input.imageSize?.width ?? 1200,
+          height: input.imageSize?.height ?? 630,
+          alt: input.imageAlt ?? input.title,
+        },
+      ],
+      ...(input.video
+        ? { videos: [{ url: input.video.url, width: input.video.width, height: input.video.height, type: "video/mp4" }] }
+        : {}),
     },
     twitter: {
       card: "summary_large_image",

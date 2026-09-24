@@ -304,6 +304,8 @@ function HomeLauncher() {
                 <nav className="home-learn font-mono" aria-label="Learn about FOID">
                   <Link href="/about/getting-started">how it works</Link>
                   <span aria-hidden="true">·</span>
+                  <Link href="/watch">episodes</Link>
+                  <span aria-hidden="true">·</span>
                   <Link href="/board/placements">meme gallery</Link>
                   <span aria-hidden="true">·</span>
                   <Link href="/about/faq">faq</Link>

@@ -125,6 +125,7 @@ Prayer tiers by consecutive days: 1 Lurker 1x · 3 NPC 1.25x · 7 Tapped In 1.5x
 | `/vote` | Vote on active proposals |
 | `/mifoid` | MiFOID page and mint reservations |
 | `/files` | Curated media archive |
+| `/watch` | MiFOID episodes: AI-animated short stories (london, the slushie saga, buenos aires...), each at `/watch/<id>` with its full script |
 | `/about` | Full documentation — the canonical source (also one page per doc, see Docs below) |
 | `/report` | Latest weekly Foid Mommy report |
 
