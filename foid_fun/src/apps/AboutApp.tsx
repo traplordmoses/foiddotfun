@@ -322,6 +322,14 @@ function DocReader({
           onClick={onClose}
         />
         <span className="about-reader__name">TEXTEDIT.EXE — {doc.name}</span>
+        {/* Shareable, crawlable copy of this doc (src/app/about/[doc]). */}
+        <Link
+          href={`/about/${doc.id}`}
+          className="about-reader__badge about-reader__permalink"
+          aria-label={`Open ${doc.name} as its own page`}
+        >
+          page ↗
+        </Link>
         <span className="about-reader__badge">{KIND_BADGE[doc.kind]}</span>
       </div>
 
@@ -331,7 +339,7 @@ function DocReader({
             <MarkdownLite body={doc.body} />
           </div>
         ) : (
-          <pre className="about-reader__pre">{doc.body}</pre>
+          <pre className="about-reader__pre" tabIndex={0} aria-label={`${doc.name} contents`}>{doc.body}</pre>
         )}
       </div>
 

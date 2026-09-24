@@ -124,8 +124,26 @@ Prayer tiers by consecutive days: 1 Lurker 1x · 3 NPC 1.25x · 7 Tapped In 1.5x
 | `/vote` | Vote on active proposals |
 | `/mifoid` | MiFOID page and mint reservations |
 | `/files` | Curated media archive |
-| `/about` | Full documentation — the canonical source |
+| `/about` | Full documentation — the canonical source (also one page per doc, see Docs below) |
 | `/report` | Latest weekly Foid Mommy report |
+
+## Docs
+
+Each document is also a standalone page that renders without JavaScript:
+
+- [FOID Foundation — The Internet's Permanent Memory](https://foid.fun/about/readme): What FOID Foundation is: a daily prayer ritual with Foid Mommy, a community-voted Loreboard canvas, and streak-weighted voting, all onchain on Fluent.
+- [Glossary — Every FOID Word, Defined](https://foid.fun/about/glossary): Every FOID term defined: Foid Mommy, the Loreboard, MiFOID, prayer streaks and tiers, streak-weighted voting, the Nunnery and more.
+- [Loreboard — The Infinite Canvas](https://foid.fun/about/loreboard): How the Loreboard works: propose an image for 0.001 ETH, the community votes for 72 hours, and approved placements stay onchain for good.
+- [Foid Mommy Terminal — Your Daily Pause](https://foid.fun/about/prayer): The Foid Mommy terminal: a free daily check-in with an AI companion. Build a prayer streak, climb 10 tiers and earn up to 5x voting power.
+- [Vote — Swipe Right. Swipe Left. Permanent.](https://foid.fun/about/voting): How FOID voting works: swipe to approve or reject Loreboard proposals, weighted by your prayer streak. Passing takes 51% approval and 3 voters.
+- [MiFOIDs — Your AI Companion, Your Identity](https://foid.fun/about/mifoid): MiFOIDs: agent-rendered identity NFTs that evolve as you keep showing up, with a +50 Loreboard voting boost. The plan, supply and pricing.
+- [Wallet & Security — FOID Wallet v3 Under the Hood](https://foid.fun/about/wallet): FOID Wallet v3: a browser wallet made from a passkey and a password, with no extension or seed phrase. How it creates, unlocks, signs and stays safe.
+- [Smart Contracts — Verified Onchain](https://foid.fun/about/contracts): FOID's verified smart contracts on Fluent: PrayerTiers, StreakVotingPower, Loreboard, LoreboardLiveNFT and the multisig, with addresses and roles.
+- [Protocol Parameters — Thresholds, Tiers, Fees](https://foid.fun/about/parameters): FOID protocol parameters: 51% approval threshold, 3-voter quorum, 72-hour voting window, 0.001 ETH placement fee and the 10 prayer tiers.
+- [Get Started — From Zero to FOID in 5 Minutes](https://foid.fun/about/getting-started): Start FOID in five minutes: connect a wallet, get ETH on Fluent for gas, pray with Foid Mommy, then vote on proposals and add to the Loreboard.
+- [Roadmap — Building in Public, Shipping in Layers](https://foid.fun/about/roadmap): The FOID roadmap in four phases: the core loop today, then identity with MiFOID on mainnet, an agent layer, and a network of communities.
+- [FAQ — The Real Questions](https://foid.fun/about/faq): Answers about FOID: why it exists, what it costs, which chain it runs on, whether prayers are private, and how Loreboard voting works.
+- [Links — Ready to Start?](https://foid.fun/about/links): Every FOID link in one place: the apps, the docs, X and GitHub, and the verified contracts on the Fluent block explorer.
 
 ## Getting facts right
 

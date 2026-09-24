@@ -7,7 +7,7 @@ import { supabaseRest, supabaseServerConfigured } from "@/lib/supabaseRest";
 export const runtime = "nodejs";
 export const revalidate = 300;
 
-const EMPTY = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FOID MUMMY WEEKLY</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0a0a1a;color:#e0e0f0;font-family:ui-monospace,monospace}p{letter-spacing:.2em;text-transform:uppercase;font-size:12px;opacity:.7}</style></head><body><p>no report yet. foid mommy files on mondays.</p></body></html>`;
+const EMPTY = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FOID MUMMY WEEKLY</title><meta name="robots" content="noindex"><meta name="description" content="The weekly Foid Mommy report on the FOID Loreboard, published on Mondays."><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0a0a1a;color:#e0e0f0;font-family:ui-monospace,monospace}p{letter-spacing:.2em;text-transform:uppercase;font-size:12px;opacity:.7}</style></head><body><p>no report yet. foid mommy files on mondays.</p></body></html>`;
 
 export async function GET() {
   if (!supabaseServerConfigured()) {

@@ -37,6 +37,7 @@ export default function MiFOIDPage() {
       style={{ height: "100vh" }}
     >
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
+      <h1 className="sr-only">MiFOID identity NFTs</h1>
 
       <section className="relative z-10 w-full max-w-full px-2 sm:px-4">
         <div className="mx-auto w-full max-w-6xl">

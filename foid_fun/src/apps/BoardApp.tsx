@@ -1308,6 +1308,7 @@ export function BoardAppCore({
 
   const mobileView = (
     <div className="h-[100dvh] w-full bg-transparent relative overflow-hidden">
+      <h1 className="sr-only">Loreboard: the FOID community canvas</h1>
       {/* Propose button — floating top-left, fixed so it stays during zoom/pan */}
       <button
         onClick={() => setShowMobilePropose(true)}

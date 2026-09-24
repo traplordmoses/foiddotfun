@@ -832,6 +832,7 @@ export function PrayAppCore({
       className="pray-page relative bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center"
       style={{ height: "100dvh", ["--pray-accent" as string]: prayAccent } as CSSProperties}
     >
+      <h1 className="sr-only">Pray with Foid Mommy</h1>
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
       {/* Film grain — static SVG turbulence, pointer-events: none */}
       <div

@@ -23,6 +23,8 @@ export type AboutDoc = {
   category: AboutDocCategory;
   body: string;
   updatedAt: string;
+  /** Meta description for the /about/<id> page (158 chars max). */
+  description: string;
 };
 
 export const ABOUT_DOCS: AboutDoc[] = [
@@ -33,6 +35,8 @@ export const ABOUT_DOCS: AboutDoc[] = [
     title: "FOID Foundation — The Internet's Permanent Memory",
     category: "docs",
     updatedAt: "2026-07-06",
+    description:
+      "What FOID Foundation is: a daily prayer ritual with Foid Mommy, a community-voted Loreboard canvas, and streak-weighted voting, all onchain on Fluent.",
     body: `# FOID FOUNDATION
 
 The Internet's Permanent Memory.
@@ -113,6 +117,8 @@ For exact addresses see contracts.txt. For every threshold, fee, and tier see pa
     title: "Glossary — Every FOID Word, Defined",
     category: "docs",
     updatedAt: "2026-07-06",
+    description:
+      "Every FOID term defined: Foid Mommy, the Loreboard, MiFOID, prayer streaks and tiers, streak-weighted voting, the Nunnery and more.",
     body: `# GLOSSARY
 
 Every FOID Word, Defined.
@@ -207,6 +213,8 @@ Still stuck on a term? DM [@foidfun](https://twitter.com/foidfun) and we'll expl
     title: "Loreboard — The Infinite Canvas",
     category: "docs",
     updatedAt: "2026-07-06",
+    description:
+      "How the Loreboard works: propose an image for 0.001 ETH, the community votes for 72 hours, and approved placements stay onchain for good.",
     body: `# LOREBOARD
 
 The Infinite Canvas.
@@ -287,6 +295,8 @@ View the canvas at [/board](/board).
     title: "Foid Mommy Terminal — Your Daily Pause",
     category: "docs",
     updatedAt: "2026-07-06",
+    description:
+      "The Foid Mommy terminal: a free daily check-in with an AI companion. Build a prayer streak, climb 10 tiers and earn up to 5x voting power.",
     body: `# FOID MOMMY TERMINAL
 
 Your Daily Pause.
@@ -369,6 +379,8 @@ Start your streak at [/pray](/pray).
     title: "Vote — Swipe Right. Swipe Left. Permanent.",
     category: "docs",
     updatedAt: "2026-07-06",
+    description:
+      "How FOID voting works: swipe to approve or reject Loreboard proposals, weighted by your prayer streak. Passing takes 51% approval and 3 voters.",
     body: `# VOTE
 
 Swipe Right. Swipe Left. Permanent.
@@ -417,6 +429,8 @@ Vote on active proposals at [/vote](/vote). Submit your own at [/vote/submit](/v
     title: "MiFOIDs — Your AI Companion, Your Identity",
     category: "docs",
     updatedAt: "2026-07-06",
+    description:
+      "MiFOIDs: agent-rendered identity NFTs that evolve as you keep showing up, with a +50 Loreboard voting boost. The plan, supply and pricing.",
     body: `# MIFOIDS
 
 Your AI Companion, Your Identity.
@@ -515,6 +529,8 @@ More at [/mifoid](/mifoid).
     title: "Wallet & Security — FOID Wallet v3 Under the Hood",
     category: "docs",
     updatedAt: "2026-07-06",
+    description:
+      "FOID Wallet v3: a browser wallet made from a passkey and a password, with no extension or seed phrase. How it creates, unlocks, signs and stays safe.",
     body: `# WALLET & SECURITY
 
 How FOID Wallet v3 Works Under the Hood.
@@ -566,6 +582,8 @@ For what transactions cost, see parameters.txt.
     title: "Smart Contracts — Verified Onchain",
     category: "onchain",
     updatedAt: "2026-07-05",
+    description:
+      "FOID's verified smart contracts on Fluent: PrayerTiers, StreakVotingPower, Loreboard, LoreboardLiveNFT and the multisig, with addresses and roles.",
     body: `FOID FOUNDATION — SMART CONTRACTS
 =================================
 
@@ -652,6 +670,8 @@ on GitHub: https://github.com/traplordmoses/foiddotfun
     title: "Protocol Parameters — Thresholds, Tiers, Fees",
     category: "onchain",
     updatedAt: "2026-07-06",
+    description:
+      "FOID protocol parameters: 51% approval threshold, 3-voter quorum, 72-hour voting window, 0.001 ETH placement fee and the 10 prayer tiers.",
     body: `FOID FOUNDATION — PROTOCOL PARAMETERS
 =====================================
 
@@ -713,6 +733,8 @@ keccak256 prayer hash, not the prayer text. Conversation text is processed by FO
     title: "Get Started — From Zero to FOID in 5 Minutes",
     category: "community",
     updatedAt: "2026-07-06",
+    description:
+      "Start FOID in five minutes: connect a wallet, get ETH on Fluent for gas, pray with Foid Mommy, then vote on proposals and add to the Loreboard.",
     body: `# GET STARTED
 
 From Zero to FOID in 5 Minutes.
@@ -765,6 +787,8 @@ Still confused? That's fair — this is weird. DM [@foidfun](https://twitter.com
     title: "Roadmap — Building in Public, Shipping in Layers",
     category: "community",
     updatedAt: "2026-07-06",
+    description:
+      "The FOID roadmap in four phases: the core loop today, then identity with MiFOID on mainnet, an agent layer, and a network of communities.",
     body: `# ROADMAP
 
 Building in Public, Shipping in Layers.
@@ -820,6 +844,8 @@ Solo founder. Self-taught coder. A year and a half from zero to this.
     title: "FAQ — The Real Questions",
     category: "community",
     updatedAt: "2026-07-06",
+    description:
+      "Answers about FOID: why it exists, what it costs, which chain it runs on, whether prayers are private, and how Loreboard voting works.",
     body: `# FAQ
 
 The Real Questions.
@@ -938,6 +964,8 @@ So yeah — start praying. Join us. Let's preserve some culture together.
     title: "Links — Ready to Start?",
     category: "community",
     updatedAt: "2026-07-06",
+    description:
+      "Every FOID link in one place: the apps, the docs, X and GitHub, and the verified contracts on the Fluent block explorer.",
     body: `# LINKS
 
 Ready to start? Everything FOID, one page.

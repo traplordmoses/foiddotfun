@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { isCrawler, isPhone as isPhoneUa } from "@/lib/userAgent";
 
 function isLikelyServerAction(request: NextRequest) {
   if (request.method !== "POST") return false;
@@ -41,13 +42,11 @@ export function middleware(request: NextRequest) {
   // phone it only delayed the launcher. The client gate agrees (DesktopGate
   // never bounces narrow viewports), this just saves the round trip.
   const ua = request.headers.get("user-agent") ?? "";
-  const chMobile = request.headers.get("sec-ch-ua-mobile");
-  const isPhone = chMobile === "?1" || /Mobi|Android|iPhone|iPod/i.test(ua);
-  // Crawlers and link-preview fetchers (Google, X, Discord, Telegram,
-  // Farcaster clients, Slack, iMessage) never carry the cookie; bouncing
-  // them to the boot screen would hide the homepage and its share card.
-  const isBot =
-    /bot|crawl|spider|slurp|facebookexternalhit|twitterbot|discordbot|telegrambot|whatsapp|linkedinbot|slackbot|embedly|pinterest|warpcast|farcaster|applebot|duckduckbot|baiduspider|yandex/i.test(ua);
+  const isPhone = isPhoneUa(ua, request.headers.get("sec-ch-ua-mobile"));
+  // Crawlers, AI answer agents and link-preview fetchers never carry the
+  // cookie; bouncing them to the boot screen would hide the homepage and
+  // its share card (src/lib/userAgent.ts has the list).
+  const isBot = isCrawler(ua);
   const enteredCookie = request.cookies.get("foid_entered");
   if (!enteredCookie && !isPhone && !isBot) {
     const enterUrl = new URL("/enter", request.url);

@@ -100,3 +100,31 @@ test.describe("core navigation and FOID OS dock", () => {
     }
   });
 });
+
+test.describe("server-rendered content for crawlers", () => {
+  const agents = {
+    iphone: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+    googlebot: "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+    chatgptUser: "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; ChatGPT-User/1.0; +https://openai.com/bot)",
+  };
+
+  for (const [name, userAgent] of Object.entries(agents)) {
+    test(`home serves the launcher headline in its HTML to ${name}`, async ({ request }) => {
+      const res = await request.get("/", { headers: { "user-agent": userAgent }, maxRedirects: 0 });
+      expect(res.status()).toBe(200);
+      const html = await res.text();
+      expect(html).toMatch(/<h1[^>]*>\s*FOID FOUNDATION\s*<\/h1>/);
+      expect(html).toContain('"@type":"Organization"');
+      expect(html).toContain('<link rel="canonical" href="https://foid.fun"');
+    });
+  }
+
+  test("docs are standalone pages with structured data", async ({ request }) => {
+    const faq = await (await request.get("/about/faq")).text();
+    expect(faq).toContain('"@type":"FAQPage"');
+    expect(faq).toContain('<link rel="canonical" href="https://foid.fun/about/faq"');
+    expect(faq).toContain("<title>FAQ — The Real Questions | FOID.FUN</title>");
+    const sitemap = await (await request.get("/sitemap.xml")).text();
+    expect(sitemap).toContain("<loc>https://foid.fun/about/getting-started</loc>");
+  });
+});
