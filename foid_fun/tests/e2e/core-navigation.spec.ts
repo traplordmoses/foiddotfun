@@ -44,6 +44,26 @@ test.describe("core navigation and FOID OS dock", () => {
     await expect(prayDockIcon).toHaveAttribute("aria-label", "Minimize Pray");
   });
 
+  test("the welcome card closes from the keyboard and stays closed after a reload", async ({ page }) => {
+    await page.goto("/");
+    const heading = page.getByRole("heading", { name: "The internet’s permanent memory" });
+    await expect(heading).toBeVisible();
+
+    await page.getByRole("button", { name: "Close welcome" }).focus();
+    await page.keyboard.press("Enter");
+    await expect(heading).toHaveCount(0);
+    // Focus moves to the desktop instead of falling back to <body>.
+    await expect(page.locator("main.os-desktop")).toBeFocused();
+    expect(await page.evaluate(() => window.localStorage.getItem("foid_os_welcome_dismissed"))).toBe("1");
+
+    await page.reload();
+    // aria-busy clears once the desktop has mounted and read the flag, so
+    // the absence check below cannot pass early.
+    await expect(page.locator('main.os-desktop[aria-busy="false"]')).toBeAttached();
+    await expect(heading).toHaveCount(0);
+    await expect(page.locator('[data-dock-app="board"]')).toBeVisible();
+  });
+
   test("mobile keeps Home available and legacy Swipe redirects to Vote", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/vote?standalone=1");
