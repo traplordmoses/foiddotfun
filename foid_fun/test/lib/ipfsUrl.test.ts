@@ -38,13 +38,20 @@ describe("ipfsImageUrls", () => {
     vi.resetModules();
   });
 
-  it("puts the proxy first with the transform query", async () => {
+  it("puts the edge-cacheable proxy path first for sized WebP tiles", async () => {
     const { ipfsImageUrls } = await load({
       NEXT_PUBLIC_IPFS_PROXY_PATH: "/api/ipfs",
       NEXT_PUBLIC_IPFS_GATEWAY_BASE: "https://example.mypinata.cloud",
     });
     const urls = ipfsImageUrls(CID, { width: 128, format: "webp", quality: 80 });
-    expect(urls[0]).toBe(`/api/ipfs/${CID}?w=128&f=webp&q=80`);
+    expect(urls[0]).toBe(`/img/ipfs/${CID}.webp?w=128&f=webp&q=80`);
+  });
+
+  it("uses the edge path without deployment env and keeps a custom proxy", async () => {
+    const bare = await load({});
+    expect(bare.ipfsImageUrls(CID, { width: 64, format: "webp" })[0]).toBe(`/img/ipfs/${CID}.webp?w=64&f=webp`);
+    const custom = await load({ NEXT_PUBLIC_IPFS_PROXY_PATH: "https://cdn.example/ipfs" });
+    expect(custom.ipfsImageUrls(CID, { width: 64, format: "webp" })[0]).toBe(`https://cdn.example/ipfs/${CID}?w=64&f=webp`);
   });
 
   it("mirrors the transforms onto the dedicated Pinata fallback only", async () => {
@@ -96,5 +103,26 @@ describe("ipfsImageUrls", () => {
     expect(urls[1]).toBe(`https://ipfs.io/ipfs/${CID}`);
     expect(urls.some(isProxyCandidate)).toBe(true);
     expect(ipfsImageUrls(CID)[0]).toBe(`https://ipfs.io/ipfs/${CID}`);
+  });
+});
+
+describe("ipfsToHttp with non-IPFS URLs", () => {
+  afterEach(() => { vi.resetModules(); });
+
+  it("passes ordinary https URLs through untouched", async () => {
+    const { ipfsToHttp, extractIpfsCid } = await load({
+      NEXT_PUBLIC_IPFS_GATEWAY_BASE: "https://example.mypinata.cloud",
+    });
+    const media = "https://media.foid.fun/media/sybau-heartbreak.jpg";
+    expect(extractIpfsCid(media)).toBeNull();
+    expect(ipfsToHttp(media)).toEqual([media]);
+  });
+
+  it("still extracts the CID from gateway and proxy URLs", async () => {
+    const { extractIpfsCid } = await load({});
+    expect(extractIpfsCid(`https://gw.example/ipfs/${CID}`)).toBe(CID);
+    expect(extractIpfsCid(`https://foid.fun/api/ipfs/${CID}?w=64`)).toBe(CID);
+    expect(extractIpfsCid(`ipfs://${CID}`)).toBe(CID);
+    expect(extractIpfsCid(CID)).toBe(CID);
   });
 });

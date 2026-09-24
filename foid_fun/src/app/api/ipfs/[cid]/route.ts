@@ -59,12 +59,13 @@ export const runtime = "nodejs";
 // ──────────────────────────────────────────────────────────────────────
 // Per-instance in-memory image cache.
 //
-// Why this exists: Render's edge (Cloudflare in front of the service)
-// flags /api/* as `cf-cache-status: DYNAMIC` regardless of Cache-Control,
-// so our `immutable, max-age=1y` header only helps the *same* browser on
-// repeat visits — every new visitor pays the full Pinata round-trip.
-// This Map caches the bytes in the Node process so concurrent visitors on
-// the same Render instance hit our own RAM instead of Pinata. A single
+// Why this exists: Cloudflare bypasses its cache for /api/*, so a URL
+// under /api/ipfs only benefits the same browser on repeat visits. Sized
+// WebP tiles are therefore requested as /img/ipfs/<cid>.webp (a rewrite to
+// this handler, see next.config.mjs), which Cloudflare caches by extension.
+// This Map still caches the bytes in the Node process so concurrent
+// visitors on the same Render instance hit our own RAM instead of Pinata,
+// and so a cold edge doesn't turn into a Pinata stampede. A single
 // instance lives minutes-to-hours under Render's rolling deploys, which
 // is plenty to keep the hot set warm.
 //
@@ -86,6 +87,48 @@ const CACHE_MAX_BYTES = 64 * 1024 * 1024;
 const imageCache = new Map<string, CachedImage>();
 let imageCacheBytes = 0;
 const inflight = new Map<string, Promise<CachedImage>>();
+
+// Upstream concurrency. A board load asks for ~90 tiles at once; the old
+// hard cap answered the 9th distinct miss with an immediate 503, so a cold
+// instance failed most of the board and every tile had to fall back to the
+// public gateway. Misses now wait their turn in a bounded queue instead.
+const MAX_UPSTREAM = 8;
+const MAX_WAITING = 192;
+const MAX_WAIT_MS = 15_000;
+let upstreamActive = 0;
+const upstreamWaiters: Array<{ resolve: () => void; timer: ReturnType<typeof setTimeout> }> = [];
+
+class ImageServiceBusyError extends Error {}
+
+function acquireUpstream(): Promise<void> {
+  if (upstreamActive < MAX_UPSTREAM) {
+    upstreamActive++;
+    return Promise.resolve();
+  }
+  if (upstreamWaiters.length >= MAX_WAITING) return Promise.reject(new ImageServiceBusyError());
+  return new Promise<void>((resolve, reject) => {
+    const waiter = {
+      resolve,
+      timer: setTimeout(() => {
+        const index = upstreamWaiters.indexOf(waiter);
+        if (index >= 0) upstreamWaiters.splice(index, 1);
+        reject(new ImageServiceBusyError());
+      }, MAX_WAIT_MS),
+    };
+    upstreamWaiters.push(waiter);
+  });
+}
+
+function releaseUpstream(): void {
+  const next = upstreamWaiters.shift();
+  if (next) {
+    // Hand the slot straight to the next waiter; the active count is unchanged.
+    clearTimeout(next.timer);
+    next.resolve();
+    return;
+  }
+  upstreamActive--;
+}
 
 function cacheGet(cid: string): CachedImage | null {
   const hit = imageCache.get(cid);
@@ -133,8 +176,10 @@ function cacheHeaders(contentType: string, hit: boolean): Headers {
   return h;
 }
 
-function bad(message: string, status = 400) {
-  return NextResponse.json({ error: message }, { status });
+function bad(message: string, status = 400, headers: Record<string, string> = {}) {
+  // no-store: errors must never be cached by the browser or the CDN, since
+  // the same URL can succeed a moment later.
+  return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "no-store", ...headers } });
 }
 
 // Query params accepted from the client; translate to Pinata's image-
@@ -230,25 +275,30 @@ export async function GET(
   try {
     let pending = inflight.get(cacheKey);
     if (!pending) {
-      if (inflight.size >= 8) return bad("Image service busy; retry shortly", 503);
       pending = (async () => {
-        const { response, bytes } = await fetchBounded(url, { headers: fetchHeaders, cache: "no-store" }, MAX_RESPONSE_BYTES, FETCH_TIMEOUT_MS);
-        if (!response.ok) throw new Error("Gateway unavailable");
-        const contentType = rasterType(bytes);
-        if (!contentType) throw new UnsupportedImageError();
-        // Dedicated gateways handle their own transforms. Public gateways
-        // return originals, so generate a bounded, cached preview locally.
-        const entry = transform.localWidth || transform.localHeight
-          ? await imageThumbnail(bytes, transform.localWidth, transform.localHeight)
-          : { bytes, contentType };
-        cachePut(cacheKey, entry);
-        return entry;
+        await acquireUpstream();
+        try {
+          const { response, bytes } = await fetchBounded(url, { headers: fetchHeaders, cache: "no-store" }, MAX_RESPONSE_BYTES, FETCH_TIMEOUT_MS);
+          if (!response.ok) throw new Error("Gateway unavailable");
+          const contentType = rasterType(bytes);
+          if (!contentType) throw new UnsupportedImageError();
+          // Dedicated gateways handle their own transforms. Public gateways
+          // return originals, so generate a bounded, cached preview locally.
+          const entry = transform.localWidth || transform.localHeight
+            ? await imageThumbnail(bytes, transform.localWidth, transform.localHeight)
+            : { bytes, contentType };
+          cachePut(cacheKey, entry);
+          return entry;
+        } finally {
+          releaseUpstream();
+        }
       })().finally(() => { inflight.delete(cacheKey); });
       inflight.set(cacheKey, pending);
     }
     const { bytes, contentType } = await pending;
     return new NextResponse(bytes, { headers: cacheHeaders(contentType, false) });
   } catch (error) {
+    if (error instanceof ImageServiceBusyError) return bad("Image service busy; retry shortly", 503, { "Retry-After": "2" });
     if (error instanceof UnsupportedImageError) return bad("Only PNG, JPEG, GIF, WebP and AVIF images can be proxied", 415);
     if (isTimeout(error)) return bad("IPFS gateway request timed out", 504);
     if (error instanceof BodyTooLargeError) return bad("Image exceeds 10 MB", 413);

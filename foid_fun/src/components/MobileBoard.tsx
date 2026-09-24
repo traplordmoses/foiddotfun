@@ -20,6 +20,13 @@ interface BoardNode {
   againstCount?: number;
 }
 
+/** "Placement #42 · on the board" instead of the raw node id. */
+function boardItemLabel(node: BoardNode): string {
+  const number = node.id.replace(/^(placed|proposal|pending)-/, "");
+  const voting = node.status === "voting" || node.id.startsWith("proposal-") || node.id.startsWith("pending-");
+  return `${voting ? "Proposal" : "Placement"} #${number} · ${voting ? "in voting" : "on the board"}`;
+}
+
 interface MobileBoardProps {
   nodes: BoardNode[];
   onNodeClick?: (node: BoardNode) => void;
@@ -42,6 +49,7 @@ export function MobileBoard({
     y: (typeof window !== 'undefined' ? window.innerHeight : 667) / 2,
   }));
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [listOpen, setListOpen] = useState(false);
 
   // Content bounds in world units. Pan limits and the initial fit derive
   // from these, so the board can never be panned into empty space and never
@@ -286,10 +294,12 @@ export function MobileBoard({
             return (
               <motion.div
                 key={node.id}
-                role="button"
-                tabIndex={0}
-                aria-label={`Inspect board item ${node.id}`}
-                onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onNodeClick?.(node); } }}
+                // Tiles shrink well below a 24px target at the fitted zoom, and
+                // 90 tab stops on a canvas is a trap. Pointer taps still open
+                // them (canvas tap handler above); keyboard and screen-reader
+                // users get the same action from the list view below.
+                role="img"
+                aria-label={boardItemLabel(node)}
                 className={`
                   absolute
                   ${isVoting ? 'mobile-board-voting' : ''}
@@ -351,10 +361,39 @@ export function MobileBoard({
         </div>
       </div>
 
-      <details className="absolute left-3 bottom-24 z-20 max-h-[50%] overflow-auto rounded-xl border border-slate-500 bg-slate-950/95 p-3 text-sm text-white">
-        <summary className="cursor-pointer min-h-6">Browse board items · tap an image to inspect</summary>
-        <ul>{nodes.map((node) => <li key={node.id}><button className="min-h-11 p-2 text-left" onClick={() => onNodeClick?.(node)}>Inspect item {node.id} · {node.status ?? "canonized"}</button></li>)}</ul>
-      </details>
+      {/* List alternative to the canvas (keyboard, screen readers, and anyone
+          who'd rather scroll than pan). A compact pill; the list itself only
+          mounts while open, so a closed toggle costs no layout or DOM. */}
+      <div className="absolute left-3 bottom-24 z-20 flex max-h-[55%] w-[min(20rem,calc(100%-1.5rem))] flex-col-reverse items-start gap-2">
+        <button
+          type="button"
+          aria-expanded={listOpen}
+          aria-controls="mobile-board-list"
+          onClick={() => setListOpen((open) => !open)}
+          className="min-h-11 rounded-full border border-white/20 bg-slate-950/85 px-4 text-sm text-white/90 shadow-lg backdrop-blur"
+        >
+          {listOpen ? "Close list" : `List view · ${nodes.length}`}
+        </button>
+        {listOpen && (
+          <ul
+            id="mobile-board-list"
+            aria-label="Board items"
+            className="w-full overflow-auto rounded-xl border border-white/15 bg-slate-950/95 p-1 text-sm text-white shadow-xl"
+          >
+            {nodes.map((node) => (
+              <li key={node.id}>
+                <button
+                  type="button"
+                  className="min-h-11 w-full rounded-lg px-3 py-2 text-left hover:bg-white/10"
+                  onClick={() => onNodeClick?.(node)}
+                >
+                  {boardItemLabel(node)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

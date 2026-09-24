@@ -283,7 +283,7 @@ export default function PlacementCelebration({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={previewUrl || (ipfsCid ? cidToHttpUrl(ipfsCid) : "")}
-                alt={itemName}
+                alt={itemName || (proposalId !== null ? `Loreboard placement #${proposalId}` : "Loreboard placement")}
                 className="pc-hero-img"
                 referrerPolicy="no-referrer"
                 decoding="async"

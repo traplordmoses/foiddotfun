@@ -17,12 +17,31 @@ const noStore = { "Cache-Control": "no-store" };
 function fail(error: string, status: number) {
   return NextResponse.json({ error }, { status, headers: { ...noStore, ...(status === 429 ? { "Retry-After": "60" } : {}) } });
 }
+
+/** Hosts a browser may call this relay from: the host the request was
+ *  addressed to, plus the configured public site. Compare hosts, not full
+ *  origins. Behind Cloudflare and Render, req.nextUrl is the internal
+ *  listener (http://localhost:<port>), so a full-origin comparison
+ *  rejected every same-site call from https://foid.fun. */
+function allowedHosts(req: NextRequest): Set<string> {
+  const hosts = new Set<string>();
+  const forwarded = req.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = req.headers.get("host")?.trim();
+  for (const value of [forwarded, host]) if (value) hosts.add(value.toLowerCase());
+  for (const configured of [process.env.NEXT_PUBLIC_SITE_URL, process.env.FOID_APP_URL]) {
+    if (!configured) continue;
+    try { hosts.add(new URL(configured).host.toLowerCase()); } catch { /* ignore malformed config */ }
+  }
+  hosts.add(req.nextUrl.host.toLowerCase());
+  return hosts;
+}
 export async function POST(req: NextRequest) {
   const rpcUrl = process.env.FLUENT_RPC_URL?.trim() || process.env.FLUENT_RPC?.trim() || process.env.NEXT_PUBLIC_FLUENT_RPC?.trim() || process.env.NEXT_PUBLIC_RPC_URL?.trim();
   if (!rpcUrl) return fail("RPC service unavailable", 503);
+  const hosts = allowedHosts(req);
   for (const value of [req.headers.get("origin"), req.headers.get("referer")]) {
     if (!value) continue;
-    try { if (new URL(value).origin !== req.nextUrl.origin) return fail("Cross-origin requests not allowed", 403); }
+    try { if (!hosts.has(new URL(value).host.toLowerCase())) return fail("Cross-origin requests not allowed", 403); }
     catch { return fail("Invalid origin", 403); }
   }
   let body: unknown;

@@ -444,7 +444,7 @@ export default function FilesApp() {
     <>
       <div className="vista-window__body vista-window__body--flush files-shell">
         {/* ── Sidebar ── */}
-        <aside className="files-sidebar">
+        <nav className="files-sidebar" aria-label="File library">
           <div className="files-sidebar__section" role="group" aria-labelledby="files-fav-heading">
             <span id="files-fav-heading" className="foid-label files-sidebar__heading">
               Favorites
@@ -486,7 +486,7 @@ export default function FilesApp() {
               <span className="files-side-row__label">foid.fun</span>
             </Link>
           </div>
-        </aside>
+        </nav>
 
         {/* ── Main pane ── */}
         <div className="files-main">

@@ -592,7 +592,8 @@ export function PrayAppCore({
 
                 {/* Sidebar pane - manual + stats merged */}
                 <div className="pray-pane pray-pane--stats pray-pane--panel">
-                  <div className="pray-pane__body font-terminal text-xs sm:text-[13px] leading-snug">
+                  {/* Scrollable, so it needs a tab stop for keyboard scrolling. */}
+                  <div className="pray-pane__body font-terminal text-xs sm:text-[13px] leading-snug" tabIndex={0} role="region" aria-label="About the terminal and your prayer stats">
                     <div className="pray-scroll space-y-4">
                       <div className="pray-manual__section">
                         <h3 className="pray-manual__hero">F O I D &nbsp;&nbsp; M O M M Y</h3>
@@ -900,9 +901,9 @@ export function PrayAppCore({
             triggerHaptic('light');
             setJournalOpen(true);
           }}
-          aria-label="View prayer history"
         >
           <span className="pray-journey-trigger__label">view history</span>
+          <span className="sr-only"> of your prayers</span>
           <span className="pray-journey-trigger__chevron" aria-hidden="true">⌄</span>
         </button>
         <div className="pray-mobile-tools">
