@@ -150,6 +150,30 @@ const DESKTOP_APPS: Partial<Record<AppId, DesktopApp>> = {
   },
 };
 
+/** localStorage flag: the visitor closed the welcome card. Per device, like
+ *  the boot flag, because every action on the card also lives in the dock
+ *  (Board, Pray, About), so a closed card hides nothing. */
+const WELCOME_DISMISSED_KEY = "foid_os_welcome_dismissed";
+
+/** Exit fade length; matches the .os-welcome transition in globals.css. */
+const WELCOME_EXIT_MS = 160;
+
+function readWelcomeDismissed(): boolean {
+  try {
+    return window.localStorage.getItem(WELCOME_DISMISSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function persistWelcomeDismissed(): void {
+  try {
+    window.localStorage.setItem(WELCOME_DISMISSED_KEY, "1");
+  } catch {
+    /* private mode: the card still closes for this page view */
+  }
+}
+
 /** Serialize the open windows into the shell query (?apps=…&focus=…) and
  *  replaceState it onto the URL — reload restores the layout, copy-paste
  *  shares it, and no history entries pile up (you don't back-button between
@@ -206,6 +230,10 @@ export default function Desktop() {
   // the link says — open() merges into anything this session already
   // opened); only a bare "/" restores the last persisted layout.
   const [mounted, setMounted] = useState(false);
+  // Read in the same effect that flips `mounted`, so a visitor who closed
+  // the welcome card never sees it flash back for a frame.
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false);
+  const [welcomeClosing, setWelcomeClosing] = useState(false);
   useEffect(() => {
     const { apps, focus } = parseDesktopAppsParam(window.location.search);
     if (apps.length) {
@@ -215,8 +243,49 @@ export default function Desktop() {
     } else {
       hydrateWindowStore();
     }
+    setWelcomeDismissed(readWelcomeDismissed());
     setMounted(true);
   }, []);
+
+  const desktopRef = useRef<HTMLElement>(null);
+  const welcomeTimerRef = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (welcomeTimerRef.current !== null) {
+        window.clearTimeout(welcomeTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  const closeWelcome = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (welcomeClosing) return;
+    persistWelcomeDismissed();
+    // The close button is about to unmount; hand keyboard focus to the
+    // desktop instead of dropping it on <body>.
+    const hadFocus = document.activeElement === event.currentTarget;
+    const finish = () => {
+      welcomeTimerRef.current = null;
+      setWelcomeDismissed(true);
+      const desktop = desktopRef.current;
+      if (!hadFocus || !desktop) return;
+      // Focusable only for this hand-off, so clicks inside windows keep
+      // their usual focus behavior afterwards.
+      desktop.setAttribute("tabindex", "-1");
+      desktop.addEventListener(
+        "blur",
+        () => desktop.removeAttribute("tabindex"),
+        { once: true },
+      );
+      desktop.focus({ preventScroll: true });
+    };
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      finish();
+      return;
+    }
+    setWelcomeClosing(true);
+    welcomeTimerRef.current = window.setTimeout(finish, WELCOME_EXIT_MS);
+  };
 
   useDesktopUrlSync(mounted);
 
@@ -227,9 +296,26 @@ export default function Desktop() {
     : [];
 
   return (
-    <main className="os-desktop" aria-label="FOID OS desktop">
-      {mounted && openWindows.length === 0 ? (
-        <section className="os-welcome" aria-label="Welcome to FOID">
+    <main
+      ref={desktopRef}
+      className="os-desktop"
+      aria-label="FOID OS desktop"
+      aria-busy={!mounted}
+    >
+      {mounted && openWindows.length === 0 && !welcomeDismissed ? (
+        <section
+          className={`os-welcome${welcomeClosing ? " os-welcome--closing" : ""}`}
+          aria-label="Welcome to FOID"
+        >
+          <button
+            type="button"
+            className="os-welcome__close"
+            aria-label="Close welcome"
+            title="Close"
+            onClick={closeWelcome}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
           <span>FOID FOUNDATION</span>
           <h1>The internet’s permanent memory</h1>
           <p>A community canvas for memes and culture. Explore the board, check in with Foid Mommy, and vote on what stays.</p>

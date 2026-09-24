@@ -6672,4 +6672,14 @@ body.foid-dock-hidden .os-desktop__hint {
 .os-welcome h1 { font-size: 28px; margin: 12px 0; }
 .os-welcome p { line-height: 1.6; margin: 12px 0; }
 .os-welcome button, .os-welcome a { display: inline-block; min-height: 44px; margin: 8px 12px 0 0; padding: 10px 16px; border: 1px solid #81b9c7; border-radius: 12px; background: #204658; }
+/* Close control. Two classes deep so it outranks the `.os-welcome button`
+   rule above (0,2,0 beats 0,1,1). Sits in the empty top-right corner, clear
+   of the eyebrow and the heading. */
+.os-welcome { position: relative; transition: opacity 160ms ease, transform 160ms ease; }
+.os-welcome--closing { opacity: 0; transform: translateY(-6px) scale(0.98); pointer-events: none; }
+.os-welcome .os-welcome__close { position: absolute; top: 16px; right: 16px; display: grid; place-items: center; width: 32px; height: 32px; min-height: 0; margin: 0; padding: 0; border: 1px solid #81b9c759; border-radius: 50%; background: transparent; color: #cfe3ee; font-size: 20px; line-height: 1; cursor: pointer; transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease; }
+.os-welcome .os-welcome__close:hover { background: #204658; border-color: #81b9c7; color: #ffffff; }
+.os-welcome .os-welcome__close:focus-visible { outline: 2px solid #9fe7ff; outline-offset: 2px; }
+.os-desktop:focus { outline: none; }
+@media (prefers-reduced-motion: reduce) { .os-welcome { transition: none; } }
 .vote-readable-surface { background: #132b40f5 !important; color: #eef7ff; }
