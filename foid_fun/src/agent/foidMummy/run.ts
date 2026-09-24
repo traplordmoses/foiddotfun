@@ -14,7 +14,7 @@ import fs from "fs";
 import path from "path";
 import { ANTHROPIC_API_KEY } from "./config";
 import { collectWeeklyData, type ReportPeriod, type WeeklyData } from "./dataCollector";
-import { generateNarrative, generateMockNarrative } from "./narrator";
+import { generateNarrative, generateMockNarrative, NARRATOR_MODEL } from "./narrator";
 import { renderReport } from "./renderer";
 
 // ── CLI arg parsing ──
@@ -151,7 +151,7 @@ async function main() {
   console.log("=== FOID MUMMY WEEKLY REPORT ===");
   console.log(`Period: ${new Date(period.from * 1000).toISOString()} -> ${new Date(period.to * 1000).toISOString()}`);
   console.log(`Mode: ${dryRun ? "DRY RUN (mock data)" : "LIVE"}`);
-  console.log(`Narrative: ${useApi ? "Anthropic API (claude-sonnet-4-20250514)" : "mock template (no API key)"}`);
+  console.log(`Narrative: ${useApi ? `Anthropic API (${NARRATOR_MODEL})` : "mock template (no API key)"}`);
   console.log();
 
   // Step 1: Collect data
