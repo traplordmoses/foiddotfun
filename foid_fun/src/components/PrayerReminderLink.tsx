@@ -48,7 +48,7 @@ export default function PrayerReminderLink({ className = "" }: { className?: str
       href={href}
       download="foid-daily-prayer.ics"
       className={`pray-reminder-link ${className}`}
-      aria-label="Add a daily prayer reminder to your calendar"
+      aria-label="daily reminder, add it to your calendar"
     >
       <span aria-hidden="true">⏰</span> daily reminder
     </a>

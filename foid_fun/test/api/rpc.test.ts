@@ -12,6 +12,24 @@ describe("RPC proxy boundaries", () => {
   it("does not expose debug or administrative methods", async () => { expect((await POST(request(call("debug_traceTransaction")))).status).toBe(403); expect(fetch).not.toHaveBeenCalled(); });
   it("rejects oversized batches", async () => { expect((await POST(request(Array.from({ length: 21 }, () => call("eth_chainId"))))).status).toBe(400); });
   it("rejects cross-origin browsers", async () => { expect((await POST(request(call("eth_chainId"), { origin: "https://other.test" }))).status).toBe(403); });
+  it("accepts same-site browsers when the server sees an internal URL", async () => {
+    // Production shape: Cloudflare -> Render -> next start. The route sees
+    // http://localhost:10000 while the browser addressed https://foid.fun.
+    const internal = new NextRequest("http://localhost:10000/api/rpc", {
+      method: "POST",
+      headers: { "content-type": "application/json", host: "foid.fun", origin: "https://foid.fun", referer: "https://foid.fun/board" },
+      body: JSON.stringify(call("eth_chainId")),
+    });
+    expect((await POST(internal)).status).toBe(200);
+  });
+  it("still rejects other sites behind the same proxy", async () => {
+    const internal = new NextRequest("http://localhost:10000/api/rpc", {
+      method: "POST",
+      headers: { "content-type": "application/json", host: "foid.fun", origin: "https://evil.test" },
+      body: JSON.stringify(call("eth_chainId")),
+    });
+    expect((await POST(internal)).status).toBe(403);
+  });
   it("enforces global budgets before contacting upstream", async () => { budget.mockResolvedValue(false); expect((await POST(request(call("eth_chainId")))).status).toBe(429); expect(fetch).not.toHaveBeenCalled(); });
   it("fails closed when shared budget storage is down", async () => { budget.mockRejectedValue(new Error("down")); expect((await POST(request(call("eth_chainId")))).status).toBe(503); expect(fetch).not.toHaveBeenCalled(); });
   it("rejects unbounded log queries", async () => { expect((await POST(request(call("eth_getLogs", [{ fromBlock: "0x0", toBlock: "0x20000" }])))).status).toBe(400); });

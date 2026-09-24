@@ -38,3 +38,33 @@ describe("image proxy", () => {
     expect(fetcher).toHaveBeenCalledOnce();
   });
 });
+
+describe("image proxy under load", () => {
+  it("queues misses beyond the upstream cap instead of answering 503", async () => {
+    let active = 0;
+    let peak = 0;
+    const fetcher = vi.fn(async () => {
+      active++;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active--;
+      return new Response(png);
+    });
+    vi.stubGlobal("fetch", fetcher);
+    const { GET } = await import("@/app/api/ipfs/[cid]/route");
+    const alphabet = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ123456789";
+    const cids = Array.from({ length: 40 }, (_, i) => "Qm" + "a".repeat(42) + alphabet[i % alphabet.length] + alphabet[Math.floor(i / alphabet.length)]);
+    const responses = await Promise.all(cids.map((c) => GET(new NextRequest(`https://foid.fun/api/ipfs/${c}`), { params: { cid: c } })));
+    expect(responses.map((r) => r.status)).toEqual(cids.map(() => 200));
+    expect(fetcher).toHaveBeenCalledTimes(40);
+    expect(peak).toBeLessThanOrEqual(8);
+  });
+
+  it("marks error responses uncacheable", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("nope", { status: 500 })));
+    const { GET } = await import("@/app/api/ipfs/[cid]/route");
+    const res = await GET(req(), { params: { cid } });
+    expect(res.status).toBe(502);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+});

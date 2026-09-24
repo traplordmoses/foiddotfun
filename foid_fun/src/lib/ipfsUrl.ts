@@ -102,16 +102,10 @@ export function extractIpfsCid(input?: string | null): string | null {
   const candidateRaw = stripQueryAndHash(input.trim());
   if (!candidateRaw) return null;
 
-  if (HTTP_URL_REGEX.test(candidateRaw)) {
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(candidateRaw);
-    } catch {
-      return null;
-    }
-    return cleanIpfsPath(parsedUrl.pathname);
-  }
-
+  // For http(s) input, cleanIpfsPath only accepts URLs that carry an /ipfs/
+  // path. Passing the bare pathname here used to turn any URL into a "CID",
+  // so https://media.foid.fun/media/x.jpg became <gateway>/ipfs/media/x.jpg
+  // (a 400) for every FILES.EXE image once media moved to R2.
   return cleanIpfsPath(candidateRaw);
 }
 
@@ -297,13 +291,29 @@ export function isProxyCandidate(url: string): boolean {
   return url.startsWith("/");
 }
 
+const DEFAULT_PROXY_PATH = "/api/ipfs";
+/** Edge-cacheable alias for sized WebP tiles. next.config.mjs rewrites it to
+ *  the proxy; Cloudflare caches it because the path ends in .webp, while
+ *  its cache rules bypass everything under /api/. */
+const EDGE_IMAGE_PATH = "/img/ipfs";
+
+function edgeWebpUrl(cid: string, opts?: IpfsImageOpts): string | null {
+  if (!opts || !(opts.width || opts.height) || opts.format !== "webp") return null;
+  // A custom proxy (NEXT_PUBLIC_IPFS_PROXY_PATH pointing elsewhere) keeps
+  // its own URLs.
+  if (PROXY_PATH && PROXY_PATH !== DEFAULT_PROXY_PATH) return null;
+  // Only bare CIDs fit the rewrite pattern (no directory paths).
+  if (!/^[A-Za-z0-9]+$/.test(cid)) return null;
+  return `${EDGE_IMAGE_PATH}/${cid}.webp${buildTransformQuery(opts)}`;
+}
+
 export function ipfsImageUrls(uri: string, opts?: IpfsImageOpts): string[] {
   const gatewayUrls = ipfsToHttp(uri).map((u) => withGatewayTransforms(u, opts));
   // Sized image previews use the bundled proxy even without deployment env.
   // Generic CID/document URL helpers retain their existing gateway behavior.
   const cid = extractIpfsCid(uri);
-  const proxy = ipfsProxyUrl(uri, opts) ?? (cid && (opts?.width || opts?.height)
-    ? `/api/ipfs/${cid}${buildTransformQuery(opts)}` : null);
+  const proxy = (cid ? edgeWebpUrl(cid, opts) : null) ?? ipfsProxyUrl(uri, opts) ?? (cid && (opts?.width || opts?.height)
+    ? `${DEFAULT_PROXY_PATH}/${cid}${buildTransformQuery(opts)}` : null);
   if (!proxy) return gatewayUrls;
   return [proxy, ...gatewayUrls];
 }

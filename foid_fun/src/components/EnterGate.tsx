@@ -485,7 +485,7 @@ export default function EnterGate({
         : "Starting FOID OS. Press any key to skip.";
 
   return (
-    <div
+    <main
       className="enter-gate"
       data-reduced-motion={reducedMotion ? "true" : "false"}
       data-boot={bootPhase}
@@ -541,7 +541,7 @@ export default function EnterGate({
             disabled={outroActive}
           >
             <span className="key-glow" aria-hidden="true" />
-          <svg viewBox="0 0 488 202" xmlns="http://www.w3.org/2000/svg" role="img">
+          <svg viewBox="0 0 488 202" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
             <defs>
               <linearGradient id="glassBody" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="#ffffff" stopOpacity="0.08" />
@@ -1155,6 +1155,6 @@ export default function EnterGate({
           .orbital { display: none; }
         }
       `}</style>
-    </div>
+    </main>
   );
 }

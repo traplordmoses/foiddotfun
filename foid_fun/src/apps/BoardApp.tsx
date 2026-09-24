@@ -1340,6 +1340,9 @@ export function BoardAppCore({
       )}
       <GestureHint
         storageKey="board-gestures-seen"
+        // Above the board's list-view pill (bottom-24, 44px tall), so the
+        // two never overlap while the hint is up.
+        bottomOffset={152}
         hints={[
           "Pinch to zoom in and out",
           "Drag with one finger to pan around",
@@ -1808,7 +1811,7 @@ export function BoardAppCore({
   return isDesktop ? (
     <div className="hidden lg:block">{mainView}</div>
   ) : (
-    <div className="lg:hidden">{mobileView}</div>
+    <div className="lg:hidden board-mobile-bleed">{mobileView}</div>
   );
 }
 

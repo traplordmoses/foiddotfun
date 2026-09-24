@@ -10,11 +10,14 @@ import { createPortal } from 'react-dom';
 interface GestureHintProps {
   storageKey: string;
   hints: string[];
+  /** Distance from the bottom edge in px, before the safe-area inset.
+   *  Defaults to just above the dock. */
+  bottomOffset?: number;
 }
 
 const AUTO_DISMISS_MS = 9000;
 
-export function GestureHint({ storageKey, hints }: GestureHintProps) {
+export function GestureHint({ storageKey, hints, bottomOffset = 92 }: GestureHintProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -66,7 +69,7 @@ export function GestureHint({ storageKey, hints }: GestureHintProps) {
         position: 'fixed',
         left: 12,
         right: 12,
-        bottom: 'calc(92px + env(safe-area-inset-bottom, 0px))',
+        bottom: `calc(${bottomOffset}px + env(safe-area-inset-bottom, 0px))`,
         zIndex: 60,
         display: 'flex',
         justifyContent: 'center',

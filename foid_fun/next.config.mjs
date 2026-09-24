@@ -102,6 +102,14 @@ const nextConfig = {
       },
     ];
   },
+  // Sized IPFS tiles are requested as /img/ipfs/<cid>.webp so Cloudflare
+  // caches them at the edge (it caches by file extension, and its cache
+  // rules bypass /api/*). Same handler, same query string.
+  async rewrites() {
+    return [
+      { source: '/img/ipfs/:cid([A-Za-z0-9]+).webp', destination: '/api/ipfs/:cid' },
+    ];
+  },
   async redirects() {
     return [
       { source: '/home', destination: '/', permanent: true },
