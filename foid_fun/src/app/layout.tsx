@@ -108,17 +108,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={`h-full overflow-hidden ${displayFont.variable} ${bodyFont.variable} ${jetbrainsMono.variable} ${serifFont.variable}`}
     >
       <head>
-        {/* Preconnect hints for IPFS gateways — the /board route loads
-            placement images directly from whichever gateway is currently
-            fastest (see src/lib/ipfsGatewayCache.ts). Preconnect opens
-            TLS + DNS ahead of the first request so the hero image on
-            the initial board render doesn't wait on handshake. */}
-        <link rel="preconnect" href="https://gateway.pinata.cloud" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://gateway.pinata.cloud" />
-        <link rel="dns-prefetch" href="https://ipfs.io" />
-        <link rel="dns-prefetch" href="https://dweb.link" />
-        <link rel="dns-prefetch" href="https://w3s.link" />
-        <link rel="dns-prefetch" href="https://4everland.io" />
+        {/* No IPFS gateway preconnects: board tiles load same-origin from
+            the Cloudflare-cached /img/ipfs path, and public gateways are
+            only a fallback, so a preconnect here opened an unused TLS
+            connection on every page. */}
       </head>
   <body className="relative h-full min-h-screen overflow-hidden font-secondary" suppressHydrationWarning>
     {/* Who FOID is, for search engines and AI answer engines. Per-page

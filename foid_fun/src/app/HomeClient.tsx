@@ -299,6 +299,15 @@ function HomeLauncher() {
                   ))}
                 </div>
                 </div> {/* end grid-wrapper */}
+                {/* A way in for first-timers, and plain links crawlers can
+                    follow to the docs and the placement gallery. */}
+                <nav className="home-learn font-mono" aria-label="Learn about FOID">
+                  <Link href="/about/getting-started">how it works</Link>
+                  <span aria-hidden="true">·</span>
+                  <Link href="/board/placements">meme gallery</Link>
+                  <span aria-hidden="true">·</span>
+                  <Link href="/about/faq">faq</Link>
+                </nav>
               </div> {/* end content */}
             </div>
           </div>
@@ -333,6 +342,41 @@ function HomeLauncher() {
           font-size: clamp(9px, 1.3cqw, 11px);
           color: rgba(255, 255, 255, 0.45);
           text-shadow: 0 0 12px rgba(200, 180, 255, 0.1);
+        }
+
+        /* Learn row under the tiles: tagline voice, 12px floor on phones. */
+        :global(.home-learn) {
+          flex: 0 0 auto;
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 4px 10px;
+          padding: 10px 0 12px;
+          font-size: 12px;
+          letter-spacing: 0.06em;
+          color: rgba(255, 255, 255, 0.45);
+        }
+        :global(.home-learn a) {
+          color: rgba(255, 255, 255, 0.72);
+          text-decoration: underline;
+          text-decoration-color: rgba(255, 255, 255, 0.25);
+          text-underline-offset: 3px;
+          padding: 4px 2px;
+        }
+        :global(.home-learn a:hover) {
+          color: #ffffff;
+          text-decoration-color: rgba(255, 255, 255, 0.6);
+        }
+        :global(.home-learn a:focus-visible) {
+          outline: 2px solid var(--foid-focus-ring);
+          outline-offset: 2px;
+          border-radius: 4px;
+        }
+        /* Short phones need every pixel for the tiles; the row would clip. */
+        @media (max-height: 720px) {
+          :global(.home-learn) {
+            display: none;
+          }
         }
 
         /* Gentle float animation for title area */

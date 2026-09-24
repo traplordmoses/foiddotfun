@@ -3,222 +3,81 @@
 import { useEffect, useState } from "react";
 
 /**
- * PrayerBoot — a 700ms arrival sequence for /pray on mobile.
+ * PrayerBoot — a once-per-session arrival flourish for /pray on phones.
  *
- *   0–200ms: black
- *   200–400ms: Mommy GIF fades in (blur(2px) → blur(0), scale 0.95 → 1)
- *   400–550ms: 2px mint scanline sweeps top → bottom, opacity 0.5
- *   550–700ms: title "foid_mommy_terminal.exe" types character-by-character
+ * /pray is server-rendered, so the terminal is already on screen by the time
+ * this mounts after hydration. The old 700ms boot screen (black backdrop,
+ * mommy GIF, typed title) therefore landed as a flash of black over a page
+ * the visitor was already reading, and it downloaded a 140 KB animated WebP
+ * to do it. Now one mint scanline sweeps down over the visible page: the
+ * terminal "powers on" without hiding anything or blocking a tap.
  *
- * Runs exactly once per session (sessionStorage key: "foid_pray_booted").
- * Tap anywhere to skip. Respects prefers-reduced-motion (~200ms static, then unmount).
+ * Runs once per session (sessionStorage key: "foid_pray_booted"), never on
+ * desktop, and not at all under prefers-reduced-motion.
  */
 
 const STORAGE_KEY = "foid_pray_booted";
-const TITLE = "foid_mommy_terminal.exe";
-const TOTAL_MS = 700;
-const REDUCED_MS = 200;
-
-// Phase start times (ms). Keep as constants so styles read cleanly.
-const MOMMY_START = 200;
-const SCANLINE_START = 400;
-const SCANLINE_END = 550;
-const TITLE_START = 550;
+// Sweep length; the element unmounts shortly after it ends.
+const SWEEP_MS = 520;
 
 export default function PrayerBoot() {
-  // Start as null — we decide mount client-side after checking sessionStorage +
-  // prefers-reduced-motion, so we never SSR anything.
-  const [mounted, setMounted] = useState(false);
-  const [reduceMotion, setReduceMotion] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const [typedChars, setTypedChars] = useState(0);
+  const [active, setActive] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    // Mobile-only. The wrapper in pray/page.tsx also hides this via lg:hidden,
-    // but we double-check so we don't set sessionStorage or run rAF on desktop.
+    // Mobile-only, matching the lg:hidden mobile tree this sits in.
     if (window.innerWidth >= 1024) return;
     try {
       if (sessionStorage.getItem(STORAGE_KEY) === "1") return;
-    } catch {
-      // private mode or blocked — play the boot once, no persistence
-    }
-
-    const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const reduced = mql.matches;
-    setReduceMotion(reduced);
-    setMounted(true);
-
-    const duration = reduced ? REDUCED_MS : TOTAL_MS;
-    const startedAt = performance.now();
-    let raf = 0;
-
-    const finish = () => {
-      try {
-        sessionStorage.setItem(STORAGE_KEY, "1");
-      } catch {
-        // noop
-      }
-      setMounted(false);
-    };
-
-    const tick = (now: number) => {
-      const t = now - startedAt;
-      setElapsed(t);
-
-      if (!reduced && t >= TITLE_START) {
-        const perChar = (TOTAL_MS - TITLE_START) / TITLE.length;
-        const n = Math.min(TITLE.length, Math.floor((t - TITLE_START) / perChar) + 1);
-        setTypedChars(n);
-      }
-
-      if (t >= duration) {
-        finish();
-        return;
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  if (!mounted) return null;
-
-  const skip = () => {
-    try {
       sessionStorage.setItem(STORAGE_KEY, "1");
     } catch {
-      // noop
+      // private mode: play once for this page view
     }
-    setMounted(false);
-  };
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    setActive(true);
+    const timer = window.setTimeout(() => setActive(false), SWEEP_MS + 80);
+    return () => window.clearTimeout(timer);
+  }, []);
 
-  // Static path for reduced motion — hold 200ms, no animation.
-  if (reduceMotion) {
-    return (
-      <div
-        className="prayer-boot prayer-boot--reduced"
-        onClick={skip}
-        onTouchStart={skip}
-        aria-hidden="true"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="prayer-boot__mommy" src="/foidmommy-192.webp" alt="" />
-        <div className="prayer-boot__title">{TITLE}</div>
-        <style jsx>{`
-          .prayer-boot {
-            position: fixed;
-            inset: 0;
-            z-index: 9999;
-            background: #000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 18px;
-          }
-          .prayer-boot__mommy {
-            width: 160px;
-            height: 160px;
-            object-fit: contain;
-            image-rendering: pixelated;
-          }
-          .prayer-boot__title {
-            font-family: var(--font-terminal, "JetBrains Mono", monospace);
-            font-size: 13px;
-            letter-spacing: 0.22em;
-            color: var(--foid-mint);
-            text-shadow: 0 0 12px rgba(110, 234, 216, 0.4);
-          }
-        `}</style>
-      </div>
-    );
-  }
-
-  const mommyT = Math.min(1, Math.max(0, (elapsed - MOMMY_START) / (SCANLINE_START - MOMMY_START)));
-  const mommyOpacity = mommyT;
-  const mommyBlur = (1 - mommyT) * 2; // px
-  const mommyScale = 0.95 + mommyT * 0.05;
-
-  const scanActive = elapsed >= SCANLINE_START && elapsed < SCANLINE_END;
-  const scanT = scanActive ? (elapsed - SCANLINE_START) / (SCANLINE_END - SCANLINE_START) : 0;
-
-  const titleVisible = elapsed >= TITLE_START;
+  if (!active) return null;
 
   return (
-    <div className="prayer-boot" onClick={skip} onTouchStart={skip} aria-hidden="true">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        className="prayer-boot__mommy"
-        src="/foidmommy-192.webp"
-        alt=""
-        style={{
-          opacity: mommyOpacity,
-          filter: `blur(${mommyBlur}px)`,
-          transform: `scale(${mommyScale})`,
-        }}
-      />
-      {titleVisible && (
-        <div className="prayer-boot__title">
-          {TITLE.slice(0, typedChars)}
-          <span className="prayer-boot__caret" />
-        </div>
-      )}
-      {scanActive && (
-        <div
-          className="prayer-boot__scanline"
-          style={{ top: `${scanT * 100}%` }}
-        />
-      )}
+    <div className="prayer-boot" aria-hidden="true">
+      <div className="prayer-boot__scanline" />
       <style jsx>{`
         .prayer-boot {
           position: fixed;
           inset: 0;
           z-index: 9999;
-          background: #000;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 20px;
           overflow: hidden;
-        }
-        .prayer-boot__mommy {
-          width: 160px;
-          height: 160px;
-          object-fit: contain;
-          image-rendering: pixelated;
-          will-change: opacity, transform, filter;
-        }
-        .prayer-boot__title {
-          font-family: var(--font-terminal, "JetBrains Mono", monospace);
-          font-size: 13px;
-          letter-spacing: 0.22em;
-          color: var(--foid-mint);
-          text-shadow: 0 0 12px rgba(110, 234, 216, 0.4);
-          min-height: 16px;
-        }
-        .prayer-boot__caret {
-          display: inline-block;
-          width: 7px;
-          height: 12px;
-          margin-left: 2px;
-          background: var(--foid-mint);
-          vertical-align: middle;
-          animation: prayer-boot-caret 0.6s steps(2) infinite;
-        }
-        @keyframes prayer-boot-caret {
-          50% { opacity: 0; }
+          pointer-events: none;
         }
         .prayer-boot__scanline {
           position: absolute;
           left: 0;
           right: 0;
+          top: 0;
           height: 2px;
           background: var(--foid-mint);
-          opacity: 0.5;
-          box-shadow: 0 0 12px rgba(110, 234, 216, 0.6);
-          pointer-events: none;
+          box-shadow: 0 0 14px rgba(110, 234, 216, 0.6), 0 0 42px rgba(110, 234, 216, 0.22);
+          opacity: 0;
+          will-change: transform, opacity;
+          animation: prayer-boot-sweep 520ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        @keyframes prayer-boot-sweep {
+          0% {
+            transform: translateY(0);
+            opacity: 0;
+          }
+          12% {
+            opacity: 0.6;
+          }
+          85% {
+            opacity: 0.6;
+          }
+          100% {
+            transform: translateY(100vh);
+            opacity: 0;
+          }
         }
       `}</style>
     </div>

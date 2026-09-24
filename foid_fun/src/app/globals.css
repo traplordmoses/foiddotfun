@@ -4820,6 +4820,10 @@ body {
   justify-content: center;
 }
 
+.foid-terminal__idle-greeting {
+  padding: 0 2px 4px;
+}
+
 .foid-idle-card {
   width: 100%;
   max-height: 120px;
