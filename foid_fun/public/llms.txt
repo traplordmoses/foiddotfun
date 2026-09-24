@@ -121,6 +121,7 @@ Prayer tiers by consecutive days: 1 Lurker 1x · 3 NPC 1.25x · 7 Tapped In 1.5x
 | `/` | FOID OS desktop shell on 1024px and up; launcher below that |
 | `/pray` | Prayer terminal — the daily check-in with Foid Mommy |
 | `/board` | Loreboard canvas — view and propose placements |
+| `/board/placements` | Every placement as a gallery, each with its own page at `/board/proposal/<id>` (image, description, onchain facts) |
 | `/vote` | Vote on active proposals |
 | `/mifoid` | MiFOID page and mint reservations |
 | `/files` | Curated media archive |

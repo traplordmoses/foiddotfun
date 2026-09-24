@@ -128,3 +128,30 @@ test.describe("server-rendered content for crawlers", () => {
     expect(sitemap).toContain("<loc>https://foid.fun/about/getting-started</loc>");
   });
 });
+
+test.describe("loreboard placement pages", () => {
+  test("the gallery and the image sitemap render", async ({ request }) => {
+    const gallery = await request.get("/board/placements");
+    expect(gallery.status()).toBe(200);
+    const html = await gallery.text();
+    expect(html).toMatch(/<h1[^>]*>Every meme on the Loreboard<\/h1>/);
+    expect(html).toContain('"@type":"CollectionPage"');
+    const sitemap = await request.get("/sitemap-placements.xml");
+    expect(sitemap.status()).toBe(200);
+    expect(await sitemap.text()).toContain('xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"');
+  });
+
+  test("an unknown proposal still answers, but stays out of search", async ({ request }) => {
+    const res = await request.get("/board/proposal/9999999");
+    expect(res.status()).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("isn&#x27;t on the board yet");
+    expect(html).toMatch(/<meta name="robots" content="noindex, follow"/);
+  });
+
+  test("robots.txt lets share-card images through", async ({ request }) => {
+    const robots = await (await request.get("/robots.txt")).text();
+    expect(robots).toContain("Allow: /api/og/");
+    expect(robots).toContain("Sitemap: https://foid.fun/sitemap-placements.xml");
+  });
+});

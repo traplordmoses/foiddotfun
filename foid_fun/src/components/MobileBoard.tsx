@@ -20,10 +20,15 @@ interface BoardNode {
   againstCount?: number;
 }
 
-/** "Placement #42 · on the board" instead of the raw node id. */
-function boardItemLabel(node: BoardNode): string {
+type CaptionTitles = Record<string, { title: string }>;
+
+/** "Angel in the Blue Screen of Death · #2" when a caption exists
+ *  (src/content/placementCaptions.json), else "Placement #2 · on the board". */
+function boardItemLabel(node: BoardNode, captions?: CaptionTitles | null): string {
   const number = node.id.replace(/^(placed|proposal|pending)-/, "");
   const voting = node.status === "voting" || node.id.startsWith("proposal-") || node.id.startsWith("pending-");
+  const caption = captions?.[node.content];
+  if (caption) return `${caption.title} · #${number}${voting ? " · in voting" : ""}`;
   return `${voting ? "Proposal" : "Placement"} #${number} · ${voting ? "in voting" : "on the board"}`;
 }
 
@@ -50,6 +55,23 @@ export function MobileBoard({
   }));
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [listOpen, setListOpen] = useState(false);
+  // Captions only load when someone opens the list (a separate chunk), so
+  // the canvas itself pays nothing for them.
+  const [captions, setCaptions] = useState<CaptionTitles | null>(null);
+  useEffect(() => {
+    if (!listOpen || captions) return;
+    let cancelled = false;
+    import("@/content/placementCaptions.json")
+      .then((mod) => {
+        if (!cancelled) setCaptions((mod.default as { captions: CaptionTitles }).captions);
+      })
+      .catch(() => {
+        /* labels fall back to placement numbers */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [listOpen, captions]);
 
   // Content bounds in world units. Pan limits and the initial fit derive
   // from these, so the board can never be panned into empty space and never
@@ -387,10 +409,15 @@ export function MobileBoard({
                   className="min-h-11 w-full rounded-lg px-3 py-2 text-left hover:bg-white/10"
                   onClick={() => onNodeClick?.(node)}
                 >
-                  {boardItemLabel(node)}
+                  {boardItemLabel(node, captions)}
                 </button>
               </li>
             ))}
+            <li>
+              <a href="/board/placements" className="flex min-h-11 w-full items-center rounded-lg px-3 py-2 text-cyan-200 underline-offset-2 hover:underline">
+                See every placement as a gallery
+              </a>
+            </li>
           </ul>
         )}
       </div>
