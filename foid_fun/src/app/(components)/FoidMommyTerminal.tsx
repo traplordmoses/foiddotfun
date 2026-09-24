@@ -1840,6 +1840,15 @@ export default function FoidMommyTerminal({
             tierProgress.current.level === 0 ? "—" : tierProgress.current.name;
           return (
             <div className="foid-terminal__idle">
+              {/* First visits have no LAST PRAYER card, which left the pane
+                  looking empty; a static line from mommy fills it (static so
+                  server and client render the same text). */}
+              {!showLastCard && (
+                <div className="foid-terminal__line foid-terminal__line--foid foid-terminal__idle-greeting">
+                  <span className="foid-terminal__prompt foid-terminal__prompt--foid">mommy@foid:~$</span>
+                  <span className="foid-terminal__line-text">i&apos;m here, love. tell me how today feels.</span>
+                </div>
+              )}
               {showLastCard && lastEntry && daysSince !== null && (
                 <div
                   className="foid-idle-card foid-idle-card--history"
