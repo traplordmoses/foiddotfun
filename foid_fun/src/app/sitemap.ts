@@ -1,18 +1,34 @@
 import type { MetadataRoute } from "next";
+import { ABOUT_DOCS } from "@/content/aboutDocs";
+import { SITE_URL } from "@/lib/site";
 
-// Static routes only. Placement share pages (/board/proposal/[id]) are
-// discovered through the links people post; listing every id here would
-// mean an RPC call per crawl.
+// App routes carry no lastModified: they change continuously and a date
+// that moves on every deploy tells crawlers nothing. Docs use their real
+// updatedAt. Loreboard placement pages live in /sitemap-placements.xml.
+const APP_ROUTES: Array<{ path: string; changeFrequency: "hourly" | "daily" | "weekly" | "monthly"; priority: number }> = [
+  { path: "/", changeFrequency: "daily", priority: 1 },
+  { path: "/board", changeFrequency: "hourly", priority: 0.9 },
+  { path: "/pray", changeFrequency: "daily", priority: 0.9 },
+  { path: "/vote", changeFrequency: "hourly", priority: 0.8 },
+  { path: "/about", changeFrequency: "monthly", priority: 0.7 },
+  { path: "/mifoid", changeFrequency: "weekly", priority: 0.6 },
+  { path: "/files", changeFrequency: "weekly", priority: 0.4 },
+];
+
+const KEY_DOCS = new Set(["readme", "getting-started", "faq", "loreboard", "prayer"]);
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = "https://foid.fun";
-  const now = new Date();
   return [
-    { url: `${base}/`, lastModified: now, changeFrequency: "daily", priority: 1 },
-    { url: `${base}/pray`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
-    { url: `${base}/board`, lastModified: now, changeFrequency: "hourly", priority: 0.9 },
-    { url: `${base}/vote`, lastModified: now, changeFrequency: "hourly", priority: 0.8 },
-    { url: `${base}/mifoid`, lastModified: now, changeFrequency: "weekly", priority: 0.6 },
-    { url: `${base}/files`, lastModified: now, changeFrequency: "weekly", priority: 0.4 },
-    { url: `${base}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+    ...APP_ROUTES.map((route) => ({
+      url: `${SITE_URL}${route.path}`,
+      changeFrequency: route.changeFrequency,
+      priority: route.priority,
+    })),
+    ...ABOUT_DOCS.map((doc) => ({
+      url: `${SITE_URL}/about/${doc.id}`,
+      lastModified: doc.updatedAt,
+      changeFrequency: "monthly" as const,
+      priority: KEY_DOCS.has(doc.id) ? 0.8 : 0.6,
+    })),
   ];
 }

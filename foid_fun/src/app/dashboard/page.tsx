@@ -64,6 +64,7 @@ export default function DashboardPage() {
   return (
     <main className="relative isolate min-h-screen bg-foid-bg text-white/90 overflow-hidden flex items-center justify-center" style={{ height: "100vh" }}>
       <div className="pointer-events-none fixed inset-0 z-0 vignette" />
+      <h1 className="sr-only">Your FOID dashboard</h1>
       <section className="relative z-10 w-full max-w-full px-2 sm:px-4">
         <div className="mx-auto w-full max-w-4xl">
           <div className="vista-window vista-window--terminal vista-window--enhanced w-full flex flex-col" style={{ maxHeight: "94vh" }}>

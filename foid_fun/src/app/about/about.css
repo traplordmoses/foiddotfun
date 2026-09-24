@@ -267,3 +267,139 @@
     background: rgb(10, 22, 40);
   }
 }
+
+/* ── /about/<doc> pages ─────────────────────────────────────────────────────
+   The in-app reader as a standalone page: same bar, page and footer rows,
+   centred over the wallpaper and clear of the dock. */
+.about-doc-page {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  padding: 0 12px;
+}
+/* Phones: the shared .vista-window rule already sizes the window to the
+   screen above the dock. Desktop: a comfortable reading height. */
+.about-doc-window {
+  width: 100%;
+  max-width: 880px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+@media (min-width: 1024px) {
+  .about-doc-page {
+    padding-top: 8px;
+  }
+  .about-doc-window {
+    height: min(calc(100dvh - 150px), 960px);
+  }
+}
+/* These rows share the reading column of .about-reader__doc, which is 68ch
+   of 15px body text. Size the box in that font so the ch unit matches, then
+   set the row's own type on its children. */
+.about-doc-crumbs,
+.about-doc-updated,
+.about-doc-index,
+.about-doc-title {
+  box-sizing: border-box;
+  max-width: 68ch; /* border-box, like .about-reader__doc (Tailwind preflight) */
+  font-family: var(--font-body);
+  font-size: 15px;
+}
+.about-doc-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 auto;
+  padding: 18px 26px 0;
+  color: var(--foid-text-dim);
+}
+.about-doc-crumbs > * {
+  font-family: var(--font-terminal);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+.about-doc-crumbs a {
+  color: var(--tone-info-text);
+  text-decoration: none;
+}
+.about-doc-crumbs a:hover {
+  text-decoration: underline;
+}
+.about-doc-title {
+  margin: 26px auto 0;
+  padding: 0 26px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.25;
+  color: var(--foid-text);
+}
+.about-doc-updated {
+  margin: 0 auto;
+  padding: 0 26px;
+  color: var(--foid-text-dim);
+}
+.about-doc-updated,
+.about-doc-updated time {
+  font-family: var(--font-terminal);
+  font-size: 12px;
+}
+.about-doc-index {
+  margin: 18px auto 0;
+  padding: 18px 26px 40px;
+  border-top: 1px solid var(--foid-border-subtle);
+}
+.about-doc-index h2 {
+  font-family: var(--font-terminal);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--foid-text-dim);
+  margin: 0 0 10px;
+}
+.about-doc-index ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.about-doc-index a,
+.about-doc-index span[aria-current] {
+  display: inline-block;
+  padding: 4px 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--tone-info-text);
+  text-decoration: none;
+}
+.about-doc-index a:hover {
+  text-decoration: underline;
+}
+.about-doc-index span[aria-current] {
+  color: var(--foid-text);
+}
+.about-reader__permalink {
+  text-decoration: none;
+}
+.about-reader__permalink:hover {
+  border-color: var(--tone-info-text);
+}
+.about-reader__permalink:focus-visible {
+  outline: 2px solid var(--foid-focus-ring);
+  outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  /* Match .about-reader__doc's phone padding so every row shares its edge. */
+  .about-doc-crumbs,
+  .about-doc-updated,
+  .about-doc-index,
+  .about-doc-title {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}

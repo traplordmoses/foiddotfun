@@ -8,6 +8,8 @@ import AnimatedBackground from "@/components/AnimatedBackground";
 import FloatingElements from "@/components/FloatingElements";
 import { SkyTint } from "@/components/SkyTint";
 import StyledJsxRegistry from "@/app/StyledJsxRegistry";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { ORG_ID, SAME_AS, SITE_DESCRIPTION, SITE_NAME, SITE_URL, WEBSITE_ID } from "@/lib/site";
 
 // Site-wide metadata. Per-route titles, descriptions and share cards come
 // from routeMetadata() in each route's layout; the card images themselves
@@ -119,6 +121,34 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="dns-prefetch" href="https://4everland.io" />
       </head>
   <body className="relative h-full min-h-screen overflow-hidden font-secondary" suppressHydrationWarning>
+    {/* Who FOID is, for search engines and AI answer engines. Per-page
+        entities (docs, placements) add their own blocks. */}
+    <JsonLd
+      data={{
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": ORG_ID,
+            name: SITE_NAME,
+            alternateName: ["FOID", "foid.fun"],
+            url: `${SITE_URL}/`,
+            logo: `${SITE_URL}/icons/512.png`,
+            description: SITE_DESCRIPTION,
+            sameAs: SAME_AS,
+          },
+          {
+            "@type": "WebSite",
+            "@id": WEBSITE_ID,
+            name: SITE_NAME,
+            alternateName: "FOID.FUN",
+            url: `${SITE_URL}/`,
+            inLanguage: "en",
+            publisher: { "@id": ORG_ID },
+          },
+        ],
+      }}
+    />
     <StyledJsxRegistry>
       <AnimatedBackground />
       <FloatingElements />
