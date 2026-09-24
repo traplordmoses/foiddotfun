@@ -4,10 +4,12 @@ import { SITE_URL } from "@/lib/site";
 
 // App routes carry no lastModified: they change continuously and a date
 // that moves on every deploy tells crawlers nothing. Docs use their real
-// updatedAt. Loreboard placement pages live in /sitemap-placements.xml.
+// updatedAt. Individual Loreboard placement pages (with their images) live in
+// /sitemap-placements.xml.
 const APP_ROUTES: Array<{ path: string; changeFrequency: "hourly" | "daily" | "weekly" | "monthly"; priority: number }> = [
   { path: "/", changeFrequency: "daily", priority: 1 },
   { path: "/board", changeFrequency: "hourly", priority: 0.9 },
+  { path: "/board/placements", changeFrequency: "daily", priority: 0.8 },
   { path: "/pray", changeFrequency: "daily", priority: 0.9 },
   { path: "/vote", changeFrequency: "hourly", priority: 0.8 },
   { path: "/about", changeFrequency: "monthly", priority: 0.7 },
