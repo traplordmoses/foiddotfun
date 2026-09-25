@@ -92,27 +92,32 @@
   height: 62px;
   border-radius: 18px;
   overflow: hidden;
-  color: #fff;
+  isolation: isolate;
+  /* Clear glass, faintly tinted by the app's accent. */
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 46%, rgba(255, 255, 255, 0) 50%),
     linear-gradient(
       160deg,
-      color-mix(in srgb, var(--app-accent) 55%, #ffffff) 0%,
-      var(--app-accent) 52%,
-      color-mix(in srgb, var(--app-accent) 55%, #06203f) 100%
-    );
-  border: 1px solid rgba(255, 255, 255, 0.45);
+      rgba(255, 255, 255, 0.32) 0%,
+      rgba(255, 255, 255, 0.08) 48%,
+      rgba(255, 255, 255, 0.03) 52%,
+      rgba(255, 255, 255, 0.14) 100%
+    ),
+    color-mix(in srgb, var(--app-accent) 18%, rgba(120, 180, 240, 0.1));
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  -webkit-backdrop-filter: blur(14px) saturate(1.6);
+  backdrop-filter: blur(14px) saturate(1.6);
   box-shadow:
-    0 10px 22px rgba(3, 18, 40, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    inset 0 -8px 14px rgba(0, 0, 0, 0.14);
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -8px 16px color-mix(in srgb, var(--app-accent) 24%, transparent),
+    0 10px 22px rgba(3, 18, 40, 0.3),
+    0 0 18px color-mix(in srgb, var(--app-accent) 20%, transparent);
   transition: transform 0.15s ease;
 }
 
-.home-screen__tile svg {
-  width: 28px;
-  height: 28px;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+.home-screen__tile .foid-glass-icon {
+  width: 44px;
+  height: 44px;
+  filter: drop-shadow(0 0 6px rgba(160, 230, 255, 0.45));
 }
 
 .home-screen__app:active .home-screen__tile {

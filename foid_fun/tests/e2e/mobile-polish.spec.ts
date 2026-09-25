@@ -84,3 +84,37 @@ test.describe("phone polish", () => {
     await expect(page.locator(".pray-reminder-link").first()).toHaveAttribute("href", /^data:text\/calendar/);
   });
 });
+
+test.describe("desktop board and dock", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test.beforeEach(async ({ context, page }) => {
+    await skipBootAndTour(context, page);
+    await page.addInitScript(() => window.localStorage.setItem("foid_os_welcome_dismissed", "1"));
+  });
+
+  test("the board shows a loading state, not the empty invitation, while it loads", async ({ page }) => {
+    // Hold the board data back so the loading window is long enough to see.
+    await page.route("**/api/proposals*", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      await route.continue();
+    });
+    await page.goto("/?apps=board&focus=board");
+    await expect(page.getByText("loading the loreboard", { exact: false })).toBeVisible();
+    await expect(page.getByText("the canvas is open")).toHaveCount(0);
+  });
+
+  test("the dock carries the glass icons", async ({ page }) => {
+    await page.goto("/?apps=mifoid&focus=mifoid");
+    // Home is hidden on the desktop dock, so count the visible ones.
+    const visible = page.locator(".foid-dock img.foid-glass-icon:visible");
+    await expect(visible.first()).toBeVisible();
+    expect(await visible.count()).toBeGreaterThanOrEqual(8);
+    // Every glyph loads (a missing file would have naturalWidth 0).
+    const broken = await page
+      .locator(".foid-dock img.foid-glass-icon")
+      .evaluateAll((els) => els.filter((el) => !(el as HTMLImageElement).naturalWidth).length);
+    expect(broken).toBe(0);
+  });
+});
+

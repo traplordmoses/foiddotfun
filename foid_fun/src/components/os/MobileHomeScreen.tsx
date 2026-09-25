@@ -12,12 +12,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type CSSProperties } from "react";
 import { navItems, type NavItem } from "@/components/Dock";
+import { GlassIcon } from "@/components/ui/GlassIcon";
 import { useWindowStore } from "@/stores/windowStore";
 import "./mobile-home-screen.css";
 
 const EPISODES: NavItem = {
   href: "/watch",
   label: "Episodes",
+  glass: "episodes",
   icon: (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="7" width="20" height="15" rx="2" />
@@ -29,7 +31,8 @@ const EPISODES: NavItem = {
 
 const APPS: NavItem[] = [...navItems, EPISODES];
 
-// Each app's accent, from the launcher tiles (HomeClient) where one exists.
+// Each app's accent (from the launcher tiles where one exists) tints its
+// glass tile.
 const ACCENT: Record<string, string> = {
   "/": "#7dd3fc",
   "/pray": "#22d3ee",
@@ -103,7 +106,7 @@ export function MobileHomeScreen() {
           const body = (
             <>
               <span className="home-screen__tile" aria-hidden="true">
-                {app.icon}
+                {app.glass ? <GlassIcon name={app.glass} px={128} size={44} /> : app.icon}
               </span>
               <span className="home-screen__label">{app.label}</span>
             </>

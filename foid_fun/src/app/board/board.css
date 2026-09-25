@@ -410,6 +410,32 @@
   color: var(--foid-text-dim);
   margin-top: 10px;
 }
+/* First load: a quiet glass chip instead of the empty-board invitation,
+   which used to flash for a second or two before the placements arrived. */
+.board-hint__loading {
+  font-family: var(--font-terminal);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  border-radius: var(--foid-radius-pill);
+  border: 1px solid var(--foid-glass-border);
+  background: rgba(8, 20, 34, 0.55);
+  backdrop-filter: blur(8px);
+  color: var(--foid-text-dim);
+  animation: board-loading-breathe 1.8s ease-in-out infinite;
+}
+@keyframes board-loading-breathe {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.board-hint__retry {
+  pointer-events: auto;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  .board-hint__loading { animation: none; }
+}
 .board-dragover {
   position: absolute;
   inset: 0;

@@ -20,9 +20,11 @@ export const STAGE_PAD_Y = (STAGE_CANVAS_H - VIRTUAL_CANVAS_H) / 2;
 export const GRID_RADIUS_X = Math.floor(WORLD_MAX_X / TILE);
 export const GRID_RADIUS_Y = Math.floor(WORLD_MAX_Y / TILE);
 
-// Zoom limits - extended for infinite feel
+// Zoom limits. Out: extended for an infinite feel. In: 8x (800%). Beyond
+// that a placement is a blurred wash of a few source pixels (50x used to
+// let a few wheel notches dive into one tile and read as a glitch).
 export const MIN_SCALE = 0.02;
-export const MAX_SCALE = 50;
+export const MAX_SCALE = 8;
 
 // ============================================================================
 // COORDINATE TRANSFORMATIONS

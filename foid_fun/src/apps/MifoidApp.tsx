@@ -40,14 +40,16 @@ const FEATURES = [
 ];
 
 /* 5 floating mini-windows — spread around the GameBoy, larger + glowing.
+   Positions and size are percentages of the Game Boy, so the collage
+   scales as one piece when the Game Boy shrinks to fit a short window.
    h = the render's height at 130px wide (the files are 1200px wide), so the
    width/height attributes carry each render's real proportions. */
 const FLOAT_WINDOWS = [
-  { src: "/mifoid04.webp", alt: "MiFOID - gray tee",       h: 122, top: -35,  left: -100, rotate: -6,  delay: "0s" },
-  { src: "/mifoid07.webp", alt: "MiFOID in Blender",        h: 110, top: "18%", left: -115, rotate: -8,  delay: "0.9s" },
-  { src: "/mifoid08.webp", alt: "MiFOID texture paint",     h: 146, top: "10%", right: -100, rotate: 5,  delay: "1.5s" },
-  { src: "/mifoid02.webp", alt: "MiFOID - green hoodie",    h: 122, bottom: 20, left: -110, rotate: 5,  delay: "1.2s" },
-  { src: "/mifoid03.webp", alt: "MiFOID - black hoodie",    h: 122, bottom: -20, right: -95, rotate: -6, delay: "0.3s" },
+  { src: "/mifoid04.webp", alt: "MiFOID - gray tee",       h: 122, top: "-6.5%", left: "-31%", rotate: -6,  delay: "0s" },
+  { src: "/mifoid07.webp", alt: "MiFOID in Blender",        h: 110, top: "18%", left: "-36%", rotate: -8,  delay: "0.9s" },
+  { src: "/mifoid08.webp", alt: "MiFOID texture paint",     h: 146, top: "10%", right: "-31%", rotate: 5,  delay: "1.5s" },
+  { src: "/mifoid02.webp", alt: "MiFOID - green hoodie",    h: 122, bottom: "3.75%", left: "-34%", rotate: 5,  delay: "1.2s" },
+  { src: "/mifoid03.webp", alt: "MiFOID - black hoodie",    h: 122, bottom: "-3.75%", right: "-30%", rotate: -6, delay: "0.3s" },
 ];
 
 const SPARKLES = [
@@ -63,7 +65,7 @@ export default function MifoidApp() {
     <>
       {/* Content area — iridescent gradient INSIDE window only */}
       <div
-        className="vista-window__body mifoid-iridescent"
+        className="vista-window__body mifoid-iridescent flex flex-col"
         style={{ overflow: "clip", flex: 1, minHeight: 0, position: "relative", padding: "0 24px" }}
       >
         {/* Decorative sparkles + bubbles (the sparkles sit over the feature
@@ -92,8 +94,10 @@ export default function MifoidApp() {
           ))}
         </div>
 
-        {/* Sub-header (wide layout; phones carry the title in the hero) */}
-        <div className="absolute top-3 left-4 right-4 lg:left-6 lg:right-6 hidden lg:flex items-center justify-between z-10">
+        {/* Sub-header (wide layout; phones carry the title in the hero). In
+            the flow, not absolute: it used to sit on top of the feature
+            column whenever that column ran taller than the window. */}
+        <div className="relative hidden lg:flex flex-none items-center justify-between z-10 pt-3 pb-1 lg:px-2">
           <span className="font-mono text-xs lg:text-sm font-bold tracking-[0.2em] text-white/90 uppercase">
             MIFOID
           </span>
@@ -103,9 +107,11 @@ export default function MifoidApp() {
         </div>
 
         {/* Flex layout: stacked on mobile, side-by-side on desktop */}
-        <div className="relative z-10 flex flex-col lg:flex-row items-center h-full pt-4 lg:pt-8 overflow-y-auto lg:overflow-visible">
-          {/* Left — features (below the hero on a phone) */}
-          <div className="flex flex-col justify-center flex-none lg:flex-1 w-full lg:h-full pl-4 pr-4 lg:pl-8 lg:pr-6 gap-4 lg:gap-7 min-w-0 pb-6 lg:pb-0">
+        <div className="relative z-10 flex flex-col lg:flex-row items-center flex-1 min-h-0 pt-4 lg:pt-0 overflow-y-auto lg:overflow-hidden">
+          {/* Left — features (below the hero on a phone). On the wide layout
+              the column scrolls when the window is short, and "safe" centering
+              keeps the top on screen instead of clipping it. */}
+          <div className="mifoid-features flex flex-col justify-center flex-none lg:flex-1 w-full lg:h-full pl-4 pr-4 lg:pl-8 lg:pr-6 gap-4 lg:gap-5 min-w-0 pb-6 lg:py-2 lg:overflow-y-auto">
             <MifoidReserve />
             {FEATURES.map((feat, i) => (
               <div key={i} className="flex gap-3 items-start">
@@ -126,10 +132,12 @@ export default function MifoidApp() {
 
           {/* Right — GameBoy+MiFOID combined image. On a phone it is the hero:
               first on screen, with the title and the renders under it. */}
-          <div className="order-first lg:order-none flex-none lg:flex-1 flex flex-col items-center justify-center relative w-full lg:h-full lg:mr-[40px] xl:mr-[70px] pt-2 pb-6 lg:py-0">
-            {/* GameBoy + character combined image */}
+          <div className="mifoid-stage order-first lg:order-none flex-none lg:flex-1 flex flex-col items-center justify-center relative w-full lg:h-full lg:mr-[40px] xl:mr-[70px] pt-2 pb-6 lg:py-0">
+            {/* GameBoy + character combined image. On the wide layout its
+                width follows the stage's height (46cqh keeps the 3:5 Game Boy
+                at ~77% of it), capped at the old sizes. */}
             <div
-              className="mifoid-gameboy-wrap relative w-[200px] md:w-[240px] lg:w-[280px] xl:w-[320px]"
+              className="mifoid-gameboy-wrap relative w-[200px] md:w-[240px] lg:w-[min(280px,46cqh)] xl:w-[min(320px,46cqh)]"
             >
               {/* Radial glow behind gameboy for focal effect */}
               <div className="mifoid-focal-glow" />
@@ -151,7 +159,7 @@ export default function MifoidApp() {
               {FLOAT_WINDOWS.map((fw, i) => {
                 const pos: React.CSSProperties = {
                   position: "absolute",
-                  width: 130,
+                  width: "40%",
                   zIndex: 10,
                   animationDelay: fw.delay,
                   transform: `rotate(${fw.rotate}deg)`,
@@ -286,6 +294,23 @@ export default function MifoidApp() {
         @keyframes mifoid-focal-pulse {
           0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
           50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+        }
+
+        /* Wide layout: the stage is a size container (the Game Boy width
+           reads its height in cqh); the features centre only while they fit. */
+        @media (min-width: 1024px) {
+          :global(.mifoid-stage) {
+            container-type: size;
+          }
+          :global(.mifoid-features) {
+            justify-content: safe center;
+          }
+          /* Phone-only pieces. Tailwind's lg:hidden loses to the display
+             rules below (same specificity, later in the cascade). */
+          :global(.mifoid-hero-caption),
+          :global(.mifoid-renders) {
+            display: none !important;
+          }
         }
 
         /* Phone hero: title + tagline under the Game Boy, then the renders. */

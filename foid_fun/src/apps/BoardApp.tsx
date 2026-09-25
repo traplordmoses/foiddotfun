@@ -323,10 +323,35 @@ export function BoardAppCore({
   const [ribbonDismissed, setRibbonDismissed] = useState(false);
 
   // Idle-zoom — after 10s of no user interaction, auto-zoom to the
-  // featured proposal. Any pointer/wheel/key on the canvas resets the
-  // timer. Disabled once dismissed or once the user manually interacts
-  // (so we don't stomp their chosen view repeatedly).
+  // featured proposal. Disabled once dismissed or once the user manually
+  // interacts (so we don't stomp their chosen view).
   const idleUsedRef = useRef(false);
+
+  // True from the first wheel, press or zoom key on the board. Both
+  // auto-zooms (idle → featured, load → pending votes) stand down after
+  // it: zooming while the board loads, pausing, and then having the camera
+  // fly somewhere else on its own read as a glitch. Listens on window in
+  // the capture phase so it counts input from before the canvas (or the
+  // featured proposal) has mounted.
+  const userMovedCameraRef = useRef(false);
+  useEffect(() => {
+    const inBoard = (target: EventTarget | null) =>
+      Boolean(containerRef.current && target instanceof Node && containerRef.current.contains(target));
+    const onInput = (e: Event) => {
+      if (inBoard(e.target)) userMovedCameraRef.current = true;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (shellFocused && ["+", "=", "-", "_", "0"].includes(e.key)) userMovedCameraRef.current = true;
+    };
+    window.addEventListener("wheel", onInput, { passive: true, capture: true });
+    window.addEventListener("pointerdown", onInput, { capture: true });
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("wheel", onInput, { capture: true });
+      window.removeEventListener("pointerdown", onInput, { capture: true });
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [shellFocused]);
 
   // Easter egg state — retro palette via Konami code + FPS HUD gated on
   // localStorage('board-debug')==='1'. Both are purely visual, no
@@ -420,37 +445,36 @@ export function BoardAppCore({
     };
   }, [analytics, shellFocused]);
 
-  // Idle-zoom to featured proposal after 10s of inactivity. Listens on
-  // pointer + wheel + key events to reset the timer. Fires exactly once
-  // per page load — after the first auto-zoom, the user has seen the
-  // featured proposal and further nudges would feel like a hijack.
+  // Idle-zoom to the featured proposal after 10s of an untouched board.
+  // Fires at most once per page load, and never once the visitor has
+  // moved the camera or pressed a key: their view wins.
   useEffect(() => {
-    if (!featuredProposal || ribbonDismissed || idleUsedRef.current) return;
+    if (!featuredProposal || ribbonDismissed || idleUsedRef.current || userMovedCameraRef.current) return;
     const el = containerRef.current;
     if (!el) return;
-    let timer: number | null = null;
-    const arm = () => {
+    let timer: number | null = window.setTimeout(() => {
+      timer = null;
+      if (idleUsedRef.current || userMovedCameraRef.current) return;
+      idleUsedRef.current = true;
+      try {
+        zoomToRect(featuredProposal.rect, 48);
+      } catch {
+        /* rect not renderable — silently skip */
+      }
+    }, 10_000);
+    const cancel = () => {
+      idleUsedRef.current = true;
       if (timer) window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        if (idleUsedRef.current) return;
-        idleUsedRef.current = true;
-        try {
-          zoomToRect(featuredProposal.rect, 48);
-        } catch {
-          /* rect not renderable — silently skip */
-        }
-      }, 10_000);
+      timer = null;
     };
-    const reset = () => arm();
-    arm();
-    el.addEventListener("pointerdown", reset);
-    el.addEventListener("wheel", reset, { passive: true });
-    window.addEventListener("keydown", reset);
+    el.addEventListener("pointerdown", cancel);
+    el.addEventListener("wheel", cancel, { passive: true });
+    window.addEventListener("keydown", cancel);
     return () => {
       if (timer) window.clearTimeout(timer);
-      el.removeEventListener("pointerdown", reset);
-      el.removeEventListener("wheel", reset);
-      window.removeEventListener("keydown", reset);
+      el.removeEventListener("pointerdown", cancel);
+      el.removeEventListener("wheel", cancel);
+      window.removeEventListener("keydown", cancel);
     };
   }, [featuredProposal, ribbonDismissed, zoomToRect]);
 
@@ -1215,7 +1239,7 @@ export function BoardAppCore({
     setSelectedProposalId(firstPendingId);
     if (autoZoomedEpochRef.current === firstPendingEpoch) return;
     autoZoomedEpochRef.current = firstPendingEpoch;
-    zoomToRect(pendingBounds, 64);
+    if (!userMovedCameraRef.current) zoomToRect(pendingBounds, 64);
   }, [firstPendingId, firstPendingEpoch, pendingBounds, pendingVotes.length, zoomToRect]);
 
   const selectedProposal = useMemo(
@@ -1609,7 +1633,20 @@ export function BoardAppCore({
                       onFileChange={onFileChange}
                     />
 
-                  {!items.length && !busy && !ghost && !placed.length && (
+                  {boardLoading && !placed.length && (
+                    <div className="board-hint" role="status">
+                      <span className="board-hint__loading">loading the loreboard…</span>
+                    </div>
+                  )}
+                  {!boardLoading && boardError && !placed.length && (
+                    <div className="board-hint">
+                      <span className="board-hint__title">the loreboard didn&apos;t load</span>
+                      <button type="button" className="board-hint__primary board-hint__retry" onClick={() => void refetchBoardData()}>
+                        try again
+                      </button>
+                    </div>
+                  )}
+                  {!boardLoading && !boardError && !items.length && !busy && !ghost && !placed.length && (
                     <div className="board-hint">
                       <span className="board-hint__title">the canvas is open</span>
                       <span className="board-hint__primary">drop an image to propose the first placement</span>

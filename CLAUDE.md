@@ -151,6 +151,11 @@ forge test
   static gradient (`.foid-background--static`). Below 1024px route pages
   are transparent so the wallpaper shows through the window glass. Also
   the virtualized `MobileBoard`, a 12px text floor, and a 5-tile dock + More.
+- Dock and home-screen icons are crystal-glass WebPs in
+  `foid_fun/public/icons/glass-v1/` (`src/config/appIcons.ts` records how
+  they were made so new ones match; bump the folder to change one, /icons
+  is edge-cached for a week). The dock bar is `.foid-dock-glass` in
+  globals.css.
 - Closing a window on a phone shows the home screen
   (`src/components/os/MobileHomeScreen.tsx`): clock + app icons over the
   wallpaper. FILES.EXE and ABOUT.EXE share `src/apps/finderChrome.tsx`
