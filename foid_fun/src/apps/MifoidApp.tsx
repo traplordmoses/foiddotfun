@@ -111,7 +111,7 @@ export default function MifoidApp() {
           {/* Left — features (below the hero on a phone). On the wide layout
               the column scrolls when the window is short, and "safe" centering
               keeps the top on screen instead of clipping it. */}
-          <div className="mifoid-features flex flex-col justify-center flex-none lg:flex-1 w-full lg:h-full pl-4 pr-4 lg:pl-8 lg:pr-6 gap-4 lg:gap-5 min-w-0 pb-6 lg:py-2 lg:overflow-y-auto">
+          <div className="mifoid-features flex flex-col justify-center flex-none lg:flex-1 w-full lg:h-full pl-4 pr-4 lg:pl-8 lg:pr-6 gap-4 lg:gap-4 min-w-0 pb-6 lg:py-1 lg:overflow-y-auto">
             <MifoidReserve />
             {FEATURES.map((feat, i) => (
               <div key={i} className="flex gap-3 items-start">
