@@ -24,12 +24,23 @@ export const metadata: Metadata = routeMetadata({
   card: "files",
 });
 
-function Card({ video }: { video: WatchVideo }) {
+// The first row is on screen at load (this page is the link in the social
+// bios, so mostly phones): those thumbnails load eagerly, the rest lazily.
+const EAGER_CARDS = 4;
+
+function Card({ video, eager = false }: { video: WatchVideo; eager?: boolean }) {
   return (
     <li>
       <Link href={`/watch/${video.id}`} className="placement-card">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={video.thumbPath} alt="" loading="lazy" decoding="async" width={video.width} height={video.height} />
+        <img
+          src={video.thumbPath}
+          alt=""
+          loading={eager ? "eager" : "lazy"}
+          decoding="async"
+          width={video.width}
+          height={video.height}
+        />
         <span className="placement-card__title">{video.title}</span>
         <span className="placement-card__meta">
           {video.seriesLabel ?? ""}
@@ -106,8 +117,8 @@ export default function WatchIndexPage() {
               <h2 id="watch-episodes">episodes</h2>
               {episodes.length ? (
                 <ul className="placement-grid watch-grid watch-grid--portrait">
-                  {episodes.map((video) => (
-                    <Card key={video.id} video={video} />
+                  {episodes.map((video, i) => (
+                    <Card key={video.id} video={video} eager={i < EAGER_CARDS} />
                   ))}
                 </ul>
               ) : (
@@ -125,8 +136,8 @@ export default function WatchIndexPage() {
               <section className="watch-section" aria-labelledby="watch-films">
                 <h2 id="watch-films">films and loops</h2>
                 <ul className="placement-grid watch-grid">
-                  {films.map((video) => (
-                    <Card key={video.id} video={video} />
+                  {films.map((video, i) => (
+                    <Card key={video.id} video={video} eager={episodes.length === 0 && i < EAGER_CARDS} />
                   ))}
                 </ul>
               </section>
