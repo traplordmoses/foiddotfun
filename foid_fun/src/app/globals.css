@@ -6081,8 +6081,8 @@ body.foid-window-dragging .vista-window * {
   @container foid-window (max-width: 1000px) {
     .mifoid-page .mifoid-iridescent > .relative.z-10.flex {
       flex-direction: column; /* overrides lg:flex-row */
-      overflow-y: auto; /* overrides lg:overflow-visible */
-      padding-top: 2.5rem;
+      overflow-y: auto; /* overrides lg:overflow-hidden */
+      padding-top: 1rem; /* the sub-header is in the flow now */
     }
     .mifoid-page .mifoid-iridescent > .relative.z-10.flex > div {
       height: auto; /* overrides lg:h-full on both columns */
@@ -6090,11 +6090,18 @@ body.foid-window-dragging .vista-window * {
     }
     .mifoid-page .mifoid-iridescent > .relative.z-10.flex > div:first-child {
       /* Stacked feature list: centered measure instead of hugging the
-         left edge of a full-width column. */
+         left edge of a full-width column. It scrolls with the page here,
+         not on its own. */
       max-width: 560px;
+      overflow-y: visible;
+      justify-content: flex-start;
     }
     .mifoid-page .mifoid-iridescent > .relative.z-10.flex > div:last-child {
       padding-bottom: 24px; /* stacked stage needs its own exit air */
+      order: -1; /* hero first, as on a phone */
+      /* Height is auto when stacked, and a size container with an auto
+         height collapses to nothing. */
+      container-type: normal;
     }
     .mifoid-page .mifoid-paint-window {
       /* The floats hang ±100px outside the GameBoy — in a narrow window
@@ -6747,5 +6754,109 @@ body.foid-dock-hidden .os-desktop__hint {
 @media (max-width: 1023px) {
   .foid-background.foid-background--paused {
     opacity: 0.6;
+  }
+}
+
+/* ============================================================================
+   GLASS DOCK + ICONS (2026-09-25)
+   Clear, futuristic Frutiger Aero glass on phone and desktop: a see-through
+   slab with a bright specular rim and the wallpaper frosted behind it,
+   carrying the crystal app glyphs (src/config/appIcons.ts).
+   ============================================================================ */
+.foid-dock-glass {
+  position: relative;
+  isolation: isolate;
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.2) 0%,
+      rgba(255, 255, 255, 0.07) 46%,
+      rgba(255, 255, 255, 0.03) 54%,
+      rgba(255, 255, 255, 0.1) 100%
+    ),
+    rgba(175, 215, 250, 0.1);
+  -webkit-backdrop-filter: blur(22px) saturate(1.45) brightness(1.06);
+  backdrop-filter: blur(22px) saturate(1.45) brightness(1.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -12px 24px rgba(140, 220, 255, 0.14),
+    0 18px 40px rgba(0, 18, 48, 0.38),
+    0 0 0 0.5px rgba(0, 24, 60, 0.3);
+}
+/* Light across the top of the slab. */
+.foid-dock-glass::before {
+  content: "";
+  position: absolute;
+  inset: 1px 1px 52% 1px;
+  z-index: -1;
+  border-radius: 25px 25px 50% 50% / 25px 25px 12px 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.03));
+  pointer-events: none;
+}
+
+.foid-dock-glyph {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  opacity: 0.86;
+  transition: opacity 0.2s ease;
+}
+.foid-dock-glyph .foid-glass-icon {
+  width: 30px;
+  height: 30px;
+  filter: drop-shadow(0 1px 1px rgba(0, 20, 50, 0.35)) drop-shadow(0 0 4px rgba(150, 225, 255, 0.28));
+  transition: filter 0.2s ease;
+}
+.foid-dock-glyph--active {
+  opacity: 1;
+}
+.foid-dock-glyph--active .foid-glass-icon {
+  filter: drop-shadow(0 0 7px rgba(160, 235, 255, 0.8)) brightness(1.15);
+}
+
+.foid-dock-label {
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 4px rgba(0, 20, 50, 0.6);
+  transition: color 0.2s ease;
+}
+.foid-dock-label--active {
+  color: #fff;
+}
+.foid-dock-label--sheet {
+  margin-top: 0;
+}
+
+/* The app in front: a brighter glass bubble behind its glyph. */
+.foid-dock-puck {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.08) 62%),
+    rgba(160, 220, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -6px 12px rgba(140, 220, 255, 0.2),
+    0 0 18px rgba(130, 210, 255, 0.35);
+}
+
+/* Phones: the lighter blur of the mobile rendering budget, and the 12px
+   legibility floor for the labels. */
+@media (max-width: 1023px), (pointer: coarse) {
+  .foid-dock .foid-dock-glass {
+    -webkit-backdrop-filter: blur(16px) saturate(1.45) brightness(1.06);
+    backdrop-filter: blur(16px) saturate(1.45) brightness(1.06);
+  }
+}
+@media (max-width: 639px) {
+  .foid-dock-label {
+    font-size: 12px;
   }
 }

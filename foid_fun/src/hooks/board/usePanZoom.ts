@@ -599,7 +599,13 @@ export function usePanZoom(
       if (e.shiftKey) return;
       e.preventDefault();
       cancelMomentum();
-      const factor = Math.exp(-e.deltaY * 0.003);
+      // Normalise, then clamp, each wheel event. Firefox reports lines
+      // (deltaMode 1) and pages (2); a fast mouse flick arrives as a few
+      // huge pixel deltas that each multiplied the zoom several times over.
+      // Trackpad pinches (many small deltas) are untouched.
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight || 800 : 1;
+      const dy = Math.max(-80, Math.min(80, e.deltaY * unit));
+      const factor = Math.exp(-dy * 0.003);
       const currScale = scaleRef.current;
       const currPan = panRef.current;
       const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, currScale * factor));

@@ -27,11 +27,16 @@ import {
   FOID_DESKTOP_ENABLED,
 } from '@/config/desktop';
 import { claimDockArrival } from '@/lib/foidOsBoot';
+import { GlassIcon } from '@/components/ui/GlassIcon';
+import type { GlassIconName } from '@/config/appIcons';
 
 export interface NavItem {
   href: string;
   label: string;
+  /** Line glyph (fallback and small menus). */
   icon: React.ReactNode;
+  /** The crystal-glass app icon (src/config/appIcons.ts). */
+  glass?: GlassIconName;
   external?: boolean;
 }
 
@@ -40,6 +45,7 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   {
     href: '/',
+    glass: 'home',
     label: 'Home',
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -50,6 +56,7 @@ export const navItems: NavItem[] = [
   },
   {
     href: '/pray',
+    glass: 'pray',
     label: 'Pray',
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -61,6 +68,7 @@ export const navItems: NavItem[] = [
   },
   {
     href: '/board',
+    glass: 'board',
     label: 'Board',
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -73,6 +81,7 @@ export const navItems: NavItem[] = [
   },
   {
     href: '/vote',
+    glass: 'vote',
     label: 'Vote',
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -83,6 +92,7 @@ export const navItems: NavItem[] = [
   },
   {
     href: '/mifoid',
+    glass: 'mifoid',
     label: 'MiFOID',
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -93,6 +103,7 @@ export const navItems: NavItem[] = [
   },
   {
     href: '/files',
+    glass: 'files',
     label: 'Files',
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -102,6 +113,7 @@ export const navItems: NavItem[] = [
   },
   {
     href: '/about',
+    glass: 'about',
     label: 'About',
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
@@ -361,14 +373,8 @@ export function Dock() {
       onMouseLeave={() => { dockHoverRef.current = false; }}
     >
       <div
-        className="pointer-events-auto flex items-center h-16 px-3 rounded-[24px] border border-white/[0.16] backdrop-blur-2xl"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(90, 150, 200, 0.20), rgba(20, 40, 70, 0.55)), rgba(6, 10, 18, 0.55)',
-          boxShadow:
-            '0 12px 32px rgba(0, 10, 30, 0.5), 0 0 40px rgba(100, 180, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.18)',
-          maxWidth: 'calc(100vw - 20px)',
-        }}
+        className="foid-dock-glass pointer-events-auto flex items-center h-16 px-3"
+        style={{ maxWidth: 'calc(100vw - 20px)' }}
         onMouseMove={magnify ? (e) => mouseX.set(e.clientX) : undefined}
         onMouseLeave={magnify ? () => mouseX.set(Infinity) : undefined}
       >
@@ -403,18 +409,14 @@ export function Dock() {
             >
               <DockIcon mouseX={mouseX}>
                 <motion.div
-                  className={`transition-colors duration-200 ${isActive ? 'text-white' : 'text-white/55'}`}
+                  className={`foid-dock-glyph${isActive ? ' foid-dock-glyph--active' : ''}`}
                   animate={{ y: isActive ? -1 : 0 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 26 }}
-                  style={isActive ? { filter: 'drop-shadow(0 0 8px rgba(150, 220, 255, 0.55))' } : undefined}
                 >
-                  {item.icon}
+                  {item.glass ? <GlassIcon name={item.glass} size={30} /> : item.icon}
                 </motion.div>
               </DockIcon>
-              <span className={`
-                text-[10px] mt-1 font-medium transition-colors duration-200
-                ${isActive ? 'text-white' : 'text-white/55'}
-              `}>
+              <span className={`foid-dock-label${isActive ? ' foid-dock-label--active' : ''}`}>
                 {item.label}
               </span>
             </motion.div>
@@ -470,12 +472,8 @@ export function Dock() {
               {isActive && (
                 <motion.div
                   layoutId="dockPuck"
-                  className="absolute inset-x-0.5 inset-y-1.5 rounded-2xl border border-white/[0.22]"
-                  style={{
-                    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05))',
-                    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 16px rgba(120, 200, 255, 0.18)',
-                    opacity: windowMinimized ? 0.45 : 1,
-                  }}
+                  className="foid-dock-puck absolute inset-x-0.5 inset-y-1"
+                  style={{ opacity: windowMinimized ? 0.45 : 1 }}
                   transition={{ type: 'spring', stiffness: 500, damping: 32 }}
                 />
               )}
@@ -509,24 +507,13 @@ export function Dock() {
               className="relative flex flex-col items-center justify-center h-full min-h-11 min-w-[56px] px-1 touch-manipulation"
             >
               {(moreOpen || overflowActive) && (
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-x-0.5 inset-y-1.5 rounded-2xl border border-white/[0.22]"
-                  style={{
-                    background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05))',
-                    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 16px rgba(120, 200, 255, 0.18)',
-                  }}
-                />
+                <span aria-hidden="true" className="foid-dock-puck absolute inset-x-0.5 inset-y-1" />
               )}
               <span className="relative z-10 flex flex-col items-center justify-center">
-                <span className={`transition-colors duration-200 ${moreOpen || overflowActive ? 'text-white' : 'text-white/55'}`}>
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                    <circle cx="5" cy="12" r="1.6" />
-                    <circle cx="12" cy="12" r="1.6" />
-                    <circle cx="19" cy="12" r="1.6" />
-                  </svg>
+                <span className={`foid-dock-glyph${moreOpen || overflowActive ? ' foid-dock-glyph--active' : ''}`}>
+                  <GlassIcon name="more" size={30} />
                 </span>
-                <span className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${moreOpen || overflowActive ? 'text-white' : 'text-white/55'}`}>
+                <span className={`foid-dock-label${moreOpen || overflowActive ? ' foid-dock-label--active' : ''}`}>
                   More
                 </span>
               </span>
@@ -535,7 +522,7 @@ export function Dock() {
               <div
                 role="menu"
                 aria-label="More apps"
-                className="foid-dock-sheet"
+                className="foid-dock-sheet foid-dock-glass"
                 style={{
                   position: 'fixed',
                   left: 12,
@@ -546,10 +533,7 @@ export function Dock() {
                   gridTemplateColumns: `repeat(${overflowItems.length}, minmax(0, 1fr))`,
                   gap: 8,
                   padding: 10,
-                  borderRadius: 20,
-                  border: '1px solid rgba(255,255,255,0.16)',
-                  background: 'linear-gradient(180deg, rgba(90, 150, 200, 0.20), rgba(20, 40, 70, 0.55)), rgba(6, 10, 18, 0.78)',
-                  boxShadow: '0 12px 32px rgba(0, 10, 30, 0.5)',
+                  borderRadius: 22,
                 }}
               >
                 {overflowItems.map((item) => {
@@ -563,11 +547,11 @@ export function Dock() {
                       onClick={() => setMoreOpen(false)}
                       aria-current={active ? 'page' : undefined}
                       className={`flex flex-col items-center justify-center gap-1 rounded-2xl py-3 touch-manipulation ${
-                        active ? 'text-white bg-white/10' : 'text-white/70'
+                        active ? 'text-white bg-white/10' : 'text-white/80'
                       }`}
                     >
-                      {item.icon}
-                      <span className="text-[10px] font-medium">{item.label}</span>
+                      {item.glass ? <GlassIcon name={item.glass} size={34} /> : item.icon}
+                      <span className="foid-dock-label foid-dock-label--sheet">{item.label}</span>
                     </Link>
                   );
                 })}
@@ -587,34 +571,18 @@ export function Dock() {
           aria-label={ampOpen ? 'Close MUSIC.EXE' : 'Open MUSIC.EXE'}
           className="relative hidden lg:flex flex-col items-center justify-center h-full min-w-[64px] px-2 touch-manipulation"
         >
-          {ampOpen && (
-            <span
-              aria-hidden="true"
-              className="absolute inset-x-0.5 inset-y-1.5 rounded-2xl border border-white/[0.22]"
-              style={{
-                background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05))',
-                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 16px rgba(120, 200, 255, 0.18)',
-              }}
-            />
-          )}
+          {ampOpen && <span aria-hidden="true" className="foid-dock-puck absolute inset-x-0.5 inset-y-1" />}
           <motion.div
             className="relative z-10 flex flex-col items-center justify-center"
             whileTap={{ scale: 0.88 }}
             transition={{ duration: 0.1 }}
           >
             <DockIcon mouseX={mouseX}>
-              <div
-                className={`transition-colors duration-200 ${ampOpen ? 'text-white' : 'text-white/55'}`}
-                style={ampOpen ? { filter: 'drop-shadow(0 0 8px rgba(150, 220, 255, 0.55))' } : undefined}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                  <path d="M9 18V5l12-2v13" />
-                  <circle cx="6" cy="18" r="3" />
-                  <circle cx="18" cy="16" r="3" />
-                </svg>
+              <div className={`foid-dock-glyph${ampOpen ? ' foid-dock-glyph--active' : ''}`}>
+                <GlassIcon name="music" size={30} />
               </div>
             </DockIcon>
-            <span className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${ampOpen ? 'text-white' : 'text-white/55'}`}>
+            <span className={`foid-dock-label${ampOpen ? ' foid-dock-label--active' : ''}`}>
               Music
             </span>
           </motion.div>
@@ -637,32 +605,18 @@ export function Dock() {
           aria-label={chatOpen ? 'Close CHAT.EXE' : 'Open CHAT.EXE'}
           className="relative hidden lg:flex flex-col items-center justify-center h-full min-w-[64px] px-2 touch-manipulation"
         >
-          {chatOpen && (
-            <span
-              aria-hidden="true"
-              className="absolute inset-x-0.5 inset-y-1.5 rounded-2xl border border-white/[0.22]"
-              style={{
-                background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05))',
-                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 16px rgba(120, 200, 255, 0.18)',
-              }}
-            />
-          )}
+          {chatOpen && <span aria-hidden="true" className="foid-dock-puck absolute inset-x-0.5 inset-y-1" />}
           <motion.div
             className="relative z-10 flex flex-col items-center justify-center"
             whileTap={{ scale: 0.88 }}
             transition={{ duration: 0.1 }}
           >
             <DockIcon mouseX={mouseX}>
-              <div
-                className={`transition-colors duration-200 ${chatOpen ? 'text-white' : 'text-white/55'}`}
-                style={chatOpen ? { filter: 'drop-shadow(0 0 8px rgba(150, 220, 255, 0.55))' } : undefined}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
+              <div className={`foid-dock-glyph${chatOpen ? ' foid-dock-glyph--active' : ''}`}>
+                <GlassIcon name="chat" size={30} />
               </div>
             </DockIcon>
-            <span className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${chatOpen ? 'text-white' : 'text-white/55'}`}>
+            <span className={`foid-dock-label${chatOpen ? ' foid-dock-label--active' : ''}`}>
               Chat
             </span>
           </motion.div>
