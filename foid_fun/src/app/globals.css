@@ -6759,42 +6759,137 @@ body.foid-dock-hidden .os-desktop__hint {
 
 /* ============================================================================
    GLASS DOCK + ICONS (2026-09-25)
-   Clear, futuristic Frutiger Aero glass on phone and desktop: a see-through
-   slab with a bright specular rim and the wallpaper frosted behind it,
-   carrying the crystal app glyphs (src/config/appIcons.ts).
+   Clear, glossy, futuristic Frutiger Aero glass on phone and desktop: a
+   see-through slab (light frost, the water readable behind it) with an
+   iridescent rim like light splitting on a bevel, a glossy upper cap, and a
+   light that sweeps across the glass every few seconds. The crystal app
+   glyphs (src/config/appIcons.ts) carry their own gloss and catch the same
+   light as it passes (GlassIcon staggers each glint by position).
    ============================================================================ */
 .foid-dock-glass {
   position: relative;
   isolation: isolate;
   border-radius: 26px;
-  border: 1px solid rgba(255, 255, 255, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   background:
     linear-gradient(
       180deg,
-      rgba(255, 255, 255, 0.2) 0%,
-      rgba(255, 255, 255, 0.07) 46%,
-      rgba(255, 255, 255, 0.03) 54%,
-      rgba(255, 255, 255, 0.1) 100%
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.03) 46%,
+      rgba(255, 255, 255, 0) 54%,
+      rgba(255, 255, 255, 0.05) 100%
     ),
-    rgba(175, 215, 250, 0.1);
-  -webkit-backdrop-filter: blur(22px) saturate(1.45) brightness(1.06);
-  backdrop-filter: blur(22px) saturate(1.45) brightness(1.06);
+    rgba(190, 228, 255, 0.04);
+  -webkit-backdrop-filter: blur(9px) saturate(1.35) brightness(1.08);
+  backdrop-filter: blur(9px) saturate(1.35) brightness(1.08);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.16),
-    inset 0 -12px 24px rgba(140, 220, 255, 0.14),
-    0 18px 40px rgba(0, 18, 48, 0.38),
-    0 0 0 0.5px rgba(0, 24, 60, 0.3);
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.22),
+    inset 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset -1px 0 0 rgba(255, 255, 255, 0.1),
+    inset 0 -10px 20px rgba(160, 232, 255, 0.12),
+    0 16px 36px rgba(0, 18, 48, 0.28);
 }
-/* Light across the top of the slab. */
+/* Iridescent rim: a thin gradient ring (mask cuts out the middle). */
 .foid-dock-glass::before {
   content: "";
   position: absolute;
-  inset: 1px 1px 52% 1px;
-  z-index: -1;
-  border-radius: 25px 25px 50% 50% / 25px 25px 12px 12px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.03));
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(150, 232, 255, 0.6) 22%,
+    rgba(255, 186, 238, 0.5) 46%,
+    rgba(170, 255, 226, 0.55) 70%,
+    rgba(255, 255, 255, 0.9) 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
   pointer-events: none;
+}
+/* Glossy cap on the upper half, and the sweeping light. */
+.foid-dock-glass__shine {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+.foid-dock-glass__shine::before {
+  content: "";
+  position: absolute;
+  inset: 1px 1px 50% 1px;
+  border-radius: 25px 25px 50% 50% / 25px 25px 12px 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.02));
+}
+.foid-dock-glass__shine::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  bottom: -40%;
+  left: 0;
+  width: 30%;
+  /* White core with faint cyan and pink fringes: light splitting as it
+     crosses the glass. */
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(170, 240, 255, 0.2) 32%,
+    rgba(255, 255, 255, 0.66) 50%,
+    rgba(255, 205, 245, 0.22) 68%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  mix-blend-mode: screen;
+  transform: translateX(-120%) skewX(-16deg);
+  animation: foid-glass-sweep-bar 7s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+@keyframes foid-glass-sweep-bar {
+  0%, 70% { transform: translateX(-120%) skewX(-16deg); }
+  90%, 100% { transform: translateX(420%) skewX(-16deg); }
+}
+
+/* A crystal glyph: the image, then gloss + glint cut to its shape.
+   (Not .foid-glass: that is the glass-panel utility.) */
+.glass-glyph {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.glass-glyph > .foid-glass-icon {
+  width: 100%;
+  height: 100%;
+}
+.glass-glyph__gloss {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask: var(--glass-src) center / contain no-repeat;
+  mask: var(--glass-src) center / contain no-repeat;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.2) 42%, rgba(255, 255, 255, 0) 50%);
+  mix-blend-mode: screen;
+}
+.glass-glyph__gloss::after {
+  content: "";
+  position: absolute;
+  top: -30%;
+  bottom: -30%;
+  left: 0;
+  width: 55%;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.95) 50%, rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-140%) skewX(-14deg);
+  animation: foid-glass-glint 7s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  animation-delay: var(--sweep-delay, 0ms);
+}
+@keyframes foid-glass-glint {
+  0%, 74% { transform: translateX(-140%) skewX(-14deg); }
+  86%, 100% { transform: translateX(260%) skewX(-14deg); }
 }
 
 .foid-dock-glyph {
@@ -6802,20 +6897,18 @@ body.foid-dock-hidden .os-desktop__hint {
   place-items: center;
   width: 34px;
   height: 34px;
-  opacity: 0.86;
+  opacity: 0.9;
   transition: opacity 0.2s ease;
 }
 .foid-dock-glyph .foid-glass-icon {
-  width: 30px;
-  height: 30px;
-  filter: drop-shadow(0 1px 1px rgba(0, 20, 50, 0.35)) drop-shadow(0 0 4px rgba(150, 225, 255, 0.28));
+  filter: drop-shadow(0 1px 1px rgba(0, 20, 50, 0.3)) drop-shadow(0 0 4px rgba(150, 225, 255, 0.35));
   transition: filter 0.2s ease;
 }
 .foid-dock-glyph--active {
   opacity: 1;
 }
 .foid-dock-glyph--active .foid-glass-icon {
-  filter: drop-shadow(0 0 7px rgba(160, 235, 255, 0.8)) brightness(1.15);
+  filter: drop-shadow(0 0 8px rgba(160, 235, 255, 0.85)) brightness(1.18);
 }
 
 .foid-dock-label {
@@ -6823,8 +6916,8 @@ body.foid-dock-hidden .os-desktop__hint {
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: rgba(255, 255, 255, 0.8);
-  text-shadow: 0 1px 4px rgba(0, 20, 50, 0.6);
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 4px rgba(0, 20, 50, 0.7);
   transition: color 0.2s ease;
 }
 .foid-dock-label--active {
@@ -6834,29 +6927,36 @@ body.foid-dock-hidden .os-desktop__hint {
   margin-top: 0;
 }
 
-/* The app in front: a brighter glass bubble behind its glyph. */
+/* The app in front: a clear glass bubble with a bright rim. */
 .foid-dock-puck {
   border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.55);
   background:
-    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.08) 62%),
-    rgba(160, 220, 255, 0.12);
+    radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.05) 56%, rgba(255, 255, 255, 0) 70%),
+    rgba(170, 225, 255, 0.06);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    inset 0 -6px 12px rgba(140, 220, 255, 0.2),
-    0 0 18px rgba(130, 210, 255, 0.35);
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -5px 10px rgba(150, 225, 255, 0.18),
+    0 0 16px rgba(130, 210, 255, 0.3);
 }
 
-/* Phones: the lighter blur of the mobile rendering budget, and the 12px
-   legibility floor for the labels. */
+/* Phones: a touch less blur still (the mobile rendering budget), and the
+   12px legibility floor for the labels. */
 @media (max-width: 1023px), (pointer: coarse) {
   .foid-dock .foid-dock-glass {
-    -webkit-backdrop-filter: blur(16px) saturate(1.45) brightness(1.06);
-    backdrop-filter: blur(16px) saturate(1.45) brightness(1.06);
+    -webkit-backdrop-filter: blur(8px) saturate(1.35) brightness(1.08);
+    backdrop-filter: blur(8px) saturate(1.35) brightness(1.08);
   }
 }
 @media (max-width: 639px) {
   .foid-dock-label {
     font-size: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .foid-dock-glass__shine::after,
+  .glass-glyph__gloss::after {
+    animation: none;
+    opacity: 0;
   }
 }

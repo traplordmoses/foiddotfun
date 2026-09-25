@@ -93,31 +93,60 @@
   border-radius: 18px;
   overflow: hidden;
   isolation: isolate;
-  /* Clear glass, faintly tinted by the app's accent. */
+  /* Clear glass with a whisper of the app's accent. */
   background:
     linear-gradient(
       160deg,
-      rgba(255, 255, 255, 0.32) 0%,
-      rgba(255, 255, 255, 0.08) 48%,
-      rgba(255, 255, 255, 0.03) 52%,
-      rgba(255, 255, 255, 0.14) 100%
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.04) 48%,
+      rgba(255, 255, 255, 0) 52%,
+      rgba(255, 255, 255, 0.08) 100%
     ),
-    color-mix(in srgb, var(--app-accent) 18%, rgba(120, 180, 240, 0.1));
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  -webkit-backdrop-filter: blur(14px) saturate(1.6);
-  backdrop-filter: blur(14px) saturate(1.6);
+    color-mix(in srgb, var(--app-accent) 10%, rgba(150, 205, 250, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  -webkit-backdrop-filter: blur(7px) saturate(1.4) brightness(1.06);
+  backdrop-filter: blur(7px) saturate(1.4) brightness(1.06);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    inset 0 -8px 16px color-mix(in srgb, var(--app-accent) 24%, transparent),
-    0 10px 22px rgba(3, 18, 40, 0.3),
-    0 0 18px color-mix(in srgb, var(--app-accent) 20%, transparent);
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -8px 14px color-mix(in srgb, var(--app-accent) 20%, transparent),
+    0 10px 22px rgba(3, 18, 40, 0.24),
+    0 0 16px color-mix(in srgb, var(--app-accent) 16%, transparent);
   transition: transform 0.15s ease;
+}
+/* Glossy cap across the top of the tile. */
+.home-screen__tile::before {
+  content: "";
+  position: absolute;
+  inset: 1px 1px 50% 1px;
+  z-index: -1;
+  border-radius: 17px 17px 40% 40% / 17px 17px 10px 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.03));
+}
+/* The same travelling light as the dock, tile by tile. */
+.home-screen__tile::after {
+  content: "";
+  position: absolute;
+  top: -30%;
+  bottom: -30%;
+  left: 0;
+  width: 45%;
+  z-index: 1;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.45) 50%, rgba(255, 255, 255, 0) 100%);
+  transform: translateX(-160%) skewX(-14deg);
+  animation: foid-glass-glint 7s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  animation-delay: calc(var(--i, 0) * 110ms);
+  pointer-events: none;
 }
 
 .home-screen__tile .foid-glass-icon {
-  width: 44px;
-  height: 44px;
-  filter: drop-shadow(0 0 6px rgba(160, 230, 255, 0.45));
+  filter: drop-shadow(0 0 6px rgba(160, 230, 255, 0.5));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-screen__tile::after {
+    animation: none;
+    opacity: 0;
+  }
 }
 
 .home-screen__app:active .home-screen__tile {
