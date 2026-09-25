@@ -2,10 +2,39 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
+import { useWindowStore } from "@/stores/windowStore";
 
 interface LayerOptions {
   isMobile?: boolean;
+  /** Fraction of the device-pixel size to draw. Phones render a soft
+   *  low-res frame and let the compositor scale it up: the shader's pattern
+   *  is resolution-independent, so it reads the same, just softer. */
+  renderScale?: number;
+  /** Frame cap. The water moves slowly, 24fps is indistinguishable. */
+  maxFps?: number;
+  /** Called after the first frame is on the canvas (for the fade-in). */
+  onFirstFrame?: () => void;
+  /** Live knobs for the phone layer (read every frame; wins over maxFps). */
+  control?: LiveControl;
 }
+
+/** The phone wallpaper's live state. The component flips it as the user
+ *  moves around; the render loop reads it every frame. */
+type LiveControl = {
+  /** Set once the phone layer is running. */
+  mobile: boolean;
+  /** Stop drawing (the board's canvas covers the wallpaper). */
+  paused: boolean;
+  /** 24 on the home screen, where the water is the whole view; 12 behind
+   *  an open window, where it only shows through blurred glass. */
+  fps: number;
+  /** Restarts the loop after a pause (set by setupWebGL). */
+  resume?: () => void;
+};
+
+/** Routes whose own full-screen canvas hides the wallpaper. */
+const PAUSED_ROUTES = new Set(["/board"]);
 
 /* ───────────────── Shadertoy background ───────────────── */
 const SHADERTOY_SOURCE = String.raw`
@@ -275,6 +304,32 @@ function createMatchMedia(query: string): MediaQueryList {
 
 export default function AnimatedBackground() {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const control = useRef<LiveControl>({ mobile: false, paused: false, fps: 12 });
+  const pathname = usePathname();
+  const routeRef = useRef(pathname);
+  routeRef.current = pathname;
+
+  // Phone layer only: pause under the board (its canvas covers the water;
+  // the page keeps the old dim, still tone there) and resume elsewhere.
+  const applyRoute = () => {
+    const c = control.current;
+    const container = containerRef.current;
+    if (!c.mobile || !container) return;
+    c.paused = PAUSED_ROUTES.has(routeRef.current ?? "");
+    container.classList.toggle("foid-background--paused", c.paused);
+    if (!c.paused) c.resume?.();
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- applyRoute reads refs only
+  useEffect(applyRoute, [pathname]);
+
+  // Home screen (window closed) gets the full frame rate.
+  useEffect(() => {
+    const apply = (minimized: boolean) => {
+      control.current.fps = minimized ? 24 : 12;
+    };
+    apply(useWindowStore.getState().minimized);
+    return useWindowStore.subscribe((state) => apply(state.minimized));
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -288,13 +343,14 @@ export default function AnimatedBackground() {
       );
     };
 
-    // Static wallpaper for phones, data-saver, very-low-memory devices and
-    // reduced-motion: three animated canvases under glass was the largest
-    // steady-state cost on mobile (audit P4). The CSS gradient in
-    // globals.css (.foid-background--static) stands in for the shader.
+    // Static wallpaper for data-saver, very-low-memory devices and
+    // reduced-motion. The CSS gradient in globals.css
+    // (.foid-background--static) stands in for the shader. Phones are not
+    // on this list any more: three animated canvases under glass was the
+    // largest steady-state cost on mobile (audit P4), so they get ONE
+    // shader layer at 40% resolution and 24fps instead (below).
     const shouldUseStaticWallpaper = () => {
       if (typeof window === "undefined") return false;
-      if (detectMobile()) return true;
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
       const nav = navigator as Navigator & {
         connection?: { saveData?: boolean };
@@ -323,6 +379,35 @@ export default function AnimatedBackground() {
 
         if (shouldUseStaticWallpaper()) {
           container.classList.add("foid-background--static");
+          return;
+        }
+
+        if (detectMobile()) {
+          // The still gradient paints at once and stays underneath; the
+          // shader fades in over it after its first frame. If WebGL is
+          // missing the gradient simply stays.
+          container.classList.add("foid-background--static");
+          const glCanvas = document.createElement("canvas");
+          glCanvas.className = "foid-bg-layer foid-bg-layer--gl foid-bg-layer--soft";
+          glCanvas.style.position = "absolute";
+          glCanvas.style.inset = "0";
+          glCanvas.style.opacity = "0";
+          glCanvas.style.transition = "opacity 1.2s ease";
+          container.appendChild(glCanvas);
+          glCleanup = setupWebGL(glCanvas, {
+            isMobile: true,
+            renderScale: 0.4,
+            control: control.current,
+            onFirstFrame: () => {
+              glCanvas.style.opacity = "1";
+            },
+          }) || undefined;
+          if (!glCleanup) {
+            glCanvas.remove();
+            return;
+          }
+          control.current.mobile = true;
+          applyRoute();
           return;
         }
 
@@ -406,6 +491,12 @@ export default function AnimatedBackground() {
 
     const scheduleInit = () => {
       if (typeof window === "undefined") return initializeLayers();
+      if (detectMobile() && document.readyState !== "complete") {
+        window.addEventListener("load", () => {
+          if (!disposed) scheduleInit();
+        }, { once: true });
+        return;
+      }
       if (typeof reqIdle === "function") {
         idleHandle = reqIdle(
           () => {
@@ -452,12 +543,16 @@ export default function AnimatedBackground() {
    ──────────────────────────────────────────────────────────────────────────── */
 function setupWebGL(canvas: HTMLCanvasElement, opts?: LayerOptions): Cleanup | undefined {
   const gl = canvas.getContext("webgl", {
-    antialias: true, depth: false, stencil: false, alpha: true, premultipliedAlpha: true,
+    // A full-screen quad has no edges to smooth; MSAA only costs memory.
+    antialias: !opts?.isMobile,
+    depth: false, stencil: false, alpha: true, premultipliedAlpha: true,
+    powerPreference: opts?.isMobile ? "low-power" : "default",
   });
   if (!gl) { console.warn("WebGL not available."); return undefined; }
 
   const maxDpr = opts?.isMobile ? 1 : 2;
-  const getDpr = () => Math.min(window.devicePixelRatio || 1, maxDpr);
+  const renderScale = opts?.renderScale ?? 1;
+  const getDpr = () => Math.min(window.devicePixelRatio || 1, maxDpr) * renderScale;
   const resize = () => {
     const dpr = getDpr();
     const w = Math.floor(window.innerWidth * dpr);
@@ -549,21 +644,40 @@ function setupWebGL(canvas: HTMLCanvasElement, opts?: LayerOptions): Cleanup | u
   let reduced = mediaQuery.matches;
   let frameId: number | null = null;
   const t0 = performance.now();
-  const frameSkip = opts?.isMobile ? 2 : 1;
-  let frameCounter = 0;
+  const control = opts?.control;
+  const fixedFrameMs = opts?.maxFps ? 1000 / opts.maxFps : 0;
+  let lastFrame = -Infinity;
+  let firstFrameDone = false;
 
-  const render = () => {
-    if (opts?.isMobile && frameCounter++ % frameSkip !== 0) {
+  const render = (now: number = performance.now()) => {
+    if (control?.paused) {
+      frameId = null; // resume() restarts the loop
+      return;
+    }
+    // Frame cap: skip rAF ticks until the budget has elapsed (the 2ms
+    // slack keeps a 60Hz display on a steady every-other-or-third tick).
+    const minFrameMs = control ? 1000 / control.fps : fixedFrameMs;
+    if (minFrameMs && now - lastFrame < minFrameMs - 2) {
       if (!reduced) frameId = requestAnimationFrame(render);
       return;
     }
-    const t = (performance.now() - t0) / 1000;
+    lastFrame = now;
+    const t = (now - t0) / 1000;
     gl.uniform2f(resLoc, canvas.width, canvas.height);
     gl.uniform1f(timeLoc, t);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+    if (!firstFrameDone) {
+      firstFrameDone = true;
+      opts?.onFirstFrame?.();
+    }
     if (!reduced) frameId = requestAnimationFrame(render);
   };
   render();
+  if (control) {
+    control.resume = () => {
+      if (frameId == null && !reduced) frameId = requestAnimationFrame(render);
+    };
+  }
 
   const onReduce = (e: MediaQueryListEvent) => {
     reduced = e.matches;

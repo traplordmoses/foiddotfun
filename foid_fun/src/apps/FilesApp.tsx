@@ -34,6 +34,7 @@ import { Modal } from "@/components/ui";
 import { originFallback } from "@/lib/mediaBase";
 import { MEDIA_LIBRARY, publishedMediaLibrary, type MediaItem } from "@/config/mediaLibrary";
 import { ipfsToHttp } from "@/lib/ipfsUrl";
+import { FinderSidebarToggle, useFinderSidebar, useTapToOpen } from "@/apps/finderChrome";
 
 type MediaKind = MediaItem["kind"];
 type KindFilter = "all" | MediaKind;
@@ -328,6 +329,8 @@ export default function FilesApp() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeItem, setActiveItem] = useState<MediaItem | null>(null);
+  const sidebar = useFinderSidebar();
+  const tap = useTapToOpen();
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
@@ -358,6 +361,16 @@ export default function FilesApp() {
   const selectItem = (id: string) => {
     setSelectedId(id);
     canvasRef.current?.focus({ preventScroll: true });
+  };
+
+  /* A finger tap opens; a mouse click selects (double-click opens). */
+  const activate = (item: MediaItem) => {
+    if (tap.tapped()) {
+      setSelectedId(item.id);
+      setActiveItem(item);
+      return;
+    }
+    selectItem(item.id);
   };
 
   /* Icon view is a real CSS grid — read the rendered column count so
@@ -427,7 +440,7 @@ export default function FilesApp() {
           role="option"
           aria-selected={selected}
           className={`files-item${selected ? " files-item--selected" : ""}`}
-          onClick={() => selectItem(item.id)}
+          onClick={() => activate(item)}
           onDoubleClick={() => setActiveItem(item)}
         >
           <span className="files-item__thumb">
@@ -450,7 +463,7 @@ export default function FilesApp() {
         role="option"
         aria-selected={selected}
         className={`files-row${selected ? " files-row--selected" : ""}`}
-        onClick={() => selectItem(item.id)}
+        onClick={() => activate(item)}
         onDoubleClick={() => setActiveItem(item)}
       >
         <span className="files-row__name">
@@ -465,9 +478,12 @@ export default function FilesApp() {
 
   return (
     <>
-      <div className="vista-window__body vista-window__body--flush files-shell">
+      <div
+        ref={sidebar.shellRef}
+        className={`vista-window__body vista-window__body--flush files-shell${sidebar.shellClass}`}
+      >
         {/* ── Sidebar ── */}
-        <nav className="files-sidebar" aria-label="File library">
+        <nav id="files-sidebar" className="files-sidebar" aria-label="File library">
           <div className="files-sidebar__section" role="group" aria-labelledby="files-fav-heading">
             <span id="files-fav-heading" className="foid-label files-sidebar__heading">
               Favorites
@@ -481,7 +497,10 @@ export default function FilesApp() {
                   type="button"
                   className={`files-side-row${active ? " files-side-row--active" : ""}`}
                   aria-current={active ? "true" : undefined}
-                  onClick={() => navigateTo(key)}
+                  onClick={() => {
+                    navigateTo(key);
+                    sidebar.afterNavigate();
+                  }}
                 >
                   <RowIcon className="files-side-row__icon" />
                   <span className="files-side-row__label">{label}</span>
@@ -510,10 +529,14 @@ export default function FilesApp() {
             </Link>
           </div>
         </nav>
+        {sidebar.drawerOpen ? (
+          <button type="button" className="files-scrim" aria-label="Close sidebar" tabIndex={-1} onClick={sidebar.close} />
+        ) : null}
 
         {/* ── Main pane ── */}
         <div className="files-main">
           <div className="files-toolbar">
+            <FinderSidebarToggle shown={sidebar.shown} onToggle={sidebar.toggle} controls="files-sidebar" />
             <div className="files-nav" role="group" aria-label="History">
               <button
                 type="button"
@@ -595,6 +618,7 @@ export default function FilesApp() {
                 className={`files-canvas files-canvas--${view}`}
                 onKeyDown={onCanvasKeyDown}
                 onMouseDown={onCanvasMouseDown}
+                onPointerDown={tap.onPointerDown}
               >
                 {filtered.length === 0 ? (
                   <p className="foid-label files-noresults">

@@ -39,13 +39,15 @@ const FEATURES = [
   },
 ];
 
-/* 5 floating mini-windows — spread around the GameBoy, larger + glowing */
+/* 5 floating mini-windows — spread around the GameBoy, larger + glowing.
+   h = the render's height at 130px wide (the files are 1200px wide), so the
+   width/height attributes carry each render's real proportions. */
 const FLOAT_WINDOWS = [
-  { src: "/mifoid04.webp", alt: "MiFOID - gray tee",       top: -35,  left: -100, rotate: -6,  delay: "0s" },
-  { src: "/mifoid07.webp", alt: "MiFOID in Blender",        top: "18%", left: -115, rotate: -8,  delay: "0.9s" },
-  { src: "/mifoid08.webp", alt: "MiFOID texture paint",     top: "10%", right: -100, rotate: 5,  delay: "1.5s" },
-  { src: "/mifoid02.webp", alt: "MiFOID - green hoodie",    bottom: 20, left: -110, rotate: 5,  delay: "1.2s" },
-  { src: "/mifoid03.webp", alt: "MiFOID - black hoodie",    bottom: -20, right: -95, rotate: -6, delay: "0.3s" },
+  { src: "/mifoid04.webp", alt: "MiFOID - gray tee",       h: 122, top: -35,  left: -100, rotate: -6,  delay: "0s" },
+  { src: "/mifoid07.webp", alt: "MiFOID in Blender",        h: 110, top: "18%", left: -115, rotate: -8,  delay: "0.9s" },
+  { src: "/mifoid08.webp", alt: "MiFOID texture paint",     h: 146, top: "10%", right: -100, rotate: 5,  delay: "1.5s" },
+  { src: "/mifoid02.webp", alt: "MiFOID - green hoodie",    h: 122, bottom: 20, left: -110, rotate: 5,  delay: "1.2s" },
+  { src: "/mifoid03.webp", alt: "MiFOID - black hoodie",    h: 122, bottom: -20, right: -95, rotate: -6, delay: "0.3s" },
 ];
 
 const SPARKLES = [
@@ -64,7 +66,8 @@ export default function MifoidApp() {
         className="vista-window__body mifoid-iridescent"
         style={{ overflow: "clip", flex: 1, minHeight: 0, position: "relative", padding: "0 24px" }}
       >
-        {/* Decorative sparkles + bubbles */}
+        {/* Decorative sparkles + bubbles (the sparkles sit over the feature
+            text on a phone, so they are wide-layout only) */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
           <Image
             src="/bubble.webp" alt="" width={70} height={70}
@@ -82,15 +85,15 @@ export default function MifoidApp() {
             <Image
               key={i} src="/star-sparkle.webp" alt=""
               width={s.size} height={s.size}
-              className="mifoid-sparkle absolute"
+              className="mifoid-sparkle absolute hidden lg:block"
               style={{ top: s.top, left: s.left, animationDelay: s.delay }}
               unoptimized
             />
           ))}
         </div>
 
-        {/* Sub-header */}
-        <div className="absolute top-3 left-4 right-4 lg:left-6 lg:right-6 flex items-center justify-between z-10">
+        {/* Sub-header (wide layout; phones carry the title in the hero) */}
+        <div className="absolute top-3 left-4 right-4 lg:left-6 lg:right-6 hidden lg:flex items-center justify-between z-10">
           <span className="font-mono text-xs lg:text-sm font-bold tracking-[0.2em] text-white/90 uppercase">
             MIFOID
           </span>
@@ -100,9 +103,9 @@ export default function MifoidApp() {
         </div>
 
         {/* Flex layout: stacked on mobile, side-by-side on desktop */}
-        <div className="relative z-10 flex flex-col lg:flex-row items-center h-full pt-10 lg:pt-8 overflow-y-auto lg:overflow-visible">
-          {/* Left — features */}
-          <div className="flex flex-col justify-center flex-1 w-full lg:h-full pl-4 pr-4 lg:pl-8 lg:pr-6 gap-4 lg:gap-7 min-w-0 pb-4 lg:pb-0">
+        <div className="relative z-10 flex flex-col lg:flex-row items-center h-full pt-4 lg:pt-8 overflow-y-auto lg:overflow-visible">
+          {/* Left — features (below the hero on a phone) */}
+          <div className="flex flex-col justify-center flex-none lg:flex-1 w-full lg:h-full pl-4 pr-4 lg:pl-8 lg:pr-6 gap-4 lg:gap-7 min-w-0 pb-6 lg:pb-0">
             <MifoidReserve />
             {FEATURES.map((feat, i) => (
               <div key={i} className="flex gap-3 items-start">
@@ -121,8 +124,9 @@ export default function MifoidApp() {
             ))}
           </div>
 
-          {/* Right — GameBoy+MiFOID combined image */}
-          <div className="flex-1 flex items-center justify-center relative w-full lg:h-full lg:mr-[40px] xl:mr-[70px] pb-20 lg:pb-0">
+          {/* Right — GameBoy+MiFOID combined image. On a phone it is the hero:
+              first on screen, with the title and the renders under it. */}
+          <div className="order-first lg:order-none flex-none lg:flex-1 flex flex-col items-center justify-center relative w-full lg:h-full lg:mr-[40px] xl:mr-[70px] pt-2 pb-6 lg:py-0">
             {/* GameBoy + character combined image */}
             <div
               className="mifoid-gameboy-wrap relative w-[200px] md:w-[240px] lg:w-[280px] xl:w-[320px]"
@@ -158,12 +162,12 @@ export default function MifoidApp() {
                 if ("right" in fw && fw.right !== undefined) pos.right = fw.right;
 
                 return (
-                  <div key={i} className="mifoid-paint-window hidden lg:block" style={pos}>
+                  <div key={i} className="mifoid-paint-window hidden lg:block" style={pos} aria-hidden="true">
                     <Image
                       src={fw.src}
                       alt={fw.alt}
                       width={130}
-                      height={121}
+                      height={fw.h}
                       className="w-full h-auto"
                       style={{
                         borderRadius: 8,
@@ -176,6 +180,20 @@ export default function MifoidApp() {
                 );
               })}
             </div>
+
+            {/* Phone hero caption + a swipeable strip of renders (on the wide
+                layout the same renders float around the Game Boy). */}
+            <div className="mifoid-hero-caption lg:hidden">
+              <p className="mifoid-hero-caption__title">MiFOID</p>
+              <p className="mifoid-hero-caption__tagline">3,333 born, not generated</p>
+            </div>
+            <ul className="mifoid-renders lg:hidden" aria-label="MiFOID renders">
+              {FLOAT_WINDOWS.map((fw) => (
+                <li key={fw.src}>
+                  <Image src={fw.src} alt={fw.alt} width={112} height={104} loading="lazy" unoptimized />
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>
@@ -268,6 +286,56 @@ export default function MifoidApp() {
         @keyframes mifoid-focal-pulse {
           0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
           50% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+        }
+
+        /* Phone hero: title + tagline under the Game Boy, then the renders. */
+        :global(.mifoid-hero-caption) {
+          margin-top: 18px;
+          text-align: center;
+        }
+        :global(.mifoid-hero-caption__title) {
+          font-family: var(--font-display);
+          font-weight: 700;
+          font-size: 26px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.96);
+          text-shadow: 0 0 24px rgba(200, 170, 255, 0.45);
+        }
+        :global(.mifoid-hero-caption__tagline) {
+          margin-top: 4px;
+          font-family: var(--font-terminal);
+          font-size: 12px;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.72);
+        }
+        :global(.mifoid-renders) {
+          display: flex;
+          gap: 10px;
+          width: calc(100% + 48px); /* bleed through the body's 24px padding */
+          margin: 18px -24px 0;
+          padding: 4px 24px 8px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          scrollbar-width: none;
+          list-style: none;
+        }
+        :global(.mifoid-renders::-webkit-scrollbar) {
+          display: none;
+        }
+        :global(.mifoid-renders li) {
+          flex: 0 0 auto;
+          scroll-snap-align: center;
+        }
+        :global(.mifoid-renders img) {
+          display: block;
+          width: 112px;
+          height: 104px;
+          object-fit: cover;
+          border-radius: 12px;
+          border: 1.5px solid rgba(168, 130, 255, 0.35);
+          box-shadow: 0 8px 18px rgba(20, 10, 60, 0.3);
         }
 
         /* GameBoy gentle float */
