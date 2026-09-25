@@ -9,7 +9,8 @@
    with color-mix() off --foid-cyan per the tokens.css contract.
 
    Motion: every transition rides var(--foid-motion-fast), which tokens.css
-   flattens to 0ms under prefers-reduced-motion. No transforms in this room. */
+   flattens to 0ms under prefers-reduced-motion. The one transform in this
+   room is the sidebar drawer's slide on narrow windows. */
 
 /* ── Shell: two panes inside the flush window body ─────────────────────── */
 .files-shell {
@@ -599,6 +600,68 @@
   .files-listhead > :nth-child(3),
   .files-row > .files-row__cell {
     display: none;
+  }
+}
+
+/* ── Collapsible sidebar (src/apps/finderChrome.tsx) ───────────────────────
+   No modifier: the sidebar follows the window, inline when there is room
+   and hidden on a narrow window. The toolbar toggle pins it open or
+   closed; pinned open on a narrow window it is a drawer over the files. */
+.files-shell {
+  position: relative;
+}
+.files-shell--sidebar-closed .files-sidebar {
+  display: none;
+}
+.files-scrim {
+  display: none;
+}
+.files-sidebar-toggle--on {
+  color: var(--foid-text);
+  border-color: var(--foid-border-subtle);
+}
+@container foid-window (max-width: 620px) {
+  .files-shell:not(.files-shell--sidebar-open) .files-sidebar {
+    display: none;
+  }
+  .files-shell--sidebar-open .files-sidebar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 3;
+    width: min(248px, 80%);
+    background: color-mix(in srgb, var(--foid-bg-ink, #06102c) 94%, transparent);
+    box-shadow: 16px 0 36px rgba(0, 0, 0, 0.45);
+    animation: files-drawer-in var(--foid-motion-fast) var(--foid-ease-out);
+  }
+  .files-shell--sidebar-open .files-scrim,
+  .files-shell--sidebar-open button.files-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: rgba(2, 8, 20, 0.5);
+  }
+  /* Two across instead of one big tile per row. */
+  .files-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 10px;
+  }
+  /* The count is the useful half of the status strip; the path clips. */
+  .files-status__path {
+    display: none;
+  }
+}
+@keyframes files-drawer-in {
+  from {
+    transform: translateX(-18px);
+    opacity: 0;
   }
 }
 

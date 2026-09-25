@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { Dock } from '@/components/Dock';
+import { MobileHomeScreen } from '@/components/os/MobileHomeScreen';
 import CompactMusicPlayer from '@/components/CompactMusicPlayer';
 import { useMobile } from '@/hooks/useMobile';
 // Import clearSession from the session module directly — the '@/lib/wallet'
@@ -30,7 +31,7 @@ const MiniAppReady = dynamic(() => import('@/components/MiniAppReady'), { ssr: f
 
 export function ClientLayout() {
   useVisualViewport();
-  const { isMobile } = useMobile();
+  const { isMobile, isDesktop } = useMobile();
   const pathname = usePathname();
 
   // Entry is isolated by AppRuntime; keep this guard for standalone reuse.
@@ -67,6 +68,9 @@ export function ClientLayout() {
       <ServiceWorkerRegistrar />
       <MiniAppReady />
       {!isMobile && <FairyDustCursor />}
+      {/* Phones and tablets: a closed window leaves the home screen, not an
+          empty page. The desktop shell has its own wallpaper and icons. */}
+      {!isDesktop && <MobileHomeScreen />}
       <Dock />
       <FoidWalletOnboarding />
       {/* The desktop welcome provides direct actions without a blocking first-run overlay. */}

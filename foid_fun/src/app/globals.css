@@ -4341,7 +4341,7 @@ body {
 
   .floating-elements > *,
   .foid-background canvas,
-  .foid-background {
+  .foid-background:not(.foid-background--static) {
     animation: none !important;
     opacity: 0 !important;
   }
@@ -6672,6 +6672,7 @@ body.foid-dock-hidden .os-desktop__hint {
   html[data-foid-keyboard] { --foid-dock-space: max(8px, env(safe-area-inset-bottom, 0px)); }
   html[data-foid-keyboard] .foid-dock { display: none; }
   html[data-foid-keyboard] .pray-mobile-tools,
+  html[data-foid-keyboard] .pray-mobile-actions,
   html[data-foid-keyboard] .pray-journey-trigger,
   html[data-foid-keyboard] .pray-mobile-layout [aria-label="Prayer altar"] { display: none; }
 }
@@ -6703,3 +6704,48 @@ body.foid-dock-hidden .os-desktop__hint {
 .os-desktop:focus { outline: none; }
 @media (prefers-reduced-motion: reduce) { .os-welcome { transition: none; } }
 .vote-readable-surface { background: #132b40f5 !important; color: #eef7ff; }
+
+/* ============================================================================
+   PHONES — windows sit on the wallpaper (2026-09-25)
+   Route pages painted a near-black page tone (#030b12) under their window.
+   On phones that read as a black box around every window, darkened the
+   window glass, and was all that was left after closing one. Below the
+   shell breakpoint the page is transparent and the wallpaper (one soft,
+   capped shader layer; see AnimatedBackground) shows through, the same as
+   the desktop.
+   ============================================================================ */
+@media (max-width: 1023px) {
+  :root {
+    --foid-page-bg: transparent;
+  }
+  .foid-background {
+    opacity: 1;
+  }
+  /* The page vignette was sized for a 1440px desktop: 220-380px of inset
+     shadow on a 375px phone is a dark frame, not a vignette. */
+  .vignette {
+    box-shadow: inset 0 0 90px rgba(5, 10, 34, 0.35);
+  }
+}
+
+/* The pray window on a phone follows the VISIBLE viewport (useVisualViewport
+   writes --foid-visible-height), so the prayer input rides above the
+   keyboard; every other phone window is a fixed 100dvh - 96px. */
+@media (max-width: 1023px) {
+  .pray-page .vista-window.pray-mobile-window {
+    height: calc(var(--foid-visible-height, 100dvh) - var(--foid-dock-space) - 12px - var(--safe-top, 0px)) !important;
+    max-height: none !important;
+  }
+}
+
+/* The phone wallpaper pauses under the board's own canvas (AnimatedBackground
+   PAUSED_ROUTES): hide the frozen frame and keep the board's old dim, still
+   tone behind the memes. */
+.foid-background--paused canvas {
+  opacity: 0 !important;
+}
+@media (max-width: 1023px) {
+  .foid-background.foid-background--paused {
+    opacity: 0.6;
+  }
+}

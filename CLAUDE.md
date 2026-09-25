@@ -145,8 +145,16 @@ forge test
 - Nothing heavy loads before a gesture: sfx warm on first pointer/key,
   music track + butterchurn on first play, WalletConnect only for the
   connector last used, Sentry + PostHog after `load`.
-- Phones get the static wallpaper (`.foid-background--static`), the
-  virtualized `MobileBoard`, a 12px text floor, and a 5-tile dock + More.
+- Phones get ONE wallpaper shader layer at 40% resolution, started after
+  `load` (24fps on the home screen, 12fps behind a window, paused under the
+  board's canvas); reduced motion, data saver and <=2 GB devices get the
+  static gradient (`.foid-background--static`). Below 1024px route pages
+  are transparent so the wallpaper shows through the window glass. Also
+  the virtualized `MobileBoard`, a 12px text floor, and a 5-tile dock + More.
+- Closing a window on a phone shows the home screen
+  (`src/components/os/MobileHomeScreen.tsx`): clock + app icons over the
+  wallpaper. FILES.EXE and ABOUT.EXE share `src/apps/finderChrome.tsx`
+  (collapsible sidebar, one tap to open on touch).
 - Lighthouse CI asserts perf >= 0.50 and a11y >= 0.95 as errors
   (`lighthouserc.json`), with the old budget thresholds as warnings. The
   floor is a regression ratchet set just under measured localhost medians

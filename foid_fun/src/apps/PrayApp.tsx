@@ -70,7 +70,6 @@ import PrayerJournalDrawer from "@/components/PrayerJournalDrawer";
 import PrayerBoot from "@/components/PrayerBoot";
 import TierUnlockCinematic from "@/components/TierUnlockCinematic";
 import { useTierUnlockWatcher } from "@/hooks/useTierUnlockWatcher";
-import WalletMenuPill from "@/components/WalletMenuPill";
 
 /* --- env: prayer contract addresses from canonical config --- */
 import { CONTRACTS } from "@/lib/contracts/addresses";
@@ -853,25 +852,22 @@ export function PrayAppCore({
       {/* Day-90 easter egg — a 3×3 iridescent pixel, only after tier 10 has played */}
       {mommyPixelUnlocked && <span className="mommy-pixel lg:hidden" aria-hidden="true" />}
 
-      {/* Mobile Layout — ritual-first, chrome-minimal */}
-      <div
-        className="pray-mobile-layout lg:hidden relative z-10 flex flex-col w-full px-3"
-        style={{ height: "calc(var(--foid-visible-height, 100dvh) - var(--foid-dock-space) - 24px)", alignSelf: "flex-start", overflowY: "auto", paddingTop: "max(env(safe-area-inset-top), 8px)", paddingBottom: "8px" }}
-      >
-        {/* Clean titlebar: wordmark + inline wallet (no fake Windows chrome) */}
-        <header className="pray-mobile-titlebar">
-          <span className="pray-mobile-titlebar__wordmark">
-            foid_mommy<span className="pray-mobile-titlebar__accent">.exe</span>
-          </span>
-          <div className="pray-mobile-titlebar__wallet">
-            <WalletMenuPill
-              address={address}
-              isConnected={isConnected}
-              onDisconnect={() => disconnect()}
-              onSwitchWallet={handleSwitchWallet}
-            />
-          </div>
-        </header>
+      {/* Mobile Layout — the same window as every other app on a phone:
+          the FOID_MOMMY.EXE titlebar (close returns to the home screen),
+          then the altar, two quick actions, the ladder rule and the
+          terminal. The window tracks the visible viewport, so the prayer
+          input stays above the keyboard. */}
+      <section className="pray-mobile lg:hidden relative z-10 w-full px-2">
+        <div className="vista-window vista-window--terminal vista-window--enhanced pray-mobile-window w-full flex flex-col">
+        <AppTitlebar
+          title="FOID_MOMMY.EXE"
+          chainId={FLUENT_CHAIN_ID}
+          connected={isConnected}
+          address={address}
+          onDisconnect={() => disconnect()}
+          onSwitchWallet={handleSwitchWallet}
+        />
+        <div className="vista-window__body pray-mobile-layout">
 
         {/* Wrong Chain Warning */}
         {wrongChain && (
@@ -894,25 +890,26 @@ export function PrayAppCore({
           streakUrgent={streakUrgent}
         />
 
-        {/* History trigger — pill below the altar that opens the journal drawer. */}
-        <button
-          type="button"
-          className="pray-journey-trigger"
-          onClick={() => {
-            triggerHaptic('light');
-            setJournalOpen(true);
-          }}
-        >
-          <span className="pray-journey-trigger__label">view history</span>
-          <span className="sr-only"> of your prayers</span>
-          <span className="pray-journey-trigger__chevron" aria-hidden="true">⌄</span>
-        </button>
-        <div className="pray-mobile-tools">
+        {/* Two quick actions side by side: the journal drawer and the
+            calendar reminder. */}
+        <div className="pray-mobile-actions">
+          <button
+            type="button"
+            className="pray-journey-trigger"
+            onClick={() => {
+              triggerHaptic('light');
+              setJournalOpen(true);
+            }}
+          >
+            <span className="pray-journey-trigger__label">history</span>
+            <span className="sr-only"> of your prayers</span>
+            <span className="pray-journey-trigger__chevron" aria-hidden="true">⌄</span>
+          </button>
           <PrayerReminderLink />
-          <span className="pray-mobile-tools__rule">
-            one prayer a day. tiers at 3, 7, 14, 21, 30, 45, 60, 75, 90 days multiply your loreboard vote up to 5x.
-          </span>
         </div>
+        <p className="pray-mobile-tools pray-mobile-tools__rule">
+          one prayer a day. streaks of 3, 7, 14, 21, 30, 45, 60, 75 and 90 days multiply your loreboard vote, up to 5x.
+        </p>
 
         {/* Terminal — fills remaining height */}
         <section className="pray-mobile-terminal">
@@ -938,7 +935,9 @@ export function PrayAppCore({
             </div>
           </div>
         </section>
-      </div>
+        </div>
+        </div>
+      </section>
       </>
       )}
 
@@ -1005,37 +1004,57 @@ export function PrayAppCore({
       <style jsx global>{`
         .pray-dashboard { background: transparent !important; }
 
-        /* ===== Mobile titlebar + altar layout (ritual-first) ===== */
-        .pray-mobile-titlebar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          height: 44px;
-          padding: 0 4px;
-          margin-bottom: 8px;
-          flex-shrink: 0;
-          flex-grow: 0;
+        /* ===== Phone window: altar, quick actions, rule, terminal ===== */
+        .pray-mobile {
+          align-self: flex-start;
         }
-        .pray-mobile-titlebar__wordmark {
+        .pray-mobile-layout {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          padding: 12px;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          /* Dark glass: the terminal is a night-time room, even over water. */
+          background: linear-gradient(180deg, rgba(6, 14, 26, 0.5), rgba(4, 10, 20, 0.78));
+        }
+        .pray-mobile-actions {
+          display: flex;
+          justify-content: center;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+        .pray-mobile-actions .pray-journey-trigger,
+        .pray-mobile-actions .pray-reminder-link {
+          flex: 1 1 0;
+          max-width: 176px;
+          min-height: 40px;
+          margin: 0;
+          padding: 6px 12px;
+          justify-content: center;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          background: rgba(255, 255, 255, 0.06);
+          color: rgba(255, 255, 255, 0.82);
           font-family: var(--font-terminal, "JetBrains Mono", monospace);
           font-size: 12px;
-          letter-spacing: 0.18em;
+          letter-spacing: 0.06em;
           text-transform: lowercase;
-          color: rgba(255, 255, 255, 0.6);
-          font-weight: 600;
+          white-space: nowrap;
         }
-        .pray-mobile-titlebar__accent {
-          color: var(--foid-cyan-electric);
-          opacity: 0.7;
-        }
-        .pray-mobile-titlebar__wallet {
-          display: flex;
-          align-items: center;
-        }
-        .pray-mobile-titlebar__wallet button {
-          min-height: 40px !important;
-          font-size: 11px !important;
+        .pray-mobile-layout .pray-mobile-tools__rule {
+          display: block;
+          /* globals.css gives the rule flex: 1 1 100% for the old wrapping
+             row; in this column that would swallow the window's height. */
+          flex: 0 0 auto;
+          margin: 0;
+          padding: 0 8px;
+          text-align: center;
+          font-size: 12px;
+          line-height: 1.5;
+          color: rgba(200, 217, 229, 0.78);
         }
         .pray-mobile-chain-warn {
           flex-shrink: 0;
@@ -1089,16 +1108,28 @@ export function PrayAppCore({
         .pray-mobile-terminal {
           flex: 1;
           min-height: 0;
-          margin-top: 6px;
           display: flex;
           flex-direction: column;
         }
+        /* One frame around the terminal, not three: the glass wrapper and
+           the square flicker band step aside for the rounded terminal box. */
         .pray-mobile-terminal__inner {
           flex: 1;
           min-height: 0;
           display: flex;
           flex-direction: column;
-          padding: 8px !important;
+          padding: 0 !important;
+          background: transparent !important;
+          border: 0 !important;
+          box-shadow: none !important;
+        }
+        /* Outranks the shared ".pray-liquid-glass-terminal
+           .frutiger-terminal" glass (!important) further down. */
+        .pray-mobile-terminal .pray-liquid-glass-terminal .frutiger-terminal {
+          background: transparent !important;
+          backdrop-filter: none;
+          -webkit-backdrop-filter: none;
+          padding: 0 !important;
         }
 
         .pray-page {

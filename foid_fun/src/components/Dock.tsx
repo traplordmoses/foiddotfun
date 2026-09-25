@@ -28,14 +28,16 @@ import {
 } from '@/config/desktop';
 import { claimDockArrival } from '@/lib/foidOsBoot';
 
-interface NavItem {
+export interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
   external?: boolean;
 }
 
-const navItems: NavItem[] = [
+/** The dock's apps, in dock order. MobileHomeScreen lays the same list out
+ *  as a phone home screen, so the two never drift apart. */
+export const navItems: NavItem[] = [
   {
     href: '/',
     label: 'Home',

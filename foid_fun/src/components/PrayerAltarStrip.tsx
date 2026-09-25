@@ -231,16 +231,16 @@ export default function PrayerAltarStrip({
             ✦
           </span>
           <span className="altar-streak__value">
-            {!connected ? "–" : loading ? "·" : displayStreak}
+            {!connected ? 0 : loading ? "·" : displayStreak}
           </span>
           <span className="altar-streak__label">
-            {displayStreak === 1 ? "day" : "days"}
+            {connected && displayStreak === 1 ? "day" : "days"}
           </span>
         </div>
 
         <div className="altar-tier">
           <span className="altar-tier__name">
-            {!connected ? "—" : tier.current.name.toLowerCase()}
+            {!connected ? "no streak yet" : tier.current.name.toLowerCase()}
           </span>
           <div className="altar-tier__bar" aria-hidden="true">
             <div
@@ -261,10 +261,10 @@ export default function PrayerAltarStrip({
         <div className="altar-countdown">
           <span className="altar-countdown__label">next</span>
           <span
-            className={`altar-countdown__value ${!cooldownActive && connected ? "altar-countdown__value--ready" : ""}`}
+            className={`altar-countdown__value ${!cooldownActive || !connected ? "altar-countdown__value--ready" : ""}`}
           >
             {!connected
-              ? "—"
+              ? "now"
               : nowSeconds === null
                 ? "—"
                 : formatCountdown(cooldownSeconds)}

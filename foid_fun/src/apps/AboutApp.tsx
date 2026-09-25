@@ -34,6 +34,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Modal } from "@/components/ui";
 import MarkdownLite from "@/components/MarkdownLite";
+import { FinderSidebarToggle, useFinderSidebar, useTapToOpen } from "@/apps/finderChrome";
 import { ABOUT_DOCS, type AboutDoc, type AboutDocCategory, type AboutDocKind } from "@/content/aboutDocs";
 
 type CategoryFilter = "all" | AboutDocCategory;
@@ -400,6 +401,8 @@ export default function AboutApp() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** Index into `filtered` of the doc open in TEXTEDIT.EXE (null = closed). */
   const [readerIndex, setReaderIndex] = useState<number | null>(null);
+  const sidebar = useFinderSidebar();
+  const tap = useTapToOpen();
 
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("doc");
@@ -436,6 +439,12 @@ export default function AboutApp() {
     if (index < 0) return;
     setSelectedId(id);
     setReaderIndex(index);
+  };
+
+  /* A finger tap opens; a mouse click selects (double-click opens). */
+  const activate = (id: string) => {
+    if (tap.tapped()) openDoc(id);
+    else selectDoc(id);
   };
 
   /* Reader prev/next keeps canvas selection in sync so closing lands where
@@ -512,7 +521,7 @@ export default function AboutApp() {
           role="option"
           aria-selected={selected}
           className={`files-item${selected ? " files-item--selected" : ""}`}
-          onClick={() => selectDoc(doc.id)}
+          onClick={() => activate(doc.id)}
           onDoubleClick={() => openDoc(doc.id)}
         >
           <span className="files-item__thumb">
@@ -530,7 +539,7 @@ export default function AboutApp() {
         role="option"
         aria-selected={selected}
         className={`files-row${selected ? " files-row--selected" : ""}`}
-        onClick={() => selectDoc(doc.id)}
+        onClick={() => activate(doc.id)}
         onDoubleClick={() => openDoc(doc.id)}
       >
         <span className="files-row__name">
@@ -545,9 +554,12 @@ export default function AboutApp() {
 
   return (
     <>
-      <div className="vista-window__body vista-window__body--flush files-shell">
+      <div
+        ref={sidebar.shellRef}
+        className={`vista-window__body vista-window__body--flush files-shell${sidebar.shellClass}`}
+      >
         {/* ── Sidebar ── */}
-        <nav className="files-sidebar" aria-label="Document library">
+        <nav id="about-sidebar" className="files-sidebar" aria-label="Document library">
           <div className="files-sidebar__section" role="group" aria-labelledby="about-fav-heading">
             <span id="about-fav-heading" className="foid-label files-sidebar__heading">
               Favorites
@@ -561,7 +573,10 @@ export default function AboutApp() {
                   type="button"
                   className={`files-side-row${active ? " files-side-row--active" : ""}`}
                   aria-current={active ? "true" : undefined}
-                  onClick={() => navigateTo(key)}
+                  onClick={() => {
+                    navigateTo(key);
+                    sidebar.afterNavigate();
+                  }}
                 >
                   <RowIcon className="files-side-row__icon" />
                   <span className="files-side-row__label">{label}</span>
@@ -590,10 +605,14 @@ export default function AboutApp() {
             </Link>
           </div>
         </nav>
+        {sidebar.drawerOpen ? (
+          <button type="button" className="files-scrim" aria-label="Close sidebar" tabIndex={-1} onClick={sidebar.close} />
+        ) : null}
 
         {/* ── Main pane ── */}
         <div className="files-main">
           <div className="files-toolbar">
+            <FinderSidebarToggle shown={sidebar.shown} onToggle={sidebar.toggle} controls="about-sidebar" />
             <div className="files-nav" role="group" aria-label="History">
               <button
                 type="button"
@@ -671,6 +690,7 @@ export default function AboutApp() {
             className={`files-canvas files-canvas--${view}`}
             onKeyDown={onCanvasKeyDown}
             onMouseDown={onCanvasMouseDown}
+            onPointerDown={tap.onPointerDown}
           >
             {filtered.length === 0 ? (
               <p className="foid-label files-noresults">

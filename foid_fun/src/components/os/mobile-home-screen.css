@@ -1,0 +1,169 @@
+/* src/components/os/mobile-home-screen.css
+   FOID OS phone home screen (MobileHomeScreen.tsx): a clock and the apps,
+   laid over the wallpaper after a window is closed. Glossy aero tiles, one
+   accent per app (--app-accent), the dock's own glyphs. */
+
+.home-screen {
+  position: fixed;
+  inset: 0;
+  /* Over the page and its minimized window, under the dock (z-50). */
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(28px, 7vh, 64px);
+  padding: calc(env(safe-area-inset-top, 0px) + clamp(40px, 10vh, 96px)) 20px
+    calc(var(--foid-dock-space, 84px) + 18px);
+  color: #fff;
+  /* A soft shade behind the clock and labels: the water has bright spots. */
+  background:
+    radial-gradient(90% 40% at 50% 18%, rgba(3, 20, 48, 0.28), transparent 70%),
+    linear-gradient(180deg, rgba(3, 18, 42, 0.12), rgba(3, 18, 42, 0) 40%, rgba(3, 18, 42, 0.18));
+}
+
+.home-screen__clock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 108px;
+  text-shadow: 0 2px 18px rgba(0, 24, 60, 0.55);
+  animation: home-screen-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.home-screen__time {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(60px, 20vw, 88px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-screen__period {
+  margin-left: 6px;
+  font-family: var(--font-terminal);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  opacity: 0.8;
+}
+
+.home-screen__date {
+  font-family: var(--font-terminal);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  opacity: 0.88;
+}
+
+.home-screen__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px 10px;
+  width: 100%;
+  max-width: 360px;
+}
+
+/* .home-screen button.* outranks globals.css's phone rule that pads every
+   button:not(.touch-target) to 44px (it pushed the reopen tile down). */
+.home-screen__app,
+.home-screen button.home-screen__app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  animation: home-screen-pop 0.44s cubic-bezier(0.3, 1.28, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 28ms);
+}
+
+.home-screen__tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 18px;
+  overflow: hidden;
+  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.1) 46%, rgba(255, 255, 255, 0) 50%),
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--app-accent) 55%, #ffffff) 0%,
+      var(--app-accent) 52%,
+      color-mix(in srgb, var(--app-accent) 55%, #06203f) 100%
+    );
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow:
+    0 10px 22px rgba(3, 18, 40, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -8px 14px rgba(0, 0, 0, 0.14);
+  transition: transform 0.15s ease;
+}
+
+.home-screen__tile svg {
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+.home-screen__app:active .home-screen__tile {
+  transform: scale(0.92);
+}
+
+.home-screen__app:focus-visible {
+  outline: none;
+}
+.home-screen__app:focus-visible .home-screen__tile {
+  outline: 2px solid var(--foid-focus-ring, #7dd3fc);
+  outline-offset: 3px;
+}
+
+.home-screen__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 6px rgba(0, 20, 50, 0.75);
+}
+
+.home-screen__hint {
+  margin: auto 0 0;
+  font-family: var(--font-terminal);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  opacity: 0.72;
+  text-shadow: 0 1px 8px rgba(0, 20, 50, 0.7);
+}
+
+@keyframes home-screen-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.86);
+  }
+}
+@keyframes home-screen-rise {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-screen__clock,
+  .home-screen__app {
+    animation: none;
+  }
+}
