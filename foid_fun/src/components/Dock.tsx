@@ -378,6 +378,8 @@ export function Dock() {
         onMouseMove={magnify ? (e) => mouseX.set(e.clientX) : undefined}
         onMouseLeave={magnify ? () => mouseX.set(Infinity) : undefined}
       >
+        {/* Gloss and the light that sweeps across the glass (CSS). */}
+        <span className="foid-dock-glass__shine" aria-hidden="true" />
         {navItems.map((item, index) => {
           const isHome = item.href === '/';
           const overflowClass = index >= 5 ? ' foid-dock-tile--overflow' : '';
@@ -413,7 +415,7 @@ export function Dock() {
                   animate={{ y: isActive ? -1 : 0 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 26 }}
                 >
-                  {item.glass ? <GlassIcon name={item.glass} size={30} /> : item.icon}
+                  {item.glass ? <GlassIcon name={item.glass} size={30} sweepDelayMs={index * 120} /> : item.icon}
                 </motion.div>
               </DockIcon>
               <span className={`foid-dock-label${isActive ? ' foid-dock-label--active' : ''}`}>
@@ -511,7 +513,7 @@ export function Dock() {
               )}
               <span className="relative z-10 flex flex-col items-center justify-center">
                 <span className={`foid-dock-glyph${moreOpen || overflowActive ? ' foid-dock-glyph--active' : ''}`}>
-                  <GlassIcon name="more" size={30} />
+                  <GlassIcon name="more" size={30} sweepDelayMs={5 * 120} />
                 </span>
                 <span className={`foid-dock-label${moreOpen || overflowActive ? ' foid-dock-label--active' : ''}`}>
                   More
@@ -579,7 +581,7 @@ export function Dock() {
           >
             <DockIcon mouseX={mouseX}>
               <div className={`foid-dock-glyph${ampOpen ? ' foid-dock-glyph--active' : ''}`}>
-                <GlassIcon name="music" size={30} />
+                <GlassIcon name="music" size={30} sweepDelayMs={8 * 120} />
               </div>
             </DockIcon>
             <span className={`foid-dock-label${ampOpen ? ' foid-dock-label--active' : ''}`}>
@@ -613,7 +615,7 @@ export function Dock() {
           >
             <DockIcon mouseX={mouseX}>
               <div className={`foid-dock-glyph${chatOpen ? ' foid-dock-glyph--active' : ''}`}>
-                <GlassIcon name="chat" size={30} />
+                <GlassIcon name="chat" size={30} sweepDelayMs={9 * 120} />
               </div>
             </DockIcon>
             <span className={`foid-dock-label${chatOpen ? ' foid-dock-label--active' : ''}`}>

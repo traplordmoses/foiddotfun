@@ -106,7 +106,7 @@ export function MobileHomeScreen() {
           const body = (
             <>
               <span className="home-screen__tile" aria-hidden="true">
-                {app.glass ? <GlassIcon name={app.glass} px={128} size={44} /> : app.icon}
+                {app.glass ? <GlassIcon name={app.glass} px={128} size={44} sweepDelayMs={i * 110} /> : app.icon}
               </span>
               <span className="home-screen__label">{app.label}</span>
             </>
