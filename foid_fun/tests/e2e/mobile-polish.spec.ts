@@ -5,6 +5,9 @@ import { test, expect, type BrowserContext, type Page } from "@playwright/test";
 // the MiFOID hero, and the pray window.
 
 const PHONE = { width: 390, height: 844 };
+// A phone user agent, so the server renders what a phone gets.
+const ANDROID =
+  "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36";
 
 async function skipBootAndTour(context: BrowserContext, page: Page) {
   await context.addCookies([
@@ -18,10 +21,37 @@ async function skipBootAndTour(context: BrowserContext, page: Page) {
 }
 
 test.describe("phone polish", () => {
-  test.use({ viewport: PHONE, hasTouch: true, isMobile: true });
+  test.use({ viewport: PHONE, hasTouch: true, isMobile: true, userAgent: ANDROID });
 
   test.beforeEach(async ({ context, page }) => {
     await skipBootAndTour(context, page);
+  });
+
+  test("foid.fun opens on the home screen, and Home comes back to it", async ({ page }) => {
+    await page.goto("/");
+    const homeScreen = page.getByRole("region", { name: "Home screen" });
+    await expect(homeScreen).toBeVisible();
+    await expect(page.locator(".vista-window")).toHaveCount(0);
+    await expect(page.locator(".home-screen__digits")).toHaveText(/\d:\d\d/);
+    await expect(homeScreen.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
+
+    await homeScreen.getByRole("link", { name: "Pray" }).tap();
+    await expect(page).toHaveURL(/\/pray$/);
+    await expect(page.getByText("FOID_MOMMY.EXE")).toBeVisible();
+
+    await page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "Home" }).tap();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(homeScreen).toBeVisible();
+    await expect(page.locator(".vista-window")).toHaveCount(0);
+  });
+
+  test("the clock is set straight from the HTML", async ({ page }) => {
+    // With the bundles blocked the page never hydrates, so only the inline
+    // clock script can have filled the time in.
+    await page.route("**/_next/static/chunks/**", (route) => route.abort());
+    await page.goto("/");
+    await expect(page.locator(".home-screen__digits")).toHaveText(/\d:\d\d/);
+    await expect(page.locator(".home-screen__date")).not.toBeEmpty();
   });
 
   test("closing a window leaves the home screen, and the app's icon reopens it", async ({ page }) => {

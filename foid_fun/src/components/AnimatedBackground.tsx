@@ -322,14 +322,15 @@ export default function AnimatedBackground() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- applyRoute reads refs only
   useEffect(applyRoute, [pathname]);
 
-  // Home screen (window closed) gets the full frame rate.
+  // The home screen gets the full frame rate: phones open on it at /, and
+  // a closed window leaves it on every other route.
   useEffect(() => {
-    const apply = (minimized: boolean) => {
-      control.current.fps = minimized ? 24 : 12;
+    const apply = () => {
+      control.current.fps = useWindowStore.getState().minimized || routeRef.current === "/" ? 24 : 12;
     };
-    apply(useWindowStore.getState().minimized);
-    return useWindowStore.subscribe((state) => apply(state.minimized));
-  }, []);
+    apply();
+    return useWindowStore.subscribe(apply);
+  }, [pathname]);
 
   useEffect(() => {
     const container = containerRef.current;

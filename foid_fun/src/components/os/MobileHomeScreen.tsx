@@ -1,12 +1,13 @@
 "use client";
 
 // src/components/os/MobileHomeScreen.tsx
-// What a phone shows after you close a window. Route windows minimize to
-// the dock (useWindowStore). On the desktop the shell's wallpaper and
-// windows take over, but on a phone that left nothing but the page
-// background. This lays the apps out over the wallpaper like a phone home
-// screen: tap one to open it, or tap the one you just closed to bring it
-// back. Escape does the same for the current window.
+// The phone home screen: a clock and the apps over the wallpaper, laid out
+// like a phone's. Phones and tablets open foid.fun on it (HomeClient renders
+// <HomeScreen page /> at /), and it is what a closed window leaves behind on
+// every other route: route windows minimize to the dock (useWindowStore) and
+// <MobileHomeScreen /> in ClientLayout shows the home screen then. Tap an
+// app to open it, or tap the one you just closed to bring it back. Escape
+// does the same for the current window.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -57,48 +58,47 @@ function clockParts(now: Date): { time: string; period: string; date: string } {
   return { time, period, date };
 }
 
-export function MobileHomeScreen() {
-  const minimized = useWindowStore((s) => s.minimized);
-  const restore = useWindowStore((s) => s.restore);
+// Fills the clock in straight from the HTML, before any bundle runs: the
+// server can't know the visitor's time, and a blank clock that pops in after
+// hydration reads as a slow page. Same strings as clockParts(), which the
+// first client render computes too, so hydration keeps them.
+const CLOCK_SCRIPT = `(function(){try{var c=document.currentScript.previousElementSibling,n=new Date(),t="",p="";new Intl.DateTimeFormat(void 0,{hour:"numeric",minute:"2-digit"}).formatToParts(n).forEach(function(x){if(x.type==="hour"||x.type==="minute"||(x.type==="literal"&&x.value.trim()===":"))t+=x.value;if(x.type==="dayPeriod"&&!p)p=x.value.toLowerCase()});c.querySelector(".home-screen__digits").textContent=t;c.querySelector(".home-screen__period").textContent=p;c.querySelector(".home-screen__date").textContent=new Intl.DateTimeFormat(void 0,{weekday:"long",day:"numeric",month:"long"}).format(n).toLowerCase();c.querySelector("time").setAttribute("datetime",n.toISOString())}catch(e){}})()`;
+
+export function HomeScreen({ page = false, onReopen }: {
+  /** The page at / on phones (server-rendered), rather than the layer a
+   *  closed window leaves. */
+  page?: boolean;
+  /** Brings back the window that was just closed. */
+  onReopen?: () => void;
+}) {
   const pathname = usePathname();
-  const [now, setNow] = useState<Date | null>(null);
-
-  // Opening another app always shows its window, even on a route whose
-  // chrome has no window controls to reset the store.
-  useEffect(() => {
-    useWindowStore.getState().restore();
-  }, [pathname]);
+  // The server renders the clock empty; every client render has the time.
+  const [now, setNow] = useState<Date | null>(() => (typeof window === "undefined" ? null : new Date()));
 
   useEffect(() => {
-    if (!minimized) return;
     setNow(new Date());
     const id = window.setInterval(() => setNow(new Date()), 15_000);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") restore();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [minimized, restore]);
+    return () => window.clearInterval(id);
+  }, []);
 
-  if (!minimized) return null;
   const clock = now ? clockParts(now) : null;
 
   return (
-    <section className="home-screen" aria-label="Home screen">
+    <section className={`home-screen${page ? " home-screen--page" : ""}`} aria-label="Home screen">
       <div className="home-screen__clock">
-        {clock ? (
-          <>
-            <time className="home-screen__time" dateTime={now?.toISOString()}>
-              {clock.time}
-              {clock.period ? <span className="home-screen__period">{clock.period}</span> : null}
-            </time>
-            <span className="home-screen__date">{clock.date}</span>
-          </>
-        ) : null}
+        <time className="home-screen__time" dateTime={now?.toISOString()} suppressHydrationWarning>
+          <span className="home-screen__digits" suppressHydrationWarning>
+            {clock?.time ?? ""}
+          </span>
+          <span className="home-screen__period" suppressHydrationWarning>
+            {clock?.period ?? ""}
+          </span>
+        </time>
+        <span className="home-screen__date" suppressHydrationWarning>
+          {clock?.date ?? ""}
+        </span>
       </div>
+      {page ? <script dangerouslySetInnerHTML={{ __html: CLOCK_SCRIPT }} /> : null}
 
       <nav className="home-screen__grid" aria-label="Apps">
         {APPS.map((app, i) => {
@@ -111,14 +111,29 @@ export function MobileHomeScreen() {
               <span className="home-screen__label">{app.label}</span>
             </>
           );
-          // The app whose window was just closed reopens in place; the
-          // rest navigate (the route change opens their window).
-          return app.href === pathname ? (
-            <button key={app.href} type="button" className="home-screen__app" style={style} onClick={restore}>
+          if (app.href !== pathname) {
+            // The route change opens the app's window.
+            return (
+              <Link key={app.href} href={app.href} className="home-screen__app" style={style}>
+                {body}
+              </Link>
+            );
+          }
+          // The app whose window was just closed reopens in place. At /
+          // this is Home, and you are already there.
+          return onReopen ? (
+            <button key={app.href} type="button" className="home-screen__app" style={style} onClick={onReopen}>
               {body}
             </button>
           ) : (
-            <Link key={app.href} href={app.href} className="home-screen__app" style={style}>
+            <Link
+              key={app.href}
+              href={app.href}
+              className="home-screen__app"
+              style={style}
+              aria-current="page"
+              onClick={(e) => e.preventDefault()}
+            >
               {body}
             </Link>
           );
@@ -128,4 +143,28 @@ export function MobileHomeScreen() {
       <p className="home-screen__hint">tap an app to open it</p>
     </section>
   );
+}
+
+export function MobileHomeScreen() {
+  const minimized = useWindowStore((s) => s.minimized);
+  const restore = useWindowStore((s) => s.restore);
+  const pathname = usePathname();
+
+  // Opening another app always shows its window, even on a route whose
+  // chrome has no window controls to reset the store.
+  useEffect(() => {
+    useWindowStore.getState().restore();
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!minimized) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") restore();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [minimized, restore]);
+
+  if (!minimized) return null;
+  return <HomeScreen onReopen={restore} />;
 }

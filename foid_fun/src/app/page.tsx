@@ -1,9 +1,9 @@
 // Home route. A server wrapper so the first HTML matches the visitor:
-// phones and crawlers get the launcher window rendered on the server (real
-// headline, links and copy for search engines and AI answer agents, and a
-// headline that paints before any JavaScript runs); desktop browsers get
-// the FOID OS shell, which is client-only. src/app/HomeClient.tsx has the
-// UI.
+// crawlers get the launcher window rendered on the server (real headline,
+// links and copy for search engines and AI answer agents), phones get the
+// phone home screen (clock + apps) rendered on the server so it paints
+// before any JavaScript runs, and desktop browsers get the FOID OS shell,
+// which is client-only. src/app/HomeClient.tsx has the UI.
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import HomeClient from "./HomeClient";

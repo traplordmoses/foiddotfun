@@ -10,6 +10,7 @@ import { useConnectModal } from "@rainbow-me/rainbowkit";
 import AppTitlebar from "@/app/(components)/AppTitlebar";
 import { parseDesktopAppsParam, DESKTOP_MIN_WIDTH, FOID_DESKTOP_ENABLED } from "@/config/desktop";
 import { hasBootedThisSession } from "@/lib/foidOsBoot";
+import { HomeScreen } from "@/components/os/MobileHomeScreen";
 
 // Import-only optimization: ActivityBubbles pulls the Supabase client via
 // useActivityFeed. Lazy-loading it keeps Supabase out of the landing page's
@@ -27,10 +28,9 @@ type HomeClientProps = {
   /** Server-detected crawler or AI answer agent: always the launcher, never
    *  the shell or the boot redirect, so the homepage has real content. */
   crawler: boolean;
-  /** Server-detected phone (or crawler): render the launcher on the server
-   *  and on the first client pass. The launcher is what narrow viewports
-   *  get anyway, so there is no flash, and its headline paints from the
-   *  HTML instead of after hydration. */
+  /** Server-detected phone (or crawler): render the narrow home (the phone
+   *  home screen) on the server and on the first client pass, so there is
+   *  no flash and it paints from the HTML instead of after hydration. */
   initialNarrow: boolean;
 };
 
@@ -42,9 +42,9 @@ export default function HomeClient({ crawler, initialNarrow }: HomeClientProps) 
 }
 
 /** The shell is a lg:-and-up experience (windows don't float on mobile) —
- *  narrow viewports keep the launcher window as their home forever. Renders
- *  null pre-mount: the root layout's wallpaper stack IS the desktop, so
- *  there's nothing to flash.
+ *  narrow viewports get the phone home screen instead. Renders null
+ *  pre-mount: the root layout's wallpaper stack IS the desktop, so there's
+ *  nothing to flash.
  *
  *  Boot handoff (founder decision #4): a tab session that hasn't played the
  *  /enter boot yet gets bounced through it — with the current query intact,
@@ -55,7 +55,7 @@ function DesktopGate({ initialNarrow }: { initialNarrow: boolean }) {
   const router = useRouter();
   // Desktop requests start unknown (null renders nothing, the wallpaper is
   // the desktop); phone requests start narrow so the server HTML already
-  // holds the launcher. The media query below corrects either guess.
+  // holds the home screen. The media query below corrects either guess.
   const [wide, setWide] = useState<boolean | null>(initialNarrow ? false : null);
   const [booted, setBooted] = useState<boolean | null>(null);
 
@@ -90,10 +90,23 @@ function DesktopGate({ initialNarrow }: { initialNarrow: boolean }) {
   }, [wide, router]);
 
   if (wide === null) return null;
-  if (!wide) return <HomeLauncher />;
+  if (!wide) return <PhoneHome />;
   // Un-booted sessions are on their way to /enter — keep the wallpaper.
   if (booted !== true) return null;
   return <Desktop />;
+}
+
+/** Phones and tablets open on the home screen: the clock and the apps over
+ *  the wallpaper, the same screen a closed window leaves behind. The
+ *  launcher window (below) stays the home for crawlers, whose copy and links
+ *  it carries, and for the NEXT_PUBLIC_FOID_DESKTOP=0 opt-out. */
+function PhoneHome() {
+  return (
+    <main className="phone-home">
+      <h1 className="sr-only">FOID FOUNDATION</h1>
+      <HomeScreen page />
+    </main>
+  );
 }
 
 const tiles = [
