@@ -19,15 +19,17 @@ for (const size of [{ width: 375, height: 667 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(size);
     await context.addCookies([{ name: "foid_entered", value: "1", url: baseURL! }]);
     await page.goto("/");
-    const controls = page.locator(".home-page .vista-window__control");
+    // Phones open on the home screen (clock + apps), not a window.
+    await expect(page.getByRole("region", { name: "Home screen" })).toBeVisible();
+    const gridColumns = await page.locator(".home-screen__grid").evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
+    expect(gridColumns).toBe(4);
+    await page.goto("/pray?standalone=1");
+    const controls = page.locator(".pray-mobile-window .vista-window__control");
     await expect(controls).toHaveCount(3);
     for (const control of await controls.all()) {
       await expect(control).toHaveCSS("width", "12px");
       await expect(control).toHaveCSS("height", "12px");
     }
-    const gridColumns = await page.locator(".home-grid").evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
-    expect(gridColumns).toBe(2);
-    await page.goto("/pray?standalone=1");
     await page.getByRole("button", { name: "START PRAYING" }).click();
     const field = page.getByRole("textbox", { name: "Message to Foid Mommy" });
     await expect(field).toBeEnabled({ timeout: 30_000 });

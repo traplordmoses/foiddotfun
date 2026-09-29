@@ -55,7 +55,7 @@ Legacy Solidity files (do not touch): `Swipe.sol`, `SwipeLoreboard.sol`, `Lorebo
 
 | Route | Purpose |
 |-------|---------|
-| `/` | FOID OS desktop shell on 1024px+ (windows, dock); launcher window below that |
+| `/` | FOID OS desktop shell on 1024px+ (windows, dock); the phone home screen (clock + apps) below that. Crawlers get the launcher window (FOID_FOUNDATION.EXE) for its copy and links |
 | `/enter` | Boot screen. Plays once per device (1y cookie + localStorage), skipped on phones |
 | `/pray` | Prayer terminal (daily check-in with Foid Mommy) |
 | `/board` | Loreboard canvas (view + propose placements) |
@@ -152,15 +152,16 @@ forge test
   are transparent so the wallpaper shows through the window glass. Also
   the virtualized `MobileBoard`, a 12px text floor, and a 5-tile dock + More.
 - Dock and home-screen icons are crystal-glass WebPs in
-  `foid_fun/public/icons/glass-v2/` (`src/config/appIcons.ts` records how
+  `foid_fun/public/icons/glass-v3/` (`src/config/appIcons.ts` records how
   they were made so new ones match; bump the folder to change one, /icons
   is edge-cached for a week), drawn by `src/components/ui/GlassIcon.tsx`.
   The dock bar is `.foid-dock-glass` in globals.css. Glyph wrapper classes
   are `glass-glyph*`: `.foid-glass` is the glass panel utility (radius,
   blur, fill) and turns anything it touches into a bubble.
-- Closing a window on a phone shows the home screen
+- Phones open foid.fun on the home screen
   (`src/components/os/MobileHomeScreen.tsx`): clock + app icons over the
-  wallpaper. FILES.EXE and ABOUT.EXE share `src/apps/finderChrome.tsx`
+  wallpaper, server-rendered at `/` with an inline script that sets the
+  clock before hydration. Closing a window on any route shows it too. FILES.EXE and ABOUT.EXE share `src/apps/finderChrome.tsx`
   (collapsible sidebar, one tap to open on touch).
 - Lighthouse CI asserts perf >= 0.50 and a11y >= 0.95 as errors
   (`lighthouserc.json`), with the old budget thresholds as warnings. The
